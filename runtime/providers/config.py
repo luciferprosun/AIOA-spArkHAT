@@ -82,8 +82,10 @@ def load_api_environment() -> None:
 class ProviderManager:
     """Cloud-provider manager with fallback routing and no fake offline mode."""
 
-    def __init__(self, project_dir: Path) -> None:
-        load_api_environment()
+    def __init__(self, project_dir: Path, *, fixture_base_url: str | None = None) -> None:
+        if fixture_base_url is None:
+            load_api_environment()
+        self.fixture_base_url = fixture_base_url
         self.project_dir = project_dir
         state_dir = runtime_state_dir(project_dir)
         self.config_path = state_dir / "state" / "model_config.json"
@@ -95,9 +97,45 @@ class ProviderManager:
         self.last_used_model = ""
 
     def generate(self, prompt: str) -> str:
+        if self.fixture_base_url is not None:
+            raise RuntimeError("TEST_TRANSPORT_ONLY: ordinary cloud chat is disabled in fixture mode")
         return self.generate_with_fallback(prompt)
 
+    def strict_status(self) -> dict:
+        enabled = any(p.name == "openrouter" and p.enabled for p in self.provider_chain)
+        return {"provider": "openrouter", "enabled": enabled,
+                "mode": "TEST" if self.fixture_base_url is not None else "LIVE_PENDING_AUTHORIZATION",
+                "configured": self.fixture_base_url is not None or self._provider_is_available("openrouter"),
+                "fallback": False, "retry": False}
+
+    def generate_exact(self, request, cancel, deadline):
+        """CPL policy on the same manager; never mutates current_model."""
+        from .exact import ExactCallError
+
+        request.validate()
+        if not any(p.name == request.provider_connection_id and p.enabled for p in self.provider_chain):
+            raise ExactCallError("PROVIDER_DISABLED")
+        fixture = self.fixture_base_url is not None
+        if (request.transport_scope == "TEST") != fixture:
+            raise ExactCallError("TRANSPORT_SCOPE_MISMATCH")
+        if not fixture and not self._provider_is_available("openrouter"):
+            raise ExactCallError("PROVIDER_UNCONFIGURED")
+        adapter = OpenAICompatibleProvider(
+            provider="openrouter", model=request.requested_model,
+            api_key="fixture-key-not-a-real-credential" if fixture else self._load_env_key("OPENROUTER_API_KEY"),
+            base_url=self.fixture_base_url if fixture else "https://openrouter.ai/api/v1",
+        )
+        return adapter.generate_exact(request, cancel, deadline, fixture=fixture)
+
+    def strict_known_secrets(self) -> tuple[str, ...]:
+        if self.fixture_base_url is not None:
+            return ("fixture-key-not-a-real-credential",)
+        value = os.getenv("OPENROUTER_API_KEY", "").strip()
+        return (value,) if value else ()
+
     def generate_with_fallback(self, prompt: str) -> str:
+        if self.fixture_base_url is not None:
+            raise RuntimeError("TEST_TRANSPORT_ONLY: ordinary cloud chat is disabled in fixture mode")
         errors: list[str] = []
         tried: set[str] = set()
         for full_model in self._fallback_candidates():

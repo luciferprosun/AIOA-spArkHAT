@@ -50,3 +50,9 @@ class OpenAICompatibleProvider(ModelProvider):
             raise RuntimeError(f"{self.provider} HTTP {error.code}: {detail}") from error
 
         return payload["choices"][0]["message"]["content"].strip()
+
+    def generate_exact(self, request, cancel, deadline, *, fixture=False):
+        """One bounded request with explicit response identity, no fallback."""
+        from .exact import generate_http_exact
+
+        return generate_http_exact(self, request, cancel, deadline, fixture=fixture)
