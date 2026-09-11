@@ -15,6 +15,7 @@ import os
 import re
 import time
 import traceback
+import threading
 from contextlib import redirect_stdout
 from dataclasses import dataclass
 from pathlib import Path
@@ -165,6 +166,10 @@ class AgentRuntime:
         self.command_registry = build_command_registry()
         self.use_orchestrator = False
         self.orchestrator: GeminiGemmaOrchestrator | None = None
+        self._cpl_service = None
+        self._cpl_init_lock = threading.Lock()
+        self.cpl_cost_policy = None
+        self._owned_cpl_fixture = None
         self.session_log = (
             self.memory_store.paths.session_logs_dir
             / f"session_{self.memory_store.memory.session_id}.jsonl"
@@ -181,6 +186,45 @@ class AgentRuntime:
         for key, value in replacements.items():
             prompt = prompt.replace(key, value)
         return prompt
+
+    @property
+    def critical_loop(self):
+        """One lazy advisory service, shared by CLI and WebRuntimeService."""
+        with self._cpl_init_lock:
+            if self._cpl_service is None:
+                from critical_loop.service import CriticalPromptLoopService
+                from runtime_paths import runtime_state_dir
+
+                self._cpl_service = CriticalPromptLoopService(
+                    self.provider_manager, runtime_state_dir(self.project_dir) / 'critical_loop',
+                    cost_policy=self.cpl_cost_policy)
+        return self._cpl_service
+
+    def plan_critical_loop(self, payload):
+        from providers.exact import ExactCallError
+
+        if self.safeguards.kill_switch:
+            raise ExactCallError('EPISTEMIC_KILL_SWITCH')
+        if self.safeguards.disable_model and getattr(self.provider_manager, 'fixture_base_url', None) is None:
+            raise ExactCallError('EPISTEMIC_DISABLE_MODEL')
+        return self.critical_loop.plan(payload)
+
+    def run_cpl_fixture(self):
+        from critical_loop.fixture import FIXTURE_PROMPT, FIXTURE_EVIDENCE
+        from providers.exact import ExactCallError
+
+        if getattr(self.provider_manager, 'fixture_base_url', None) is None:
+            raise ExactCallError('EXPLICIT_CPL_FIXTURE_MODE_REQUIRED')
+        plan = self.plan_critical_loop({'prompt': FIXTURE_PROMPT, 'evidence': FIXTURE_EVIDENCE})
+        self.critical_loop.start(plan['run_id'], plan['plan_hash'], plan['nonce'])
+        return self.critical_loop.wait(plan['run_id'])
+
+    def close(self):
+        if self._cpl_service is not None:
+            self._cpl_service.close()
+        if self._owned_cpl_fixture is not None:
+            self._owned_cpl_fixture.close()
+            self._owned_cpl_fixture = None
 
     def build_model_request(
         self,
@@ -254,6 +298,10 @@ class AgentRuntime:
             "current_task": memory.current_task,
             "desktop_dir": str(self.desktop_dir),
             "model": self.provider_manager.describe(),
+            "product_name": "AIOA spArkHAT",
+            "critical_loop": {"enabled": True, "authority": "ADVISORY_ONLY",
+                              "mode": "TEST" if getattr(self.provider_manager, 'fixture_base_url', None) is not None else "LIVE_PENDING_AUTHORIZATION",
+                              "knowledge_promotion": "DISABLED"},
             "browser_active": memory.browser_active,
             "current_url": memory.current_browser_page,
             "open_tabs": memory.open_tabs[-10:],
@@ -1078,8 +1126,8 @@ class AgentRuntime:
 
 def print_banner(runtime: AgentRuntime) -> None:
     print("########################################################")
-    print("###  AOIA-Core                                      ###")
-    print("###  LOCAL ASSISTANT + DATED EVIDENCE REVIEW        ###")
+    print("###  AIOA spArkHAT (formerly AOIA-Core)              ###")
+    print("###  ONE RUNTIME | ASSISTANT | REVIEW | CPL         ###")
     print("########################################################")
     print(f"[INFO] Desktop directory detected: {runtime.desktop_dir}")
     print(f"[INFO] Current working directory: {runtime.memory_store.memory.cwd}")
@@ -1088,8 +1136,12 @@ def print_banner(runtime: AgentRuntime) -> None:
     print(f"[INFO] Obsidian vault: {runtime.memory_store.vault_dir}")
 
 
-def main() -> None:
-    provider_manager = ProviderManager(PROJECT_DIR)
+def create_runtime(*, cpl_fixture=False, cpl_cost_policy=None):
+    fixture = None
+    if cpl_fixture:
+        from critical_loop.fixture import LocalCPLFixture
+        fixture = LocalCPLFixture()
+    provider_manager = ProviderManager(PROJECT_DIR, fixture_base_url=fixture.base_url if fixture else None)
     prompt_template = load_prompt_template(PROMPT_FILE)
     runtime = AgentRuntime(
         provider_manager=provider_manager,
@@ -1097,6 +1149,34 @@ def main() -> None:
         project_dir=PROJECT_DIR,
         debug_raw=DEBUG_RAW_RESPONSE,
     )
+    runtime.cpl_cost_policy = cpl_cost_policy
+    runtime._owned_cpl_fixture = fixture
+    return runtime
+
+
+def main() -> None:
+    import argparse
+
+    parser = argparse.ArgumentParser(description='AIOA spArkHAT — one local runtime, formerly AOIA-Core')
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument('--cpl-fixture', action='store_true', help='Explicit synthetic local HTTP transport; no model API')
+    mode.add_argument('--cpl-live-policy', help='Operator-authored price/budget policy JSON; still requires per-plan approval')
+    parser.add_argument('--command', help='Execute one registered slash command and exit')
+    args = parser.parse_args()
+    from critical_loop.policy import load_cost_policy
+    policy = load_cost_policy(args.cpl_live_policy) if args.cpl_live_policy else None
+    runtime = create_runtime(cpl_fixture=args.cpl_fixture, cpl_cost_policy=policy)
+    if args.command is not None:
+        try:
+            result = runtime.command_registry.execute(args.command, runtime)
+            if not result.handled:
+                parser.error('--command requires a registered slash command')
+            print(result.message)
+            if result.exit_code:
+                raise SystemExit(result.exit_code)
+        finally:
+            runtime.close()
+        return
 
     print_banner(runtime)
 
@@ -1130,6 +1210,7 @@ def main() -> None:
             )
             print(f"\n[FATAL ERROR] {error}")
             break
+    runtime.close()
 
 
 if __name__ == "__main__":

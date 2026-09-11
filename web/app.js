@@ -1,6 +1,11 @@
 const state = {
   currentModel: "",
   scenario: null,
+  sessionToken: null,
+  cplPlan: null,
+  cplStatus: null,
+  cplPoll: null,
+  cplRunId: null,
 };
 
 const elements = {
@@ -45,6 +50,7 @@ async function jsonFetch(url, options = {}) {
     ...options,
     headers: {
       "Content-Type": "application/json",
+      ...(state.sessionToken ? {"X-AIOA-Session-Token": state.sessionToken} : {}),
       ...(options.headers || {}),
     },
   });
@@ -81,6 +87,7 @@ function applyStatus(status) {
   elements.metricTools.textContent = String((status.tools || []).length);
   elements.metricCommands.textContent = String((status.previous_commands || []).length);
   elements.metricOutputs.textContent = String((status.recent_outputs || []).length);
+  if (status.critical_loop) applyCPLStatus(status.critical_loop);
 }
 
 async function refreshStatus() {
@@ -164,7 +171,7 @@ async function sendPrompt(prompt) {
     method: "POST",
     body: JSON.stringify({ prompt }),
   });
-  addMessage("AOIA-Core", payload.transcript);
+  addMessage("AIOA spArkHAT", payload.transcript);
   applyStatus(payload.status);
 }
 
@@ -287,6 +294,10 @@ for (const button of document.querySelectorAll(".quick-action")) {
 
 elements.composer.addEventListener("submit", async (event) => {
   event.preventDefault();
+  if (document.querySelector('#assistant-mode').value === 'cpl') {
+    document.querySelector('#cpl-request-status').textContent = 'CPL remains active. Use Preview immutable plan; ordinary chat is not a fallback.';
+    return;
+  }
   const prompt = elements.promptInput.value.trim();
   if (!prompt) {
     return;
@@ -328,9 +339,15 @@ document.querySelector("#load-corrected").addEventListener("click", () => {
 });
 
 async function bootstrap() {
+  try {
+    state.sessionToken = (await jsonFetch('/api/session')).token;
+  } catch (error) {
+    addMessage('System', `Local session setup failed: ${error}`);
+    return;
+  }
   addMessage(
     "System",
-    "AOIA-Core is ready. Assistant actions use the existing runtime boundaries; dated evidence review runs locally without a model call."
+    "AIOA spArkHAT is ready. Assistant, deterministic Evidence Review and Critical Prompt Loop use one local runtime."
   );
   const [statusResult, scenarioResult] = await Promise.allSettled([
     refreshStatus(),
@@ -342,6 +359,141 @@ async function bootstrap() {
   if (scenarioResult.status === "rejected") {
     elements.reviewRequestStatus.textContent = `Evidence registry failed to load: ${scenarioResult.reason}`;
   }
+  setAssistantMode(localStorage.getItem('aioa-assistant-mode') === 'cpl' ? 'cpl' : 'chat');
 }
+
+function cplElement(id) {
+  return document.querySelector(`#cpl-${id}`);
+}
+
+function setAssistantMode(mode) {
+  document.querySelector('#assistant-mode').value = mode;
+  cplElement('panel').hidden = mode !== 'cpl';
+  elements.chatLog.hidden = mode === 'cpl';
+  elements.composer.hidden = mode === 'cpl';
+  localStorage.setItem('aioa-assistant-mode', mode);
+}
+
+function applyCPLStatus(status) {
+  state.cplStatus = status;
+  cplElement('mode').textContent = status.mode === 'TEST' ? 'TEST · local HTTP fixture' : 'LIVE · awaiting configuration and budget';
+  cplElement('transport-note').textContent = status.mode === 'TEST'
+    ? 'Synthetic responses travel through the real strict HTTP adapter on loopback. No cloud models or model API charges. Ordinary cloud chat is disabled in this explicit test session.'
+    : `Live execution requires an enabled strict provider, an explicit cost policy, a run budget and approval of one immutable plan. Session budget: ${status.session_budget_usd || '0'} USD. No automatic fixture fallback.`;
+  cplElement('load-fixture').disabled = status.mode !== 'TEST';
+  if (!state.cplRunId && status.run_ids && status.run_ids.length) {
+    state.cplRunId = status.run_ids[status.run_ids.length - 1];
+    jsonFetch(`/api/cpl/runs/${state.cplRunId}`).then(renderCPL).catch(cplError);
+  }
+}
+
+function cplError(error) {
+  cplElement('request-status').textContent = `CPL stopped: ${error}. The selected CPL mode has not fallen back to chat.`;
+  cplElement('start').disabled = true;
+}
+
+function renderCPL(result) {
+  state.cplRunId = result.run_id;
+  const terminal = ['COMPLETED', 'FAILED', 'CANCELLED', 'INTERRUPTED'].includes(result.execution_status);
+  cplElement('state').textContent = result.execution_status;
+  cplElement('run-id').textContent = `${result.run_id} · requests ${result.generation_requests}/5 · ${result.authority}`;
+  cplElement('draft').textContent = result.draft || 'Not available';
+  cplElement('final').textContent = result.execution_status === 'COMPLETED' ? result.final_answer : 'Not delivered';
+  cplElement('conflicts').textContent = JSON.stringify({conflicts: result.conflicts,
+    uncertainty: (result.reviews || []).flatMap(review => review.uncertainty || [])}, null, 2);
+  cplElement('reviews').replaceChildren();
+  const roles = result.plan.roles;
+  roles.forEach((role, index) => {
+    const card = document.createElement('section');
+    card.className = 'cpl-stage';
+    const title = document.createElement('h4');
+    title.textContent = `${index + 1}. ${role}`;
+    const body = document.createElement('pre');
+    body.className = 'cpl-data';
+    body.textContent = result.reviews[index] ? JSON.stringify(result.reviews[index], null, 2) : 'Not completed';
+    card.append(title, body);
+    cplElement('reviews').appendChild(card);
+  });
+  cplElement('trace').textContent = JSON.stringify({manifest: result.evidence_chain,
+    snapshot_hash: result.snapshot_hash, providers: result.provider_results,
+    approval: result.approval, live_provider_status: result.live_provider_status}, null, 2);
+  cplElement('plan-preview').textContent = JSON.stringify({plan_hash: result.plan_hash, plan: result.plan}, null, 2);
+  cplElement('cancel').disabled = terminal;
+  cplElement('verify').disabled = !terminal;
+  const running = !terminal && result.execution_status !== 'PLANNED';
+  for (const element of cplElement('plan-form').querySelectorAll('input,textarea,button')) element.disabled = running;
+  if (state.cplStatus && state.cplStatus.mode !== 'TEST') cplElement('load-fixture').disabled = true;
+  if (result.error) cplError(result.error);
+  else cplElement('request-status').textContent = terminal
+    ? 'Run complete. Review the draft, three reports and final revision. Completion is not proof of truth.'
+    : (running ? 'Bounded worker is running. Status and cancel remain responsive.' : 'Inspect the exact plan before starting.');
+  if (running) {
+    clearTimeout(state.cplPoll);
+    state.cplPoll = setTimeout(() => jsonFetch(`/api/cpl/runs/${result.run_id}`).then(renderCPL).catch(cplError), 180);
+  }
+}
+
+document.querySelector('#assistant-mode').addEventListener('change', event => setAssistantMode(event.target.value));
+cplElement('plan-form').addEventListener('input', () => {
+  if (state.cplPlan) {
+    state.cplPlan = null;
+    cplElement('start').disabled = true;
+    cplElement('request-status').textContent = 'Input changed. Preview a new immutable plan; the previous approval cannot authorize these changes.';
+  }
+});
+cplElement('load-fixture').addEventListener('click', async () => {
+  try {
+    const fixture = await jsonFetch('/api/cpl/fixture');
+    cplElement('prompt').value = fixture.prompt;
+    cplElement('evidence').value = fixture.evidence;
+    cplElement('models').value = Array(4).fill(fixture.model).join('\n');
+    cplElement('budget').value = '0';
+    state.cplPlan = null;
+    cplElement('start').disabled = true;
+    cplElement('request-status').textContent = 'Synthetic dated example loaded. Preview the plan, then explicitly start the fixture.';
+  } catch (error) { cplError(error); }
+});
+cplElement('plan-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  clearTimeout(state.cplPoll);
+  state.cplPlan = null;
+  cplElement('start').disabled = true;
+  try {
+    const models = cplElement('models').value.split('\n').map(value => value.trim()).filter(Boolean);
+    const payload = {prompt: cplElement('prompt').value, evidence: cplElement('evidence').value,
+      run_budget_usd: cplElement('budget').value};
+    if (models.length) payload.models = models;
+    const result = await jsonFetch('/api/cpl/plan', {method: 'POST', body: JSON.stringify(payload)});
+    state.cplPlan = {run_id: result.run_id, plan_hash: result.plan_hash, nonce: result.nonce};
+    renderCPL(result);
+    cplElement('start').textContent = result.plan.scope === 'TEST' ? 'Authorize TEST plan and run fixture' : 'Approve displayed budget and run LIVE plan';
+    cplElement('start').disabled = false;
+  } catch (error) { cplError(error); }
+});
+cplElement('start').addEventListener('click', async () => {
+  if (!state.cplPlan) return;
+  const authorization = state.cplPlan;
+  state.cplPlan = null;
+  cplElement('start').disabled = true;
+  try {
+    renderCPL(await jsonFetch('/api/cpl/start', {method: 'POST', body: JSON.stringify(authorization)}));
+  } catch (error) { cplError(error); }
+});
+cplElement('cancel').addEventListener('click', async () => {
+  clearTimeout(state.cplPoll);
+  try {
+    renderCPL(await jsonFetch('/api/cpl/cancel', {method: 'POST', body: JSON.stringify({run_id: state.cplRunId})}));
+  } catch (error) { cplError(error); }
+});
+cplElement('verify').addEventListener('click', async () => {
+  try {
+    const result = await jsonFetch(`/api/cpl/runs/${state.cplRunId}/trace`);
+    cplElement('trace').textContent = JSON.stringify(result, null, 2);
+    cplElement('request-status').textContent = result.ok
+      ? 'Evidence Chain verified against the local manifest. This is integrity, not truth or external time attestation.'
+      : 'Evidence Chain verification FAILED. Do not trust the stored run.';
+    cplElement('trace').closest('details').open = true;
+  } catch (error) { cplError(error); }
+});
 
 bootstrap();

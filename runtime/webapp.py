@@ -7,6 +7,9 @@ import argparse
 import json
 import os
 import traceback
+import hmac
+import secrets
+import sys
 from functools import partial
 from http import HTTPStatus
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
@@ -21,12 +24,16 @@ from main import (
     AgentRuntime,
     ProviderManager,
     load_prompt_template,
+    create_runtime,
 )
+from providers.exact import ExactCallError, _unique_object
 
 
 RUNTIME_DIR = Path(__file__).resolve().parent
 REPOSITORY_DIR = RUNTIME_DIR.parent
 WEB_DIR = REPOSITORY_DIR / "web"
+if not (WEB_DIR / 'index.html').is_file():
+    WEB_DIR = Path(sys.prefix) / 'share/aioa-sparkhat/web'
 HOST = os.getenv("AOIA_WEB_HOST", "127.0.0.1")
 PORT = int(os.getenv("AOIA_WEB_PORT", "4311"))
 MAX_REQUEST_BYTES = 24_000
@@ -36,14 +43,13 @@ LOOPBACK_HOSTS = {"127.0.0.1", "localhost"}
 class WebRuntimeService:
     """Shared runtime adapter used by the local AOIA-Core UI."""
 
-    def __init__(self) -> None:
-        self.runtime = AgentRuntime(
-            provider_manager=ProviderManager(RUNTIME_DIR),
-            prompt_template=load_prompt_template(PROMPT_FILE),
-            project_dir=RUNTIME_DIR,
-            debug_raw=DEBUG_RAW_RESPONSE,
-        )
+    def __init__(self, *, cpl_fixture=False, cpl_cost_policy=None, runtime=None) -> None:
+        self.runtime = runtime or create_runtime(cpl_fixture=cpl_fixture, cpl_cost_policy=cpl_cost_policy)
         self.lock = Lock()
+        self.csrf_token = secrets.token_urlsafe(32)
+
+    def close(self):
+        self.runtime.close()
 
     def status_payload(self) -> dict:
         payload = self.runtime.snapshot_status()
@@ -53,6 +59,7 @@ class WebRuntimeService:
             "provider_call": False,
             "authority": "METADATA_ONLY_NO_AUTHORITY",
         }
+        payload['critical_loop'] = self.runtime.critical_loop.status()
         return payload
 
     def switch_model(self, model_name: str) -> dict:
@@ -66,6 +73,8 @@ class WebRuntimeService:
             }
 
     def run_prompt(self, prompt: str) -> dict:
+        if prompt.lstrip().lower().startswith('/cpl'):
+            raise ExactCallError('CPL_REQUIRES_PLAN_START_ENDPOINTS')
         with self.lock:
             result = self.runtime.run_text_request(prompt)
             return {
@@ -115,12 +124,40 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
 
     def do_GET(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler API
         parsed = urlparse(self.path)
+        if not self._check_local_request():
+            return
+        if parsed.path == '/api/session':
+            self._write_json(HTTPStatus.OK, {'token': self._service().csrf_token,
+                                           'product_name': 'AIOA spArkHAT'})
+            return
+        if parsed.path.startswith('/api/cpl/'):
+            if not self._check_token():
+                return
+            try:
+                service = self._service().runtime.critical_loop
+                if parsed.path == '/api/cpl/status':
+                    payload = service.status()
+                elif parsed.path == '/api/cpl/fixture':
+                    from critical_loop.fixture import FIXTURE_PROMPT, FIXTURE_EVIDENCE
+                    payload = {'prompt': FIXTURE_PROMPT, 'evidence': FIXTURE_EVIDENCE,
+                               'scope': 'SYNTHETIC_TEST_DATA', 'model': 'fixture/synthetic'}
+                elif parsed.path.startswith('/api/cpl/runs/'):
+                    tail = parsed.path.removeprefix('/api/cpl/runs/')
+                    payload = service.verify(tail[:-6]) if tail.endswith('/trace') else service.get(tail)
+                else:
+                    self._write_json(HTTPStatus.NOT_FOUND, {'ok': False, 'error': 'not_found'})
+                    return
+                self._write_json(HTTPStatus.OK, payload)
+            except ExactCallError as error:
+                self._write_cpl_error(error)
+            return
         if parsed.path == "/api/health":
             self._write_json(
                 HTTPStatus.OK,
                 {
                     "status": "ok",
                     "system": "AOIA-Core",
+                    "product_name": "AIOA spArkHAT",
                     "network": "local-only",
                     "evidence_review": "enabled",
                 },
@@ -148,12 +185,38 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
 
     def do_POST(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler API
         parsed = urlparse(self.path)
+        if not self._check_local_request():
+            return
+        if (parsed.path.startswith('/api/cpl/') or parsed.path in {'/api/chat', '/api/model'}) and not self._check_token():
+            return
         payload = self._read_json_body()
         if payload is None:
             return
 
         try:
+            if parsed.path == '/api/cpl/plan':
+                self._write_json(HTTPStatus.CREATED, self._service().runtime.plan_critical_loop(payload))
+                return
+            if parsed.path == '/api/cpl/start':
+                if set(payload) != {'run_id', 'plan_hash', 'nonce'}:
+                    raise ExactCallError('INVALID_START_FIELDS')
+                result = self._service().runtime.critical_loop.start(
+                    payload['run_id'], payload['plan_hash'], payload['nonce'], approval_source='LOCAL_HTTP_NONCE')
+                self._write_json(HTTPStatus.ACCEPTED, result)
+                return
+            if parsed.path == '/api/cpl/cancel':
+                if set(payload) != {'run_id'}:
+                    raise ExactCallError('INVALID_CANCEL_FIELDS')
+                self._write_json(HTTPStatus.OK, self._service().runtime.critical_loop.cancel(payload['run_id']))
+                return
+            if parsed.path == '/api/cpl/verify':
+                if set(payload) != {'run_id', 'manifest'}:
+                    raise ExactCallError('INVALID_VERIFY_FIELDS')
+                self._write_json(HTTPStatus.OK, self._service().runtime.critical_loop.verify(payload['run_id'], payload['manifest']))
+                return
             if parsed.path == "/api/chat":
+                if payload.get('mode') == 'cpl':
+                    raise ExactCallError('CPL_REQUIRES_PLAN_START_ENDPOINTS')
                 prompt = str(payload.get("prompt", "")).strip()
                 if not prompt:
                     self._write_json(
@@ -188,19 +251,50 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
                 return
 
             self._write_json(HTTPStatus.NOT_FOUND, {"ok": False, "error": "not_found"})
+        except ExactCallError as error:
+            self._write_cpl_error(error)
         except Exception as error:  # pragma: no cover - local debugging path
             if DEBUG_RAW_RESPONSE:
                 traceback.print_exc()
             self._write_json(
                 HTTPStatus.INTERNAL_SERVER_ERROR,
-                {"ok": False, "error": "internal_error", "detail": str(error)},
+                {"ok": False, "error": "internal_error"},
             )
+
+    def _check_local_request(self):
+        port = self.server.server_address[1]
+        allowed_hosts = {f'127.0.0.1:{port}', f'localhost:{port}'}
+        hosts = self.headers.get_all('Host', [])
+        origins = self.headers.get_all('Origin', [])
+        valid_origin = not origins or (len(origins) == 1 and origins[0] in {'http://' + host for host in allowed_hosts})
+        if (len(hosts) != 1 or hosts[0].lower() not in allowed_hosts or not valid_origin
+                or self.headers.get('Sec-Fetch-Site') == 'cross-site'):
+            self._write_json(HTTPStatus.FORBIDDEN, {'ok': False, 'error': 'local_origin_required'})
+            return False
+        return True
+
+    def _check_token(self):
+        values = self.headers.get_all('X-AIOA-Session-Token', [])
+        if len(values) != 1 or not hmac.compare_digest(values[0].encode('utf-8'), self._service().csrf_token.encode('ascii')):
+            self._write_json(HTTPStatus.FORBIDDEN, {'ok': False, 'error': 'session_token_required'})
+            return False
+        return True
+
+    def _write_cpl_error(self, error):
+        conflicts = {'AUTHORIZATION_ALREADY_CONSUMED', 'CPL_WORKER_BUSY', 'PLAN_EXPIRED', 'RUN_TERMINAL'}
+        status = HTTPStatus.CONFLICT if error.code in conflicts else HTTPStatus.BAD_REQUEST
+        if error.code in {'RUN_NOT_FOUND', 'PLAN_NOT_AVAILABLE'}:
+            status = HTTPStatus.NOT_FOUND
+        self._write_json(status, {'ok': False, 'error': error.code})
 
     def log_message(self, format: str, *args: object) -> None:
         # Request bodies and candidate answers are never logged.
         return
 
     def _read_json_body(self) -> dict | None:
+        if self.headers.get('Transfer-Encoding') or len(self.headers.get_all('Content-Length', [])) != 1:
+            self._write_json(HTTPStatus.BAD_REQUEST, {'ok': False, 'error': 'invalid_body_framing'})
+            return None
         try:
             length = int(self.headers.get("Content-Length", "0") or 0)
         except ValueError:
@@ -215,10 +309,19 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
                 {"ok": False, "error": "request_size_out_of_bounds"},
             )
             return None
-        raw_body = self.rfile.read(length)
+        self.connection.settimeout(5)
         try:
-            payload = json.loads(raw_body.decode("utf-8"))
-        except (UnicodeDecodeError, json.JSONDecodeError):
+            raw_body = self.rfile.read(length)
+        except (TimeoutError, OSError):
+            self._write_json(HTTPStatus.REQUEST_TIMEOUT, {'ok': False, 'error': 'request_body_timeout'})
+            return None
+        if len(raw_body) != length:
+            self._write_json(HTTPStatus.BAD_REQUEST, {'ok': False, 'error': 'incomplete_request_body'})
+            return None
+        try:
+            payload = json.loads(raw_body.decode("utf-8"), object_pairs_hook=_unique_object,
+                                 parse_constant=lambda _value: (_ for _ in ()).throw(ValueError()))
+        except (UnicodeDecodeError, ValueError, RecursionError):
             self._write_json(
                 HTTPStatus.BAD_REQUEST,
                 {"ok": False, "error": "invalid_json_body"},
@@ -257,7 +360,10 @@ def make_server(
 
 
 def _parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Run the local AOIA-Core web interface.")
+    parser = argparse.ArgumentParser(description="Run the local AIOA spArkHAT web interface (formerly AOIA-Core).")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument('--cpl-fixture', action='store_true', help='Explicit local synthetic HTTP transport; no model API')
+    mode.add_argument('--cpl-live-policy', help='Operator-authored price/budget policy JSON; still requires per-plan approval')
     parser.add_argument("--host", default=HOST)
     parser.add_argument("--port", default=PORT, type=int)
     return parser
@@ -265,9 +371,12 @@ def _parser() -> argparse.ArgumentParser:
 
 def main() -> None:
     args = _parser().parse_args()
-    server = make_server(args.host, args.port)
+    from critical_loop.policy import load_cost_policy
+    policy = load_cost_policy(args.cpl_live_policy) if args.cpl_live_policy else None
+    service = WebRuntimeService(cpl_fixture=args.cpl_fixture, cpl_cost_policy=policy)
+    server = make_server(args.host, args.port, service)
     address, bound_port = server.server_address[:2]
-    print(f"AOIA-Core web UI running on http://{address}:{bound_port}")
+    print(f"AIOA spArkHAT web UI running on http://{address}:{bound_port}")
     print("One local runtime | dated evidence review | human authority retained")
     try:
         server.serve_forever()
@@ -275,6 +384,7 @@ def main() -> None:
         pass
     finally:
         server.server_close()
+        service.close()
 
 
 if __name__ == "__main__":

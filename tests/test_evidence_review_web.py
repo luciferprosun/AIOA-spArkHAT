@@ -34,7 +34,8 @@ class EvidenceReviewWebTests(unittest.TestCase):
 
         with urlopen(f"{self.base_url}/", timeout=2) as response:
             body = response.read().decode("utf-8")
-        self.assertIn("AOIA-Core Operator Console", body)
+        self.assertIn("AIOA spArkHAT Operator Console", body)
+        self.assertIn("Formerly AOIA-Core", body)
         self.assertIn("Evidence review", body)
 
     def test_scenario_endpoint_returns_isolated_registry(self) -> None:

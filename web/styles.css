@@ -11,6 +11,18 @@
   --radius: 26px;
 }
 
+[hidden] { display: none !important; }
+.assistant-mode-bar { display: flex; align-items: center; gap: 16px; margin-bottom: 18px; }
+.assistant-mode-bar .select { max-width: 440px; }
+.cpl-panel { margin: 18px 0; min-width: 0; }
+.cpl-panel h4 { margin: 12px 0 8px; }
+.cpl-panel textarea { width: 100%; margin-bottom: 14px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel-strong); }
+.cpl-data { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 13px; line-height: 1.5; padding: 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel-strong); max-height: 520px; overflow: auto; }
+.cpl-stage { min-width: 0; }
+.cpl-review-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.cpl-panel button:disabled { opacity: .5; cursor: not-allowed; }
+@media (max-width: 1150px) { .cpl-review-grid { grid-template-columns: 1fr; } }
+
 * {
   box-sizing: border-box;
 }
