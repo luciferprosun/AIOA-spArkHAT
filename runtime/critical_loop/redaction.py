@@ -68,4 +68,3 @@ def redact_secret_data(value: object, *, known_secrets: Sequence[str] = ()) -> A
 def redact_exception(exc: BaseException, *, known_secrets: Sequence[str] = ()) -> str:
     """Return a redacted, user-safe string for an exception."""
     return redact_secret_text(str(exc), known_secrets=known_secrets)
-

@@ -738,4 +738,3 @@ def _bounded_raw(value: str) -> str:
     if len(value) <= MAX_RAW_OUTPUT_CHARS:
         return value
     return value[:MAX_RAW_OUTPUT_CHARS] + "\n[UNTRUSTED OUTPUT TRUNCATED]"
-

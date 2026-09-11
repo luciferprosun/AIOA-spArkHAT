@@ -15,7 +15,7 @@
       "destination": [
         {
           "path": "runtime/critical_loop/review.py",
-          "sha256": "210280875c4d821e367f4bb962d32835892dc4c07530f1b56818b85f4008e447"
+          "sha256": "c2670f74b1f850f15835d003a13f030384388087e43ece91555548cda2b43d07"
         }
       ],
       "adaptation": "Pure snapshot/config/parser/prompts/sequencer port; distinct roles, 512 critic cap, fail-fast sequential, reject extra keys.",
@@ -28,7 +28,7 @@
       "destination": [
         {
           "path": "runtime/critical_loop/redaction.py",
-          "sha256": "4ccf1274752cd90e476b4e42b7acac73ca075dbf884da8bc2e2e4dc75b58f17e"
+          "sha256": "2500578fdeb0c015d1e75303186ff2ff871cf466caa41293d1ce87961b45dd4d"
         }
       ],
       "adaptation": "Retain pattern/known-secret redaction; preserve token-count metadata; explicitly mask nonce/CSRF.",
@@ -71,7 +71,7 @@
       "destination": [
         {
           "path": "tests/test_cpl_original_contract.py",
-          "sha256": "ad2f3c425a53931ea6629a7c38b59f9fa66b2839bdd80079350f1dd8bdebe8e6"
+          "sha256": "21908a6734b9660c282d9cba2086af54a677fb58ae43a005da49c0b67aea7f31"
         }
       ],
       "adaptation": "42 pure tests ported; extra authority keys expectation strengthened; 11 GUI/controller scenarios replaced or explicitly retired UI design.",
@@ -101,7 +101,7 @@
       "destination": [
         {
           "path": "tests/test_cpl_original_redaction.py",
-          "sha256": "cb0eda887b46282be01e2bb530941ed00ebcf6ed0dbf68050c18ba9471917166"
+          "sha256": "87b2b2f66a7bc32079dfcc80c55659fcc44a86b3e32f218eac1dd1d3e8ebe09f"
         }
       ],
       "adaptation": "Five pure support tests ported; Tk API-key mask test not ported because no key UI is introduced.",
@@ -602,4 +602,3 @@
   ],
   "not_evidence_for_new_runtime": "Historical 70/70 and prior audit 443 PASS are not counted as this implementation execution results."
 }
-
