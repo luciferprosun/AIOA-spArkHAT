@@ -84,11 +84,14 @@ class LinuxRetrievalEngine:
     """
 
     def __init__(self, project_dir: Path | None = None, max_results: int = 5) -> None:
-        self.project_dir = project_dir or PROJECT_ROOT
+        self.project_dir = Path(project_dir).resolve() if project_dir is not None else PROJECT_ROOT
+        self.knowledge_root = self.project_dir / "knowledge"
         self.max_results = max_results
 
     def retrieve(self, query: str) -> LinuxRetrievalResponse:
         normalized = normalize_query(query)
+        if not self.knowledge_root.is_dir():
+            return self._refusal(query, normalized.normalized, "missing_resource", 0)
         if not normalized.normalized:
             return self._refusal(query, "", "unresolved", 0)
 
@@ -114,9 +117,9 @@ class LinuxRetrievalEngine:
                 return self._answer(query, normalized.normalized, subcommand, decision)
 
         if normalized.category_hint:
-            category = search_by_tag(normalized.category_hint, limit=self.max_results)
+            category = search_by_tag(normalized.category_hint, limit=self.max_results, knowledge_root=self.knowledge_root)
             if not category:
-                category = search_rhcsa(normalized.category_hint, limit=self.max_results, topic_filter=normalized.category_hint)
+                category = search_rhcsa(normalized.category_hint, limit=self.max_results, topic_filter=normalized.category_hint, knowledge_root=self.knowledge_root)
             if category:
                 decision = score_decision("category", CATEGORY_MATCH_SCORE, len(category))
                 return self._answer(query, normalized.normalized, category, decision)
@@ -130,12 +133,12 @@ class LinuxRetrievalEngine:
         if not keyword_query:
             return self._refusal(query, normalized.normalized, "unresolved", 0)
 
-        candidates = search_rhcsa(keyword_query, limit=self.max_results)
+        candidates = search_rhcsa(keyword_query, limit=self.max_results, knowledge_root=self.knowledge_root)
         if candidates:
             decision = score_decision("keyword", KEYWORD_MATCH_SCORE, len(candidates))
             return self._answer(query, normalized.normalized, candidates, decision)
 
-        weak = search_commands(keyword_query, limit=1)
+        weak = search_commands(keyword_query, limit=1, knowledge_root=self.knowledge_root)
         if weak:
             decision = score_decision("low_confidence", LOW_CONFIDENCE_SCORE, len(weak))
             if should_refuse(decision.score):
@@ -145,7 +148,7 @@ class LinuxRetrievalEngine:
         return self._refusal(query, normalized.normalized, "unresolved", 0)
 
     def _exact_lookup(self, command: str) -> list[dict[str, Any]]:
-        results = exact_command_lookup(command, limit=self.max_results)
+        results = exact_command_lookup(command, limit=self.max_results, knowledge_root=self.knowledge_root)
         if results:
             return results
         command_record = self.command_records_by_key.get(command_key(command))
@@ -175,7 +178,7 @@ class LinuxRetrievalEngine:
                 {
                     "topic": family,
                     "category": graph_node.get("kind", "command_family"),
-                    "file_location": "runtime/knowledge/command_graph.json",
+                    "file_location": self._source_location("command_graph.json"),
                     "summary": f"Command graph family for {family}.",
                     "related_commands": graph_node.get("commands", [])[:8],
                     "tags": graph_node.get("related", [])[:8],
@@ -183,7 +186,7 @@ class LinuxRetrievalEngine:
                     "score": FAMILY_MATCH_SCORE,
                 }
             )
-        for item in search_commands(family, limit=self.max_results):
+        for item in search_commands(family, limit=self.max_results, knowledge_root=self.knowledge_root):
             if item.get("command_name", "").lower() == family:
                 results.append(item)
         return self._dedupe(results)[: self.max_results]
@@ -198,7 +201,7 @@ class LinuxRetrievalEngine:
         if should_refuse(decision.score):
             return self._refusal(query, normalized_query, decision.match_type, decision.score)
         bounded = self._dedupe(raw_results)[: self.max_results]
-        results = tuple(attach_provenance(result, decision.score) for result in bounded)
+        results = tuple(attach_provenance(result, decision.score, knowledge_root=self.knowledge_root) for result in bounded)
         return LinuxRetrievalResponse(
             query=query,
             normalized_query=normalized_query,
@@ -274,7 +277,7 @@ class LinuxRetrievalEngine:
 
     @cached_property
     def command_records_by_key(self) -> dict[str, dict[str, Any]]:
-        path = KNOWLEDGE_ROOT / "canonical" / "rhcsa_commands.json"
+        path = self.knowledge_root / "canonical" / "rhcsa_commands.json"
         try:
             payload = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
@@ -295,8 +298,10 @@ class LinuxRetrievalEngine:
     def command_graph(self) -> dict[str, Any]:
         return load_command_graph(self.project_dir)
 
-    @staticmethod
-    def _command_record_result(record: dict[str, Any]) -> dict[str, Any]:
+    def _source_location(self, relative: str) -> str:
+        return ("runtime/knowledge/" + relative) if self.knowledge_root == KNOWLEDGE_ROOT else str(self.knowledge_root / relative)
+
+    def _command_record_result(self, record: dict[str, Any]) -> dict[str, Any]:
         command = str(record.get("command", "")).strip()
         category = str(record.get("category", "")).strip() or "canonical"
         source_section = str(record.get("source_section", "")).strip()
@@ -304,7 +309,7 @@ class LinuxRetrievalEngine:
         return {
             "topic": source_section or category,
             "category": category,
-            "file_location": "runtime/knowledge/canonical/rhcsa_commands.json",
+            "file_location": self._source_location("canonical/rhcsa_commands.json"),
             "summary": str(record.get("description", "")).strip() or command,
             "related_commands": [command, *examples][:8],
             "tags": [normalize_text(category), normalize_text(source_section)],

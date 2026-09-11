@@ -161,11 +161,11 @@ def _snippet(text: str, pattern: str, max_chars: int = 280) -> str:
     return " ".join(text[start:end].split())
 
 
-@lru_cache(maxsize=1)
-def _module_index() -> tuple[KnowledgeModule, ...]:
+@lru_cache(maxsize=16)
+def _module_index(knowledge_root: Path | None = None) -> tuple[KnowledgeModule, ...]:
     modules: list[KnowledgeModule] = []
     for topic in TOPIC_DIRECTORIES:
-        directory = KNOWLEDGE_ROOT / topic
+        directory = (knowledge_root if knowledge_root is not None else KNOWLEDGE_ROOT) / topic
         if not directory.exists():
             continue
         for path in sorted(directory.glob("*.md")):
@@ -188,10 +188,10 @@ def _module_index() -> tuple[KnowledgeModule, ...]:
     return tuple(modules)
 
 
-@lru_cache(maxsize=1)
-def _example_index() -> tuple[ExampleEntry, ...]:
+@lru_cache(maxsize=16)
+def _example_index(knowledge_root: Path | None = None) -> tuple[ExampleEntry, ...]:
     entries: list[ExampleEntry] = []
-    examples_root = KNOWLEDGE_ROOT / "examples"
+    examples_root = (knowledge_root if knowledge_root is not None else KNOWLEDGE_ROOT) / "examples"
     for path in sorted(examples_root.glob("*.json")):
         payload = _read_json(path, {})
         if not isinstance(payload, dict):
@@ -259,12 +259,17 @@ def _keyword_score(query: str, module: KnowledgeModule) -> int:
     return score
 
 
+def _source_location(path: Path) -> str:
+    """Keep bundled paths compatible; never misattribute an explicit corpus."""
+    return str(path.relative_to(PROJECT_ROOT)) if path.is_relative_to(PROJECT_ROOT) else str(path)
+
+
 def _module_result(module: KnowledgeModule, score: int, preview_seed: str) -> dict[str, Any]:
     return {
         "score": score,
         "topic": module.title,
         "category": module.topic,
-        "file_location": str(module.file_path.relative_to(PROJECT_ROOT)),
+        "file_location": _source_location(module.file_path),
         "summary": module.summary,
         "related_commands": list(module.commands[:8]),
         "tags": list(module.tags),
@@ -278,7 +283,7 @@ def _example_result(entry: ExampleEntry, score: int) -> dict[str, Any]:
         "score": score,
         "topic": entry.entry_id,
         "category": entry.category or "examples",
-        "file_location": str(entry.file_path.relative_to(PROJECT_ROOT)),
+        "file_location": _source_location(entry.file_path),
         "summary": entry.notes or entry.command,
         "related_commands": [entry.command, *entry.related_commands][:8],
         "tags": list(entry.tags),
@@ -292,21 +297,21 @@ def _topic_filter_match(topic_filter: str | None, module_topic: str) -> bool:
     return _normalize_text(topic_filter) == _normalize_text(module_topic)
 
 
-def search_rhcsa(query: str, limit: int = 10, topic_filter: str | None = None) -> list[dict[str, Any]]:
+def search_rhcsa(query: str, limit: int = 10, topic_filter: str | None = None, *, knowledge_root: Path | None = None) -> list[dict[str, Any]]:
     """Deterministic keyword search over the local markdown RHCSA knowledge base."""
     query = query.strip()
     if not query:
         return []
 
     results: list[dict[str, Any]] = []
-    for module in _module_index():
+    for module in _module_index(knowledge_root):
         if not _topic_filter_match(topic_filter, module.topic):
             continue
         score = _keyword_score(query, module)
         if score:
             results.append(_module_result(module, score, query))
 
-    for entry in _example_index():
+    for entry in _example_index(knowledge_root):
         if topic_filter and _normalize_text(topic_filter) != _normalize_text(entry.category):
             continue
         search_space = " ".join([entry.entry_id, entry.command, entry.category, " ".join(entry.tags), entry.notes])
@@ -327,20 +332,20 @@ def search_rhcsa(query: str, limit: int = 10, topic_filter: str | None = None) -
     return list(deduped.values())[:limit]
 
 
-def search_by_tag(tag: str, limit: int = 20, topic_filter: str | None = None) -> list[dict[str, Any]]:
+def search_by_tag(tag: str, limit: int = 20, topic_filter: str | None = None, *, knowledge_root: Path | None = None) -> list[dict[str, Any]]:
     """Exact tag search without semantic expansion."""
     normalized_tag = _normalize_text(tag)
     if not normalized_tag:
         return []
 
     results: list[dict[str, Any]] = []
-    for module in _module_index():
+    for module in _module_index(knowledge_root):
         if not _topic_filter_match(topic_filter, module.topic):
             continue
         if normalized_tag in {_normalize_text(item) for item in module.tags}:
             results.append(_module_result(module, TAG_MATCH_SCORE, tag))
 
-    for entry in _example_index():
+    for entry in _example_index(knowledge_root):
         if topic_filter and _normalize_text(topic_filter) != _normalize_text(entry.category):
             continue
         if normalized_tag in {_normalize_text(item) for item in entry.tags}:
@@ -349,20 +354,20 @@ def search_by_tag(tag: str, limit: int = 20, topic_filter: str | None = None) ->
     return sorted(results, key=lambda item: (-item["score"], item["file_location"]))[:limit]
 
 
-def exact_command_lookup(command: str, limit: int = 20) -> list[dict[str, Any]]:
+def exact_command_lookup(command: str, limit: int = 20, *, knowledge_root: Path | None = None) -> list[dict[str, Any]]:
     """Match commands by exact normalized string only."""
     normalized_query = _normalized_command(command)
     if not normalized_query:
         return []
 
     results: list[dict[str, Any]] = []
-    for module in _module_index():
+    for module in _module_index(knowledge_root):
         for candidate in module.commands:
             if _normalized_command(candidate) == normalized_query:
                 results.append(_module_result(module, EXACT_MATCH_SCORE, candidate))
                 break
 
-    for entry in _example_index():
+    for entry in _example_index(knowledge_root):
         if _normalized_command(entry.command) == normalized_query:
             results.append(_example_result(entry, EXAMPLE_EXACT_MATCH_SCORE))
 
@@ -433,14 +438,14 @@ def load_topic(topic: str, max_chars: int = 12000) -> str:
     return ""
 
 
-def suggest_related_commands(query: str | None = None, limit: int = 20) -> list[dict[str, Any]]:
+def suggest_related_commands(query: str | None = None, limit: int = 20, *, knowledge_root: Path | None = None) -> list[dict[str, Any]]:
     """Deterministic command list filtered by exact token matches."""
     normalized_query = _normalize_text(query or "")
     tokens = set(_tokenize(query or ""))
     results: list[dict[str, Any]] = []
 
     seen_commands: set[tuple[str, str]] = set()
-    for module in _module_index():
+    for module in _module_index(knowledge_root):
         for command in module.commands:
             command_norm = _normalize_text(command)
             if normalized_query:
@@ -456,12 +461,12 @@ def suggest_related_commands(query: str | None = None, limit: int = 20) -> list[
                     "command_name": command.split()[0],
                     "command": command,
                     "topic": module.title,
-                    "file_location": str(module.file_path.relative_to(PROJECT_ROOT)),
+                    "file_location": _source_location(module.file_path),
                     "summary": module.summary,
                 }
             )
 
-    for entry in _example_index():
+    for entry in _example_index(knowledge_root):
         command_norm = _normalize_text(entry.command)
         if normalized_query:
             if normalized_query != command_norm and normalized_query not in command_norm:
@@ -476,15 +481,15 @@ def suggest_related_commands(query: str | None = None, limit: int = 20) -> list[
                 "command_name": entry.command.split()[0],
                 "command": entry.command,
                 "topic": entry.entry_id,
-                "file_location": str(entry.file_path.relative_to(PROJECT_ROOT)),
+                "file_location": _source_location(entry.file_path),
                 "summary": entry.notes,
             }
         )
     return results[:limit]
 
 
-def search_commands(query: str = "", limit: int = 20) -> list[dict[str, Any]]:
-    return suggest_related_commands(query, limit=limit)
+def search_commands(query: str = "", limit: int = 20, *, knowledge_root: Path | None = None) -> list[dict[str, Any]]:
+    return suggest_related_commands(query, limit=limit, knowledge_root=knowledge_root)
 
 
 def search_workflows(query: str = "", limit: int = 10) -> list[dict[str, Any]]:

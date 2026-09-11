@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=65", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aioa-sparkhat"
+version = "0.1.0"
+description = "AIOA spArkHAT: the AOIA-Core runtime with an advisory Critical Prompt Loop"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {file = "LICENSE"}
+dependencies = []
+
+[project.scripts]
+aioa-sparkhat = "runtime.cli:main"
+aioa-sparkhat-web = "runtime.web_cli:main"
+
+[tool.setuptools.packages.find]
+include = ["runtime", "runtime.*"]
+exclude = ["runtime.reports", "runtime.logs", "runtime.state", "runtime.screenshots", "runtime.obsidian_vault"]
+namespaces = true
+
+[tool.setuptools.package-data]
+runtime = ["prompts/*.txt", "adaptive_routing/*.json", "adaptive_routing/environment/*.json", "knowledge/**/*.json", "knowledge/**/*.md", "knowledge/**/*.yaml", "knowledge/**/*.pdf", "knowledge/**/*.txt", "knowledge/*.json"]
+
+[tool.setuptools.data-files]
+"share/aioa-sparkhat/web" = ["web/index.html", "web/app.js", "web/styles.css"]

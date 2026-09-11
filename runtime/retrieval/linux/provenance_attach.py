@@ -29,9 +29,10 @@ class Provenance:
         }
 
 
-def _manifest_value(key: str) -> str | None:
+def _manifest_value(key: str, knowledge_root: Path | None = None) -> str | None:
+    path = MANIFEST_PATH if knowledge_root is None else knowledge_root / "manifests/library_manifest.yaml"
     try:
-        for line in MANIFEST_PATH.read_text(encoding="utf-8").splitlines():
+        for line in path.read_text(encoding="utf-8").splitlines():
             if line.startswith(f"{key}:"):
                 return line.split(":", 1)[1].strip()
     except OSError:
@@ -39,14 +40,15 @@ def _manifest_value(key: str) -> str | None:
     return None
 
 
-@lru_cache(maxsize=1)
-def canonical_source() -> str:
-    return _manifest_value("canonical_source") or LEGACY_SOURCE
+@lru_cache(maxsize=16)
+def canonical_source(knowledge_root: Path | None = None) -> str:
+    fallback = LEGACY_SOURCE if knowledge_root is None or knowledge_root == KNOWLEDGE_ROOT else "UNSPECIFIED_LOCAL_SOURCE"
+    return _manifest_value("canonical_source", knowledge_root) or fallback
 
 
-@lru_cache(maxsize=1)
-def section_source_map() -> dict[str, str]:
-    path = KNOWLEDGE_ROOT / "canonical" / "rhcsa_commands.json"
+@lru_cache(maxsize=16)
+def section_source_map(knowledge_root: Path | None = None) -> dict[str, str]:
+    path = (knowledge_root if knowledge_root is not None else KNOWLEDGE_ROOT) / "canonical" / "rhcsa_commands.json"
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
@@ -64,7 +66,7 @@ def section_source_map() -> dict[str, str]:
     return mapping
 
 
-def attach_provenance(result: dict[str, Any], confidence_score: int) -> dict[str, Any]:
+def attach_provenance(result: dict[str, Any], confidence_score: int, *, knowledge_root: Path | None = None) -> dict[str, Any]:
     source_file = (
         result.get("source_file")
         or result.get("file_location")
@@ -75,7 +77,7 @@ def attach_provenance(result: dict[str, Any], confidence_score: int) -> dict[str
     enriched["provenance"] = Provenance(
         source_file=str(source_file),
         source_page=_coerce_page(result.get("source_page")),
-        canonical_source=canonical_source(),
+        canonical_source=canonical_source(knowledge_root),
         confidence_score=confidence_score,
     ).to_dict()
     return enriched
