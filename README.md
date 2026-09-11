@@ -1,6 +1,6 @@
-# AOIA-Core
+# AIOA spArkHAT
 
-AOIA-Core is one local-first runtime for AI-assisted engineering and evidence-aware review. It keeps model output, tool results, evidence, provenance, contradictions, runtime state, and human authority separate instead of treating them as interchangeable forms of truth.
+AIOA spArkHAT (formerly AOIA-Core) is one local-first runtime for AI-assisted engineering and evidence-aware review. It keeps model output, tool results, evidence, provenance, contradictions, runtime state, and human authority separate instead of treating them as interchangeable forms of truth. This is the same repository and runtime, not a fork or an integration with a frozen hackathon application.
 
 AOIA means **Adaptive Oceanic Intelligence Architecture**. In this repository the name describes a bounded routing and control architecture; it does not imply AGI, autonomous authority, or a self-modifying system.
 
@@ -14,8 +14,22 @@ AOIA means **Adaptive Oceanic Intelligence Architecture**. In this repository th
 - append-only provenance support and contradiction tracking
 - local CLI, web console, and optional Textual TUI over the same runtime
 - deterministic dated-evidence review with source hashes and a mandatory human-review result
+- advisory Critical Prompt Loop: draft → three sequentially informed critics → one revision by the original model
 
 The dated-evidence capability is a module of AOIA-Core, not a second application. Its CLI command, JSON endpoints, browser workbench, tests, and documentation all live in this repository and use the same launch surface.
+
+## Critical Prompt Loop — explicit local fixture
+
+The CPL uses the same `AgentRuntime`, `ProviderManager`, command registry and web console. A successful run performs exactly five bounded generation requests. Critics are sequentially informed, **not independent consensus**. They cannot run tools, authorize changes, promote knowledge or train models.
+
+```bash
+./runtime/run.sh --cpl-fixture --command '/cpl fixture'
+./runtime/run_web.sh --cpl-fixture
+```
+
+In the Assistant select **Critical Prompt Loop**, load the synthetic dated example, preview the immutable plan, then authorize the **TEST** plan. The fixture traverses the actual HTTP adapter on loopback; it is not a live model result. Ordinary cloud chat is disabled in this explicit fixture session. Without the fixture flag, CPL live execution is disabled unless an operator supplies an explicit cost policy, fresh model-specific price quotes, positive budgets and approval of the displayed plan. A missing key never causes synthetic fallback.
+
+See the [CPL contract](docs/modules/CRITICAL_PROMPT_LOOP.md), [launch and acceptance guide](docs/CPL_LAUNCH.md), and [selective-port ADR](docs/ADR/ADR-CPL-001-selective-runtime-port.md). Existing `/review` and `/api/review` remain deterministic and separate. No paid live smoke test is claimed.
 
 ## Quick start
 
