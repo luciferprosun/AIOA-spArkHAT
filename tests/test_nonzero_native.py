@@ -13,7 +13,12 @@ from unittest.mock import patch
 from uuid import UUID
 
 import nonzero_cloudops
-from nonzero_cloudops import ModuleConfig, NonZeroCloudOpsService, NonZeroError, module_descriptor
+from nonzero_cloudops import (
+    ModuleConfig,
+    NonZeroCloudOpsService,
+    NonZeroError,
+    module_descriptor,
+)
 from nonzero_cloudops.contract import JUDGE_SHA
 
 AVAILABLE = module_descriptor()['available']
@@ -365,9 +370,9 @@ class NativeFailureTests(_NativeCase):
         self.assertEqual(self.call('GET', path)['run']['state'], 'AWAITING_APPROVAL')
 
     def test_trace_capacity_refuses_dispatch(self):
-        with patch.object(self.service._evidence, 'max_bytes', 1):
-            with self.assertRaisesRegex(NonZeroError, 'EVIDENCE_QUOTA_EXCEEDED'):
-                self.start()
+        with patch.object(self.service._evidence, 'max_bytes', 1), \
+             self.assertRaisesRegex(NonZeroError, 'EVIDENCE_QUOTA_EXCEEDED'):
+            self.start()
         self.assertEqual(self.service.components.repository.run_count(), 0)
 
     def test_result_log_failure_never_claims_unlogged_success(self):
@@ -378,9 +383,9 @@ class NativeFailureTests(_NativeCase):
                 raise NonZeroError('NONZERO_PROVENANCE_WRITE_FAILED')
             return append(kind, payload)
 
-        with patch.object(self.service._evidence, 'append', side_effect=fail_result):
-            with self.assertRaisesRegex(NonZeroError, 'PROVENANCE_WRITE_FAILED'):
-                self.start()
+        with patch.object(self.service._evidence, 'append', side_effect=fail_result), \
+             self.assertRaisesRegex(NonZeroError, 'PROVENANCE_WRITE_FAILED'):
+            self.start()
         self.assertEqual(self.service.components.executor.mutation_calls, 0)
 
     def test_evidence_trace_contains_binding_chain_and_no_nonce(self):

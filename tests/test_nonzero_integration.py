@@ -10,10 +10,10 @@ from dataclasses import replace
 from pathlib import Path
 from unittest.mock import patch
 
+import nonzero_cloudops
 from commands import build_command_registry
 from nonzero_cloudops import NonZeroCloudOpsService, NonZeroError, module_descriptor
 from nonzero_cloudops.contract import JUDGE_SHA
-import nonzero_cloudops
 from webapp import WebRuntimeService, make_server
 
 AVAILABLE = module_descriptor()['available']
