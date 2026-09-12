@@ -56,7 +56,7 @@ class AOIATerminalApp(App):
         yield DashboardView()
 
     def on_mount(self) -> None:
-        self.title = "AOIA Core Operator Console"
+        self.title = "AIOA spArkHAT Operator Console"
         self.refresh_status()
         self.set_interval(2.0, self.refresh_status)
         self.query_one(ApprovalPanel).set_idle()

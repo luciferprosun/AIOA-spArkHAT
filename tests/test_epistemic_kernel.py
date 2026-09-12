@@ -4,7 +4,10 @@ from pathlib import Path
 from adaptive_routing.epistemic_kernel import AOIAEpistemicKernel
 
 
-PROJECT_DIR = Path(__file__).resolve().parents[1]
+# The kernel receives the runtime resource root, just as AgentRuntime does.
+# The old repository-root argument only passed via an unintended global corpus
+# fallback. Keep every assertion; provide the explicit intended fixture root.
+PROJECT_DIR = Path(__file__).resolve().parents[1] / 'runtime'
 
 
 class AOIAEpistemicKernelTests(unittest.TestCase):

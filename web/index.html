@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
-      content="Local AOIA-Core operator console with deterministic dated-evidence review."
+      content="AIOA spArkHAT: one local runtime for Assistant, Evidence Review and advisory Critical Prompt Loop."
     />
-    <title>AOIA-Core Operator Console</title>
+    <title>AIOA spArkHAT Operator Console</title>
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
@@ -15,11 +15,11 @@
       <aside class="sidebar">
         <div class="brand">
           <p class="eyebrow">Adaptive Oceanic Intelligence Architecture</p>
-          <h1>AOIA-Core</h1>
-          <p class="subtitle">One local runtime for assisted work and evidence-aware review.</p>
+          <h1>AIOA spArkHAT</h1>
+          <p class="subtitle">Formerly AOIA-Core. One local runtime for assisted work and evidence-aware review.</p>
         </div>
 
-        <nav class="view-nav" aria-label="AOIA-Core modules" role="tablist">
+        <nav class="view-nav" aria-label="AIOA spArkHAT modules" role="tablist">
           <button
             class="view-tab view-tab-active"
             type="button"
@@ -96,13 +96,20 @@
       <main class="workspace">
         <header class="topbar">
           <div>
-            <p class="eyebrow">AOIA-Core Operator Console</p>
+            <p class="eyebrow product-name">AIOA spArkHAT Operator Console</p>
             <h2 id="view-title">Assistant runtime</h2>
           </div>
           <button id="refresh-status" class="button button-ghost" type="button">Refresh status</button>
         </header>
 
         <section id="assistant-view" class="workspace-view" role="tabpanel">
+          <div class="assistant-mode-bar">
+            <label class="label" for="assistant-mode">Assistant mode</label>
+            <select id="assistant-mode" class="select">
+              <option value="chat">Ordinary assistant</option>
+              <option value="cpl">Critical Prompt Loop · 1+3+1</option>
+            </select>
+          </div>
           <section class="hero">
             <div class="hero-card">
               <p class="eyebrow">Session</p>
@@ -125,6 +132,42 @@
             </div>
           </section>
 
+          <section id="cpl-panel" class="review-card cpl-panel" hidden>
+            <div class="review-result-head">
+              <div><p class="eyebrow">Integrated Critical Prompt Loop</p><h3>Draft → 3 sequential critics → one final revision</h3></div>
+              <span id="cpl-mode" class="badge">Loading configuration</span>
+            </div>
+            <p class="legal-boundary">Advisory only. Critics are sequentially informed, not independent consensus. No tools, automatic knowledge promotion or model training. Completion and hashes do not prove truth.</p>
+            <p id="cpl-transport-note" class="note"></p>
+            <form id="cpl-plan-form">
+              <label class="label" for="cpl-prompt">Prompt</label>
+              <textarea id="cpl-prompt" rows="3" maxlength="12000" required></textarea>
+              <label class="label" for="cpl-evidence">Explicit evidence / dated source references (quoted, untrusted data)</label>
+              <textarea id="cpl-evidence" rows="3" maxlength="10000"></textarea>
+              <label class="label" for="cpl-models">Exact model IDs: primary, logic, safety, evidence (one per line; blank uses fixed server defaults)</label>
+              <textarea id="cpl-models" rows="4" placeholder="fixture/synthetic"></textarea>
+              <label class="label" for="cpl-budget">Live run budget USD (not used by synthetic fixture)</label>
+              <input id="cpl-budget" value="0" inputmode="decimal" class="select" />
+              <div class="review-actions">
+                <button id="cpl-load-fixture" type="button" class="button button-ghost">Load synthetic dated example</button>
+                <button id="cpl-plan" type="submit" class="button button-primary">Preview immutable plan</button>
+              </div>
+            </form>
+            <p id="cpl-request-status" class="note" aria-live="polite">Not run</p>
+            <pre id="cpl-plan-preview" class="cpl-data">Create a plan to inspect models, limits, budget and authorization scope.</pre>
+            <div class="review-actions">
+              <button id="cpl-start" type="button" class="button button-primary" disabled>Authorize displayed plan and start</button>
+              <button id="cpl-cancel" type="button" class="button button-ghost" disabled>Cancel run</button>
+              <button id="cpl-verify" type="button" class="button button-ghost" disabled>Verify Evidence Chain</button>
+            </div>
+            <p id="cpl-state" class="badge">NOT_STARTED</p>
+            <p id="cpl-run-id" class="note"></p>
+            <section class="cpl-stage"><h4>Working draft — not a delivered final answer</h4><pre id="cpl-draft" class="cpl-data">Not available</pre></section>
+            <div id="cpl-reviews" class="cpl-review-grid"></div>
+            <section class="cpl-stage"><h4>Preserved conflicts and uncertainty</h4><pre id="cpl-conflicts" class="cpl-data">Not available</pre></section>
+            <section class="cpl-stage"><h4>Final revision — human review required</h4><pre id="cpl-final" class="cpl-data">Not delivered</pre></section>
+            <details><summary>Evidence Chain and transport identities</summary><pre id="cpl-trace" class="cpl-data">Not available</pre></details>
+          </section>
           <section id="chat-log" class="chat-log" aria-live="polite"></section>
 
           <form id="composer" class="composer">
@@ -203,7 +246,7 @@
             </div>
             <div id="review-evidence" class="evidence-list"></div>
             <p class="legal-boundary">
-              A matching value is corroboration only. AOIA-Core does not determine legal applicability,
+              A matching value is corroboration only. AIOA spArkHAT does not determine legal applicability,
               approve the answer, or replace current official sources or qualified advice.
             </p>
           </section>

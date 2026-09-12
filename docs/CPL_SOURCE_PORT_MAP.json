@@ -1,0 +1,604 @@
+{
+  "schema_version": "cpl-source-port-map-v1",
+  "repository_id": 1247349659,
+  "base_commit": "20a53ff8872e3aff4b872a021b5a46110549450a",
+  "historical_commit": "5ec74f85256c260dadbc795143eb132b4119aab6",
+  "whole_branch_merge": false,
+  "historical_core_scenarios": 70,
+  "pure_core_tests_ported": 42,
+  "pure_support_tests_ported": 5,
+  "sources": [
+    {
+      "source_commit": "5ec74f85256c260dadbc795143eb132b4119aab6",
+      "source_path": "apps/aoia_desktop_demo/critical_review.py",
+      "source_sha256": "cf5c48a3ce236df994844659aa46f3e1d4359f6d62774e7148526dc66f184964",
+      "destination": [
+        {
+          "path": "runtime/critical_loop/review.py",
+          "sha256": "c2670f74b1f850f15835d003a13f030384388087e43ece91555548cda2b43d07"
+        }
+      ],
+      "adaptation": "Pure snapshot/config/parser/prompts/sequencer port; distinct roles, 512 critic cap, fail-fast sequential, reject extra keys.",
+      "license": "MIT; Copyright (c) 2026 Lukasz Zuchowski"
+    },
+    {
+      "source_commit": "5ec74f85256c260dadbc795143eb132b4119aab6",
+      "source_path": "apps/aoia_desktop_demo/security/secret_redaction.py",
+      "source_sha256": "2f6ec764b48f586e0252423d05aab6e364c9200f15d8c03da3e68075c0cf76b9",
+      "destination": [
+        {
+          "path": "runtime/critical_loop/redaction.py",
+          "sha256": "2500578fdeb0c015d1e75303186ff2ff871cf466caa41293d1ce87961b45dd4d"
+        }
+      ],
+      "adaptation": "Retain pattern/known-secret redaction; preserve token-count metadata; explicitly mask nonce/CSRF.",
+      "license": "MIT; Copyright (c) 2026 Lukasz Zuchowski"
+    },
+    {
+      "source_commit": "5ec74f85256c260dadbc795143eb132b4119aab6",
+      "source_path": "apps/aoia_desktop_demo/providers/base.py",
+      "source_sha256": "6c1fba300f0d09d3744c79a101f134bded544db5f6acf6e72780bc6f49691dd7",
+      "destination": [
+        {
+          "path": "runtime/providers/messages.py",
+          "sha256": "40a2fef8f711d0a0702e38dac1435db0b3ba49bb49eea13909a6a56ac2fcb22e"
+        }
+      ],
+      "adaptation": "Only immutable ChatMessage/ChatResult bridge; strict structured ProviderResult implemented in shared provider path.",
+      "license": "MIT; Copyright (c) 2026 Lukasz Zuchowski"
+    },
+    {
+      "source_commit": "5ec74f85256c260dadbc795143eb132b4119aab6",
+      "source_path": "apps/aoia_desktop_demo/app.py",
+      "source_sha256": "bd13466e59ff336e981159b380ba1bfb76610fdf110a365484ed34417ceb8e74",
+      "destination": [
+        {
+          "path": "runtime/critical_loop/service.py",
+          "sha256": "5e55fe64d8a7d390900acf4b50d350f63a44a3acd3e1ee53cba31ab76ac145f0"
+        },
+        {
+          "path": "runtime/main.py",
+          "sha256": "a71c93adaeabe5aca66c86c9e265926822921f6b717c79487a3eef9eff33f115"
+        }
+      ],
+      "adaptation": "Contract-informed reimplementation of orchestration in existing AgentRuntime, no AppController/Tk port.",
+      "license": "MIT; Copyright (c) 2026 Lukasz Zuchowski"
+    },
+    {
+      "source_commit": "5ec74f85256c260dadbc795143eb132b4119aab6",
+      "source_path": "apps/aoia_desktop_demo/tests/test_critical_review.py",
+      "source_sha256": "3c59e40d8145c9a0b539b2f360856f5709474e94e593cbed925b2dc251616227",
+      "destination": [
+        {
+          "path": "tests/test_cpl_original_contract.py",
+          "sha256": "21908a6734b9660c282d9cba2086af54a677fb58ae43a005da49c0b67aea7f31"
+        }
+      ],
+      "adaptation": "42 pure tests ported; extra authority keys expectation strengthened; 11 GUI/controller scenarios replaced or explicitly retired UI design.",
+      "license": "MIT; Copyright (c) 2026 Lukasz Zuchowski"
+    },
+    {
+      "source_commit": "5ec74f85256c260dadbc795143eb132b4119aab6",
+      "source_path": "apps/aoia_desktop_demo/tests/test_app_controller.py",
+      "source_sha256": "6c8e5fd191b4a4a67bb8e52fa4a72546e6c03a1def672ecebe22b6c2b28b7deb",
+      "destination": [
+        {
+          "path": "tests/test_cpl_service.py",
+          "sha256": "9438e2d90159fe95f9f4f17ad667d1b469ffbafa548af21253b901e760c35d39"
+        },
+        {
+          "path": "tests/test_cpl_web.py",
+          "sha256": "8d87aac38c3ddc0d35d6f2fd94d55ac1d4b6d5cb22c7104f112b854593b9c778"
+        }
+      ],
+      "adaptation": "17 core scenarios mapped to same-runtime/real-HTTP/gating behavior; ordinary chat policy remains current-main policy.",
+      "license": "MIT; Copyright (c) 2026 Lukasz Zuchowski"
+    },
+    {
+      "source_commit": "5ec74f85256c260dadbc795143eb132b4119aab6",
+      "source_path": "apps/aoia_desktop_demo/tests/test_secret_redaction.py",
+      "source_sha256": "3f15bdc009b8ea9970a74ce550cbbc6551890fbee9cd4384cd8edfbf06d11c97",
+      "destination": [
+        {
+          "path": "tests/test_cpl_original_redaction.py",
+          "sha256": "87b2b2f66a7bc32079dfcc80c55659fcc44a86b3e32f218eac1dd1d3e8ebe09f"
+        }
+      ],
+      "adaptation": "Five pure support tests ported; Tk API-key mask test not ported because no key UI is introduced.",
+      "license": "MIT; Copyright (c) 2026 Lukasz Zuchowski"
+    }
+  ],
+  "historical_core_test_map": [
+    {
+      "source_path": "apps/aoia_desktop_demo/tests/test_critical_review.py",
+      "source_symbol": "SnapshotAndHashingTests.test_identical_inputs_produce_identical_hashes",
+      "source_line": 129,
+      "disposition": "PURE_HELPER_TEST_PORTED_IMPORTS_ONLY",
+      "destination_evidence": "tests/test_cpl_original_contract.py:SnapshotAndHashingTests.test_identical_inputs_produce_identical_hashes"
+    },
+    {
+      "source_path": "apps/aoia_desktop_demo/tests/test_critical_review.py",
+      "source_symbol": "SnapshotAndHashingTests.test_prompt_change_changes_snapshot_hash",
+      "source_line": 135,
+      "disposition": "PURE_HELPER_TEST_PORTED_IMPORTS_ONLY",
+      "destination_evidence": "tests/test_cpl_original_contract.py:SnapshotAndHashingTests.test_prompt_change_changes_snapshot_hash"
+    },
+    {
+      "source_path": "apps/aoia_desktop_demo/tests/test_critical_review.py",
+      "source_symbol": "SnapshotAndHashingTests.test_response_change_changes_snapshot_hash",
+      "source_line": 138,
+      "disposition": "PURE_HELPER_TEST_PORTED_IMPORTS_ONLY",
+      "destination_evidence": "tests/test_cpl_original_contract.py:SnapshotAndHashingTests.test_response_change_changes_snapshot_hash"
+    },
+    {
+      "source_path": "apps/aoia_desktop_demo/tests/test_critical_review.py",
+      "source_symbol": "SnapshotAndHashingTests.test_model_change_changes_snapshot_hash",
+      "source_line": 141,
+      "disposition": "PURE_HELPER_TEST_PORTED_IMPORTS_ONLY",
+      "destination_evidence": "tests/test_cpl_original_contract.py:SnapshotAndHashingTests.test_model_change_changes_snapshot_hash"
+    },
+    {
+      "source_path": "apps/aoia_desktop_demo/tests/test_critical_review.py",
+      "source_symbol": "SnapshotAndHashingTests.test_evidence_change_changes_digest_and_snapshot_hash",
+      "source_line": 144,
+      "disposition": "PURE_HELPER_TEST_PORTED_IMPORTS_ONLY",
+      "destination_evidence": "tests/test_cpl_original_contract.py:SnapshotAndHashingTests.test_evidence_change_changes_digest_and_snapshot_hash"
+    },
+    {
+      "source_path": "apps/aoia_desktop_demo/tests/test_critical_review.py",
+      "source_symbol": "SnapshotAndHashingTests.test_canonical_hash_is_independent_of_dictionary_insertion_order",
+      "source_line": 150,
+      "disposition": "PURE_HELPER_TEST_PORTED_IMPORTS_ONLY",
+      "destination_evidence": "tests/test_cpl_original_contract.py:SnapshotAndHashingTests.test_canonical_hash_is_independent_of_dictionary_insertion_order"
+    },
+    {
+      "source_path": "apps/aoia_desktop_demo/tests/test_critical_review.py",
+      "source_symbol": "SnapshotAndHashingTests.test_api_key_like_material_is_rejected_before_serialization",
+      "source_line": 153,
+      "disposition": "PURE_HELPER_TEST_PORTED_IMPORTS_ONLY",
+      "destination_evidence": "tests/test_cpl_original_contract.py:SnapshotAndHashingTests.test_api_key_like_material_is_rejected_before_serialization"
+    },
+    {
+      "source_path": "apps/aoia_desktop_demo/tests/test_critical_review.py",
+      "source_symbol": "SnapshotAndHashingTests.test_forged_snapshot_hash_causes_zero_calls",
+      "source_line": 157,
+      "disposition": "PURE_HELPER_TEST_PORTED_IMPORTS_ONLY",
+      "destination_evidence": "tests/test_cpl_original_contract.py:SnapshotAndHashingTests.test_forged_snapshot_hash_causes_zero_calls"
+    },
+    {
+      "source_path": "apps/aoia_desktop_demo/tests/test_critical_review.py",
+      "source_symbol": "SnapshotAndHashingTests.test_empty_prompt_or_response_fails_closed",
+      "source_line": 166,
+      "disposition": "PURE_HELPER_TEST_PORTED_IMPORTS_ONLY",
+      "destination_evidence": "tests/test_cpl_original_contract.py:SnapshotAndHashingTests.test_empty_prompt_or_response_fails_closed"
+    },
+    {
+      "source_path": "apps/aoia_desktop_demo/tests/test_critical_review.py",
+      "source_symbol": "SnapshotAndHashingTests.test_no_evidence_snapshot_is_deterministic",
+      "source_line": 172,
+      "disposition": "PURE_HELPER_TEST_PORTED_IMPORTS_ONLY",
+      "destination_evidence": "tests/test_cpl_original_contract.py:SnapshotAndHashingTests.test_no_evidence_snapshot_is_deterministic"
+    },
+    {
+      "source_path": "apps/aoia_desktop_demo/tests/test_critical_review.py",
+      "source_symbol": "ConfigurationValidationTests.test_more_than_three_configs_fails_before_calls",
+      "source_line": 180,
+      "disposition": "PURE_HELPER_TEST_PORTED_IMPORTS_ONLY",
+      "destination_evidence": "tests/test_cpl_original_contract.py:ConfigurationValidationTests.test_more_than_three_configs_fails_before_calls"
+    },
+    {
+      "source_path": "apps/aoia_desktop_demo/tests/test_critical_review.py",
+      "source_symbol": "ConfigurationValidationTests.test_duplicate_slots_fail_before_calls",
+      "source_line": 187,
+      "disposition": "PURE_HELPER_TEST_PORTED_IMPORTS_ONLY",
+      "destination_evidence": "tests/test_cpl_original_contract.py:ConfigurationValidationTests.test_duplicate_slots_fail_before_calls"
+    },
+    {
+      "source_path": "apps/aoia_desktop_demo/tests/test_critical_review.py",
+      "source_symbol": "ConfigurationValidationTests.test_unsupported_or_out_of_order_slots_fail_before_calls",
+      "source_line": 193,
+      "disposition": "PURE_HELPER_TEST_PORTED_IMPORTS_ONLY",
+      "destination_evidence": "tests/test_cpl_original_contract.py:ConfigurationValidationTests.test_unsupported_or_out_of_order_slots_fail_before_calls"
+    },
+    {
+      "source_path": "apps/aoia_desktop_demo/tests/test_critical_review.py",
+      "source_symbol": "ConfigurationValidationTests.test_disabled_slot_does_not_resolve_or_call",
+      "source_line": 201,
+      "disposition": "LEGACY_INDEPENDENT_HELPER_COMPATIBILITY_ONLY_NOT_NEW_CPL_BEHAVIOR",
+      "destination_evidence": "tests/test_cpl_original_contract.py:ConfigurationValidationTests.test_disabled_slot_does_not_resolve_or_call"
+    },
+    {
+      "source_path": "apps/aoia_desktop_demo/tests/test_critical_review.py",
+      "source_symbol": "ConfigurationValidationTests.test_missing_provider_or_model_is_invalid_without_call",
+      "source_line": 207,
+      "disposition": "PURE_HELPER_TEST_PORTED_IMPORTS_ONLY",
+      "destination_evidence": "tests/test_cpl_original_contract.py:ConfigurationValidationTests.test_missing_provider_or_model_is_invalid_without_call"
+    },
+    {
+      "source_path": "apps/aoia_desktop_demo/tests/test_critical_review.py",
+      "source_symbol": "ConfigurationValidationTests.test_malformed_provider_or_model_identifier_is_invalid_without_call",
+      "source_line": 217,
+      "disposition": "PURE_HELPER_TEST_PORTED_IMPORTS_ONLY",
+      "destination_evidence": "tests/test_cpl_original_contract.py:ConfigurationValidationTests.test_malformed_provider_or_model_identifier_is_invalid_without_call"
+    },
+    {
+      "source_path": "apps/aoia_desktop_demo/tests/test_critical_review.py",
+      "source_symbol": "ConfigurationValidationTests.test_configuration_hash_is_deterministic_and_model_bound",
+      "source_line": 227,
+      "disposition": "PURE_HELPER_TEST_PORTED_IMPORTS_ONLY",
+      "destination_evidence": "tests/test_cpl_original_contract.py:ConfigurationValidationTests.test_configuration_hash_is_deterministic_and_model_bound"
+    },
+    {
+      "source_path": "apps/aoia_desktop_demo/tests/test_critical_review.py",
+      "source_symbol": "ConfigurationValidationTests.test_configuration_rejects_secret_shaped_material",
+      "source_line": 234,
+      "disposition": "PURE_HELPER_TEST_PORTED_IMPORTS_ONLY",
+      "destination_evidence": "tests/test_cpl_original_contract.py:ConfigurationValidationTests.test_configuration_rejects_secret_shaped_material"
+    },
+    {
+      "source_path": "apps/aoia_desktop_demo/tests/test_critical_review.py",
+      "source_symbol": "ExactCallBudgetTests.test_zero_one_two_three_enabled_produce_exact_call_counts",
+      "source_line": 247,
+      "disposition": "LEGACY_INDEPENDENT_HELPER_COMPATIBILITY_ONLY_NOT_NEW_CPL_BEHAVIOR",
+      "destination_evidence": "tests/test_cpl_original_contract.py:ExactCallBudgetTests.test_zero_one_two_three_enabled_produce_exact_call_counts"
+    },
+    {
+      "source_path": "apps/aoia_desktop_demo/tests/test_critical_review.py",
+      "source_symbol": "ExactCallBudgetTests.test_exact_provider_connection_model_and_output_limit_are_unchanged",
+      "source_line": 254,
+      "disposition": "PURE_HELPER_TEST_PORTED_IMPORTS_ONLY",
+      "destination_evidence": "tests/test_cpl_original_contract.py:ExactCallBudgetTests.test_exact_provider_connection_model_and_output_limit_are_unchanged"
+    },
+    {
+      "source_path": "apps/aoia_desktop_demo/tests/test_critical_review.py",
+      "source_symbol": "ExactCallBudgetTests.test_duplicate_provider_and_model_choices_receive_independent_calls",
+      "source_line": 266,
+      "disposition": "LEGACY_INDEPENDENT_HELPER_COMPATIBILITY_ONLY_NOT_NEW_CPL_BEHAVIOR",
+      "destination_evidence": "tests/test_cpl_original_contract.py:ExactCallBudgetTests.test_duplicate_provider_and_model_choices_receive_independent_calls"
+    },
+    {
+      "source_path": "apps/aoia_desktop_demo/tests/test_critical_review.py",
+      "source_symbol": "ExactCallBudgetTests.test_native_structured_sender_receives_strict_observer_schema_once",
+      "source_line": 272,
+      "disposition": "PURE_HELPER_TEST_PORTED_IMPORTS_ONLY",
+      "destination_evidence": "tests/test_cpl_original_contract.py:ExactCallBudgetTests.test_native_structured_sender_receives_strict_observer_schema_once"
+    },
+    {
+      "source_path": "apps/aoia_desktop_demo/tests/test_critical_review.py",
+      "source_symbol": "ExactCallBudgetTests.test_provider_reported_model_substitution_is_rejected",
+      "source_line": 289,
+      "disposition": "PURE_HELPER_TEST_PORTED_IMPORTS_ONLY",
+      "destination_evidence": "tests/test_cpl_original_contract.py:ExactCallBudgetTests.test_provider_reported_model_substitution_is_rejected"
+    },
+    {
+      "source_path": "apps/aoia_desktop_demo/tests/test_critical_review.py",
+      "source_symbol": "ExactCallBudgetTests.test_observer_results_never_enter_later_requests",
+      "source_line": 298,
+      "disposition": "LEGACY_INDEPENDENT_HELPER_COMPATIBILITY_ONLY_NOT_NEW_CPL_BEHAVIOR",
+      "destination_evidence": "tests/test_cpl_original_contract.py:ExactCallBudgetTests.test_observer_results_never_enter_later_requests"
+    },
+    {
+      "source_path": "apps/aoia_desktop_demo/tests/test_critical_review.py",
+      "source_symbol": "ExactCallBudgetTests.test_knowledge_and_deterministic_empty_evidence_are_supplied",
+      "source_line": 305,
+      "disposition": "PURE_HELPER_TEST_PORTED_IMPORTS_ONLY",
+      "destination_evidence": "tests/test_cpl_original_contract.py:ExactCallBudgetTests.test_knowledge_and_deterministic_empty_evidence_are_supplied"
+    },
+    {
+      "source_path": "apps/aoia_desktop_demo/tests/test_critical_review.py",
+      "source_symbol": "ExactCallBudgetTests.test_provider_exception_attempts_once_and_continues_other_slots",
+      "source_line": 313,
+      "disposition": "LEGACY_INDEPENDENT_HELPER_COMPATIBILITY_ONLY_NOT_NEW_CPL_BEHAVIOR",
+      "destination_evidence": "tests/test_cpl_original_contract.py:ExactCallBudgetTests.test_provider_exception_attempts_once_and_continues_other_slots"
+    },
+    {
+      "source_path": "apps/aoia_desktop_demo/tests/test_critical_review.py",
+      "source_symbol": "ExactCallBudgetTests.test_malformed_output_causes_no_repair_or_second_call",
+      "source_line": 328,
+      "disposition": "PURE_HELPER_TEST_PORTED_IMPORTS_ONLY",
+      "destination_evidence": "tests/test_cpl_original_contract.py:ExactCallBudgetTests.test_malformed_output_causes_no_repair_or_second_call"
+    },
+    {
+      "source_path": "apps/aoia_desktop_demo/tests/test_critical_review.py",
+      "source_symbol": "ExactCallBudgetTests.test_single_json_code_fence_is_accepted_without_second_call",
+      "source_line": 336,
+      "disposition": "PURE_HELPER_TEST_PORTED_IMPORTS_ONLY",
+      "destination_evidence": "tests/test_cpl_original_contract.py:ExactCallBudgetTests.test_single_json_code_fence_is_accepted_without_second_call"
+    },
+    {
+      "source_path": "apps/aoia_desktop_demo/tests/test_critical_review.py",
+      "source_symbol": "ExactCallBudgetTests.test_json_fence_with_surrounding_prose_remains_unstructured",
+      "source_line": 345,
+      "disposition": "PURE_HELPER_TEST_PORTED_IMPORTS_ONLY",
+      "destination_evidence": "tests/test_cpl_original_contract.py:ExactCallBudgetTests.test_json_fence_with_surrounding_prose_remains_unstructured"
+    },
+    {
+      "source_path": "apps/aoia_desktop_demo/tests/test_critical_review.py",
+      "source_symbol": "ExactCallBudgetTests.test_local_parser_enforces_the_declared_schema_item_bounds",
+      "source_line": 353,
+      "disposition": "PURE_HELPER_TEST_PORTED_IMPORTS_ONLY",
+      "destination_evidence": "tests/test_cpl_original_contract.py:ExactCallBudgetTests.test_local_parser_enforces_the_declared_schema_item_bounds"
+    },
+    {
+      "source_path": "apps/aoia_desktop_demo/tests/test_critical_review.py",
+      "source_symbol": "ExactCallBudgetTests.test_unavailable_selected_connection_does_not_fall_back",
+      "source_line": 362,
+      "disposition": "PURE_HELPER_TEST_PORTED_IMPORTS_ONLY",
+      "destination_evidence": "tests/test_cpl_original_contract.py:ExactCallBudgetTests.test_unavailable_selected_connection_does_not_fall_back"
+    },
+    {
+      "source_path": "apps/aoia_desktop_demo/tests/test_critical_review.py",
+      "source_symbol": "SequentialReviewTests.test_observers_run_once_in_order_with_only_earlier_metadata",
+      "source_line": 378,
+      "disposition": "PURE_HELPER_TEST_PORTED_IMPORTS_ONLY",
+      "destination_evidence": "tests/test_cpl_original_contract.py:SequentialReviewTests.test_observers_run_once_in_order_with_only_earlier_metadata"
+    },
+    {
+      "source_path": "apps/aoia_desktop_demo/tests/test_critical_review.py",
+      "source_symbol": "SequentialReviewTests.test_incomplete_sequential_setup_fails_before_any_call",
+      "source_line": 401,
+      "disposition": "PURE_HELPER_TEST_PORTED_IMPORTS_ONLY",
+      "destination_evidence": "tests/test_cpl_original_contract.py:SequentialReviewTests.test_incomplete_sequential_setup_fails_before_any_call"
+    },
+    {
+      "source_path": "apps/aoia_desktop_demo/tests/test_critical_review.py",
+      "source_symbol": "SequentialReviewTests.test_operator_cancel_stops_before_the_next_observer_call",
+      "source_line": 411,
+      "disposition": "PURE_HELPER_TEST_PORTED_IMPORTS_ONLY",
+      "destination_evidence": "tests/test_cpl_original_contract.py:SequentialReviewTests.test_operator_cancel_stops_before_the_next_observer_call"
+    },
+    {
+      "source_path": "apps/aoia_desktop_demo/tests/test_critical_review.py",
+      "source_symbol": "SequentialReviewTests.test_final_revision_contains_draft_evidence_and_three_reports",
+      "source_line": 423,
+      "disposition": "PURE_HELPER_TEST_PORTED_IMPORTS_ONLY",
+      "destination_evidence": "tests/test_cpl_original_contract.py:SequentialReviewTests.test_final_revision_contains_draft_evidence_and_three_reports"
+    },
+    {
+      "source_path": "apps/aoia_desktop_demo/tests/test_critical_review.py",
+      "source_symbol": "SequentialReviewTests.test_final_revision_fails_closed_when_an_observer_did_not_complete",
+      "source_line": 438,
+      "disposition": "PURE_HELPER_TEST_PORTED_IMPORTS_ONLY",
+      "destination_evidence": "tests/test_cpl_original_contract.py:SequentialReviewTests.test_final_revision_fails_closed_when_an_observer_did_not_complete"
+    },
+    {
+      "source_path": "apps/aoia_desktop_demo/tests/test_critical_review.py",
+      "source_symbol": "ResultHandlingTests.test_structured_json_produces_completed_immutable_metadata",
+      "source_line": 452,
+      "disposition": "PURE_HELPER_TEST_PORTED_IMPORTS_ONLY",
+      "destination_evidence": "tests/test_cpl_original_contract.py:ResultHandlingTests.test_structured_json_produces_completed_immutable_metadata"
+    },
+    {
+      "source_path": "apps/aoia_desktop_demo/tests/test_critical_review.py",
+      "source_symbol": "ResultHandlingTests.test_uncertainty_is_an_allowed_finding_category",
+      "source_line": 460,
+      "disposition": "PURE_HELPER_TEST_PORTED_IMPORTS_ONLY",
+      "destination_evidence": "tests/test_cpl_original_contract.py:ResultHandlingTests.test_uncertainty_is_an_allowed_finding_category"
+    },
+    {
+      "source_path": "apps/aoia_desktop_demo/tests/test_critical_review.py",
+      "source_symbol": "ResultHandlingTests.test_authority_is_an_allowed_finding_category",
+      "source_line": 471,
+      "disposition": "PURE_HELPER_TEST_PORTED_IMPORTS_ONLY",
+      "destination_evidence": "tests/test_cpl_original_contract.py:ResultHandlingTests.test_authority_is_an_allowed_finding_category"
+    },
+    {
+      "source_path": "apps/aoia_desktop_demo/tests/test_critical_review.py",
+      "source_symbol": "ResultHandlingTests.test_every_local_result_retains_both_hashes_and_non_authority",
+      "source_line": 482,
+      "disposition": "PURE_HELPER_TEST_PORTED_IMPORTS_ONLY",
+      "destination_evidence": "tests/test_cpl_original_contract.py:ResultHandlingTests.test_every_local_result_retains_both_hashes_and_non_authority"
+    },
+    {
+      "source_path": "apps/aoia_desktop_demo/tests/test_critical_review.py",
+      "source_symbol": "ResultHandlingTests.test_provider_cannot_replace_authority_or_hash_fields",
+      "source_line": 490,
+      "disposition": "HARDENED_REJECT_EXTRA_FIELDS_INSTEAD_OF_IGNORING",
+      "destination_evidence": "tests/test_cpl_original_contract.py:ResultHandlingTests.test_provider_cannot_replace_authority_or_hash_fields"
+    },
+    {
+      "source_path": "apps/aoia_desktop_demo/tests/test_critical_review.py",
+      "source_symbol": "ResultHandlingTests.test_raw_unstructured_output_is_bounded_and_secret_redacted",
+      "source_line": 512,
+      "disposition": "PURE_HELPER_TEST_PORTED_IMPORTS_ONLY",
+      "destination_evidence": "tests/test_cpl_original_contract.py:ResultHandlingTests.test_raw_unstructured_output_is_bounded_and_secret_redacted"
+    },
+    {
+      "source_path": "apps/aoia_desktop_demo/tests/test_critical_review.py",
+      "source_symbol": "ResultHandlingTests.test_html_is_retained_only_as_plain_text",
+      "source_line": 521,
+      "disposition": "WEB_DOM_REPLACEMENT",
+      "destination_evidence": "browser CDP: HTML escaped in draft and critic, zero img nodes, CPL_INJECTED false"
+    },
+    {
+      "source_path": "apps/aoia_desktop_demo/tests/test_critical_review.py",
+      "source_symbol": "ResultHandlingTests.test_card_summary_preview_is_single_line_and_bounded",
+      "source_line": 531,
+      "disposition": "UI_DESIGN_CHANGE_NO_TK",
+      "destination_evidence": "web/app.js: bounded full report pre elements, no Tk single-line preview"
+    },
+    {
+      "source_path": "apps/aoia_desktop_demo/tests/test_critical_review.py",
+      "source_symbol": "ControllerAndUiBoundaryTests.test_review_snapshot_requires_completed_primary_turn",
+      "source_line": 539,
+      "disposition": "CPL_SNAPSHOT_AFTER_DRAFT",
+      "destination_evidence": "test_T04_transport_failure_at_every_stage_is_fail_fast"
+    },
+    {
+      "source_path": "apps/aoia_desktop_demo/tests/test_critical_review.py",
+      "source_symbol": "ControllerAndUiBoundaryTests.test_completed_turn_capture_is_immutable_and_evidence_bound",
+      "source_line": 546,
+      "disposition": "SERVICE_REPLACEMENT",
+      "destination_evidence": "test_T01_exact_five_original_model_and_same_snapshot"
+    },
+    {
+      "source_path": "apps/aoia_desktop_demo/tests/test_critical_review.py",
+      "source_symbol": "ControllerAndUiBoundaryTests.test_repeated_submit_while_active_does_not_duplicate_calls",
+      "source_line": 568,
+      "disposition": "ATOMIC_NONCE_REPLACEMENT",
+      "destination_evidence": "test_T08_concurrent_double_start_exactly_one_worker"
+    },
+    {
+      "source_path": "apps/aoia_desktop_demo/tests/test_critical_review.py",
+      "source_symbol": "ControllerAndUiBoundaryTests.test_each_result_updates_only_its_matching_card",
+      "source_line": 608,
+      "disposition": "WEB_UI_REPLACEMENT",
+      "destination_evidence": "browser CDP three cards + test_T01_exact_five_original_model_and_same_snapshot"
+    },
+    {
+      "source_path": "apps/aoia_desktop_demo/tests/test_critical_review.py",
+      "source_symbol": "ControllerAndUiBoundaryTests.test_offline_three_observer_smoke_renders_independent_full_results",
+      "source_line": 620,
+      "disposition": "SEQUENTIAL_NOT_INDEPENDENT",
+      "destination_evidence": "browser CDP: three sequentially informed reports; test_T03_informed_reviews_and_negative_findings_are_not_transport_failure"
+    },
+    {
+      "source_path": "apps/aoia_desktop_demo/tests/test_critical_review.py",
+      "source_symbol": "ControllerAndUiBoundaryTests.test_later_selector_changes_do_not_modify_captured_config_or_result_hash",
+      "source_line": 639,
+      "disposition": "IMMUTABLE_PLAN_REPLACEMENT",
+      "destination_evidence": "test_T05_neighboring_model_change_does_not_mutate_plan"
+    },
+    {
+      "source_path": "apps/aoia_desktop_demo/tests/test_critical_review.py",
+      "source_symbol": "ControllerAndUiBoundaryTests.test_later_primary_turn_does_not_modify_existing_result_hash",
+      "source_line": 655,
+      "disposition": "PERSISTED_SNAPSHOT_REPLACEMENT",
+      "destination_evidence": "test_snapshot_integrity_port_retained + test_T13_reopen_completed_and_verify_external_manifest_without_provider"
+    },
+    {
+      "source_path": "apps/aoia_desktop_demo/tests/test_critical_review.py",
+      "source_symbol": "ControllerAndUiBoundaryTests.test_ui_has_no_automatic_review_trigger",
+      "source_line": 664,
+      "disposition": "EXPLICIT_APPROVAL_REPLACEMENT",
+      "destination_evidence": "browser CDP explicit plan/start + test_T11_chat_cannot_bypass_cpl_approval"
+    },
+    {
+      "source_path": "apps/aoia_desktop_demo/tests/test_critical_review.py",
+      "source_symbol": "ControllerAndUiBoundaryTests.test_review_module_has_no_forbidden_capability_imports",
+      "source_line": 671,
+      "disposition": "CAPABILITY_BOUNDARY_REPLACEMENT",
+      "destination_evidence": "test_T09_model_commands_are_data_not_authority + private AST boundary scan"
+    },
+    {
+      "source_path": "apps/aoia_desktop_demo/tests/test_app_controller.py",
+      "source_symbol": "AppControllerModelOnlyModeTests.test_model_only_mode_sends_no_knowledge_evidence",
+      "source_line": 167,
+      "disposition": "EXPLICIT_EVIDENCE_NO_TK_PROFILES",
+      "destination_evidence": "pure port test_knowledge_and_deterministic_empty_evidence_are_supplied; explicit service evidence defaults empty"
+    },
+    {
+      "source_path": "apps/aoia_desktop_demo/tests/test_app_controller.py",
+      "source_symbol": "AppControllerModelOnlyModeTests.test_knowledge_mode_can_attach_evidence",
+      "source_line": 180,
+      "disposition": "EXPLICIT_EVIDENCE_IN_PLAN",
+      "destination_evidence": "test_T01_exact_five_original_model_and_same_snapshot + test_T16_existing_chat_commands_status_and_review_stay_separate"
+    },
+    {
+      "source_path": "apps/aoia_desktop_demo/tests/test_app_controller.py",
+      "source_symbol": "AppControllerModelOnlyModeTests.test_exactly_one_provider_call_per_submit_no_hidden_retry",
+      "source_line": 196,
+      "disposition": "ONE_ATTEMPT_PER_CPL_STAGE",
+      "destination_evidence": "test_T04_transport_failure_at_every_stage_is_fail_fast"
+    },
+    {
+      "source_path": "apps/aoia_desktop_demo/tests/test_app_controller.py",
+      "source_symbol": "AppControllerModelOnlyModeTests.test_provider_error_is_surfaced_not_swallowed_or_retried",
+      "source_line": 202,
+      "disposition": "SAFE_ERROR_NO_RETRY",
+      "destination_evidence": "test_T10_error_exposed_without_raw_provider_error"
+    },
+    {
+      "source_path": "apps/aoia_desktop_demo/tests/test_app_controller.py",
+      "source_symbol": "AppControllerModelOnlyModeTests.test_no_active_client_without_api_key",
+      "source_line": 208,
+      "disposition": "SHARED_PROVIDER_CONFIG_NO_TK_KEY_STORE",
+      "destination_evidence": "strict ProviderManager PROVIDER_UNCONFIGURED; zero live budget admission tests"
+    },
+    {
+      "source_path": "apps/aoia_desktop_demo/tests/test_app_controller.py",
+      "source_symbol": "AppControllerModelOnlyModeTests.test_route_is_inactive_until_manual_configuration_is_complete",
+      "source_line": 214,
+      "disposition": "STRONGER_PLAN_AND_BUDGET_GATE",
+      "destination_evidence": "test_T06_live_zero_budget_and_missing_price_are_blocked + test_T08_http_double_start_and_fake_approval_rejected"
+    },
+    {
+      "source_path": "apps/aoia_desktop_demo/tests/test_app_controller.py",
+      "source_symbol": "AppControllerModelOnlyModeTests.test_environment_key_does_not_restore_a_connection",
+      "source_line": 225,
+      "disposition": "INTENTIONAL_SHARED_PROVIDER_CONFIG",
+      "destination_evidence": "existing ProviderManager reads existing OpenRouter configuration; no live run without separate policy and per-run approval"
+    },
+    {
+      "source_path": "apps/aoia_desktop_demo/tests/test_app_controller.py",
+      "source_symbol": "AppControllerModelOnlyModeTests.test_manual_model_id_takes_precedence_over_selected",
+      "source_line": 232,
+      "disposition": "EXPLICIT_PLAN_MODELS_PRECEDE_DEFAULT",
+      "destination_evidence": "test_T16_existing_chat_commands_status_and_review_stay_separate + test_T05_neighboring_model_change_does_not_mutate_plan"
+    },
+    {
+      "source_path": "apps/aoia_desktop_demo/tests/test_app_controller.py",
+      "source_symbol": "AppControllerModelOnlyModeTests.test_falls_back_to_selected_model_when_manual_blank",
+      "source_line": 237,
+      "disposition": "CAPTURE_DEFAULT_ONCE",
+      "destination_evidence": "test_T01_exact_five_original_model_and_same_snapshot defaults captured at planning; no transport fallback"
+    },
+    {
+      "source_path": "apps/aoia_desktop_demo/tests/test_app_controller.py",
+      "source_symbol": "PreDeliverySequentialControllerTests.test_one_send_runs_exactly_five_calls_and_returns_only_final_answer",
+      "source_line": 263,
+      "disposition": "SAME_FIVE_CALL_CONTRACT_WORKING_DRAFT_NOW_VISIBLE",
+      "destination_evidence": "test_T01_exact_five_original_model_and_same_snapshot + browser CDP final separate from working draft"
+    },
+    {
+      "source_path": "apps/aoia_desktop_demo/tests/test_app_controller.py",
+      "source_symbol": "PreDeliverySequentialControllerTests.test_observer_failure_stops_before_final_without_retry_or_fallback",
+      "source_line": 341,
+      "disposition": "HARDENED_STOP_AT_FIRST_FAILED_CRITIC_NOT_AFTER_ALL_THREE",
+      "destination_evidence": "test_T04_transport_failure_at_every_stage_is_fail_fast"
+    },
+    {
+      "source_path": "apps/aoia_desktop_demo/tests/test_app_controller.py",
+      "source_symbol": "PreDeliverySequentialControllerTests.test_unstructured_observer_output_prevents_final_delivery",
+      "source_line": 375,
+      "disposition": "HARDENED_STOP_BEFORE_LATER_CRITICS",
+      "destination_evidence": "test_T04_incomplete_critic_never_gets_a_repair_generation"
+    },
+    {
+      "source_path": "apps/aoia_desktop_demo/tests/test_app_controller.py",
+      "source_symbol": "PreDeliverySequentialControllerTests.test_provider_model_substitution_fails_closed_after_primary_call",
+      "source_line": 399,
+      "disposition": "STRICT_HTTP_IDENTITY_REPLACEMENT",
+      "destination_evidence": "test_T05_missing_and_wrong_identity_fail_before_further_calls"
+    },
+    {
+      "source_path": "apps/aoia_desktop_demo/tests/test_app_controller.py",
+      "source_symbol": "PreDeliverySequentialControllerTests.test_finalizer_failure_preserves_reviews_and_delivers_nothing",
+      "source_line": 416,
+      "disposition": "SERVICE_REPLACEMENT",
+      "destination_evidence": "test_T04_transport_failure_at_every_stage_is_fail_fast stage 5"
+    },
+    {
+      "source_path": "apps/aoia_desktop_demo/tests/test_app_controller.py",
+      "source_symbol": "PreDeliverySequentialControllerTests.test_incomplete_observer_setup_is_rejected_before_state_or_calls",
+      "source_line": 441,
+      "disposition": "STRONGER_DISTINCT_ROLE_CHECK",
+      "destination_evidence": "test_T02_duplicate_and_incomplete_roles_before_transport"
+    },
+    {
+      "source_path": "apps/aoia_desktop_demo/tests/test_app_controller.py",
+      "source_symbol": "CancellationTests.test_canceled_request_result_is_ignored_by_session",
+      "source_line": 466,
+      "disposition": "REAL_HTTP_CANCELLATION_REPLACEMENT",
+      "destination_evidence": "test_T07_cancel_is_responsive_and_late_result_is_discarded"
+    },
+    {
+      "source_path": "apps/aoia_desktop_demo/tests/test_app_controller.py",
+      "source_symbol": "CancellationTests.test_second_submit_blocked_while_one_is_active",
+      "source_line": 471,
+      "disposition": "ATOMIC_SINGLE_WORKER_REPLACEMENT",
+      "destination_evidence": "test_T08_http_double_start_and_fake_approval_rejected"
+    }
+  ],
+  "not_evidence_for_new_runtime": "Historical 70/70 and prior audit 443 PASS are not counted as this implementation execution results."
+}

@@ -33,6 +33,7 @@ def build_command_registry() -> CommandRegistry:
     registry.register("setup", cmd_setup)
     registry.register("hat", cmd_hat)
     registry.register("review", cmd_review)
+    registry.register("cpl", cmd_cpl)
     registry.register("scan", cmd_scan)
     registry.register("orchestrator", cmd_orchestrator)
     registry.register("worker", cmd_worker)
@@ -57,6 +58,8 @@ def cmd_help(_args: str, runtime) -> CommandResult:
                 "  /review          review the bundled dated-evidence example without a model call",
                 "  /review corrected  review the bundled corrected example",
                 "  /review TEXT     review supplied text against the bundled dated evidence",
+                "  /cpl             Critical Prompt Loop help / plan / start / status / verify",
+                "  /cpl fixture     explicit local HTTP 1+3+1 test (requires --cpl-fixture)",
                 "  /scan PATH       scan a project tree after ENTER approval",
                 "  /orchestrator on|off|status",
                 "  /worker status|memory|clear",
@@ -68,6 +71,50 @@ def cmd_help(_args: str, runtime) -> CommandResult:
             ]
         ),
     )
+
+
+def cmd_cpl(args: str, runtime) -> CommandResult:
+    """CPL never routes model output through an executor or normal chat."""
+    action, _, rest = args.strip().partition(' ')
+    if action in {'', 'help', '?'}:
+        return CommandResult(True, '\n'.join([
+            'AIOA spArkHAT Critical Prompt Loop: advisory 1+3+1, not independent consensus.',
+            '/cpl fixture — synthetic HTTP run; start runtime with --cpl-fixture',
+            '/cpl plan PROMPT — immutable plan and one-use nonce; live disabled without a cost policy',
+            '/cpl plan-json JSON — explicit evidence, models, limits and run_budget_usd',
+            '/cpl start RUN_ID PLAN_HASH NONCE — execute exactly the server-held plan',
+            '/cpl status [RUN_ID] | /cpl cancel RUN_ID | /cpl verify RUN_ID',
+            'No tools, automatic knowledge promotion, retries or fallback.']))
+    if action == 'fixture' and not rest:
+        result = runtime.run_cpl_fixture()
+    elif action == 'plan' and rest:
+        result = runtime.plan_critical_loop({'prompt': rest})
+    elif action == 'plan-json' and rest:
+        from providers.exact import ExactCallError, _unique_object
+        try:
+            if len(rest.encode()) > 24000:
+                raise ValueError()
+            payload = json.loads(rest, object_pairs_hook=_unique_object)
+        except (ValueError, RecursionError):
+            raise ExactCallError('INVALID_PLAN_JSON') from None
+        result = runtime.plan_critical_loop(payload)
+    elif action == 'start':
+        fields = shlex.split(rest)
+        if len(fields) != 3:
+            return CommandResult(True, 'Usage: /cpl start RUN_ID PLAN_HASH NONCE', 1)
+        result = runtime.critical_loop.start(*fields)
+        result = runtime.critical_loop.wait(result['run_id'])
+    elif action == 'status':
+        result = runtime.critical_loop.get(rest) if rest else runtime.critical_loop.status()
+    elif action == 'cancel' and rest:
+        result = runtime.critical_loop.cancel(rest)
+    elif action == 'verify' and rest:
+        result = runtime.critical_loop.verify(rest)
+    else:
+        return CommandResult(True, 'Unknown CPL command. Use /cpl help.', 1)
+    failed = ((action in {'fixture', 'start'} and result.get('execution_status') != 'COMPLETED')
+              or (action == 'verify' and result.get('ok') is not True))
+    return CommandResult(True, json.dumps(result, indent=2, ensure_ascii=False), int(failed))
 
 
 def cmd_status(_args: str, runtime) -> CommandResult:

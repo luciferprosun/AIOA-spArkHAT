@@ -8,6 +8,7 @@ from typing import Any, Callable
 class CommandResult:
     handled: bool
     message: str = ""
+    exit_code: int = 0
 
 
 CommandHandler = Callable[[str, Any], CommandResult]
