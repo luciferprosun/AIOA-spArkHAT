@@ -12,9 +12,8 @@ license = {file = "LICENSE"}
 dependencies = []
 
 [project.optional-dependencies]
-# Opt-in extra: install in a separate Python >=3.12 environment.
-# The ordinary dependency-free Core >=3.11 installation is unchanged.
-nonzero = ["pydantic==2.13.4", "strands-agents[otel]==1.53.0", "uuid6==2025.0.1"]
+# One Core install on Python >=3.11; no second app or provider SDK required.
+nonzero = ["pydantic==2.13.4", "uuid6==2025.0.1"]
 
 [project.scripts]
 aioa-sparkhat = "runtime.cli:main"
@@ -27,7 +26,7 @@ namespaces = true
 
 [tool.setuptools.package-data]
 runtime = ["prompts/*.txt", "adaptive_routing/*.json", "adaptive_routing/environment/*.json", "knowledge/**/*.json", "knowledge/**/*.md", "knowledge/**/*.yaml", "knowledge/**/*.pdf", "knowledge/**/*.txt", "knowledge/*.json"]
-"runtime.nonzero_cloudops" = ["baseline/**/*", "baseline/*", "baseline/.gitignore", "baseline/.dockerignore", "baseline/.env.example", "baseline/.github/**/*"]
+"runtime.nonzero_cloudops" = ["LICENSE-NONZERO.txt"]
 
 [tool.setuptools.data-files]
 "share/aioa-sparkhat/web" = ["web/index.html", "web/app.js", "web/styles.css"]

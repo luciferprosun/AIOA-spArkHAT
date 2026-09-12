@@ -12,7 +12,8 @@ from unittest.mock import patch
 
 from commands import build_command_registry
 from nonzero_cloudops import NonZeroCloudOpsService, NonZeroError, module_descriptor
-from nonzero_cloudops.service import BASELINE, JUDGE_SHA
+from nonzero_cloudops.contract import JUDGE_SHA
+import nonzero_cloudops
 from webapp import WebRuntimeService, make_server
 
 AVAILABLE = module_descriptor()['available']
@@ -43,21 +44,22 @@ class NonZeroRegistrationTests(unittest.TestCase):
     def test_missing_optional_dependencies_fail_without_state_writes(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary) / 'nz'
-            with patch('nonzero_cloudops.service.importlib.metadata.version',
+            with patch('nonzero_cloudops.contract.importlib.metadata.version',
                        side_effect=importlib.metadata.PackageNotFoundError):
                 self.assertFalse(module_descriptor()['available'])
                 with self.assertRaisesRegex(NonZeroError, 'OPTIONAL_DEPENDENCIES_UNAVAILABLE'):
                     NonZeroCloudOpsService(root)
             self.assertFalse(root.exists())
 
-    def test_baseline_is_local_and_license_preserved(self):
-        self.assertTrue((BASELINE / 'LICENSE').read_text().startswith('MIT License'))
-        self.assertTrue((BASELINE / 'pyproject.toml').is_file())
-        self.assertTrue((BASELINE / 'tests').is_dir())
-        self.assertFalse((BASELINE / '.git').exists())
+    def test_native_license_and_module_identity_preserved(self):
+        native = Path(nonzero_cloudops.__file__).parent
+        self.assertTrue((native / 'LICENSE-NONZERO.txt').read_text().startswith('MIT License'))
+        self.assertEqual(module_descriptor()['module'], 'nonzero-cloudops')
+        self.assertEqual(module_descriptor()['implementation'], 'CORE_NATIVE')
+        self.assertFalse((native / 'local_api').exists())
 
 
-@unittest.skipUnless(AVAILABLE, 'Non-Zero optional Python >=3.12 extra is not installed')
+@unittest.skipUnless(AVAILABLE, 'Non-Zero optional Python >=3.11 extra is not installed')
 class NonZeroServiceTests(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()
@@ -76,7 +78,7 @@ class NonZeroServiceTests(unittest.TestCase):
     def start(self):
         result = self.call('POST', '/api/runs', TARGET, expected=201)
         self.assertEqual(result['final_state'], 'AWAITING_APPROVAL')
-        self.assertEqual(self.service._runtime.executor.mutation_calls, 0)
+        self.assertEqual(self.service.components.executor.mutation_calls, 0)
         return result['run_id']
 
     def test_full_operator_flow_and_replay_survives_restart(self):
@@ -89,7 +91,7 @@ class NonZeroServiceTests(unittest.TestCase):
         mismatch = self.call('POST', path + '/decision', {**valid, 'proposal_hash': '0' * 64}, expected=403)
         self.assertEqual(mismatch['failure_code'], 'LOCAL_APPROVAL_BINDING_MISMATCH')
         self.call('POST', path + '/decision', valid)
-        self.assertEqual(self.service._runtime.executor.mutation_calls, 0)
+        self.assertEqual(self.service.components.executor.mutation_calls, 0)
         completed = self.call('POST', path + '/resume', {'confirm_execution': True})
         self.assertEqual(completed['final_state'], 'SUCCESS_WITH_EVIDENCE')
         self.assertEqual(completed['verification']['receipt_hash'], completed['receipt']['receipt_hash'])
@@ -97,7 +99,7 @@ class NonZeroServiceTests(unittest.TestCase):
             repeated = list(pool.map(lambda _: self.service.request(
                 'POST', path + '/resume', {'confirm_execution': True}, operator=True), range(2)))
         self.assertTrue(all(code == 200 for code, _ in repeated))
-        self.assertEqual(self.service._runtime.executor.mutation_calls, 1)
+        self.assertEqual(self.service.components.executor.mutation_calls, 1)
         self.call('POST', path + '/decision', {**valid, 'decision': 'DENIED'}, expected=409)
         view = self.call('GET', path)
         self.assertEqual(view['run_sandbox_mutations'], 1)
@@ -109,12 +111,13 @@ class NonZeroServiceTests(unittest.TestCase):
         recovered = self.call('POST', path + '/resume', {'confirm_execution': True})
         self.assertTrue(recovered['reconciled'])
         self.assertEqual(recovered['receipt']['receipt_hash'], completed['receipt']['receipt_hash'])
-        self.assertEqual(self.service._runtime.executor.mutation_calls, 0)
+        self.assertEqual(self.service.components.executor.mutation_calls, 0)
         trace = self.service.trace(operator=True)
         self.assertTrue(trace['ok'])
         rendered = json.dumps(trace)
         self.assertNotIn(challenge['decision_nonce'], rendered)
-        self.assertNotIn(self.service._authorization, rendered)
+        self.assertNotIn('decision_nonce', rendered)
+        self.assertFalse((self.root / 'operator.credential').exists())
         self.assertIn(JUDGE_SHA, rendered)
         self.assertIn(run, rendered)
         self.assertIn(completed['receipt']['receipt_hash'], rendered)
@@ -126,7 +129,7 @@ class NonZeroServiceTests(unittest.TestCase):
         completed = self.call('POST', path + '/resume', {'confirm_execution': True})
         self.assertEqual(completed['final_state'], 'DENIED_BY_HUMAN')
         self.assertNotIn('receipt', completed)
-        self.assertEqual(self.service._runtime.executor.mutation_calls, 0)
+        self.assertEqual(self.service.components.executor.mutation_calls, 0)
 
     def test_unauthorized_and_arbitrary_capabilities_are_rejected(self):
         with self.assertRaisesRegex(NonZeroError, 'OPERATOR_REQUIRED'):
@@ -138,8 +141,8 @@ class NonZeroServiceTests(unittest.TestCase):
             with self.subTest(path=path), self.assertRaisesRegex(NonZeroError, 'ROUTE_NOT_ALLOWED'):
                 self.service.request('POST', path, {}, operator=True)
         self.call('POST', '/api/runs', {**TARGET, 'operator': True, 'approved': True}, expected=400)
-        self.assertEqual(self.service._runtime.executor.mutation_calls, 0)
-        self.assertEqual(self.service._runtime.model_provider.calls, 0)
+        self.assertEqual(self.service.components.executor.mutation_calls, 0)
+        self.assertEqual(self.service.components.advisor.plan_calls, 0)
 
     def test_explicit_execution_confirmation_and_bounded_inputs(self):
         path = '/api/runs/' + self.start()
@@ -148,7 +151,7 @@ class NonZeroServiceTests(unittest.TestCase):
         for payload in [[], {'x': float('nan')}, {'x': 'x' * 17000}]:
             with self.subTest(payload_type=type(payload).__name__), self.assertRaises(NonZeroError):
                 self.service.request('POST', '/api/runs', payload, operator=True)
-        self.assertEqual(self.service._runtime.executor.mutation_calls, 0)
+        self.assertEqual(self.service.components.executor.mutation_calls, 0)
 
     def test_environment_cannot_enable_live_providers(self):
         self.service.close()
@@ -164,7 +167,8 @@ class NonZeroServiceTests(unittest.TestCase):
     def test_state_lease_permissions_and_symlink_boundary(self):
         with self.assertRaisesRegex(NonZeroError, 'STATE_ALREADY_OWNED'):
             NonZeroCloudOpsService(self.root)
-        self.assertEqual((self.root / 'operator.credential').stat().st_mode & 0o777, 0o600)
+        self.assertEqual((self.root / 'native-identity.json').stat().st_mode & 0o777, 0o600)
+        self.assertFalse((self.root / 'operator.credential').exists())
         link = Path(self.temporary.name) / 'link'
         link.symlink_to(self.root, target_is_directory=True)
         with self.assertRaisesRegex(NonZeroError, 'UNSAFE_STATE_PATH'):
@@ -184,17 +188,17 @@ class NonZeroServiceTests(unittest.TestCase):
         with patch.object(self.service.provenance, 'read_all', return_value=entries), \
              self.assertRaisesRegex(NonZeroError, 'PROVENANCE_CORRUPT'):
             self.service.request('POST', '/api/runs', TARGET, operator=True)
-        self.assertEqual(self.service._runtime.executor.mutation_calls, 0)
+        self.assertEqual(self.service.components.executor.mutation_calls, 0)
 
     def test_evidence_write_failure_stops_before_module_dispatch(self):
         with patch.object(self.service.provenance, 'append_event', side_effect=OSError), \
-             patch.object(self.service._application, 'handle') as dispatch:
-            with self.assertRaises(OSError):
+             patch.object(self.service.components.investigation, 'execute') as dispatch:
+            with self.assertRaisesRegex(NonZeroError, 'PROVENANCE_WRITE_FAILED'):
                 self.service.request('POST', '/api/runs', TARGET, operator=True)
             dispatch.assert_not_called()
 
 
-@unittest.skipUnless(AVAILABLE, 'Non-Zero optional Python >=3.12 extra is not installed')
+@unittest.skipUnless(AVAILABLE, 'Non-Zero optional Python >=3.11 extra is not installed')
 class NonZeroWebTests(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()
@@ -273,6 +277,22 @@ class NonZeroWebTests(unittest.TestCase):
         self.assertIn('evidence_review', payload)
         self.assertIn('nonzero_cloudops', payload)
         self.assertEqual(self.request('GET', '/api/nonzero/ready')[0], 200)
+
+    def test_disabled_module_keeps_core_and_discovery_healthy(self):
+        runtime = self.service.runtime
+        runtime.nonzero_config = {'enabled': False}
+        code, status = self.request('GET', '/api/nonzero/status')
+        self.assertEqual(code, 200)
+        self.assertEqual(status['availability_code'], 'NONZERO_DISABLED')
+        self.assertFalse(status['available'])
+        cli = runtime.command_registry.execute('/nonzero status', runtime)
+        self.assertEqual(json.loads(cli.message)['availability_code'], 'NONZERO_DISABLED')
+        self.assertEqual(self.request('GET', '/api/nonzero/ready')[0], 503)
+        self.assertIsNone(runtime._nonzero_service)
+        code, core = self.request('GET', '/api/status')
+        self.assertEqual(code, 200)
+        self.assertIn('critical_loop', core)
+        self.assertIn('evidence_review', core)
 
 
 if __name__ == '__main__':

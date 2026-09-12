@@ -84,9 +84,9 @@ def cmd_nonzero(args: str, runtime) -> CommandResult:
     if action == 'help':
         return CommandResult(True, 'Non-Zero portable/mock only: /nonzero status | ready | trace | '
             'start-json <resource_type/resource_id JSON> | run <run_id> | approval <run_id> | '
-            'decision-json <exact LocalDecisionRequest JSON> | resume <run_id> CONFIRM')
+            'decision-json <exact DecisionRequest JSON> | resume <run_id> CONFIRM')
     if action == 'status' and not raw:
-        return CommandResult(True, json.dumps(module_descriptor(), indent=2))
+        return CommandResult(True, json.dumps(module_descriptor(getattr(runtime, 'nonzero_config', None)), indent=2))
     try:
         if len(raw.encode()) > 16384:
             raise NonZeroError('NONZERO_REQUEST_TOO_LARGE', 413)

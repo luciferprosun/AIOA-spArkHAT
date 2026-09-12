@@ -148,6 +148,7 @@ class AgentRuntime:
         project_dir: Path,
         debug_raw: bool = False,
         max_steps: int = MAX_AGENT_STEPS,
+        nonzero_config=None,
     ) -> None:
         self.provider_manager = provider_manager
         self.prompt_template = prompt_template
@@ -169,6 +170,7 @@ class AgentRuntime:
         self._cpl_service = None
         self._cpl_init_lock = threading.Lock()
         self._nonzero_service = None
+        self.nonzero_config = nonzero_config
         self._nonzero_init_lock = threading.Lock()
         self.cpl_cost_policy = None
         self._owned_cpl_fixture = None
@@ -272,8 +274,8 @@ class AgentRuntime:
                 from nonzero_cloudops import NonZeroCloudOpsService
                 from runtime_paths import runtime_state_dir
                 self._nonzero_service = NonZeroCloudOpsService(
-                    runtime_state_dir(self.project_dir) / 'nonzero_cloudops',
-                    guard=lambda: self.safeguards.kill_switch)
+                    runtime_state_dir(self.project_dir) / 'nonzero_cloudops' / 'native-v1',
+                    guard=lambda: self.safeguards.kill_switch, config=self.nonzero_config)
         return self._nonzero_service
 
     def build_model_request(
@@ -350,7 +352,7 @@ class AgentRuntime:
             "desktop_dir": str(self.desktop_dir),
             "model": self.provider_manager.describe(),
             "product_name": "AIOA spArkHAT",
-            "nonzero_cloudops": module_descriptor(),
+            "nonzero_cloudops": module_descriptor(self.nonzero_config),
             "critical_loop": {"enabled": True, "authority": "ADVISORY_ONLY",
                               "mode": "TEST" if getattr(self.provider_manager, 'fixture_base_url', None) is not None else "LIVE_PENDING_AUTHORIZATION",
                               "knowledge_promotion": "DISABLED"},
