@@ -1,0 +1,194 @@
+{
+  "ports": [
+    {
+      "source": "nz/__init__.py",
+      "native": "models/__init__.py",
+      "source_sha256": "47d9008685f0f850f661d3527b2ac78f07325a9c2f75e29a71c6e14250355f06"
+    },
+    {
+      "source": "nz/contracts.py",
+      "native": "models/contracts.py",
+      "source_sha256": "d203f1b9cb4d61463f172cddc63b6c7c64d305b97edaa5b10c592d24b1b5e6fa"
+    },
+    {
+      "source": "nz/enums.py",
+      "native": "models/enums.py",
+      "source_sha256": "8d2674f965fa7058041c4405cf382809c45f7a7aa92318eb5a1b176e58397626"
+    },
+    {
+      "source": "nz/identifiers.py",
+      "native": "models/identifiers.py",
+      "source_sha256": "bfd56dadfe8a714b1461fb58a43c3bfb58598e27cfbdb3676dbe1b64a61967c5"
+    },
+    {
+      "source": "nz/errors.py",
+      "native": "models/errors.py",
+      "source_sha256": "f998fea09079e89e091c7c3a3618c3117df9b53ea144001fdf3bbee852994122"
+    },
+    {
+      "source": "nz/authority.py",
+      "native": "models/authority.py",
+      "source_sha256": "164af6cf640a33171e9ffc9b56f28b68f8c049ed112d0b58865fd45b402a5c0f"
+    },
+    {
+      "source": "nz/transitions.py",
+      "native": "models/transitions.py",
+      "source_sha256": "fec09cb8c9263bfa5b011adabd18c738f9e922b8654f15ed2a616f9197dd750f"
+    },
+    {
+      "source": "nz/redaction.py",
+      "native": "models/redaction.py",
+      "source_sha256": "31d2b07aed9614549f48c8859620c7ac081947752d72e4692bcf4fe7c8df3796"
+    },
+    {
+      "source": "domain/enums.py",
+      "native": "models/public_enums.py",
+      "source_sha256": "5ee865824a7c9b227d1998f13d915687975851998e1e77be357f81c9e573359c"
+    },
+    {
+      "source": "domain/errors.py",
+      "native": "models/validation.py",
+      "source_sha256": "2c984b765d92e92988d6bfa821879ebc0feb953fff5df0db2371ec36e94a5eff"
+    },
+    {
+      "source": "domain/identifiers.py",
+      "native": "models/uuid7.py",
+      "source_sha256": "8dc9392f6f60957150f22bc1458d00399e4fe6b5dbfca8a9fa837c163cac54dd"
+    },
+    {
+      "source": "safety/failures.py",
+      "native": "models/failures.py",
+      "source_sha256": "b66c2e21607697f9f244f56b04ebad1c4193e22b3c1cce3c22fae113045f8da1"
+    },
+    {
+      "source": "persistence/local.py",
+      "native": "state/repository.py",
+      "source_sha256": "dbf3f12c8da4060b980cb82c382dee60334a606ca554dcad37a6bebc6d53a244"
+    },
+    {
+      "source": "persistence/memory.py",
+      "native": "state/snapshot.py",
+      "source_sha256": "698b5311f4d71b5f36fc50c7c6c0d3ba09e1bd3955c82927d007bc8a36b283d2"
+    },
+    {
+      "source": "persistence/durable_logic.py",
+      "native": "state/guards.py",
+      "source_sha256": "f353f92916b7fdd03d4047fd03a87e45ba45236a7331523eb4235cfab795a180"
+    },
+    {
+      "source": "persistence/durable_repository.py",
+      "native": "state/protocol.py",
+      "source_sha256": "121cf0764b3f44ae0315190cbe9075943eb353575f46073257d913ee8d38c194"
+    },
+    {
+      "source": "persistence/semantic_idempotency.py",
+      "native": "state/idempotency.py",
+      "source_sha256": "6785deda7eefa5d8179b69cbcea439325c1e60b9b2cb1aa447784d9ded5b8952"
+    },
+    {
+      "source": "persistence/local_integrity.py",
+      "native": "state/files.py",
+      "source_sha256": "9cb72f856ce024b66006916767b2db68d4f996ad112a62156ebbf635c270fec9"
+    },
+    {
+      "source": "cloudops/provider.py",
+      "native": "adapters/resources.py",
+      "source_sha256": "95abdb84b23dc0db5b2b5c0576c88c2344401a7989643de80d336e8b63b9b4dd"
+    },
+    {
+      "source": "cloudops/local_mock.py",
+      "native": "adapters/portable.py",
+      "source_sha256": "e6f0ce3ea5153c500187616bbe71942f23f70352e31aba0126cc9bd79c1f3c6e"
+    },
+    {
+      "source": "cloudops/query_resource.py",
+      "native": "investigation.py",
+      "source_sha256": "332f19487d19ce692adae9d8e324159646466478ea821da758202cb9b8a19070"
+    },
+    {
+      "source": "cloudops/plan_remediation.py",
+      "native": "policy.py",
+      "source_sha256": "ddd38d5aad2868fb51abd1f78000a7515bf83dd826e718542de530ccc83b16e0"
+    },
+    {
+      "source": "agent/local_first.py",
+      "native": "planning.py",
+      "source_sha256": "e6b3b1d15adbf9fd948669e587cf03c2ab215c0f6c866fe85c40110c1ffcf964"
+    },
+    {
+      "source": "agent/local_hitl.py",
+      "native": "execution.py",
+      "source_sha256": "b171c9db22f9e47a324425615e2d599fd3623ca357329263bdb20d54e3803a39"
+    },
+    {
+      "source": "local_api/contracts.py",
+      "native": "views.py",
+      "source_sha256": "810e512ecf7d430da2e6b313c156ed59514e0de68965a13a5577c9d78e48829e"
+    },
+    {
+      "source": "local_api/views.py",
+      "native": "evidence.py",
+      "source_sha256": "7ba20720ff2d8ca61c7816f3485cba91b49a3344c10deb799b768bd15d9dc959"
+    }
+  ],
+  "symbol_renames": {
+    "LocalFirstPhaseOneFlow": "InvestigationWorkflow",
+    "LocalFirstCompletion": "InvestigationCompletion",
+    "LocalFirstResult": "InvestigationResult",
+    "LocalHitlExecutionFlow": "BoundExecutionWorkflow",
+    "LocalOperatorPrincipal": "CoreOperatorPrincipal",
+    "LocalApprovalChallenge": "ApprovalChallenge",
+    "LocalDecisionRequest": "DecisionRequest",
+    "LocalApprovalResolution": "ApprovalResolution",
+    "LocalExecutionCompletion": "ExecutionCompletion",
+    "LocalApprovalChallengeResult": "ApprovalChallengeResult",
+    "LocalApprovalResolutionResult": "ApprovalResolutionResult",
+    "LocalExecutionResult": "ExecutionResult",
+    "LocalMockStateStore": "PortableStateStore",
+    "PersistentMockAwsAdapter": "PortableResourceReader",
+    "LocalMockRemediationExecutor": "PortableExecutor",
+    "LocalMockMutationError": "PortableMutationError",
+    "LocalMockPolicyError": "PortablePolicyError",
+    "LocalMockConflictError": "PortableConflictError",
+    "MockAwsAdapter": "SyntheticResourceReader",
+    "LocalFileDurableTruthRepository": "DomainStateRepository",
+    "InMemoryTestDurableTruthRepository": "DomainSnapshot",
+    "LocalRunSnapshot": "RunSnapshot",
+    "LocalIntegrityError": "StateIntegrityError",
+    "LocalHitlRuntime": "NativeComponents",
+    "LocalStartRunRequest": "StartRunRequest",
+    "LocalResumeRequest": "ResumeRequest"
+  },
+  "schema_version": "nonzero-native-source-map-v1",
+  "module": "nonzero-cloudops",
+  "source_sha": "4fafed8b1a877e55d96ddd9baea0a737fbeeaa4a",
+  "phase2_start_sha": "ad7d2ffa602654fab7ffe30168339f2dc138278f",
+  "source_root": "runtime/nonzero_cloudops/baseline/src/aioa_cloudops_agent",
+  "native_root": "runtime/nonzero_cloudops",
+  "source_usage": "REFERENCE_ONLY",
+  "source_history": "preserved non-squashed subtree",
+  "license": "MIT; LICENSE-NONZERO.txt is verbatim original",
+  "extracts": [
+    {
+      "source": "domain/approval.py",
+      "symbol": "ApprovalStatus",
+      "native": "models/public_enums.py"
+    },
+    {
+      "source": "persistence/models.py",
+      "symbol": "compute_evidence_digest",
+      "native": "models/digest.py"
+    }
+  ],
+  "adaptations": [
+    "Normal native relative imports only; no source path loader or whole-app package.",
+    "ControlResult TypeVar/Generic and repository TypeVar methods preserve Python 3.11.",
+    "Core supplies operator admission/identity, lifecycle, command/API and shared provenance implementation.",
+    "Portable advisor has no Strands Model base, provider factory or external transport.",
+    "Typed strict boolean execution gesture rejects 1/string/coercions; strict proposal version.",
+    "Advisory duplicate JSON fields rejected with existing Core helper; conservative bounded output accounting.",
+    "Domain verification linkage checked for run/proposal/receipt/operation/target.",
+    "Native identity/state namespace, evidence/run quotas and durable Core intent linkage.",
+    "No browser session DTO, second HTTP app, startup script, deployment or baseline wheel contents."
+  ]
+}

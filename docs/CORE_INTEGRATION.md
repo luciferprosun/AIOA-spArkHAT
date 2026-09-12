@@ -16,7 +16,7 @@ AIOA spArkHAT
 │   ├── policy.py                    explicit budgets and per-call/run limits
 │   └── evidence.py                  view over the existing append-only provenance store
 ├── runtime/evidence_review/         unchanged deterministic dated-evidence module
-├── runtime/nonzero_cloudops/        optional portable CloudOps adapter and exact frozen baseline
+├── runtime/nonzero_cloudops/        native portable CloudOps service; baseline is reference-only
 ├── runtime/knowledge/, retrieval/   local corpus, isolation, refusal and provenance
 ├── runtime/tools/, memory/          controlled actions, evidence and operational state
 ├── runtime/orchestrator/            existing optional orchestration surfaces
@@ -31,8 +31,11 @@ There is no second agent executor or separate CPL app. `AgentRuntime.critical_lo
 The optional [Non-Zero CloudOps module](NONZERO_CORE_INTEGRATION.md) follows the
 same service/CLI/API ownership pattern on its isolated integration branch. It
 does not change CPL or grant model output execution authority. Its independent
-native runtime is preserved as a vendored implementation, not duplicated by the
-adapter; synthetic execution still requires its original human approval gate.
+domain safety semantics live in native Core modules. The frozen subtree is now
+only a test/provenance oracle, excluded from the installed wheel. There is no
+embedded application, second operator credential or Strands provider manager;
+synthetic execution still requires exact durable human approval. See the
+[convergence map](integration/NONZERO_CLOUDOPS_CONVERGENCE_MAP.md).
 
 ## Final Assistant routing
 

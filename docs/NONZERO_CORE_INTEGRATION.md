@@ -1,6 +1,7 @@
-# Non-Zero CloudOps Agent inside AIOA spArkHAT
+# Native NonZero CloudOps inside AIOA spArkHAT
 
-Status: isolated integration branch; no main merge or deployment.
+Status: local `integration/nonzero-cloudops-native-v1`; no push, PR, main merge or deployment.
+Module identity: `nonzero-cloudops`. Contract: `nonzero-native-v1`.
 
 ```text
 AIOA spArkHAT / AgentRuntime
@@ -8,17 +9,20 @@ AIOA spArkHAT / AgentRuntime
 └── nonzero_cloudops service
     ├── /nonzero operator CLI
     ├── /api/nonzero/* on the existing loopback server
-    ├── baseline/ — complete exact frozen CloudOps subtree
-    └── AOIA_HOME state — durable truth, mock inventory, Core provenance
+    ├── native planning / policy / approval / execution / verification
+    ├── models/ and state/ — typed domain safety and durable checkpoints
+    ├── adapters/portable.py — atomic synthetic inventory plus receipts
+    ├── baseline/ — reference-only frozen subtree, NOT in the runtime wheel
+    └── AOIA_HOME state — native-v1 domain state and existing Core provenance
 ```
 
 ## Install
 
-Use a **separate Python >=3.12 environment**. Never install into the frozen jury
-repository or modify its environment.
+Use one **Core Python >=3.11 environment** with the optional `nonzero` extra.
+Never install into the frozen jury repository or modify its environment.
 
 ```bash
-python3.12 -m venv /absolute/operator-selected/path/nonzero-env
+python3.11 -m venv /absolute/operator-selected/path/nonzero-env
 /absolute/operator-selected/path/nonzero-env/bin/python -m pip install '.[nonzero]'
 /absolute/operator-selected/path/nonzero-env/bin/aioa-sparkhat --help
 /absolute/operator-selected/path/nonzero-env/bin/aioa-sparkhat-web --help
@@ -70,10 +74,24 @@ Use same-origin requests. Never put credentials/nonces in URLs or public logs.
 single-local-operator boundary, not public multi-user authentication.
 
 `AOIA_HOME` selects the established state root. Its runtime namespace contains
-the module's `nonzero_cloudops` state directory. A locally generated private
-credential preserves ownership after restart; it is not a cloud/provider token
-and is never committed. Do not delete state to retry ambiguous operations;
-inspect `run` and `trace` first.
+the module's `nonzero_cloudops/native-v1` directory. Core supplies the authenticated
+single-local-operator identity; there is no second module credential or server.
+Private source-identity metadata binds state to the contract and JUDGE_SHA.
+Phase 2 state remains intact and is not silently migrated or authorized.
+Do not delete state to retry ambiguous operations; inspect `run` and `trace` first.
+
+`AgentRuntime(..., nonzero_config=...)` accepts a Core-owned `ModuleConfig` or
+its exact dictionary fields. `enabled=False` returns `NONZERO_DISABLED` without
+initializing the service. Defaults ignore ambient AWS/Bedrock environment switches.
+Selecting `backend='aws'` fails closed: explicit enablement is required, and even
+with it native v1 returns `NONZERO_AWS_BACKEND_NOT_CERTIFIED`. No live backend or
+external model call was enabled by this convergence pass.
+
+The native public methods are `start(StartRunRequest)`, `inspect(UUID)`,
+`request_approval(UUID)`, `decide(DecisionRequest)`,
+`resume(UUID, ResumeRequest)`, `ready()` and `trace()`. The trusted Core dispatcher
+supplies `operator=True`; this marker is not an authentication system for
+untrusted Python callers. JSON bodies cannot provide that authority.
 
 ## Provenance and verification
 
@@ -85,19 +103,26 @@ inspect `run` and `trace` first.
 - Exact import: `119a8ba12e54a2fbea42a43d62725e25fb5bc380`
 - Strategy: non-squashed subtree; 412 exact files, no tracked exclusions.
 - Original MIT license, authorship and prior-art attribution retained.
-- Exact adapter commits and results: [source import map](NONZERO_SOURCE_IMPORT_MAP.json).
+- Historical Phase 2 adapter commits and results: [source import map](NONZERO_SOURCE_IMPORT_MAP.json).
+- Native implementation provenance: [native source mapping](provenance/NONZERO_CLOUDOPS.md).
 
-See [ADR NZ-001](ADR/ADR-NZ-001-frozen-subtree-adapter.md) for the dependency
-matrix, existing interfaces, authority boundary and Git-aware gate context.
+See the [native contract](modules/NONZERO_CLOUDOPS_NATIVE_CONTRACT.md) and
+[convergence map](integration/NONZERO_CLOUDOPS_CONVERGENCE_MAP.md).
+[ADR NZ-001](ADR/ADR-NZ-001-frozen-subtree-adapter.md) records the historical
+Phase 2 decision, superseded for runtime/packaging by native v1; it still explains
+the unchanged Git-aware reference test context.
 No frozen jury files, commits, refs or settings were modified.
 
 ```bash
 PYTHONPATH=runtime PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -v
 PYTHONPATH=runtime PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -p test_nonzero_integration.py -v
+PYTHONPATH=runtime PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -p 'test_nonzero*.py' -v
 ```
 
-Use the module environment to execute all adapter tests rather than optional
-dependency skips. Native checks include Ruff, full pytest, portable demo, P0,
-P1, B4 and reviewer-evidence build/check in the ADR's frozen Git context. Synthetic
+Use the Core extra to execute all native tests rather than optional dependency
+skips. Native certification includes Core unittest regression, typed failure
+matrix, fixed-input parity, static independence and a clean installed Core wheel.
+The original full pytest, Ruff, portable demo, P0, P1, B4 and reviewer-evidence
+checks run separately in the frozen reference Git context. Synthetic
 mutations and loopback fixture HTTP are expected; real AWS mutations and paid
 model calls are forbidden. Hashes prove integrity/linkage, not factual truth.
