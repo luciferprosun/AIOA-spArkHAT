@@ -168,6 +168,8 @@ class AgentRuntime:
         self.orchestrator: GeminiGemmaOrchestrator | None = None
         self._cpl_service = None
         self._cpl_init_lock = threading.Lock()
+        self._nonzero_service = None
+        self._nonzero_init_lock = threading.Lock()
         self.cpl_cost_policy = None
         self._owned_cpl_fixture = None
         self.session_log = (
@@ -228,6 +230,8 @@ class AgentRuntime:
         if not isinstance(options, dict) or set(options) - {'evidence', 'models', 'roles', 'limits', 'run_budget_usd'}:
             raise ExactCallError('INVALID_PLAN_FIELDS')
         command = prompt.lstrip().startswith('/')
+        if command and prompt.strip().split(' ', 1)[0].lower() == '/nonzero':
+            raise ExactCallError('NONZERO_REQUIRES_OPERATOR_ENDPOINTS')
         if command and prompt.strip().split(' ', 1)[0].lower() == '/cpl':
             raise ExactCallError('CPL_REQUIRES_PLAN_START_ENDPOINTS')
         if mode == 'cpl' and not command:
@@ -252,11 +256,25 @@ class AgentRuntime:
         return self.critical_loop.wait(plan['run_id'])
 
     def close(self):
+        if self._nonzero_service is not None:
+            self._nonzero_service.close()
         if self._cpl_service is not None:
             self._cpl_service.close()
         if self._owned_cpl_fixture is not None:
             self._owned_cpl_fixture.close()
             self._owned_cpl_fixture = None
+
+    @property
+    def nonzero_cloudops(self):
+        """Own one optional portable module through the existing runtime."""
+        with self._nonzero_init_lock:
+            if self._nonzero_service is None:
+                from nonzero_cloudops import NonZeroCloudOpsService
+                from runtime_paths import runtime_state_dir
+                self._nonzero_service = NonZeroCloudOpsService(
+                    runtime_state_dir(self.project_dir) / 'nonzero_cloudops',
+                    guard=lambda: self.safeguards.kill_switch)
+        return self._nonzero_service
 
     def build_model_request(
         self,
@@ -323,6 +341,7 @@ class AgentRuntime:
 
     def snapshot_status(self) -> dict[str, Any]:
         """Return the current runtime status for CLI and web callers."""
+        from nonzero_cloudops import module_descriptor
         memory = self.memory_store.memory
         return {
             "session_id": memory.session_id,
@@ -331,6 +350,7 @@ class AgentRuntime:
             "desktop_dir": str(self.desktop_dir),
             "model": self.provider_manager.describe(),
             "product_name": "AIOA spArkHAT",
+            "nonzero_cloudops": module_descriptor(),
             "critical_loop": {"enabled": True, "authority": "ADVISORY_ONLY",
                               "mode": "TEST" if getattr(self.provider_manager, 'fixture_base_url', None) is not None else "LIVE_PENDING_AUTHORIZATION",
                               "knowledge_promotion": "DISABLED"},
