@@ -16,16 +16,23 @@ AIOA spArkHAT
 │   ├── policy.py                    explicit budgets and per-call/run limits
 │   └── evidence.py                  view over the existing append-only provenance store
 ├── runtime/evidence_review/         unchanged deterministic dated-evidence module
+├── runtime/nonzero_cloudops/        optional portable CloudOps adapter and exact frozen baseline
 ├── runtime/knowledge/, retrieval/   local corpus, isolation, refusal and provenance
 ├── runtime/tools/, memory/          controlled actions, evidence and operational state
 ├── runtime/orchestrator/            existing optional orchestration surfaces
-├── runtime/commands/                existing CLI registry plus /cpl
+├── runtime/commands/                existing CLI registry plus /cpl and operator-only /nonzero
 ├── runtime/webapp.py + web/         shared API and browser console
 ├── tui/                            preserved optional operator console
 └── tests/, docs/, state/            tests, documentation and public-safe defaults
 ```
 
 There is no second agent executor or separate CPL app. `AgentRuntime.critical_loop` owns the service; CLI and HTTP share it, along with the same provider manager and provenance implementation. The three sequential roles are exactly **Logic & Claims**, **Safety & Authority**, and **Evidence & Consistency**. A single final revision uses the original primary model only after every critic completes. A failed, cancelled or incomplete run never returns its draft as a completed final review.
+
+The optional [Non-Zero CloudOps module](NONZERO_CORE_INTEGRATION.md) follows the
+same service/CLI/API ownership pattern on its isolated integration branch. It
+does not change CPL or grant model output execution authority. Its independent
+native runtime is preserved as a vendored implementation, not duplicated by the
+adapter; synthetic execution still requires its original human approval gate.
 
 ## Final Assistant routing
 

@@ -1,6 +1,6 @@
 # AIOA spArkHAT
 
-AIOA spArkHAT (formerly AOIA-Core) is one local-first runtime for AI-assisted engineering and evidence-aware review. It keeps model output, tool results, evidence, provenance, contradictions, runtime state, and human authority separate instead of treating them as interchangeable forms of truth. This is the same repository and runtime, not a fork or an integration with a frozen hackathon application.
+AIOA spArkHAT (formerly AOIA-Core) is one local-first runtime for AI-assisted engineering and evidence-aware review. It keeps model output, tool results, evidence, provenance, contradictions, runtime state, and human authority separate instead of treating them as interchangeable forms of truth. This is the same repository and runtime, not a fork. The original hackathon repositories remain frozen; the optional Non-Zero module is imported from their verified private sandbox baseline.
 
 AOIA means **Adaptive Oceanic Intelligence Architecture**. In this repository the name describes a bounded routing and control architecture; it does not imply AGI, autonomous authority, or a self-modifying system.
 
@@ -15,6 +15,7 @@ AOIA means **Adaptive Oceanic Intelligence Architecture**. In this repository th
 - local CLI, web console, and optional Textual TUI over the same runtime
 - deterministic dated-evidence review with source hashes and a mandatory human-review result
 - advisory Critical Prompt Loop: draft → three sequentially informed critics → one revision by the original model
+- optional [Non-Zero CloudOps module](docs/NONZERO_CORE_INTEGRATION.md): exact frozen subtree, portable/mock execution, explicit human approval and replay-safe evidence; isolated staging integration awaiting review
 
 The dated-evidence capability is a module of AIOA spArkHAT, not a second application. Its CLI command, JSON endpoints, browser workbench, tests, and documentation all live in this repository and use the same launch surface.
 
