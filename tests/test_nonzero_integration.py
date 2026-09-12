@@ -1,4 +1,4 @@
-"""Core-owned contracts; baseline tests remain unchanged in the imported subtree."""
+"""Core-owned native contracts; original reference tests are retired to history."""
 import http.client
 import importlib.metadata
 import json
