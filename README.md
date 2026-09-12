@@ -16,9 +16,9 @@ AOIA means **Adaptive Oceanic Intelligence Architecture**. In this repository th
 - deterministic dated-evidence review with source hashes and a mandatory human-review result
 - advisory Critical Prompt Loop: draft → three sequentially informed critics → one revision by the original model
 
-The dated-evidence capability is a module of AOIA-Core, not a second application. Its CLI command, JSON endpoints, browser workbench, tests, and documentation all live in this repository and use the same launch surface.
+The dated-evidence capability is a module of AIOA spArkHAT, not a second application. Its CLI command, JSON endpoints, browser workbench, tests, and documentation all live in this repository and use the same launch surface.
 
-## Critical Prompt Loop — explicit local fixture
+## Critical Prompt Loop — integrated Core module
 
 The CPL uses the same `AgentRuntime`, `ProviderManager`, command registry and web console. A successful run performs exactly five bounded generation requests. Critics are sequentially informed, **not independent consensus**. They cannot run tools, authorize changes, promote knowledge or train models.
 
@@ -47,7 +47,7 @@ Run the unified local web console:
 ./runtime/run_web.sh
 ```
 
-Open <http://127.0.0.1:4311>. The server accepts loopback bindings only. The **Assistant** and **Evidence review** views are modules of the same AOIA-Core process.
+Open <http://127.0.0.1:4311>. The server accepts loopback bindings only. The **Assistant**, **Critical Prompt Loop** mode and **Evidence review** views are modules of the same AIOA spArkHAT process.
 
 Install optional provider/browser dependencies into a local virtual environment:
 
@@ -63,7 +63,7 @@ The optional Textual interface starts with:
 
 ## Dated evidence review
 
-The bundled scenario demonstrates a common high-stakes failure: a fluent answer repeats Germany's 2025 statutory minimum-wage value for a July 2026 question. AOIA-Core compares the answer with three dated official records, identifies stale or conflicting values, checks temporal/source attribution, and hashes both the evidence set and answer snapshot.
+The bundled scenario demonstrates a common high-stakes failure: a fluent answer repeats Germany's 2025 statutory minimum-wage value for a July 2026 question. AIOA spArkHAT compares the answer with three dated official records, identifies stale or conflicting values, checks temporal/source attribution, and hashes both the evidence set and answer snapshot.
 
 Run the bundled stale example in the CLI:
 
@@ -118,6 +118,12 @@ Operator
   │    -> deterministic comparison + SHA-256
   │    -> HUMAN_REVIEW_REQUIRED
   │
+  ├─ Critical Prompt Loop (/cpl or Assistant mode)
+  │    -> immutable plan + explicit one-use approval
+  │    -> primary draft -> Logic & Claims -> Safety & Authority
+  │    -> Evidence & Consistency -> one primary-model revision
+  │    -> advisory response + persisted integrity trace
+  │
   └─ normal request
        -> slash commands / local router
        -> epistemic and knowledge gates
@@ -139,6 +145,7 @@ External providers are optional and non-deterministic. Their output may assist a
 /providers
 /setup
 /review
+/cpl help
 /hat list
 /scan /path/to/project
 /rhcsa status
@@ -150,7 +157,7 @@ External providers are optional and non-deterministic. Their output may assist a
 
 ## Provider configuration
 
-Provider credentials must remain outside the repository. Depending on the selected provider, AOIA-Core can read environment variables such as:
+Provider credentials must remain outside the repository. Depending on the selected provider, AIOA spArkHAT can read environment variables such as:
 
 - `AUREON_API_BASE_URL` and `AUREON_API_KEY`
 - `OPENROUTER_API_KEY`
@@ -163,11 +170,12 @@ Use `/setup` for the local configuration checklist and `/providers` for availabi
 ## Repository structure
 
 ```text
-AOIA-Core/
+AIOA-spArkHAT/
 ├── runtime/
 │   ├── main.py                 # canonical AgentRuntime and CLI
 │   ├── webapp.py               # one local HTTP server and JSON API
 │   ├── evidence_review/        # dated registry and deterministic review engine
+│   ├── critical_loop/          # advisory draft, 3 distinct critics, one final revision
 │   ├── adaptive_routing/       # local classifiers and epistemic kernel
 │   ├── commands/               # slash-command registry
 │   ├── knowledge/              # local Linux/RHCSA corpus and validators
@@ -187,7 +195,7 @@ Mutable runtime state is stored outside the checkout under `~/.local/state/aoia`
 
 ## Safety and authority
 
-AOIA-Core is designed around explicit boundaries:
+AIOA spArkHAT is designed around explicit boundaries:
 
 - risky local actions require operator confirmation where gates are implemented
 - model output cannot silently become evidence
@@ -196,7 +204,7 @@ AOIA-Core is designed around explicit boundaries:
 - evidence review is read-only, deterministic, size-bounded, and human-gated
 - the local web server rejects non-loopback bindings and applies restrictive browser headers
 
-AOIA-Core is not a truth engine, legal adviser, generic autonomous agent, production security certification, or scientific validation system.
+AIOA spArkHAT is not a truth engine, legal adviser, generic autonomous agent, production security certification, or scientific validation system.
 
 ## Tests
 
@@ -217,10 +225,11 @@ The suite covers routing determinism, execution containment, evidence/provenance
 - [External model output policy](docs/governance/EXTERNAL_MODEL_OUTPUT_POLICY.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [Runtime map](AOIA_RUNTIME_MAP.md)
+- [Core integration and compatibility map](docs/CORE_INTEGRATION.md)
 - [Stress-test documentation](docs/stress_tests/README.md)
 
-Research material under `MHLM_MHSR/` and LSC case-study documentation provide background and stress-test context. They are not a second runtime and do not override AOIA-Core's authority contracts.
+Research material under `MHLM_MHSR/` and LSC case-study documentation provide background and stress-test context. They are not a second runtime and do not override AIOA spArkHAT's authority contracts. Historical documents retain the names used when they were written.
 
 ## License
 
-AOIA-Core is released under the [MIT License](LICENSE). Linked official sources remain subject to their respective terms.
+AIOA spArkHAT is released under the [MIT License](LICENSE). Linked official sources remain subject to their respective terms.

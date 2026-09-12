@@ -197,16 +197,18 @@ class AgentRuntime:
 
                 self._cpl_service = CriticalPromptLoopService(
                     self.provider_manager, runtime_state_dir(self.project_dir) / 'critical_loop',
-                    cost_policy=self.cpl_cost_policy)
+                    cost_policy=self.cpl_cost_policy, execution_guard=self._check_cpl_safeguards)
         return self._cpl_service
 
-    def plan_critical_loop(self, payload):
+    def _check_cpl_safeguards(self):
         from providers.exact import ExactCallError
 
         if self.safeguards.kill_switch:
             raise ExactCallError('EPISTEMIC_KILL_SWITCH')
         if self.safeguards.disable_model and getattr(self.provider_manager, 'fixture_base_url', None) is None:
             raise ExactCallError('EPISTEMIC_DISABLE_MODEL')
+
+    def plan_critical_loop(self, payload):
         return self.critical_loop.plan(payload)
 
     def run_cpl_fixture(self):

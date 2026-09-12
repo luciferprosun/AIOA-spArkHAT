@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -82,12 +83,10 @@ class CandidateTriageTests(unittest.TestCase):
 
     def test_accept_records_preserve_provenance(self) -> None:
         payload = {"records": [base_record()]}
-        temp_path = PROJECT_ROOT / "runtime" / "knowledge" / "candidates" / ".tmp_candidate_triage_test.json"
-        try:
+        with tempfile.TemporaryDirectory() as temporary:
+            temp_path = Path(temporary) / "candidate_triage_test.json"
             temp_path.write_text(json.dumps(payload), encoding="utf-8")
             result = run_triage(temp_path, write=False)
-        finally:
-            temp_path.unlink(missing_ok=True)
 
         accepted = result["buckets"]["ACCEPT"]
         self.assertEqual(len(accepted), 1)

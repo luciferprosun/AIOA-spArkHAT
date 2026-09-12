@@ -67,11 +67,13 @@ class _Run:
 
 
 class CriticalPromptLoopService:
-    def __init__(self, provider_manager, trace_root: Path, *, cost_policy=None, plan_ttl_seconds=300):
+    def __init__(self, provider_manager, trace_root: Path, *, cost_policy=None, plan_ttl_seconds=300,
+                 execution_guard=None):
         self.manager = provider_manager
         self.scope = 'TEST' if getattr(provider_manager, 'fixture_base_url', None) is not None else 'LIVE'
         self.cost_policy = cost_policy or CostPolicy()
         self.plan_ttl_seconds = plan_ttl_seconds
+        self._execution_guard = execution_guard
         self._lock = threading.RLock()
         self._active: str | None = None
         self._runs: dict[str, _Run] = {}
@@ -112,6 +114,7 @@ class CriticalPromptLoopService:
                     'roles': list(SUPPORTED_ROLES), 'run_ids': list(self._runs)}
 
     def plan(self, payload):
+        self._check_execution_guard()
         allowed = {'prompt', 'evidence', 'models', 'roles', 'limits', 'run_budget_usd'}
         if not isinstance(payload, dict) or set(payload) - allowed:
             raise ExactCallError('INVALID_PLAN_FIELDS')
@@ -208,6 +211,7 @@ class CriticalPromptLoopService:
                 raise ExactCallError('PLAN_AUTHORIZATION_MISMATCH')
             if self._active is not None:
                 raise ExactCallError('CPL_WORKER_BUSY')
+            self._check_execution_guard()
             config = plan.payload()
             # Quotes can expire while the operator inspects a plan. Recheck the
             # same bound policy; never replace the approved quote/model here.
@@ -288,6 +292,7 @@ class CriticalPromptLoopService:
 
     def _call(self, run, model, messages, output_tokens, schema=None):
         run.token.check(run.deadline)
+        self._check_execution_guard()
         config = run.plan.payload()
         limits = Limits.from_dict(config['limits'])
         request = ExactRequest('openrouter', model, tuple(messages), output_tokens,
@@ -313,6 +318,11 @@ class CriticalPromptLoopService:
                 raise ExactCallError('CANCELLED')
             run.view['provider_results'].append(redact_secret_data(safe_result.metadata(), known_secrets=self._secrets))
         return safe_result
+
+    def _check_execution_guard(self):
+        """Retain the owning Core runtime's model/kill gates on every phase."""
+        if self._execution_guard is not None:
+            self._execution_guard()
 
     def _execute(self, run):
         try:

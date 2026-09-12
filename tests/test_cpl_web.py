@@ -1,5 +1,6 @@
 """Real loopback HTTP requests through the same AgentRuntime and provider adapter."""
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
 import http.client
 import json
 import tempfile
@@ -9,6 +10,7 @@ import unittest
 from unittest.mock import patch
 
 from critical_loop.fixture import FIXTURE_PROMPT, FIXTURE_EVIDENCE
+from providers.exact import ExactCallError
 from webapp import WebRuntimeService, make_server
 
 
@@ -121,6 +123,48 @@ class CPLWebTests(unittest.TestCase):
     def test_T11_chat_cannot_bypass_cpl_approval(self):
         for payload in [{'prompt': '/cpl fixture'}, {'prompt': FIXTURE_PROMPT, 'mode': 'cpl'}]:
             self.assertEqual(self.request('POST', '/api/chat', payload)[0], 400)
+        self.assertEqual(self.fixture.requests, [])
+
+    def test_T09_core_kill_switch_cannot_be_bypassed_by_direct_service_plan(self):
+        runtime = self.service.runtime
+        runtime.safeguards = replace(runtime.safeguards, kill_switch=True)
+        with self.assertRaisesRegex(ExactCallError, 'EPISTEMIC_KILL_SWITCH'):
+            runtime.critical_loop.plan({'prompt': FIXTURE_PROMPT})
+        self.assertEqual(self.fixture.requests, [])
+
+    def test_T09_core_guard_rechecked_at_start_without_consuming_approval(self):
+        plan = self.plan()
+        runtime = self.service.runtime
+        runtime.safeguards = replace(runtime.safeguards, kill_switch=True)
+        status, result, _ = self.request('POST', '/api/cpl/start', self.approval(plan))
+        self.assertEqual((status, result['error']), (400, 'EPISTEMIC_KILL_SWITCH'))
+        self.assertEqual(runtime.critical_loop.get(plan['run_id'])['execution_status'], 'PLANNED')
+        self.assertEqual(self.fixture.requests, [])
+        runtime.safeguards = replace(runtime.safeguards, kill_switch=False)
+        self.assertEqual(self.request('POST', '/api/cpl/start', self.approval(plan))[0], 202)
+        self.assertEqual(runtime.critical_loop.wait(plan['run_id'], 5)['execution_status'], 'COMPLETED')
+        self.assertEqual(len(self.fixture.requests), 5)
+
+    def test_T09_core_guard_rechecked_between_generation_phases(self):
+        self.fixture.faults = {1: 'delay'}
+        plan = self.plan()
+        self.request('POST', '/api/cpl/start', self.approval(plan))
+        self.assertTrue(self.fixture.entered.wait(2))
+        runtime = self.service.runtime
+        runtime.safeguards = replace(runtime.safeguards, kill_switch=True)
+        self.fixture.release.set()
+        result = runtime.critical_loop.wait(plan['run_id'], 5)
+        self.assertEqual(result['execution_status'], 'FAILED')
+        self.assertEqual(result['error'], 'EPISTEMIC_KILL_SWITCH')
+        self.assertIsNone(result['final_answer'])
+        self.assertEqual(len(self.fixture.requests), 1)
+
+    def test_T09_live_model_disable_gate_without_external_transport(self):
+        runtime = self.service.runtime
+        runtime.provider_manager.fixture_base_url = None
+        runtime.safeguards = replace(runtime.safeguards, disable_model=True)
+        with self.assertRaisesRegex(ExactCallError, 'EPISTEMIC_DISABLE_MODEL'):
+            runtime.critical_loop.plan({'prompt': FIXTURE_PROMPT})
         self.assertEqual(self.fixture.requests, [])
 
     def test_T11_body_bounds_duplicate_fields_nonfinite_and_framing(self):

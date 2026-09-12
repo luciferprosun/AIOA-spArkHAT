@@ -12,7 +12,7 @@ class StatusPanel(Static):
         knowledge = status.get("knowledge_routing", {})
         safeguards = status.get("epistemic_safeguards", {})
         lines = [
-            "AOIA Core Status",
+            "AIOA spArkHAT Status",
             f"provider/model: {status.get('model', '(unknown)')}",
             f"cwd: {status.get('cwd', '(unknown)')}",
             f"session_log: {status.get('session_log', '(unknown)')}",
