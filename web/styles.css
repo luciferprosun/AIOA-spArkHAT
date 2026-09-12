@@ -110,6 +110,10 @@ textarea {
   color: var(--accent-deep);
 }
 
+.eyebrow.product-name {
+  text-transform: none;
+}
+
 .panel-head,
 .topbar {
   display: flex;
