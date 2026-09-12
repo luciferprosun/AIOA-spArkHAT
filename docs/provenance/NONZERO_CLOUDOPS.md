@@ -1,7 +1,8 @@
 # NonZero CloudOps native provenance
 
 Canonical product: **AIOA spArkHAT**. Module: `nonzero-cloudops`.
-This is a local Phase 3 convergence of the historical Core, not a second product.
+This is the native capability of the historical Core, not a second product.
+Phase 3 converged execution; Phase 4 retires the embedded reference tree locally.
 
 ## Immutable lineage
 
@@ -13,13 +14,15 @@ This is a local Phase 3 convergence of the historical Core, not a second product
 - Full-history import: `119a8ba12e54a2fbea42a43d62725e25fb5bc380`.
 - Phase 2 adapter: `15c63fda6e759312924eb272a5dbda20269bad2f`.
 - Phase 2 final/start of Phase 3: `ad7d2ffa602654fab7ffe30168339f2dc138278f`.
-- Phase 3 branch: `integration/nonzero-cloudops-native-v1`; parent history remains unchanged.
+- Phase 3 branch: `integration/nonzero-cloudops-native-v1`; final SHA `6563f93e2b895d494063161b438d05209e2655ca`.
+- Phase 4 branch: `integration/nonzero-cloudops-one-system-v1`; all parent history remains unchanged.
 
 Source code attribution and MIT permission notice are retained verbatim in
 `runtime/nonzero_cloudops/LICENSE-NONZERO.txt`, also included in the Core wheel.
 Ported files identify original paths and SHA; this does not claim the imported
 logic was newly authored for a different contest. The historical whole source
-and its license remain unchanged under `baseline/`.
+and its license remain recoverable from unchanged Git history and frozen source;
+they are not a second project in the active tree.
 
 ## Selective semantic migration
 
@@ -93,15 +96,25 @@ The separate 3.11 test interpreter is an externally stored, SHA-256-verified
 [python-build-standalone release](https://github.com/astral-sh/python-build-standalone/releases/tag/20250818);
 it does not change system Python or the Core minimum.
 
-## Reference retention and deferred work
+## Reference retirement and deferred work
 
-`baseline/` is retained only for history/provenance/reference tests. It is
-excluded from the wheel and hidden in native runtime tests. No native code
-imports or reads it; runtime does not clone/fetch Git or launch baseline scripts.
+`runtime/nonzero_cloudops/baseline/` was removed only from the local Phase 4
+active tree after the last 1447-test oracle run and all reference gates passed.
+The small [retirement lock](NONZERO_CLOUDOPS_RETIREMENT_LOCK.json) records source
+identities, final reference results, license, native-map and parity hashes.
+No native code imports or reads the retired source; runtime does not clone/fetch
+Git or launch its scripts. Final tests run with the path physically absent,
+without baseline mounts, substitutes or restorations.
+
+`source_root` in the preserved source-map JSON denotes a historical path at
+Phase 3 SHA, not a path to load from the current tree. Its byte-identical hash is
+locked; each source hash was checked before retirement. Offline final validation
+uses only that small map, license and native fixture, not full source recovery.
 
 Deferred explicitly: native live AWS/CloudWatch/Dynamo backend certification,
 real-model adapter through Core's ProviderManager, Phase 2 state migration,
-public multi-user service hardening, baseline removal and remote publication.
+public multi-user service hardening and remote publication. Baseline removal is
+complete locally, not deferred; history and frozen repositories remain intact.
 `adapters/aws_optional.py` returns unavailable even after explicit selection;
 no credentials are read and no live AWS operation is certified.
 The protected backend protocol alone is not proof that a future live backend
@@ -111,4 +124,4 @@ The current portable backend may reconcile from its atomic inventory/receipt
 store; this is not a claim of exactly-once guarantees for arbitrary cloud APIs.
 Hashes prove integrity/linkage, not factual correctness or external attestation.
 
-No push, PR, main merge, release tag or deployment is part of Phase 3.
+No push, PR, main merge, release tag or deployment is part of Phase 4.

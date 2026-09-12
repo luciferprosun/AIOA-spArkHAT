@@ -1,6 +1,7 @@
 {
   "schema_version": "nonzero-native-convergence-v1",
   "contract_status": "FROZEN_BEFORE_IMPLEMENTATION",
+  "record_scope": "HISTORICAL_PHASE3_DESIGN; embedded source retired from active tree in Phase 4",
   "judge_sha": "4fafed8b1a877e55d96ddd9baea0a737fbeeaa4a",
   "core_baseline_sha": "5f30f092f7a20035ed1caf4a8e22397673f598df",
   "phase2_start_sha": "ad7d2ffa602654fab7ffe30168339f2dc138278f",

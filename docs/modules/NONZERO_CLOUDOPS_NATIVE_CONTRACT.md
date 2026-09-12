@@ -1,6 +1,7 @@
 # AIOA spArkHAT — native NonZero CloudOps contract v1
 
 Frozen before implementation on child branch `integration/nonzero-cloudops-native-v1`.
+The same native behavior is retained after local Phase 4 reference-tree retirement.
 
 ## Identity and discovery
 
@@ -51,6 +52,6 @@ Reuse `tools.provenance.AppendOnlyProvenanceStore` and `verify_provenance_chain`
 
 ## Runtime independence and certification
 
-No native import/read/launch into baseline; no runtime Git, pip, clone/fetch, shell launcher or second app. Frozen source tree stays untouched and outside installed Core wheel. Static checks plus clean installed-wheel happy/deny/binding/replay/restart/provenance tests must pass with baseline physically absent from the namespace. Full Core regression and unmodified reference gates remain independent acceptance evidence.
+No native import/read/launch into baseline; no runtime Git, pip, clone/fetch, shell launcher or second app. The frozen source repositories stay untouched. The imported reference directory is now retired from the active Core tree and installed wheel, while Git history preserves recovery. Static checks plus clean installed-wheel happy/deny/binding/replay/restart/provenance tests must pass with baseline physically absent, not masked or restored. The sealed pre-retirement reference results are historical evidence; full current Core/native regression has no source-tree oracle dependency.
 
-No remote push, PR, main merge, tags, deployment or live cloud mutation. Stop after local certification/report for operator review before baseline removal or publication.
+No remote push, PR, main merge, tags, deployment or live cloud mutation. Stop after local certification/report for operator review before remote branch publication or a PR.

@@ -2,6 +2,11 @@
 
 Design frozen before implementation. Product: AIOA spArkHAT. Phase 3 is local only.
 
+Historical Phase 3 design record: source paths and retention statements below
+describe the pre-retirement oracle. Phase 4 removed that tree from the active
+repository after sealing its final tests. Current operation and recovery are
+documented in [one-system retirement](NONZERO_ONE_SYSTEM_RETIREMENT.md).
+
 Baseline paths below are relative to `runtime/nonzero_cloudops/baseline/src/aioa_cloudops_agent/` unless they name repository scripts/config. Native paths are relative to `runtime/nonzero_cloudops/`.
 
 ## Before and after

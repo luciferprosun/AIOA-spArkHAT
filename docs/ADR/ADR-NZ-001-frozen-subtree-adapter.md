@@ -1,6 +1,10 @@
 # ADR NZ-001 — frozen subtree and operator-only adapter
 
-Status: isolated `integration/nonzero-cloudops-agent`; operator review required.
+Status: HISTORICAL PHASE 2; superseded by native Phase 3 and Phase 4 retirement.
+The architecture, dependencies and source-tree test setup below describe the
+former integration, not current launch/install instructions. There is no active
+embedded project or separate credential now. Use [native operation](../NONZERO_CORE_INTEGRATION.md)
+and the [one-system retirement record](../integration/NONZERO_ONE_SYSTEM_RETIREMENT.md).
 
 ## Established interfaces and import
 
@@ -61,9 +65,9 @@ ledger, avoiding an unsynchronized shared writer. Request bodies/raw nonces are
 not logged. Sanitized results link run/trace IDs, proposals, evidence and receipts.
 Hashes establish integrity/linkage, **not factual truth**.
 
-## Git-aware native certification
+## Historical Git-aware reference certification (Phase 2/3 only)
 
-Native gates assume their own repository root, frozen HEAD and historical tags.
+The original source gates assumed their own repository root, frozen HEAD and historical tags.
 Using the enclosing Core HEAD would test the wrong Git context. Certification
 creates external Git metadata from imported Core objects at the frozen parent
 and proves complete tree equality. Each tracked top-level file/directory is

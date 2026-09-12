@@ -1,6 +1,6 @@
 # Native NonZero CloudOps inside AIOA spArkHAT
 
-Status: local `integration/nonzero-cloudops-native-v1`; no push, PR, main merge or deployment.
+Status: local `integration/nonzero-cloudops-one-system-v1`; no push, PR, main merge or deployment.
 Module identity: `nonzero-cloudops`. Contract: `nonzero-native-v1`.
 
 ```text
@@ -12,7 +12,6 @@ AIOA spArkHAT / AgentRuntime
     ├── native planning / policy / approval / execution / verification
     ├── models/ and state/ — typed domain safety and durable checkpoints
     ├── adapters/portable.py — atomic synthetic inventory plus receipts
-    ├── baseline/ — reference-only frozen subtree, NOT in the runtime wheel
     └── AOIA_HOME state — native-v1 domain state and existing Core provenance
 ```
 
@@ -109,20 +108,31 @@ untrusted Python callers. JSON bodies cannot provide that authority.
 See the [native contract](modules/NONZERO_CLOUDOPS_NATIVE_CONTRACT.md) and
 [convergence map](integration/NONZERO_CLOUDOPS_CONVERGENCE_MAP.md).
 [ADR NZ-001](ADR/ADR-NZ-001-frozen-subtree-adapter.md) records the historical
-Phase 2 decision, superseded for runtime/packaging by native v1; it still explains
-the unchanged Git-aware reference test context.
+Phase 2 decision, superseded by native v1 and Phase 4 retirement. Its old
+repository-aware test context is historical, not a current installation or test
+requirement. Original source is recoverable from Git history, including Phase 3
+commit `6563f93e2b895d494063161b438d05209e2655ca`, without rewriting any history.
+See the [hash-only retirement lock](provenance/NONZERO_CLOUDOPS_RETIREMENT_LOCK.json).
 No frozen jury files, commits, refs or settings were modified.
 
 ```bash
-PYTHONPATH=runtime PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -v
-PYTHONPATH=runtime PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -p test_nonzero_integration.py -v
-PYTHONPATH=runtime PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -p 'test_nonzero*.py' -v
+python3 -c "import runtime, unittest, sys; result = unittest.TextTestRunner(verbosity=2).run(unittest.defaultTestLoader.discover('tests')); sys.exit(not result.wasSuccessful())"
+python3 -c "import runtime, unittest, sys; result = unittest.TextTestRunner(verbosity=2).run(unittest.defaultTestLoader.discover('tests', pattern='test_nonzero*.py')); sys.exit(not result.wasSuccessful() or bool(result.skipped))"
+python3 -m runtime.tools.nonzero_architecture --project-root .
 ```
 
 Use the Core extra to execute all native tests rather than optional dependency
 skips. Native certification includes Core unittest regression, typed failure
 matrix, fixed-input parity, static independence and a clean installed Core wheel.
-The original full pytest, Ruff, portable demo, P0, P1, B4 and reviewer-evidence
-checks run separately in the frozen reference Git context. Synthetic
+The normal `runtime` facade is Core's existing public package bootstrap; no
+PYTHONPATH setting, private loader, second checkout or baseline is required.
+The final pre-retirement original pytest/P0/P1/B4/evidence/secret results are
+sealed in the provenance lock. Do not restore or launch the old source to run
+current acceptance tests. Synthetic
 mutations and loopback fixture HTTP are expected; real AWS mutations and paid
 model calls are forbidden. Hashes prove integrity/linkage, not factual truth.
+
+The one-system static gate checks the actual tree and hash lock, and optionally
+the exact wheel with `--wheel /absolute/path/to/aioa_sparkhat.whl`. It performs
+no Git/network retrieval. Live AWS, real-model advisory, public multi-user
+hosting and legacy state migration remain separate operator-approved work.

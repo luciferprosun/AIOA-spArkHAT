@@ -1,5 +1,6 @@
 {
   "schema_version": "nonzero-source-import-map-v1",
+  "record_scope": "HISTORICAL_PHASE2_IMPORT; source files below describe Git history, not an active installation",
   "canonical_product_name": "AIOA spArkHAT",
   "core_repository": "luciferprosun/AIOA-spArkHAT",
   "core_repository_id": 1247349659,
