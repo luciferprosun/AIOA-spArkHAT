@@ -1,0 +1,343 @@
+{
+  "$defs": {
+    "FutureDeploymentRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "pattern": "^[A-Za-z0-9:._-]+$",
+          "title": "Action",
+          "type": "string"
+        },
+        "binding": {
+          "pattern": "^[A-Z0-9_]+$",
+          "title": "Binding",
+          "type": "string"
+        },
+        "default_enabled": {
+          "const": false,
+          "title": "Default Enabled",
+          "type": "boolean"
+        },
+        "request_class": {
+          "$ref": "#/$defs/FutureRequestClass"
+        },
+        "request_id": {
+          "pattern": "^P3-REQ-[0-9]{2}$",
+          "title": "Request Id",
+          "type": "string"
+        },
+        "service": {
+          "enum": [
+            "local",
+            "s3",
+            "cloudformation"
+          ],
+          "title": "Service",
+          "type": "string"
+        }
+      },
+      "required": [
+        "request_id",
+        "service",
+        "action",
+        "request_class",
+        "default_enabled",
+        "binding"
+      ],
+      "title": "FutureDeploymentRequest",
+      "type": "object"
+    },
+    "FutureRequestClass": {
+      "enum": [
+        "LOCAL",
+        "REQUIRES_EXPLICIT_MUTATION_APPROVAL"
+      ],
+      "title": "FutureRequestClass",
+      "type": "string"
+    },
+    "IacCheck": {
+      "additionalProperties": false,
+      "properties": {
+        "check_id": {
+          "pattern": "^P3-IAC-[0-9]{2}$",
+          "title": "Check Id",
+          "type": "string"
+        },
+        "reasons": {
+          "default": [],
+          "items": {
+            "pattern": "^[A-Z0-9_]+$",
+            "type": "string"
+          },
+          "title": "Reasons",
+          "type": "array"
+        },
+        "status": {
+          "$ref": "#/$defs/IacCheckStatus"
+        }
+      },
+      "required": [
+        "check_id",
+        "status"
+      ],
+      "title": "IacCheck",
+      "type": "object"
+    },
+    "IacCheckStatus": {
+      "enum": [
+        "PASS",
+        "FAIL"
+      ],
+      "title": "IacCheckStatus",
+      "type": "string"
+    },
+    "OwnershipProof": {
+      "enum": [
+        "STACK_AND_EXACT_TAGS",
+        "STACK_MEMBERSHIP_AND_LOGICAL_ID"
+      ],
+      "title": "OwnershipProof",
+      "type": "string"
+    },
+    "ResourceAuthority": {
+      "enum": [
+        "SECRET_AUTH",
+        "DURABLE_STATE",
+        "OBSERVABILITY",
+        "READ_PLAN",
+        "EXACT_PLAN_AND_CONFIRM_WRITE",
+        "IMMUTABLE_ROLLBACK",
+        "ROUTING",
+        "CONDITIONAL_PUBLIC_READ_INGRESS"
+      ],
+      "title": "ResourceAuthority",
+      "type": "string"
+    },
+    "ResourceIntent": {
+      "additionalProperties": false,
+      "properties": {
+        "authority": {
+          "$ref": "#/$defs/ResourceAuthority"
+        },
+        "cleanup_behavior": {
+          "pattern": "^[A-Z0-9_]+$",
+          "title": "Cleanup Behavior",
+          "type": "string"
+        },
+        "condition": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z][A-Za-z0-9]{0,254}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Condition"
+        },
+        "creates_or_modifies": {
+          "const": "CREATE_IF_EXPLICITLY_APPROVED",
+          "title": "Creates Or Modifies",
+          "type": "string"
+        },
+        "deletion_policy": {
+          "enum": [
+            "Delete",
+            "Retain"
+          ],
+          "title": "Deletion Policy",
+          "type": "string"
+        },
+        "dependencies": {
+          "items": {
+            "pattern": "^[A-Za-z][A-Za-z0-9]{0,254}$",
+            "type": "string"
+          },
+          "title": "Dependencies",
+          "type": "array"
+        },
+        "lifecycle": {
+          "$ref": "#/$defs/ResourceLifecycle"
+        },
+        "logical_id": {
+          "pattern": "^[A-Za-z][A-Za-z0-9]{0,254}$",
+          "title": "Logical Id",
+          "type": "string"
+        },
+        "ownership_proof": {
+          "$ref": "#/$defs/OwnershipProof"
+        },
+        "purpose": {
+          "maxLength": 160,
+          "minLength": 3,
+          "title": "Purpose",
+          "type": "string"
+        },
+        "resource_type": {
+          "pattern": "^AWS::[A-Za-z0-9]+::[A-Za-z0-9]+$",
+          "title": "Resource Type",
+          "type": "string"
+        },
+        "update_replace_policy": {
+          "enum": [
+            "Delete",
+            "Retain"
+          ],
+          "title": "Update Replace Policy",
+          "type": "string"
+        }
+      },
+      "required": [
+        "logical_id",
+        "resource_type",
+        "purpose",
+        "authority",
+        "ownership_proof",
+        "lifecycle",
+        "cleanup_behavior",
+        "condition",
+        "deletion_policy",
+        "update_replace_policy",
+        "dependencies",
+        "creates_or_modifies"
+      ],
+      "title": "ResourceIntent",
+      "type": "object"
+    },
+    "ResourceLifecycle": {
+      "enum": [
+        "STACK_DELETE",
+        "RETAIN_EXPLICIT_DISPOSITION",
+        "CONDITIONAL_STACK_DELETE"
+      ],
+      "title": "ResourceLifecycle",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "aws_mutations": {
+      "const": 0,
+      "title": "Aws Mutations",
+      "type": "integer"
+    },
+    "checks": {
+      "items": {
+        "$ref": "#/$defs/IacCheck"
+      },
+      "title": "Checks",
+      "type": "array"
+    },
+    "conditional_public_resource_count": {
+      "maximum": 10,
+      "minimum": 0,
+      "title": "Conditional Public Resource Count",
+      "type": "integer"
+    },
+    "deployment_contract_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Deployment Contract Sha256",
+      "type": "string"
+    },
+    "future_requests": {
+      "items": {
+        "$ref": "#/$defs/FutureDeploymentRequest"
+      },
+      "title": "Future Requests",
+      "type": "array"
+    },
+    "live_receipts": {
+      "const": 0,
+      "title": "Live Receipts",
+      "type": "integer"
+    },
+    "manifest_id": {
+      "const": "AIOA_PHASE3_EXPECTED_AWS_RESOURCES",
+      "title": "Manifest Id",
+      "type": "string"
+    },
+    "mechanism": {
+      "const": "AWS_SAM_CLOUDFORMATION",
+      "title": "Mechanism",
+      "type": "string"
+    },
+    "mode": {
+      "const": "OFFLINE_TEMPLATE_DRY_RUN",
+      "title": "Mode",
+      "type": "string"
+    },
+    "network_connections": {
+      "const": 0,
+      "title": "Network Connections",
+      "type": "integer"
+    },
+    "resource_count": {
+      "maximum": 100,
+      "minimum": 1,
+      "title": "Resource Count",
+      "type": "integer"
+    },
+    "resources": {
+      "items": {
+        "$ref": "#/$defs/ResourceIntent"
+      },
+      "title": "Resources",
+      "type": "array"
+    },
+    "retained_resource_count": {
+      "maximum": 100,
+      "minimum": 0,
+      "title": "Retained Resource Count",
+      "type": "integer"
+    },
+    "schema_version": {
+      "const": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "status": {
+      "const": "PASS",
+      "title": "Status",
+      "type": "string"
+    },
+    "tagged_resource_count": {
+      "maximum": 100,
+      "minimum": 1,
+      "title": "Tagged Resource Count",
+      "type": "integer"
+    },
+    "template_path": {
+      "const": "infra/sam/template.yaml",
+      "title": "Template Path",
+      "type": "string"
+    },
+    "template_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Template Sha256",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "manifest_id",
+    "mode",
+    "status",
+    "mechanism",
+    "template_path",
+    "template_sha256",
+    "deployment_contract_sha256",
+    "checks",
+    "resources",
+    "future_requests",
+    "resource_count",
+    "tagged_resource_count",
+    "retained_resource_count",
+    "conditional_public_resource_count",
+    "network_connections",
+    "aws_mutations",
+    "live_receipts"
+  ],
+  "title": "ExpectedResourceManifest",
+  "type": "object"
+}

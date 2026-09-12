@@ -1,0 +1,756 @@
+{
+  "aws_mutations": 0,
+  "draft_sha256": "a7714281dfe7c02e285ce0ba64080fafdb441547ddd561d1cf30e3018c2174df",
+  "evidence_map_rows": 8,
+  "live_placeholders": 6,
+  "live_receipts": 0,
+  "network_connections": 0,
+  "receipt_sha256": "ef7327bda017043c9eeaac91bcd6bfe150061bcb52857348d9365709327ec8a9",
+  "schema_version": 1,
+  "sentence_receipts": [
+    {
+      "classification": "LOCAL_EVIDENCE_CLAIM",
+      "evidence": [
+        "requirements/phase3-deployment-contract.json"
+      ],
+      "section": "",
+      "sentence_index": 1,
+      "sentence_sha256": "f3e0461d5f1bd23d882358de6f187a0accc4e09d6213d6c9790123da95e5a463"
+    },
+    {
+      "classification": "LOCAL_EVIDENCE_CLAIM",
+      "evidence": [
+        "scripts/run_p0_gate.py",
+        "docs/evidence/release/phase3-offline-verifier-receipt.json"
+      ],
+      "section": "One-line pitch",
+      "sentence_index": 2,
+      "sentence_sha256": "651d116635943a37072b3f56334992f5bb9a6c3026ce9b218ab6751ad93404eb"
+    },
+    {
+      "classification": "LOCAL_EVIDENCE_CLAIM",
+      "evidence": [
+        "docs/architecture/phase3-deployment-ready-local-rc.md"
+      ],
+      "section": "The problem",
+      "sentence_index": 3,
+      "sentence_sha256": "d05d1380415d8d1afab46e57a24c9a596056f342e39dc634b3ac56ae8e01ab8e"
+    },
+    {
+      "classification": "LOCAL_EVIDENCE_CLAIM",
+      "evidence": [
+        "docs/architecture/phase3-deployment-ready-local-rc.md"
+      ],
+      "section": "The problem",
+      "sentence_index": 4,
+      "sentence_sha256": "63fef5b170b66d88935b9e9f89aa67ccd445e627b595f40dcfa211987247a984"
+    },
+    {
+      "classification": "LOCAL_EVIDENCE_CLAIM",
+      "evidence": [
+        "docs/architecture/phase3-deployment-ready-local-rc.md"
+      ],
+      "section": "The problem",
+      "sentence_index": 5,
+      "sentence_sha256": "dd94c1cdc29dc5dcfd6394967880f8972b399510b99aa74ab2f04b82343e0fde"
+    },
+    {
+      "classification": "LOCAL_EVIDENCE_CLAIM",
+      "evidence": [
+        "docs/architecture/phase3-deployment-ready-local-rc.md",
+        "infra/sam/template.yaml",
+        "tests/unit/test_phase3_post_deploy_verifier.py"
+      ],
+      "section": "What we built",
+      "sentence_index": 6,
+      "sentence_sha256": "fadb25486423f8cebb1d7863d4aea39293bc7b9b8cc473bddcf055053f9fcd82"
+    },
+    {
+      "classification": "EXPLICIT_LIVE_LIMIT_OR_PLACEHOLDER",
+      "evidence": [
+        "docs/architecture/phase3-deployment-ready-local-rc.md",
+        "infra/sam/template.yaml",
+        "tests/unit/test_phase3_post_deploy_verifier.py"
+      ],
+      "section": "What we built",
+      "sentence_index": 7,
+      "sentence_sha256": "a7253dfe411093b5338ee8b465eed856b7a25a99258ce5ee2f0a0a87e6254c6e"
+    },
+    {
+      "classification": "EXPLICIT_LIVE_LIMIT_OR_PLACEHOLDER",
+      "evidence": [
+        "docs/architecture/phase3-deployment-ready-local-rc.md",
+        "infra/sam/template.yaml",
+        "tests/unit/test_phase3_post_deploy_verifier.py"
+      ],
+      "section": "What we built",
+      "sentence_index": 8,
+      "sentence_sha256": "2bc885448fcb0e3bd99d45cfea6688d21245840ae5910650549ed6f140ea5fcc"
+    },
+    {
+      "classification": "LOCAL_EVIDENCE_CLAIM",
+      "evidence": [
+        "docs/architecture/phase3-deployment-ready-local-rc.md",
+        "infra/sam/template.yaml",
+        "tests/unit/test_phase3_post_deploy_verifier.py"
+      ],
+      "section": "What we built",
+      "sentence_index": 9,
+      "sentence_sha256": "d5cd4085655aefa06fd4fda5168640bdc01bcb465c34825546aa7a24d9e2880d"
+    },
+    {
+      "classification": "LOCAL_EVIDENCE_CLAIM",
+      "evidence": [
+        "docs/architecture/phase3-deployment-ready-local-rc.md",
+        "infra/sam/template.yaml",
+        "tests/unit/test_phase3_post_deploy_verifier.py"
+      ],
+      "section": "What we built",
+      "sentence_index": 10,
+      "sentence_sha256": "bbccadbc58e66699395bf3a9ae1e06b478f588a0ed344cbba4e18508bbc9cc44"
+    },
+    {
+      "classification": "LOCAL_EVIDENCE_CLAIM",
+      "evidence": [
+        "docs/architecture/phase3-deployment-ready-local-rc.md",
+        "infra/sam/template.yaml",
+        "tests/unit/test_phase3_post_deploy_verifier.py"
+      ],
+      "section": "What we built",
+      "sentence_index": 11,
+      "sentence_sha256": "a96932de92e683d25034df1080cdf684be7ccfaf531ef4cf9a953fc58481b864"
+    },
+    {
+      "classification": "LOCAL_EVIDENCE_CLAIM",
+      "evidence": [
+        "scripts/run_p0_gate.py",
+        "scripts/run_p1_gate.py"
+      ],
+      "section": "How humans stay in control",
+      "sentence_index": 12,
+      "sentence_sha256": "7b35227cb09583be795e1f82deac75c06c1512220de0ecd6766fb29698f26211"
+    },
+    {
+      "classification": "LOCAL_EVIDENCE_CLAIM",
+      "evidence": [
+        "scripts/run_p0_gate.py",
+        "scripts/run_p1_gate.py"
+      ],
+      "section": "How humans stay in control",
+      "sentence_index": 13,
+      "sentence_sha256": "acc1ddf47e1397b98aa89333429a1ac91004b55fe1cac1888ee554f2d63c809d"
+    },
+    {
+      "classification": "LOCAL_EVIDENCE_CLAIM",
+      "evidence": [
+        "scripts/run_p0_gate.py",
+        "scripts/run_p1_gate.py"
+      ],
+      "section": "How humans stay in control",
+      "sentence_index": 14,
+      "sentence_sha256": "742d5fc2ee24f16d2f2964e799ba3def4ba412c02a8c5bea3095626b8fe804aa"
+    },
+    {
+      "classification": "LOCAL_EVIDENCE_CLAIM",
+      "evidence": [
+        "scripts/run_p0_gate.py",
+        "scripts/run_p1_gate.py"
+      ],
+      "section": "How humans stay in control",
+      "sentence_index": 15,
+      "sentence_sha256": "7b85c0c8b2a5b09ea67188b7e78a6e5ebeca50c7b8338ef79bf05f35829ad360"
+    },
+    {
+      "classification": "LOCAL_EVIDENCE_CLAIM",
+      "evidence": [
+        "scripts/run_p0_gate.py",
+        "scripts/run_p1_gate.py"
+      ],
+      "section": "How humans stay in control",
+      "sentence_index": 16,
+      "sentence_sha256": "2ec7fd04ad8639be2a5d124e4b24e056bcea4cff17feebd0a38fadf245b14344"
+    },
+    {
+      "classification": "LOCAL_EVIDENCE_CLAIM",
+      "evidence": [
+        "scripts/run_p0_gate.py",
+        "scripts/run_p1_gate.py"
+      ],
+      "section": "How humans stay in control",
+      "sentence_index": 17,
+      "sentence_sha256": "bc5009525e0631a1969e76e02f88a084aa20fd2dc06c80391997589d95c691d5"
+    },
+    {
+      "classification": "LOCAL_EVIDENCE_CLAIM",
+      "evidence": [
+        "scripts/run_p0_gate.py",
+        "scripts/run_p1_gate.py"
+      ],
+      "section": "How humans stay in control",
+      "sentence_index": 18,
+      "sentence_sha256": "fa50a405f8c232571c31158cc40d534930a412faceed41486a89cb90f42f62a7"
+    },
+    {
+      "classification": "LOCAL_EVIDENCE_CLAIM",
+      "evidence": [
+        "scripts/run_p0_gate.py",
+        "scripts/run_p1_gate.py"
+      ],
+      "section": "How humans stay in control",
+      "sentence_index": 19,
+      "sentence_sha256": "4e8ffcec7bcbcf7a8452b712f300bc001dd4b26e7941ed068d499d1d30f65e93"
+    },
+    {
+      "classification": "LOCAL_EVIDENCE_CLAIM",
+      "evidence": [
+        "scripts/run_p0_gate.py",
+        "scripts/run_p1_gate.py"
+      ],
+      "section": "How humans stay in control",
+      "sentence_index": 20,
+      "sentence_sha256": "d26ed703454f89adbc6ff4f6765b8b32577c09450c907ab3939b7375120e15bb"
+    },
+    {
+      "classification": "LOCAL_EVIDENCE_CLAIM",
+      "evidence": [
+        "scripts/run_p0_gate.py",
+        "scripts/run_p1_gate.py"
+      ],
+      "section": "How humans stay in control",
+      "sentence_index": 21,
+      "sentence_sha256": "38c2615b76251b0024c445aae33a95711b4ccf08d4f0d76a1893d8dd58cea7b5"
+    },
+    {
+      "classification": "LOCAL_EVIDENCE_CLAIM",
+      "evidence": [
+        "scripts/phase3/run_jury_demo.py",
+        "docs/evidence/release/phase3-offline-verifier-receipt.json"
+      ],
+      "section": "Demo",
+      "sentence_index": 22,
+      "sentence_sha256": "de9982fbe95de9a080d3052ed6aad264aa5e6915319d10df96323a1151efff2e"
+    },
+    {
+      "classification": "LOCAL_EVIDENCE_CLAIM",
+      "evidence": [
+        "scripts/phase3/run_jury_demo.py",
+        "docs/evidence/release/phase3-offline-verifier-receipt.json"
+      ],
+      "section": "Demo",
+      "sentence_index": 23,
+      "sentence_sha256": "e3f9400af0d49e5282645e738af86bdf3537b864320d391b12adfc9eca67ab35"
+    },
+    {
+      "classification": "EXPLICIT_LIVE_LIMIT_OR_PLACEHOLDER",
+      "evidence": [
+        "scripts/phase3/run_jury_demo.py",
+        "docs/evidence/release/phase3-offline-verifier-receipt.json"
+      ],
+      "section": "Demo",
+      "sentence_index": 24,
+      "sentence_sha256": "64d257490b7613d5fbbe74bf34f107c1e97457a4fec0a902b73b2889cb0380fa"
+    },
+    {
+      "classification": "LOCAL_EVIDENCE_CLAIM",
+      "evidence": [
+        "scripts/phase3/run_jury_demo.py",
+        "docs/evidence/release/phase3-offline-verifier-receipt.json"
+      ],
+      "section": "Demo",
+      "sentence_index": 25,
+      "sentence_sha256": "b9c96d0bc633e4619c811450639a5b6639d37cafe6ff53cb758190e793432a5b"
+    },
+    {
+      "classification": "LOCAL_EVIDENCE_CLAIM",
+      "evidence": [
+        "requirements/phase3-deployment-contract.json",
+        "docs/evidence/release/phase3-expected-resources.json"
+      ],
+      "section": "Technology",
+      "sentence_index": 26,
+      "sentence_sha256": "bb0abacbcafa0cd7d4c31aa2876106fcc8a2d8ff35420ded2bff1cd993063fdf"
+    },
+    {
+      "classification": "LOCAL_EVIDENCE_CLAIM",
+      "evidence": [
+        "requirements/phase3-deployment-contract.json",
+        "docs/evidence/release/phase3-expected-resources.json"
+      ],
+      "section": "Technology",
+      "sentence_index": 27,
+      "sentence_sha256": "8743368b05c0fe73eecc022411bda589c0a50e279b2c96e51833674059aa48ac"
+    },
+    {
+      "classification": "EXPLICIT_LIVE_LIMIT_OR_PLACEHOLDER",
+      "evidence": [
+        "requirements/phase3-deployment-contract.json",
+        "docs/evidence/release/phase3-expected-resources.json"
+      ],
+      "section": "Technology",
+      "sentence_index": 28,
+      "sentence_sha256": "ea9b89a180e706e3a7b3fcee8f7e07298d8544b9b1c6cba3dca8a651250b6566"
+    },
+    {
+      "classification": "LOCAL_EVIDENCE_CLAIM",
+      "evidence": [
+        "requirements/phase3-deployment-contract.json",
+        "docs/evidence/release/phase3-expected-resources.json"
+      ],
+      "section": "Technology",
+      "sentence_index": 29,
+      "sentence_sha256": "b4545168bdfd68d762ac9ae2a219f9019a4e107c5c5e3fdd21d826c9ff0ad979"
+    },
+    {
+      "classification": "LOCAL_EVIDENCE_CLAIM",
+      "evidence": [
+        "requirements/phase3-deployment-contract.json",
+        "docs/evidence/release/phase3-expected-resources.json"
+      ],
+      "section": "Technology",
+      "sentence_index": 30,
+      "sentence_sha256": "a2983d40d1e61f681d9299b2601ef4f4b8d09586fa62b6722b22ca33253857b8"
+    },
+    {
+      "classification": "EXPLICIT_LIVE_LIMIT_OR_PLACEHOLDER",
+      "evidence": [
+        "requirements/phase3-deployment-contract.json",
+        "docs/evidence/release/phase3-expected-resources.json"
+      ],
+      "section": "Technology",
+      "sentence_index": 31,
+      "sentence_sha256": "ec9ce9f194d065d0211bd65d345a2fb2acfda9c1a739add039d8fb70c90c4bd3"
+    },
+    {
+      "classification": "LOCAL_EVIDENCE_CLAIM",
+      "evidence": [
+        "requirements/phase3-deployment-contract.json",
+        "docs/evidence/release/phase3-expected-resources.json"
+      ],
+      "section": "Technology",
+      "sentence_index": 32,
+      "sentence_sha256": "84e9b62579e340130c69adf4a757767857465c033a6875fef14bc993f0cda0f6"
+    },
+    {
+      "classification": "LOCAL_EVIDENCE_CLAIM",
+      "evidence": [
+        "requirements/phase3-deployment-contract.json",
+        "docs/evidence/release/phase3-expected-resources.json"
+      ],
+      "section": "Technology",
+      "sentence_index": 33,
+      "sentence_sha256": "816db143ce81a1915df0aa46d126d3e61ad234ba2764289cacec36e56bb99a74"
+    },
+    {
+      "classification": "LOCAL_EVIDENCE_CLAIM",
+      "evidence": [
+        "requirements/phase3-deployment-contract.json",
+        "docs/evidence/release/phase3-expected-resources.json"
+      ],
+      "section": "Technology",
+      "sentence_index": 34,
+      "sentence_sha256": "db377d66446bc9afbdc6152fcee72720b4fd30a05a5396785a218c8b9a2c0f34"
+    },
+    {
+      "classification": "EXPLICIT_LIVE_LIMIT_OR_PLACEHOLDER",
+      "evidence": [
+        "requirements/phase3-deployment-contract.json",
+        "docs/evidence/release/phase3-expected-resources.json"
+      ],
+      "section": "Technology",
+      "sentence_index": 35,
+      "sentence_sha256": "aaab8c2fc9a5f13e90b94882118bd8168f15ff4310113f56b47f93a16c44c460"
+    },
+    {
+      "classification": "LOCAL_EVIDENCE_CLAIM",
+      "evidence": [
+        "docs/architecture/phase3-deployment-ready-local-rc.md"
+      ],
+      "section": "What is distinctive",
+      "sentence_index": 36,
+      "sentence_sha256": "5201ccef3db3b690ee61ac507da29b4ac45dc26812b8ab58ab1db2628a838a11"
+    },
+    {
+      "classification": "LOCAL_EVIDENCE_CLAIM",
+      "evidence": [
+        "docs/architecture/phase3-deployment-ready-local-rc.md"
+      ],
+      "section": "What is distinctive",
+      "sentence_index": 37,
+      "sentence_sha256": "06e12deee0bd0819fe2432baef7148cd847d7139479ce76a04a3397b757e1407"
+    },
+    {
+      "classification": "LOCAL_EVIDENCE_CLAIM",
+      "evidence": [
+        "requirements/phase3-deployment-contract.json",
+        "scripts/phase3/run_local_gate.py"
+      ],
+      "section": "Accomplishments proven locally",
+      "sentence_index": 38,
+      "sentence_sha256": "d8daf7fc4842e514d519d2df8b9790b32cdc570b2909e6a0ea239b2f71957c5c"
+    },
+    {
+      "classification": "LOCAL_EVIDENCE_CLAIM",
+      "evidence": [
+        "requirements/phase3-deployment-contract.json",
+        "scripts/phase3/run_local_gate.py"
+      ],
+      "section": "Accomplishments proven locally",
+      "sentence_index": 39,
+      "sentence_sha256": "c2a9e04b7ded7c4a964f7621c3c6285d06b757dc8db03a0be47e71e40ffb92e3"
+    },
+    {
+      "classification": "LOCAL_EVIDENCE_CLAIM",
+      "evidence": [
+        "requirements/phase3-deployment-contract.json",
+        "scripts/phase3/run_local_gate.py"
+      ],
+      "section": "Accomplishments proven locally",
+      "sentence_index": 40,
+      "sentence_sha256": "b65cfbc5a369b0d3aebe82527eaeee23ecfd3409be65901477ea0c829c2be333"
+    },
+    {
+      "classification": "LOCAL_EVIDENCE_CLAIM",
+      "evidence": [
+        "requirements/phase3-deployment-contract.json",
+        "scripts/phase3/run_local_gate.py"
+      ],
+      "section": "Accomplishments proven locally",
+      "sentence_index": 41,
+      "sentence_sha256": "40d2cd7408a71b3c77f1a10250369d88547b2de9c3543c85ef7b813d42904471"
+    },
+    {
+      "classification": "LOCAL_EVIDENCE_CLAIM",
+      "evidence": [
+        "requirements/phase3-deployment-contract.json",
+        "scripts/phase3/run_local_gate.py"
+      ],
+      "section": "Accomplishments proven locally",
+      "sentence_index": 42,
+      "sentence_sha256": "f4778a64bd58025242952c8abb441d6455b32d2819ef80be32b5fe89c2bbe0c2"
+    },
+    {
+      "classification": "LOCAL_EVIDENCE_CLAIM",
+      "evidence": [
+        "requirements/phase3-deployment-contract.json",
+        "scripts/phase3/run_local_gate.py"
+      ],
+      "section": "Accomplishments proven locally",
+      "sentence_index": 43,
+      "sentence_sha256": "9425ff7c00c05e7a2df1606aa54625414216dfb9744b902128706bc491692092"
+    },
+    {
+      "classification": "EXPLICIT_LIVE_LIMIT_OR_PLACEHOLDER",
+      "evidence": [
+        "requirements/phase3-deployment-contract.json",
+        "scripts/phase3/run_local_gate.py"
+      ],
+      "section": "Accomplishments proven locally",
+      "sentence_index": 44,
+      "sentence_sha256": "558544ca61b267492faf8464703706fdaa039a0f0bee354089e591dfb6712b0f"
+    },
+    {
+      "classification": "LOCAL_EVIDENCE_CLAIM",
+      "evidence": [
+        "requirements/phase3-deployment-contract.json",
+        "scripts/phase3/run_local_gate.py"
+      ],
+      "section": "Accomplishments proven locally",
+      "sentence_index": 45,
+      "sentence_sha256": "92c954fe6814e01de4c0e869241f5819356db494d6d74b4bf92891e50d125f66"
+    },
+    {
+      "classification": "LOCAL_EVIDENCE_CLAIM",
+      "evidence": [
+        "requirements/phase3-deployment-contract.json",
+        "scripts/phase3/run_local_gate.py"
+      ],
+      "section": "Accomplishments proven locally",
+      "sentence_index": 46,
+      "sentence_sha256": "01ea22a9eccc1d9a0ce5f1bdc3ad1dfb2bf91b6feda08b5c488324f9cd800828"
+    },
+    {
+      "classification": "LOCAL_EVIDENCE_CLAIM",
+      "evidence": [
+        "requirements/phase3-deployment-contract.json",
+        "scripts/phase3/run_local_gate.py"
+      ],
+      "section": "Accomplishments proven locally",
+      "sentence_index": 47,
+      "sentence_sha256": "609cf8d199abc92617272d04cbdcb717d87266fcdd71e88d8ca1a28f7fc0afa6"
+    },
+    {
+      "classification": "LOCAL_EVIDENCE_CLAIM",
+      "evidence": [
+        "docs/architecture/local-first-phase-2.md",
+        "tests/integration/test_local_hitl_execution.py"
+      ],
+      "section": "Challenges and lessons",
+      "sentence_index": 48,
+      "sentence_sha256": "03db8c2f74b66e5420d3bd5c537b23d7c04d051b54230791ba1095b70066836b"
+    },
+    {
+      "classification": "LOCAL_EVIDENCE_CLAIM",
+      "evidence": [
+        "docs/architecture/local-first-phase-2.md",
+        "tests/integration/test_local_hitl_execution.py"
+      ],
+      "section": "Challenges and lessons",
+      "sentence_index": 49,
+      "sentence_sha256": "d01a51d234116a63eec6b4651c121312522f663657c5ae3e803cdbb03a792509"
+    },
+    {
+      "classification": "LOCAL_EVIDENCE_CLAIM",
+      "evidence": [
+        "docs/architecture/local-first-phase-2.md",
+        "tests/integration/test_local_hitl_execution.py"
+      ],
+      "section": "Challenges and lessons",
+      "sentence_index": 50,
+      "sentence_sha256": "660c44a097a0ebfdc01e1969cfc25f83d7af694b82473e0d102c9f4b27f9d12d"
+    },
+    {
+      "classification": "LOCAL_EVIDENCE_CLAIM",
+      "evidence": [
+        "docs/architecture/local-first-phase-2.md",
+        "tests/integration/test_local_hitl_execution.py"
+      ],
+      "section": "Challenges and lessons",
+      "sentence_index": 51,
+      "sentence_sha256": "09914904baa88745de9a980a3f8f4cd750434a04933cbf30647eed98f6a6ce3d"
+    },
+    {
+      "classification": "LOCAL_EVIDENCE_CLAIM",
+      "evidence": [
+        "docs/architecture/local-first-phase-2.md",
+        "tests/integration/test_local_hitl_execution.py"
+      ],
+      "section": "Challenges and lessons",
+      "sentence_index": 52,
+      "sentence_sha256": "6c7a10aab4cc8ff90452aa4b4d59d4e43ac8f11e40924c8357b761f22aa55dab"
+    },
+    {
+      "classification": "LOCAL_EVIDENCE_CLAIM",
+      "evidence": [
+        "docs/evidence/reviewer-evidence-manifest.json"
+      ],
+      "section": "Evidence map",
+      "sentence_index": 53,
+      "sentence_sha256": "a1495e558b43430cbbad8a4b77c5c50ea3cbefe696012c0988dd83299a38d20e"
+    },
+    {
+      "classification": "LOCAL_EVIDENCE_CLAIM",
+      "evidence": [
+        "docs/evidence/reviewer-evidence-manifest.json"
+      ],
+      "section": "Evidence map",
+      "sentence_index": 54,
+      "sentence_sha256": "8b2808719f70994ea321e2173ad2e8fe2af3e49078d94f600f72b766a1af642f"
+    },
+    {
+      "classification": "LOCAL_EVIDENCE_CLAIM",
+      "evidence": [
+        "docs/evidence/reviewer-evidence-manifest.json"
+      ],
+      "section": "Evidence map",
+      "sentence_index": 55,
+      "sentence_sha256": "bb1df69c099a4c0098736c5af311b465d437a7be78254b2efee37b8c98c66afd"
+    },
+    {
+      "classification": "LOCAL_EVIDENCE_CLAIM",
+      "evidence": [
+        "docs/evidence/reviewer-evidence-manifest.json"
+      ],
+      "section": "Evidence map",
+      "sentence_index": 56,
+      "sentence_sha256": "1a53ca0d359df2122d1f8a67dc728b82afe6daa32c4a38708007c46d6d981d5b"
+    },
+    {
+      "classification": "EXPLICIT_LIVE_LIMIT_OR_PLACEHOLDER",
+      "evidence": [
+        "docs/evidence/reviewer-evidence-manifest.json"
+      ],
+      "section": "Evidence map",
+      "sentence_index": 57,
+      "sentence_sha256": "7ccb57b99ffd3c90dcb52999d9bff584f87a4b5cc97b875e13332bca29b25a4c"
+    },
+    {
+      "classification": "EXPLICIT_LIVE_LIMIT_OR_PLACEHOLDER",
+      "evidence": [
+        "docs/evidence/reviewer-evidence-manifest.json"
+      ],
+      "section": "Evidence map",
+      "sentence_index": 58,
+      "sentence_sha256": "06d2f6ef501aa129a3f23d85e1121aa7c58e5a34e10ce67715a9feecf577e678"
+    },
+    {
+      "classification": "LOCAL_EVIDENCE_CLAIM",
+      "evidence": [
+        "docs/evidence/reviewer-evidence-manifest.json"
+      ],
+      "section": "Evidence map",
+      "sentence_index": 59,
+      "sentence_sha256": "8a0ca47e09553228fbd19dff1bf77e2e3d7471e2aa55819492aa4c88ff37e611"
+    },
+    {
+      "classification": "LOCAL_EVIDENCE_CLAIM",
+      "evidence": [
+        "docs/evidence/reviewer-evidence-manifest.json"
+      ],
+      "section": "Evidence map",
+      "sentence_index": 60,
+      "sentence_sha256": "6f80d47dc34b86ba54da729692758d68626105f128e70ea6322b86d887c584fa"
+    },
+    {
+      "classification": "EXPLICIT_LIVE_LIMIT_OR_PLACEHOLDER",
+      "evidence": [
+        "docs/evidence/reviewer-evidence-manifest.json"
+      ],
+      "section": "Evidence map",
+      "sentence_index": 61,
+      "sentence_sha256": "a9aa9e156fbb93b26aeac554c2dba1421dd3d14df7f7adc9fa274a4e0023f0ea"
+    },
+    {
+      "classification": "LOCAL_EVIDENCE_CLAIM",
+      "evidence": [
+        "docs/evidence/reviewer-evidence-manifest.json"
+      ],
+      "section": "Evidence map",
+      "sentence_index": 62,
+      "sentence_sha256": "eb755c2fdf595d0e95b8151a81a6083e9e9621b32b62a6652efaf75c649f40cd"
+    },
+    {
+      "classification": "LOCAL_EVIDENCE_CLAIM",
+      "evidence": [
+        "docs/evidence/reviewer-evidence-manifest.json"
+      ],
+      "section": "Evidence map",
+      "sentence_index": 63,
+      "sentence_sha256": "7fcd3012aed414dc52438666148fb1420ab13ed95e9810f8138d5bbc105e414c"
+    },
+    {
+      "classification": "EXPLICIT_LIVE_LIMIT_OR_PLACEHOLDER",
+      "evidence": [
+        "requirements/phase3-deployment-contract.json",
+        "src/aioa_cloudops_agent/release/preflight.py"
+      ],
+      "section": "Current limitations and next steps",
+      "sentence_index": 64,
+      "sentence_sha256": "98f17a2e41ff3487c8a14af8cb441ff6358073cd03a9c9949ad9de9c2d70f3d1"
+    },
+    {
+      "classification": "EXPLICIT_LIVE_LIMIT_OR_PLACEHOLDER",
+      "evidence": [
+        "requirements/phase3-deployment-contract.json",
+        "src/aioa_cloudops_agent/release/preflight.py"
+      ],
+      "section": "Current limitations and next steps",
+      "sentence_index": 65,
+      "sentence_sha256": "4dae8e7f26294c844682d23fc07ba7d22bfc01bff54f6ca3dd340c619ab9e7a8"
+    },
+    {
+      "classification": "LOCAL_EVIDENCE_CLAIM",
+      "evidence": [
+        "requirements/phase3-deployment-contract.json",
+        "src/aioa_cloudops_agent/release/preflight.py"
+      ],
+      "section": "Current limitations and next steps",
+      "sentence_index": 66,
+      "sentence_sha256": "21b1923e9be106839c7152bfa101989af0d3eede59acab56edf7611e36280328"
+    },
+    {
+      "classification": "EXPLICIT_LIVE_LIMIT_OR_PLACEHOLDER",
+      "evidence": [
+        "requirements/phase3-deployment-contract.json",
+        "src/aioa_cloudops_agent/release/preflight.py"
+      ],
+      "section": "Current limitations and next steps",
+      "sentence_index": 67,
+      "sentence_sha256": "de0084ea3d8f61873cbd801c43f5ae24bcde60ac94fa32f981b76bb71050f5d8"
+    },
+    {
+      "classification": "LOCAL_EVIDENCE_CLAIM",
+      "evidence": [
+        "requirements/phase3-deployment-contract.json",
+        "src/aioa_cloudops_agent/release/preflight.py"
+      ],
+      "section": "Current limitations and next steps",
+      "sentence_index": 68,
+      "sentence_sha256": "c7fb96f00fa108ab1c5fcef868649818c4e2fa4a59a407ad79cb766946c90b4d"
+    },
+    {
+      "classification": "LOCAL_EVIDENCE_CLAIM",
+      "evidence": [
+        "requirements/phase3-deployment-contract.json"
+      ],
+      "section": "Placeholders that require future live evidence",
+      "sentence_index": 69,
+      "sentence_sha256": "19ba64bf965b65189cf73bd81b329a742494d504c96db5f36c7e85d14d19b332"
+    },
+    {
+      "classification": "EXPLICIT_LIVE_LIMIT_OR_PLACEHOLDER",
+      "evidence": [
+        "requirements/phase3-deployment-contract.json"
+      ],
+      "section": "Placeholders that require future live evidence",
+      "sentence_index": 70,
+      "sentence_sha256": "3675676152918f097c5ff4f82afb15b09401e134155e9c59d0df55393585b694"
+    },
+    {
+      "classification": "LOCAL_EVIDENCE_CLAIM",
+      "evidence": [
+        "requirements/phase3-deployment-contract.json"
+      ],
+      "section": "Placeholders that require future live evidence",
+      "sentence_index": 71,
+      "sentence_sha256": "7b51218f429976053aac41589cbdca15ba724f11ca0ebdef9b4a5ffa5af022f9"
+    },
+    {
+      "classification": "LOCAL_EVIDENCE_CLAIM",
+      "evidence": [
+        "requirements/phase3-deployment-contract.json"
+      ],
+      "section": "Placeholders that require future live evidence",
+      "sentence_index": 72,
+      "sentence_sha256": "7faecf7c133a318f89639bb383ed3f7810da36931b4829fcb4590b3af89bb149"
+    },
+    {
+      "classification": "LOCAL_EVIDENCE_CLAIM",
+      "evidence": [
+        "requirements/phase3-deployment-contract.json"
+      ],
+      "section": "Placeholders that require future live evidence",
+      "sentence_index": 73,
+      "sentence_sha256": "b1808cede49c7dab4c2aaaa1b6fbf5b353f904caf393f3f7b6ed004b7075724f"
+    },
+    {
+      "classification": "LOCAL_EVIDENCE_CLAIM",
+      "evidence": [
+        "requirements/phase3-deployment-contract.json"
+      ],
+      "section": "Placeholders that require future live evidence",
+      "sentence_index": 74,
+      "sentence_sha256": "5913f7020fc56dddcf7fc6acca5060a897af32658f7bb7b3f210bb2543562afe"
+    },
+    {
+      "classification": "LOCAL_EVIDENCE_CLAIM",
+      "evidence": [
+        "requirements/phase3-deployment-contract.json"
+      ],
+      "section": "Placeholders that require future live evidence",
+      "sentence_index": 75,
+      "sentence_sha256": "3536056453aec510ef0b77468e8e26d8f2ad07a3b4ac8b903f43358f1293e3b5"
+    },
+    {
+      "classification": "EXPLICIT_LIVE_LIMIT_OR_PLACEHOLDER",
+      "evidence": [
+        "scripts/phase3/run_local_gate.py"
+      ],
+      "section": "Repository proof commands",
+      "sentence_index": 76,
+      "sentence_sha256": "844c9b9096d3a5c654703f995b1caa29ec6380169ca6567e3a4359d5f188afc0"
+    }
+  ],
+  "sentences_audited": 76,
+  "status": "PASS",
+  "unsupported_claims": []
+}

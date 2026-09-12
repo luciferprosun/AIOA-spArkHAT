@@ -1,0 +1,677 @@
+{
+  "claims": [
+    {
+      "authority_source": [
+        "src/aioa_cloudops_agent/agent/factory.py::PRIMARY_AGENT_COUNT"
+      ],
+      "claim": "The runtime factory creates one primary Strands Agent.",
+      "claim_id": "AGENT-TOPOLOGY-01",
+      "commit_anchor": "a2e16d0f1d625b34916440d6740a486f73cf2bb1",
+      "evidence_kind": "TEST",
+      "hash": "c9d9df98bb3936987a262104cc3b87954fd153e750068208c22ecec440c7e189",
+      "limitations": "Proves the repository runtime factory, not the topology of an undeployed AWS stack.",
+      "proof_nodes": [
+        "P0-01",
+        "tests/unit/test_strands_agent.py::test_factory_creates_exactly_one_primary_agent_and_five_canonical_tools"
+      ],
+      "scope": "Local deterministic",
+      "status": "PROVEN"
+    },
+    {
+      "authority_source": [
+        "src/aioa_cloudops_agent/agent/approval_flow.py::DurableApprovalFlow.resume",
+        "src/aioa_cloudops_agent/nz/contracts.py::Approval.validate_action_binding",
+        "src/aioa_cloudops_agent/persistence/durable_logic.py::validate_approval_binding"
+      ],
+      "claim": "Human approval is explicit and bound to the proposal, request, actor session, and decision nonce.",
+      "claim_id": "APPROVAL-BINDING-01",
+      "commit_anchor": "a455379eb3de73bf6c1780b3c4726b0778873dd4",
+      "evidence_kind": "TEST",
+      "hash": "3a151a5491889d0bfb085179dcf272889a4e8e4599b1e11640a0f686a1673a2c",
+      "limitations": "Does not attest to a real operator approval or a deployed identity provider.",
+      "proof_nodes": [
+        "P0-05",
+        "tests/integration/test_durable_hitl_approval_flow.py::test_changed_decision_nonce_replay_is_rejected_without_second_tool_call",
+        "tests/unit/test_durable_memory_repository.py::test_approval_from_another_run_or_proposal_cannot_authorize_execution"
+      ],
+      "scope": "mocked AWS",
+      "status": "PROVEN"
+    },
+    {
+      "authority_source": [
+        "src/aioa_cloudops_agent/safety/circuit.py::DependencyCircuitBreaker.acquire",
+        "src/aioa_cloudops_agent/safety/retry.py::BoundedReadRetry.run",
+        "src/aioa_cloudops_agent/safety/schema.py::SchemaCorrectionBudget"
+      ],
+      "claim": "Schema correction, dependency retry, circuit suppression, and workflow budgets are finite and typed.",
+      "claim_id": "BOUNDED-FAILURES-01",
+      "commit_anchor": "17d5f4637dbd69a33eff1cbb46282c36b19ce6ad",
+      "evidence_kind": "TEST",
+      "hash": "7f5b4c1858a38742a1f62b557537ed56b17d7c2080e2b2b3775370554d8a1674",
+      "limitations": "Process-local circuit state does not suppress failures across separate cold runtimes.",
+      "proof_nodes": [
+        "P0-12",
+        "P0-13",
+        "P1-03",
+        "tests/unit/test_dependency_circuit_breaker.py::test_open_circuit_suppresses_provider_calls_during_cooldown"
+      ],
+      "scope": "Local deterministic",
+      "status": "PROVEN"
+    },
+    {
+      "authority_source": [
+        "src/aioa_cloudops_agent/aws_clients.py::_bounded_config",
+        "src/aioa_cloudops_agent/safety/model_circuit.py::CircuitBoundedModel"
+      ],
+      "claim": "Critical AWS clients own explicit one-attempt transport configuration, and the bounded model wrapper suppresses repeated warm-runtime failures without a hidden retry.",
+      "claim_id": "DAY15-AWS-CLIENT-BOUNDS-01",
+      "commit_anchor": "17d5f4637dbd69a33eff1cbb46282c36b19ce6ad",
+      "evidence_kind": "TEST",
+      "hash": "a1c436c361ad4a9f2c5395039ce113daaf29e668ad096fb12655cd4dbdba0a52",
+      "limitations": "Tests inspect client construction and deterministic fakes; they do not attest to provider latency or availability.",
+      "proof_nodes": [
+        "tests/unit/test_day15_aws_clients.py::test_configured_endpoint_environment_cannot_redirect_real_client",
+        "tests/unit/test_day15_aws_clients.py::test_critical_client_factories_own_region_timeouts_and_retry_count",
+        "tests/unit/test_day15_model_circuit.py::test_model_circuit_suppresses_third_warm_call_without_hidden_retry"
+      ],
+      "scope": "Local deterministic",
+      "status": "PROVEN"
+    },
+    {
+      "authority_source": [
+        "src/aioa_cloudops_agent/agent/factory.py::create_primary_agent",
+        "src/aioa_cloudops_agent/deployment/resume.py::AuthenticatedApprovalResumeService"
+      ],
+      "claim": "A fresh Agent runtime can restore a durable native interrupt using trusted principal identity and a server-issued one-time challenge, while no approval or resume route is public.",
+      "claim_id": "DAY15-COLD-RESUME-01",
+      "commit_anchor": "a2e16d0f1d625b34916440d6740a486f73cf2bb1",
+      "evidence_kind": "TEST",
+      "hash": "3898e671f965728c52fe6a7e1159ad2d56ec6be2a469c363f0d1b888d2570191",
+      "limitations": "Proves deterministic restoration and duplicate rejection with local durable fakes; the capability remains absent from the public route table.",
+      "proof_nodes": [
+        "tests/integration/test_durable_hitl_approval_flow.py::test_fresh_process_restores_native_interrupt_with_trusted_one_time_freshness",
+        "tests/unit/test_day15_judge_http.py::test_unknown_approval_mutation_and_wrong_method_routes_fail_before_services"
+      ],
+      "scope": "mocked AWS",
+      "status": "PROVEN"
+    },
+    {
+      "authority_source": [
+        "scripts/day15/g10_aws_preflight.py::observe_aws_preflight",
+        "scripts/day15/g10_aws_preflight.py::validate_private_observation_receipt",
+        "scripts/day15/g10_candidate.py::build_candidate_descriptor",
+        "scripts/day15/g10_operator_bootstrap.py::run_authority_bootstrap",
+        "scripts/day15/g10_operator_bootstrap.py::select_source_profile",
+        "scripts/day15/g10_operator_bootstrap.py::validate_private_authority_receipt",
+        "scripts/day15/g10_operator_bootstrap.py::validate_sanitized_authority_receipt",
+        "scripts/day15/run_day15_gate.py::GATES",
+        "scripts/day15/run_day15_gate.py::_g10_candidate_receipt_result",
+        "scripts/day15/run_day15_gate.py::run_gate",
+        "scripts/day15/run_g10_closure.py::run_closure",
+        "scripts/day15/run_g10_closure.py::validate_sanitized_receipt"
+      ],
+      "claim": "The Day 15 controller implements candidate-bound G10 closure and a protected exact-role authority bootstrap with deterministic source selection, bounded identity and one-role-assumption verification, append-only alias construction, closed private and sanitized receipts, a fixed read-only preflight allowlist, and ten fail-closed local gates that never authorize deployment.",
+      "claim_id": "DAY15-DEPLOYMENT-GATE-01",
+      "commit_anchor": "c16f6829e8b258af86523b0b1d61e34586702b63",
+      "evidence_kind": "TEST",
+      "hash": "b3374659ed6605857a67166c5a94fedfdac8bb59d2c693f35e7daef6f26975c5",
+      "limitations": "Proves candidate and receipt binding plus protected bootstrap and bounded adapter behavior with local fakes. No AWS API call, exact-role success, external-prerequisite success, change set, or deployment is attested.",
+      "proof_nodes": [
+        "D15-G01",
+        "D15-G02",
+        "D15-G03",
+        "D15-G04",
+        "D15-G05",
+        "D15-G06",
+        "D15-G07",
+        "D15-G08",
+        "D15-G09",
+        "D15-G10",
+        "tests/unit/test_day15_g10_aws_preflight.py::test_every_client_is_region_pinned_endpoint_hardened_and_single_attempt",
+        "tests/unit/test_day15_g10_aws_preflight.py::test_happy_path_has_exact_read_ledger_zero_writes_and_redacted_repr",
+        "tests/unit/test_day15_g10_candidate.py::test_candidate_descriptor_is_stable_closed_and_binds_actual_reviewer_manifest",
+        "tests/unit/test_day15_g10_closure.py::test_day15_g10_accepts_only_candidate_bound_private_and_sanitized_pair",
+        "tests/unit/test_day15_g10_closure.py::test_day15_g10_rejects_stale_authenticated_receipt",
+        "tests/unit/test_day15_g10_closure.py::test_no_private_binding_is_blocked_and_performs_no_aws_call",
+        "tests/unit/test_day15_g10_operator_bootstrap.py::test_assumable_exact_role_creates_and_reverifies_zero_authority_alias",
+        "tests/unit/test_day15_g10_operator_bootstrap.py::test_default_factories_bound_nested_credential_provider_clients",
+        "tests/unit/test_day15_g10_operator_bootstrap.py::test_endpoint_override_environment_blocks_before_session_creation",
+        "tests/unit/test_day15_g10_operator_bootstrap.py::test_public_and_private_receipt_schemas_reject_unknown_fields",
+        "tests/unit/test_day15_g10_operator_bootstrap.py::test_repository_guard_requires_main_origin_clean_and_phase1_tag",
+        "tests/unit/test_day15_g10_operator_bootstrap.py::test_root_source_principal_is_never_substituted_for_the_role",
+        "tests/unit/test_day15_g10_operator_bootstrap.py::test_select_source_profile_is_explicit_or_uniquely_deterministic",
+        "tests/unit/test_day15_g10_operator_bootstrap.py::test_unassumable_role_is_sanitized_blocked_and_never_writes_alias",
+        "tests/unit/test_day15_gate.py::test_gate_matrix_has_exact_stable_ids_status_vocabulary_and_validate_only_output"
+      ],
+      "scope": "Local deterministic",
+      "status": "PROVEN"
+    },
+    {
+      "authority_source": [
+        "src/aioa_cloudops_agent/deployment/auth.py::JudgeTokenAuthorizer",
+        "src/aioa_cloudops_agent/judge/application.py::JudgeFunctionUrlApplication",
+        "src/aioa_cloudops_agent/judge/lambda_handler.py::lambda_handler"
+      ],
+      "claim": "The Day 15 application exposes health, readiness, same-origin UI, and token-protected read-only investigation and status routes; approval and mutation routes fail before services.",
+      "claim_id": "DAY15-JUDGE-SURFACE-01",
+      "commit_anchor": "17d5f4637dbd69a33eff1cbb46282c36b19ce6ad",
+      "evidence_kind": "TEST",
+      "hash": "3f7e3c6766575fb99ed2c48b832fd7fe7c7f71bd151c32941da97e1b41a5314c",
+      "limitations": "Proves the checked-in router and local service boundaries, not a deployed Function URL or operator identity system.",
+      "proof_nodes": [
+        "tests/unit/test_day15_judge_http.py::test_health_and_root_create_no_clients_and_expose_hardened_same_origin_ui",
+        "tests/unit/test_day15_judge_http.py::test_status_requires_auth_and_global_quota_before_one_bounded_status_read",
+        "tests/unit/test_day15_judge_http.py::test_unknown_approval_mutation_and_wrong_method_routes_fail_before_services",
+        "tests/unit/test_day15_judge_http.py::test_wrong_token_denies_before_quota_agent_and_status"
+      ],
+      "scope": "Local deterministic",
+      "status": "PROVEN"
+    },
+    {
+      "authority_source": [
+        "infra/sam/template.yaml",
+        "requirements/day15-toolchain.json",
+        "requirements/lambda-runtime.txt",
+        "scripts/day15/alias_rollback.py::build_plan",
+        "scripts/day15/build_lambda_artifact.py::build_artifact",
+        "scripts/day15/build_lambda_artifact.py::revalidate_artifact",
+        "scripts/day15/preflight_region.py::validate_region",
+        "scripts/day15/render_template.py::render_template",
+        "scripts/day15/validate_template.py::validate_template_toolchain"
+      ],
+      "claim": "The Phase 3 IaC anchor preserves the reviewed Day 15 release controls and adds exact ownership tags plus a deterministic expected-resource manifest without widening runtime authority.",
+      "claim_id": "DAY15-RELEASE-SAFETY-01",
+      "commit_anchor": "c16f6829e8b258af86523b0b1d61e34586702b63",
+      "evidence_kind": "TEST",
+      "hash": "39d699e177e421a262e9adf9be1e1e4c143b45b4333cc73098df0a08dba29c2b",
+      "limitations": "Phase 3 repository evidence only; it proves static artifact, template, tag, and manifest contracts, not effective IAM, a built release installed in an account, or any deployment.",
+      "proof_nodes": [
+        "tests/unit/test_day15_artifact.py::test_container_validation_binds_engine_version_platform_and_manifest_digest",
+        "tests/unit/test_day15_artifact.py::test_dependency_scan_pass_requires_exact_complete_locked_inventory",
+        "tests/unit/test_day15_artifact.py::test_dependency_scan_rejects_installed_scanner_version_drift",
+        "tests/unit/test_day15_artifact.py::test_repository_provenance_binds_clean_head_index_worktree_and_source_tree",
+        "tests/unit/test_day15_artifact.py::test_runtime_lock_is_complete_exact_and_hash_locked",
+        "tests/unit/test_day15_artifact.py::test_runtime_rebuild_uses_two_distinct_clean_installs",
+        "tests/unit/test_day15_render_template.py::test_renderer_is_byte_deterministic_and_verifies_source_tools_and_commit",
+        "tests/unit/test_day15_render_template.py::test_template_validator_requires_exact_sam_lint_and_translator_versions",
+        "tests/unit/test_infrastructure_contract.py::test_function_url_targets_live_alias_and_has_exact_two_conditioned_permissions",
+        "tests/unit/test_infrastructure_contract.py::test_immutable_versions_and_live_aliases_are_retained_for_rollback",
+        "tests/unit/test_infrastructure_contract.py::test_region_is_explicit_and_public_ingress_preserves_all_mutation_vetoes",
+        "tests/unit/test_infrastructure_contract.py::test_state_table_is_retained_recoverable_encrypted_and_deletion_protected"
+      ],
+      "scope": "Local deterministic",
+      "status": "PROVEN"
+    },
+    {
+      "authority_source": [
+        "src/aioa_cloudops_agent/deployment/config.py::JudgeInvestigationRequest",
+        "src/aioa_cloudops_agent/deployment/config.py::new_judge_budget",
+        "src/aioa_cloudops_agent/deployment/quota.py::DynamoDbJudgeQuotaRepository",
+        "src/aioa_cloudops_agent/deployment/status.py::ReadOnlyRunStatusService",
+        "src/aioa_cloudops_agent/judge/runtime.py::JudgeInvestigationRuntime"
+      ],
+      "claim": "Judge inputs cannot set authority or budgets; fresh investigations use exact server budgets, atomic daily quota reservations, and finite read-only status observations.",
+      "claim_id": "DAY15-RUNTIME-GUARDS-01",
+      "commit_anchor": "f2ee79c09ba174ba72cb527b70c095f412151758",
+      "evidence_kind": "TEST",
+      "hash": "47fe98e7fc38e2eb71b50821e28a927fea4472b24899e75913f89e4315a7c653",
+      "limitations": "Proves server-owned bounds with deterministic repositories and clients, not production quota-service availability.",
+      "proof_nodes": [
+        "tests/unit/test_day15_judge_runtime.py::test_each_investigation_builds_fresh_snapshot_session_agent_and_server_budget",
+        "tests/unit/test_day15_runtime_contracts.py::test_dynamodb_quota_uses_one_conditional_update_for_all_caps",
+        "tests/unit/test_day15_runtime_contracts.py::test_judge_schema_rejects_caller_authority_and_budget_fields",
+        "tests/unit/test_day15_runtime_contracts.py::test_server_owned_judge_budget_is_exact_and_fresh",
+        "tests/unit/test_day15_runtime_contracts.py::test_status_observation_cap_is_server_enforced_for_every_nonterminal_state"
+      ],
+      "scope": "mocked AWS",
+      "status": "PROVEN"
+    },
+    {
+      "authority_source": [
+        "src/aioa_cloudops_agent/judge/logging.py::StructuredJudgeLogger",
+        "src/aioa_cloudops_agent/judge/telemetry.py::SanitizedXRaySpanExporter",
+        "src/aioa_cloudops_agent/judge/telemetry.py::initialize_judge_telemetry"
+      ],
+      "claim": "Judge telemetry exports only allowlisted identifiers and bounded classifications while structured logging discards prompts, secrets, and tool arguments.",
+      "claim_id": "DAY15-TELEMETRY-01",
+      "commit_anchor": "f2ee79c09ba174ba72cb527b70c095f412151758",
+      "evidence_kind": "TEST",
+      "hash": "e7ec3721508a1d3ecfaeb14ef54d31a88678f5a0c4792851dda195c46347f39e",
+      "limitations": "Proves filtering and exporter construction with local fakes; no provider trace delivery is attested.",
+      "proof_nodes": [
+        "tests/unit/test_day15_judge_http.py::test_structured_logger_discards_secrets_prompts_and_tool_arguments",
+        "tests/unit/test_day15_judge_runtime.py::test_runtime_emits_real_allowlisted_operation_span_without_sensitive_values",
+        "tests/unit/test_day15_judge_telemetry.py::test_process_telemetry_uses_exact_sampled_provider_and_empty_unredacted_opt_in",
+        "tests/unit/test_day15_judge_telemetry.py::test_xray_exporter_emits_only_allowlisted_ids_route_outcome_and_dependency"
+      ],
+      "scope": "Local deterministic",
+      "status": "PROVEN"
+    },
+    {
+      "authority_source": [
+        "src/aioa_cloudops_agent/nz/authority.py::authority_for_capability",
+        "src/aioa_cloudops_agent/safety/policy.py::DefaultDenyToolPolicy.evaluate"
+      ],
+      "claim": "Unknown and NEVER_AUTONOMOUS capabilities are denied by deterministic policy.",
+      "claim_id": "DEFAULT-DENY-01",
+      "commit_anchor": "b5dba16a9af1bc979b2b96a50ddbf0e590e829a5",
+      "evidence_kind": "TEST",
+      "hash": "af30a211b5790eca047f0d067972fe947447d31c2b4ac75031872e93b93d1bc8",
+      "limitations": "Proves the registered policy boundary, not protection from every future code change.",
+      "proof_nodes": [
+        "P0-11",
+        "P1-01",
+        "tests/unit/test_safety_hardening.py::test_unknown_tool_alias_defaults_to_policy_denial"
+      ],
+      "scope": "Local deterministic",
+      "status": "PROVEN"
+    },
+    {
+      "authority_source": [
+        "src/aioa_cloudops_agent/persistence/prerequisites.py::load_execution_prerequisites",
+        "src/aioa_cloudops_agent/remediation/emergency.py::EnvironmentEmergencyExecutionControl.assert_writes_enabled",
+        "src/aioa_cloudops_agent/remediation/executor.py::Ec2SandboxStopExecutor.execute"
+      ],
+      "claim": "The private stop executor requires durable prerequisites, exact sandbox scope, both live opt-ins, and an emergency-veto release immediately before write boundaries.",
+      "claim_id": "EXECUTOR-GATES-01",
+      "commit_anchor": "17d5f4637dbd69a33eff1cbb46282c36b19ce6ad",
+      "evidence_kind": "TEST",
+      "hash": "3a37259f4d84b965b196307739b1dc37c1cc25fd6181fa6b53a07fa1f161bb36",
+      "limitations": "Proves fail-closed code paths with fakes; it does not prove a deployed role or a live stop.",
+      "proof_nodes": [
+        "P0-06",
+        "tests/unit/test_private_sandbox_remediation.py::test_emergency_flip_after_dryrun_blocks_live_stop_call",
+        "tests/unit/test_private_sandbox_remediation.py::test_private_executor_requires_both_live_flags_before_any_aws_call"
+      ],
+      "scope": "mocked AWS",
+      "status": "PROVEN"
+    },
+    {
+      "authority_source": [
+        "infra/iam/cloudops-orchestrator-policy.json#lambda:InvokeFunction"
+      ],
+      "claim": "The checked-in orchestrator policy can invoke only the private executor and has no direct EC2 StopInstances action.",
+      "claim_id": "IAM-SEPARATION-01",
+      "commit_anchor": "17d5f4637dbd69a33eff1cbb46282c36b19ce6ad",
+      "evidence_kind": "STATIC",
+      "hash": "a4e2d92454d7ca60e9ef113e76e8e9ce1835ba998511ceca01dcc4b3de443c6e",
+      "limitations": "Validates repository policy documents, not the effective policy of an undeployed AWS role.",
+      "proof_nodes": [
+        "P0-07",
+        "P1-04",
+        "tests/unit/test_iam_policies.py::test_orchestrator_policy_is_exact_read_model_state_secret_and_alias_authority"
+      ],
+      "scope": "Local deterministic",
+      "status": "PROVEN"
+    },
+    {
+      "authority_source": [
+        "src/aioa_cloudops_agent/persistence/prerequisites.py::register_approved_action",
+        "src/aioa_cloudops_agent/persistence/semantic_idempotency.py::derive_action_fingerprint"
+      ],
+      "claim": "A duplicate logical action cannot silently execute twice while durable idempotency state is acknowledged or unresolved.",
+      "claim_id": "IDEMPOTENCY-01",
+      "commit_anchor": "17d5f4637dbd69a33eff1cbb46282c36b19ce6ad",
+      "evidence_kind": "TEST",
+      "hash": "59887983b21cea348e7292e4f5ea33b3650f746a3af8c33ebbe21ad6e50f3434",
+      "limitations": "Does not prove production DynamoDB availability or a live concurrency event.",
+      "proof_nodes": [
+        "P0-08",
+        "tests/unit/test_private_sandbox_remediation.py::test_duplicate_acknowledged_action_never_invokes_executor_twice"
+      ],
+      "scope": "mocked AWS",
+      "status": "PROVEN"
+    },
+    {
+      "authority_source": [
+        "docs/architecture/day-14-p1-resilience.md#Deployment remains deferred to Day 15."
+      ],
+      "claim": "A live EC2 StopInstances event is not yet proven by this repository.",
+      "claim_id": "LIVE-EC2-01",
+      "commit_anchor": "fbb536400594306f2bb3abd31c7064a66735c82d",
+      "evidence_kind": "DOC",
+      "hash": "c3631b0219d2cd5910bfdc9ae765aa41604a6c529ebf2af4c1de3da24b3f0765",
+      "limitations": "No sanitized live receipt is present; source and mocked tests prove only bounded capability behavior.",
+      "proof_nodes": [],
+      "scope": "live AWS",
+      "status": "NOT_YET_PROVEN"
+    },
+    {
+      "authority_source": [
+        "src/aioa_cloudops_agent/agent/local_hitl.py::LocalHitlExecutionFlow.resume",
+        "src/aioa_cloudops_agent/cloudops/local_mock.py::LocalMockStateStore.execute",
+        "src/aioa_cloudops_agent/nz/contracts.py::Checkpoint.validate_last_safe_state"
+      ],
+      "claim": "Local mock execution requires an exact authenticated approval, durable idempotency ownership, one atomic receipt, and independent verification before evidenced success.",
+      "claim_id": "LOCAL2-HITL-EXECUTION-01",
+      "commit_anchor": "a455379eb3de73bf6c1780b3c4726b0778873dd4",
+      "evidence_kind": "TEST",
+      "hash": "499b401af7ee47c6beb9970ead9c8e429f345cc8ff8b318699600847481111f9",
+      "limitations": "Bounded to deterministic state files; it provides no provider receipt or account observation.",
+      "proof_nodes": [
+        "tests/integration/test_local_hitl_execution.py::test_approved_eip_executes_once_verifies_and_reconciles_after_restart",
+        "tests/integration/test_local_hitl_execution.py::test_identical_decision_reconciles_after_verified_execution",
+        "tests/integration/test_local_hitl_execution.py::test_receipt_and_verification_reconstruction_reject_semantic_substitution",
+        "tests/integration/test_local_hitl_execution.py::test_restart_reconciles_success_transition_before_final_checkpoint"
+      ],
+      "scope": "Local deterministic",
+      "status": "PROVEN"
+    },
+    {
+      "authority_source": [
+        "src/aioa_cloudops_agent/config/portable_server.py::PortableServerSettings",
+        "src/aioa_cloudops_agent/local_api/application.py::LocalApiApplication",
+        "src/aioa_cloudops_agent/local_api/auth.py::LocalApiTokenAuthorizer.authorize",
+        "src/aioa_cloudops_agent/local_api/judge_ui.py::judge_ui_headers",
+        "src/aioa_cloudops_agent/local_api/server.py::create_local_http_server",
+        "src/aioa_cloudops_agent/local_api/server.py::load_or_create_local_token",
+        "src/aioa_cloudops_agent/local_api/views.py::run_view",
+        "src/aioa_cloudops_agent/portable_server.py::main"
+      ],
+      "claim": "The Local-2 judge surface defaults to loopback and rejects non-loopback binding unless the canonical container entrypoint supplies explicit container intent; it remains bearer-bootstrapped into an HttpOnly same-site session, schema-bounded, non-cacheable, and exposes only a sanitized durable evidence timeline.",
+      "claim_id": "LOCAL2-LOOPBACK-API-01",
+      "commit_anchor": "d18f945a1484a1255339a3b4bcb1560c58d06d9b",
+      "evidence_kind": "TEST",
+      "hash": "bab38399be11102e4a3291c8c6ae2a93756c7f3bcd6b346fa8fcacede4ea0447",
+      "limitations": "Proves a local single-operator demo boundary and deterministic sandbox behavior. The container binds internally to all interfaces, so safe host publication still depends on the documented loopback or isolated-network launch command. It does not attest to a deployed identity provider, public endpoint, production authorization service, or provider-backed operation.",
+      "proof_nodes": [
+        "tests/integration/test_local_hitl_http_server.py::test_real_loopback_server_exposes_health_and_authenticated_start",
+        "tests/integration/test_local_hitl_http_server.py::test_server_refuses_non_loopback_bind",
+        "tests/integration/test_local_hitl_http_server.py::test_token_file_is_created_once_with_owner_only_permissions",
+        "tests/integration/test_portable_judge_experience.py::test_judge_http_experience_survives_stale_tab_duplicate_click_and_restart",
+        "tests/unit/test_judge_console_launcher.py::test_browser_bootstrap_keeps_session_credential_in_fragment_only",
+        "tests/unit/test_local_hitl_api.py::test_full_approved_http_flow_executes_verifies_and_reconciles",
+        "tests/unit/test_local_hitl_api.py::test_public_console_has_strict_csp_and_no_browser_secret_storage",
+        "tests/unit/test_local_hitl_api.py::test_run_view_is_sanitized_and_exposes_bounded_audit_evidence",
+        "tests/unit/test_portable_container_runtime.py::test_container_binding_requires_explicit_intent"
+      ],
+      "scope": "Local deterministic",
+      "status": "PROVEN"
+    },
+    {
+      "authority_source": [
+        "src/aioa_cloudops_agent/agent/hitl.py::DurableProposalHumanInTheLoop",
+        "src/aioa_cloudops_agent/nz/contracts.py::ActionProposal.authorizes_execution",
+        "src/aioa_cloudops_agent/safety/policy.py::DefaultDenyToolPolicy.evaluate"
+      ],
+      "claim": "Model output cannot itself authorize mutation; execution requires deterministic policy and durable human authority.",
+      "claim_id": "MODEL-AUTHORITY-01",
+      "commit_anchor": "a455379eb3de73bf6c1780b3c4726b0778873dd4",
+      "evidence_kind": "TEST",
+      "hash": "fcad1143b68c7a22ce5ac9d79a50255e7948b5a813e68d8004d516df6f887157",
+      "limitations": "Does not claim the model is intrinsically safe; authority remains outside the model.",
+      "proof_nodes": [
+        "P0-02",
+        "tests/unit/test_private_sandbox_remediation.py::test_model_like_payload_cannot_construct_privileged_execution_command"
+      ],
+      "scope": "Local deterministic",
+      "status": "PROVEN"
+    },
+    {
+      "authority_source": [
+        "src/aioa_cloudops_agent/config/agent.py::BedrockSettings",
+        "src/aioa_cloudops_agent/config/agent.py::DEFAULT_BEDROCK_MODEL_ID"
+      ],
+      "claim": "The default Bedrock model configuration selects Amazon Nova 2 Lite in eu-central-1.",
+      "claim_id": "MODEL-PIN-01",
+      "commit_anchor": "17d5f4637dbd69a33eff1cbb46282c36b19ce6ad",
+      "evidence_kind": "STATIC",
+      "hash": "db346dc1ad4b8b8afc224e3a42b8fce97a475d53f3e5bb5fa808a4d888181253",
+      "limitations": "Proves configuration and request construction, not a live Bedrock invocation.",
+      "proof_nodes": [
+        "P0-02",
+        "tests/unit/test_strands_agent.py::test_bedrock_provider_uses_explicit_region_model_and_bounds"
+      ],
+      "scope": "Local deterministic",
+      "status": "PROVEN"
+    },
+    {
+      "authority_source": [
+        "scripts/run_p0_gate.py::GATES"
+      ],
+      "claim": "The canonical P0 matrix passed all 15 gates with 136 proof cases at its reviewed commit anchor.",
+      "claim_id": "P0-GATE-01",
+      "commit_anchor": "17d5f4637dbd69a33eff1cbb46282c36b19ce6ad",
+      "evidence_kind": "TEST",
+      "hash": "96b748e9912326b51d55e5292d524ca2b1177aa57447be95126cf2ba88fb425c",
+      "limitations": "Records deterministic repository proof; it is not a live AWS deployment test.",
+      "proof_nodes": [
+        "P0-01",
+        "P0-02",
+        "P0-03",
+        "P0-04",
+        "P0-05",
+        "P0-06",
+        "P0-07",
+        "P0-08",
+        "P0-09",
+        "P0-10",
+        "P0-11",
+        "P0-12",
+        "P0-13",
+        "P0-14",
+        "P0-15"
+      ],
+      "scope": "Local deterministic",
+      "status": "PROVEN"
+    },
+    {
+      "authority_source": [
+        "scripts/run_p1_gate.py::GATES"
+      ],
+      "claim": "The canonical P1 matrix passed all 6 gates with 93 proof cases at its reviewed commit anchor.",
+      "claim_id": "P1-GATE-01",
+      "commit_anchor": "17d5f4637dbd69a33eff1cbb46282c36b19ce6ad",
+      "evidence_kind": "TEST",
+      "hash": "f2fdb898fea44eb2a9f718ba00c02c7716deb163a6e4673e265cc62019649e5d",
+      "limitations": "Records deterministic failure-engineering proof; clean-clone remote mode depends on public-origin reachability.",
+      "proof_nodes": [
+        "P1-01",
+        "P1-02",
+        "P1-03",
+        "P1-04",
+        "P1-05",
+        "P1-06"
+      ],
+      "scope": "Local deterministic",
+      "status": "PROVEN"
+    },
+    {
+      "authority_source": [
+        "PRIOR-ART.md#No implementation code, commits, migrations, deployment definitions, or generated assets from prior projects were imported into this repository."
+      ],
+      "claim": "The project disclosure states that no prior-project implementation assets were imported.",
+      "claim_id": "PRIOR-ART-ATTESTATION-01",
+      "commit_anchor": "fbb536400594306f2bb3abd31c7064a66735c82d",
+      "evidence_kind": "OPERATOR_ATTESTATION",
+      "hash": "86778b7df95412a938396de03495dbf7afed44598787e11c6fd0eab935748150",
+      "limitations": "Repository scans and disclosure support this statement but cannot prove facts outside the inspected repositories.",
+      "proof_nodes": [
+        "P0-15"
+      ],
+      "scope": "documentation",
+      "status": "ATTESTED_ONLY"
+    },
+    {
+      "authority_source": [
+        "docs/audit/prior-art-june1-forensic-baseline.md"
+      ],
+      "claim": "The frozen Phase 1 tag, pre-armor ancestry, and prior-art document blobs remain at their recorded immutable anchors.",
+      "claim_id": "PRIOR-ART-HISTORY-01",
+      "commit_anchor": "fbb536400594306f2bb3abd31c7064a66735c82d",
+      "evidence_kind": "GIT",
+      "hash": "50e6bad1bafba5b25732d2c2661f0c6a3057bbd951ac8e13da9523d2a05040e1",
+      "limitations": "Proves this repository's anchors and frozen forensic documents; external history claims retain their documented evidence limits.",
+      "proof_nodes": [
+        "P0-15"
+      ],
+      "scope": "Local deterministic",
+      "status": "PROVEN"
+    },
+    {
+      "authority_source": [
+        "src/aioa_cloudops_agent/nz/contracts.py::ActionProposal.authorizes_execution",
+        "src/aioa_cloudops_agent/persistence/nz_dynamodb.py::DynamoDbDurableTruthRepository.create_proposal"
+      ],
+      "claim": "An ActionProposal is persisted before approval and never authorizes execution by itself.",
+      "claim_id": "PROPOSAL-DURABILITY-01",
+      "commit_anchor": "a455379eb3de73bf6c1780b3c4726b0778873dd4",
+      "evidence_kind": "TEST",
+      "hash": "b5f8dc1f7494f397be0e202d3571e804365c4c8769fcdc9558a560f1d3da1bbc",
+      "limitations": "Proves persistence contracts and mocked repository behavior, not a live DynamoDB write.",
+      "proof_nodes": [
+        "P0-04",
+        "tests/integration/test_read_only_investigation_flow.py::test_strands_happy_path_persists_evidence_backed_non_authorizing_proposal"
+      ],
+      "scope": "mocked AWS",
+      "status": "PROVEN"
+    },
+    {
+      "authority_source": [
+        "src/aioa_cloudops_agent/recovery/coordinator.py::RecoveryCoordinator.recover"
+      ],
+      "claim": "Restart and lost acknowledgement paths reconcile durable evidence and do not blindly replay mutation.",
+      "claim_id": "RECOVERY-NO-REPLAY-01",
+      "commit_anchor": "fbb536400594306f2bb3abd31c7064a66735c82d",
+      "evidence_kind": "TEST",
+      "hash": "71149b48011d4639579f91872c522232e5dcc81e59a7ca44f0076eea08cdc9c8",
+      "limitations": "Proves deterministic recovery behavior with fakes, not a live process interruption.",
+      "proof_nodes": [
+        "P0-10",
+        "tests/unit/test_recovery_reconciliation.py::test_lost_executor_ack_observed_running_requires_operator_and_never_replays"
+      ],
+      "scope": "mocked AWS",
+      "status": "PROVEN"
+    },
+    {
+      "authority_source": [
+        "pyproject.toml#strands-agents[otel]==1.53.0"
+      ],
+      "claim": "The project dependency declares an exact Strands Agents SDK pin at 1.53.0.",
+      "claim_id": "SDK-PIN-01",
+      "commit_anchor": "5ac15d30a604434713490d77edb573d14a8f1dcd",
+      "evidence_kind": "STATIC",
+      "hash": "f372e804acec1e37a665d2aec11b781040ad2b2fbcb8a360357951ed97140357",
+      "limitations": "Proves the declared pin and clean install contract, not future package-index availability.",
+      "proof_nodes": [
+        "P0-01",
+        "P1-06"
+      ],
+      "scope": "Local deterministic",
+      "status": "PROVEN"
+    },
+    {
+      "authority_source": [
+        "src/aioa_cloudops_agent/agent/factory.py::CURRENT_TOOL_NAMES",
+        "src/aioa_cloudops_agent/agent/factory.py::FINAL_TOOL_CAP"
+      ],
+      "claim": "The primary agent exposes exactly the five canonical principal tools derived from the runtime factory.",
+      "claim_id": "TOOL-SURFACE-01",
+      "commit_anchor": "a2e16d0f1d625b34916440d6740a486f73cf2bb1",
+      "evidence_kind": "TEST",
+      "hash": "54522687833457fcc8bea3cdbb6cba8c4d752b79cec2c8d379e853bdf6306bb7",
+      "limitations": "Counts principal Strands tools in this repository, not infrastructure endpoints.",
+      "proof_nodes": [
+        "P0-01",
+        "tests/unit/test_strands_agent.py::test_factory_creates_exactly_one_primary_agent_and_five_canonical_tools"
+      ],
+      "scope": "Local deterministic",
+      "status": "PROVEN"
+    },
+    {
+      "authority_source": [
+        "src/aioa_cloudops_agent/nz/enums.py::WorkflowState.SUCCESS_WITH_EVIDENCE",
+        "src/aioa_cloudops_agent/verification/coordinator.py::BoundedVerificationCoordinator.verify"
+      ],
+      "claim": "SUCCESS_WITH_EVIDENCE is reached only after independent verification evidence is durably recorded.",
+      "claim_id": "VERIFIED-SUCCESS-01",
+      "commit_anchor": "b5dba16a9af1bc979b2b96a50ddbf0e590e829a5",
+      "evidence_kind": "TEST",
+      "hash": "f8ae8bfa6255b72f901677672e9dfddf97d276ffe39d0df29cf0e779b5b5909b",
+      "limitations": "Proves mocked verification and durable ordering, not a live EC2 observation.",
+      "proof_nodes": [
+        "P0-09",
+        "tests/unit/test_verification_closure.py::test_success_transition_without_durable_verification_evidence_is_rejected"
+      ],
+      "scope": "mocked AWS",
+      "status": "PROVEN"
+    }
+  ],
+  "day15_candidate_snapshot": {
+    "bedrock_model_id": "eu.amazon.nova-2-lite-v1:0",
+    "bedrock_region": "eu-central-1",
+    "canonical_tools": [
+      "inspect_instance",
+      "read_utilization_metrics",
+      "build_remediation_evidence",
+      "stop_sandbox_instance",
+      "verify_instance_state"
+    ],
+    "commit": "197db56f828b8ab0b9139a1d3708fb8a58ca336a",
+    "day15_gate_ids": [
+      "D15-G01",
+      "D15-G02",
+      "D15-G03",
+      "D15-G04",
+      "D15-G05",
+      "D15-G06",
+      "D15-G07",
+      "D15-G08",
+      "D15-G09",
+      "D15-G10"
+    ],
+    "final_tool_cap": 5,
+    "m1_commit": "f2ee79c09ba174ba72cb527b70c095f412151758",
+    "primary_agent_count": 1,
+    "registered_tool_count": 5,
+    "start_commit": "aa941a989a8b8cd0e40367bb130472e9f3c082a7",
+    "status": "LOCAL_IMPLEMENTATION_CANDIDATE",
+    "strands_requirement": "strands-agents[otel]==1.53.0",
+    "strands_version": "1.53.0"
+  },
+  "evidence_snapshot": {
+    "bedrock_model_id": "eu.amazon.nova-2-lite-v1:0",
+    "bedrock_region": "eu-central-1",
+    "canonical_tools": [
+      "inspect_instance",
+      "read_utilization_metrics",
+      "build_remediation_evidence",
+      "stop_sandbox_instance",
+      "verify_instance_state"
+    ],
+    "commit": "fbb536400594306f2bb3abd31c7064a66735c82d",
+    "final_tool_cap": 5,
+    "p0": {
+      "gate_count": 15,
+      "proof_cases": 136,
+      "status": "PASS"
+    },
+    "p1": {
+      "gate_count": 6,
+      "proof_cases": 93,
+      "status": "PASS"
+    },
+    "phase1_tag": {
+      "commit": "ced6e2a180dd50a1f43d4037bb8db5f4dc792657",
+      "name": "phase1-foundation-green"
+    },
+    "primary_agent_count": 1,
+    "prior_armor_commits": [
+      "bcc3b478612ec1994e2846657d27d12326302d6c",
+      "4d84d207d900b88d2cae6017640d615f3621c8f4",
+      "1fbf019cb7da82fa74feab16b7f19ac42febc6d6"
+    ],
+    "prior_art_blobs": {
+      "PRIOR-ART.md": "b049876c0f2a08c41ff50cbb58184d0c3ee1966e",
+      "docs/architecture/skeleton-to-armor-plan.md": "19af3565b25e477ee09704870a228d10c6907eda",
+      "docs/audit/prior-art-capability-evolution-matrix.md": "898c668b778a02cdf0d49229654bd51f51f56adf",
+      "docs/audit/prior-art-june1-forensic-baseline.md": "6a0caf122d7b1a80242f6911ca5228d1062758e3"
+    },
+    "registered_tool_count": 5,
+    "strands_requirement": "strands-agents[otel]==1.53.0",
+    "strands_version": "1.53.0"
+  },
+  "live_receipts": [],
+  "manifest_hash": "faf488e3547175af87b6a921d504fd3e1e976cdeb497fe2a2dacd2568d063554",
+  "schema_version": "2.0"
+}

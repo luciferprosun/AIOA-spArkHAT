@@ -1,0 +1,1734 @@
+{
+  "$defs": {
+    "ApiDefinition": {
+      "additionalProperties": false,
+      "properties": {
+        "auth": {
+          "const": "BOUNDED_JUDGE_BEARER_SECRET",
+          "title": "Auth",
+          "type": "string"
+        },
+        "authenticated_read_routes": {
+          "items": {
+            "enum": [
+              "/judge/investigate",
+              "/judge/status/{run_id}"
+            ],
+            "type": "string"
+          },
+          "title": "Authenticated Read Routes",
+          "type": "array"
+        },
+        "cors_enabled": {
+          "const": false,
+          "title": "Cors Enabled",
+          "type": "boolean"
+        },
+        "public_ingress_default": {
+          "const": false,
+          "title": "Public Ingress Default",
+          "type": "boolean"
+        },
+        "public_mutation_routes": {
+          "maxItems": 0,
+          "minItems": 0,
+          "title": "Public Mutation Routes",
+          "type": "array"
+        },
+        "public_routes": {
+          "items": {
+            "enum": [
+              "/",
+              "/health",
+              "/ready"
+            ],
+            "type": "string"
+          },
+          "title": "Public Routes",
+          "type": "array"
+        },
+        "topology": {
+          "const": "LAMBDA_FUNCTION_URL",
+          "title": "Topology",
+          "type": "string"
+        }
+      },
+      "required": [
+        "topology",
+        "public_ingress_default",
+        "auth",
+        "public_routes",
+        "authenticated_read_routes",
+        "public_mutation_routes",
+        "cors_enabled"
+      ],
+      "title": "ApiDefinition",
+      "type": "object"
+    },
+    "ApplicationSection": {
+      "additionalProperties": false,
+      "properties": {
+        "application_name": {
+          "$ref": "#/$defs/ContractField_Literal__aioa-nonzero-cloudops-agent___"
+        },
+        "ownership_tags": {
+          "$ref": "#/$defs/ContractField_dict_Annotated_str__StringConstraints___Annotated_str__StringConstraints___"
+        },
+        "resource_prefix": {
+          "$ref": "#/$defs/ContractField_Literal__aioa-nonzero___"
+        },
+        "stack_name": {
+          "$ref": "#/$defs/ContractField_Literal__aioa-nonzero-cloudops-day15___"
+        },
+        "stage": {
+          "$ref": "#/$defs/ContractField_Literal__hackathon___"
+        }
+      },
+      "required": [
+        "stack_name",
+        "application_name",
+        "stage",
+        "resource_prefix",
+        "ownership_tags"
+      ],
+      "title": "ApplicationSection",
+      "type": "object"
+    },
+    "ArtifactBucketControls": {
+      "additionalProperties": false,
+      "properties": {
+        "encryption_at_rest_required": {
+          "const": true,
+          "title": "Encryption At Rest Required",
+          "type": "boolean"
+        },
+        "lifecycle_expiration_days_max": {
+          "maximum": 3,
+          "minimum": 1,
+          "title": "Lifecycle Expiration Days Max",
+          "type": "integer"
+        },
+        "noncurrent_version_expiration_days_max": {
+          "maximum": 3,
+          "minimum": 1,
+          "title": "Noncurrent Version Expiration Days Max",
+          "type": "integer"
+        },
+        "ownership_controls_required": {
+          "const": true,
+          "title": "Ownership Controls Required",
+          "type": "boolean"
+        },
+        "public_access_block": {
+          "additionalProperties": {
+            "const": true,
+            "type": "boolean"
+          },
+          "propertyNames": {
+            "enum": [
+              "block_public_acls",
+              "block_public_policy",
+              "ignore_public_acls",
+              "restrict_public_buckets"
+            ]
+          },
+          "title": "Public Access Block",
+          "type": "object"
+        },
+        "tls_only_required": {
+          "const": true,
+          "title": "Tls Only Required",
+          "type": "boolean"
+        },
+        "versioning_required": {
+          "const": true,
+          "title": "Versioning Required",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "encryption_at_rest_required",
+        "tls_only_required",
+        "versioning_required",
+        "ownership_controls_required",
+        "public_access_block",
+        "lifecycle_expiration_days_max",
+        "noncurrent_version_expiration_days_max"
+      ],
+      "title": "ArtifactBucketControls",
+      "type": "object"
+    },
+    "ContractField_ApiDefinition_": {
+      "additionalProperties": false,
+      "properties": {
+        "requirement": {
+          "$ref": "#/$defs/ContractRequirement"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ApiDefinition"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "requirement"
+      ],
+      "title": "ContractField[ApiDefinition]",
+      "type": "object"
+    },
+    "ContractField_ArtifactBucketControls_": {
+      "additionalProperties": false,
+      "properties": {
+        "requirement": {
+          "$ref": "#/$defs/ContractRequirement"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ArtifactBucketControls"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "requirement"
+      ],
+      "title": "ContractField[ArtifactBucketControls]",
+      "type": "object"
+    },
+    "ContractField_CostDefinition_": {
+      "additionalProperties": false,
+      "properties": {
+        "requirement": {
+          "$ref": "#/$defs/ContractRequirement"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CostDefinition"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "requirement"
+      ],
+      "title": "ContractField[CostDefinition]",
+      "type": "object"
+    },
+    "ContractField_DynamoDbDefinition_": {
+      "additionalProperties": false,
+      "properties": {
+        "requirement": {
+          "$ref": "#/$defs/ContractRequirement"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DynamoDbDefinition"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "requirement"
+      ],
+      "title": "ContractField[DynamoDbDefinition]",
+      "type": "object"
+    },
+    "ContractField_IamBoundary_": {
+      "additionalProperties": false,
+      "properties": {
+        "requirement": {
+          "$ref": "#/$defs/ContractRequirement"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/IamBoundary"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "requirement"
+      ],
+      "title": "ContractField[IamBoundary]",
+      "type": "object"
+    },
+    "ContractField_Literal_86400__": {
+      "additionalProperties": false,
+      "properties": {
+        "requirement": {
+          "$ref": "#/$defs/ContractRequirement"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "const": 86400,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value"
+        }
+      },
+      "required": [
+        "requirement"
+      ],
+      "title": "ContractField[Literal[86400]]",
+      "type": "object"
+    },
+    "ContractField_Literal_False__": {
+      "additionalProperties": false,
+      "properties": {
+        "requirement": {
+          "$ref": "#/$defs/ContractRequirement"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "const": false,
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value"
+        }
+      },
+      "required": [
+        "requirement"
+      ],
+      "title": "ContractField[Literal[False]]",
+      "type": "object"
+    },
+    "ContractField_Literal_True__": {
+      "additionalProperties": false,
+      "properties": {
+        "requirement": {
+          "$ref": "#/$defs/ContractRequirement"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "const": true,
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value"
+        }
+      },
+      "required": [
+        "requirement"
+      ],
+      "title": "ContractField[Literal[True]]",
+      "type": "object"
+    },
+    "ContractField_Literal__AIOANonZeroCloudOpsDay15DeploymentRole___": {
+      "additionalProperties": false,
+      "properties": {
+        "requirement": {
+          "$ref": "#/$defs/ContractRequirement"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "const": "AIOANonZeroCloudOpsDay15DeploymentRole",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value"
+        }
+      },
+      "required": [
+        "requirement"
+      ],
+      "title": "ContractField[Literal['AIOANonZeroCloudOpsDay15DeploymentRole']]",
+      "type": "object"
+    },
+    "ContractField_Literal__AWS_SAM_CLOUDFORMATION___": {
+      "additionalProperties": false,
+      "properties": {
+        "requirement": {
+          "$ref": "#/$defs/ContractRequirement"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "const": "AWS_SAM_CLOUDFORMATION",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value"
+        }
+      },
+      "required": [
+        "requirement"
+      ],
+      "title": "ContractField[Literal['AWS_SAM_CLOUDFORMATION']]",
+      "type": "object"
+    },
+    "ContractField_Literal__CURRENT_CLEAN_ORIGIN_MAIN_AT_ATTESTATION___": {
+      "additionalProperties": false,
+      "properties": {
+        "requirement": {
+          "$ref": "#/$defs/ContractRequirement"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "const": "CURRENT_CLEAN_ORIGIN_MAIN_AT_ATTESTATION",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value"
+        }
+      },
+      "required": [
+        "requirement"
+      ],
+      "title": "ContractField[Literal['CURRENT_CLEAN_ORIGIN_MAIN_AT_ATTESTATION']]",
+      "type": "object"
+    },
+    "ContractField_Literal__JudgeTokenSecret___": {
+      "additionalProperties": false,
+      "properties": {
+        "requirement": {
+          "$ref": "#/$defs/ContractRequirement"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "const": "JudgeTokenSecret",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value"
+        }
+      },
+      "required": [
+        "requirement"
+      ],
+      "title": "ContractField[Literal['JudgeTokenSecret']]",
+      "type": "object"
+    },
+    "ContractField_Literal__OWNERSHIP_BOUND_EXPLICIT_APPROVAL_ONLY___": {
+      "additionalProperties": false,
+      "properties": {
+        "requirement": {
+          "$ref": "#/$defs/ContractRequirement"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "const": "OWNERSHIP_BOUND_EXPLICIT_APPROVAL_ONLY",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value"
+        }
+      },
+      "required": [
+        "requirement"
+      ],
+      "title": "ContractField[Literal['OWNERSHIP_BOUND_EXPLICIT_APPROVAL_ONLY']]",
+      "type": "object"
+    },
+    "ContractField_Literal__aioa-day15-deployer___": {
+      "additionalProperties": false,
+      "properties": {
+        "requirement": {
+          "$ref": "#/$defs/ContractRequirement"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "const": "aioa-day15-deployer",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value"
+        }
+      },
+      "required": [
+        "requirement"
+      ],
+      "title": "ContractField[Literal['aioa-day15-deployer']]",
+      "type": "object"
+    },
+    "ContractField_Literal__aioa-nonzero-cloudops-agent___": {
+      "additionalProperties": false,
+      "properties": {
+        "requirement": {
+          "$ref": "#/$defs/ContractRequirement"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "const": "aioa-nonzero-cloudops-agent",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value"
+        }
+      },
+      "required": [
+        "requirement"
+      ],
+      "title": "ContractField[Literal['aioa-nonzero-cloudops-agent']]",
+      "type": "object"
+    },
+    "ContractField_Literal__aioa-nonzero-cloudops-day15___": {
+      "additionalProperties": false,
+      "properties": {
+        "requirement": {
+          "$ref": "#/$defs/ContractRequirement"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "const": "aioa-nonzero-cloudops-day15",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value"
+        }
+      },
+      "required": [
+        "requirement"
+      ],
+      "title": "ContractField[Literal['aioa-nonzero-cloudops-day15']]",
+      "type": "object"
+    },
+    "ContractField_Literal__aioa-nonzero___": {
+      "additionalProperties": false,
+      "properties": {
+        "requirement": {
+          "$ref": "#/$defs/ContractRequirement"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "const": "aioa-nonzero",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value"
+        }
+      },
+      "required": [
+        "requirement"
+      ],
+      "title": "ContractField[Literal['aioa-nonzero']]",
+      "type": "object"
+    },
+    "ContractField_Literal__aws___": {
+      "additionalProperties": false,
+      "properties": {
+        "requirement": {
+          "$ref": "#/$defs/ContractRequirement"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "const": "aws",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value"
+        }
+      },
+      "required": [
+        "requirement"
+      ],
+      "title": "ContractField[Literal['aws']]",
+      "type": "object"
+    },
+    "ContractField_Literal__hackathon___": {
+      "additionalProperties": false,
+      "properties": {
+        "requirement": {
+          "$ref": "#/$defs/ContractRequirement"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "const": "hackathon",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value"
+        }
+      },
+      "required": [
+        "requirement"
+      ],
+      "title": "ContractField[Literal['hackathon']]",
+      "type": "object"
+    },
+    "ContractField_Literal__main___": {
+      "additionalProperties": false,
+      "properties": {
+        "requirement": {
+          "$ref": "#/$defs/ContractRequirement"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "const": "main",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value"
+        }
+      },
+      "required": [
+        "requirement"
+      ],
+      "title": "ContractField[Literal['main']]",
+      "type": "object"
+    },
+    "ContractField_Literal_yaml___": {
+      "additionalProperties": false,
+      "properties": {
+        "requirement": {
+          "$ref": "#/$defs/ContractRequirement"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "const": "infra/sam/template.yaml",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value"
+        }
+      },
+      "required": [
+        "requirement"
+      ],
+      "title": "ContractField[Literal['infra/sam/template.yaml']]",
+      "type": "object"
+    },
+    "ContractField_Literal_zip___": {
+      "additionalProperties": false,
+      "properties": {
+        "requirement": {
+          "$ref": "#/$defs/ContractRequirement"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "const": "day15/reviewed/aioa-lambda.zip",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value"
+        }
+      },
+      "required": [
+        "requirement"
+      ],
+      "title": "ContractField[Literal['day15/reviewed/aioa-lambda.zip']]",
+      "type": "object"
+    },
+    "ContractField_ModelDefinition_": {
+      "additionalProperties": false,
+      "properties": {
+        "requirement": {
+          "$ref": "#/$defs/ContractRequirement"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ModelDefinition"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "requirement"
+      ],
+      "title": "ContractField[ModelDefinition]",
+      "type": "object"
+    },
+    "ContractField_ObservabilityDefinition_": {
+      "additionalProperties": false,
+      "properties": {
+        "requirement": {
+          "$ref": "#/$defs/ContractRequirement"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ObservabilityDefinition"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "requirement"
+      ],
+      "title": "ContractField[ObservabilityDefinition]",
+      "type": "object"
+    },
+    "ContractField_VerificationDefinition_": {
+      "additionalProperties": false,
+      "properties": {
+        "requirement": {
+          "$ref": "#/$defs/ContractRequirement"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/VerificationDefinition"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "requirement"
+      ],
+      "title": "ContractField[VerificationDefinition]",
+      "type": "object"
+    },
+    "ContractField_dict_Annotated_str__StringConstraints___Annotated_str__StringConstraints___": {
+      "additionalProperties": false,
+      "properties": {
+        "requirement": {
+          "$ref": "#/$defs/ContractRequirement"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "patternProperties": {
+                "^[A-Za-z0-9][A-Za-z0-9._/-]*$": {
+                  "maxLength": 128,
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]*$",
+                  "type": "string"
+                }
+              },
+              "propertyNames": {
+                "maxLength": 128,
+                "minLength": 1
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value"
+        }
+      },
+      "required": [
+        "requirement"
+      ],
+      "title": "ContractField[dict[Annotated[str, StringConstraints], Annotated[str, StringConstraints]]]",
+      "type": "object"
+    },
+    "ContractField_dict_Annotated_str__StringConstraints___str__": {
+      "additionalProperties": false,
+      "properties": {
+        "requirement": {
+          "$ref": "#/$defs/ContractRequirement"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "patternProperties": {
+                "^[A-Z][A-Z0-9_]*$": {
+                  "type": "string"
+                }
+              },
+              "propertyNames": {
+                "maxLength": 128,
+                "minLength": 1
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value"
+        }
+      },
+      "required": [
+        "requirement"
+      ],
+      "title": "ContractField[dict[Annotated[str, StringConstraints], str]]",
+      "type": "object"
+    },
+    "ContractField_dict_Literal__orchestrator____executor____tuple_Annotated_str__StringConstraints____________": {
+      "additionalProperties": false,
+      "properties": {
+        "requirement": {
+          "$ref": "#/$defs/ContractRequirement"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "items": {
+                  "maxLength": 128,
+                  "minLength": 1,
+                  "pattern": "^[A-Z][A-Z0-9_]*$",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "propertyNames": {
+                "enum": [
+                  "orchestrator",
+                  "executor"
+                ]
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value"
+        }
+      },
+      "required": [
+        "requirement"
+      ],
+      "title": "ContractField[dict[Literal['orchestrator', 'executor'], tuple[Annotated[str, StringConstraints], ...]]]",
+      "type": "object"
+    },
+    "ContractField_tuple_LambdaDefinition__________": {
+      "additionalProperties": false,
+      "properties": {
+        "requirement": {
+          "$ref": "#/$defs/ContractRequirement"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/LambdaDefinition"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value"
+        }
+      },
+      "required": [
+        "requirement"
+      ],
+      "title": "ContractField[tuple[LambdaDefinition, ...]]",
+      "type": "object"
+    },
+    "ContractField_tuple_Literal___health_____ready____________": {
+      "additionalProperties": false,
+      "properties": {
+        "requirement": {
+          "$ref": "#/$defs/ContractRequirement"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "items": {
+                "enum": [
+                  "/health",
+                  "/ready"
+                ],
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value"
+        }
+      },
+      "required": [
+        "requirement"
+      ],
+      "title": "ContractField[tuple[Literal['/health', '/ready'], ...]]",
+      "type": "object"
+    },
+    "ContractField_tuple_Literal__eu-central-1____________": {
+      "additionalProperties": false,
+      "properties": {
+        "requirement": {
+          "$ref": "#/$defs/ContractRequirement"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "items": {
+                "const": "eu-central-1",
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value"
+        }
+      },
+      "required": [
+        "requirement"
+      ],
+      "title": "ContractField[tuple[Literal['eu-central-1'], ...]]",
+      "type": "object"
+    },
+    "ContractRequirement": {
+      "description": "How a deployment-contract value obtains authority.",
+      "enum": [
+        "REQUIRED",
+        "OPTIONAL_WITH_DEFAULT",
+        "DERIVED",
+        "EXTERNAL_OPERATOR_INPUT"
+      ],
+      "title": "ContractRequirement",
+      "type": "string"
+    },
+    "CostDefinition": {
+      "additionalProperties": false,
+      "properties": {
+        "budget_thresholds_usd": {
+          "items": {
+            "enum": [
+              10,
+              25,
+              40
+            ],
+            "type": "integer"
+          },
+          "title": "Budget Thresholds Usd",
+          "type": "array"
+        },
+        "max_judge_investigations": {
+          "const": 10,
+          "title": "Max Judge Investigations",
+          "type": "integer"
+        },
+        "max_model_output_tokens_per_run": {
+          "const": 1024,
+          "title": "Max Model Output Tokens Per Run",
+          "type": "integer"
+        },
+        "provisioned_concurrency": {
+          "const": false,
+          "title": "Provisioned Concurrency",
+          "type": "boolean"
+        },
+        "retained_state_requires_operator_disposition": {
+          "const": true,
+          "title": "Retained State Requires Operator Disposition",
+          "type": "boolean"
+        },
+        "table_capacity": {
+          "const": "ON_DEMAND",
+          "title": "Table Capacity",
+          "type": "string"
+        }
+      },
+      "required": [
+        "table_capacity",
+        "provisioned_concurrency",
+        "max_judge_investigations",
+        "max_model_output_tokens_per_run",
+        "budget_thresholds_usd",
+        "retained_state_requires_operator_disposition"
+      ],
+      "title": "CostDefinition",
+      "type": "object"
+    },
+    "DynamoDbDefinition": {
+      "additionalProperties": false,
+      "properties": {
+        "billing_mode": {
+          "const": "PAY_PER_REQUEST",
+          "title": "Billing Mode",
+          "type": "string"
+        },
+        "deletion_policy": {
+          "const": "Retain",
+          "title": "Deletion Policy",
+          "type": "string"
+        },
+        "deletion_protection": {
+          "const": true,
+          "title": "Deletion Protection",
+          "type": "boolean"
+        },
+        "encryption_enabled": {
+          "const": true,
+          "title": "Encryption Enabled",
+          "type": "boolean"
+        },
+        "global_secondary_indexes": {
+          "maxItems": 0,
+          "minItems": 0,
+          "title": "Global Secondary Indexes",
+          "type": "array"
+        },
+        "logical_id": {
+          "const": "StateTable",
+          "title": "Logical Id",
+          "type": "string"
+        },
+        "partition_key": {
+          "const": "PK",
+          "title": "Partition Key",
+          "type": "string"
+        },
+        "point_in_time_recovery": {
+          "const": true,
+          "title": "Point In Time Recovery",
+          "type": "boolean"
+        },
+        "sort_key": {
+          "const": "SK",
+          "title": "Sort Key",
+          "type": "string"
+        },
+        "ttl_enabled": {
+          "const": false,
+          "title": "Ttl Enabled",
+          "type": "boolean"
+        },
+        "ttl_rule": {
+          "const": "DURABLE_AUTHORITY_REQUIRES_EXPLICIT_DISPOSITION",
+          "title": "Ttl Rule",
+          "type": "string"
+        },
+        "update_replace_policy": {
+          "const": "Retain",
+          "title": "Update Replace Policy",
+          "type": "string"
+        }
+      },
+      "required": [
+        "logical_id",
+        "billing_mode",
+        "partition_key",
+        "sort_key",
+        "global_secondary_indexes",
+        "ttl_enabled",
+        "ttl_rule",
+        "encryption_enabled",
+        "point_in_time_recovery",
+        "deletion_protection",
+        "deletion_policy",
+        "update_replace_policy"
+      ],
+      "title": "DynamoDbDefinition",
+      "type": "object"
+    },
+    "IamBoundary": {
+      "additionalProperties": false,
+      "properties": {
+        "autonomy": {
+          "additionalProperties": {
+            "enum": [
+              "AUTO",
+              "PLAN_AND_CONFIRM",
+              "NEVER_AUTONOMOUS"
+            ],
+            "type": "string"
+          },
+          "propertyNames": {
+            "enum": [
+              "READ_ONLY",
+              "REMEDIATION",
+              "UNKNOWN"
+            ]
+          },
+          "title": "Autonomy",
+          "type": "object"
+        },
+        "direct_orchestrator_ec2_writes": {
+          "maxItems": 0,
+          "minItems": 0,
+          "title": "Direct Orchestrator Ec2 Writes",
+          "type": "array"
+        },
+        "executor_actions": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Executor Actions",
+          "type": "array"
+        },
+        "executor_mutation_actions": {
+          "items": {
+            "const": "ec2:StopInstances",
+            "type": "string"
+          },
+          "title": "Executor Mutation Actions",
+          "type": "array"
+        },
+        "orchestrator_actions": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Orchestrator Actions",
+          "type": "array"
+        },
+        "read_write_roles_separate": {
+          "const": true,
+          "title": "Read Write Roles Separate",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "orchestrator_actions",
+        "executor_actions",
+        "direct_orchestrator_ec2_writes",
+        "executor_mutation_actions",
+        "read_write_roles_separate",
+        "autonomy"
+      ],
+      "title": "IamBoundary",
+      "type": "object"
+    },
+    "IdentitySection": {
+      "additionalProperties": false,
+      "properties": {
+        "deployment_profile": {
+          "$ref": "#/$defs/ContractField_Literal__aioa-day15-deployer___"
+        },
+        "deployment_role_arn_sha256": {
+          "$ref": "#/$defs/aioa_cloudops_agent__release__deployment_contract__ContractField_Annotated_str__StringConstraints____2"
+        },
+        "deployment_role_name": {
+          "$ref": "#/$defs/ContractField_Literal__AIOANonZeroCloudOpsDay15DeploymentRole___"
+        },
+        "expected_account_id_sha256": {
+          "$ref": "#/$defs/aioa_cloudops_agent__release__deployment_contract__ContractField_Annotated_str__StringConstraints____2"
+        },
+        "partition": {
+          "$ref": "#/$defs/ContractField_Literal__aws___"
+        },
+        "target_regions": {
+          "$ref": "#/$defs/ContractField_tuple_Literal__eu-central-1____________"
+        }
+      },
+      "required": [
+        "partition",
+        "target_regions",
+        "expected_account_id_sha256",
+        "deployment_profile",
+        "deployment_role_name",
+        "deployment_role_arn_sha256"
+      ],
+      "title": "IdentitySection",
+      "type": "object"
+    },
+    "InfrastructureSection": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_bucket_controls": {
+          "$ref": "#/$defs/ContractField_ArtifactBucketControls_"
+        },
+        "artifact_bucket_sha256": {
+          "$ref": "#/$defs/aioa_cloudops_agent__release__deployment_contract__ContractField_Annotated_str__StringConstraints____2"
+        },
+        "artifact_object_path": {
+          "$ref": "#/$defs/ContractField_Literal_zip___"
+        },
+        "cloudfront_enabled": {
+          "$ref": "#/$defs/ContractField_Literal_False__"
+        },
+        "mechanism": {
+          "$ref": "#/$defs/ContractField_Literal__AWS_SAM_CLOUDFORMATION___"
+        },
+        "s3_stack_managed": {
+          "$ref": "#/$defs/ContractField_Literal_False__"
+        },
+        "template_path": {
+          "$ref": "#/$defs/ContractField_Literal_yaml___"
+        }
+      },
+      "required": [
+        "mechanism",
+        "template_path",
+        "artifact_object_path",
+        "artifact_bucket_sha256",
+        "artifact_bucket_controls",
+        "s3_stack_managed",
+        "cloudfront_enabled"
+      ],
+      "title": "InfrastructureSection",
+      "type": "object"
+    },
+    "LambdaDefinition": {
+      "additionalProperties": false,
+      "properties": {
+        "architecture": {
+          "const": "x86_64",
+          "title": "Architecture",
+          "type": "string"
+        },
+        "authority": {
+          "enum": [
+            "READ_PLAN",
+            "EXACT_PLAN_AND_CONFIRM_WRITE"
+          ],
+          "title": "Authority",
+          "type": "string"
+        },
+        "handler": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]*$",
+          "title": "Handler",
+          "type": "string"
+        },
+        "logical_id": {
+          "enum": [
+            "OrchestratorFunction",
+            "RemediationExecutorFunction"
+          ],
+          "title": "Logical Id",
+          "type": "string"
+        },
+        "memory_mb": {
+          "enum": [
+            256,
+            512
+          ],
+          "title": "Memory Mb",
+          "type": "integer"
+        },
+        "public": {
+          "title": "Public",
+          "type": "boolean"
+        },
+        "purpose": {
+          "enum": [
+            "READ_PLAN_ORCHESTRATOR",
+            "PRIVATE_REMEDIATION_EXECUTOR"
+          ],
+          "title": "Purpose",
+          "type": "string"
+        },
+        "reserved_concurrency": {
+          "const": 1,
+          "title": "Reserved Concurrency",
+          "type": "integer"
+        },
+        "runtime": {
+          "const": "python3.12",
+          "title": "Runtime",
+          "type": "string"
+        },
+        "timeout_seconds": {
+          "maximum": 70,
+          "minimum": 1,
+          "title": "Timeout Seconds",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "logical_id",
+        "purpose",
+        "handler",
+        "runtime",
+        "architecture",
+        "memory_mb",
+        "timeout_seconds",
+        "reserved_concurrency",
+        "public",
+        "authority"
+      ],
+      "title": "LambdaDefinition",
+      "type": "object"
+    },
+    "ModelDefinition": {
+      "additionalProperties": false,
+      "properties": {
+        "fallback_policy": {
+          "const": "FAIL_CLOSED_NO_MODEL_FALLBACK",
+          "title": "Fallback Policy",
+          "type": "string"
+        },
+        "invocation_action": {
+          "const": "bedrock:InvokeModelWithResponseStream",
+          "title": "Invocation Action",
+          "type": "string"
+        },
+        "max_output_tokens": {
+          "const": 1024,
+          "title": "Max Output Tokens",
+          "type": "integer"
+        },
+        "model_id": {
+          "const": "eu.amazon.nova-2-lite-v1:0",
+          "title": "Model Id",
+          "type": "string"
+        },
+        "provider": {
+          "const": "AMAZON_BEDROCK",
+          "title": "Provider",
+          "type": "string"
+        },
+        "region": {
+          "const": "eu-central-1",
+          "title": "Region",
+          "type": "string"
+        }
+      },
+      "required": [
+        "provider",
+        "model_id",
+        "region",
+        "invocation_action",
+        "max_output_tokens",
+        "fallback_policy"
+      ],
+      "title": "ModelDefinition",
+      "type": "object"
+    },
+    "ObservabilityDefinition": {
+      "additionalProperties": false,
+      "properties": {
+        "alarms": {
+          "items": {
+            "enum": [
+              "ORCHESTRATOR_ERRORS",
+              "ORCHESTRATOR_THROTTLES",
+              "ORCHESTRATOR_DURATION",
+              "EXECUTOR_ERRORS",
+              "EXECUTOR_THROTTLES",
+              "EXECUTOR_DURATION",
+              "DYNAMODB_THROTTLED_REQUESTS"
+            ],
+            "type": "string"
+          },
+          "title": "Alarms",
+          "type": "array"
+        },
+        "log_retention_days": {
+          "const": 3,
+          "title": "Log Retention Days",
+          "type": "integer"
+        },
+        "provisioned_concurrency": {
+          "const": false,
+          "title": "Provisioned Concurrency",
+          "type": "boolean"
+        },
+        "trace_sample_ratio": {
+          "maximum": 0.05,
+          "minimum": 0.0,
+          "title": "Trace Sample Ratio",
+          "type": "number"
+        },
+        "tracing": {
+          "const": "ACTIVE_XRAY_BOUNDED_OTEL",
+          "title": "Tracing",
+          "type": "string"
+        }
+      },
+      "required": [
+        "log_retention_days",
+        "tracing",
+        "trace_sample_ratio",
+        "alarms",
+        "provisioned_concurrency"
+      ],
+      "title": "ObservabilityDefinition",
+      "type": "object"
+    },
+    "OperationsSection": {
+      "additionalProperties": false,
+      "properties": {
+        "budget_owner_sha256": {
+          "$ref": "#/$defs/aioa_cloudops_agent__release__deployment_contract__ContractField_Annotated_str__StringConstraints____2"
+        },
+        "cost": {
+          "$ref": "#/$defs/ContractField_CostDefinition_"
+        },
+        "observability": {
+          "$ref": "#/$defs/ContractField_ObservabilityDefinition_"
+        },
+        "post_deploy_endpoints": {
+          "$ref": "#/$defs/ContractField_tuple_Literal___health_____ready____________"
+        },
+        "rollback_policy": {
+          "$ref": "#/$defs/ContractField_Literal__OWNERSHIP_BOUND_EXPLICIT_APPROVAL_ONLY___"
+        },
+        "verification": {
+          "$ref": "#/$defs/ContractField_VerificationDefinition_"
+        }
+      },
+      "required": [
+        "observability",
+        "cost",
+        "budget_owner_sha256",
+        "verification",
+        "rollback_policy",
+        "post_deploy_endpoints"
+      ],
+      "title": "OperationsSection",
+      "type": "object"
+    },
+    "ReleaseSection": {
+      "additionalProperties": false,
+      "properties": {
+        "branch": {
+          "$ref": "#/$defs/ContractField_Literal__main___"
+        },
+        "commit_binding": {
+          "$ref": "#/$defs/ContractField_Literal__CURRENT_CLEAN_ORIGIN_MAIN_AT_ATTESTATION___"
+        },
+        "rc_identifier": {
+          "$ref": "#/$defs/aioa_cloudops_agent__release__deployment_contract__ContractField_Annotated_str__StringConstraints____1"
+        },
+        "version": {
+          "$ref": "#/$defs/aioa_cloudops_agent__release__deployment_contract__ContractField_Annotated_str__StringConstraints____1"
+        }
+      },
+      "required": [
+        "rc_identifier",
+        "version",
+        "branch",
+        "commit_binding"
+      ],
+      "title": "ReleaseSection",
+      "type": "object"
+    },
+    "RuntimeSection": {
+      "additionalProperties": false,
+      "properties": {
+        "api": {
+          "$ref": "#/$defs/ContractField_ApiDefinition_"
+        },
+        "cloudwatch_evidence_confirmed": {
+          "$ref": "#/$defs/ContractField_Literal_True__"
+        },
+        "dynamodb": {
+          "$ref": "#/$defs/ContractField_DynamoDbDefinition_"
+        },
+        "environment_variables": {
+          "$ref": "#/$defs/ContractField_dict_Literal__orchestrator____executor____tuple_Annotated_str__StringConstraints____________"
+        },
+        "feature_flags": {
+          "$ref": "#/$defs/ContractField_dict_Annotated_str__StringConstraints___str__"
+        },
+        "iam": {
+          "$ref": "#/$defs/ContractField_IamBoundary_"
+        },
+        "judge_secret_authority_confirmed": {
+          "$ref": "#/$defs/ContractField_Literal_True__"
+        },
+        "judge_secret_logical_id": {
+          "$ref": "#/$defs/ContractField_Literal__JudgeTokenSecret___"
+        },
+        "judge_token_lifetime_seconds_max": {
+          "$ref": "#/$defs/ContractField_Literal_86400__"
+        },
+        "lambda_functions": {
+          "$ref": "#/$defs/ContractField_tuple_LambdaDefinition__________"
+        },
+        "model": {
+          "$ref": "#/$defs/ContractField_ModelDefinition_"
+        },
+        "model_access_confirmed": {
+          "$ref": "#/$defs/ContractField_Literal_True__"
+        },
+        "sandbox_instance_id_sha256": {
+          "$ref": "#/$defs/aioa_cloudops_agent__release__deployment_contract__ContractField_Annotated_str__StringConstraints____2"
+        }
+      },
+      "required": [
+        "lambda_functions",
+        "api",
+        "dynamodb",
+        "model",
+        "iam",
+        "environment_variables",
+        "feature_flags",
+        "judge_secret_logical_id",
+        "judge_token_lifetime_seconds_max",
+        "sandbox_instance_id_sha256",
+        "judge_secret_authority_confirmed",
+        "cloudwatch_evidence_confirmed",
+        "model_access_confirmed"
+      ],
+      "title": "RuntimeSection",
+      "type": "object"
+    },
+    "VerificationDefinition": {
+      "additionalProperties": false,
+      "properties": {
+        "deny_path_required": {
+          "const": true,
+          "title": "Deny Path Required",
+          "type": "boolean"
+        },
+        "fail_closed_path_required": {
+          "const": true,
+          "title": "Fail Closed Path Required",
+          "type": "boolean"
+        },
+        "health_path": {
+          "const": "/health",
+          "title": "Health Path",
+          "type": "string"
+        },
+        "live_mode_default": {
+          "const": false,
+          "title": "Live Mode Default",
+          "type": "boolean"
+        },
+        "ordered_chain": {
+          "items": {
+            "enum": [
+              "AUTHORIZED_IDENTITY",
+              "ACCOUNT_REGION_MATCH",
+              "API_HEALTH",
+              "AGENT_REQUEST",
+              "DURABLE_PROVENANCE",
+              "HITL_PAUSE",
+              "EXPLICIT_DECISION",
+              "APPROVED_REMEDIATION",
+              "INDEPENDENT_EVIDENCE",
+              "REPLAY_REJECTION",
+              "RECOVERY_RECONCILIATION"
+            ],
+            "type": "string"
+          },
+          "title": "Ordered Chain",
+          "type": "array"
+        },
+        "readiness_path": {
+          "const": "/ready",
+          "title": "Readiness Path",
+          "type": "string"
+        }
+      },
+      "required": [
+        "health_path",
+        "readiness_path",
+        "ordered_chain",
+        "deny_path_required",
+        "fail_closed_path_required",
+        "live_mode_default"
+      ],
+      "title": "VerificationDefinition",
+      "type": "object"
+    },
+    "aioa_cloudops_agent__release__deployment_contract__ContractField_Annotated_str__StringConstraints____1": {
+      "additionalProperties": false,
+      "properties": {
+        "requirement": {
+          "$ref": "#/$defs/ContractRequirement"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value"
+        }
+      },
+      "required": [
+        "requirement"
+      ],
+      "title": "ContractField[Annotated[str, StringConstraints]]",
+      "type": "object"
+    },
+    "aioa_cloudops_agent__release__deployment_contract__ContractField_Annotated_str__StringConstraints____2": {
+      "additionalProperties": false,
+      "properties": {
+        "requirement": {
+          "$ref": "#/$defs/ContractRequirement"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value"
+        }
+      },
+      "required": [
+        "requirement"
+      ],
+      "title": "ContractField[Annotated[str, StringConstraints]]",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Single current source of deployment policy for the local Phase 3 RC.",
+  "properties": {
+    "application": {
+      "$ref": "#/$defs/ApplicationSection"
+    },
+    "contract_id": {
+      "const": "AIOA_PHASE3_AWS_DEPLOYMENT_CONTRACT",
+      "title": "Contract Id",
+      "type": "string"
+    },
+    "identity": {
+      "$ref": "#/$defs/IdentitySection"
+    },
+    "infrastructure": {
+      "$ref": "#/$defs/InfrastructureSection"
+    },
+    "operations": {
+      "$ref": "#/$defs/OperationsSection"
+    },
+    "release": {
+      "$ref": "#/$defs/ReleaseSection"
+    },
+    "runtime": {
+      "$ref": "#/$defs/RuntimeSection"
+    },
+    "schema_version": {
+      "const": 3,
+      "title": "Schema Version",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "schema_version",
+    "contract_id",
+    "release",
+    "identity",
+    "application",
+    "infrastructure",
+    "runtime",
+    "operations"
+  ],
+  "title": "AwsDeploymentContract",
+  "type": "object"
+}

@@ -1,0 +1,74 @@
+{
+  "aws_account_values_emitted": false,
+  "aws_mutations": 0,
+  "binary_files_reviewed": 3,
+  "bytes_scanned": 2999975,
+  "emails_emitted": false,
+  "external_deployments": 0,
+  "files_scanned": 330,
+  "findings": [],
+  "findings_count": 0,
+  "personal_values_emitted": false,
+  "publication_actions": 0,
+  "receipt_sha256": "91ff2b8262b516bc6ddc0065b88adedd002e7dded95a9008e51786ac6f7fe6e8",
+  "regular_files": 333,
+  "remote_pushes": 0,
+  "reviewed_synthetic_fixtures": [
+    {
+      "category": "AWS_ACCOUNT_IDENTIFIER",
+      "path": "tests/integration/test_local_hitl_execution.py"
+    },
+    {
+      "category": "ABSOLUTE_USER_PATH",
+      "path": "tests/unit/test_evidence_security.py"
+    },
+    {
+      "category": "EMAIL_ADDRESS",
+      "path": "tests/unit/test_evidence_security.py"
+    },
+    {
+      "category": "URL_EMBEDDED_CREDENTIAL",
+      "path": "tests/unit/test_evidence_security.py"
+    },
+    {
+      "category": "AWS_ACCOUNT_IDENTIFIER",
+      "path": "tests/unit/test_phase3_deployment_contract.py"
+    },
+    {
+      "category": "AWS_ACCOUNT_IDENTIFIER",
+      "path": "tests/unit/test_phase3_post_deploy_verifier.py"
+    },
+    {
+      "category": "AWS_ACCOUNT_IDENTIFIER",
+      "path": "tests/unit/test_phase3_preflight.py"
+    },
+    {
+      "category": "AWS_ACCOUNT_IDENTIFIER",
+      "path": "tests/unit/test_phase3_secret_scan.py"
+    },
+    {
+      "category": "AWS_ACCOUNT_IDENTIFIER",
+      "path": "tests/unit/test_public_submission_privacy.py"
+    },
+    {
+      "category": "EMAIL_ADDRESS",
+      "path": "tests/unit/test_public_submission_privacy.py"
+    },
+    {
+      "category": "ABSOLUTE_USER_PATH",
+      "path": "tests/unit/test_reviewer_evidence_manifest.py"
+    },
+    {
+      "category": "AWS_ACCOUNT_IDENTIFIER",
+      "path": "tests/unit/test_reviewer_evidence_manifest.py"
+    },
+    {
+      "category": "EMAIL_ADDRESS",
+      "path": "tests/unit/test_reviewer_evidence_manifest.py"
+    }
+  ],
+  "reviewed_synthetic_fixtures_count": 13,
+  "schema_version": 1,
+  "secret_values_emitted": false,
+  "status": "PASS"
+}

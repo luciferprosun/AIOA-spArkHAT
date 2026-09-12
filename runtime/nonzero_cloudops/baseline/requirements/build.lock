@@ -1,0 +1,2 @@
+# Locked build backend for CPython 3.12 on linux/amd64.
+setuptools==82.0.1 --hash=sha256:a59e362652f08dcd477c78bb6e7bd9d80a7995bc73ce773050228a348ce2e5bb

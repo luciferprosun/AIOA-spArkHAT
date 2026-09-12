@@ -1,0 +1,211 @@
+{
+  "$defs": {
+    "CleanupAction": {
+      "enum": [
+        "DELETE_WITH_CLOUDFORMATION_STACK",
+        "RETRY_CLOUDFORMATION_STACK_DELETE",
+        "RETAIN_PENDING_EXPLICIT_DISPOSITION",
+        "NO_OBSERVED_RESOURCE",
+        "ALREADY_CONFIRMED_ABSENT",
+        "DO_NOT_DELETE_OWNERSHIP_UNPROVEN"
+      ],
+      "title": "CleanupAction",
+      "type": "string"
+    },
+    "CleanupPlanItem": {
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "$ref": "#/$defs/CleanupAction"
+        },
+        "destructive": {
+          "title": "Destructive",
+          "type": "boolean"
+        },
+        "logical_id": {
+          "pattern": "^[A-Za-z][A-Za-z0-9]{0,254}$",
+          "title": "Logical Id",
+          "type": "string"
+        },
+        "ownership_proven": {
+          "title": "Ownership Proven",
+          "type": "boolean"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        },
+        "resource_type": {
+          "title": "Resource Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "logical_id",
+        "resource_type",
+        "action",
+        "ownership_proven",
+        "reason",
+        "destructive"
+      ],
+      "title": "CleanupPlanItem",
+      "type": "object"
+    },
+    "CleanupPlanStatus": {
+      "enum": [
+        "READY_FOR_OPERATOR_REVIEW",
+        "BLOCKED_OWNERSHIP",
+        "NO_ACTION_REQUIRED"
+      ],
+      "title": "CleanupPlanStatus",
+      "type": "string"
+    },
+    "DeploymentCleanupBinding": {
+      "additionalProperties": false,
+      "properties": {
+        "deployment_contract_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Deployment Contract Sha256",
+          "type": "string"
+        },
+        "deployment_id": {
+          "pattern": "^p3-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}$",
+          "title": "Deployment Id",
+          "type": "string"
+        },
+        "expected_resource_manifest_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Expected Resource Manifest Sha256",
+          "type": "string"
+        },
+        "repo_sha": {
+          "pattern": "^[0-9a-f]{40}$",
+          "title": "Repo Sha",
+          "type": "string"
+        },
+        "stack_id_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Stack Id Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "deployment_id",
+        "repo_sha",
+        "deployment_contract_sha256",
+        "expected_resource_manifest_sha256",
+        "stack_id_sha256"
+      ],
+      "title": "DeploymentCleanupBinding",
+      "type": "object"
+    },
+    "DeploymentPartialState": {
+      "enum": [
+        "DEPLOYMENT_STARTED_THEN_FAILED",
+        "RESOURCE_EXISTS_VERIFICATION_FAILED",
+        "APPROVAL_EXPIRED",
+        "RETRY",
+        "ROLLBACK_PARTIALLY_FAILED",
+        "DEPLOYMENT_VERIFIED"
+      ],
+      "title": "DeploymentPartialState",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "aws_mutations": {
+      "const": 0,
+      "title": "Aws Mutations",
+      "type": "integer"
+    },
+    "binding": {
+      "$ref": "#/$defs/DeploymentCleanupBinding"
+    },
+    "cleanup_contract_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Cleanup Contract Sha256",
+      "type": "string"
+    },
+    "cloud_commands_emitted": {
+      "const": 0,
+      "title": "Cloud Commands Emitted",
+      "type": "integer"
+    },
+    "deployment_state": {
+      "$ref": "#/$defs/DeploymentPartialState"
+    },
+    "destructive_action_ids": {
+      "items": {
+        "const": "CLEANUP_STACK_DELETE",
+        "type": "string"
+      },
+      "title": "Destructive Action Ids",
+      "type": "array"
+    },
+    "execution_default_enabled": {
+      "const": false,
+      "title": "Execution Default Enabled",
+      "type": "boolean"
+    },
+    "items": {
+      "items": {
+        "$ref": "#/$defs/CleanupPlanItem"
+      },
+      "title": "Items",
+      "type": "array"
+    },
+    "live_receipts": {
+      "const": 0,
+      "title": "Live Receipts",
+      "type": "integer"
+    },
+    "network_connections": {
+      "const": 0,
+      "title": "Network Connections",
+      "type": "integer"
+    },
+    "plan_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Plan Sha256",
+      "type": "string"
+    },
+    "plan_type": {
+      "const": "PHASE3_CLEANUP_PLAN_ONLY",
+      "title": "Plan Type",
+      "type": "string"
+    },
+    "requires_explicit_operator_approval": {
+      "const": true,
+      "title": "Requires Explicit Operator Approval",
+      "type": "boolean"
+    },
+    "schema_version": {
+      "const": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "status": {
+      "$ref": "#/$defs/CleanupPlanStatus"
+    }
+  },
+  "required": [
+    "schema_version",
+    "plan_type",
+    "status",
+    "deployment_state",
+    "binding",
+    "cleanup_contract_sha256",
+    "items",
+    "destructive_action_ids",
+    "requires_explicit_operator_approval",
+    "execution_default_enabled",
+    "cloud_commands_emitted",
+    "network_connections",
+    "aws_mutations",
+    "live_receipts",
+    "plan_sha256"
+  ],
+  "title": "CleanupPlan",
+  "type": "object"
+}

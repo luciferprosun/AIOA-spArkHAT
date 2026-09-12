@@ -1,0 +1,459 @@
+{
+  "$defs": {
+    "ArtifactEvidence": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "maxLength": 240,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]*$",
+          "title": "Path",
+          "type": "string"
+        },
+        "purpose": {
+          "pattern": "^[A-Z0-9_]+$",
+          "title": "Purpose",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        },
+        "size_bytes": {
+          "maximum": 100000000,
+          "minimum": 1,
+          "title": "Size Bytes",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "path",
+        "purpose",
+        "size_bytes",
+        "sha256"
+      ],
+      "title": "ArtifactEvidence",
+      "type": "object"
+    },
+    "LocalGateEvidence": {
+      "additionalProperties": false,
+      "properties": {
+        "aws_mutations": {
+          "const": 0,
+          "title": "Aws Mutations",
+          "type": "integer"
+        },
+        "evidence_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Evidence Sha256",
+          "type": "string"
+        },
+        "evidence_type": {
+          "const": "PHASE3_EXECUTED_LOCAL_GATE",
+          "title": "Evidence Type",
+          "type": "string"
+        },
+        "full_tests": {
+          "$ref": "#/$defs/TestSuiteEvidence"
+        },
+        "generated_at": {
+          "format": "date-time",
+          "title": "Generated At",
+          "type": "string"
+        },
+        "live_receipts": {
+          "const": 0,
+          "title": "Live Receipts",
+          "type": "integer"
+        },
+        "mock_mutations": {
+          "const": 1,
+          "title": "Mock Mutations",
+          "type": "integer"
+        },
+        "network_connections_during_offline_demos": {
+          "const": 0,
+          "title": "Network Connections During Offline Demos",
+          "type": "integer"
+        },
+        "p0": {
+          "$ref": "#/$defs/PriorityGateEvidence"
+        },
+        "p1": {
+          "$ref": "#/$defs/PriorityGateEvidence"
+        },
+        "provider_network_calls": {
+          "const": 0,
+          "title": "Provider Network Calls",
+          "type": "integer"
+        },
+        "quality_checks": {
+          "additionalProperties": {
+            "const": "PASS",
+            "type": "string"
+          },
+          "title": "Quality Checks",
+          "type": "object"
+        },
+        "schema_version": {
+          "const": 1,
+          "title": "Schema Version",
+          "type": "integer"
+        },
+        "tested_git_sha": {
+          "pattern": "^[0-9a-f]{40}$",
+          "title": "Tested Git Sha",
+          "type": "string"
+        },
+        "tested_worktree_clean": {
+          "const": true,
+          "title": "Tested Worktree Clean",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "schema_version",
+        "evidence_type",
+        "tested_git_sha",
+        "tested_worktree_clean",
+        "generated_at",
+        "full_tests",
+        "p0",
+        "p1",
+        "quality_checks",
+        "network_connections_during_offline_demos",
+        "provider_network_calls",
+        "aws_mutations",
+        "mock_mutations",
+        "live_receipts",
+        "evidence_sha256"
+      ],
+      "title": "LocalGateEvidence",
+      "type": "object"
+    },
+    "PriorityGateEvidence": {
+      "additionalProperties": false,
+      "properties": {
+        "expected_gates": {
+          "maximum": 100,
+          "minimum": 1,
+          "title": "Expected Gates",
+          "type": "integer"
+        },
+        "output_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Output Sha256",
+          "type": "string"
+        },
+        "passed_gates": {
+          "maximum": 100,
+          "minimum": 1,
+          "title": "Passed Gates",
+          "type": "integer"
+        },
+        "proof_tests": {
+          "maximum": 100000,
+          "minimum": 1,
+          "title": "Proof Tests",
+          "type": "integer"
+        },
+        "skipped": {
+          "const": 0,
+          "title": "Skipped",
+          "type": "integer"
+        },
+        "status": {
+          "const": "PASS",
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "status",
+        "passed_gates",
+        "expected_gates",
+        "proof_tests",
+        "skipped",
+        "output_sha256"
+      ],
+      "title": "PriorityGateEvidence",
+      "type": "object"
+    },
+    "TestSuiteEvidence": {
+      "additionalProperties": false,
+      "properties": {
+        "duration_seconds": {
+          "exclusiveMinimum": 0,
+          "maximum": 86400,
+          "title": "Duration Seconds",
+          "type": "number"
+        },
+        "output_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Output Sha256",
+          "type": "string"
+        },
+        "passed": {
+          "maximum": 100000,
+          "minimum": 1,
+          "title": "Passed",
+          "type": "integer"
+        },
+        "skipped": {
+          "const": 0,
+          "title": "Skipped",
+          "type": "integer"
+        },
+        "status": {
+          "const": "PASS",
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "status",
+        "passed",
+        "skipped",
+        "duration_seconds",
+        "output_sha256"
+      ],
+      "title": "TestSuiteEvidence",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "architecture_document_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Architecture Document Sha256",
+      "type": "string"
+    },
+    "artifact_manifest_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Artifact Manifest Sha256",
+      "type": "string"
+    },
+    "artifacts": {
+      "items": {
+        "$ref": "#/$defs/ArtifactEvidence"
+      },
+      "title": "Artifacts",
+      "type": "array"
+    },
+    "attestation_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Attestation Sha256",
+      "type": "string"
+    },
+    "attestation_type": {
+      "const": "AIOA_PHASE3_LOCAL_RELEASE_CANDIDATE",
+      "title": "Attestation Type",
+      "type": "string"
+    },
+    "aws_mutations": {
+      "const": 0,
+      "title": "Aws Mutations",
+      "type": "integer"
+    },
+    "branch": {
+      "const": "main",
+      "title": "Branch",
+      "type": "string"
+    },
+    "demo_runbook_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Demo Runbook Sha256",
+      "type": "string"
+    },
+    "dependency_lock_sha256": {
+      "patternProperties": {
+        "^[A-Za-z0-9][A-Za-z0-9._/-]*$": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        }
+      },
+      "propertyNames": {
+        "maxLength": 240,
+        "minLength": 1
+      },
+      "title": "Dependency Lock Sha256",
+      "type": "object"
+    },
+    "deployment_contract_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Deployment Contract Sha256",
+      "type": "string"
+    },
+    "devpost_draft_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Devpost Draft Sha256",
+      "type": "string"
+    },
+    "external_blockers": {
+      "items": {
+        "pattern": "^[A-Za-z][A-Za-z0-9_:.-]{2,160}$",
+        "type": "string"
+      },
+      "title": "External Blockers",
+      "type": "array"
+    },
+    "external_network_connections": {
+      "const": 0,
+      "title": "External Network Connections",
+      "type": "integer"
+    },
+    "external_submission_performed": {
+      "const": false,
+      "title": "External Submission Performed",
+      "type": "boolean"
+    },
+    "full_test_subject_sha": {
+      "pattern": "^[0-9a-f]{40}$",
+      "title": "Full Test Subject Sha",
+      "type": "string"
+    },
+    "generated_at": {
+      "format": "date-time",
+      "title": "Generated At",
+      "type": "string"
+    },
+    "live_receipts": {
+      "const": 0,
+      "title": "Live Receipts",
+      "type": "integer"
+    },
+    "live_verified": {
+      "const": false,
+      "title": "Live Verified",
+      "type": "boolean"
+    },
+    "local_gate_evidence": {
+      "$ref": "#/$defs/LocalGateEvidence"
+    },
+    "origin_main_matches": {
+      "const": true,
+      "title": "Origin Main Matches",
+      "type": "boolean"
+    },
+    "origin_main_sha": {
+      "pattern": "^[0-9a-f]{40}$",
+      "title": "Origin Main Sha",
+      "type": "string"
+    },
+    "package_version": {
+      "const": "0.2.0rc1",
+      "title": "Package Version",
+      "type": "string"
+    },
+    "post_test_changes": {
+      "items": {
+        "maxLength": 240,
+        "minLength": 1,
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]*$",
+        "type": "string"
+      },
+      "title": "Post Test Changes",
+      "type": "array"
+    },
+    "preflight_schema_version": {
+      "const": 1,
+      "title": "Preflight Schema Version",
+      "type": "integer"
+    },
+    "production_deployed": {
+      "const": false,
+      "title": "Production Deployed",
+      "type": "boolean"
+    },
+    "python_version": {
+      "pattern": "^3\\.12\\.[0-9]+$",
+      "title": "Python Version",
+      "type": "string"
+    },
+    "rc_identifier": {
+      "const": "phase3-local-rc1",
+      "title": "Rc Identifier",
+      "type": "string"
+    },
+    "release_version": {
+      "const": "0.2.0-rc.1",
+      "title": "Release Version",
+      "type": "string"
+    },
+    "repository_git_sha": {
+      "pattern": "^[0-9a-f]{40}$",
+      "title": "Repository Git Sha",
+      "type": "string"
+    },
+    "repository_tree_sha": {
+      "pattern": "^[0-9a-f]{40}$",
+      "title": "Repository Tree Sha",
+      "type": "string"
+    },
+    "runtime_architecture": {
+      "const": "x86_64",
+      "title": "Runtime Architecture",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "status": {
+      "const": "DEPLOYMENT_READY_LOCAL_RC",
+      "title": "Status",
+      "type": "string"
+    },
+    "verifier_schema_version": {
+      "const": 1,
+      "title": "Verifier Schema Version",
+      "type": "integer"
+    },
+    "worktree_clean": {
+      "const": true,
+      "title": "Worktree Clean",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "schema_version",
+    "attestation_type",
+    "status",
+    "generated_at",
+    "rc_identifier",
+    "release_version",
+    "package_version",
+    "repository_git_sha",
+    "repository_tree_sha",
+    "origin_main_sha",
+    "branch",
+    "worktree_clean",
+    "origin_main_matches",
+    "full_test_subject_sha",
+    "post_test_changes",
+    "python_version",
+    "runtime_architecture",
+    "deployment_contract_sha256",
+    "artifacts",
+    "artifact_manifest_sha256",
+    "architecture_document_sha256",
+    "demo_runbook_sha256",
+    "devpost_draft_sha256",
+    "dependency_lock_sha256",
+    "local_gate_evidence",
+    "preflight_schema_version",
+    "verifier_schema_version",
+    "production_deployed",
+    "live_verified",
+    "external_submission_performed",
+    "external_network_connections",
+    "aws_mutations",
+    "live_receipts",
+    "external_blockers",
+    "attestation_sha256"
+  ],
+  "title": "ReleaseCandidateAttestation",
+  "type": "object"
+}

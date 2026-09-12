@@ -1,0 +1,359 @@
+{
+  "base_image": "docker.io/library/python:3.12-slim-bookworm@sha256:782412e85d0f0984994c290652577d4018aff08145c85b262bb63dc0c7522254",
+  "document_type": "AIOA_B5_DETERMINISTIC_PYTHON_PACKAGE_MANIFEST",
+  "image_digest": "sha256:a835f9bdbc7a3854304e5574440a6a9944ea4bd04e839eae317a8e6554855eae",
+  "manifest_sha256": "9f4528ce6e9bfdc7a165c58377eaadf34c64a70f644b34d70a925f987e10d335",
+  "package_count": 57,
+  "packages": [
+    {
+      "artifact_sha256": "fe5b5df0448bf41c9aa0d6460b998adf280cab567b9ba688e5111cb71c0ff395",
+      "name": "aioa-nonzero-cloudops-agent",
+      "provenance": "REPRODUCIBLE_PROJECT_WHEEL",
+      "version": "0.2.0rc1"
+    },
+    {
+      "artifact_sha256": "f072f4d804ea359e4eaf198b1af7a8b0943881a87f31bb764f8bf219bb9419e0",
+      "name": "annotated-types",
+      "provenance": "HASH_PINNED_PORTABLE_LOCK",
+      "version": "0.8.0"
+    },
+    {
+      "artifact_sha256": "9f505dda5ac9f0c8309b5e8bd445a8c2bf7246f3ce950121e45ea15bc41d1494",
+      "name": "anyio",
+      "provenance": "HASH_PINNED_PORTABLE_LOCK",
+      "version": "4.14.2"
+    },
+    {
+      "artifact_sha256": "c647aa4a12dfbad9333ca4e71fe62ddc36f4e63b2d260a37a8b83d2f043ac309",
+      "name": "attrs",
+      "provenance": "HASH_PINNED_PORTABLE_LOCK",
+      "version": "26.1.0"
+    },
+    {
+      "artifact_sha256": "893f06a171469618e17de78dc927aca6e74fcf45a70d2c5918e9ac9919e96cc9",
+      "name": "boto3",
+      "provenance": "HASH_PINNED_PORTABLE_LOCK",
+      "version": "1.43.78"
+    },
+    {
+      "artifact_sha256": "ddd020493235e264b3bd12606f239a3d3b2dd7cfb1d25a0691061183c290c228",
+      "name": "botocore",
+      "provenance": "HASH_PINNED_PORTABLE_LOCK",
+      "version": "1.43.78"
+    },
+    {
+      "artifact_sha256": "62f22742b58a1a33014a2b6b706588a8d7e2a88ae7bd1a6ebe8c992928483775",
+      "name": "certifi",
+      "provenance": "HASH_PINNED_PORTABLE_LOCK",
+      "version": "2026.7.22"
+    },
+    {
+      "artifact_sha256": "c1453022f490d2459a11819d83ad1d586e9ff65a12ac3e705ffebd46d3685dcf",
+      "name": "cffi",
+      "provenance": "HASH_PINNED_PORTABLE_LOCK",
+      "version": "2.1.1"
+    },
+    {
+      "artifact_sha256": "b9af956078716df40d985fb0dfeb2c2120c5ca92ba4ff4b388acfd01cdc14d08",
+      "name": "charset-normalizer",
+      "provenance": "HASH_PINNED_PORTABLE_LOCK",
+      "version": "3.5.1"
+    },
+    {
+      "artifact_sha256": "e6f9f66136c816745b9d65817da91d61d957fb16e02e4dcd0552553c5a197b76",
+      "name": "click",
+      "provenance": "HASH_PINNED_PORTABLE_LOCK",
+      "version": "8.4.2"
+    },
+    {
+      "artifact_sha256": "82148ec5bddac30b51a5b3c1945075f896fa022cb93f8e4a01e9f6ee95292c5f",
+      "name": "cryptography",
+      "provenance": "HASH_PINNED_PORTABLE_LOCK",
+      "version": "50.0.0"
+    },
+    {
+      "artifact_sha256": "b3fcbed555c47d8479be0796ef7e19c2670d428d72e96da63f3a40122860374b",
+      "name": "docstring-parser",
+      "provenance": "HASH_PINNED_PORTABLE_LOCK",
+      "version": "0.18.0"
+    },
+    {
+      "artifact_sha256": "28a1934bcd33b9c9da66ac301a0a4227e3367f095a17d0375cb98f0a09d93b79",
+      "name": "googleapis-common-protos",
+      "provenance": "HASH_PINNED_PORTABLE_LOCK",
+      "version": "1.75.1"
+    },
+    {
+      "artifact_sha256": "63cf8bbe7522de3bf65932fda1d9c2772064ffb3dae62d55932da54b31cb6c86",
+      "name": "h11",
+      "provenance": "HASH_PINNED_PORTABLE_LOCK",
+      "version": "0.16.0"
+    },
+    {
+      "artifact_sha256": "2d400746a40668fc9dec9810239072b40b4484b640a8c38fd654a024c7a1bf55",
+      "name": "httpcore",
+      "provenance": "HASH_PINNED_PORTABLE_LOCK",
+      "version": "1.0.9"
+    },
+    {
+      "artifact_sha256": "d909fcccc110f8c7faf814ca82a9a4d816bc5a6dbfea25d6591d6985b8ba59ad",
+      "name": "httpx",
+      "provenance": "HASH_PINNED_PORTABLE_LOCK",
+      "version": "0.28.1"
+    },
+    {
+      "artifact_sha256": "0ac1c9fe3c0afad2e0ebb25a934a59f4c7823b60792691f779fad2c5568830fc",
+      "name": "httpx-sse",
+      "provenance": "HASH_PINNED_PORTABLE_LOCK",
+      "version": "0.4.3"
+    },
+    {
+      "artifact_sha256": "815e7be7a7806d54abb586dc943addc79e8b2ee16915059658cbeff4b1b43bf4",
+      "name": "idna",
+      "provenance": "HASH_PINNED_PORTABLE_LOCK",
+      "version": "3.19"
+    },
+    {
+      "artifact_sha256": "a5663118de4908c91729bea0acadca56526eb2698e83de10cd116ae0f4e97c64",
+      "name": "jmespath",
+      "provenance": "HASH_PINNED_PORTABLE_LOCK",
+      "version": "1.1.0"
+    },
+    {
+      "artifact_sha256": "d489f15263b8d200f8387e64b4c3a75f06629559fb73deb8fdfb525f2dab50ce",
+      "name": "jsonschema",
+      "provenance": "HASH_PINNED_PORTABLE_LOCK",
+      "version": "4.26.0"
+    },
+    {
+      "artifact_sha256": "98802fee3a11ee76ecaca44429fda8a41bff98b00a0f2838151b113f210cc6fe",
+      "name": "jsonschema-specifications",
+      "provenance": "HASH_PINNED_PORTABLE_LOCK",
+      "version": "2025.9.1"
+    },
+    {
+      "artifact_sha256": "f5a075bb611f23d6f4d080c6a1699fa62772eebc562ba9e66b306ddde1c755f7",
+      "name": "mcp",
+      "provenance": "HASH_PINNED_PORTABLE_LOCK",
+      "version": "1.29.0"
+    },
+    {
+      "artifact_sha256": "94b98c893a91b88657eaac1e3ba89618cdb85be6918196705354f34728b2cdef",
+      "name": "opentelemetry-api",
+      "provenance": "HASH_PINNED_PORTABLE_LOCK",
+      "version": "1.44.0"
+    },
+    {
+      "artifact_sha256": "9a9fe61bba73d802904bc989f1d6b4a7b1ee40f06c40e98d6f85af65aaebb694",
+      "name": "opentelemetry-exporter-otlp-proto-common",
+      "provenance": "HASH_PINNED_PORTABLE_LOCK",
+      "version": "1.44.0"
+    },
+    {
+      "artifact_sha256": "838592fce774c1c8bb7b9a0a7facbfa82e17be5a8a4e94cef10cb84ae026bae3",
+      "name": "opentelemetry-exporter-otlp-proto-http",
+      "provenance": "HASH_PINNED_PORTABLE_LOCK",
+      "version": "1.44.0"
+    },
+    {
+      "artifact_sha256": "ea967a72b9939b5fcfdad572753b4306c59dcb99e3f382d95dae04286805e137",
+      "name": "opentelemetry-instrumentation",
+      "provenance": "HASH_PINNED_PORTABLE_LOCK",
+      "version": "0.65b0"
+    },
+    {
+      "artifact_sha256": "d8a1a1f35418a32769d469ef2d7e8401935e097a8553abcfba833da9c74736ce",
+      "name": "opentelemetry-instrumentation-threading",
+      "provenance": "HASH_PINNED_PORTABLE_LOCK",
+      "version": "0.65b0"
+    },
+    {
+      "artifact_sha256": "898b155a0e1557afd867478fb6158e8122a46329ca0bb8dc53cc55e98f017f56",
+      "name": "opentelemetry-proto",
+      "provenance": "HASH_PINNED_PORTABLE_LOCK",
+      "version": "1.44.0"
+    },
+    {
+      "artifact_sha256": "df081c4c6bcfdb1211e3e86140376792643128a25f8d72d1d27675936e7e96ad",
+      "name": "opentelemetry-sdk",
+      "provenance": "HASH_PINNED_PORTABLE_LOCK",
+      "version": "1.44.0"
+    },
+    {
+      "artifact_sha256": "1cacde7b0ad306f84c5ef08c3dbe1bbaf20165bba6f8bff43b670e555a086bcb",
+      "name": "opentelemetry-semantic-conventions",
+      "provenance": "HASH_PINNED_PORTABLE_LOCK",
+      "version": "0.65b0"
+    },
+    {
+      "artifact_sha256": "d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c",
+      "name": "packaging",
+      "provenance": "HASH_PINNED_PORTABLE_LOCK",
+      "version": "26.3"
+    },
+    {
+      "artifact_sha256": null,
+      "name": "pip",
+      "provenance": "DIGEST_PINNED_BASE_IMAGE",
+      "version": "25.0.1"
+    },
+    {
+      "artifact_sha256": "70f5ec8eb0da81a44360c0dc0beac99a0d78071d21956a7076bae8bd2051841b",
+      "name": "protobuf",
+      "provenance": "HASH_PINNED_PORTABLE_LOCK",
+      "version": "7.36.0"
+    },
+    {
+      "artifact_sha256": "b727414169a36b7d524c1c3e31839a521725078d7b2ff038656844266160a992",
+      "name": "pycparser",
+      "provenance": "HASH_PINNED_PORTABLE_LOCK",
+      "version": "3.0"
+    },
+    {
+      "artifact_sha256": "45a282cde31d808236fd7ea9d919b128653c8b38b393d1c4ab335c62924d9aba",
+      "name": "pydantic",
+      "provenance": "HASH_PINNED_PORTABLE_LOCK",
+      "version": "2.13.4"
+    },
+    {
+      "artifact_sha256": "926c9541b14b12b1681dca8a0b75feb510b06c6341b70a8e500c2fdcff837cce",
+      "name": "pydantic-core",
+      "provenance": "HASH_PINNED_PORTABLE_LOCK",
+      "version": "2.46.4"
+    },
+    {
+      "artifact_sha256": "0ba092c291c94baceb5eff768aa0d56400a457585bc0175925a5a5510303da42",
+      "name": "pydantic-settings",
+      "provenance": "HASH_PINNED_PORTABLE_LOCK",
+      "version": "2.15.0"
+    },
+    {
+      "artifact_sha256": "66adcc2aff09b3f1bbd95fc1e1577df8ac8723c978552fd43304c8a290ac5728",
+      "name": "pyjwt",
+      "provenance": "HASH_PINNED_PORTABLE_LOCK",
+      "version": "2.13.0"
+    },
+    {
+      "artifact_sha256": "a8b2bc7bffae282281c8140a97d3aa9c14da0b136dfe83f850eea9a5f7470427",
+      "name": "python-dateutil",
+      "provenance": "HASH_PINNED_PORTABLE_LOCK",
+      "version": "2.9.0.post0"
+    },
+    {
+      "artifact_sha256": "904552145e8bfed22162c09dab1c2b9b54fefa7b23ba780f4f26ca0316b0f0d9",
+      "name": "python-dotenv",
+      "provenance": "HASH_PINNED_PORTABLE_LOCK",
+      "version": "1.2.3"
+    },
+    {
+      "artifact_sha256": "ff6d3f776f16878c894e52e107296ffc890e913c611b1a4ec6c44e2821fe2e23",
+      "name": "python-multipart",
+      "provenance": "HASH_PINNED_PORTABLE_LOCK",
+      "version": "0.0.32"
+    },
+    {
+      "artifact_sha256": "ba1cc08a7ccde2d2ec775841541641e4548226580ab850948cbfda66a1befcdc",
+      "name": "pyyaml",
+      "provenance": "HASH_PINNED_PORTABLE_LOCK",
+      "version": "6.0.3"
+    },
+    {
+      "artifact_sha256": "381329a9f99628c9069361716891d34ad94af76e461dcb0335825aecc7692231",
+      "name": "referencing",
+      "provenance": "HASH_PINNED_PORTABLE_LOCK",
+      "version": "0.37.0"
+    },
+    {
+      "artifact_sha256": "2a0d60c172f83ac6ab31e4554906c0f3b3588d37b5cb939b1c061f4907e278e0",
+      "name": "requests",
+      "provenance": "HASH_PINNED_PORTABLE_LOCK",
+      "version": "2.34.2"
+    },
+    {
+      "artifact_sha256": "ecabd69db66de867690f9797f2f8fa27ba501bbc24540cbdbdc649cd15888ba6",
+      "name": "rpds-py",
+      "provenance": "HASH_PINNED_PORTABLE_LOCK",
+      "version": "2026.6.3"
+    },
+    {
+      "artifact_sha256": "d8168eccca828cbb2cd573675333f3bddd254313a9c42494b84c76b539e8ba25",
+      "name": "s3transfer",
+      "provenance": "HASH_PINNED_PORTABLE_LOCK",
+      "version": "0.19.2"
+    },
+    {
+      "artifact_sha256": "4721f391ed90541fddacab5acf947aa0d3dc7d27b2e1e8eda2be8970586c3274",
+      "name": "six",
+      "provenance": "HASH_PINNED_PORTABLE_LOCK",
+      "version": "1.17.0"
+    },
+    {
+      "artifact_sha256": "6e82314c786709a3cd9520f2285cf9fff90e181e598e8a357b0cf80f66afba0d",
+      "name": "sse-starlette",
+      "provenance": "HASH_PINNED_PORTABLE_LOCK",
+      "version": "3.4.8"
+    },
+    {
+      "artifact_sha256": "a86dd39d14bb45f85a3d18525215a9ef0cfd1f192ac793220e72598c90335f0c",
+      "name": "starlette",
+      "provenance": "HASH_PINNED_PORTABLE_LOCK",
+      "version": "1.6.0"
+    },
+    {
+      "artifact_sha256": "35b28436208486320ed121cbfe425368318847193d57c175823e82e5cc7700de",
+      "name": "strands-agents",
+      "provenance": "HASH_PINNED_PORTABLE_LOCK",
+      "version": "1.53.0"
+    },
+    {
+      "artifact_sha256": "481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8",
+      "name": "typing-extensions",
+      "provenance": "HASH_PINNED_PORTABLE_LOCK",
+      "version": "4.16.0"
+    },
+    {
+      "artifact_sha256": "65b8397ba37ccbce054456aaccddfc91e6e3083c92824df348d96ca832f3f147",
+      "name": "typing-inspection",
+      "provenance": "HASH_PINNED_PORTABLE_LOCK",
+      "version": "0.4.4"
+    },
+    {
+      "artifact_sha256": "9fb4c81ebbb1ce9531cce37674bbc6f1360472bc18ca9a553ede278ef7276897",
+      "name": "urllib3",
+      "provenance": "HASH_PINNED_PORTABLE_LOCK",
+      "version": "2.7.0"
+    },
+    {
+      "artifact_sha256": "80530ce4d02a93cdf82e7122ca0da3ebbbc269790ec1cb902481fa3e9cc9ff99",
+      "name": "uuid6",
+      "provenance": "HASH_PINNED_PORTABLE_LOCK",
+      "version": "2025.0.1"
+    },
+    {
+      "artifact_sha256": "f86e41a149d7d05a9969337e3946a9c171c06a5d42680896daaba624aeac8da1",
+      "name": "uvicorn",
+      "provenance": "HASH_PINNED_PORTABLE_LOCK",
+      "version": "0.52.4"
+    },
+    {
+      "artifact_sha256": "20ffe5b202af80ab4266dcd3e91aae72bf2da48c0d33bdb15c66658e685e94e2",
+      "name": "watchdog",
+      "provenance": "HASH_PINNED_PORTABLE_LOCK",
+      "version": "6.0.0"
+    },
+    {
+      "artifact_sha256": "5d221a6e6ddd302b8397433184e96b59f259f50024b854db1c411a881586b6b8",
+      "name": "wrapt",
+      "provenance": "HASH_PINNED_PORTABLE_LOCK",
+      "version": "2.3.0"
+    }
+  ],
+  "platform": "linux/amd64",
+  "portable_lock_sha256": "a7be92862cb66b67f2bf5b664f62abee1dbd48d65e2ee12fbcbaa5be2dff5dcd",
+  "python_version": "3.12.14",
+  "sbom_generator": "LOCK_PLUS_EXACT_IMAGE_OBSERVATION",
+  "sbom_tool_status": "DEDICATED_SBOM_TOOL_UNAVAILABLE_PACKAGE_MANIFEST_USED",
+  "schema_version": 1,
+  "source_commit": "dbea5411b1c0d81de0035d9ef08e28211fb79e79",
+  "wheel_sha256": "fe5b5df0448bf41c9aa0d6460b998adf280cab567b9ba688e5111cb71c0ff395"
+}

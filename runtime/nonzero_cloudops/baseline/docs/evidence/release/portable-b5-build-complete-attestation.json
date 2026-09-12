@@ -1,0 +1,89 @@
+{
+  "artifact_manifest_file_sha256": "4963d32bf76aff6da8f221430dfff702d5b4fa879429afa0ba7d63bb1d323223",
+  "attestation_sha256": "d0a0db0fedac0e3a37b776fea52d5624f6f3525a059307423d64fca7109a15dd",
+  "aws_calls": 0,
+  "aws_mutations": 0,
+  "checks": [
+    {
+      "check_id": "B4_HARDENING_GATE",
+      "proof_tests": 43,
+      "scenarios": 11,
+      "status": "PASS"
+    },
+    {
+      "check_id": "CLEAN_CLONE",
+      "exact_source_commit": true,
+      "status": "PASS"
+    },
+    {
+      "check_id": "CONTAINER_JUDGE_GATE",
+      "invocations": 2,
+      "status": "PASS"
+    },
+    {
+      "check_id": "DIFF_CHECK",
+      "status": "PASS"
+    },
+    {
+      "check_id": "FULL_PYTEST",
+      "proof_tests": 1428,
+      "skipped": 0,
+      "status": "PASS"
+    },
+    {
+      "check_id": "IMAGE_EXPORT_PRIVACY_SCAN",
+      "findings": 0,
+      "status": "PASS"
+    },
+    {
+      "check_id": "NATIVE_PORTABLE_FLOW",
+      "status": "PASS"
+    },
+    {
+      "check_id": "NONROOT_OCI_RUNTIME",
+      "effective_uid": 65532,
+      "status": "PASS"
+    },
+    {
+      "check_id": "P0_GATE",
+      "gates": 15,
+      "status": "PASS"
+    },
+    {
+      "check_id": "P1_GATE",
+      "gates": 6,
+      "status": "PASS"
+    },
+    {
+      "check_id": "PACKAGE_BUILD",
+      "status": "PASS"
+    },
+    {
+      "check_id": "PIP_CHECK",
+      "status": "PASS"
+    },
+    {
+      "check_id": "RUFF",
+      "status": "PASS"
+    },
+    {
+      "check_id": "SECRET_SCAN",
+      "findings": 0,
+      "status": "PASS"
+    }
+  ],
+  "container_digest": "sha256:a835f9bdbc7a3854304e5574440a6a9944ea4bd04e839eae317a8e6554855eae",
+  "container_id": "524fe1212fc65e3d35a015717d03250e25c5ad32359e1c9595878c5bc6b057e8",
+  "deployments": 0,
+  "document_type": "AIOA_B5_BUILD_COMPLETE_ATTESTATION",
+  "freeze_rule": "ANY_RUNTIME_SOURCE_DEPENDENCY_CONTAINER_OR_BOUND_DOCUMENT_CHANGE_INVALIDATES_BUILD_COMPLETE_AND_REQUIRES_B5_REBUILD",
+  "image_pushes": 0,
+  "limitations": "Local OCI build and offline/mock execution only; no registry publication, public endpoint, live provider receipt, AWS identity, or live infrastructure mutation is claimed.",
+  "package_manifest_file_sha256": "cd578d6e6abef666424a05b3aa710f91781791e57b5e19760d1b0c38c10956a8",
+  "publications": 0,
+  "remote_git_pushes": 0,
+  "schema_version": 1,
+  "sha256sums_file_sha256": "76acd797b841b5c10ec89888917b01849b2cd04f82fd0ec4456cb292e1cbe0e7",
+  "source_commit": "dbea5411b1c0d81de0035d9ef08e28211fb79e79",
+  "status": "BUILD_COMPLETE"
+}

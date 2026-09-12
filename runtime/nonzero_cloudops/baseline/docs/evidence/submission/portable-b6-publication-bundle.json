@@ -1,0 +1,59 @@
+{
+  "archive": {
+    "bytes": 4408888,
+    "path": "dist/submission/portable-b6-2026-09-01/aioa-agents-for-humans-publication-candidate.zip",
+    "sha256": "c69baf9322cfcd234ca6610f733f5a8de4ae6a463f3e2a66ce8e78664b4c43de",
+    "uploaded": false
+  },
+  "aws_calls": 0,
+  "aws_mutations": 0,
+  "b5_reference": {
+    "path_in_archive": "B5_BUILD_COMPLETE_REFERENCE.json",
+    "status": "BUILD_COMPLETE"
+  },
+  "b6_report": {
+    "path_in_archive": "B6_REPRODUCIBILITY_REPORT.json",
+    "sha256": "318cfc5dde379e9f5c8806f7c68e662581a7d7ee1e8b50ff7a375ecc51d9f416",
+    "status": "PASS"
+  },
+  "candidate": {
+    "files": 333,
+    "git_metadata_present": false,
+    "source_commit": "c7fa5a5c2509cccf071a9e58477776c1a1e00aea"
+  },
+  "classifications": {
+    "GENERATED": 1,
+    "LEGAL_REVIEW": 2,
+    "PRIVATE_INTERNAL": 79,
+    "PUBLIC_ALLOWED": 147,
+    "PUBLIC_REQUIRED": 178
+  },
+  "deterministic_rebuild": {
+    "archive_byte_comparison": "IDENTICAL",
+    "independent_builds": 2,
+    "status": "PASS"
+  },
+  "document_type": "AIOA_B6_LOCAL_PUBLICATION_BUNDLE",
+  "external_deployments": 0,
+  "inventory_count": 407,
+  "outer_files": {
+    "PUBLICATION_EXCLUSIONS.md": "f50d82d35cce11fc7894fc6191db3ae800a4f2f784fab88359e5c656db4b4672",
+    "PUBLICATION_MANIFEST.json": "b0a89730d24cba4208e3f69c35ffccc453a1fe6e6c49c6e4ca2287cc93af8624",
+    "PUBLIC_PRIVACY_SCAN.json": "e45d6668c16c62512268e542e13a71cf833ea16cee44d2b6ac31de7a4ec8db57",
+    "SHA256SUMS": "f1964eb855e630b6e0dbf49626bc320e2508c397c6f86f00c248b5097b9bbe65"
+  },
+  "payload_count_before_manifest_and_sums": 331,
+  "payload_tree_sha256": "248a692e4e797b44d5f4f4e2747ea77b4a1bffa975a3370c61c2069e5b2b916a",
+  "privacy_scan": {
+    "file_sha256": "e45d6668c16c62512268e542e13a71cf833ea16cee44d2b6ac31de7a4ec8db57",
+    "findings": 0,
+    "receipt_sha256": "91ff2b8262b516bc6ddc0065b88adedd002e7dded95a9008e51786ac6f7fe6e8",
+    "status": "PASS"
+  },
+  "publication_actions": 0,
+  "publication_manifest_internal_sha256": "11e601648880a0927cf654b8f37b6f86a076f15de845d5c65e9e8136986d13a3",
+  "publication_ready": "PASS",
+  "remote_pushes": 0,
+  "schema_version": 1,
+  "status": "PASS"
+}

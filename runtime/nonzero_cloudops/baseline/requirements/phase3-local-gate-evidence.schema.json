@@ -1,0 +1,187 @@
+{
+  "$defs": {
+    "PriorityGateEvidence": {
+      "additionalProperties": false,
+      "properties": {
+        "expected_gates": {
+          "maximum": 100,
+          "minimum": 1,
+          "title": "Expected Gates",
+          "type": "integer"
+        },
+        "output_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Output Sha256",
+          "type": "string"
+        },
+        "passed_gates": {
+          "maximum": 100,
+          "minimum": 1,
+          "title": "Passed Gates",
+          "type": "integer"
+        },
+        "proof_tests": {
+          "maximum": 100000,
+          "minimum": 1,
+          "title": "Proof Tests",
+          "type": "integer"
+        },
+        "skipped": {
+          "const": 0,
+          "title": "Skipped",
+          "type": "integer"
+        },
+        "status": {
+          "const": "PASS",
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "status",
+        "passed_gates",
+        "expected_gates",
+        "proof_tests",
+        "skipped",
+        "output_sha256"
+      ],
+      "title": "PriorityGateEvidence",
+      "type": "object"
+    },
+    "TestSuiteEvidence": {
+      "additionalProperties": false,
+      "properties": {
+        "duration_seconds": {
+          "exclusiveMinimum": 0,
+          "maximum": 86400,
+          "title": "Duration Seconds",
+          "type": "number"
+        },
+        "output_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Output Sha256",
+          "type": "string"
+        },
+        "passed": {
+          "maximum": 100000,
+          "minimum": 1,
+          "title": "Passed",
+          "type": "integer"
+        },
+        "skipped": {
+          "const": 0,
+          "title": "Skipped",
+          "type": "integer"
+        },
+        "status": {
+          "const": "PASS",
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "status",
+        "passed",
+        "skipped",
+        "duration_seconds",
+        "output_sha256"
+      ],
+      "title": "TestSuiteEvidence",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "aws_mutations": {
+      "const": 0,
+      "title": "Aws Mutations",
+      "type": "integer"
+    },
+    "evidence_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Evidence Sha256",
+      "type": "string"
+    },
+    "evidence_type": {
+      "const": "PHASE3_EXECUTED_LOCAL_GATE",
+      "title": "Evidence Type",
+      "type": "string"
+    },
+    "full_tests": {
+      "$ref": "#/$defs/TestSuiteEvidence"
+    },
+    "generated_at": {
+      "format": "date-time",
+      "title": "Generated At",
+      "type": "string"
+    },
+    "live_receipts": {
+      "const": 0,
+      "title": "Live Receipts",
+      "type": "integer"
+    },
+    "mock_mutations": {
+      "const": 1,
+      "title": "Mock Mutations",
+      "type": "integer"
+    },
+    "network_connections_during_offline_demos": {
+      "const": 0,
+      "title": "Network Connections During Offline Demos",
+      "type": "integer"
+    },
+    "p0": {
+      "$ref": "#/$defs/PriorityGateEvidence"
+    },
+    "p1": {
+      "$ref": "#/$defs/PriorityGateEvidence"
+    },
+    "provider_network_calls": {
+      "const": 0,
+      "title": "Provider Network Calls",
+      "type": "integer"
+    },
+    "quality_checks": {
+      "additionalProperties": {
+        "const": "PASS",
+        "type": "string"
+      },
+      "title": "Quality Checks",
+      "type": "object"
+    },
+    "schema_version": {
+      "const": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "tested_git_sha": {
+      "pattern": "^[0-9a-f]{40}$",
+      "title": "Tested Git Sha",
+      "type": "string"
+    },
+    "tested_worktree_clean": {
+      "const": true,
+      "title": "Tested Worktree Clean",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "schema_version",
+    "evidence_type",
+    "tested_git_sha",
+    "tested_worktree_clean",
+    "generated_at",
+    "full_tests",
+    "p0",
+    "p1",
+    "quality_checks",
+    "network_connections_during_offline_demos",
+    "provider_network_calls",
+    "aws_mutations",
+    "mock_mutations",
+    "live_receipts",
+    "evidence_sha256"
+  ],
+  "title": "LocalGateEvidence",
+  "type": "object"
+}

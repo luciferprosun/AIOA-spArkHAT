@@ -1,0 +1,1 @@
+recursive-include src/aioa_cloudops_agent/portable/resources *.json

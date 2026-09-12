@@ -1,0 +1,86 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "api_contract_match": {
+      "title": "Api Contract Match",
+      "type": "boolean"
+    },
+    "authorized_identity": {
+      "title": "Authorized Identity",
+      "type": "boolean"
+    },
+    "aws_mutations": {
+      "const": 0,
+      "title": "Aws Mutations",
+      "type": "integer"
+    },
+    "expected_account_match": {
+      "title": "Expected Account Match",
+      "type": "boolean"
+    },
+    "expected_region_match": {
+      "title": "Expected Region Match",
+      "type": "boolean"
+    },
+    "fixture_id": {
+      "const": "PHASE3_POST_DEPLOY_VERIFIER_OFFLINE_V1",
+      "title": "Fixture Id",
+      "type": "string"
+    },
+    "generated_at": {
+      "format": "date-time",
+      "title": "Generated At",
+      "type": "string"
+    },
+    "live_receipt": {
+      "const": false,
+      "title": "Live Receipt",
+      "type": "boolean"
+    },
+    "model_access_contract_match": {
+      "title": "Model Access Contract Match",
+      "type": "boolean"
+    },
+    "network_connections": {
+      "const": 0,
+      "title": "Network Connections",
+      "type": "integer"
+    },
+    "resource_binding_contract_match": {
+      "title": "Resource Binding Contract Match",
+      "type": "boolean"
+    },
+    "schema_version": {
+      "const": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "synthetic": {
+      "const": true,
+      "title": "Synthetic",
+      "type": "boolean"
+    },
+    "verification_evidence_contract_match": {
+      "title": "Verification Evidence Contract Match",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "schema_version",
+    "fixture_id",
+    "synthetic",
+    "generated_at",
+    "authorized_identity",
+    "expected_account_match",
+    "expected_region_match",
+    "api_contract_match",
+    "model_access_contract_match",
+    "resource_binding_contract_match",
+    "verification_evidence_contract_match",
+    "network_connections",
+    "aws_mutations",
+    "live_receipt"
+  ],
+  "title": "VerifierFixture",
+  "type": "object"
+}

@@ -1,0 +1,215 @@
+{
+  "$defs": {
+    "CleanupAction": {
+      "enum": [
+        "DELETE_WITH_CLOUDFORMATION_STACK",
+        "RETRY_CLOUDFORMATION_STACK_DELETE",
+        "RETAIN_PENDING_EXPLICIT_DISPOSITION",
+        "NO_OBSERVED_RESOURCE",
+        "ALREADY_CONFIRMED_ABSENT",
+        "DO_NOT_DELETE_OWNERSHIP_UNPROVEN"
+      ],
+      "title": "CleanupAction",
+      "type": "string"
+    },
+    "CleanupRule": {
+      "additionalProperties": false,
+      "properties": {
+        "cleanup_behavior": {
+          "title": "Cleanup Behavior",
+          "type": "string"
+        },
+        "lifecycle": {
+          "$ref": "#/$defs/ResourceLifecycle"
+        },
+        "logical_id": {
+          "pattern": "^[A-Za-z][A-Za-z0-9]{0,254}$",
+          "title": "Logical Id",
+          "type": "string"
+        },
+        "ownership_proof": {
+          "$ref": "#/$defs/OwnershipProof"
+        },
+        "partial_failure_action": {
+          "$ref": "#/$defs/CleanupAction"
+        },
+        "resource_type": {
+          "title": "Resource Type",
+          "type": "string"
+        },
+        "rollback_action": {
+          "$ref": "#/$defs/CleanupAction"
+        }
+      },
+      "required": [
+        "logical_id",
+        "resource_type",
+        "ownership_proof",
+        "lifecycle",
+        "rollback_action",
+        "partial_failure_action",
+        "cleanup_behavior"
+      ],
+      "title": "CleanupRule",
+      "type": "object"
+    },
+    "DeploymentPartialState": {
+      "enum": [
+        "DEPLOYMENT_STARTED_THEN_FAILED",
+        "RESOURCE_EXISTS_VERIFICATION_FAILED",
+        "APPROVAL_EXPIRED",
+        "RETRY",
+        "ROLLBACK_PARTIALLY_FAILED",
+        "DEPLOYMENT_VERIFIED"
+      ],
+      "title": "DeploymentPartialState",
+      "type": "string"
+    },
+    "OwnershipProof": {
+      "enum": [
+        "STACK_AND_EXACT_TAGS",
+        "STACK_MEMBERSHIP_AND_LOGICAL_ID"
+      ],
+      "title": "OwnershipProof",
+      "type": "string"
+    },
+    "ResourceLifecycle": {
+      "enum": [
+        "STACK_DELETE",
+        "RETAIN_EXPLICIT_DISPOSITION",
+        "CONDITIONAL_STACK_DELETE"
+      ],
+      "title": "ResourceLifecycle",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "approval_requirements": {
+      "items": {
+        "enum": [
+          "EXPLICIT_APPROVED_DECISION",
+          "PLAN_HASH_MATCH",
+          "DEPLOYMENT_ID_MATCH",
+          "FIFTEEN_MINUTE_MAX_LIFETIME",
+          "ONE_TIME_NONCE",
+          "EXACT_ACTION_SET"
+        ],
+        "type": "string"
+      },
+      "title": "Approval Requirements",
+      "type": "array"
+    },
+    "aws_mutations": {
+      "const": 0,
+      "title": "Aws Mutations",
+      "type": "integer"
+    },
+    "cli_emits_cloud_commands": {
+      "const": false,
+      "title": "Cli Emits Cloud Commands",
+      "type": "boolean"
+    },
+    "contract_id": {
+      "const": "AIOA_PHASE3_ROLLBACK_CLEANUP_CONTRACT",
+      "title": "Contract Id",
+      "type": "string"
+    },
+    "deployment_contract_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Deployment Contract Sha256",
+      "type": "string"
+    },
+    "execution_default_enabled": {
+      "const": false,
+      "title": "Execution Default Enabled",
+      "type": "boolean"
+    },
+    "expected_resource_manifest_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Expected Resource Manifest Sha256",
+      "type": "string"
+    },
+    "live_receipts": {
+      "const": 0,
+      "title": "Live Receipts",
+      "type": "integer"
+    },
+    "network_connections": {
+      "const": 0,
+      "title": "Network Connections",
+      "type": "integer"
+    },
+    "ownership_requirements": {
+      "items": {
+        "enum": [
+          "DEPLOYMENT_ID_MATCH",
+          "STACK_ID_HASH_MATCH",
+          "STACK_MEMBERSHIP_CONFIRMED",
+          "CONTRACT_HASH_MATCH",
+          "LOGICAL_ID_AND_TYPE_MATCH",
+          "EXACT_TAGS_WHEN_SUPPORTED"
+        ],
+        "type": "string"
+      },
+      "title": "Ownership Requirements",
+      "type": "array"
+    },
+    "ownership_tags": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Ownership Tags",
+      "type": "object"
+    },
+    "partial_states": {
+      "items": {
+        "$ref": "#/$defs/DeploymentPartialState"
+      },
+      "title": "Partial States",
+      "type": "array"
+    },
+    "policy": {
+      "const": "OWNERSHIP_BOUND_EXPLICIT_APPROVAL_ONLY",
+      "title": "Policy",
+      "type": "string"
+    },
+    "retained_resources_require_separate_disposition": {
+      "const": true,
+      "title": "Retained Resources Require Separate Disposition",
+      "type": "boolean"
+    },
+    "rules": {
+      "items": {
+        "$ref": "#/$defs/CleanupRule"
+      },
+      "title": "Rules",
+      "type": "array"
+    },
+    "schema_version": {
+      "const": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "schema_version",
+    "contract_id",
+    "policy",
+    "deployment_contract_sha256",
+    "expected_resource_manifest_sha256",
+    "partial_states",
+    "ownership_requirements",
+    "approval_requirements",
+    "ownership_tags",
+    "rules",
+    "retained_resources_require_separate_disposition",
+    "execution_default_enabled",
+    "cli_emits_cloud_commands",
+    "network_connections",
+    "aws_mutations",
+    "live_receipts"
+  ],
+  "title": "RollbackCleanupContract",
+  "type": "object"
+}

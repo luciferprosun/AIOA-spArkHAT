@@ -1,0 +1,379 @@
+{
+  "application": {
+    "application_name": {
+      "requirement": "REQUIRED",
+      "value": "aioa-nonzero-cloudops-agent"
+    },
+    "ownership_tags": {
+      "requirement": "REQUIRED",
+      "value": {
+        "AIOAProject": "NonZeroCloudOps",
+        "AIOAStage": "hackathon",
+        "ManagedBy": "CloudFormation"
+      }
+    },
+    "resource_prefix": {
+      "requirement": "REQUIRED",
+      "value": "aioa-nonzero"
+    },
+    "stack_name": {
+      "requirement": "REQUIRED",
+      "value": "aioa-nonzero-cloudops-day15"
+    },
+    "stage": {
+      "requirement": "OPTIONAL_WITH_DEFAULT",
+      "value": "hackathon"
+    }
+  },
+  "contract_id": "AIOA_PHASE3_AWS_DEPLOYMENT_CONTRACT",
+  "identity": {
+    "deployment_profile": {
+      "requirement": "EXTERNAL_OPERATOR_INPUT",
+      "value": "aioa-day15-deployer"
+    },
+    "deployment_role_arn_sha256": {
+      "requirement": "EXTERNAL_OPERATOR_INPUT",
+      "value": null
+    },
+    "deployment_role_name": {
+      "requirement": "REQUIRED",
+      "value": "AIOANonZeroCloudOpsDay15DeploymentRole"
+    },
+    "expected_account_id_sha256": {
+      "requirement": "EXTERNAL_OPERATOR_INPUT",
+      "value": null
+    },
+    "partition": {
+      "requirement": "REQUIRED",
+      "value": "aws"
+    },
+    "target_regions": {
+      "requirement": "REQUIRED",
+      "value": [
+        "eu-central-1"
+      ]
+    }
+  },
+  "infrastructure": {
+    "artifact_bucket_controls": {
+      "requirement": "REQUIRED",
+      "value": {
+        "encryption_at_rest_required": true,
+        "lifecycle_expiration_days_max": 3,
+        "noncurrent_version_expiration_days_max": 3,
+        "ownership_controls_required": true,
+        "public_access_block": {
+          "block_public_acls": true,
+          "block_public_policy": true,
+          "ignore_public_acls": true,
+          "restrict_public_buckets": true
+        },
+        "tls_only_required": true,
+        "versioning_required": true
+      }
+    },
+    "artifact_bucket_sha256": {
+      "requirement": "EXTERNAL_OPERATOR_INPUT",
+      "value": null
+    },
+    "artifact_object_path": {
+      "requirement": "REQUIRED",
+      "value": "day15/reviewed/aioa-lambda.zip"
+    },
+    "cloudfront_enabled": {
+      "requirement": "REQUIRED",
+      "value": false
+    },
+    "mechanism": {
+      "requirement": "REQUIRED",
+      "value": "AWS_SAM_CLOUDFORMATION"
+    },
+    "s3_stack_managed": {
+      "requirement": "REQUIRED",
+      "value": false
+    },
+    "template_path": {
+      "requirement": "REQUIRED",
+      "value": "infra/sam/template.yaml"
+    }
+  },
+  "operations": {
+    "budget_owner_sha256": {
+      "requirement": "EXTERNAL_OPERATOR_INPUT",
+      "value": null
+    },
+    "cost": {
+      "requirement": "REQUIRED",
+      "value": {
+        "budget_thresholds_usd": [
+          10,
+          25,
+          40
+        ],
+        "max_judge_investigations": 10,
+        "max_model_output_tokens_per_run": 1024,
+        "provisioned_concurrency": false,
+        "retained_state_requires_operator_disposition": true,
+        "table_capacity": "ON_DEMAND"
+      }
+    },
+    "observability": {
+      "requirement": "REQUIRED",
+      "value": {
+        "alarms": [
+          "ORCHESTRATOR_ERRORS",
+          "ORCHESTRATOR_THROTTLES",
+          "ORCHESTRATOR_DURATION",
+          "EXECUTOR_ERRORS",
+          "EXECUTOR_THROTTLES",
+          "EXECUTOR_DURATION",
+          "DYNAMODB_THROTTLED_REQUESTS"
+        ],
+        "log_retention_days": 3,
+        "provisioned_concurrency": false,
+        "trace_sample_ratio": 0.05,
+        "tracing": "ACTIVE_XRAY_BOUNDED_OTEL"
+      }
+    },
+    "post_deploy_endpoints": {
+      "requirement": "DERIVED",
+      "value": [
+        "/health",
+        "/ready"
+      ]
+    },
+    "rollback_policy": {
+      "requirement": "REQUIRED",
+      "value": "OWNERSHIP_BOUND_EXPLICIT_APPROVAL_ONLY"
+    },
+    "verification": {
+      "requirement": "REQUIRED",
+      "value": {
+        "deny_path_required": true,
+        "fail_closed_path_required": true,
+        "health_path": "/health",
+        "live_mode_default": false,
+        "ordered_chain": [
+          "AUTHORIZED_IDENTITY",
+          "ACCOUNT_REGION_MATCH",
+          "API_HEALTH",
+          "AGENT_REQUEST",
+          "DURABLE_PROVENANCE",
+          "HITL_PAUSE",
+          "EXPLICIT_DECISION",
+          "APPROVED_REMEDIATION",
+          "INDEPENDENT_EVIDENCE",
+          "REPLAY_REJECTION",
+          "RECOVERY_RECONCILIATION"
+        ],
+        "readiness_path": "/ready"
+      }
+    }
+  },
+  "release": {
+    "branch": {
+      "requirement": "REQUIRED",
+      "value": "main"
+    },
+    "commit_binding": {
+      "requirement": "DERIVED",
+      "value": "CURRENT_CLEAN_ORIGIN_MAIN_AT_ATTESTATION"
+    },
+    "rc_identifier": {
+      "requirement": "REQUIRED",
+      "value": "phase3-local-rc1"
+    },
+    "version": {
+      "requirement": "REQUIRED",
+      "value": "0.2.0-rc.1"
+    }
+  },
+  "runtime": {
+    "api": {
+      "requirement": "REQUIRED",
+      "value": {
+        "auth": "BOUNDED_JUDGE_BEARER_SECRET",
+        "authenticated_read_routes": [
+          "/judge/investigate",
+          "/judge/status/{run_id}"
+        ],
+        "cors_enabled": false,
+        "public_ingress_default": false,
+        "public_mutation_routes": [],
+        "public_routes": [
+          "/",
+          "/health",
+          "/ready"
+        ],
+        "topology": "LAMBDA_FUNCTION_URL"
+      }
+    },
+    "cloudwatch_evidence_confirmed": {
+      "requirement": "EXTERNAL_OPERATOR_INPUT",
+      "value": null
+    },
+    "dynamodb": {
+      "requirement": "REQUIRED",
+      "value": {
+        "billing_mode": "PAY_PER_REQUEST",
+        "deletion_policy": "Retain",
+        "deletion_protection": true,
+        "encryption_enabled": true,
+        "global_secondary_indexes": [],
+        "logical_id": "StateTable",
+        "partition_key": "PK",
+        "point_in_time_recovery": true,
+        "sort_key": "SK",
+        "ttl_enabled": false,
+        "ttl_rule": "DURABLE_AUTHORITY_REQUIRES_EXPLICIT_DISPOSITION",
+        "update_replace_policy": "Retain"
+      }
+    },
+    "environment_variables": {
+      "requirement": "REQUIRED",
+      "value": {
+        "executor": [
+          "AIOA_ALLOW_LIVE_SANDBOX_STOP",
+          "AIOA_EMERGENCY_EXECUTION_DISABLED",
+          "AWS_MUTATIONS_ENABLED",
+          "SANDBOX_INSTANCE_ID",
+          "SANDBOX_REGION",
+          "SANDBOX_TAG_KEY",
+          "SANDBOX_TAG_VALUE"
+        ],
+        "orchestrator": [
+          "AIOA_ALLOW_LIVE_SANDBOX_STOP",
+          "AIOA_EMERGENCY_EXECUTION_DISABLED",
+          "APP_STAGE",
+          "AWS_MUTATIONS_ENABLED",
+          "BEDROCK_MODEL_ID",
+          "BEDROCK_REGION",
+          "IDLE_CPU_THRESHOLD_PERCENT",
+          "IDLE_METRIC_PERIOD_SECONDS",
+          "IDLE_MINIMUM_DATAPOINTS",
+          "IDLE_OBSERVATION_WINDOW_MINUTES",
+          "JUDGE_TOKEN_NOT_AFTER",
+          "JUDGE_TOKEN_SECRET_ARN",
+          "MODEL_MAX_OUTPUT_TOKENS",
+          "OTEL_SEMCONV_STABILITY_OPT_IN",
+          "OTEL_SERVICE_NAME",
+          "OTEL_TRACES_SAMPLER",
+          "OTEL_TRACES_SAMPLER_ARG",
+          "PRIVATE_REMEDIATION_FUNCTION_NAME",
+          "SANDBOX_INSTANCE_ID",
+          "SANDBOX_REGION",
+          "SANDBOX_TAG_KEY",
+          "SANDBOX_TAG_VALUE",
+          "STATE_TABLE_NAME"
+        ]
+      }
+    },
+    "feature_flags": {
+      "requirement": "REQUIRED",
+      "value": {
+        "AIOA_ALLOW_LIVE_SANDBOX_STOP": "false",
+        "AIOA_EMERGENCY_EXECUTION_DISABLED": "true",
+        "AWS_MUTATIONS_ENABLED": "false",
+        "PUBLIC_INGRESS_ENABLED": "false"
+      }
+    },
+    "iam": {
+      "requirement": "REQUIRED",
+      "value": {
+        "autonomy": {
+          "READ_ONLY": "AUTO",
+          "REMEDIATION": "PLAN_AND_CONFIRM",
+          "UNKNOWN": "NEVER_AUTONOMOUS"
+        },
+        "direct_orchestrator_ec2_writes": [],
+        "executor_actions": [
+          "ec2:DescribeInstances",
+          "ec2:StopInstances",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents",
+          "xray:PutTelemetryRecords",
+          "xray:PutTraceSegments"
+        ],
+        "executor_mutation_actions": [
+          "ec2:StopInstances"
+        ],
+        "orchestrator_actions": [
+          "bedrock:InvokeModelWithResponseStream",
+          "cloudwatch:GetMetricStatistics",
+          "dynamodb:GetItem",
+          "dynamodb:PutItem",
+          "dynamodb:UpdateItem",
+          "ec2:DescribeInstances",
+          "lambda:InvokeFunction",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents",
+          "secretsmanager:GetSecretValue",
+          "xray:PutTelemetryRecords",
+          "xray:PutTraceSegments"
+        ],
+        "read_write_roles_separate": true
+      }
+    },
+    "judge_secret_authority_confirmed": {
+      "requirement": "EXTERNAL_OPERATOR_INPUT",
+      "value": null
+    },
+    "judge_secret_logical_id": {
+      "requirement": "REQUIRED",
+      "value": "JudgeTokenSecret"
+    },
+    "judge_token_lifetime_seconds_max": {
+      "requirement": "REQUIRED",
+      "value": 86400
+    },
+    "lambda_functions": {
+      "requirement": "REQUIRED",
+      "value": [
+        {
+          "architecture": "x86_64",
+          "authority": "READ_PLAN",
+          "handler": "aioa_cloudops_agent.judge.lambda_handler.lambda_handler",
+          "logical_id": "OrchestratorFunction",
+          "memory_mb": 512,
+          "public": false,
+          "purpose": "READ_PLAN_ORCHESTRATOR",
+          "reserved_concurrency": 1,
+          "runtime": "python3.12",
+          "timeout_seconds": 70
+        },
+        {
+          "architecture": "x86_64",
+          "authority": "EXACT_PLAN_AND_CONFIRM_WRITE",
+          "handler": "aioa_cloudops_agent.remediation.lambda_handler.lambda_handler",
+          "logical_id": "RemediationExecutorFunction",
+          "memory_mb": 256,
+          "public": false,
+          "purpose": "PRIVATE_REMEDIATION_EXECUTOR",
+          "reserved_concurrency": 1,
+          "runtime": "python3.12",
+          "timeout_seconds": 15
+        }
+      ]
+    },
+    "model": {
+      "requirement": "REQUIRED",
+      "value": {
+        "fallback_policy": "FAIL_CLOSED_NO_MODEL_FALLBACK",
+        "invocation_action": "bedrock:InvokeModelWithResponseStream",
+        "max_output_tokens": 1024,
+        "model_id": "eu.amazon.nova-2-lite-v1:0",
+        "provider": "AMAZON_BEDROCK",
+        "region": "eu-central-1"
+      }
+    },
+    "model_access_confirmed": {
+      "requirement": "EXTERNAL_OPERATOR_INPUT",
+      "value": null
+    },
+    "sandbox_instance_id_sha256": {
+      "requirement": "EXTERNAL_OPERATOR_INPUT",
+      "value": null
+    }
+  },
+  "schema_version": 3
+}

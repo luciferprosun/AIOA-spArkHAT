@@ -1,0 +1,437 @@
+{
+  "$defs": {
+    "ApprovedPathProof": {
+      "additionalProperties": false,
+      "properties": {
+        "correlation_id": {
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+          "title": "Correlation Id",
+          "type": "string"
+        },
+        "decision_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Decision Sha256",
+          "type": "string"
+        },
+        "durable_provenance_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Durable Provenance Sha256",
+          "type": "string"
+        },
+        "evidence_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Evidence Sha256",
+          "type": "string"
+        },
+        "execution_receipt_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Execution Receipt Sha256",
+          "type": "string"
+        },
+        "final_state": {
+          "const": "SUCCESS_WITH_EVIDENCE",
+          "title": "Final State",
+          "type": "string"
+        },
+        "independent_verification_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Independent Verification Sha256",
+          "type": "string"
+        },
+        "mock_mutation_count": {
+          "const": 1,
+          "title": "Mock Mutation Count",
+          "type": "integer"
+        },
+        "mock_mutations_before_explicit_decision": {
+          "const": 0,
+          "title": "Mock Mutations Before Explicit Decision",
+          "type": "integer"
+        },
+        "operation": {
+          "const": "RELEASE_ELASTIC_IP",
+          "title": "Operation",
+          "type": "string"
+        },
+        "pending_approval_recovered_after_restart": {
+          "const": true,
+          "title": "Pending Approval Recovered After Restart",
+          "type": "boolean"
+        },
+        "proposal_id": {
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+          "title": "Proposal Id",
+          "type": "string"
+        },
+        "proposal_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Proposal Sha256",
+          "type": "string"
+        },
+        "provider_network_calls": {
+          "const": 0,
+          "title": "Provider Network Calls",
+          "type": "integer"
+        },
+        "recovery_mock_mutation_count": {
+          "const": 0,
+          "title": "Recovery Mock Mutation Count",
+          "type": "integer"
+        },
+        "recovery_receipt_hash_match": {
+          "const": true,
+          "title": "Recovery Receipt Hash Match",
+          "type": "boolean"
+        },
+        "recovery_reconciled": {
+          "const": true,
+          "title": "Recovery Reconciled",
+          "type": "boolean"
+        },
+        "replay_mutation_delta": {
+          "const": 0,
+          "title": "Replay Mutation Delta",
+          "type": "integer"
+        },
+        "replay_reason": {
+          "const": "LOCAL_APPROVAL_REPLAY_CONFLICT",
+          "title": "Replay Reason",
+          "type": "string"
+        },
+        "replay_rejected": {
+          "const": true,
+          "title": "Replay Rejected",
+          "type": "boolean"
+        },
+        "run_id": {
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+          "title": "Run Id",
+          "type": "string"
+        },
+        "trace_id": {
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+          "title": "Trace Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "run_id",
+        "trace_id",
+        "correlation_id",
+        "proposal_id",
+        "operation",
+        "final_state",
+        "evidence_sha256",
+        "proposal_sha256",
+        "decision_sha256",
+        "execution_receipt_sha256",
+        "independent_verification_sha256",
+        "durable_provenance_sha256",
+        "mock_mutations_before_explicit_decision",
+        "pending_approval_recovered_after_restart",
+        "mock_mutation_count",
+        "provider_network_calls",
+        "replay_rejected",
+        "replay_reason",
+        "replay_mutation_delta",
+        "recovery_reconciled",
+        "recovery_receipt_hash_match",
+        "recovery_mock_mutation_count"
+      ],
+      "title": "ApprovedPathProof",
+      "type": "object"
+    },
+    "DenyPathProof": {
+      "additionalProperties": false,
+      "properties": {
+        "decision_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Decision Sha256",
+          "type": "string"
+        },
+        "durable_provenance_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Durable Provenance Sha256",
+          "type": "string"
+        },
+        "evidence_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Evidence Sha256",
+          "type": "string"
+        },
+        "execution_receipt_absent": {
+          "const": true,
+          "title": "Execution Receipt Absent",
+          "type": "boolean"
+        },
+        "final_state": {
+          "const": "DENIED_BY_HUMAN",
+          "title": "Final State",
+          "type": "string"
+        },
+        "independent_verification_absent": {
+          "const": true,
+          "title": "Independent Verification Absent",
+          "type": "boolean"
+        },
+        "mock_mutation_count": {
+          "const": 0,
+          "title": "Mock Mutation Count",
+          "type": "integer"
+        },
+        "operation": {
+          "const": "REVOKE_PUBLIC_INGRESS",
+          "title": "Operation",
+          "type": "string"
+        },
+        "proposal_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Proposal Sha256",
+          "type": "string"
+        },
+        "provider_network_calls": {
+          "const": 0,
+          "title": "Provider Network Calls",
+          "type": "integer"
+        },
+        "run_id": {
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+          "title": "Run Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "run_id",
+        "operation",
+        "final_state",
+        "evidence_sha256",
+        "proposal_sha256",
+        "decision_sha256",
+        "durable_provenance_sha256",
+        "execution_receipt_absent",
+        "independent_verification_absent",
+        "mock_mutation_count",
+        "provider_network_calls"
+      ],
+      "title": "DenyPathProof",
+      "type": "object"
+    },
+    "FailureProbe": {
+      "additionalProperties": false,
+      "properties": {
+        "aws_mutations": {
+          "const": 0,
+          "title": "Aws Mutations",
+          "type": "integer"
+        },
+        "evidence_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Evidence Sha256",
+          "type": "string"
+        },
+        "mock_mutation_delta": {
+          "const": 0,
+          "title": "Mock Mutation Delta",
+          "type": "integer"
+        },
+        "outcome": {
+          "const": "REJECTED_FAIL_CLOSED",
+          "title": "Outcome",
+          "type": "string"
+        },
+        "probe_id": {
+          "$ref": "#/$defs/FailureProbeId"
+        },
+        "reason": {
+          "pattern": "^[A-Z][A-Z0-9_]{2,127}$",
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "probe_id",
+        "outcome",
+        "reason",
+        "evidence_sha256",
+        "mock_mutation_delta",
+        "aws_mutations"
+      ],
+      "title": "FailureProbe",
+      "type": "object"
+    },
+    "FailureProbeId": {
+      "enum": [
+        "INVALID_IDENTITY",
+        "MISSING_APPROVAL",
+        "RESOURCE_BINDING_MISMATCH",
+        "MODEL_ACCESS_INVALID",
+        "VERIFICATION_EVIDENCE_INVALID"
+      ],
+      "title": "FailureProbeId",
+      "type": "string"
+    },
+    "VerificationStep": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence_reference": {
+          "pattern": "^(?:fixture|local|contract):[A-Za-z0-9._/#:-]{2,200}$",
+          "title": "Evidence Reference",
+          "type": "string"
+        },
+        "evidence_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Evidence Sha256",
+          "type": "string"
+        },
+        "outcome": {
+          "const": "PASS_OFFLINE",
+          "title": "Outcome",
+          "type": "string"
+        },
+        "step_id": {
+          "$ref": "#/$defs/VerificationStepId"
+        }
+      },
+      "required": [
+        "step_id",
+        "outcome",
+        "evidence_sha256",
+        "evidence_reference"
+      ],
+      "title": "VerificationStep",
+      "type": "object"
+    },
+    "VerificationStepId": {
+      "enum": [
+        "AUTHORIZED_IDENTITY",
+        "ACCOUNT_REGION_MATCH",
+        "API_HEALTH",
+        "AGENT_REQUEST",
+        "DURABLE_PROVENANCE",
+        "HITL_PAUSE",
+        "EXPLICIT_DECISION",
+        "APPROVED_REMEDIATION",
+        "INDEPENDENT_EVIDENCE",
+        "REPLAY_REJECTION",
+        "RECOVERY_RECONCILIATION"
+      ],
+      "title": "VerificationStepId",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "approved_path": {
+      "$ref": "#/$defs/ApprovedPathProof"
+    },
+    "aws_mutations": {
+      "const": 0,
+      "title": "Aws Mutations",
+      "type": "integer"
+    },
+    "deny_path": {
+      "$ref": "#/$defs/DenyPathProof"
+    },
+    "deployment_contract_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Deployment Contract Sha256",
+      "type": "string"
+    },
+    "external_network_connections": {
+      "const": 0,
+      "title": "External Network Connections",
+      "type": "integer"
+    },
+    "failure_probes": {
+      "items": {
+        "$ref": "#/$defs/FailureProbe"
+      },
+      "title": "Failure Probes",
+      "type": "array"
+    },
+    "generated_at": {
+      "format": "date-time",
+      "title": "Generated At",
+      "type": "string"
+    },
+    "live_mode_enabled": {
+      "const": false,
+      "title": "Live Mode Enabled",
+      "type": "boolean"
+    },
+    "live_receipts": {
+      "const": 0,
+      "title": "Live Receipts",
+      "type": "integer"
+    },
+    "mock_mutations": {
+      "const": 1,
+      "title": "Mock Mutations",
+      "type": "integer"
+    },
+    "mode": {
+      "const": "OFFLINE_LOCAL_FIXTURE",
+      "title": "Mode",
+      "type": "string"
+    },
+    "provider_network_calls": {
+      "const": 0,
+      "title": "Provider Network Calls",
+      "type": "integer"
+    },
+    "receipt_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Receipt Sha256",
+      "type": "string"
+    },
+    "receipt_type": {
+      "const": "PHASE3_POST_DEPLOY_VERIFICATION",
+      "title": "Receipt Type",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "secrets_redacted": {
+      "const": true,
+      "title": "Secrets Redacted",
+      "type": "boolean"
+    },
+    "status": {
+      "const": "PASS_OFFLINE",
+      "title": "Status",
+      "type": "string"
+    },
+    "steps": {
+      "items": {
+        "$ref": "#/$defs/VerificationStep"
+      },
+      "title": "Steps",
+      "type": "array"
+    }
+  },
+  "required": [
+    "schema_version",
+    "receipt_type",
+    "status",
+    "mode",
+    "live_mode_enabled",
+    "generated_at",
+    "deployment_contract_sha256",
+    "steps",
+    "approved_path",
+    "deny_path",
+    "failure_probes",
+    "external_network_connections",
+    "provider_network_calls",
+    "aws_mutations",
+    "mock_mutations",
+    "live_receipts",
+    "secrets_redacted",
+    "receipt_sha256"
+  ],
+  "title": "PostDeployVerificationReceipt",
+  "type": "object"
+}

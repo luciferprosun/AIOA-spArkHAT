@@ -1,0 +1,137 @@
+{
+  "archive_uploaded": false,
+  "aws_calls": 0,
+  "aws_mutations": 0,
+  "b5_build_complete": {
+    "attestation": "docs/evidence/release/portable-b5-build-complete-attestation.json",
+    "frozen_image_id": "524fe1212fc65e3d35a015717d03250e25c5ad32359e1c9595878c5bc6b057e8",
+    "frozen_manifest_digest": "sha256:a835f9bdbc7a3854304e5574440a6a9944ea4bd04e839eae317a8e6554855eae",
+    "nonroot_receipt": "docs/evidence/release/portable-b5-nonroot-runtime.json",
+    "status": "PASS"
+  },
+  "checks": [
+    {
+      "check_id": "SANITIZED_SOURCE_EXPORT",
+      "inventory_count": 407,
+      "status": "PASS"
+    },
+    {
+      "check_id": "CANDIDATE_SHA256SUMS",
+      "entries": 331,
+      "status": "PASS"
+    },
+    {
+      "check_id": "SANITIZED_CLEAN_ROOM_BUILD",
+      "build_cache": false,
+      "dependency_hash_enforcement": true,
+      "status": "PASS"
+    },
+    {
+      "check_id": "SANITIZED_CLEAN_ROOM_START",
+      "health": "PASS",
+      "readiness": "PASS",
+      "status": "PASS"
+    },
+    {
+      "check_id": "SANITIZED_APPROVE",
+      "mock_mutations": 1,
+      "mutations_before_decision": 0,
+      "status": "PASS"
+    },
+    {
+      "check_id": "SANITIZED_DENY",
+      "mock_mutations": 0,
+      "status": "PASS"
+    },
+    {
+      "check_id": "SANITIZED_RECOVERY_RECONCILIATION",
+      "mock_mutation_delta": 0,
+      "status": "PASS"
+    },
+    {
+      "check_id": "SANITIZED_REPLAY_AND_BINDING_REJECTION",
+      "mock_mutation_delta": 0,
+      "status": "PASS"
+    },
+    {
+      "check_id": "CLAIMS_PROOF_AUDIT",
+      "proof_paths": 29,
+      "status": "PASS"
+    },
+    {
+      "check_id": "PUBLIC_SECRET_AND_PRIVATE_DATA_SCAN",
+      "findings": 0,
+      "regular_files": 332,
+      "reviewed_synthetic_fixtures": 13,
+      "status": "PASS"
+    }
+  ],
+  "clean_room": {
+    "git_metadata_present": false,
+    "private_repository_required": false,
+    "source_instructions": [
+      "README.md",
+      "docs/submission/REPRODUCIBILITY.md"
+    ]
+  },
+  "container": {
+    "build_manifest_digest": "sha256:2acaf338711940cd2d0318659df3dd3cb06d9ce2a0fb8767eac167e22a8be613",
+    "configured_user": "aioa",
+    "engine": "podman-4.9.3-local",
+    "engine_user_override": "0:0",
+    "entrypoint": [
+      "python",
+      "-m",
+      "aioa_cloudops_agent.portable_server"
+    ],
+    "health_probe_file_sha256": "764702da78c05f55d12ca319ae1c4428bcf73a7d285dffb81d2a2a5bdcaf88f4",
+    "image_id": "05ae93a9efa117d7fe27b5f8dbc08b511ee8618754a4c3630e7c0ba6a689a225",
+    "local_manifest_digest": "sha256:aa40e619414ba81bf1c5e5964f991505f17a78f884a767a60fa547382c462a9d",
+    "local_reference": "localhost/aioa-portable:b6-public-c4-r1",
+    "network": "none",
+    "no_new_privileges": true,
+    "oci_archive_sha256": "f5b082e0976ff8e5cf8084d5e018dae152bd482c65e51ee2c10650a214c052ca",
+    "read_only_rootfs": true,
+    "runtime_capabilities": "NONE",
+    "runtime_nonroot_claim": "NOT_REATTESTED_HOST_UID_MAP_LIMITATION_USE_B5_FROZEN_EXACT_IMAGE_PROOF",
+    "size_bytes": 219807803,
+    "source_label": "c7fa5a5c2509cccf071a9e58477776c1a1e00aea"
+  },
+  "diagnostics": {
+    "first_build_attempt": "HOST_ROOT_FILESYSTEM_FULL_RETRIED_WITH_GRAPHROOT_ON_PROJECT_DISK",
+    "native_optional_test": "NOT_RUN_HOST_ENSUREPIP_UNAVAILABLE",
+    "product_failures": 0,
+    "recertification": "PASS_AFTER_PHASE3_DEVPOST_CONTRACT_REPAIR",
+    "runtime_storage": "OCI_ARCHIVE_IMPORTED_TO_LOCAL_RUNTIME_AFTER_EXTERNAL_GRAPHROOT_NAMESPACE_LIMITATION"
+  },
+  "document_type": "AIOA_B6_PUBLIC_CLEAN_ROOM_REPRODUCIBILITY",
+  "external_deployments": 0,
+  "flow": {
+    "approved_final_state": "SUCCESS_WITH_EVIDENCE",
+    "denied_final_state": "DENIED_BY_HUMAN",
+    "external_network_connections": 0,
+    "failure_probes": 5,
+    "file_sha256": "f829b18ff509c40288b134579c0c01a650628780a9ccc15f016b14a47346bb73",
+    "invocations": 2,
+    "provider_network_calls": 0,
+    "receipt_sha256": "f365b07702e43c3848b3470453910b2239d640e8e9ec22a917790a702c110ba3"
+  },
+  "initial_candidate": {
+    "archive_sha256": "bb5e27a532f53c675fa600535f053a4cc25cbeb0431dd31c8dc5f1bdcfe5a856",
+    "manifest_file_sha256": "5eed879151ecb8d71cbe536e823a6fb1a85c6936a95a3b1e4273605452b0136e",
+    "payload_tree_sha256": "e963bc1fb863ed6fc9ab76f3ea7b589d27025c213a40d043dd551b8e9d64bdd7"
+  },
+  "limitations": "Local Linux/amd64 offline/mock certification only. No live AWS, Bedrock, public endpoint, registry push, external deployment, production-readiness, video-publication, or Devpost-submission claim is made.",
+  "privacy_scan": {
+    "file_sha256": "ad28e9679d3f0786049df6b7d52b4269c32b6a70ba2447ea7bcaf0ad6827e908",
+    "findings": 0,
+    "receipt_sha256": "7e20e6bee349d817f3e0b0993c4c1eeff8fe5ea08fbfc4d70a29e15ea4fb7fb7",
+    "status": "PASS"
+  },
+  "publication_actions": 0,
+  "publication_ready": "PASS",
+  "remote_pushes": 0,
+  "schema_version": 1,
+  "source_commit": "c7fa5a5c2509cccf071a9e58477776c1a1e00aea",
+  "status": "PASS"
+}

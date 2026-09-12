@@ -1,0 +1,92 @@
+{
+  "aws_calls": 0,
+  "aws_mutations": 0,
+  "credential_environment_inherited": false,
+  "engine_user_override": "0:0",
+  "external_deployments": 0,
+  "external_network_connections": 0,
+  "flows": [
+    {
+      "approved_final_state": "SUCCESS_WITH_EVIDENCE",
+      "approved_mock_mutations": 1,
+      "aws_calls": 0,
+      "aws_mutations": 0,
+      "binding_tamper": "REJECTED_FAIL_CLOSED",
+      "denied_final_state": "DENIED_BY_HUMAN",
+      "denied_mock_mutations": 0,
+      "external_network_connections": 0,
+      "invocation": 1,
+      "pending_approval_recovered": true,
+      "provider_network_calls": 0,
+      "receipt_sha256": "f365b07702e43c3848b3470453910b2239d640e8e9ec22a917790a702c110ba3",
+      "recovery_reconciled": true,
+      "replay_mutation_delta": 0,
+      "replay_rejected": true
+    },
+    {
+      "approved_final_state": "SUCCESS_WITH_EVIDENCE",
+      "approved_mock_mutations": 1,
+      "aws_calls": 0,
+      "aws_mutations": 0,
+      "binding_tamper": "REJECTED_FAIL_CLOSED",
+      "denied_final_state": "DENIED_BY_HUMAN",
+      "denied_mock_mutations": 0,
+      "external_network_connections": 0,
+      "invocation": 2,
+      "pending_approval_recovered": true,
+      "provider_network_calls": 0,
+      "receipt_sha256": "f365b07702e43c3848b3470453910b2239d640e8e9ec22a917790a702c110ba3",
+      "recovery_reconciled": true,
+      "replay_mutation_delta": 0,
+      "replay_rejected": true
+    }
+  ],
+  "image": {
+    "architecture": "amd64",
+    "configured_user": "aioa",
+    "content_identity": "sha256:a835f9bdbc7a3854304e5574440a6a9944ea4bd04e839eae317a8e6554855eae",
+    "digest": "sha256:a835f9bdbc7a3854304e5574440a6a9944ea4bd04e839eae317a8e6554855eae",
+    "entrypoint": [
+      "python",
+      "-m",
+      "aioa_cloudops_agent.portable_server"
+    ],
+    "id": "524fe1212fc65e3d35a015717d03250e25c5ad32359e1c9595878c5bc6b057e8",
+    "license": "MIT",
+    "os": "linux",
+    "reference": "localhost/aioa-portable:b5-c2",
+    "size_bytes": 219809071,
+    "source_commit": "dbea5411b1c0d81de0035d9ef08e28211fb79e79"
+  },
+  "nonroot_proof": {
+    "cap_eff": "0000000000000000",
+    "effective_gid": 65532,
+    "effective_uid": 65532,
+    "health": "ok",
+    "mode": "BOUND_EXTERNAL_OCI_RUNTIME",
+    "no_new_privs": "1",
+    "pid1": "python -m aioa_cloudops_agent.portable_server",
+    "readiness": "ready",
+    "token_mode": "0o600"
+  },
+  "receipt_sha256": "8d3de09bc1d6756647eba8b74d67b4e86ee302be3889e666ac90058c2ec28db3",
+  "receipt_type": "AIOA_B5_CONTAINER_JUDGE_GATE",
+  "remote_pushes": 0,
+  "runtime_hardening": {
+    "capabilities_dropped": "ALL",
+    "host_ports_published": 0,
+    "network": "none",
+    "no_new_privileges": true,
+    "read_only_rootfs": true,
+    "shared_mounts": 0,
+    "tmpfs": "/tmp:rw,nosuid,nodev,noexec,size=64m"
+  },
+  "schema_version": 1,
+  "session_isolation": {
+    "ephemeral_container_invocations": 2,
+    "fresh_workspace_per_invocation": true,
+    "run_auto_remove": true,
+    "shared_state": false
+  },
+  "status": "PASS"
+}

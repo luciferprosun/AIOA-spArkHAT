@@ -1,0 +1,462 @@
+{
+  "aws_mutations": 0,
+  "checks": [
+    {
+      "check_id": "P3-IAC-01",
+      "reasons": [],
+      "status": "PASS"
+    },
+    {
+      "check_id": "P3-IAC-02",
+      "reasons": [],
+      "status": "PASS"
+    },
+    {
+      "check_id": "P3-IAC-03",
+      "reasons": [],
+      "status": "PASS"
+    },
+    {
+      "check_id": "P3-IAC-04",
+      "reasons": [],
+      "status": "PASS"
+    },
+    {
+      "check_id": "P3-IAC-05",
+      "reasons": [],
+      "status": "PASS"
+    },
+    {
+      "check_id": "P3-IAC-06",
+      "reasons": [],
+      "status": "PASS"
+    },
+    {
+      "check_id": "P3-IAC-07",
+      "reasons": [],
+      "status": "PASS"
+    },
+    {
+      "check_id": "P3-IAC-08",
+      "reasons": [],
+      "status": "PASS"
+    },
+    {
+      "check_id": "P3-IAC-09",
+      "reasons": [],
+      "status": "PASS"
+    },
+    {
+      "check_id": "P3-IAC-10",
+      "reasons": [],
+      "status": "PASS"
+    },
+    {
+      "check_id": "P3-IAC-11",
+      "reasons": [],
+      "status": "PASS"
+    }
+  ],
+  "conditional_public_resource_count": 3,
+  "deployment_contract_sha256": "17b8b8663fee59caaad493eb009ae9acf5c066017cbc205eaeb6b8b2ad8d4ce5",
+  "future_requests": [
+    {
+      "action": "sam:build",
+      "binding": "REVIEWED_SOURCE_AND_LOCK_HASHES",
+      "default_enabled": false,
+      "request_class": "LOCAL",
+      "request_id": "P3-REQ-01",
+      "service": "local"
+    },
+    {
+      "action": "s3:PutObject",
+      "binding": "CONTRACT_BUCKET_HASH_AND_ARTIFACT_HASH",
+      "default_enabled": false,
+      "request_class": "REQUIRES_EXPLICIT_MUTATION_APPROVAL",
+      "request_id": "P3-REQ-02",
+      "service": "s3"
+    },
+    {
+      "action": "cloudformation:CreateChangeSet",
+      "binding": "ACCOUNT_REGION_STACK_CONTRACT_AND_COMMIT",
+      "default_enabled": false,
+      "request_class": "REQUIRES_EXPLICIT_MUTATION_APPROVAL",
+      "request_id": "P3-REQ-03",
+      "service": "cloudformation"
+    },
+    {
+      "action": "cloudformation:ExecuteChangeSet",
+      "binding": "REVIEWED_CHANGE_SET_AND_FRESH_OPERATOR_APPROVAL",
+      "default_enabled": false,
+      "request_class": "REQUIRES_EXPLICIT_MUTATION_APPROVAL",
+      "request_id": "P3-REQ-04",
+      "service": "cloudformation"
+    }
+  ],
+  "live_receipts": 0,
+  "manifest_id": "AIOA_PHASE3_EXPECTED_AWS_RESOURCES",
+  "mechanism": "AWS_SAM_CLOUDFORMATION",
+  "mode": "OFFLINE_TEMPLATE_DRY_RUN",
+  "network_connections": 0,
+  "resource_count": 22,
+  "resources": [
+    {
+      "authority": "SECRET_AUTH",
+      "cleanup_behavior": "DELETE_WITH_STACK_AFTER_OWNERSHIP_PROOF",
+      "condition": null,
+      "creates_or_modifies": "CREATE_IF_EXPLICITLY_APPROVED",
+      "deletion_policy": "Delete",
+      "dependencies": [],
+      "lifecycle": "STACK_DELETE",
+      "logical_id": "JudgeTokenSecret",
+      "ownership_proof": "STACK_AND_EXACT_TAGS",
+      "purpose": "Bounded judge bearer-token material",
+      "resource_type": "AWS::SecretsManager::Secret",
+      "update_replace_policy": "Delete"
+    },
+    {
+      "authority": "ROUTING",
+      "cleanup_behavior": "DELETE_WITH_STACK_AFTER_OWNERSHIP_PROOF",
+      "condition": null,
+      "creates_or_modifies": "CREATE_IF_EXPLICITLY_APPROVED",
+      "deletion_policy": "Delete",
+      "dependencies": [
+        "OrchestratorFunction",
+        "OrchestratorVersion"
+      ],
+      "lifecycle": "STACK_DELETE",
+      "logical_id": "OrchestratorAlias",
+      "ownership_proof": "STACK_MEMBERSHIP_AND_LOGICAL_ID",
+      "purpose": "Stable routing to one reviewed orchestrator version",
+      "resource_type": "AWS::Lambda::Alias",
+      "update_replace_policy": "Delete"
+    },
+    {
+      "authority": "OBSERVABILITY",
+      "cleanup_behavior": "DELETE_WITH_STACK_AFTER_OWNERSHIP_PROOF",
+      "condition": null,
+      "creates_or_modifies": "CREATE_IF_EXPLICITLY_APPROVED",
+      "deletion_policy": "Delete",
+      "dependencies": [
+        "OrchestratorFunction"
+      ],
+      "lifecycle": "STACK_DELETE",
+      "logical_id": "OrchestratorDurationAlarm",
+      "ownership_proof": "STACK_AND_EXACT_TAGS",
+      "purpose": "Orchestrator duration guardrail",
+      "resource_type": "AWS::CloudWatch::Alarm",
+      "update_replace_policy": "Delete"
+    },
+    {
+      "authority": "OBSERVABILITY",
+      "cleanup_behavior": "DELETE_WITH_STACK_AFTER_OWNERSHIP_PROOF",
+      "condition": null,
+      "creates_or_modifies": "CREATE_IF_EXPLICITLY_APPROVED",
+      "deletion_policy": "Delete",
+      "dependencies": [
+        "OrchestratorFunction"
+      ],
+      "lifecycle": "STACK_DELETE",
+      "logical_id": "OrchestratorErrorsAlarm",
+      "ownership_proof": "STACK_AND_EXACT_TAGS",
+      "purpose": "Orchestrator error guardrail",
+      "resource_type": "AWS::CloudWatch::Alarm",
+      "update_replace_policy": "Delete"
+    },
+    {
+      "authority": "READ_PLAN",
+      "cleanup_behavior": "DELETE_WITH_STACK_AFTER_OWNERSHIP_PROOF",
+      "condition": null,
+      "creates_or_modifies": "CREATE_IF_EXPLICITLY_APPROVED",
+      "deletion_policy": "Delete",
+      "dependencies": [
+        "JudgeTokenSecret",
+        "OrchestratorFunctionLogGroup",
+        "OrchestratorRole",
+        "RemediationExecutorAlias",
+        "StateTable"
+      ],
+      "lifecycle": "STACK_DELETE",
+      "logical_id": "OrchestratorFunction",
+      "ownership_proof": "STACK_AND_EXACT_TAGS",
+      "purpose": "Read/plan judge API and durable HITL orchestration",
+      "resource_type": "AWS::Serverless::Function",
+      "update_replace_policy": "Delete"
+    },
+    {
+      "authority": "OBSERVABILITY",
+      "cleanup_behavior": "DELETE_WITH_STACK_AFTER_OWNERSHIP_PROOF",
+      "condition": null,
+      "creates_or_modifies": "CREATE_IF_EXPLICITLY_APPROVED",
+      "deletion_policy": "Delete",
+      "dependencies": [],
+      "lifecycle": "STACK_DELETE",
+      "logical_id": "OrchestratorFunctionLogGroup",
+      "ownership_proof": "STACK_AND_EXACT_TAGS",
+      "purpose": "Bounded orchestrator logs",
+      "resource_type": "AWS::Logs::LogGroup",
+      "update_replace_policy": "Delete"
+    },
+    {
+      "authority": "CONDITIONAL_PUBLIC_READ_INGRESS",
+      "cleanup_behavior": "DELETE_WITH_STACK_AFTER_OWNERSHIP_PROOF",
+      "condition": "PublicIngressEnabledCondition",
+      "creates_or_modifies": "CREATE_IF_EXPLICITLY_APPROVED",
+      "deletion_policy": "Delete",
+      "dependencies": [
+        "OrchestratorAlias",
+        "OrchestratorFunction"
+      ],
+      "lifecycle": "CONDITIONAL_STACK_DELETE",
+      "logical_id": "OrchestratorFunctionUrl",
+      "ownership_proof": "STACK_MEMBERSHIP_AND_LOGICAL_ID",
+      "purpose": "Disabled-by-default public read-only judge ingress",
+      "resource_type": "AWS::Lambda::Url",
+      "update_replace_policy": "Delete"
+    },
+    {
+      "authority": "READ_PLAN",
+      "cleanup_behavior": "DELETE_WITH_STACK_AFTER_OWNERSHIP_PROOF",
+      "condition": null,
+      "creates_or_modifies": "CREATE_IF_EXPLICITLY_APPROVED",
+      "deletion_policy": "Delete",
+      "dependencies": [
+        "JudgeTokenSecret",
+        "RemediationExecutorAlias",
+        "StateTable"
+      ],
+      "lifecycle": "STACK_DELETE",
+      "logical_id": "OrchestratorRole",
+      "ownership_proof": "STACK_AND_EXACT_TAGS",
+      "purpose": "Read, plan, state, model, secret, and exact executor-invoke authority",
+      "resource_type": "AWS::IAM::Role",
+      "update_replace_policy": "Delete"
+    },
+    {
+      "authority": "OBSERVABILITY",
+      "cleanup_behavior": "DELETE_WITH_STACK_AFTER_OWNERSHIP_PROOF",
+      "condition": null,
+      "creates_or_modifies": "CREATE_IF_EXPLICITLY_APPROVED",
+      "deletion_policy": "Delete",
+      "dependencies": [
+        "OrchestratorFunction"
+      ],
+      "lifecycle": "STACK_DELETE",
+      "logical_id": "OrchestratorThrottlesAlarm",
+      "ownership_proof": "STACK_AND_EXACT_TAGS",
+      "purpose": "Orchestrator throttle guardrail",
+      "resource_type": "AWS::CloudWatch::Alarm",
+      "update_replace_policy": "Delete"
+    },
+    {
+      "authority": "IMMUTABLE_ROLLBACK",
+      "cleanup_behavior": "RETAIN_THEN_SEPARATE_OWNERSHIP_BOUND_DISPOSITION",
+      "condition": null,
+      "creates_or_modifies": "CREATE_IF_EXPLICITLY_APPROVED",
+      "deletion_policy": "Retain",
+      "dependencies": [
+        "OrchestratorFunction"
+      ],
+      "lifecycle": "RETAIN_EXPLICIT_DISPOSITION",
+      "logical_id": "OrchestratorVersion",
+      "ownership_proof": "STACK_MEMBERSHIP_AND_LOGICAL_ID",
+      "purpose": "Immutable reviewed orchestrator rollback target",
+      "resource_type": "AWS::Lambda::Version",
+      "update_replace_policy": "Retain"
+    },
+    {
+      "authority": "CONDITIONAL_PUBLIC_READ_INGRESS",
+      "cleanup_behavior": "DELETE_WITH_STACK_AFTER_OWNERSHIP_PROOF",
+      "condition": "PublicIngressEnabledCondition",
+      "creates_or_modifies": "CREATE_IF_EXPLICITLY_APPROVED",
+      "deletion_policy": "Delete",
+      "dependencies": [
+        "OrchestratorAlias"
+      ],
+      "lifecycle": "CONDITIONAL_STACK_DELETE",
+      "logical_id": "PublicFunctionInvokeViaUrlPermission",
+      "ownership_proof": "STACK_MEMBERSHIP_AND_LOGICAL_ID",
+      "purpose": "Conditional invocation-via-URL permission",
+      "resource_type": "AWS::Lambda::Permission",
+      "update_replace_policy": "Delete"
+    },
+    {
+      "authority": "CONDITIONAL_PUBLIC_READ_INGRESS",
+      "cleanup_behavior": "DELETE_WITH_STACK_AFTER_OWNERSHIP_PROOF",
+      "condition": "PublicIngressEnabledCondition",
+      "creates_or_modifies": "CREATE_IF_EXPLICITLY_APPROVED",
+      "deletion_policy": "Delete",
+      "dependencies": [
+        "OrchestratorAlias"
+      ],
+      "lifecycle": "CONDITIONAL_STACK_DELETE",
+      "logical_id": "PublicFunctionUrlInvokePermission",
+      "ownership_proof": "STACK_MEMBERSHIP_AND_LOGICAL_ID",
+      "purpose": "Conditional Function URL invocation permission",
+      "resource_type": "AWS::Lambda::Permission",
+      "update_replace_policy": "Delete"
+    },
+    {
+      "authority": "ROUTING",
+      "cleanup_behavior": "DELETE_WITH_STACK_AFTER_OWNERSHIP_PROOF",
+      "condition": null,
+      "creates_or_modifies": "CREATE_IF_EXPLICITLY_APPROVED",
+      "deletion_policy": "Delete",
+      "dependencies": [
+        "RemediationExecutorFunction",
+        "RemediationExecutorVersion"
+      ],
+      "lifecycle": "STACK_DELETE",
+      "logical_id": "RemediationExecutorAlias",
+      "ownership_proof": "STACK_MEMBERSHIP_AND_LOGICAL_ID",
+      "purpose": "Stable routing to one reviewed executor version",
+      "resource_type": "AWS::Lambda::Alias",
+      "update_replace_policy": "Delete"
+    },
+    {
+      "authority": "OBSERVABILITY",
+      "cleanup_behavior": "DELETE_WITH_STACK_AFTER_OWNERSHIP_PROOF",
+      "condition": null,
+      "creates_or_modifies": "CREATE_IF_EXPLICITLY_APPROVED",
+      "deletion_policy": "Delete",
+      "dependencies": [
+        "RemediationExecutorFunction"
+      ],
+      "lifecycle": "STACK_DELETE",
+      "logical_id": "RemediationExecutorDurationAlarm",
+      "ownership_proof": "STACK_AND_EXACT_TAGS",
+      "purpose": "Executor duration guardrail",
+      "resource_type": "AWS::CloudWatch::Alarm",
+      "update_replace_policy": "Delete"
+    },
+    {
+      "authority": "OBSERVABILITY",
+      "cleanup_behavior": "DELETE_WITH_STACK_AFTER_OWNERSHIP_PROOF",
+      "condition": null,
+      "creates_or_modifies": "CREATE_IF_EXPLICITLY_APPROVED",
+      "deletion_policy": "Delete",
+      "dependencies": [
+        "RemediationExecutorFunction"
+      ],
+      "lifecycle": "STACK_DELETE",
+      "logical_id": "RemediationExecutorErrorsAlarm",
+      "ownership_proof": "STACK_AND_EXACT_TAGS",
+      "purpose": "Executor error guardrail",
+      "resource_type": "AWS::CloudWatch::Alarm",
+      "update_replace_policy": "Delete"
+    },
+    {
+      "authority": "EXACT_PLAN_AND_CONFIRM_WRITE",
+      "cleanup_behavior": "DELETE_WITH_STACK_AFTER_OWNERSHIP_PROOF",
+      "condition": null,
+      "creates_or_modifies": "CREATE_IF_EXPLICITLY_APPROVED",
+      "deletion_policy": "Delete",
+      "dependencies": [
+        "RemediationExecutorLogGroup",
+        "RemediationExecutorRole"
+      ],
+      "lifecycle": "STACK_DELETE",
+      "logical_id": "RemediationExecutorFunction",
+      "ownership_proof": "STACK_AND_EXACT_TAGS",
+      "purpose": "Private exact-plan-and-confirm remediation executor",
+      "resource_type": "AWS::Serverless::Function",
+      "update_replace_policy": "Delete"
+    },
+    {
+      "authority": "OBSERVABILITY",
+      "cleanup_behavior": "DELETE_WITH_STACK_AFTER_OWNERSHIP_PROOF",
+      "condition": null,
+      "creates_or_modifies": "CREATE_IF_EXPLICITLY_APPROVED",
+      "deletion_policy": "Delete",
+      "dependencies": [],
+      "lifecycle": "STACK_DELETE",
+      "logical_id": "RemediationExecutorLogGroup",
+      "ownership_proof": "STACK_AND_EXACT_TAGS",
+      "purpose": "Bounded private executor logs",
+      "resource_type": "AWS::Logs::LogGroup",
+      "update_replace_policy": "Delete"
+    },
+    {
+      "authority": "EXACT_PLAN_AND_CONFIRM_WRITE",
+      "cleanup_behavior": "DELETE_WITH_STACK_AFTER_OWNERSHIP_PROOF",
+      "condition": null,
+      "creates_or_modifies": "CREATE_IF_EXPLICITLY_APPROVED",
+      "deletion_policy": "Delete",
+      "dependencies": [],
+      "lifecycle": "STACK_DELETE",
+      "logical_id": "RemediationExecutorRole",
+      "ownership_proof": "STACK_AND_EXACT_TAGS",
+      "purpose": "Exact private executor read and tagged-instance stop authority",
+      "resource_type": "AWS::IAM::Role",
+      "update_replace_policy": "Delete"
+    },
+    {
+      "authority": "OBSERVABILITY",
+      "cleanup_behavior": "DELETE_WITH_STACK_AFTER_OWNERSHIP_PROOF",
+      "condition": null,
+      "creates_or_modifies": "CREATE_IF_EXPLICITLY_APPROVED",
+      "deletion_policy": "Delete",
+      "dependencies": [
+        "RemediationExecutorFunction"
+      ],
+      "lifecycle": "STACK_DELETE",
+      "logical_id": "RemediationExecutorThrottlesAlarm",
+      "ownership_proof": "STACK_AND_EXACT_TAGS",
+      "purpose": "Executor throttle guardrail",
+      "resource_type": "AWS::CloudWatch::Alarm",
+      "update_replace_policy": "Delete"
+    },
+    {
+      "authority": "IMMUTABLE_ROLLBACK",
+      "cleanup_behavior": "RETAIN_THEN_SEPARATE_OWNERSHIP_BOUND_DISPOSITION",
+      "condition": null,
+      "creates_or_modifies": "CREATE_IF_EXPLICITLY_APPROVED",
+      "deletion_policy": "Retain",
+      "dependencies": [
+        "RemediationExecutorFunction"
+      ],
+      "lifecycle": "RETAIN_EXPLICIT_DISPOSITION",
+      "logical_id": "RemediationExecutorVersion",
+      "ownership_proof": "STACK_MEMBERSHIP_AND_LOGICAL_ID",
+      "purpose": "Immutable reviewed executor rollback target",
+      "resource_type": "AWS::Lambda::Version",
+      "update_replace_policy": "Retain"
+    },
+    {
+      "authority": "DURABLE_STATE",
+      "cleanup_behavior": "RETAIN_THEN_SEPARATE_OWNERSHIP_BOUND_DISPOSITION",
+      "condition": null,
+      "creates_or_modifies": "CREATE_IF_EXPLICITLY_APPROVED",
+      "deletion_policy": "Retain",
+      "dependencies": [],
+      "lifecycle": "RETAIN_EXPLICIT_DISPOSITION",
+      "logical_id": "StateTable",
+      "ownership_proof": "STACK_AND_EXACT_TAGS",
+      "purpose": "Durable run, approval, idempotency, provenance, and evidence truth",
+      "resource_type": "AWS::DynamoDB::Table",
+      "update_replace_policy": "Retain"
+    },
+    {
+      "authority": "OBSERVABILITY",
+      "cleanup_behavior": "DELETE_WITH_STACK_AFTER_OWNERSHIP_PROOF",
+      "condition": null,
+      "creates_or_modifies": "CREATE_IF_EXPLICITLY_APPROVED",
+      "deletion_policy": "Delete",
+      "dependencies": [
+        "StateTable"
+      ],
+      "lifecycle": "STACK_DELETE",
+      "logical_id": "StateTableThrottledRequestsAlarm",
+      "ownership_proof": "STACK_AND_EXACT_TAGS",
+      "purpose": "Durable-state throttle guardrail",
+      "resource_type": "AWS::CloudWatch::Alarm",
+      "update_replace_policy": "Delete"
+    }
+  ],
+  "retained_resource_count": 3,
+  "schema_version": 1,
+  "status": "PASS",
+  "tagged_resource_count": 15,
+  "template_path": "infra/sam/template.yaml",
+  "template_sha256": "8d094f3edb0b3d1d52b716621fb0fd3179264de4dd62e4d221592082cd0de263"
+}

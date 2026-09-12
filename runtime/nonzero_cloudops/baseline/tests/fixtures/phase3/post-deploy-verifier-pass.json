@@ -1,0 +1,16 @@
+{
+  "api_contract_match": true,
+  "authorized_identity": true,
+  "aws_mutations": 0,
+  "expected_account_match": true,
+  "expected_region_match": true,
+  "fixture_id": "PHASE3_POST_DEPLOY_VERIFIER_OFFLINE_V1",
+  "generated_at": "2026-08-27T12:00:00Z",
+  "live_receipt": false,
+  "model_access_contract_match": true,
+  "network_connections": 0,
+  "resource_binding_contract_match": true,
+  "schema_version": 1,
+  "synthetic": true,
+  "verification_evidence_contract_match": true
+}

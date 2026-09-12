@@ -1,0 +1,59 @@
+{
+  "aws_mutations": 0,
+  "binding": {
+    "deployment_contract_sha256": "17b8b8663fee59caaad493eb009ae9acf5c066017cbc205eaeb6b8b2ad8d4ce5",
+    "deployment_id": "p3-1234abcd-1234-abcd",
+    "expected_resource_manifest_sha256": "259190cdd158b8477016ee0c65bb2b000f581554c858e29ccd88aaab7de7021b",
+    "repo_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "stack_id_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "fixture_id": "PHASE3_SYNTHETIC_CLEANUP_OBSERVATIONS",
+  "live_receipts": 0,
+  "network_connections": 0,
+  "resources": [
+    {
+      "cleanup_attempt_state": "PREVIOUSLY_FAILED",
+      "deployment_contract_sha256": "17b8b8663fee59caaad493eb009ae9acf5c066017cbc205eaeb6b8b2ad8d4ce5",
+      "deployment_id": "p3-1234abcd-1234-abcd",
+      "logical_id": "OrchestratorFunction",
+      "ownership_tags": {
+        "AIOAProject": "NonZeroCloudOps",
+        "AIOAStage": "hackathon",
+        "ManagedBy": "CloudFormation"
+      },
+      "resource_type": "AWS::Serverless::Function",
+      "stack_id_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "stack_membership_confirmed": true
+    },
+    {
+      "cleanup_attempt_state": "PREVIOUSLY_FAILED",
+      "deployment_contract_sha256": "17b8b8663fee59caaad493eb009ae9acf5c066017cbc205eaeb6b8b2ad8d4ce5",
+      "deployment_id": "p3-1234abcd-1234-abcd",
+      "logical_id": "OrchestratorRole",
+      "ownership_tags": {
+        "AIOAProject": "NonZeroCloudOps",
+        "AIOAStage": "hackathon",
+        "ManagedBy": "CloudFormation"
+      },
+      "resource_type": "AWS::IAM::Role",
+      "stack_id_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "stack_membership_confirmed": true
+    },
+    {
+      "cleanup_attempt_state": "NEVER_ATTEMPTED",
+      "deployment_contract_sha256": "17b8b8663fee59caaad493eb009ae9acf5c066017cbc205eaeb6b8b2ad8d4ce5",
+      "deployment_id": "p3-1234abcd-1234-abcd",
+      "logical_id": "StateTable",
+      "ownership_tags": {
+        "AIOAProject": "NonZeroCloudOps",
+        "AIOAStage": "hackathon",
+        "ManagedBy": "CloudFormation"
+      },
+      "resource_type": "AWS::DynamoDB::Table",
+      "stack_id_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "stack_membership_confirmed": true
+    }
+  ],
+  "schema_version": 1,
+  "synthetic": true
+}

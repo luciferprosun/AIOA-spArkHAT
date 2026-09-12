@@ -1,0 +1,163 @@
+{
+  "approved_path": {
+    "correlation_id": "01890f6c-3311-7abc-8f4a-6e4f7f0b9b3c",
+    "decision_sha256": "43c574dcefdcfc53c5ffdfb92153965a372e69c9a073f6eef15702a27b819b15",
+    "durable_provenance_sha256": "ceeb449027c7bdb0bd2e37ff85e971406fd8bfdde174d816bba76aeafc649eac",
+    "evidence_sha256": "233bd1fb24b3f2d33502ccadbcd3a31b7608789b977a2ef919c1d41091b16e06",
+    "execution_receipt_sha256": "96bbf6bf24d44082b2791b86cbbe5aa980cc640e9e0c2be62f661b22a9855d32",
+    "final_state": "SUCCESS_WITH_EVIDENCE",
+    "independent_verification_sha256": "daceb9d4fd469bf9d85a218a52fb2267ff1690b615c5cb3547ed21e5d55904be",
+    "mock_mutation_count": 1,
+    "mock_mutations_before_explicit_decision": 0,
+    "operation": "RELEASE_ELASTIC_IP",
+    "pending_approval_recovered_after_restart": true,
+    "proposal_id": "01890f6c-3311-7abc-8f4a-6e4f7f0b9b80",
+    "proposal_sha256": "12fa3d65ef906c48ee8065b50e0ab813b11e926e34bda05c440b84d3d5e61bb5",
+    "provider_network_calls": 0,
+    "recovery_mock_mutation_count": 0,
+    "recovery_receipt_hash_match": true,
+    "recovery_reconciled": true,
+    "replay_mutation_delta": 0,
+    "replay_reason": "LOCAL_APPROVAL_REPLAY_CONFLICT",
+    "replay_rejected": true,
+    "run_id": "01890f6c-3311-7abc-8f4a-6e4f7f0b9b3a",
+    "trace_id": "01890f6c-3311-7abc-8f4a-6e4f7f0b9b3b"
+  },
+  "aws_mutations": 0,
+  "deny_path": {
+    "decision_sha256": "cf3ce81f3e30fe24a3960c0910e00755cb85cde88d5ce58d71041d87451f0048",
+    "durable_provenance_sha256": "276f70ce7094767c5fbc9838234a5fb472cc6a74d98cbeeaea4f9363bb978f6c",
+    "evidence_sha256": "c2d2a01b56d5307966dd4c575e6b8f1d6c860d4dd9952a9b1b0623278f6cf478",
+    "execution_receipt_absent": true,
+    "final_state": "DENIED_BY_HUMAN",
+    "independent_verification_absent": true,
+    "mock_mutation_count": 0,
+    "operation": "REVOKE_PUBLIC_INGRESS",
+    "proposal_sha256": "d3ab47742dfaf3c38899ca97646aee7ff6ba8879c24ec02f6a1869a1a3d2dc7b",
+    "provider_network_calls": 0,
+    "run_id": "01890f6c-3311-7abc-8f4a-6e4f7f0b9b4a"
+  },
+  "deployment_contract_sha256": "17b8b8663fee59caaad493eb009ae9acf5c066017cbc205eaeb6b8b2ad8d4ce5",
+  "external_network_connections": 0,
+  "failure_probes": [
+    {
+      "aws_mutations": 0,
+      "evidence_sha256": "f5076f0c3a529822c3d9f71538b32b4d9f8bade32fb09b7b1b8a68e2cc96c685",
+      "mock_mutation_delta": 0,
+      "outcome": "REJECTED_FAIL_CLOSED",
+      "probe_id": "INVALID_IDENTITY",
+      "reason": "UNAUTHORIZED"
+    },
+    {
+      "aws_mutations": 0,
+      "evidence_sha256": "f228695c9141a80ab83b121c007bf1b9b6dfae53bacfbda189ab8d2670268740",
+      "mock_mutation_delta": 0,
+      "outcome": "REJECTED_FAIL_CLOSED",
+      "probe_id": "MISSING_APPROVAL",
+      "reason": "LOCAL_APPROVAL_REQUIRED"
+    },
+    {
+      "aws_mutations": 0,
+      "evidence_sha256": "9d57dbc05d746989fe8fd5adcc2cce871c510c0cb0670d8c2fb776fc9618d219",
+      "mock_mutation_delta": 0,
+      "outcome": "REJECTED_FAIL_CLOSED",
+      "probe_id": "RESOURCE_BINDING_MISMATCH",
+      "reason": "LOCAL_APPROVAL_BINDING_MISMATCH"
+    },
+    {
+      "aws_mutations": 0,
+      "evidence_sha256": "8a998b42cdf1dc4a400d4dd971b4cd6b22abae085d62d363407d4aa4569a4344",
+      "mock_mutation_delta": 0,
+      "outcome": "REJECTED_FAIL_CLOSED",
+      "probe_id": "MODEL_ACCESS_INVALID",
+      "reason": "MODEL_ACCESS_NOT_PROVEN"
+    },
+    {
+      "aws_mutations": 0,
+      "evidence_sha256": "f64f70a470c30e13884030a9f54452137e765782df56d22504ec4412ca1fb9b6",
+      "mock_mutation_delta": 0,
+      "outcome": "REJECTED_FAIL_CLOSED",
+      "probe_id": "VERIFICATION_EVIDENCE_INVALID",
+      "reason": "VERIFICATION_EVIDENCE_HASH_INVALID"
+    }
+  ],
+  "generated_at": "2026-08-27T12:00:00Z",
+  "live_mode_enabled": false,
+  "live_receipts": 0,
+  "mock_mutations": 1,
+  "mode": "OFFLINE_LOCAL_FIXTURE",
+  "provider_network_calls": 0,
+  "receipt_sha256": "e3c2bc6db0ff0b143f38fa3bb229ae43d8f2e727e9d8aca4f6d22839ab8b3aa0",
+  "receipt_type": "PHASE3_POST_DEPLOY_VERIFICATION",
+  "schema_version": 1,
+  "secrets_redacted": true,
+  "status": "PASS_OFFLINE",
+  "steps": [
+    {
+      "evidence_reference": "local:auth/token-authorizer",
+      "evidence_sha256": "52e53da485b904e3caf698142603320de099ef207fbd9e94a29586491974e7a3",
+      "outcome": "PASS_OFFLINE",
+      "step_id": "AUTHORIZED_IDENTITY"
+    },
+    {
+      "evidence_reference": "fixture:account-region-binding",
+      "evidence_sha256": "dfac5d820cede19827ee6744876c77edb9a1da49d7ac9c6041c423e18773932d",
+      "outcome": "PASS_OFFLINE",
+      "step_id": "ACCOUNT_REGION_MATCH"
+    },
+    {
+      "evidence_reference": "local:api/health",
+      "evidence_sha256": "ef828514b07f771b831e61c3b89f0dc435b208eeaecf8c99a5d1f1f5cf66974e",
+      "outcome": "PASS_OFFLINE",
+      "step_id": "API_HEALTH"
+    },
+    {
+      "evidence_reference": "local:api/agent-request",
+      "evidence_sha256": "87775a3780b4ab87e7051cd7ff148adf595167679417fb821845c4bfd264939a",
+      "outcome": "PASS_OFFLINE",
+      "step_id": "AGENT_REQUEST"
+    },
+    {
+      "evidence_reference": "local:durable-truth/hash",
+      "evidence_sha256": "4128684a2b4041eba2177033bdcd2f53b018a0ccb9541e5be69c2518e7c03823",
+      "outcome": "PASS_OFFLINE",
+      "step_id": "DURABLE_PROVENANCE"
+    },
+    {
+      "evidence_reference": "local:hitl/pause",
+      "evidence_sha256": "83dbd6c8d18e9255279206030a92605125652bc2e24c3ca29f850ba3e6ea8cce",
+      "outcome": "PASS_OFFLINE",
+      "step_id": "HITL_PAUSE"
+    },
+    {
+      "evidence_reference": "local:hitl/decision",
+      "evidence_sha256": "40a68402c348420c232387e2b0266808e44abd9b5b5611c4760bb6c4d4ac2962",
+      "outcome": "PASS_OFFLINE",
+      "step_id": "EXPLICIT_DECISION"
+    },
+    {
+      "evidence_reference": "local:mock/remediation",
+      "evidence_sha256": "3439266283c997c46fe964069da8dac52e76c2edcccf0471d2d1d8c28a931de6",
+      "outcome": "PASS_OFFLINE",
+      "step_id": "APPROVED_REMEDIATION"
+    },
+    {
+      "evidence_reference": "local:mock/independent-readback",
+      "evidence_sha256": "6027000f7c228b18a9fd02796fe93ad60778febaf42c935edce747d9a7e27ac3",
+      "outcome": "PASS_OFFLINE",
+      "step_id": "INDEPENDENT_EVIDENCE"
+    },
+    {
+      "evidence_reference": "local:hitl/replay-rejection",
+      "evidence_sha256": "65f01f1095261a1d1333cef5ec1cd7a027d113a380aa58c28635fe5bd24335d6",
+      "outcome": "PASS_OFFLINE",
+      "step_id": "REPLAY_REJECTION"
+    },
+    {
+      "evidence_reference": "local:durable-truth/recovery",
+      "evidence_sha256": "95df9f4f8103fff54dd975d74781cc796de2196400304518a8f447bf47dcd27b",
+      "outcome": "PASS_OFFLINE",
+      "step_id": "RECOVERY_RECONCILIATION"
+    }
+  ]
+}
