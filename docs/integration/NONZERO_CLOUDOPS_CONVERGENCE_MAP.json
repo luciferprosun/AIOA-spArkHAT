@@ -1,0 +1,164 @@
+{
+  "schema_version": "nonzero-native-convergence-v1",
+  "contract_status": "FROZEN_BEFORE_IMPLEMENTATION",
+  "judge_sha": "4fafed8b1a877e55d96ddd9baea0a737fbeeaa4a",
+  "core_baseline_sha": "5f30f092f7a20035ed1caf4a8e22397673f598df",
+  "phase2_start_sha": "ad7d2ffa602654fab7ffe30168339f2dc138278f",
+  "module": "nonzero-cloudops",
+  "entries": [
+    {
+      "subsystem": "domain models and enums",
+      "classification": "KEEP_NATIVE",
+      "baseline": "nz/contracts.py; nz/enums.py; nz/identifiers.py; domain/enums.py",
+      "native": "models/",
+      "decision": "No equivalent Core CloudOps resource/receipt schema. Preserve strict fields, UTC, UUIDv7, canonical hashes and state validators."
+    },
+    {
+      "subsystem": "investigation tools",
+      "classification": "KEEP_NATIVE",
+      "baseline": "cloudops/query_resource.py; cloudops/provider.py",
+      "native": "investigation.py; adapters/resources.py",
+      "decision": "Domain reads only. Core ExecutionEngine generic shell/browser tools are not equivalent exact-target CloudOps readers."
+    },
+    {
+      "subsystem": "proposal and binding",
+      "classification": "KEEP_NATIVE",
+      "baseline": "cloudops/plan_remediation.py; nz/contracts.py:RemediationProposal",
+      "native": "policy.py; models/contracts.py",
+      "decision": "Preserve inert proposal, canonical parameters, evidence fingerprint, TTL and exact hash/version binding."
+    },
+    {
+      "subsystem": "policy checks",
+      "classification": "ADAPT_TO_CORE",
+      "baseline": "nz/authority.py; nz/transitions.py; safety/failures.py",
+      "native": "models/authority.py; models/transitions.py; models/failures.py",
+      "decision": "Core admission and AgentRuntime.safeguards.kill_switch outside domain policy. Never replace PLAN_AND_CONFIRM with generic tool confirmation."
+    },
+    {
+      "subsystem": "human approval",
+      "classification": "ADAPT_TO_CORE",
+      "baseline": "agent/local_hitl.py:request_approval,decide",
+      "native": "execution.py; approval.py",
+      "decision": "Core commands.local_commands and webapp._handle_nonzero supply trusted operator admission; nonce/expiry/exact domain decision remain. No second auth server or credential."
+    },
+    {
+      "subsystem": "execution binding",
+      "classification": "KEEP_NATIVE",
+      "baseline": "agent/local_hitl.py:resume; cloudops/local_mock.py:_validate_execution_binding",
+      "native": "execution.py; adapters/portable.py",
+      "decision": "Core tools.executor.ExecutionEngine._request_approval is unbound ENTER confirmation, not a substitute for durable domain authorization."
+    },
+    {
+      "subsystem": "replay and idempotency",
+      "classification": "KEEP_NATIVE",
+      "baseline": "persistence/memory.py; persistence/durable_logic.py; persistence/semantic_idempotency.py",
+      "native": "state/snapshot.py; state/guards.py; state/idempotency.py",
+      "decision": "Retain compare-and-set ownership and atomic mutation+receipt, no duplicate execution. No generic equivalent in Core."
+    },
+    {
+      "subsystem": "durability and recovery",
+      "classification": "ADAPT_TO_CORE",
+      "baseline": "persistence/local.py; persistence/local_integrity.py; agent/local_hitl.py",
+      "native": "state/repository.py; state/files.py; execution.py",
+      "decision": "Use Core runtime_state_dir child native-v1 and service lease. Domain checkpoint store is not a global provenance system. Existing CPLTraceStore handles CPL states only."
+    },
+    {
+      "subsystem": "independent verification",
+      "classification": "KEEP_NATIVE",
+      "baseline": "cloudops/local_mock.py:LocalMockStateStore.verify",
+      "native": "adapters/portable.py; verification.py",
+      "decision": "Separate persisted read-back after execution, linked receipt; no success solely from proposal/model response."
+    },
+    {
+      "subsystem": "evidence and receipts",
+      "classification": "ADAPT_TO_CORE",
+      "baseline": "local_api/contracts.py; local_api/views.py; nz/contracts.py",
+      "native": "views.py; evidence.py; models/contracts.py",
+      "decision": "Keep sanitized typed projections, replace runtime/framework labels with truthful Core native labels."
+    },
+    {
+      "subsystem": "portable backend",
+      "classification": "KEEP_NATIVE",
+      "baseline": "cloudops/local_mock.py; cloudops/provider.py",
+      "native": "adapters/portable.py; adapters/resources.py",
+      "decision": "Explicit deterministic synthetic inventory, no AWS credential discovery and no external transport."
+    },
+    {
+      "subsystem": "AWS backend",
+      "classification": "OPTIONAL_BACKEND",
+      "baseline": "cloudops/ec2_readonly.py; cloudops/cloudwatch_readonly.py; remediation/; persistence/nz_dynamodb.py",
+      "native": "adapters/aws_optional.py",
+      "decision": "Explicit unavailable boundary in phase 3; no native live backend certification or mutation. Historical AWS implementation remains reference-only, never auto-loaded."
+    },
+    {
+      "subsystem": "Strands/provider interaction",
+      "classification": "REUSE_CORE",
+      "baseline": "providers/model.py; providers/factory.py; agent/investigation.py",
+      "native": "adapters/advisory.py",
+      "decision": "No Strands agent/factory/global manager. Portable domain advisor emits untrusted candidate JSON; any future real model must use existing runtime.providers.manager.ProviderManager exact calls after separate approval."
+    },
+    {
+      "subsystem": "HTTP/API server",
+      "classification": "RETIRE",
+      "baseline": "local_api/application.py; local_api/auth.py; local_api/server.py",
+      "native": "service.py; existing runtime/webapp.py",
+      "decision": "Use existing WebRuntimeService/make_server and _handle_nonzero: loopback Host, Origin, session token, explicit intent. Do not port LocalApiApplication."
+    },
+    {
+      "subsystem": "judge browser UX",
+      "classification": "RETIRE",
+      "baseline": "local_api/judge_ui.py; judge/",
+      "native": "existing Core web surface and /api/nonzero",
+      "decision": "No duplicate UI/session/cookie application. Preserve Core UI, no hackathon UI transplant."
+    },
+    {
+      "subsystem": "CLI/demo scripts",
+      "classification": "REUSE_CORE",
+      "baseline": "scripts/run_local_hitl_api.py; scripts/run_portable_demo.py",
+      "native": "existing runtime/commands/local_commands.py:cmd_nonzero",
+      "decision": "Core /nonzero and typed service; baseline scripts run only as reference gates outside runtime."
+    },
+    {
+      "subsystem": "configuration/environment",
+      "classification": "ADAPT_TO_CORE",
+      "baseline": "config.py; agent/local_composition.py",
+      "native": "contract.py:ModuleConfig; service.py",
+      "decision": "Explicit typed portable default, disabled/malformed/aws unavailable states. Ignore ambient AWS/Bedrock selectors. No baseline environment parser."
+    },
+    {
+      "subsystem": "packaging/dependencies",
+      "classification": "REUSE_CORE",
+      "baseline": "pyproject.toml; Dockerfile; deployment/",
+      "native": "Core pyproject.toml",
+      "decision": "One aioa-sparkhat wheel, optional nonzero extra only domain validation/UUID dependencies. No second project, Strands SDK, baseline data or runtime pip/Git."
+    },
+    {
+      "subsystem": "tests and gates",
+      "classification": "REFERENCE_ONLY",
+      "baseline": "tests/; scripts/run_p0_gate.py; scripts/run_p1_gate.py; scripts/run_b4_hardening_gate.py",
+      "native": "tests/test_nonzero_native*.py; tests/test_nonzero_integration.py",
+      "decision": "Frozen 1447-test oracle plus native parity and clean installed-wheel tests. Do not edit oracle tests to make native tests pass."
+    },
+    {
+      "subsystem": "provenance and audit",
+      "classification": "REUSE_CORE",
+      "baseline": "persistence/models.py:ProvenanceRecord; local_api/views.py",
+      "native": "provenance.py; runtime/tools/provenance.py",
+      "decision": "Use actual AppendOnlyProvenanceStore.append_event and verify_provenance_chain. Domain AuditEvent records checkpoint facts, not a competing global chain. Hashes prove linkage/integrity, never truth."
+    },
+    {
+      "subsystem": "hackathon hosting/release plumbing",
+      "classification": "RETIRE",
+      "baseline": "judge/; release/; deployment/; .github/; Dockerfile",
+      "native": "none in native runtime",
+      "decision": "Preserved only under unchanged baseline for reference and licensing; no deployment, workflow, second package or Git operations."
+    },
+    {
+      "subsystem": "legacy EC2 execution schema",
+      "classification": "REFERENCE_ONLY",
+      "baseline": "domain/models.py; old Strands stop-instance flows",
+      "native": "models/contracts.py and state snapshot only where schema validators require them",
+      "decision": "Preserve dependent typed compatibility fields; do not register old autonomous executors or launchers. Live CloudWatch/Dynamo parity deferred."
+    }
+  ]
+}
