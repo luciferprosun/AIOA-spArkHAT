@@ -211,6 +211,36 @@ class AgentRuntime:
     def plan_critical_loop(self, payload):
         return self.critical_loop.plan(payload)
 
+    def assistant_request(self, prompt, *, mode='cpl', plan_options=None):
+        """Default Assistant admission, not generation: one shared CPL service.
+
+        The old action/chat engine remains available only through an explicit
+        Plain Chat bypass. Registered slash commands retain their old surface.
+        Nothing here auto-authorizes a plan or catches failures into chat.
+        """
+        from providers.exact import ExactCallError
+
+        if not isinstance(mode, str) or mode not in {'cpl', 'plain'}:
+            raise ExactCallError('INVALID_ASSISTANT_MODE')
+        if not isinstance(prompt, str) or not prompt.strip() or len(prompt.encode()) > 12000:
+            raise ExactCallError('INVALID_PROMPT')
+        options = {} if plan_options is None else plan_options
+        if not isinstance(options, dict) or set(options) - {'evidence', 'models', 'roles', 'limits', 'run_budget_usd'}:
+            raise ExactCallError('INVALID_PLAN_FIELDS')
+        command = prompt.lstrip().startswith('/')
+        if command and prompt.strip().split(' ', 1)[0].lower() == '/cpl':
+            raise ExactCallError('CPL_REQUIRES_PLAN_START_ENDPOINTS')
+        if mode == 'cpl' and not command:
+            planned = self.plan_critical_loop({'prompt': prompt, **options})
+            return {'ok': True, 'mode': 'cpl', 'cpl': planned,
+                    'transcript': None, 'review_status': 'AWAITING_ONE_USE_APPROVAL',
+                    'status': self.snapshot_status()}
+        if options:
+            raise ExactCallError('CPL_OPTIONS_REQUIRE_CPL_PROMPT')
+        result = self.run_text_request(prompt)
+        return {'ok': True, 'mode': 'command' if command else 'plain',
+                'review_status': 'NOT_CPL_REVIEWED', **result}
+
     def run_cpl_fixture(self):
         from critical_loop.fixture import FIXTURE_PROMPT, FIXTURE_EVIDENCE
         from providers.exact import ExactCallError
@@ -1164,6 +1194,8 @@ def main() -> None:
     mode.add_argument('--cpl-fixture', action='store_true', help='Explicit synthetic local HTTP transport; no model API')
     mode.add_argument('--cpl-live-policy', help='Operator-authored price/budget policy JSON; still requires per-plan approval')
     parser.add_argument('--command', help='Execute one registered slash command and exit')
+    parser.add_argument('--plain-chat', action='store_true', help='Explicit bypass of CPL for interactive questions; retains the legacy Core action/approval path')
+    parser.add_argument('--cpl-run-budget', default='0', help='Per-question LIVE admission cap in USD; never substitutes for plan-hash/nonce approval')
     args = parser.parse_args()
     from critical_loop.policy import load_cost_policy
     policy = load_cost_policy(args.cpl_live_policy) if args.cpl_live_policy else None
@@ -1181,15 +1213,17 @@ def main() -> None:
         return
 
     print_banner(runtime)
+    print('Assistant mode: Plain Chat — CPL BYPASS (not reviewed)' if args.plain_chat else
+          'Assistant mode: Critical Prompt Loop — DEFAULT; questions create plans, never auto-approve.')
 
     while True:
         try:
-            user_input = input("\nYou> ").strip()
+            user_input = input("\nYou> ")
 
-            if not user_input:
+            if not user_input.strip():
                 continue
 
-            if user_input.lower() in {"exit", "quit", "q"}:
+            if user_input.strip().lower() in {"exit", "quit", "q"}:
                 print("Exiting agent...")
                 break
 
@@ -1199,7 +1233,13 @@ def main() -> None:
                     print(f"\nAgent> {command_result.message}")
                 continue
 
-            runtime.handle_user_request(user_input)
+            result = runtime.assistant_request(user_input, mode='plain' if args.plain_chat else 'cpl',
+                plan_options=None if args.plain_chat else {'run_budget_usd':args.cpl_run_budget})
+            if result['mode'] == 'cpl':
+                print(json.dumps(result['cpl'], ensure_ascii=False, indent=2))
+                print('Inspect the immutable plan. To approve in this process: /cpl start RUN_ID PLAN_HASH NONCE')
+            else:
+                print(result['transcript'])
         except KeyboardInterrupt:
             print("\nInterrupted by user.")
             break

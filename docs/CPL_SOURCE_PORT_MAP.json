@@ -58,7 +58,7 @@
         },
         {
           "path": "runtime/main.py",
-          "sha256": "a71c93adaeabe5aca66c86c9e265926822921f6b717c79487a3eef9eff33f115"
+          "sha256": "0dc3a19ae2f1d58d4e13cfbbe5001a367c640ccb58571ffaa68d67a7c306b61e"
         }
       ],
       "adaptation": "Contract-informed reimplementation of orchestration in existing AgentRuntime, no AppController/Tk port.",
@@ -84,11 +84,11 @@
       "destination": [
         {
           "path": "tests/test_cpl_service.py",
-          "sha256": "9438e2d90159fe95f9f4f17ad667d1b469ffbafa548af21253b901e760c35d39"
+          "sha256": "584cdc083b78134ddfa23e562b70097b1675a66a08befa57cc94c66d83866b59"
         },
         {
           "path": "tests/test_cpl_web.py",
-          "sha256": "8d87aac38c3ddc0d35d6f2fd94d55ac1d4b6d5cb22c7104f112b854593b9c778"
+          "sha256": "c187a10f45f8ae976ee6712428b2037f30b9c58d6d0339771835e935f9856718"
         }
       ],
       "adaptation": "17 core scenarios mapped to same-runtime/real-HTTP/gating behavior; ordinary chat policy remains current-main policy.",

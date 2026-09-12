@@ -114,6 +114,10 @@ textarea {
   text-transform: none;
 }
 
+.message-product .message-role {
+  text-transform: none;
+}
+
 .panel-head,
 .topbar {
   display: flex;

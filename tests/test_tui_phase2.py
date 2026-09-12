@@ -110,9 +110,11 @@ class TUIPhase2Tests(unittest.TestCase):
                 def log_session_event(self, kind, payload):
                     calls.append(kind)
 
-                def run_text_request(self, raw):
+                def assistant_request(self, raw, *, mode, plan_options):
                     calls.append(raw)
-                    return {"transcript": "Agent> fake response", "status": {}}
+                    calls.append('assistant:'+mode)
+                    calls.append('budget:'+plan_options['run_budget_usd'])
+                    return {'mode':'cpl','cpl':{'execution_status':'PLANNED','prompt':raw}}
 
             app.runtime = FakeRuntime()  # type: ignore[assignment]
             app.call_from_thread = lambda callback, *args: calls.append(args[0])  # type: ignore[method-assign]
@@ -121,7 +123,9 @@ class TUIPhase2Tests(unittest.TestCase):
 
         self.assertIn("tui_operator_request", calls)
         self.assertIn("status please", calls)
-        self.assertIn("Agent> fake response", calls)
+        self.assertIn('assistant:cpl', calls)
+        self.assertIn('budget:0', calls)
+        self.assertTrue(any('CPL PLAN — NOT A FINAL ANSWER' in value for value in calls))
 
     def test_start_script_exists_and_uses_runtime_venv(self) -> None:
         script = Path("scripts/start_tui.sh")

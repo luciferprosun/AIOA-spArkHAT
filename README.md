@@ -6,7 +6,7 @@ AOIA means **Adaptive Oceanic Intelligence Architecture**. In this repository th
 
 ## What is implemented
 
-- deterministic local routing before provider use
+- preserved deterministic local routing before provider use in the explicit Plain Chat/action bypass
 - optional external model providers behind one `ProviderManager`
 - structured shell, filesystem, browser, and project-inspection actions
 - explicit operator approval for non-response actions
@@ -27,7 +27,11 @@ The CPL uses the same `AgentRuntime`, `ProviderManager`, command registry and we
 ./runtime/run_web.sh --cpl-fixture
 ```
 
-In the Assistant select **Critical Prompt Loop**, load the synthetic dated example, preview the immutable plan, then authorize the **TEST** plan. The fixture traverses the actual HTTP adapter on loopback; it is not a live model result. Ordinary cloud chat is disabled in this explicit fixture session. Without the fixture flag, CPL live execution is disabled unless an operator supplies an explicit cost policy, fresh model-specific price quotes, positive budgets and approval of the displayed plan. A missing key never causes synthetic fallback.
+**Critical Prompt Loop is the default Assistant path.** Type any ordinary question into the main composer: sending creates a plan, not a model request. Evidence starts empty. Inspect the four exact model bindings, limits and cost boundary, then separately authorize the one-use plan. Only the completed final revision enters the normal answer surface; draft, three reports, conflicts and trace remain inspectable. Editing prompt, evidence, models, limits or budget invalidates the pending approval. A delayed plan response cannot restore it.
+
+**Plain Chat** is an explicit, visibly labeled CPL bypass, not a reviewed answer. Fresh pages and terminal sessions default to CPL. Dated Evidence Review remains separate and deterministic. Production CPL uses generic validation, never topic detection or a German-law/data-pack dependency. The optional synthetic example is available only in explicitly launched TEST sessions; its prewritten replies are not answers certified for arbitrary questions.
+
+The fixture traverses the actual HTTP adapter on loopback; it is not a live model result. Ordinary cloud chat is disabled in this explicit fixture session. Without the fixture flag, CPL live execution is disabled unless an operator supplies an explicit cost policy, fresh model-specific price quotes, positive budgets and approval of the displayed plan. A missing key never causes synthetic fallback.
 
 See the [CPL contract](docs/modules/CRITICAL_PROMPT_LOOP.md), [launch and acceptance guide](docs/CPL_LAUNCH.md), and [selective-port ADR](docs/ADR/ADR-CPL-001-selective-runtime-port.md). Existing `/review` and `/api/review` remain deterministic and separate. No paid live smoke test is claimed.
 
@@ -47,7 +51,7 @@ Run the unified local web console:
 ./runtime/run_web.sh
 ```
 
-Open <http://127.0.0.1:4311>. The server accepts loopback bindings only. The **Assistant**, **Critical Prompt Loop** mode and **Evidence review** views are modules of the same AIOA spArkHAT process.
+Open <http://127.0.0.1:4311>. The server accepts loopback bindings only. The **Assistant** defaults to **Critical Prompt Loop**; **Plain Chat** is an explicit bypass, and **Evidence review** is a separate deterministic view in the same AIOA spArkHAT process. Terminal questions also create plans by default; `--plain-chat` explicitly selects the preserved legacy action/chat path. All expert `/cpl` commands remain available. See the launch guide for budgets and manual approval.
 
 Install optional provider/browser dependencies into a local virtual environment:
 
@@ -118,13 +122,13 @@ Operator
   │    -> deterministic comparison + SHA-256
   │    -> HUMAN_REVIEW_REQUIRED
   │
-  ├─ Critical Prompt Loop (/cpl or Assistant mode)
+  ├─ ordinary question -> Critical Prompt Loop [DEFAULT]
   │    -> immutable plan + explicit one-use approval
   │    -> primary draft -> Logic & Claims -> Safety & Authority
   │    -> Evidence & Consistency -> one primary-model revision
   │    -> advisory response + persisted integrity trace
   │
-  └─ normal request
+  └─ Plain Chat [EXPLICIT CPL BYPASS] / explicit slash command
        -> slash commands / local router
        -> epistemic and knowledge gates
        -> optional provider planning

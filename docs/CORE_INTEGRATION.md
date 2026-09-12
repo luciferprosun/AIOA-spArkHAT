@@ -27,6 +27,28 @@ AIOA spArkHAT
 
 There is no second agent executor or separate CPL app. `AgentRuntime.critical_loop` owns the service; CLI and HTTP share it, along with the same provider manager and provenance implementation. The three sequential roles are exactly **Logic & Claims**, **Safety & Authority**, and **Evidence & Consistency**. A single final revision uses the original primary model only after every critic completes. A failed, cancelled or incomplete run never returns its draft as a completed final review.
 
+## Final Assistant routing
+
+```text
+AIOA spArkHAT
+├── Core runtime / AgentRuntime
+│   └── Assistant (web, interactive CLI, optional terminal adapter)
+│       ├── Critical Prompt Loop [DEFAULT]
+│       │   ├── Primary Draft
+│       │   ├── Logic & Claims
+│       │   ├── Safety & Authority
+│       │   ├── Evidence & Consistency
+│       │   ├── Original Primary Final Revision
+│       │   └── Evidence Chain / Trace
+│       └── Plain Chat [EXPLICIT BYPASS]
+├── Dated Evidence Review [SEPARATE DETERMINISTIC MODULE]
+└── Existing routing / providers / knowledge / tools / provenance
+```
+
+`AgentRuntime.assistant_request` is the shared default admission boundary. Normal prompts create immutable plans in the existing CPL service; no model call happens until explicit plan-hash/nonce approval. Evidence defaults to empty. Routing is generic: Python, arithmetic, creative writing, current-information and German-law questions use the same algorithm. The main web composer is used once, not copied into a specialist form. Only COMPLETED final revisions reach the normal answer surface. Draft/review/trace details remain inspectable. Explicit slash commands are preserved; the low-level `run_text_request` and existing action engine remain available to deliberately selected Plain Chat.
+
+The focused generic regression matrix covers 12 unrelated prompts using production LIVE orchestration with a mocked generation transport boundary; real loopback HTTP tests cover transport and browser behavior separately. Neither is live-model certification. Mounted optional Textual/Playwright tests may remain separately listed environment skips; the dependency-free terminal admission adapter is in the required suite. Run full Core regression and report local results separately from GitHub Actions. If no suitable workflow is configured or run, `GITHUB_CI_STATUS=NOT_CONFIGURED_OR_NOT_RUN`; local PASS does not imply hosted CI PASS. This closure does not deploy, promote knowledge, train models, create repositories or start future modules.
+
 ## Preserved contracts
 
 - Existing ordinary routing, provider selection/fallback, knowledge routing, memory hats, local utilities and operator approval remain in Core. CPL has its own strict **no fallback/no retry** policy on the same provider manager.

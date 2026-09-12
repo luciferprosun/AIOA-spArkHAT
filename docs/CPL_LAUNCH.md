@@ -11,9 +11,15 @@ From this repository root:
 ./runtime/run_web.sh --cpl-fixture --port 4311
 ```
 
-Open `http://127.0.0.1:4311` → Assistant → select Critical Prompt Loop → Load synthetic dated example → Preview immutable plan → Authorize TEST plan and run fixture → Verify Evidence Chain. Expect a separately marked stale working draft (two jobs), three critic cards with dated conflicting synthetic sources, and a final advisory revision (three jobs). The example is explicitly synthetic, unrelated to German law. Errors/cancellation never become a draft-as-final or an ordinary-chat fallback. Cancel remains available while the worker waits on HTTP.
+Open `http://127.0.0.1:4311` → Assistant (CPL is already the default) → enter an ordinary question in **Your question** → **Preview CPL plan** → inspect → **Authorize TEST plan and run fixture** → **Verify Evidence Chain**. No copy into a specialist form is needed. Evidence starts empty. Optional exact models, lower limits and per-run budget are in the advanced settings. Only COMPLETED publishes the final revision to the normal answer log; the draft/reports and trace are in the inspector.
+
+The explicit **Load synthetic dated example** button is a separate TEST convenience. Its deliberately prewritten replies describe two/three synthetic jobs; they do not demonstrate factual answers to other questions. Production orchestration is domain-generic. German-law material belongs to the separate deterministic review scenario, not CPL routing. Errors/cancellation never become a draft-as-final or an ordinary-chat fallback. Cancel remains available while the worker waits on HTTP. Changing an input invalidates pending approval, including responses from a plan request still in flight.
+
+Choosing **Plain Chat** is an explicit CPL bypass, prominently labeled as not reviewed. Reload starts in CPL, even when an old installation retained a legacy chat preference. Existing slash commands, including `/help`, `/status` and `/review`, remain explicit commands rather than topics routed through a model.
 
 Use the same fixture command in a fresh process to read previous runs: `/cpl status`, `/cpl status ID`, `/cpl verify ID`. A new process cannot start a previous unconsumed plan: restart marks it INTERRUPTED. To plan then start manually, use the interactive CLI in a single process. `--command` is appropriate for the complete fixture flow or read/verify actions, not a multi-process nonce handoff.
+
+Interactive CLI normal questions also create CPL plans by default. Inspect the printed plan then use `/cpl start ID HASH NONCE` in that process; nothing automatically approves. `--plain-chat` explicitly restores the legacy Core action/chat path and its existing action-approval controls. For a later separately authorized LIVE session, combine `--cpl-live-policy` with `--cpl-run-budget POSITIVE_USD_CAP`, or use `/cpl plan-json` to set per-plan options. The cap is admission data, not generation authorization. The optional Textual launcher accepts the same policy/budget and bypass flags; its default admission adapter uses the same runtime. Ctrl+X cancels an active CPL run when no tool approval is pending. Mounted Textual UI testing requires the optional dependency; its dependency-free admission adapter is tested in the required suite.
 
 ## Installed entry points
 

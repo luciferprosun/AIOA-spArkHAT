@@ -13,6 +13,7 @@ from textual.app import App
 from textual.widgets import Input, Label
 
 from tui.widgets.approval_panel import ApprovalPanel
+from tui.assistant import operator_request
 from main import DEBUG_RAW_RESPONSE, PROMPT_FILE, AgentRuntime, ProviderManager, load_prompt_template
 from tui.views.dashboard import DashboardView
 from tui.widgets.log_panel import LogPanel
@@ -35,9 +36,11 @@ class AOIATerminalApp(App):
     ]
     APPROVAL_TIMEOUT_SECONDS = 120
 
-    def __init__(self, project_dir: Path | None = None) -> None:
+    def __init__(self, project_dir: Path | None = None, *, plain_chat=False, cpl_cost_policy=None, cpl_run_budget='0') -> None:
         super().__init__()
         self.project_dir = project_dir or RUNTIME_DIR
+        self.plain_chat = plain_chat
+        self.cpl_run_budget = cpl_run_budget
         self.runtime = AgentRuntime(
             provider_manager=ProviderManager(self.project_dir),
             prompt_template=load_prompt_template(PROMPT_FILE),
@@ -45,6 +48,7 @@ class AOIATerminalApp(App):
             debug_raw=DEBUG_RAW_RESPONSE,
         )
         self.runtime.executor._request_approval = self._request_approval_from_tui  # type: ignore[method-assign]
+        self.runtime.cpl_cost_policy = cpl_cost_policy
         self.command_history: list[str] = []
         self.history_index: int | None = None
         self.request_running = False
@@ -57,6 +61,7 @@ class AOIATerminalApp(App):
 
     def on_mount(self) -> None:
         self.title = "AIOA spArkHAT Operator Console"
+        self.sub_title = 'Plain Chat — explicit CPL BYPASS' if self.plain_chat else 'Critical Prompt Loop — DEFAULT'
         self.refresh_status()
         self.set_interval(2.0, self.refresh_status)
         self.query_one(ApprovalPanel).set_idle()
@@ -73,9 +78,9 @@ class AOIATerminalApp(App):
         self.query_one(RuntimeStatusBar).update_status(status)
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
-        raw = event.value.strip()
+        raw = event.value
         event.input.value = ""
-        if not raw:
+        if not raw.strip():
             return
         if event.input.id != "operator-input":
             return
@@ -109,7 +114,7 @@ class AOIATerminalApp(App):
 
         self.query_one(TranscriptPanel).append_entry("operator", raw)
         self.request_running = True
-        self._notice("Request running through AgentRuntime.run_text_request().")
+        self._notice('Plain Chat bypass; not CPL reviewed.' if self.plain_chat else 'CPL default: questions preview a plan; approval is a separate command.')
         worker = threading.Thread(target=self._run_request_thread, args=(raw,), daemon=True)
         worker.start()
 
@@ -130,8 +135,7 @@ class AOIATerminalApp(App):
                 "tui_operator_request",
                 {"length": len(raw), "slash_command": raw.startswith("/")},
             )
-            result = self.runtime.run_text_request(raw)
-            transcript = result.get("transcript", "")
+            transcript = operator_request(self.runtime, raw, plain_chat=self.plain_chat, run_budget=self.cpl_run_budget)
             self.call_from_thread(self._complete_request, transcript, None)
         except Exception as error:
             self.call_from_thread(self._complete_request, "", error)
@@ -188,6 +192,12 @@ class AOIATerminalApp(App):
 
     def action_reject_pending(self) -> None:
         if not self._approval_event:
+            service = self.runtime._cpl_service
+            active = service.status()['active_run_id'] if service is not None else None
+            if active:
+                service.cancel(active)
+                self._notice('CPL cancelled; already-sent provider requests may still be billed.')
+                return
             self._notice("No pending approval.")
             return
         self._approval_decision = False
@@ -233,15 +243,26 @@ class AOIATerminalApp(App):
                 {"message": "AOIA terminal UI closed cleanly."},
             )
         except Exception:
-            return
+            pass
+        finally:
+            self.runtime.close()
 
 
-def build_app(project_dir: Path | None = None) -> AOIATerminalApp:
-    return AOIATerminalApp(project_dir=project_dir)
+def build_app(project_dir: Path | None = None, *, plain_chat=False, cpl_cost_policy=None, cpl_run_budget='0') -> AOIATerminalApp:
+    return AOIATerminalApp(project_dir=project_dir, plain_chat=plain_chat,
+        cpl_cost_policy=cpl_cost_policy, cpl_run_budget=cpl_run_budget)
 
 
 def main() -> None:
-    build_app().run()
+    import argparse
+    parser = argparse.ArgumentParser(description='AIOA spArkHAT optional operator console; CPL default')
+    parser.add_argument('--plain-chat', action='store_true', help='Explicit bypass of CPL for ordinary questions')
+    parser.add_argument('--cpl-live-policy', help='Explicit private price/budget policy; no automatic approval')
+    parser.add_argument('--cpl-run-budget', default='0', help='Per-question LIVE admission cap in USD')
+    args = parser.parse_args()
+    from critical_loop.policy import load_cost_policy
+    policy = load_cost_policy(args.cpl_live_policy) if args.cpl_live_policy else None
+    build_app(plain_chat=args.plain_chat, cpl_cost_policy=policy, cpl_run_budget=args.cpl_run_budget).run()
 
 
 if __name__ == "__main__":

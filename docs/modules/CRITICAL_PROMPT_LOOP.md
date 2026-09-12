@@ -14,7 +14,11 @@ The draft and final revision use the same captured primary OpenRouter model. Thr
 
 ## Plan, execution and identity
 
+Normal questions in the Assistant, interactive CLI and optional terminal adapter default to CPL admission, regardless of topic. `AgentRuntime.assistant_request` prepares the same `CriticalPromptLoopService` plan; it is not another state machine. The primary composer captures the exact prompt, with empty evidence unless explicitly supplied. Plain Chat is an explicit bypass (`mode: "plain"` in the API, the labeled UI option, or `--plain-chat` in terminal launchers), never an automatic recovery route. Deterministic Dated Evidence Review stays separate. German-law material and synthetic job examples are not production routing conditions.
+
 A canonical JSON plan binds prompt, quoted evidence/source references, four exact model IDs, three roles, per-stage limits, scope and cost policy, creation/expiry and the ordered five-call sequence. Hash and random nonce must both match. The server consumes the nonce atomically, once, with a five-minute default expiry. Model selection elsewhere cannot mutate a plan. Editing UI inputs invalidates the pending local approval. `approved=true` is not authorization.
+
+The UI checks both the current input signature and the in-flight preview version before enabling approval. A changed prompt/model/limit/budget cannot resurrect an old nonce through a delayed response. Preview performs zero generations. The normal answer log receives only a COMPLETED final revision, once per run; drafts and reports remain separately labeled inspector data. A failed/cancelled/interrupted run never posts its draft as final. Lost start responses lead to status reads, not a start retry or chat fallback.
 
 Draft/revision output maxima: 1024 each; each critic: 512; total requested output maximum: 3584. Conservative input admission units are UTF-8 bytes plus message/schema framing, capped at 32768 per request. This is not measured model usage. Success/error HTTP bodies are capped at 65536 bytes; call timeout defaults to 20 seconds (hard maximum 30), run deadline 120 (hard maximum 180). Limits may be reduced. Response identity must be present and exactly match; choices must contain one complete text answer with finish reason `stop`. Actual usage, when absent, remains null/missing, never an invented zero. Complete usage above caps fails closed after receipt.
 
@@ -37,6 +41,8 @@ LIVE is off by default. An operator-authored policy and positive session/run bud
 | `/cpl verify ID` | Verify persisted trace without model calls |
 | `/cpl fixture` | Explicit TEST plan/start flow; fails if session is not fixture mode |
 | `GET /api/session` | Same-origin loopback session token |
+| `POST /api/chat` (mode omitted or `cpl`) | Normal questions create the same immutable plan; HTTP 201, `cpl` holds the preview/nonce, `transcript: null`; no generation |
+| `POST /api/chat` (`mode: "plain"`) | Explicit legacy bypass; `review_status: "NOT_CPL_REVIEWED"`; existing action approvals still apply |
 | `POST /api/cpl/plan` | Validated plan; no model request |
 | `POST /api/cpl/start` | Exactly `run_id`, `plan_hash`, `nonce` |
 | `GET /api/cpl/status`, `/api/cpl/runs/ID` | Worker/status snapshot |
@@ -44,13 +50,15 @@ LIVE is off by default. An operator-authored policy and positive session/run bud
 | `GET /api/cpl/runs/ID/trace` | Local manifest verifier |
 | `POST /api/cpl/verify` | Exactly `run_id`, retained external `manifest` |
 
-Loopback bind only. Host, supplied Origin and session token are checked; absent Origin does not waive the token. Body maximum 24000 bytes; duplicate JSON keys/nonfinite numbers and conflicting framing are rejected. No wildcard CORS. A bounded single worker leaves status/cancel responsive. `/api/chat` refuses CPL execution and cannot substitute for plan/start. The UI uses text nodes, not HTML, for all model content. This is not a public/multi-user authentication design; local processes able to read the session endpoint are inside the local operator trust boundary.
+Loopback bind only. Host, supplied Origin and session token are checked; absent Origin does not waive the token. Body maximum 24000 bytes; duplicate JSON keys/nonfinite numbers and conflicting framing are rejected. No wildcard CORS. A bounded single worker leaves status/cancel responsive. `/api/chat` can preview CPL but never substitutes for `/api/cpl/start` authorization. Existing slash commands stay explicit commands; `/cpl` execution through `/api/chat` is refused in favor of the dedicated endpoints. API clients that intentionally need the old ordinary behavior must now send `mode: "plain"`. Unknown modes and client `approved` booleans are rejected. The UI uses text nodes, not HTML, for all model content. This is not a public/multi-user authentication design; local processes able to read the session endpoint are inside the local operator trust boundary.
 
 ## Evidence Chain and authority
 
 Shared provenance records include ordered event IDs, run/trace IDs, sequence, phase, payload/previous/entry hashes, UTC local timestamp and source description, canonicalization/redaction versions, base implementation commit, plan, configuration, evidence references, requested/reported identity and actual approval scope. Secrets are redacted **before** persistence and hashing. The nonce/token are not persisted in the shareable trace.
 
 The exportable manifest has run ID, event count and terminal hash. The verifier detects edits, reorder/removal/foreign events and tail truncation relative to a retained manifest. An actor who can rewrite both log and local manifest can construct a consistent chain. External retained head/count is needed to detect that rollback; hashes do not prove truth, authorship, trusted time or originality. No external timestamp publication or new signing identity is used.
+
+In particular, the chain is not proof that another person copied an idea. Recorded UTC timestamps are local metadata, not trusted external timestamp attestations. Persisting a transcript is not model training.
 
 Quotas: 64 runs, 24 events/run, 2 MiB/run, 64 MiB total (admission reserves room). Trace paths reject symlinks; logs/manifests are private. One process owns each trace root. Completed views reopen after restart; unfinished views become INTERRUPTED without provider replay. Verify/export before manually managing a full trace directory; no automatic deletion is implemented.
 

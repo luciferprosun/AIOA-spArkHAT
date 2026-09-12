@@ -106,10 +106,11 @@
           <div class="assistant-mode-bar">
             <label class="label" for="assistant-mode">Assistant mode</label>
             <select id="assistant-mode" class="select">
-              <option value="chat">Ordinary assistant</option>
-              <option value="cpl">Critical Prompt Loop · 1+3+1</option>
+              <option value="cpl" selected>Critical Prompt Loop · DEFAULT · 1+3+1</option>
+              <option value="plain">Plain Chat · explicit CPL bypass</option>
             </select>
           </div>
+          <p id="assistant-mode-note" class="legal-boundary" role="status">CPL is the default. Sending a question only previews a plan; generation requires separate approval.</p>
           <section class="hero">
             <div class="hero-card">
               <p class="eyebrow">Session</p>
@@ -132,7 +133,18 @@
             </div>
           </section>
 
-          <section id="cpl-panel" class="review-card cpl-panel" hidden>
+          <section id="chat-log" class="chat-log" aria-live="polite" aria-label="Assistant answers"></section>
+          <form id="composer" class="composer">
+            <label class="label" for="prompt-input">Your question</label>
+            <textarea id="prompt-input" rows="4" maxlength="12000" required
+              placeholder="Ask any question. Preview the CPL plan, then approve its exact scope and budget."></textarea>
+            <div class="composer-actions">
+              <span class="hint">Enter previews. Shift+Enter adds a newline. Slash commands remain explicit Core commands.</span>
+              <button id="assistant-submit" type="submit" class="button button-primary">Preview CPL plan</button>
+            </div>
+          </form>
+
+          <section id="cpl-panel" class="review-card cpl-panel">
             <div class="review-result-head">
               <div><p class="eyebrow">Integrated Critical Prompt Loop</p><h3>Draft → 3 sequential critics → one final revision</h3></div>
               <span id="cpl-mode" class="badge">Loading configuration</span>
@@ -140,14 +152,16 @@
             <p class="legal-boundary">Advisory only. Critics are sequentially informed, not independent consensus. No tools, automatic knowledge promotion or model training. Completion and hashes do not prove truth.</p>
             <p id="cpl-transport-note" class="note"></p>
             <form id="cpl-plan-form">
-              <label class="label" for="cpl-prompt">Prompt</label>
-              <textarea id="cpl-prompt" rows="3" maxlength="12000" required></textarea>
+              <details id="cpl-options"><summary>Optional evidence, exact models, limits and budget</summary>
               <label class="label" for="cpl-evidence">Explicit evidence / dated source references (quoted, untrusted data)</label>
               <textarea id="cpl-evidence" rows="3" maxlength="10000"></textarea>
               <label class="label" for="cpl-models">Exact model IDs: primary, logic, safety, evidence (one per line; blank uses fixed server defaults)</label>
-              <textarea id="cpl-models" rows="4" placeholder="fixture/synthetic"></textarea>
+              <textarea id="cpl-models" rows="4" placeholder="Blank captures the selected model for all four bindings"></textarea>
+              <label class="label" for="cpl-limits">Optional lower limits (JSON object; blank keeps server defaults)</label>
+              <textarea id="cpl-limits" rows="2" maxlength="2000" placeholder='{"draft_tokens":1024,"critic_tokens":512,"revision_tokens":1024}'></textarea>
               <label class="label" for="cpl-budget">Live run budget USD (not used by synthetic fixture)</label>
               <input id="cpl-budget" value="0" inputmode="decimal" class="select" />
+              </details>
               <div class="review-actions">
                 <button id="cpl-load-fixture" type="button" class="button button-ghost">Load synthetic dated example</button>
                 <button id="cpl-plan" type="submit" class="button button-primary">Preview immutable plan</button>
@@ -162,26 +176,14 @@
             </div>
             <p id="cpl-state" class="badge">NOT_STARTED</p>
             <p id="cpl-run-id" class="note"></p>
+            <details id="cpl-inspector"><summary>Inspect working draft, three reports, final revision and Evidence Chain</summary>
             <section class="cpl-stage"><h4>Working draft — not a delivered final answer</h4><pre id="cpl-draft" class="cpl-data">Not available</pre></section>
             <div id="cpl-reviews" class="cpl-review-grid"></div>
             <section class="cpl-stage"><h4>Preserved conflicts and uncertainty</h4><pre id="cpl-conflicts" class="cpl-data">Not available</pre></section>
             <section class="cpl-stage"><h4>Final revision — human review required</h4><pre id="cpl-final" class="cpl-data">Not delivered</pre></section>
             <details><summary>Evidence Chain and transport identities</summary><pre id="cpl-trace" class="cpl-data">Not available</pre></details>
+            </details>
           </section>
-          <section id="chat-log" class="chat-log" aria-live="polite"></section>
-
-          <form id="composer" class="composer">
-            <label class="label" for="prompt-input">Message</label>
-            <textarea
-              id="prompt-input"
-              rows="4"
-              placeholder="Ask the runtime to inspect, browse, or operate within its approval boundaries."
-            ></textarea>
-            <div class="composer-actions">
-              <span class="hint">Enter sends. Shift+Enter adds a newline.</span>
-              <button type="submit" class="button button-primary">Send</button>
-            </div>
-          </form>
         </section>
 
         <section id="review-view" class="workspace-view" role="tabpanel" hidden>

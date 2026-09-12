@@ -60,6 +60,7 @@ class WebRuntimeService:
             "authority": "METADATA_ONLY_NO_AUTHORITY",
         }
         payload['critical_loop'] = self.runtime.critical_loop.status()
+        payload['assistant'] = {'default_mode': 'cpl', 'plain_chat': 'EXPLICIT_BYPASS_ONLY'}
         return payload
 
     def switch_model(self, model_name: str) -> dict:
@@ -72,16 +73,11 @@ class WebRuntimeService:
                 "status": self.status_payload(),
             }
 
-    def run_prompt(self, prompt: str) -> dict:
-        if prompt.lstrip().lower().startswith('/cpl'):
-            raise ExactCallError('CPL_REQUIRES_PLAN_START_ENDPOINTS')
+    def run_prompt(self, prompt: str, *, mode='cpl', plan_options=None) -> dict:
         with self.lock:
-            result = self.runtime.run_text_request(prompt)
-            return {
-                "ok": True,
-                "transcript": result["transcript"],
-                "status": result["status"],
-            }
+            result = self.runtime.assistant_request(prompt, mode=mode, plan_options=plan_options)
+            result['status'] = self.status_payload()
+            return result
 
 
 _SERVICE: WebRuntimeService | None = None
@@ -215,16 +211,10 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
                 self._write_json(HTTPStatus.OK, self._service().runtime.critical_loop.verify(payload['run_id'], payload['manifest']))
                 return
             if parsed.path == "/api/chat":
-                if payload.get('mode') == 'cpl':
-                    raise ExactCallError('CPL_REQUIRES_PLAN_START_ENDPOINTS')
-                prompt = str(payload.get("prompt", "")).strip()
-                if not prompt:
-                    self._write_json(
-                        HTTPStatus.BAD_REQUEST,
-                        {"ok": False, "error": "prompt is required"},
-                    )
-                    return
-                self._write_json(HTTPStatus.OK, self._service().run_prompt(prompt))
+                options = {key: value for key, value in payload.items() if key not in {'prompt', 'mode'}}
+                result = self._service().run_prompt(payload.get('prompt'),
+                    mode=payload.get('mode', 'cpl'), plan_options=options)
+                self._write_json(HTTPStatus.CREATED if result['mode'] == 'cpl' else HTTPStatus.OK, result)
                 return
 
             if parsed.path == "/api/model":

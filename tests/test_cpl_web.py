@@ -121,8 +121,56 @@ class CPLWebTests(unittest.TestCase):
         self.assertEqual(len(self.fixture.requests), 5)
 
     def test_T11_chat_cannot_bypass_cpl_approval(self):
-        for payload in [{'prompt': '/cpl fixture'}, {'prompt': FIXTURE_PROMPT, 'mode': 'cpl'}]:
+        for payload in [{'prompt': '/cpl fixture'}, {'prompt': FIXTURE_PROMPT, 'mode': 'cpl', 'approved': True}]:
             self.assertEqual(self.request('POST', '/api/chat', payload)[0], 400)
+        status, result, _ = self.request('POST', '/api/chat', {'prompt': FIXTURE_PROMPT, 'mode': 'cpl'})
+        self.assertEqual(status, 201)
+        self.assertEqual(result['cpl']['execution_status'], 'PLANNED')
+        self.assertIsNone(result['transcript'])
+        self.assertEqual(self.fixture.requests, [])
+
+    def test_default_assistant_prompt_uses_same_plan_and_requires_nonce(self):
+        prompt = '  Explain Python recursion in simple terms.\n'
+        status, payload, _ = self.request('POST', '/api/chat', {'prompt':prompt})
+        self.assertEqual(status, 201, payload)
+        self.assertEqual(payload['mode'], 'cpl')
+        plan = payload['cpl']
+        self.assertEqual(plan['plan']['prompt'], prompt)
+        self.assertEqual(plan['plan']['evidence'], '')
+        self.assertEqual(plan['execution_status'], 'PLANNED')
+        self.assertIsNone(payload['transcript'])
+        self.assertEqual(self.fixture.requests, [])
+        self.assertEqual(self.service.runtime.critical_loop.get(plan['run_id'])['plan_hash'], plan['plan_hash'])
+        self.assertEqual(self.request('POST', '/api/cpl/start', self.approval(plan))[0], 202)
+        final = self.service.runtime.critical_loop.wait(plan['run_id'], 5)
+        self.assertEqual(final['execution_status'], 'COMPLETED')
+        self.assertEqual(len(self.fixture.requests), 5)
+
+    def test_plain_chat_is_explicit_and_never_claims_review(self):
+        with patch.object(self.service.runtime, 'run_text_request', return_value={'transcript':'Local stub bypass', 'status':{}}) as ordinary:
+            result = self.request('POST','/api/chat',{'prompt':'What is RAM?'})[1]
+            self.assertEqual(result['cpl']['execution_status'], 'PLANNED')
+            ordinary.assert_not_called()
+            status, result, _ = self.request('POST','/api/chat',{'prompt':'What is RAM?', 'mode':'plain'})
+            self.assertEqual(status, 200)
+            self.assertEqual(result['review_status'], 'NOT_CPL_REVIEWED')
+            self.assertEqual(result['mode'], 'plain')
+            ordinary.assert_called_once_with('What is RAM?')
+        self.assertEqual(self.fixture.requests, [])
+
+    def test_invalid_assistant_mode_shape_and_fake_approval_cannot_generate(self):
+        for payload in [{'prompt':'Q','mode':'chat'}, {'prompt':'Q','mode':[]},
+                        {'prompt':23}, {'prompt':'Q','approved':True},
+                        {'prompt':'Q','mode':'plain','run_budget_usd':'1'}]:
+            with self.subTest(payload=payload):
+                self.assertEqual(self.request('POST','/api/chat',payload)[0], 400)
+        self.assertEqual(self.fixture.requests, [])
+
+    def test_default_cpl_error_does_not_invoke_plain_engine(self):
+        self.service.runtime.safeguards = replace(self.service.runtime.safeguards, kill_switch=True)
+        with patch.object(self.service.runtime, 'run_text_request', side_effect=AssertionError('No implicit bypass')):
+            status, result, _ = self.request('POST','/api/chat',{'prompt':'Explain the sky.'})
+        self.assertEqual((status,result['error']), (400,'EPISTEMIC_KILL_SWITCH'))
         self.assertEqual(self.fixture.requests, [])
 
     def test_T09_core_kill_switch_cannot_be_bypassed_by_direct_service_plan(self):

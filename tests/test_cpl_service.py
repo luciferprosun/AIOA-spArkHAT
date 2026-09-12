@@ -158,6 +158,41 @@ class CPLServiceTests(unittest.TestCase):
         self.assertLess(time.monotonic() - started, 2)
         self.assertEqual(len(self.fixture.requests), 1)
 
+    def test_closure_timeout_in_each_critic_and_final_revision_never_delivers(self):
+        for stage in (2, 3, 4, 5):
+            with self.subTest(stage=stage):
+                self.fixture.requests.clear()
+                self.fixture.release.clear()
+                self.fixture.faults = {stage: 'delay'}
+                result = self.execute(limits={'request_timeout_seconds': .12, 'run_deadline_seconds': 5})
+                self.assertEqual(result['execution_status'], 'FAILED')
+                self.assertIn(result['error'], {'TRANSPORT_TIMEOUT','DEADLINE_EXCEEDED'})
+                self.assertEqual(len(self.fixture.requests), stage)
+                self.assertIsNone(result['final_answer'])
+
+    def test_closure_cancel_draft_and_each_critic_is_terminal_without_replay(self):
+        for stage in (1, 2, 3, 4):
+            with self.subTest(stage=stage):
+                self.fixture.requests.clear()
+                self.fixture.release.clear()
+                self.fixture.faults = {stage:'delay'}
+                plan = self.plan()
+                self.service.start(plan['run_id'], plan['plan_hash'], plan['nonce'])
+                deadline = time.monotonic()+3
+                while len(self.fixture.requests) < stage and time.monotonic() < deadline:
+                    time.sleep(.01)
+                self.assertEqual(len(self.fixture.requests), stage)
+                cancelled = self.service.cancel(plan['run_id'])
+                self.assertEqual(cancelled['execution_status'], 'CANCELLED')
+                self.fixture.release.set()
+                final = self.service.wait(plan['run_id'], 3)
+                self.assertEqual(final['execution_status'], 'CANCELLED')
+                self.assertIsNone(final['final_answer'])
+                self.assertEqual(len(self.fixture.requests), stage)
+                with self.assertRaisesRegex(ExactCallError, 'AUTHORIZATION_ALREADY_CONSUMED'):
+                    self.service.start(plan['run_id'], plan['plan_hash'], plan['nonce'])
+                self.assertTrue(self.service.verify(plan['run_id'])['ok'])
+
     def test_T06_expired_run_deadline_never_starts_transport(self):
         result = self.execute(limits={'run_deadline_seconds': .000001})
         self.assertEqual(result['execution_status'], 'FAILED')
