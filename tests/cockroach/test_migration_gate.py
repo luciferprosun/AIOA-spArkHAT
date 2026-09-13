@@ -265,6 +265,33 @@ class MigrationGateTests(unittest.TestCase):
         with self.assertRaises(MemoryPatchError):
             ctl.execute(p, plan, auth, snapshot)
         self.assertEqual(len(cfg.calls), before)
+        with cfg.connect(cfg.target.migrator_role) as connection:
+            state = migration.catalog(connection, cfg.prefix)
+        manifest = migration.load_assets()[0]
+        self.assertEqual(
+            migration.validate_catalog(state, manifest, cfg.prefix),
+            snapshot.catalog_fingerprint,
+        )
+        # Check both actual security modes even when pg_proc.prosecdef is false.
+        # A mode-shaped string in the body must not override the DDL header.
+        for name, original, altered in (
+            ("set_request_context", "DEFINER", "INVOKER"),
+            ("guard_patch", "INVOKER", "DEFINER"),
+        ):
+            tampered = json.loads(json.dumps(state))
+            function = next(row for row in tampered["functions"] if row[0] == name)
+            header, delimiter, body = function[2].partition("AS $$")
+            self.assertTrue(delimiter)
+            function[2] = (
+                header.replace("SECURITY " + original, "SECURITY " + altered)
+                + delimiter
+                + body
+                + "\nSECURITY "
+                + original
+                + "\n"
+            )
+            with self.assertRaises(MemoryPatchError):
+                migration.validate_catalog(tampered, manifest, cfg.prefix)
 
     def test_04_all_database_and_role_interruption_evidence(self):
         cfg = inputs()

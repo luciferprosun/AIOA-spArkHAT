@@ -302,8 +302,18 @@ def validate_catalog(state, manifest, prefix):
             if name in {"review_patch_visible", "guard_patch", "guard_review"}
             else "security_owner"
         )
+        # v26.2.5 reports pg_proc.prosecdef=False even for SECURITY DEFINER
+        # functions. The reconstructed DDL exposes the actual security mode.
+        header, delimiter, _ = row[2].partition("AS $$")
+        security = re.findall(
+            r"(?m)^[ \t]*SECURITY (DEFINER|INVOKER)[ \t]*$", header
+        )
+        expected_security = (
+            "INVOKER" if name in {"guard_patch", "guard_review"} else "DEFINER"
+        )
         if (
-            row[1] != (name not in {"guard_patch", "guard_review"})
+            not delimiter
+            or security != [expected_security]
             or row[3] != prefix + "_" + owner_suffix
         ):
             raise MemoryPatchError(ErrorCode.INTEGRITY_FAILED)
