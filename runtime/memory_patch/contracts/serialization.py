@@ -14,7 +14,7 @@ from types import MappingProxyType
 from typing import Any, Iterable, TypeVar
 from uuid import UUID
 
-from ..errors import ContractValidationError, IntegrityError
+from runtime.memory_patch.errors import ContractValidationError, IntegrityError
 
 _MACHINE_PATH_PATTERNS = (
     re.compile("^/home/"),

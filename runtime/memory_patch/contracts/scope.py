@@ -6,14 +6,18 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
-from ..errors import ContractValidationError
-from .enums import MissingDimensionBehavior, ScopeComparisonMode, ScopeValueType
-from .serialization import (
+from runtime.memory_patch.contracts.enums import (
+    MissingDimensionBehavior,
+    ScopeComparisonMode,
+    ScopeValueType,
+)
+from runtime.memory_patch.contracts.serialization import (
     ensure_utc,
     freeze_json,
     require_enum_member,
     require_non_empty,
 )
+from runtime.memory_patch.errors import ContractValidationError
 
 
 @dataclass(frozen=True, slots=True)

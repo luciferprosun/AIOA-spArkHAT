@@ -5,14 +5,19 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 
-from ..errors import ContractValidationError, OwnershipViolation
-from .enums import ActionPolicy, AnswerStatus, EvidenceStatus, KnowledgeRoute
-from .serialization import (
+from runtime.memory_patch.contracts.enums import (
+    ActionPolicy,
+    AnswerStatus,
+    EvidenceStatus,
+    KnowledgeRoute,
+)
+from runtime.memory_patch.contracts.serialization import (
     ensure_utc,
     freeze_string_tuple,
     require_enum_member,
     require_non_empty,
 )
+from runtime.memory_patch.errors import ContractValidationError, OwnershipViolation
 
 
 @dataclass(frozen=True, slots=True)

@@ -6,7 +6,7 @@ import re
 from dataclasses import dataclass
 from typing import Callable
 
-from ..errors import PersistenceConfigurationError
+from runtime.memory_patch.errors import PersistenceConfigurationError
 
 SERIALIZATION_SQLSTATE = "40001"
 _SQLSTATE = re.compile("^[0-9A-Z]{5}$")

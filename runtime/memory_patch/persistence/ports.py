@@ -9,15 +9,23 @@ from __future__ import annotations
 
 import contextvars
 import time
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable, Mapping, Protocol, TypeVar
+from typing import Any, Callable, Protocol, TypeVar
 
 from runtime.core_admission import Capability, CoreAdmission, CorePrincipal, OwnerScope
-
-from ..contracts.serialization import canonical_sha256, freeze_json, require_non_empty
-from ..errors import CommitOutcomeUnknown, ErrorCode, MemoryPatchError
-from .retry import RetryPolicy, extract_sqlstate
+from runtime.memory_patch.contracts.serialization import (
+    canonical_sha256,
+    freeze_json,
+    require_non_empty,
+)
+from runtime.memory_patch.errors import (
+    CommitOutcomeUnknown,
+    ErrorCode,
+    MemoryPatchError,
+)
+from runtime.memory_patch.persistence.retry import RetryPolicy, extract_sqlstate
 
 
 class RecordKind(str, Enum):

@@ -14,6 +14,24 @@ from datetime import datetime
 from typing import Callable
 
 from runtime.core_admission import Capability, CoreActor, CoreAdmission, CorePrincipal
+from runtime.memory_patch.contracts.enums import ActorType
+from runtime.memory_patch.contracts.records import (
+    AuditEvent,
+    build_audit_event,
+    verify_audit_chain,
+    verify_audit_event_hash,
+)
+from runtime.memory_patch.contracts.serialization import (
+    canonical_sha256,
+    to_canonical_data,
+)
+from runtime.memory_patch.errors import ErrorCode, MemoryPatchError
+from runtime.memory_patch.persistence.idempotency import OperationBinding
+from runtime.memory_patch.persistence.ports import (
+    RecordKind,
+    StoredRecord,
+    TransactionView,
+)
 from runtime.nonzero_cloudops.state.files import (
     atomic_write_private_json,
     locked_private_file,
@@ -23,18 +41,6 @@ from runtime.nonzero_cloudops.state.files import (
     validate_local_path,
 )
 from runtime.tools.provenance import AppendOnlyProvenanceStore, verify_provenance_chain
-
-from .contracts.enums import ActorType
-from .contracts.records import (
-    AuditEvent,
-    build_audit_event,
-    verify_audit_chain,
-    verify_audit_event_hash,
-)
-from .contracts.serialization import canonical_sha256, to_canonical_data
-from .errors import ErrorCode, MemoryPatchError
-from .persistence.idempotency import OperationBinding
-from .persistence.ports import RecordKind, StoredRecord, TransactionView
 
 _EVENT_KEYS = frozenset(
     {
@@ -178,6 +184,21 @@ def append_domain_event(
     )
     transaction.insert(outbox)
     return outbox
+
+
+def require_record_audit(
+    transaction: TransactionView, record: StoredRecord
+) -> AuditEvent:
+    """A recomputed row digest alone cannot replace its append-only history."""
+    record.verify()
+    events = [
+        event
+        for event in domain_chain(transaction)
+        if event.resource_id == record.record_id
+    ]
+    if not events or events[-1].content_hashes.get("content") != record.payload_digest:
+        raise MemoryPatchError(ErrorCode.PROVENANCE_CORRUPT)
+    return events[-1]
 
 
 @dataclass(frozen=True, slots=True, repr=False)
@@ -356,6 +377,8 @@ class CoreLedgerPublication:
         self, principal: CorePrincipal, outbox: StoredRecord, event: AuditEvent
     ) -> CorePublicationReceipt:
         self._core.require(principal, principal.capability, scope=outbox.scope)
+        if principal.capability is Capability.READ:
+            raise MemoryPatchError(ErrorCode.ADMISSION_DENIED)
         payload = _publication_payload(outbox, event)
         try:
             self._check_paths()

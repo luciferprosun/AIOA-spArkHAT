@@ -2,19 +2,15 @@
 
 from __future__ import annotations
 
+import hashlib
 import re
+import unicodedata
+from collections.abc import Mapping
 from dataclasses import InitVar, dataclass, field, replace
 from datetime import datetime
-from typing import Any, Mapping, Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
-from ..errors import (
-    AuthorityViolation,
-    ContractValidationError,
-    IntegrityError,
-    OwnershipViolation,
-    QuotaExceeded,
-)
-from .enums import (
+from runtime.memory_patch.contracts.enums import (
     ActionPolicy,
     ActorType,
     ApprovalDecision,
@@ -37,18 +33,24 @@ from .enums import (
     PrivateDataClassification,
     ProposalOrigin,
     SharedPromotionState,
+    StableStringEnum,
     StorageClass,
 )
-from .identities import (
+from runtime.memory_patch.contracts.identities import (
     KernelRunIdentity,
     MemoryOwnership,
     verify_ownership,
     verify_run_ownership,
 )
-from .scope import HatScopeDimensionDefinition, ScopeDimension, scope_interval_is_valid
-from .serialization import (
+from runtime.memory_patch.contracts.scope import (
+    HatScopeDimensionDefinition,
+    ScopeDimension,
+    scope_interval_is_valid,
+)
+from runtime.memory_patch.contracts.serialization import (
     CONTRACT_SCHEMA_VERSION,
     approval_proof_hash,
+    canonical_json_bytes,
     canonical_sha256,
     ensure_utc,
     freeze_json,
@@ -59,6 +61,19 @@ from .serialization import (
     require_schema_version,
     require_sha256_hex,
     verify_canonical_hash,
+)
+from runtime.memory_patch.errors import (
+    AuthorityViolation,
+    ContractValidationError,
+    IntegrityError,
+    OwnershipViolation,
+    QuotaExceeded,
+)
+from runtime.memory_patch.retrieval.embeddings import load_approved_model_spec
+from runtime.memory_patch.source_lineage import (
+    SourceAccessClass,
+    SourceAuthorityLevel,
+    SourcePublicationState,
 )
 
 _EVIDENCE_TRUST_CLASSES = frozenset(
@@ -2158,3 +2173,728 @@ def assert_model_experience_is_advisory(
         raise ContractValidationError("model experience cannot approve memory")
     if used_for_action_authorization:
         raise ContractValidationError("model experience cannot authorize actions")
+
+
+RANKING_POLICY_ID = "hybrid-retrieval-ranking-1a"
+RANKING_POLICY_VERSION = "1"
+RRF_K = 60
+RRF_SCALE = 1000000000
+MAX_UPSTREAM_RESULTS_PER_MODALITY = 100
+MAX_MERGED_CANDIDATES = 500
+MAX_BUNDLE_ITEMS = 40
+MAX_ITEMS_PER_SOURCE = 3
+MAX_ITEMS_PER_KNOWLEDGE_VERSION = 4
+MAX_EXACT_PRIORITY_ITEMS = 8
+MAX_CONTEXT_BUDGET_BYTES = 262144
+MAX_EXCERPT_BYTES_PER_ITEM = 8192
+MIN_PARTIAL_EXCERPT_BYTES = 256
+
+
+class HybridModality(StableStringEnum):
+    EXACT_IDENTIFIER = "EXACT_IDENTIFIER"
+    STATUTE_SECTION = "STATUTE_SECTION"
+    FULL_TEXT = "FULL_TEXT"
+    KEYWORD = "KEYWORD"
+    VECTOR = "VECTOR"
+
+
+_hybrid_MODALITY_ORDER = {
+    HybridModality.STATUTE_SECTION: 0,
+    HybridModality.EXACT_IDENTIFIER: 1,
+    HybridModality.FULL_TEXT: 2,
+    HybridModality.VECTOR: 3,
+    HybridModality.KEYWORD: 4,
+}
+_hybrid_MODALITY_WEIGHTS = {
+    HybridModality.STATUTE_SECTION: 8,
+    HybridModality.EXACT_IDENTIFIER: 8,
+    HybridModality.FULL_TEXT: 4,
+    HybridModality.VECTOR: 3,
+    HybridModality.KEYWORD: 2,
+}
+
+
+class RetrievalCoverageStatus(StableStringEnum):
+    """Completeness relative only to the bounded Step 20 request."""
+
+    EMPTY = "EMPTY"
+    PARTIAL = "PARTIAL"
+    COMPLETE = "COMPLETE"
+    INVALID = "INVALID"
+
+
+class Step20ReasonCode(StableStringEnum):
+    HYBRID_OK = "HYBRID_OK"
+    NO_HAT_SELECTED = "NO_HAT_SELECTED"
+    AMBIGUOUS_ROUTE = "AMBIGUOUS_ROUTE"
+    HYBRID_INPUT_REQUIRED = "HYBRID_INPUT_REQUIRED"
+    HYBRID_INPUT_HASH_INVALID = "HYBRID_INPUT_HASH_INVALID"
+    HYBRID_INPUT_BINDING_MISMATCH = "HYBRID_INPUT_BINDING_MISMATCH"
+    HYBRID_MODEL_MISMATCH = "HYBRID_MODEL_MISMATCH"
+    HYBRID_SCOPE_MISMATCH = "HYBRID_SCOPE_MISMATCH"
+    HYBRID_CANDIDATE_INVALID = "HYBRID_CANDIDATE_INVALID"
+    HYBRID_CANDIDATE_METADATA_CONFLICT = "HYBRID_CANDIDATE_METADATA_CONFLICT"
+    HYBRID_DUPLICATE_MERGED = "HYBRID_DUPLICATE_MERGED"
+    HYBRID_EXACT_PRIORITY = "HYBRID_EXACT_PRIORITY"
+    HYBRID_MULTI_MODAL_SUPPORT = "HYBRID_MULTI_MODAL_SUPPORT"
+    HYBRID_VECTOR_ONLY = "HYBRID_VECTOR_ONLY"
+    HYBRID_RANKED = "HYBRID_RANKED"
+    DIVERSITY_SOURCE_CAP = "DIVERSITY_SOURCE_CAP"
+    DIVERSITY_VERSION_CAP = "DIVERSITY_VERSION_CAP"
+    DIVERSITY_EXACT_CAP = "DIVERSITY_EXACT_CAP"
+    DIVERSITY_GLOBAL_LIMIT = "DIVERSITY_GLOBAL_LIMIT"
+    CONTEXT_BUDGET_EXCLUDED = "CONTEXT_BUDGET_EXCLUDED"
+    CONTEXT_EXCERPT_TRUNCATED = "CONTEXT_EXCERPT_TRUNCATED"
+    BUNDLE_TRUNCATED = "BUNDLE_TRUNCATED"
+    NO_ADMISSIBLE_EVIDENCE = "NO_ADMISSIBLE_EVIDENCE"
+    EVIDENCE_BUNDLE_INVALID = "EVIDENCE_BUNDLE_INVALID"
+    EVIDENCE_BUNDLE_PERSISTENCE_ERROR = "EVIDENCE_BUNDLE_PERSISTENCE_ERROR"
+    EVIDENCE_BUNDLE_REPLAY_CONFLICT = "EVIDENCE_BUNDLE_REPLAY_CONFLICT"
+
+
+class Step20BoundaryError(RuntimeError):
+    """Sanitized fail-closed Step 20 error."""
+
+    def __init__(self, reason_code: Step20ReasonCode) -> None:
+        if not isinstance(reason_code, Step20ReasonCode):
+            raise TypeError("reason_code must be a Step20ReasonCode")
+        super().__init__(f"Step 20 evidence assembly denied: {reason_code.value}")
+        self.reason_code = reason_code
+        self.retrieval_coverage = RetrievalCoverageStatus.INVALID
+        self.evidence_status = EvidenceStatus.INVALID
+
+
+_hybrid_CONTROL = re.compile("[\\x00-\\x08\\x0b\\x0c\\x0e-\\x1f\\x7f]")
+_hybrid_FORBIDDEN_METADATA_KEYS = (
+    "api_key",
+    "authorization",
+    "credential",
+    "password",
+    "private_key",
+    "secret",
+    "token",
+)
+_hybrid_SUPPORTED_AUTHORITY = frozenset(
+    {
+        SourceAuthorityLevel.OFFICIAL_PRIMARY,
+        SourceAuthorityLevel.AUTHORITATIVE_SECONDARY,
+    }
+)
+
+
+def modality_order(value: HybridModality) -> int:
+    require_enum_member(value, HybridModality, "modality")
+    return _hybrid_MODALITY_ORDER[value]
+
+
+def modality_weight(value: HybridModality) -> int:
+    require_enum_member(value, HybridModality, "modality")
+    return _hybrid_MODALITY_WEIGHTS[value]
+
+
+def _hybrid_text(value: object, field_name: str, maximum_bytes: int = 1024) -> str:
+    if not isinstance(value, str) or not value or value != value.strip():
+        raise ContractValidationError(f"{field_name} must be canonical text")
+    if unicodedata.normalize("NFC", value) != value or _hybrid_CONTROL.search(value):
+        raise ContractValidationError(f"{field_name} must be NFC without controls")
+    if len(value.encode("utf-8")) > maximum_bytes:
+        raise ContractValidationError(f"{field_name} exceeds its byte limit")
+    return value
+
+
+def _hybrid_content(value: object, field_name: str, maximum_bytes: int) -> str:
+    if not isinstance(value, str) or not value:
+        raise ContractValidationError(f"{field_name} must be non-empty text")
+    if unicodedata.normalize("NFC", value) != value:
+        raise ContractValidationError(f"{field_name} must use Unicode NFC")
+    for character in value:
+        if unicodedata.category(character) == "Cc" and character not in {"\t", "\n"}:
+            raise ContractValidationError(f"{field_name} contains a prohibited control")
+    if len(value.encode("utf-8")) > maximum_bytes:
+        raise ContractValidationError(f"{field_name} exceeds its byte limit")
+    return value
+
+
+def _hybrid_optional_text(
+    value: object | None, field_name: str, maximum_bytes: int = 1024
+) -> str | None:
+    return None if value is None else _hybrid_text(value, field_name, maximum_bytes)
+
+
+def _hybrid_scope_tuple(value: object, field_name: str) -> tuple[ScopeDimension, ...]:
+    if not isinstance(value, (tuple, list)):
+        raise ContractValidationError(f"{field_name} must be an ordered scope")
+    result = tuple(value)
+    if any((not isinstance(item, ScopeDimension) for item in result)):
+        raise ContractValidationError(f"{field_name} must contain ScopeDimension")
+    names = tuple((item.name for item in result))
+    if names != tuple(sorted(names)) or len(names) != len(set(names)):
+        raise ContractValidationError(f"{field_name} must be sorted and unique")
+    return result
+
+
+def _hybrid_reject_float_or_secret(value: Any, path: str = "metadata") -> None:
+    if isinstance(value, float):
+        raise ContractValidationError(
+            f"{path} must not contain native float hash material"
+        )
+    if isinstance(value, Mapping):
+        for key, child in value.items():
+            lowered = str(key).lower()
+            if any((marker in lowered for marker in _hybrid_FORBIDDEN_METADATA_KEYS)):
+                raise ContractValidationError(
+                    f"{path} contains forbidden secret metadata"
+                )
+            _hybrid_reject_float_or_secret(child, f"{path}.{key}")
+    elif isinstance(value, (tuple, list, set, frozenset)):
+        for index, child in enumerate(value):
+            _hybrid_reject_float_or_secret(child, f"{path}[{index}]")
+
+
+def _hybrid_mapping(
+    value: object, field_name: str, maximum_bytes: int
+) -> Mapping[str, Any]:
+    if not isinstance(value, Mapping) or not all(
+        (isinstance(key, str) for key in value)
+    ):
+        raise ContractValidationError(f"{field_name} must be a string-keyed object")
+    _hybrid_reject_float_or_secret(value, field_name)
+    frozen = freeze_json(value)
+    if len(canonical_json_bytes(frozen)) > maximum_bytes:
+        raise ContractValidationError(f"{field_name} exceeds its byte limit")
+    return frozen
+
+
+def _hybrid_reason_tuple(value: object) -> tuple[Step20ReasonCode, ...]:
+    if not isinstance(value, (tuple, list)):
+        raise ContractValidationError("reason_codes must be ordered")
+    result = tuple(value)
+    if any((not isinstance(item, Step20ReasonCode) for item in result)):
+        raise ContractValidationError("reason_codes must use Step20ReasonCode")
+    if len(result) != len(set(result)):
+        raise ContractValidationError("reason_codes must be unique")
+    return result
+
+
+def _hybrid_expected_match_class(
+    contributions: tuple[ModalityContribution, ...],
+) -> int:
+    modalities = {item.modality for item in contributions}
+    if HybridModality.STATUTE_SECTION in modalities:
+        return 0
+    if HybridModality.EXACT_IDENTIFIER in modalities:
+        return 1
+    if len(modalities) >= 2:
+        return 2
+    if modalities & {HybridModality.FULL_TEXT, HybridModality.KEYWORD}:
+        return 3
+    return 4
+
+
+def _hybrid_expected_candidate_reasons(
+    contributions: tuple[ModalityContribution, ...], match_class: int
+) -> tuple[Step20ReasonCode, ...]:
+    reasons: list[Step20ReasonCode] = []
+    if len(contributions) > 1:
+        reasons.append(Step20ReasonCode.HYBRID_DUPLICATE_MERGED)
+    if match_class in {0, 1}:
+        reasons.append(Step20ReasonCode.HYBRID_EXACT_PRIORITY)
+    elif match_class == 2:
+        reasons.append(Step20ReasonCode.HYBRID_MULTI_MODAL_SUPPORT)
+    elif match_class == 4:
+        reasons.append(Step20ReasonCode.HYBRID_VECTOR_ONLY)
+    reasons.append(Step20ReasonCode.HYBRID_RANKED)
+    return tuple(reasons)
+
+
+@dataclass(frozen=True, slots=True)
+class RankingPolicy:
+    policy_id: str = field(init=False, default=RANKING_POLICY_ID)
+    policy_version: str = field(init=False, default=RANKING_POLICY_VERSION)
+    rrf_k: int = field(init=False, default=RRF_K)
+    rrf_scale: int = field(init=False, default=RRF_SCALE)
+    modality_weights: Mapping[str, int] = field(init=False)
+    policy_digest: str = field(init=False)
+
+    def __post_init__(self) -> None:
+        weights = freeze_json(
+            {
+                modality.value: _hybrid_MODALITY_WEIGHTS[modality]
+                for modality in sorted(HybridModality, key=modality_order)
+            }
+        )
+        object.__setattr__(self, "modality_weights", weights)
+        object.__setattr__(
+            self,
+            "policy_digest",
+            canonical_sha256(self, exclude_fields=("policy_digest",)),
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class DiversityPolicy:
+    policy_id: str = field(init=False, default="hybrid-diversity-1a")
+    policy_version: str = field(init=False, default="1")
+    maximum_bundle_items: int = field(init=False, default=MAX_BUNDLE_ITEMS)
+    maximum_items_per_source: int = field(init=False, default=MAX_ITEMS_PER_SOURCE)
+    maximum_items_per_knowledge_version: int = field(
+        init=False, default=MAX_ITEMS_PER_KNOWLEDGE_VERSION
+    )
+    maximum_exact_priority_items: int = field(
+        init=False, default=MAX_EXACT_PRIORITY_ITEMS
+    )
+    policy_digest: str = field(init=False)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self,
+            "policy_digest",
+            canonical_sha256(self, exclude_fields=("policy_digest",)),
+        )
+
+
+def load_ranking_policy() -> RankingPolicy:
+    return RankingPolicy()
+
+
+def load_diversity_policy() -> DiversityPolicy:
+    return DiversityPolicy()
+
+
+@dataclass(frozen=True, slots=True)
+class CandidateIdentity:
+    tenant_id: str
+    hat_scope_id: str
+    source_id: str
+    knowledge_version_id: str
+    chunk_id: str
+    content_sha256: str
+    identity_hash: str = field(init=False)
+
+    def __post_init__(self) -> None:
+        for value, name in (
+            (self.tenant_id, "tenant_id"),
+            (self.hat_scope_id, "hat_scope_id"),
+            (self.source_id, "source_id"),
+            (self.knowledge_version_id, "knowledge_version_id"),
+            (self.chunk_id, "chunk_id"),
+        ):
+            _hybrid_text(value, name, 255)
+        require_sha256_hex(self.content_sha256, "content_sha256")
+        object.__setattr__(
+            self,
+            "identity_hash",
+            canonical_sha256(self, exclude_fields=("identity_hash",)),
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class ModalityContribution:
+    modality: HybridModality
+    upstream_request_hash: str
+    upstream_result_hash: str
+    upstream_candidate_hash: str
+    one_based_rank: int
+    retrieval_local_value: str | None
+    fixed_point_contribution: int
+    contribution_hash: str = field(init=False)
+
+    def __post_init__(self) -> None:
+        require_enum_member(self.modality, HybridModality, "modality")
+        for value, name in (
+            (self.upstream_request_hash, "upstream_request_hash"),
+            (self.upstream_result_hash, "upstream_result_hash"),
+            (self.upstream_candidate_hash, "upstream_candidate_hash"),
+        ):
+            require_sha256_hex(value, name)
+        if (
+            isinstance(self.one_based_rank, bool)
+            or not isinstance(self.one_based_rank, int)
+            or (not 1 <= self.one_based_rank <= MAX_UPSTREAM_RESULTS_PER_MODALITY)
+        ):
+            raise ContractValidationError("one_based_rank is outside Step 20 bounds")
+        if self.retrieval_local_value is not None:
+            _hybrid_text(self.retrieval_local_value, "retrieval_local_value", 128)
+        expected = (
+            RRF_SCALE * modality_weight(self.modality) // (RRF_K + self.one_based_rank)
+        )
+        if self.fixed_point_contribution != expected:
+            raise ContractValidationError(
+                "fixed-point contribution differs from policy"
+            )
+        object.__setattr__(
+            self,
+            "contribution_hash",
+            canonical_sha256(self, exclude_fields=("contribution_hash",)),
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class HybridCandidate:
+    identity: CandidateIdentity
+    chunk_ordinal: int
+    content: str
+    language_tag: str | None
+    authority_level: SourceAuthorityLevel
+    authority_basis: Mapping[str, Any]
+    source_kind: str
+    source_reference: str
+    publication_state: SourcePublicationState
+    access_class: SourceAccessClass
+    target_scope: MemoryTargetScope
+    owner_user_id: str | None
+    personal_memory_space_id: str | None
+    scope_digest: str
+    registry_digest: str
+    artifact_digest: str
+    snapshot_id: str
+    structured_metadata: Mapping[str, Any]
+    effective_scope: tuple[ScopeDimension, ...]
+    vector_model_digest: str | None
+    vector_embedding_bytes_sha256: str | None
+    contributions: tuple[ModalityContribution, ...]
+    match_class: int
+    fused_score: int
+    reason_codes: tuple[Step20ReasonCode, ...]
+    modality_count: int = field(init=False)
+    candidate_hash: str = field(init=False)
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.identity, CandidateIdentity):
+            raise ContractValidationError("identity must be CandidateIdentity")
+        verify_candidate_identity_hash(self.identity)
+        if (
+            isinstance(self.chunk_ordinal, bool)
+            or not isinstance(self.chunk_ordinal, int)
+            or self.chunk_ordinal < 0
+        ):
+            raise ContractValidationError("chunk_ordinal must be non-negative")
+        content = _hybrid_content(self.content, "content", 64 * 1024)
+        if (
+            hashlib.sha256(content.encode("utf-8")).hexdigest()
+            != self.identity.content_sha256
+        ):
+            raise Step20BoundaryError(Step20ReasonCode.HYBRID_CANDIDATE_INVALID)
+        object.__setattr__(self, "content", content)
+        object.__setattr__(
+            self,
+            "language_tag",
+            _hybrid_optional_text(self.language_tag, "language_tag", 64),
+        )
+        require_enum_member(
+            self.authority_level, SourceAuthorityLevel, "authority_level"
+        )
+        if self.authority_level not in _hybrid_SUPPORTED_AUTHORITY:
+            raise Step20BoundaryError(Step20ReasonCode.HYBRID_CANDIDATE_INVALID)
+        object.__setattr__(
+            self,
+            "authority_basis",
+            _hybrid_mapping(self.authority_basis, "authority_basis", 16 * 1024),
+        )
+        _hybrid_text(self.source_kind, "source_kind", 1024)
+        _hybrid_text(self.source_reference, "source_reference", 2048)
+        require_enum_member(
+            self.publication_state, SourcePublicationState, "publication_state"
+        )
+        if self.publication_state is not SourcePublicationState.PUBLISHED:
+            raise Step20BoundaryError(Step20ReasonCode.HYBRID_CANDIDATE_INVALID)
+        require_enum_member(self.access_class, SourceAccessClass, "access_class")
+        require_enum_member(self.target_scope, MemoryTargetScope, "target_scope")
+        owner = _hybrid_optional_text(self.owner_user_id, "owner_user_id", 255)
+        personal = _hybrid_optional_text(
+            self.personal_memory_space_id, "personal_memory_space_id", 255
+        )
+        if self.access_class is SourceAccessClass.USER_PRIVATE:
+            if (
+                owner is None
+                or personal is None
+                or self.target_scope is not MemoryTargetScope.USER_PERSONAL_HAT
+            ):
+                raise Step20BoundaryError(Step20ReasonCode.HYBRID_CANDIDATE_INVALID)
+        elif (
+            owner is not None
+            or personal is not None
+            or self.target_scope is not MemoryTargetScope.SHARED_KNOWLEDGE_HAT
+        ):
+            raise Step20BoundaryError(Step20ReasonCode.HYBRID_CANDIDATE_INVALID)
+        object.__setattr__(self, "owner_user_id", owner)
+        object.__setattr__(self, "personal_memory_space_id", personal)
+        for value, name in (
+            (self.scope_digest, "scope_digest"),
+            (self.registry_digest, "registry_digest"),
+            (self.artifact_digest, "artifact_digest"),
+        ):
+            require_sha256_hex(value, name)
+        _hybrid_text(self.snapshot_id, "snapshot_id", 255)
+        metadata = _hybrid_mapping(
+            self.structured_metadata, "structured_metadata", 32 * 1024
+        )
+        redaction_state = metadata.get("redaction_state")
+        if redaction_state not in {None, "NOT_REQUIRED", "VERIFIED"}:
+            raise Step20BoundaryError(Step20ReasonCode.HYBRID_CANDIDATE_INVALID)
+        if metadata.get("model_generated") is True:
+            raise Step20BoundaryError(Step20ReasonCode.HYBRID_CANDIDATE_INVALID)
+        object.__setattr__(self, "structured_metadata", metadata)
+        object.__setattr__(
+            self,
+            "effective_scope",
+            _hybrid_scope_tuple(self.effective_scope, "effective_scope"),
+        )
+        vector_values = (self.vector_model_digest, self.vector_embedding_bytes_sha256)
+        if any((value is not None for value in vector_values)):
+            if any((value is None for value in vector_values)):
+                raise ContractValidationError("vector identity must be complete")
+            require_sha256_hex(self.vector_model_digest, "vector_model_digest")
+            require_sha256_hex(
+                self.vector_embedding_bytes_sha256, "vector_embedding_bytes_sha256"
+            )
+            if self.vector_model_digest != load_approved_model_spec().model_digest:
+                raise Step20BoundaryError(Step20ReasonCode.HYBRID_MODEL_MISMATCH)
+        if not isinstance(self.contributions, (tuple, list)):
+            raise ContractValidationError("contributions must be ordered")
+        contributions = tuple(
+            sorted(self.contributions, key=lambda item: modality_order(item.modality))
+        )
+        if not contributions or any(
+            (not isinstance(item, ModalityContribution) for item in contributions)
+        ):
+            raise ContractValidationError("contributions must be typed and non-empty")
+        if len({item.modality for item in contributions}) != len(contributions):
+            raise ContractValidationError("candidate modalities must be unique")
+        for contribution in contributions:
+            verify_contribution_hash(contribution)
+        has_vector = any(
+            (item.modality is HybridModality.VECTOR for item in contributions)
+        )
+        if has_vector != (self.vector_model_digest is not None):
+            raise ContractValidationError("vector contribution and identity must agree")
+        object.__setattr__(self, "contributions", contributions)
+        if (
+            isinstance(self.match_class, bool)
+            or not isinstance(self.match_class, int)
+            or self.match_class != _hybrid_expected_match_class(contributions)
+        ):
+            raise ContractValidationError("match_class is invalid")
+        expected_score = sum((item.fixed_point_contribution for item in contributions))
+        if self.fused_score != expected_score:
+            raise ContractValidationError("fused_score differs from contributions")
+        reasons = _hybrid_reason_tuple(self.reason_codes)
+        if reasons != _hybrid_expected_candidate_reasons(
+            contributions, self.match_class
+        ):
+            raise ContractValidationError("candidate reason codes differ from policy")
+        object.__setattr__(self, "reason_codes", reasons)
+        object.__setattr__(self, "modality_count", len(contributions))
+        object.__setattr__(
+            self,
+            "candidate_hash",
+            canonical_sha256(self, exclude_fields=("candidate_hash",)),
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class EvidenceExcerpt:
+    text: str
+    full_content_sha256: str
+    start_byte: int
+    end_byte: int
+    utf8_byte_length: int
+    excerpt_sha256: str
+    truncated: bool
+
+    def __post_init__(self) -> None:
+        text = _hybrid_content(self.text, "excerpt text", MAX_EXCERPT_BYTES_PER_ITEM)
+        payload = text.encode("utf-8")
+        require_sha256_hex(self.full_content_sha256, "full_content_sha256")
+        for value, name in (
+            (self.start_byte, "start_byte"),
+            (self.end_byte, "end_byte"),
+            (self.utf8_byte_length, "utf8_byte_length"),
+        ):
+            if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+                raise ContractValidationError(f"{name} must be non-negative")
+        if self.start_byte != 0 or self.end_byte != len(payload):
+            raise ContractValidationError("excerpt offsets do not match UTF-8 bytes")
+        if self.utf8_byte_length != len(payload):
+            raise ContractValidationError("excerpt byte length is inconsistent")
+        require_sha256_hex(self.excerpt_sha256, "excerpt_sha256")
+        if hashlib.sha256(payload).hexdigest() != self.excerpt_sha256:
+            raise ContractValidationError("excerpt_sha256 does not match excerpt")
+        if not isinstance(self.truncated, bool):
+            raise ContractValidationError("excerpt truncated must be boolean")
+        if not self.truncated and self.excerpt_sha256 != self.full_content_sha256:
+            raise ContractValidationError(
+                "complete excerpt must match full content hash"
+            )
+        object.__setattr__(self, "text", text)
+
+
+@dataclass(frozen=True, slots=True)
+class EvidenceBundleItem:
+    item_ordinal: int
+    evidence_id: str
+    identity: CandidateIdentity
+    citation_reference: str
+    excerpt: EvidenceExcerpt
+    authority_level: SourceAuthorityLevel
+    authority_basis: Mapping[str, Any]
+    source_kind: str
+    source_reference: str
+    publication_state: SourcePublicationState
+    access_class: SourceAccessClass
+    target_scope: MemoryTargetScope
+    owner_user_id: str | None
+    personal_memory_space_id: str | None
+    scope_digest: str
+    registry_digest: str
+    artifact_digest: str
+    snapshot_id: str
+    structured_metadata: Mapping[str, Any]
+    effective_scope: tuple[ScopeDimension, ...]
+    contributions: tuple[ModalityContribution, ...]
+    match_class: int
+    fused_score: int
+    ranking_policy_id: str
+    ranking_policy_version: str
+    ranking_policy_digest: str
+    item_hash: str = field(init=False)
+
+    def __post_init__(self) -> None:
+        if (
+            isinstance(self.item_ordinal, bool)
+            or not isinstance(self.item_ordinal, int)
+            or self.item_ordinal < 1
+        ):
+            raise ContractValidationError("item_ordinal must be one-based")
+        if not isinstance(self.identity, CandidateIdentity):
+            raise ContractValidationError("identity must be CandidateIdentity")
+        verify_candidate_identity_hash(self.identity)
+        expected_evidence_id = evidence_id_for(self.identity)
+        if self.evidence_id != expected_evidence_id:
+            raise ContractValidationError("evidence_id differs from candidate identity")
+        _hybrid_text(self.citation_reference, "citation_reference", 4096)
+        if not isinstance(self.excerpt, EvidenceExcerpt):
+            raise ContractValidationError("excerpt must be EvidenceExcerpt")
+        if self.excerpt.full_content_sha256 != self.identity.content_sha256:
+            raise ContractValidationError("excerpt and evidence identity differ")
+        require_enum_member(
+            self.authority_level, SourceAuthorityLevel, "authority_level"
+        )
+        if self.authority_level not in _hybrid_SUPPORTED_AUTHORITY:
+            raise Step20BoundaryError(Step20ReasonCode.EVIDENCE_BUNDLE_INVALID)
+        object.__setattr__(
+            self,
+            "authority_basis",
+            _hybrid_mapping(self.authority_basis, "authority_basis", 16 * 1024),
+        )
+        _hybrid_text(self.source_kind, "source_kind", 1024)
+        _hybrid_text(self.source_reference, "source_reference", 2048)
+        if self.citation_reference != citation_reference_for(
+            self.identity, self.source_reference
+        ):
+            raise ContractValidationError("citation_reference differs from lineage")
+        require_enum_member(
+            self.publication_state, SourcePublicationState, "publication_state"
+        )
+        if self.publication_state is not SourcePublicationState.PUBLISHED:
+            raise Step20BoundaryError(Step20ReasonCode.EVIDENCE_BUNDLE_INVALID)
+        require_enum_member(self.access_class, SourceAccessClass, "access_class")
+        require_enum_member(self.target_scope, MemoryTargetScope, "target_scope")
+        owner = _hybrid_optional_text(self.owner_user_id, "owner_user_id", 255)
+        personal = _hybrid_optional_text(
+            self.personal_memory_space_id, "personal_memory_space_id", 255
+        )
+        if self.access_class is SourceAccessClass.USER_PRIVATE:
+            if (
+                owner is None
+                or personal is None
+                or self.target_scope is not MemoryTargetScope.USER_PERSONAL_HAT
+            ):
+                raise Step20BoundaryError(Step20ReasonCode.EVIDENCE_BUNDLE_INVALID)
+        elif (
+            owner is not None
+            or personal is not None
+            or self.target_scope is not MemoryTargetScope.SHARED_KNOWLEDGE_HAT
+        ):
+            raise Step20BoundaryError(Step20ReasonCode.EVIDENCE_BUNDLE_INVALID)
+        object.__setattr__(self, "owner_user_id", owner)
+        object.__setattr__(self, "personal_memory_space_id", personal)
+        for value, name in (
+            (self.scope_digest, "scope_digest"),
+            (self.registry_digest, "registry_digest"),
+            (self.artifact_digest, "artifact_digest"),
+        ):
+            require_sha256_hex(value, name)
+        _hybrid_text(self.snapshot_id, "snapshot_id", 255)
+        metadata = _hybrid_mapping(
+            self.structured_metadata, "structured_metadata", 32 * 1024
+        )
+        if metadata.get("redaction_state") not in {None, "NOT_REQUIRED", "VERIFIED"}:
+            raise Step20BoundaryError(Step20ReasonCode.EVIDENCE_BUNDLE_INVALID)
+        if metadata.get("model_generated") is True:
+            raise Step20BoundaryError(Step20ReasonCode.EVIDENCE_BUNDLE_INVALID)
+        object.__setattr__(self, "structured_metadata", metadata)
+        object.__setattr__(
+            self,
+            "effective_scope",
+            _hybrid_scope_tuple(self.effective_scope, "effective_scope"),
+        )
+        if not isinstance(self.contributions, (tuple, list)):
+            raise ContractValidationError("contributions must be ordered")
+        contributions = tuple(
+            sorted(self.contributions, key=lambda item: modality_order(item.modality))
+        )
+        if not contributions or any(
+            (not isinstance(item, ModalityContribution) for item in contributions)
+        ):
+            raise ContractValidationError("contributions must be typed and non-empty")
+        if len({item.modality for item in contributions}) != len(contributions):
+            raise ContractValidationError("item modalities must be unique")
+        for contribution in contributions:
+            verify_contribution_hash(contribution)
+        object.__setattr__(self, "contributions", contributions)
+        if (
+            isinstance(self.match_class, bool)
+            or not isinstance(self.match_class, int)
+            or self.match_class != _hybrid_expected_match_class(contributions)
+        ):
+            raise ContractValidationError("match_class is invalid")
+        if self.fused_score != sum(
+            (item.fixed_point_contribution for item in contributions)
+        ):
+            raise ContractValidationError("fused score is inconsistent")
+        policy = load_ranking_policy()
+        if (
+            self.ranking_policy_id != policy.policy_id
+            or self.ranking_policy_version != policy.policy_version
+            or self.ranking_policy_digest != policy.policy_digest
+        ):
+            raise ContractValidationError("ranking policy identity is invalid")
+        object.__setattr__(
+            self, "item_hash", canonical_sha256(self, exclude_fields=("item_hash",))
+        )
+
+
+def evidence_id_for(identity: CandidateIdentity) -> str:
+    if not isinstance(identity, CandidateIdentity):
+        raise ContractValidationError("identity must be CandidateIdentity")
+    return f"evidence:{identity.identity_hash}"
+
+
+def citation_reference_for(identity: CandidateIdentity, source_reference: str) -> str:
+    _hybrid_text(source_reference, "source_reference", 2048)
+    return f"{source_reference}#source={identity.source_id};version={identity.knowledge_version_id};chunk={identity.chunk_id}"
+
+
+def verify_candidate_identity_hash(value: CandidateIdentity) -> None:
+    verify_canonical_hash(value, value.identity_hash, exclude_fields=("identity_hash",))
+
+
+def verify_contribution_hash(value: ModalityContribution) -> None:
+    verify_canonical_hash(
+        value, value.contribution_hash, exclude_fields=("contribution_hash",)
+    )
+
+
+def verify_bundle_item_hash(value: EvidenceBundleItem) -> None:
+    verify_canonical_hash(value, value.item_hash, exclude_fields=("item_hash",))

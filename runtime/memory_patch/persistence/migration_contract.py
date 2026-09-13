@@ -12,15 +12,18 @@ import ipaddress
 import re
 import secrets
 import threading
+from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta, timezone
-from typing import Callable, Mapping
+from typing import Callable
 from urllib.parse import unquote, urlsplit
 
 from runtime.core_admission import Capability, CoreAdmission, CorePrincipal
-
-from ..contracts.serialization import canonical_sha256, require_sha256_hex
-from ..errors import ErrorCode, MemoryPatchError
+from runtime.memory_patch.contracts.serialization import (
+    canonical_sha256,
+    require_sha256_hex,
+)
+from runtime.memory_patch.errors import ErrorCode, MemoryPatchError
 
 COCKROACH_COMPAT_VERSION = "v26.2.5"
 MIGRATION_MODE = "C5_DISPOSABLE"

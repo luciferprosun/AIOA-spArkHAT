@@ -2,17 +2,22 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any, Callable, Mapping
+from typing import Any, Callable
 
-from ..contracts.serialization import (
+from runtime.memory_patch.contracts.serialization import (
     canonical_sha256,
     freeze_json,
     require_non_empty,
     require_sha256_hex,
 )
-from ..errors import ErrorCode, MemoryPatchError
-from .ports import RecordKind, StoredRecord, TransactionView
+from runtime.memory_patch.errors import ErrorCode, MemoryPatchError
+from runtime.memory_patch.persistence.ports import (
+    RecordKind,
+    StoredRecord,
+    TransactionView,
+)
 
 
 @dataclass(frozen=True, slots=True, repr=False)
