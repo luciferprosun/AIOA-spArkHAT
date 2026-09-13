@@ -38,7 +38,7 @@ class VectorTemporalTests(unittest.TestCase):
             TransactionContext(core.local_operator(cap), cap), attempt=1
         )
 
-    def parents(self, connection, scope, chunk):
+    def parents(self, connection, scope, chunk, hat_id="test-hat"):
         content = "Reviewed deterministic fixture " + chunk
         digest = hashlib.sha256(content.encode()).hexdigest()
         b = scope.binding()
@@ -70,10 +70,12 @@ class VectorTemporalTests(unittest.TestCase):
         )
         connection.execute(
             "INSERT INTO aioa_memory_patch.source_hat_links VALUES(%s,%s,%s,%s,%s,%s,%s,%s)",
-            (*b, source, "v1", "test-hat", "2" * 64),
+            (*b, source, "v1", hat_id, "2" * 64),
         )
 
-    def insert_vector(self, c, scope, chunk, vector, *, model=None, digest=None):
+    def insert_vector(
+        self, c, scope, chunk, vector, *, model=None, digest=None, hat_id="test-hat"
+    ):
         literal = (
             vector
             if isinstance(vector, str)
@@ -86,7 +88,7 @@ class VectorTemporalTests(unittest.TestCase):
                 chunk,
                 "source-" + chunk,
                 "v1",
-                "test-hat",
+                hat_id,
                 self.spec.model_id,
                 self.spec.model_revision,
                 model or self.spec.model_digest,
@@ -96,13 +98,17 @@ class VectorTemporalTests(unittest.TestCase):
             ),
         )
 
-    def seed(self, core, factory, values):
+    def seed(self, core, factory, values, *, hat_id="test-hat"):
         tx = self.begin(Capability.EVIDENCE_CAPTURE, core=core, factory=factory)
         try:
             for chunk, vector in values:
-                self.parents(tx._lease.connection, tx._context.scope, chunk)
+                self.parents(tx._lease.connection, tx._context.scope, chunk, hat_id)
                 self.insert_vector(
-                    tx._lease.connection, tx._context.scope, chunk, vector
+                    tx._lease.connection,
+                    tx._context.scope,
+                    chunk,
+                    vector,
+                    hat_id=hat_id,
                 )
             tx.commit()
         finally:
@@ -189,7 +195,7 @@ class VectorTemporalTests(unittest.TestCase):
             },
         )
 
-    def test_09_exact_top_k_stable_ties_scope_and_independent_ann(self):
+    def test_09_exact_top_k_stable_ties_scope(self):
         query = normalize_embedding_vector([1] + [0] * 383)
         close = normalize_embedding_vector([0.9, 0.1] + [0] * 382)
         far = normalize_embedding_vector([0, 1] + [0] * 382)
@@ -206,6 +212,28 @@ class VectorTemporalTests(unittest.TestCase):
                 self.seed(foreign, factory, [("unauthorized-best", query)])
             finally:
                 factory.close()
+        foreign_hat = make_core(
+            tenant=scope.tenant_id,
+            owner=scope.owner_id,
+            space=scope.space_id,
+            hat_ids={"private-hat"},
+        )
+        factory = self.cfg.factory(foreign_hat)
+        try:
+            self.seed(
+                foreign_hat,
+                factory,
+                [("unauthorized-hat-best", query)],
+                hat_id="private-hat",
+            )
+        finally:
+            factory.close()
+        self.seed(self.core, self.factory, [("revoked-best", query)])
+        with self.cfg.connect("root") as admin:
+            admin.execute(
+                "UPDATE aioa_memory_patch.source_publications SET source_status='WITHDRAWN' WHERE tenant_id=%s AND owner_id=%s AND space_id=%s AND slot_id=%s AND source_id='source-revoked-best'",
+                scope.binding(),
+            )
         tx = self.begin()
         try:
             exact = tx.vectors.search(
@@ -231,20 +259,6 @@ class VectorTemporalTests(unittest.TestCase):
             self.assertEqual([row[0] for row in exact], [row[0] for row in expected])
             for actual, wanted in zip(exact, expected, strict=True):
                 self.assertAlmostEqual(actual[4], wanted[1], places=6)
-            ann = tx.vectors.search(
-                query,
-                hat_id="test-hat",
-                model_digest=self.spec.model_digest,
-                limit=3,
-                approximate=True,
-            )
-            self.assertTrue(
-                set(row[0] for row in ann) <= {chunk for chunk, _ in values}
-            )
-            recall = len(
-                set(row[0] for row in ann) & {chunk for chunk, _ in values}
-            ) / len(values)
-            self.assertGreaterEqual(recall, 0.8)
             for kwargs in (
                 {"hat_id": "unapproved", "model_digest": self.spec.model_digest},
                 {"hat_id": "test-hat", "model_digest": "0" * 64},
@@ -255,7 +269,7 @@ class VectorTemporalTests(unittest.TestCase):
             tx.rollback()
             tx.close()
         self.cfg.save(
-            "C5_VECTOR_RETRIEVAL.json",
+            "C5_VECTOR_RETRIEVAL_EXACT.json",
             {
                 "STATUS": "PASS",
                 "exact_top_k": [
@@ -264,13 +278,66 @@ class VectorTemporalTests(unittest.TestCase):
                 "tie_order": "chunk_id",
                 "unauthorized_higher_score_rows_returned": 0,
                 "scope_filter_before_ranking": True,
-                "ANN": {
-                    "criterion": "independent bounded fixture recall >= 0.8; no claim of exact ANN ordering",
-                    "recall": recall,
-                    "scope_leaks": 0,
-                },
+                "unauthorized_categories": ["tenant", "owner", "hat"],
+                "revoked_source_returned": False,
             },
         )
+
+    def test_09_required_application_ann_scope_and_quality(self):
+        # This required criterion remains a failing test until a scoped ANN
+        # implementation passes. It is never converted to a skip or admin test.
+        query = normalize_embedding_vector([1] + [0] * 383)
+        close = normalize_embedding_vector([0.9, 0.1] + [0] * 382)
+        values = (("ann-a", query), ("ann-b", close))
+        self.seed(self.core, self.factory, values)
+        scope = self.core.local_operator(Capability.READ).scope
+        foreign = make_core(
+            tenant="foreign-ann-tenant", owner=scope.owner_id, space=scope.space_id
+        )
+        factory = self.cfg.factory(foreign)
+        try:
+            self.seed(foreign, factory, [("foreign-ann-best", query)])
+        finally:
+            factory.close()
+        tx = self.begin()
+        try:
+            try:
+                ann = tx.vectors.search(
+                    query,
+                    hat_id="test-hat",
+                    model_digest=self.spec.model_digest,
+                    limit=2,
+                    approximate=True,
+                )
+            except MemoryPatchError as error:
+                self.cfg.save(
+                    "C5_VECTOR_ANN_REQUIRED_CRITERION.json",
+                    {
+                        "STATUS": "FAIL",
+                        "contract_id": "C5-09",
+                        "code": error.code.value,
+                        "reason": "Pinned v26.2.5 rejected ANN with required request-context RLS (42809); ordinary ANN remains unverified and disabled.",
+                        "RLS_weakened": False,
+                        "admin_substitution": False,
+                        "exact_fallback_presented_as_ANN": False,
+                        "required_recall": 0.8,
+                        "actual_recall": None,
+                        "reference": "https://docs.cockroachlabs.com/docs/v26.2/vector-indexes",
+                    },
+                )
+                self.fail(
+                    "C5-09 required application ANN is not certified; C5 must remain FAIL"
+                )
+            self.assertTrue(
+                set(row[0] for row in ann) <= {chunk for chunk, _ in values}
+            )
+            recall = len(
+                {row[0] for row in ann} & {chunk for chunk, _ in values}
+            ) / len(values)
+            self.assertGreaterEqual(recall, 0.8)
+        finally:
+            tx.rollback()
+            tx.close()
 
     def test_10_sql_personal_temporal_revocation_supersession_and_conflict(self):
         from test_memory_patch_persistence_ports import NOW

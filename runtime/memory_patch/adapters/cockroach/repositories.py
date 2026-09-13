@@ -211,6 +211,11 @@ class ScopedVectorRepository:
             or type(approximate) is not bool
         ):
             raise MemoryPatchError(ErrorCode.INVALID_REQUEST)
+        if approximate:
+            # v26.2.5 rejects vector-index acceleration with this required
+            # request-context RLS filter (SQLSTATE 42809). Keep this explicit
+            # mode unverified; never weaken RLS or silently substitute a scan.
+            raise MemoryPatchError(ErrorCode.UNVERIFIED)
         checked = vector_from_float32_bytes(vector.float32_bytes)
         if (
             checked.values != vector.values
@@ -218,7 +223,7 @@ class ScopedVectorRepository:
         ):
             raise MemoryPatchError(ErrorCode.INTEGRITY_FAILED)
         literal = "[" + ",".join(repr(value) for value in checked.values) + "]"
-        index = "@scoped_vector_l2_idx" if approximate else "@chunk_vectors_pkey"
+        index = "@chunk_vectors_pkey"
         query = (
             "SELECT v.chunk_id,v.source_id,v.version_id,v.embedding_bytes_digest,"
             "v.embedding <-> %s::VECTOR(384) AS distance,v.embedding::STRING "
@@ -229,7 +234,7 @@ class ScopedVectorRepository:
             "WHERE (p.tenant_id,p.owner_id,p.space_id,p.slot_id,p.source_id,p.version_id)="
             "(v.tenant_id,v.owner_id,v.space_id,v.slot_id,v.source_id,v.version_id) "
             "AND p.source_status='PUBLISHED' AND p.reviewed_license AND p.publication_proof_id IS NOT NULL) "
-            "ORDER BY distance" + ("" if approximate else ",v.chunk_id") + " LIMIT %s"
+            "ORDER BY distance,v.chunk_id LIMIT %s"
         )
         with self._connection.cursor() as cursor:
             cursor.execute(

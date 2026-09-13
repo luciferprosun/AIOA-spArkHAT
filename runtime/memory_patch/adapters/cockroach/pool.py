@@ -107,6 +107,21 @@ def open_admitted_handle(
                 raise MemoryPatchError(ErrorCode.TARGET_DENIED)
             if handle.purpose is not DatabasePurpose.MIGRATOR and (role[1] or role[2]):
                 raise MemoryPatchError(ErrorCode.TARGET_DENIED)
+            if handle.purpose is not DatabasePurpose.MIGRATOR:
+                prefix = target.application_role.removesuffix("_app")
+                cursor.execute(
+                    "SELECT pg_catalog.has_schema_privilege(session_user,'public','CREATE'),"
+                    "pg_catalog.pg_has_role(session_user,%s,'MEMBER'),"
+                    "pg_catalog.pg_has_role(session_user,%s,'MEMBER'),"
+                    "pg_catalog.pg_has_role(session_user,%s,'MEMBER')",
+                    (
+                        target.migrator_role,
+                        prefix + "_schema_owner",
+                        prefix + "_security_owner",
+                    ),
+                )
+                if cursor.fetchone() != (False, False, False, False):
+                    raise MemoryPatchError(ErrorCode.TARGET_DENIED)
         return connection
     except BaseException:
         if connection is not None:

@@ -41,7 +41,12 @@ BINARY_SHA256 = "5ad89c804abb3bf5afa9c073faecb3710a1c4f34a870f08cdef889c1c91d314
 
 
 def make_core(
-    *, tenant="fixture-tenant-a", owner="fixture-owner-a", space=None, clock=None
+    *,
+    tenant="fixture-tenant-a",
+    owner="fixture-owner-a",
+    space=None,
+    clock=None,
+    hat_ids=frozenset({"test-hat"}),
 ):
     scope = OwnerScope(
         tenant, owner, space or "space-" + secrets.token_hex(8), "fixture-slot"
@@ -49,7 +54,7 @@ def make_core(
     assignment = LocalOwnerAssignment(
         scope,
         frozenset(Capability),
-        frozenset({"test-hat"}),
+        frozenset(hat_ids),
         frozenset({"test-model"}),
         operator_approved=True,
     )
@@ -83,7 +88,8 @@ class CertificationInputs:
     def verify_binary(self):
         config = json.loads((self.private / "config.json").read_text())
         binary = Path(config["binary"])
-        actual = hashlib.file_digest(binary.open("rb"), "sha256").hexdigest()
+        with binary.open("rb") as stream:
+            actual = hashlib.file_digest(stream, "sha256").hexdigest()
         assert actual == BINARY_SHA256
         return {
             "binary_sha256": actual,

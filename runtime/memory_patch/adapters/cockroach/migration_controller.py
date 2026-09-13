@@ -113,6 +113,14 @@ def catalog(connection, prefix):
             "ORDER BY tc.table_name,tc.constraint_name",
             (schema,),
         ),
+        "constraint_definitions": _rows(
+            connection,
+            "SELECT t.relname,c.conname,c.contype,pg_catalog.pg_get_constraintdef(c.oid) "
+            "FROM pg_catalog.pg_constraint c JOIN pg_catalog.pg_class t ON t.oid=c.conrelid "
+            "JOIN pg_catalog.pg_namespace n ON n.oid=c.connamespace WHERE n.nspname=%s "
+            "ORDER BY t.relname,c.conname",
+            (schema,),
+        ),
         "policies": _rows(
             connection,
             "SELECT tablename,policyname,permissive,roles::STRING,cmd,qual,with_check "
@@ -121,9 +129,10 @@ def catalog(connection, prefix):
         ),
         "functions": _rows(
             connection,
-            "SELECT p.proname,p.prosecdef,pg_catalog.pg_get_functiondef(p.oid) "
+            "SELECT p.proname,p.prosecdef,pg_catalog.pg_get_functiondef(p.oid),r.rolname "
             "FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n "
-            "ON n.oid=p.pronamespace WHERE n.nspname=%s ORDER BY p.proname,p.oid",
+            "ON n.oid=p.pronamespace JOIN pg_catalog.pg_roles r ON r.oid=p.proowner "
+            "WHERE n.nspname=%s ORDER BY p.proname,p.oid",
             (schema,),
         ),
         "indexes": _rows(
@@ -164,6 +173,21 @@ def catalog(connection, prefix):
             (names, names),
         ),
     }
+    function_names = [row[0] for row in result["functions"]]
+    if any(not re.fullmatch(r"[a-z][a-z_]{1,63}", name) for name in function_names):
+        raise MemoryPatchError(ErrorCode.INTEGRITY_FAILED)
+    # pg_proc.proacl and has_function_privilege do not expose the actual
+    # v26.2.5 UDF grants reliably. SHOW GRANTS is the supported object view.
+    result["function_grants"] = (
+        _rows(
+            connection,
+            "SELECT routine_signature,grantee,privilege_type,is_grantable FROM [SHOW GRANTS ON FUNCTION "
+            + ",".join(schema + "." + name for name in function_names)
+            + "] ORDER BY routine_signature,grantee,privilege_type",
+        )
+        if function_names
+        else []
+    )
     return result
 
 
@@ -242,6 +266,65 @@ def validate_catalog(state, manifest, prefix):
             expected_policies.add(name + "_update")
     if actual_policies != expected_policies:
         raise MemoryPatchError(ErrorCode.INTEGRITY_FAILED)
+    definitions = state["constraint_definitions"]
+    for table in manifest["scoped_tables"]:
+        primary = [r[3] for r in definitions if r[0] == table and r[2] == "p"]
+        if len(primary) != 1 or not primary[0].startswith(
+            "PRIMARY KEY (tenant_id ASC, owner_id ASC, space_id ASC, slot_id ASC,"
+        ):
+            raise MemoryPatchError(ErrorCode.INTEGRITY_FAILED)
+    for table, _, kind, definition in definitions:
+        if (
+            table in manifest["scoped_tables"]
+            and kind == "f"
+            and not definition.startswith(
+                "FOREIGN KEY (tenant_id, owner_id, space_id, slot_id,"
+            )
+        ):
+            raise MemoryPatchError(ErrorCode.INTEGRITY_FAILED)
+    functions = {row[0]: row for row in state["functions"]}
+    expected_functions = {
+        "mint_context_ticket",
+        "set_request_context",
+        "clear_request_context",
+        "scope_allows",
+        "hat_allows",
+        "review_patch_visible",
+        "guard_patch",
+        "guard_review",
+    }
+    if set(functions) != expected_functions:
+        raise MemoryPatchError(ErrorCode.INTEGRITY_FAILED)
+    ordinary = set(manifest["read_role_tables"])
+    for name, row in functions.items():
+        owner_suffix = (
+            "schema_owner"
+            if name in {"review_patch_visible", "guard_patch", "guard_review"}
+            else "security_owner"
+        )
+        if (
+            row[1] != (name not in {"guard_patch", "guard_review"})
+            or row[3] != prefix + "_" + owner_suffix
+        ):
+            raise MemoryPatchError(ErrorCode.INTEGRITY_FAILED)
+        allowed = {"broker"} if name == "mint_context_ticket" else set(ordinary)
+        if name in {"scope_allows", "hat_allows"}:
+            allowed.add("schema_owner")
+        actual = set()
+        for signature, grantee, privilege, grantable in state["function_grants"]:
+            if signature.split("(", 1)[0] != name:
+                continue
+            if grantee in {"root", "admin", row[3]} and privilege == "ALL":
+                continue
+            if (
+                not grantee.startswith(prefix + "_")
+                or privilege != "EXECUTE"
+                or grantable
+            ):
+                raise MemoryPatchError(ErrorCode.INTEGRITY_FAILED)
+            actual.add(grantee.removeprefix(prefix + "_"))
+        if actual != allowed:
+            raise MemoryPatchError(ErrorCode.INTEGRITY_FAILED)
     for row in state["grants"]:
         name, grantee, privilege, _ = row
         if grantee == "public" or (
@@ -510,8 +593,9 @@ class NativeMigrationController:
                         connection.rollback()
                         raise
                     observe("unit_after_commit", ordinal)
+                    state = catalog(connection, prefix)
                     continue
-                current = catalog(connection, prefix)
+                current = state
                 completed_prefix = read_applied(connection, current)
                 pending = read_pending(
                     connection, current, manifest, digest, completed_prefix
@@ -540,7 +624,8 @@ class NativeMigrationController:
                         )
                     if connection.info.transaction_status.name != "IDLE":
                         raise MemoryPatchError(ErrorCode.RECOVERY_REQUIRED)
-                    after = canonical_sha256(catalog(connection, prefix))
+                    state = catalog(connection, prefix)
+                    after = canonical_sha256(state)
                     with connection.cursor() as cursor:
                         cursor.execute(
                             "UPDATE aioa_memory_patch.schema_migrations SET completed_statements=%s,catalog_fingerprint=%s WHERE ordinal=%s AND state='APPLYING' AND completed_statements=%s",

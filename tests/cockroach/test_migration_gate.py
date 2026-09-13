@@ -11,6 +11,7 @@ import sys
 import tempfile
 import unittest
 from dataclasses import replace
+from datetime import timedelta
 from pathlib import Path
 from unittest.mock import patch
 
@@ -205,6 +206,16 @@ class MigrationGateTests(unittest.TestCase):
                 ctl.execute(p, plan, wrong, snapshot)
         with self.assertRaises(MemoryPatchError):
             replace(plan, mode="ambient")
+        with patch.object(
+            ctl, "clock", return_value=snapshot.expires_at + timedelta(seconds=1)
+        ):
+            with self.assertRaises(MemoryPatchError):
+                ctl.execute(p, plan, auth, snapshot)
+        with patch.object(
+            ctl.admission, "_clock", return_value=auth.expires_at + timedelta(seconds=1)
+        ):
+            with self.assertRaises(MemoryPatchError):
+                ctl.execute(p, plan, auth, snapshot)
         self.assertEqual(len(cfg.calls), before)
         ctl.close()
 
@@ -271,6 +282,13 @@ class MigrationGateTests(unittest.TestCase):
             for n in range(1, 19)
         }
         expected |= {("certificate_before", 18), ("certificate_after", 18)}
+        expected |= {
+            (stage, unit["ordinal"] * 10000 + index)
+            for unit in migration.load_assets()[0]["units"]
+            if unit["ordinal"] > 1
+            for index in range(1, unit["statement_count"] + 1)
+            for stage in ("statement_before", "statement_after")
+        }
         self.assertEqual(
             {(row["fault"], row["ordinal"]) for row in record["faults"]}, expected
         )
