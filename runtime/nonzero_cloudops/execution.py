@@ -4,6 +4,7 @@
 
 import hashlib
 import hmac
+import json
 from collections.abc import Callable
 from contextlib import suppress
 from datetime import datetime, timedelta
@@ -46,7 +47,7 @@ from .state.protocol import DurableTruthRepository
 
 
 class CoreOperatorPrincipal(BaseModel):
-    """Authenticated local operator identity supplied by the API boundary."""
+    """Core-supplied local operator identity, stable across browser/runtime restart."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -163,6 +164,36 @@ class ExecutionCompletion(BaseModel):
 ApprovalChallengeResult = ControlResult[ApprovalChallenge]
 ApprovalResolutionResult = ControlResult[ApprovalResolution]
 ExecutionResult = ControlResult[ExecutionCompletion]
+
+
+def execution_result_upper_bound(checkpoint: Checkpoint | None) -> int:
+    """Conservative wire budget, calculated before dispatch without simulating it.
+
+    Fixed completion/receipt/verification fields (UUIDs, hashes, enums, bounded
+    identifiers, UTC timestamps and JSON framing) use less than 8192 bytes:
+    six 36-byte UUIDs, seven 64-byte hashes, three <=256-byte ASCII identifiers,
+    two <=32-byte timestamps, seven <=32-byte enum values, booleans and <2048
+    bytes of field names/framing (including both service/HTTP envelopes).
+    The exact approval is counted separately, including its version integer.
+    Variable resource data appears at most three times: before, after, observed.
+    The only executable operations remove an EIP or an ordered subset of rules;
+    neither can enlarge that data. Count ASCII-escaped JSON including nulls,
+    which upper-bounds the service's exclude_none encoding and HTTP UTF-8.
+    This is not a receipt, verification or an alternative execution path.
+    """
+    bound = 8192
+    if checkpoint is not None:
+        if checkpoint.local_approval is not None:
+            bound += len(json.dumps(
+                checkpoint.local_approval.model_dump(mode="json"), allow_nan=False,
+            ).encode())
+        if checkpoint.resource_evidence is not None:
+            bound += 3 * len(json.dumps(
+                checkpoint.resource_evidence.resource.model_dump(mode="json"),
+                allow_nan=False,
+            ).encode())
+    return bound
+
 
 _APPROVED_DECISION_DOWNSTREAM_STATES = frozenset(
     {
@@ -462,7 +493,7 @@ class BoundExecutionWorkflow:
             return self._execution_failed(
                 FailureKind.POLICY_DENIAL,
                 "LOCAL_OPERATOR_SESSION_MISMATCH",
-                "Only the authenticated deciding session may resume execution",
+                "Only the deciding local operator identity may resume execution",
             )
         if approval.decision is ApprovalDecision.DENIED:
             applied = self._apply_decision_state(run, checkpoint, approval)

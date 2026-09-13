@@ -66,7 +66,25 @@ class ModuleConfig:
             raise NonZeroError("NONZERO_CONFIG_INVALID", 400)
 
 
+@dataclass(frozen=True, slots=True)
+class InvalidStartupConfig:
+    """Retain only a typed failure, never a mutable malformed input or secrets."""
+
+    code: str
+    status: int
+
+
+def snapshot_config(config=None) -> ModuleConfig | InvalidStartupConfig:
+    """One immutable startup decision; invalid optional config keeps Core alive."""
+    try:
+        return parse_config(config)
+    except NonZeroError as error:
+        return InvalidStartupConfig(error.code, error.status)
+
+
 def parse_config(config=None) -> ModuleConfig:
+    if isinstance(config, InvalidStartupConfig):
+        raise NonZeroError(config.code, config.status)
     if config is None:
         return ModuleConfig()
     if isinstance(config, ModuleConfig):

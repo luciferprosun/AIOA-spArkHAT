@@ -9,10 +9,13 @@ import tempfile
 import threading
 import unittest
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import FrozenInstanceError
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from unittest.mock import patch
 from uuid import UUID
 
+from main import create_runtime
 from nonzero_cloudops import module_descriptor
 from webapp import WebRuntimeService, make_server
 
@@ -35,8 +38,8 @@ class CoreNativeAuthorityTests(unittest.TestCase):
         self.clock_patch.start().now.side_effect = lambda _zone: self.now
         self.start_core()
 
-    def start_core(self):
-        self.app = WebRuntimeService(cpl_fixture=True)
+    def start_core(self, config=None):
+        self.app = WebRuntimeService(runtime=create_runtime(cpl_fixture=True, nonzero_config=config))
         self.server = make_server('127.0.0.1', 0, self.app)
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.thread.start()
@@ -50,9 +53,9 @@ class CoreNativeAuthorityTests(unittest.TestCase):
         self.app.close()
         self.assertFalse(self.thread.is_alive())
 
-    def restart_core(self):
+    def restart_core(self, config=None):
         self.stop_core()
-        self.start_core()
+        self.start_core(config)
 
     def tearDown(self):
         self.stop_core()
@@ -236,7 +239,7 @@ class CoreNativeAuthorityTests(unittest.TestCase):
         self.assertEqual(executor.mutation_calls, 1)
 
     def test_core_disabled_module_preserves_core_health(self):
-        self.app.runtime.nonzero_config = {'enabled': False}
+        self.restart_core({'enabled': False})
         status = self.api('GET', '/api/nonzero/status')
         self.assertEqual(status['availability_code'], 'NONZERO_DISABLED')
         self.api('GET', '/api/nonzero/ready', expected=503)
@@ -247,18 +250,247 @@ class CoreNativeAuthorityTests(unittest.TestCase):
         for enabled, code in [(False, 'NONZERO_AWS_EXPLICIT_ENABLEMENT_REQUIRED'),
                               (True, 'NONZERO_AWS_BACKEND_NOT_CERTIFIED')]:
             with self.subTest(aws_enabled=enabled):
-                self.app.runtime.nonzero_config = {'backend': 'aws', 'aws_enabled': enabled}
+                self.restart_core({'backend': 'aws', 'aws_enabled': enabled})
                 status = self.api('GET', '/api/nonzero/status')
                 self.assertEqual(status['availability_code'], code)
                 self.assertFalse(status['live_aws_enabled'])
                 self.api('POST', '/api/nonzero/runs', TARGET, expected=503)
                 self.assertIsNone(self.app.runtime._nonzero_service)
+                self.assertEqual(list(Path(self.temporary.name).rglob('native-v1')), [])
                 self.assertIn('evidence_review', self.api('GET', '/api/status'))
 
     def test_core_malformed_config_is_typed_without_state_initialization(self):
-        self.app.runtime.nonzero_config = {'enabled': 'yes'}
+        self.restart_core({'enabled': 'yes'})
         status = self.api('GET', '/api/nonzero/status')
         self.assertEqual(status['availability_code'], 'NONZERO_CONFIG_INVALID')
         self.api('POST', '/api/nonzero/runs', TARGET, expected=400)
         self.assertIsNone(self.app.runtime._nonzero_service)
         self.assertIn('critical_loop', self.api('GET', '/api/status'))
+
+    def test_phase6_config_assignment_cannot_diverge_from_active_service(self):
+        self.api('GET', '/api/nonzero/ready')
+        runtime = self.app.runtime
+        service = runtime.nonzero_cloudops
+        for replacement in ({'enabled': False}, {'backend': 'aws'}, {'enabled': 'yes'}):
+            with self.subTest(config=replacement):
+                with self.assertRaises(AttributeError):
+                    runtime.nonzero_config = replacement
+                with self.assertRaises(AttributeError):
+                    service.config = replacement
+                status = self.api('GET', '/api/nonzero/status')
+                self.assertTrue(status['available'])
+                self.assertTrue(status['initialized'])
+                self.assertEqual(status['mode'], 'portable')
+                self.assertIs(runtime.nonzero_cloudops, service)
+        with self.assertRaises(FrozenInstanceError):
+            runtime.nonzero_config.enabled = False
+        self.assertEqual(self.api('GET', '/api/nonzero/ready')['status'], 'ready')
+
+    def test_phase6_startup_snapshot_does_not_retain_input_dictionary(self):
+        config = {'enabled': False}
+        self.restart_core(config)
+        config['enabled'] = True
+        status = self.api('GET', '/api/nonzero/status')
+        self.assertEqual(status['availability_code'], 'NONZERO_DISABLED')
+        self.assertFalse(status['initialized'])
+        self.api('POST', '/api/nonzero/runs', TARGET, expected=503)
+        self.assertIsNone(self.app.runtime._nonzero_service)
+        self.assertEqual(list(Path(self.temporary.name).rglob('native-v1')), [])
+        self.restart_core(config)
+        self.assertFalse(self.api('GET', '/api/nonzero/status')['initialized'])
+        self.assertEqual(self.api('GET', '/api/nonzero/ready')['status'], 'ready')
+        self.assertTrue(self.api('GET', '/api/nonzero/status')['initialized'])
+
+    def test_phase6_malformed_snapshot_cannot_be_repaired_by_input_mutation(self):
+        config = {'enabled': 'yes'}
+        self.restart_core(config)
+        config['enabled'] = True
+        self.assertEqual(self.api('GET', '/api/nonzero/status')['availability_code'],
+                         'NONZERO_CONFIG_INVALID')
+        self.api('POST', '/api/nonzero/runs', TARGET, expected=400)
+        self.assertIsNone(self.app.runtime._nonzero_service)
+        self.assertEqual(list(Path(self.temporary.name).rglob('native-v1')), [])
+
+    def test_phase6_close_cannot_reinitialize_or_keep_cached_service_available(self):
+        from nonzero_cloudops import NonZeroError
+        runtime = self.app.runtime
+        self.api('GET', '/api/nonzero/ready')
+        service = runtime.nonzero_cloudops
+        runtime.close()
+        self.assertFalse(runtime.nonzero_status()['available'])
+        self.assertFalse(service.status()['available'])
+        with self.assertRaises(NonZeroError) as failure:
+            _ = runtime.nonzero_cloudops
+        self.assertEqual(failure.exception.code, 'NONZERO_SERVICE_CLOSED')
+        with self.assertRaises(NonZeroError):
+            service.ready(operator=True)
+        self.assertEqual(service.components.executor.mutation_calls, 0)
+
+    def test_phase6_request_append_failure_prevents_protected_dispatch(self):
+        path = self.start_run()
+        self.approve(path)
+        service = self.app.runtime.nonzero_cloudops
+        checkpoint = service.components.repository.get_checkpoint(UUID(path.rsplit('/', 1)[1]))
+        with patch.object(service.provenance, 'append_event', side_effect=OSError('injected disk failure')):
+            failed = self.resume(path, expected=503)
+        self.assertEqual(failed['error'], 'NONZERO_PROVENANCE_WRITE_FAILED')
+        self.assertEqual(service.components.executor.execute_calls, 0)
+        self.assertEqual(service.components.repository.get_checkpoint(checkpoint.run_id), checkpoint)
+        self.assertEqual(self.resume(path)['final_state'], 'SUCCESS_WITH_EVIDENCE')
+        self.assertEqual(service.components.executor.mutation_calls, 1)
+
+    def test_phase6_post_decision_evidence_failure_reconciles_exact_decision(self):
+        path = self.start_run()
+        body = self.challenge(path)
+        service = self.app.runtime.nonzero_cloudops
+        append = service.provenance.append_event
+
+        def fail_result(kind, payload):
+            if kind == 'nonzero_operator_result':
+                raise OSError('injected result write failure')
+            return append(kind, payload)
+
+        with patch.object(service.provenance, 'append_event', side_effect=fail_result):
+            self.api('POST', path+'/decision', body, expected=503)
+        run_id = UUID(body['run_id'])
+        saved = service.components.repository.get_checkpoint(run_id).local_approval
+        self.assertIsNotNone(saved)
+        self.assertEqual(service.components.executor.mutation_calls, 0)
+        self.restart_core()
+        retried = self.api('POST', path+'/decision', body)
+        self.assertTrue(retried['reconciled'])
+        self.assertEqual(retried['decision_hash'], saved.decision_hash)
+        service = self.app.runtime.nonzero_cloudops
+        self.assertEqual(service.components.repository.get_checkpoint(run_id).local_approval, saved)
+        self.api('POST', path+'/decision', {**body, 'decision': 'DENIED'}, expected=409)
+        events = service.components.repository.read_run_snapshot(run_id).audit_events
+        self.assertEqual(sum(event.type.value == 'APPROVAL_RECORDED' for event in events), 1)
+        self.assertEqual(service.components.executor.mutation_calls, 0)
+
+    def test_phase6_post_mutation_evidence_failure_recovers_same_durable_proof(self):
+        path = self.start_run()
+        self.approve(path)
+        service = self.app.runtime.nonzero_cloudops
+        append = service.provenance.append_event
+
+        def fail_result(kind, payload):
+            if kind == 'nonzero_operator_result':
+                raise OSError('injected result write failure')
+            return append(kind, payload)
+
+        with patch.object(service.provenance, 'append_event', side_effect=fail_result):
+            self.resume(path, expected=503)
+        checkpoint = service.components.repository.get_checkpoint(UUID(path.rsplit('/', 1)[1]))
+        receipt = checkpoint.local_execution_receipt.model_dump(mode='json', exclude_none=True)
+        verification = checkpoint.local_verification.model_dump(mode='json', exclude_none=True)
+        self.assertEqual(service.components.executor.mutation_calls, 1)
+        self.restart_core()
+        done = self.resume(path)
+        self.assertTrue(done['reconciled'])
+        self.assertEqual(done['receipt'], receipt)
+        self.assertEqual(done['verification'], verification)
+        self.assertEqual(self.app.runtime.nonzero_cloudops.components.executor.execute_calls, 0)
+        self.assertEqual(self.api('GET', path)['run_sandbox_mutations'], 1)
+        entries = self.api('GET', '/api/nonzero/trace')['entries']
+        resumes = [item for item in entries if item['payload']['operation'] == 'execute-approved-portable']
+        self.assertEqual([item['event_type'] for item in resumes],
+                         ['nonzero_operator_request', 'nonzero_operator_request', 'nonzero_operator_result'])
+        self.assertIn(receipt['receipt_hash'], json.dumps(resumes[-1]))
+        self.assertTrue(resumes[-1]['payload']['evidence']['value']['reconciled'])
+
+    def test_phase6_truncation_after_success_requires_explicit_integrity_repair(self):
+        path = self.start_run()
+        self.approve(path)
+        done = self.resume(path)
+        service = self.app.runtime.nonzero_cloudops
+        log = service.provenance.log_path
+        original = log.read_bytes()
+        # A valid prefix passes hash-chain verification without the durable head.
+        log.write_bytes(b''.join(original.splitlines(keepends=True)[:-1]))
+        failed = self.resume(path, expected=409)
+        self.assertEqual(failed['error'], 'NONZERO_PROVENANCE_HEAD_MISMATCH')
+        self.api('POST', '/api/nonzero/runs', GROUP, expected=409)
+        self.assertEqual(service.components.executor.mutation_calls, 1)
+        self.restart_core()
+        self.resume(path, expected=409)
+        self.assertIsNone(self.app.runtime._nonzero_service)
+        # Explicit operator restoration of the exact saved log, not auto-adoption.
+        log.write_bytes(original)
+        recovered = self.resume(path)
+        self.assertTrue(recovered['reconciled'])
+        self.assertEqual(recovered['receipt'], done['receipt'])
+        self.assertEqual(recovered['verification'], done['verification'])
+        self.assertEqual(self.app.runtime.nonzero_cloudops.components.executor.execute_calls, 0)
+
+    def test_phase6_corruption_after_success_blocks_new_protected_operation(self):
+        path = self.start_run()
+        self.approve(path)
+        self.resume(path)
+        service = self.app.runtime.nonzero_cloudops
+        log = service.provenance.log_path
+        log.write_bytes(log.read_bytes().replace(b'nonzero_operator_result', b'nonzero_operator_tamper', 1))
+        self.api('POST', '/api/nonzero/runs', GROUP, expected=409)
+        self.resume(path, expected=409)
+        self.assertEqual(service.components.executor.mutation_calls, 1)
+
+    def test_phase6_missing_head_never_silently_reanchors_existing_state(self):
+        path = self.start_run()
+        service = self.app.runtime.nonzero_cloudops
+        service._evidence.head_path.unlink()
+        self.restart_core()
+        self.api('POST', path+'/approval-request', {}, expected=409)
+        self.assertIsNone(self.app.runtime._nonzero_service)
+
+    def test_phase6_head_write_failure_after_request_fsync_prevents_dispatch(self):
+        path = self.start_run()
+        self.approve(path)
+        service = self.app.runtime.nonzero_cloudops
+        with patch.object(service._evidence, '_write_head', side_effect=OSError('injected head failure')):
+            self.resume(path, expected=503)
+        self.assertEqual(service.components.executor.execute_calls, 0)
+        self.resume(path, expected=409)
+        self.assertEqual(service.components.executor.execute_calls, 0)
+
+    def test_phase6_minimum_output_budget_executes_both_actions_once(self):
+        self.restart_core({'max_output_bytes': 16384})
+        for target in (TARGET, GROUP):
+            with self.subTest(target=target['resource_type']):
+                result = self.api('POST', '/api/nonzero/runs', target, expected=201)
+                path = '/api/nonzero/runs/'+result['run_id']
+                self.approve(path)
+                done = self.resume(path)
+                self.assertEqual(done['final_state'], 'SUCCESS_WITH_EVIDENCE')
+                self.assertLess(len(json.dumps(done).encode()), 16384)
+                retried = self.resume(path)
+                self.assertTrue(retried['reconciled'])
+                self.assertEqual(retried['receipt'], done['receipt'])
+                self.assertEqual(retried['verification'], done['verification'])
+                self.assertEqual(self.api('GET', path)['run_sandbox_mutations'], 1)
+        self.assertEqual(self.app.runtime.nonzero_cloudops.components.executor.mutation_calls, 2)
+
+    def test_phase6_large_resource_budget_rejects_before_intent_and_mutation(self):
+        self.restart_core({'max_output_bytes': 16384})
+        self.api('GET', '/api/nonzero/ready')
+        service = self.app.runtime.nonzero_cloudops
+        inventory = service.components.inventory
+        resources, receipts = inventory._initial_snapshot()
+        # Seed a larger valid synthetic fixture; all decisions/execution use HTTP.
+        for key, resource in list(resources.items()):
+            if resource.resource_id == GROUP['resource_id']:
+                resources[key] = type(resource).model_validate({
+                    **resource.model_dump(), 'tags': {str(i): 'x'*200 for i in range(16)},
+                })
+        inventory._write(resources, receipts)
+        path = self.start_run(GROUP)
+        self.approve(path)
+        entries = len(service.provenance.read_all())
+        for _ in range(2):
+            failed = self.resume(path, expected=409)
+            self.assertEqual(failed['error'], 'NONZERO_EXECUTION_OUTPUT_BUDGET_INSUFFICIENT')
+        self.assertEqual(len(service.provenance.read_all()), entries)
+        self.assertEqual(service.components.executor.execute_calls, 0)
+        self.assertEqual(self.api('GET', path)['run_sandbox_mutations'], 0)
+        self.restart_core({'max_output_bytes': 32768})
+        done = self.resume(path)
+        self.assertEqual(done['final_state'], 'SUCCESS_WITH_EVIDENCE')
+        self.assertEqual(self.app.runtime.nonzero_cloudops.components.executor.mutation_calls, 1)

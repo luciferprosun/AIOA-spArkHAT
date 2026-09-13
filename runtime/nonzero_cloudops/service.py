@@ -49,7 +49,7 @@ class NonZeroCloudOpsService:
         operator_id: str = "core-local-operator",
         clock: Callable[[], datetime] | None = None,
     ):
-        self.config = parse_config(config)
+        self._config = parse_config(config)
         descriptor = module_descriptor(self.config)
         if not descriptor["available"]:
             raise NonZeroError(descriptor["availability_code"])
@@ -82,7 +82,8 @@ class NonZeroCloudOpsService:
             except OSError as error:
                 raise NonZeroError("NONZERO_STATE_ALREADY_OWNED", 409) from error
             self._identity_path = root / "native-identity.json"
-            if not self._identity_path.exists():
+            new_namespace = not self._identity_path.exists()
+            if new_namespace:
                 if any(path.name != "service.lock" for path in root.iterdir()):
                     raise NonZeroError("NONZERO_LEGACY_STATE_REQUIRES_MIGRATION", 409)
                 atomic_write_private_json(self._identity_path, source_identity())
@@ -131,7 +132,8 @@ class NonZeroCloudOpsService:
                 inventory=inventory,
             )
             self._evidence = CoreEvidenceLink(
-                root, max_bytes=self.config.max_trace_bytes, clock=self._clock
+                root, max_bytes=self.config.max_trace_bytes, clock=self._clock,
+                create=new_namespace,
             )
             self.provenance = self._evidence.store
             # Opening state only validates: no resume or execution on startup.
@@ -150,14 +152,26 @@ class NonZeroCloudOpsService:
         except (StateIntegrityError, OSError) as error:
             raise NonZeroError("NONZERO_SOURCE_IDENTITY_MISMATCH", 409) from error
 
-    def status(self) -> dict:
-        return {
-            **module_descriptor(self.config),
-            "initialized": True,
-            "closed": self._closed,
-        }
+    @property
+    def config(self) -> ModuleConfig:
+        """Effective configuration is immutable for this leased service lifetime."""
+        return self._config
 
-    def _perform(self, operation: str, path: str, call, *, operator: bool, write: bool):
+    def status(self) -> dict:
+        with self._lock:
+            result = {
+                **module_descriptor(self.config),
+                "initialized": True,
+                "closed": self._closed,
+            }
+            if self._closed:
+                result.update(available=False, availability_code="NONZERO_SERVICE_CLOSED")
+            return result
+
+    def _perform(
+        self, operation: str, path: str, call, *, operator: bool, write: bool,
+        preflight=None,
+    ):
         if operator is not True:
             raise NonZeroError("NONZERO_OPERATOR_REQUIRED", 403)
         with self._lock:
@@ -170,6 +184,13 @@ class NonZeroCloudOpsService:
             self._evidence.check(
                 reserve=2 * self.config.max_output_bytes if write else 0
             )
+            if preflight is not None:
+                try:
+                    preflight()
+                except NonZeroError:
+                    raise
+                except Exception as error:
+                    raise NonZeroError("NONZERO_STATE_OR_OPERATION_UNAVAILABLE", 503) from error
             operation_id = secrets.token_hex(16)
             if write:
                 self._evidence.append(
@@ -205,6 +226,13 @@ class NonZeroCloudOpsService:
                     },
                 )
             return result
+
+    def _check_execution_output(self, run_id: UUID):
+        from .execution import execution_result_upper_bound
+
+        checkpoint = self.components.repository.get_checkpoint(run_id)
+        if execution_result_upper_bound(checkpoint) > self.config.max_output_bytes:
+            raise NonZeroError("NONZERO_EXECUTION_OUTPUT_BUDGET_INSUFFICIENT", 409)
 
     def start(
         self, request: StartRunRequest, *, operator: bool = False
@@ -294,6 +322,7 @@ class NonZeroCloudOpsService:
             lambda: self.components.execution.resume(run_id, self._principal),
             operator=operator,
             write=True,
+            preflight=lambda: self._check_execution_output(run_id),
         )
 
     def ready(self, *, operator: bool = False) -> LocalReadyView:

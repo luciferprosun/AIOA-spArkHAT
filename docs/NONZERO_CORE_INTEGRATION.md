@@ -1,6 +1,7 @@
 # Native NonZero CloudOps inside AIOA spArkHAT
 
-Status: local `integration/nonzero-cloudops-one-system-v1`; no push, PR, main merge or deployment.
+Status: candidate branch `integration/nonzero-cloudops-one-system-v1`, Draft PR #1;
+Phase 6 hardening and certification precede a separate merge decision.
 Module identity: `nonzero-cloudops`. Contract: `nonzero-native-v1`.
 
 ```text
@@ -85,6 +86,13 @@ initializing the service. Defaults ignore ambient AWS/Bedrock environment switch
 Selecting `backend='aws'` fails closed: explicit enablement is required, and even
 with it native v1 returns `NONZERO_AWS_BACKEND_NOT_CERTIFIED`. No live backend or
 external model call was enabled by this convergence pass.
+
+Configuration is a frozen snapshot for one runtime lifetime. Reconfiguration
+requires an explicit close/restart; status describes the effective service after
+initialization. Phase 6 adds a durable chain head to detect truncated evidence
+and checks execution output capacity before dispatch. See the
+[native contract](modules/NONZERO_CLOUDOPS_NATIVE_CONTRACT.md) for exact retry,
+recovery and compatibility rules for existing unanchored state.
 
 The native public methods are `start(StartRunRequest)`, `inspect(UUID)`,
 `request_approval(UUID)`, `decide(DecisionRequest)`,

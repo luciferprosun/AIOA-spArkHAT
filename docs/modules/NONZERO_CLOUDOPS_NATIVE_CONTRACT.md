@@ -15,9 +15,24 @@ AgentRuntime lazily owns one NonZeroCloudOpsService in its `runtime_state_dir/no
 
 Core owns admission and service lifecycle. NonZero owns only domain-specific exact approval and recovery. Service has a process lease, serialized requests, explicit close, no background execution and no automatic recovery action on startup. Existing Phase 2 state requires a separate future migration; never silently grant its credentials authority.
 
+The Core identity `core-local-operator` denotes one trusted local operator. The
+legacy DTO field name `actor_session_id` carries that identity across runtime and
+browser restarts. It is not an identity for each browser session and provides no
+public multi-user isolation. The HTTP session token admits requests to Core;
+the separate exact decision nonce binds the human decision.
+
 ## Configuration and Python
 
 `ModuleConfig` is immutable and rejects unknown fields/coercion: enabled bool; backend `portable` or `aws`; explicit AWS enable flag; immutable expected source SHA; bounded approval TTL and run/state/output quotas. Defaults are enabled portable, no external models, no AWS. Ambient environment cannot turn on privileged capabilities. AWS explicitly selected without config or a certified backend returns a fixed unavailability code, never mock fallback. No credential reads or live AWS in this phase.
+
+Phase 6 fixes configuration for an entire `AgentRuntime` lifetime.
+`create_runtime(nonzero_config=...)` snapshots input into a private frozen value;
+malformed input retains only a typed error. The `nonzero_config` and service
+`config` properties reject assignment. Reconfiguration requires closing the old
+runtime and creating a new one. Status before initialization describes startup
+configuration without creating module state; afterward it describes the cached
+service's effective configuration. Close makes both status and retained service
+references unavailable and prevents lazy reinitialization.
 
 Target Python policy A: native and Core >=3.11. Preserve Pydantic/UUID schema behavior using TypeVar/Generic instead of PEP 695 syntax. Exact compatibility must be tested on real 3.11 and 3.12 interpreters, not version mocking alone. Optional dependencies are installed once through `aioa-sparkhat[nonzero]`, not an embedded project. Discovery on an interpreter below minimum returns an unavailable code where parsing permits; Core >=3.11 remains the installation floor.
 
@@ -50,8 +65,42 @@ Resource evidence -> proposal hash -> request hash -> decision hash -> intent ha
 
 Reuse `tools.provenance.AppendOnlyProvenanceStore` and `verify_provenance_chain` for Core-visible intent/result linkage. Include native contract version, immutable JUDGE_SHA and domain hashes. Validate persistent source identity before dispatch, and record intent durably before mutation. Log inability or corruption must fail closed. Domain checkpoint events are not a competing global provenance system. Hashes establish integrity/linkage, never factual truth; local filesystem ownership is the trust boundary, not an external attestation.
 
+Phase 6 persists the Core chain's entry count and terminal hash in a private,
+integrity-enveloped `provenance/chain-head.json`. Each append fsyncs the log before
+atomically replacing and fsyncing that head. A valid prefix of a truncated log
+therefore fails closed. A crash between the two durable writes also fails closed;
+the service never adopts a mismatched head automatically. Existing unanchored
+Phase 3–5 state requires explicit operator recovery or a separate clean state
+namespace. Preserve the entire old namespace for investigation; do not delete
+receipts, checkpoints or the log to manufacture a successful recovery. An operator
+may restore a known complete matching log/head pair from a trusted backup; this
+release provides no automatic migration or repair command. These local digests
+cannot detect a privileged owner deliberately rewriting both log and anchor.
+
+If a Core result append fails after the durable human decision or after verified
+execution, the request fails visibly. An explicit retry uses the exact durable
+decision/receipt/verification and sets `reconciled=true`; it cannot change the
+decision or execute a second mutation. The earlier unmatched Core request remains
+in the trace, and the recovered result links the same domain hashes. If the chain
+itself is incomplete, integrity repair must precede that retry.
+
+Before resume dispatch, the service checks a conservative serialized execution
+budget: 8192 bytes for bounded fixed fields/framing, the exact approval, and three
+copies of the observed resource. The only executable operations remove an EIP or
+an ordered subset of ingress rules, so after/observed resources cannot be larger.
+ASCII-escaped JSON including nulls bounds the service and HTTP encodings. The
+minimum accepted limit is 16384 bytes. Oversized resources are refused before
+intent/dispatch; after an explicit restart with a larger valid limit, the same
+approved action can resume. This calculation creates no action or simulated
+receipt and does not duplicate mutation logic.
+
 ## Runtime independence and certification
 
 No native import/read/launch into baseline; no runtime Git, pip, clone/fetch, shell launcher or second app. The frozen source repositories stay untouched. The imported reference directory is now retired from the active Core tree and installed wheel, while Git history preserves recovery. Static checks plus clean installed-wheel happy/deny/binding/replay/restart/provenance tests must pass with baseline physically absent, not masked or restored. The sealed pre-retirement reference results are historical evidence; full current Core/native regression has no source-tree oracle dependency.
 
-No remote push, PR, main merge, tags, deployment or live cloud mutation. Stop after local certification/report for operator review before remote branch publication or a PR.
+The original Phase 3/4 local-only publication restriction ended with Phase 5's
+authorized Draft PR #1. Phase 6 may update only that existing candidate branch
+after local certification. Its no-secrets GitHub CI uses Python 3.11/3.12 and
+read-only repository permissions. Hosted checks are reported separately from
+local checks. PR #1 must stay Draft; merge, tags, release, deployment, live cloud
+and paid model calls require a separate future decision.

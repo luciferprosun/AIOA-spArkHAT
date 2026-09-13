@@ -9,6 +9,12 @@ from pathlib import Path
 from tools.provenance import AppendOnlyProvenanceStore, verify_provenance_chain
 
 from .contract import CONTRACT_VERSION, JUDGE_SHA, MODULE_ID, NonZeroError
+from .state.files import (
+    atomic_write_private_json,
+    open_local_payload,
+    read_private_json,
+    seal_local_payload,
+)
 
 PRIVATE_FIELDS = {
     "decision_nonce",
@@ -57,7 +63,7 @@ def private_file(path: Path, *, create: bool = False) -> int:
 class CoreEvidenceLink:
     """Adapter over Core ledger, not a replacement global chain implementation."""
 
-    def __init__(self, root: Path, *, max_bytes: int, clock):
+    def __init__(self, root: Path, *, max_bytes: int, clock, create: bool = False):
         directory = root / "provenance"
         if directory.is_symlink():
             raise NonZeroError("NONZERO_UNSAFE_STATE_PATH")
@@ -67,8 +73,26 @@ class CoreEvidenceLink:
             raise NonZeroError("NONZERO_UNSAFE_STATE_DIRECTORY")
         self.store = AppendOnlyProvenanceStore(root, clock=clock)
         self.max_bytes = max_bytes
-        os.close(private_file(self.store.log_path, create=True))
+        self.head_path = directory / "chain-head.json"
+        # Only a newly admitted empty namespace may establish an anchor. Never
+        # silently trust/anchor an existing or truncated unanchored log.
+        if create:
+            os.close(private_file(self.store.log_path, create=True))
+            if self.store.read_all() or self.head_path.exists():
+                raise NonZeroError("NONZERO_PROVENANCE_CORRUPT", 409)
+            self._write_head(verify_provenance_chain([]))
         self.check()
+
+    @staticmethod
+    def _head(result):
+        return {**source_identity(), "entry_count": result.entry_count,
+                "terminal_hash": result.terminal_hash}
+
+    def _write_head(self, result):
+        atomic_write_private_json(
+            self.head_path,
+            seal_local_payload(self._head(result), payload_type="NONZERO_CORE_CHAIN_HEAD"),
+        )
 
     def check(self, *, reserve: int = 0):
         try:
@@ -94,14 +118,20 @@ class CoreEvidenceLink:
                 for event in entries
             ):
                 raise NonZeroError("NONZERO_SOURCE_IDENTITY_MISMATCH", 409)
+            os.close(private_file(self.head_path))
+            head, _ = open_local_payload(
+                read_private_json(self.head_path), payload_type="NONZERO_CORE_CHAIN_HEAD",
+            )
+            if head != self._head(result):
+                raise NonZeroError("NONZERO_PROVENANCE_HEAD_MISMATCH", 409)
             return entries, result
         except (OSError, ValueError, TypeError, KeyError, RecursionError) as error:
             raise NonZeroError("NONZERO_PROVENANCE_CORRUPT", 409) from error
 
     def append(self, kind: str, payload: dict):
-        self.check()
+        entries, _ = self.check()
         try:
-            self.store.append_event(
+            record = self.store.append_event(
                 kind, {**public_evidence(payload), **source_identity()}
             )
             # Core owns the chain format. Flush intent before protected dispatch.
@@ -110,5 +140,11 @@ class CoreEvidenceLink:
                 os.fsync(fd)
             finally:
                 os.close(fd)
+            result = verify_provenance_chain([*entries, record])
+            if not result.ok:
+                raise NonZeroError("NONZERO_PROVENANCE_CORRUPT", 409)
+            # A crash between log fsync and atomic head replacement fails closed
+            # on the next check. There is no automatic adoption or rollback.
+            self._write_head(result)
         except (OSError, TypeError, ValueError) as error:
             raise NonZeroError("NONZERO_PROVENANCE_WRITE_FAILED", 503) from error

@@ -263,12 +263,12 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
             )
 
     def _handle_nonzero(self, method, parsed, payload):
-        from nonzero_cloudops import NonZeroError, module_descriptor
+        from nonzero_cloudops import NonZeroError
         try:
             if parsed.query or parsed.fragment:
                 raise NonZeroError('NONZERO_QUERY_NOT_ALLOWED', 400)
             if method == 'GET' and parsed.path == '/api/nonzero/status':
-                self._write_json(HTTPStatus.OK, module_descriptor(self._service().runtime.nonzero_config))
+                self._write_json(HTTPStatus.OK, self._service().runtime.nonzero_status())
                 return
             service = self._service().runtime.nonzero_cloudops
             if method == 'GET' and parsed.path == '/api/nonzero/trace':

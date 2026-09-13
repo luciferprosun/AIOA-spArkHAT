@@ -170,7 +170,9 @@ class AgentRuntime:
         self._cpl_service = None
         self._cpl_init_lock = threading.Lock()
         self._nonzero_service = None
-        self.nonzero_config = nonzero_config
+        from nonzero_cloudops.contract import snapshot_config
+        self._nonzero_config = snapshot_config(nonzero_config)
+        self._nonzero_closed = False
         self._nonzero_init_lock = threading.Lock()
         self.cpl_cost_policy = None
         self._owned_cpl_fixture = None
@@ -258,8 +260,10 @@ class AgentRuntime:
         return self.critical_loop.wait(plan['run_id'])
 
     def close(self):
-        if self._nonzero_service is not None:
-            self._nonzero_service.close()
+        with self._nonzero_init_lock:
+            self._nonzero_closed = True
+            if self._nonzero_service is not None:
+                self._nonzero_service.close()
         if self._cpl_service is not None:
             self._cpl_service.close()
         if self._owned_cpl_fixture is not None:
@@ -267,9 +271,29 @@ class AgentRuntime:
             self._owned_cpl_fixture = None
 
     @property
+    def nonzero_config(self):
+        """Read-only startup snapshot. Reconfiguration requires a new runtime."""
+        return self._nonzero_config
+
+    def nonzero_status(self):
+        """Describe the effective lifecycle without initializing optional state."""
+        from nonzero_cloudops import module_descriptor
+        with self._nonzero_init_lock:
+            if self._nonzero_service is not None:
+                return self._nonzero_service.status()
+            result = {**module_descriptor(self.nonzero_config),
+                      'initialized': False, 'closed': self._nonzero_closed}
+            if self._nonzero_closed:
+                result.update(available=False, availability_code='NONZERO_SERVICE_CLOSED')
+            return result
+
+    @property
     def nonzero_cloudops(self):
         """Own one optional portable module through the existing runtime."""
         with self._nonzero_init_lock:
+            if self._nonzero_closed:
+                from nonzero_cloudops import NonZeroError
+                raise NonZeroError('NONZERO_SERVICE_CLOSED')
             if self._nonzero_service is None:
                 from nonzero_cloudops import NonZeroCloudOpsService
                 from runtime_paths import runtime_state_dir
@@ -343,7 +367,6 @@ class AgentRuntime:
 
     def snapshot_status(self) -> dict[str, Any]:
         """Return the current runtime status for CLI and web callers."""
-        from nonzero_cloudops import module_descriptor
         memory = self.memory_store.memory
         return {
             "session_id": memory.session_id,
@@ -352,7 +375,7 @@ class AgentRuntime:
             "desktop_dir": str(self.desktop_dir),
             "model": self.provider_manager.describe(),
             "product_name": "AIOA spArkHAT",
-            "nonzero_cloudops": module_descriptor(self.nonzero_config),
+            "nonzero_cloudops": self.nonzero_status(),
             "critical_loop": {"enabled": True, "authority": "ADVISORY_ONLY",
                               "mode": "TEST" if getattr(self.provider_manager, 'fixture_base_url', None) is not None else "LIVE_PENDING_AUTHORIZATION",
                               "knowledge_promotion": "DISABLED"},
@@ -1190,7 +1213,7 @@ def print_banner(runtime: AgentRuntime) -> None:
     print(f"[INFO] Obsidian vault: {runtime.memory_store.vault_dir}")
 
 
-def create_runtime(*, cpl_fixture=False, cpl_cost_policy=None):
+def create_runtime(*, cpl_fixture=False, cpl_cost_policy=None, nonzero_config=None):
     fixture = None
     if cpl_fixture:
         from critical_loop.fixture import LocalCPLFixture
@@ -1202,6 +1225,7 @@ def create_runtime(*, cpl_fixture=False, cpl_cost_policy=None):
         prompt_template=prompt_template,
         project_dir=PROJECT_DIR,
         debug_raw=DEBUG_RAW_RESPONSE,
+        nonzero_config=nonzero_config,
     )
     runtime.cpl_cost_policy = cpl_cost_policy
     runtime._owned_cpl_fixture = fixture

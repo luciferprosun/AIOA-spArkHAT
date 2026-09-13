@@ -86,7 +86,8 @@ def cmd_nonzero(args: str, runtime) -> CommandResult:
             'start-json <resource_type/resource_id JSON> | run <run_id> | approval <run_id> | '
             'decision-json <exact DecisionRequest JSON> | resume <run_id> CONFIRM')
     if action == 'status' and not raw:
-        return CommandResult(True, json.dumps(module_descriptor(getattr(runtime, 'nonzero_config', None)), indent=2))
+        status = runtime.nonzero_status() if runtime is not None else module_descriptor()
+        return CommandResult(True, json.dumps(status, indent=2))
     try:
         if len(raw.encode()) > 16384:
             raise NonZeroError('NONZERO_REQUEST_TOO_LARGE', 413)

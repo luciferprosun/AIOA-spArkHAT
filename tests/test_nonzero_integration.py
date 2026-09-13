@@ -279,8 +279,11 @@ class NonZeroWebTests(unittest.TestCase):
         self.assertEqual(self.request('GET', '/api/nonzero/ready')[0], 200)
 
     def test_disabled_module_keeps_core_and_discovery_healthy(self):
+        from main import create_runtime
+
+        self.service.runtime.close()
+        self.service.runtime = create_runtime(cpl_fixture=True, nonzero_config={'enabled': False})
         runtime = self.service.runtime
-        runtime.nonzero_config = {'enabled': False}
         code, status = self.request('GET', '/api/nonzero/status')
         self.assertEqual(code, 200)
         self.assertEqual(status['availability_code'], 'NONZERO_DISABLED')
