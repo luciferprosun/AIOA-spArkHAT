@@ -1,0 +1,385 @@
+{
+  "schema": "native-memory-patch-cockroach-manifest-v1",
+  "compatibility_version": "v26.2.5",
+  "native_schema": "aioa_memory_patch",
+  "role_prefix_placeholder": "__ROLE_PREFIX__",
+  "units": [
+    {
+      "ordinal": 1,
+      "path": "0001_identity.sql",
+      "sha256": "cd5b502904175e9c9adaea7ce873b311f486b57a293958c52fff53ab838fe876",
+      "statement_count": 3,
+      "phase": "DATABASE_TRANSACTION",
+      "source_path": "sql/cockroachdb/migrations/0001_step4_identity_and_hat_scopes.sql",
+      "source_blob_sha": "d67fb2a808060dc53ef6a92afb301f600d864f99"
+    },
+    {
+      "ordinal": 2,
+      "path": "0002_source_lineage.sql",
+      "sha256": "996af6ae16c72bca7b62da62198a7c86d45f31d669796832cf43c71db7549bae",
+      "statement_count": 3,
+      "phase": "DATABASE_TRANSACTION",
+      "source_path": "sql/cockroachdb/migrations/0002_step4_knowledge_lineage_and_retrieval.sql",
+      "source_blob_sha": "7f2a39e25ae00dcdb63071362ecdf21c534658be"
+    },
+    {
+      "ordinal": 3,
+      "path": "0003_domain_records.sql",
+      "sha256": "c5fa627bfec737906648e80cf5de4535fc3750c09d9751b9c80783717183d7b5",
+      "statement_count": 4,
+      "phase": "DATABASE_TRANSACTION",
+      "source_path": "sql/cockroachdb/migrations/0003_step4_kernel_memory_and_audit_evidence.sql",
+      "source_blob_sha": "10dbfe209d4ce455bc9a0f378d8d9870fd257612"
+    },
+    {
+      "ordinal": 4,
+      "path": "0004_roles_and_context.sql",
+      "sha256": "0b61bbdcc962aaa68c9a9a58a1ff9e1074981532ca943ba32a511aebc638b27c",
+      "statement_count": 7,
+      "phase": "DATABASE_TRANSACTION",
+      "source_path": "sql/cockroachdb/migrations/0004_step5_tenant_roles_session_context_rls.sql",
+      "source_blob_sha": "72ec1f2470ba8f10170555047bfeb816b1764ca9"
+    },
+    {
+      "ordinal": 5,
+      "path": "0005_idempotency.sql",
+      "sha256": "4726aa7bc01f4aa9191de46161d469107059bc3f489141f8f817fde583247b7b",
+      "statement_count": 4,
+      "phase": "DATABASE_TRANSACTION",
+      "source_path": "sql/cockroachdb/migrations/0005_step6_persistence_idempotency_retry_foundation.sql",
+      "source_blob_sha": "458c8ff73457d0e59e07a87de89ce25c3350a08f"
+    },
+    {
+      "ordinal": 6,
+      "path": "0006_source_publication.sql",
+      "sha256": "d364779ff1bf649fedc529d07c1ca99a27f2ccc81f8b029bfa1ce8a62cc241dc",
+      "statement_count": 3,
+      "phase": "DATABASE_TRANSACTION",
+      "source_path": "sql/cockroachdb/migrations/0006_step9_source_registry_provenance_publication_states.sql",
+      "source_blob_sha": "12a5dcbbc50ae91fcf97d58dd820410a475ec20f"
+    },
+    {
+      "ordinal": 7,
+      "path": "0007_ingestion.sql",
+      "sha256": "5836b6f42c424c67f4260a73fb76018c521c88d8e57660eb63a0f516ff8ea2c0",
+      "statement_count": 4,
+      "phase": "DATABASE_TRANSACTION",
+      "source_path": "sql/cockroachdb/migrations/0007_step10_idempotent_ingestion_saga.sql",
+      "source_blob_sha": "6141618f70f7c19331bc8b90aec62a3d2a1e68cb"
+    },
+    {
+      "ordinal": 8,
+      "path": "0008_parsing.sql",
+      "sha256": "d87798169ba322bf860cfb22e5fc1a3c89dd281443958d7becb924a386cb4843",
+      "statement_count": 3,
+      "phase": "DATABASE_TRANSACTION",
+      "source_path": "sql/cockroachdb/migrations/0008_step11_generic_parsing_pipeline.sql",
+      "source_blob_sha": "42fa72b36773d25c0fc96625567e8ba6ec11e135"
+    },
+    {
+      "ordinal": 9,
+      "path": "0009_scoped_hat_contracts.sql",
+      "sha256": "95deaf51b2c9ef4b19380601772a2dd130e0d586cf935a0d19683dc3cd658f55",
+      "statement_count": 3,
+      "phase": "DATABASE_TRANSACTION",
+      "source_path": "sql/cockroachdb/migrations/0009_step12_hat_registry_runtime_boundary.sql",
+      "source_blob_sha": "d82aae60c0db64f21cf4b520bc3a2a93e2d5eaf2"
+    },
+    {
+      "ordinal": 10,
+      "path": "0010_vectors.sql",
+      "sha256": "a610c5df749f8b7ed0b0d378dbd54293170aedbe157c3fe8e89ad512b8ed392e",
+      "statement_count": 4,
+      "phase": "DATABASE_TRANSACTION",
+      "source_path": "sql/cockroachdb/migrations/0010_step19_embedding_vector_retrieval.sql",
+      "source_blob_sha": "30e652dfe4a405e6d7c927c0e66c0818dec92a98"
+    },
+    {
+      "ordinal": 11,
+      "path": "0011_personal_spaces.sql",
+      "sha256": "7f2c84487c3680117a21506b5bcfbcda5ef932f41c803330b01604027f4d9c75",
+      "statement_count": 5,
+      "phase": "DATABASE_TRANSACTION",
+      "source_path": "sql/cockroachdb/migrations/0011_step27_personal_memory_persistence.sql",
+      "source_blob_sha": "6d91656ed94c0ee2669cedd1d7fb09bd286c8d54"
+    },
+    {
+      "ordinal": 12,
+      "path": "0012_candidates.sql",
+      "sha256": "018f7cc405da0f9322c03dcd0ab2143c2c85a55f8ec8296692ba1a4fae734c8b",
+      "statement_count": 5,
+      "phase": "DATABASE_TRANSACTION",
+      "source_path": "sql/cockroachdb/migrations/0012_step28_correction_candidate_bridge.sql",
+      "source_blob_sha": "ca11997a54e24763f9499611bebab7fe5259b489"
+    },
+    {
+      "ordinal": 13,
+      "path": "0013_proposals.sql",
+      "sha256": "87af76c3227a2bbe891a25c421702a39b449ee7dadd451f2ae8a8c82db461f04",
+      "statement_count": 3,
+      "phase": "DATABASE_TRANSACTION",
+      "source_path": "sql/cockroachdb/migrations/0013_step29_personal_memory_patch_validation.sql",
+      "source_blob_sha": "2da101c466713db4b4891ce1bfa6a1d9c5ce6e5c"
+    },
+    {
+      "ordinal": 14,
+      "path": "0014_owner_approval_activation.sql",
+      "sha256": "dd7f0e3491d40eacb50d1f1a41cf790cfe199defcf697e3bb193d2929a3dd24d",
+      "statement_count": 15,
+      "phase": "DATABASE_TRANSACTION",
+      "source_path": "sql/cockroachdb/migrations/0014_step30_user_approval_commit_activation.sql",
+      "source_blob_sha": "90177684b0014238c5bd191e43b8eacac6a8aadc"
+    },
+    {
+      "ordinal": 15,
+      "path": "0015_lifecycle.sql",
+      "sha256": "002bbfa0f20757937b64ce50dadbaac4d0b9db4dda8118c77a09e58ac4baa644",
+      "statement_count": 5,
+      "phase": "DATABASE_TRANSACTION",
+      "source_path": "sql/cockroachdb/migrations/0015_step32_personal_memory_lifecycle.sql",
+      "source_blob_sha": "2acc2f052878b4a18c1eb40bd1d2f80fc962fced"
+    },
+    {
+      "ordinal": 16,
+      "path": "0016_audit_outbox.sql",
+      "sha256": "57a57d7d7f6eedbdb8c6a56bcf41c598950c6d54939d8269c34d9be8dccf467a",
+      "statement_count": 10,
+      "phase": "DATABASE_TRANSACTION",
+      "source_path": "sql/cockroachdb/migrations/0016_step33_audit_ledger_hash_chain.sql",
+      "source_blob_sha": "238ad24c2e5c53e1cceae9de39840b1e574fd972"
+    },
+    {
+      "ordinal": 17,
+      "path": "0017_review.sql",
+      "sha256": "5d2980f01b8d95246dbaeccf51ac52a659c8678a3d56616be6e2e1c2cd869b08",
+      "statement_count": 6,
+      "phase": "DATABASE_TRANSACTION",
+      "source_path": "sql/cockroachdb/migrations/0017_step34_human_review_workspace.sql",
+      "source_blob_sha": "c03c903ce569fb48515ae36f0d24e9c6d3bfc468"
+    },
+    {
+      "ordinal": 18,
+      "path": "0018_purpose_hardening.sql",
+      "sha256": "dfe0c088bf7f4ab5f9aaf31d6d408fe0c1d4c19b9227ac55352567bad35567db",
+      "statement_count": 147,
+      "phase": "DATABASE_TRANSACTION",
+      "source_path": "sql/cockroachdb/migrations/0018_step36_credential_authority_hardening.sql",
+      "source_blob_sha": "9c68d98b816dbf522f83c6425dc0ec07244a80d1"
+    }
+  ],
+  "record_tables": {
+    "source": "source_records",
+    "ingestion": "ingestions",
+    "operation": "operations",
+    "space": "spaces",
+    "patch": "patches",
+    "sharing": "sharing_proposals",
+    "challenge": "challenges",
+    "approval": "approvals",
+    "receipt": "receipts",
+    "audit": "audit_events",
+    "outbox": "outbox",
+    "review": "reviews"
+  },
+  "scoped_tables": {
+    "source_records": {
+      "unit": 3,
+      "scoped": true,
+      "RLS": true,
+      "FORCE_RLS": true
+    },
+    "ingestions": {
+      "unit": 7,
+      "scoped": true,
+      "RLS": true,
+      "FORCE_RLS": true
+    },
+    "operations": {
+      "unit": 5,
+      "scoped": true,
+      "RLS": true,
+      "FORCE_RLS": true
+    },
+    "spaces": {
+      "unit": 11,
+      "scoped": true,
+      "RLS": true,
+      "FORCE_RLS": true
+    },
+    "patches": {
+      "unit": 12,
+      "scoped": true,
+      "RLS": true,
+      "FORCE_RLS": true
+    },
+    "sharing_proposals": {
+      "unit": 15,
+      "scoped": true,
+      "RLS": true,
+      "FORCE_RLS": true
+    },
+    "challenges": {
+      "unit": 14,
+      "scoped": true,
+      "RLS": true,
+      "FORCE_RLS": true
+    },
+    "approvals": {
+      "unit": 14,
+      "scoped": true,
+      "RLS": true,
+      "FORCE_RLS": true
+    },
+    "receipts": {
+      "unit": 14,
+      "scoped": true,
+      "RLS": true,
+      "FORCE_RLS": true
+    },
+    "audit_events": {
+      "unit": 16,
+      "scoped": true,
+      "RLS": true,
+      "FORCE_RLS": true
+    },
+    "outbox": {
+      "unit": 16,
+      "scoped": true,
+      "RLS": true,
+      "FORCE_RLS": true
+    },
+    "reviews": {
+      "unit": 17,
+      "scoped": true,
+      "RLS": true,
+      "FORCE_RLS": true
+    },
+    "source_lineage": {
+      "unit": 2,
+      "scoped": true,
+      "RLS": true,
+      "FORCE_RLS": true
+    },
+    "source_publications": {
+      "unit": 6,
+      "scoped": true,
+      "RLS": true,
+      "FORCE_RLS": true
+    },
+    "parsed_chunks": {
+      "unit": 8,
+      "scoped": true,
+      "RLS": true,
+      "FORCE_RLS": true
+    },
+    "source_hat_links": {
+      "unit": 9,
+      "scoped": true,
+      "RLS": true,
+      "FORCE_RLS": true
+    },
+    "chunk_vectors": {
+      "unit": 10,
+      "scoped": true,
+      "RLS": true,
+      "FORCE_RLS": true
+    }
+  },
+  "unscoped_exceptions": {
+    "context_grants": "No ordinary table write/access. Fixed security-definer helper or explicit read-only migration certificate; Core metadata only.",
+    "request_contexts": "No ordinary table write/access. Fixed security-definer helper or explicit read-only migration certificate; Core metadata only.",
+    "schema_migrations": "No ordinary table write/access. Fixed security-definer helper or explicit read-only migration certificate; Core metadata only.",
+    "schema_certificate": "No ordinary table write/access. Fixed security-definer helper or explicit read-only migration certificate; Core metadata only."
+  },
+  "role_suffixes": [
+    "schema_owner",
+    "security_owner",
+    "app",
+    "commit",
+    "reviewer",
+    "publication",
+    "ingestion",
+    "audit",
+    "broker"
+  ],
+  "ordinary_delete_policy": "DENY_ALL_LOGICAL_DELETION_ONLY",
+  "native_immutable_tables": [
+    "approvals",
+    "audit_events",
+    "chunk_vectors",
+    "operations",
+    "parsed_chunks",
+    "receipts",
+    "source_hat_links",
+    "source_lineage"
+  ],
+  "source_executed": false,
+  "C6_included": false,
+  "read_role_tables": {
+    "app": [
+      "approvals",
+      "audit_events",
+      "challenges",
+      "chunk_vectors",
+      "ingestions",
+      "operations",
+      "outbox",
+      "parsed_chunks",
+      "patches",
+      "receipts",
+      "reviews",
+      "sharing_proposals",
+      "source_hat_links",
+      "source_lineage",
+      "source_publications",
+      "source_records",
+      "spaces"
+    ],
+    "commit": [
+      "approvals",
+      "audit_events",
+      "challenges",
+      "operations",
+      "outbox",
+      "patches",
+      "receipts",
+      "spaces"
+    ],
+    "reviewer": [
+      "audit_events",
+      "operations",
+      "outbox",
+      "patches",
+      "reviews"
+    ],
+    "publication": [
+      "audit_events",
+      "chunk_vectors",
+      "ingestions",
+      "operations",
+      "outbox",
+      "parsed_chunks",
+      "source_hat_links",
+      "source_lineage",
+      "source_publications",
+      "source_records"
+    ],
+    "ingestion": [
+      "audit_events",
+      "chunk_vectors",
+      "ingestions",
+      "operations",
+      "outbox",
+      "parsed_chunks",
+      "source_hat_links",
+      "source_lineage",
+      "source_publications",
+      "source_records"
+    ],
+    "audit": [
+      "audit_events",
+      "operations",
+      "outbox"
+    ]
+  }
+}
