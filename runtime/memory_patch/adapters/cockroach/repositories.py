@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from types import MappingProxyType
 
-from runtime.core_admission import OwnerScope
+from runtime.core_admission import Capability, OwnerScope
 from runtime.memory_patch.contracts.serialization import canonical_json_bytes
 from runtime.memory_patch.errors import ErrorCode, MemoryPatchError
 from runtime.memory_patch.persistence.ports import RecordKind, StoredRecord
@@ -176,3 +176,74 @@ class ScopedSQLRepository:
             )
             if cursor.rowcount != 1:
                 raise MemoryPatchError(ErrorCode.STATE_CONFLICT)
+
+
+class ScopedVectorRepository:
+    """SQL search returns internal identities; Core separately admits evidence.
+
+    The complete Core scope and approved HAT/model predicates precede ranking.
+    Exact search uses the primary index and stable ties. ANN is an explicit
+    separate operation whose quality must be certified independently.
+    """
+
+    def __init__(self, connection, context, check_active):
+        self._connection, self._context, self._check_active = (
+            connection,
+            context,
+            check_active,
+        )
+
+    def search(self, vector, *, hat_id, model_digest, limit=20, approximate=False):
+        from runtime.memory_patch.retrieval.embeddings import (
+            EmbeddingVector,
+            load_approved_model_spec,
+            vector_from_float32_bytes,
+        )
+
+        self._check_active()
+        if (
+            self._context.purpose is not Capability.READ
+            or hat_id not in self._context.principal.hat_ids
+            or model_digest != load_approved_model_spec().model_digest
+            or type(vector) is not EmbeddingVector
+            or type(limit) is not int
+            or not 1 <= limit <= 100
+            or type(approximate) is not bool
+        ):
+            raise MemoryPatchError(ErrorCode.INVALID_REQUEST)
+        checked = vector_from_float32_bytes(vector.float32_bytes)
+        if (
+            checked.values != vector.values
+            or checked.bytes_sha256 != vector.bytes_sha256
+        ):
+            raise MemoryPatchError(ErrorCode.INTEGRITY_FAILED)
+        literal = "[" + ",".join(repr(value) for value in checked.values) + "]"
+        index = "@scoped_vector_l2_idx" if approximate else "@chunk_vectors_pkey"
+        query = (
+            "SELECT v.chunk_id,v.source_id,v.version_id,v.embedding_bytes_digest,"
+            "v.embedding <-> %s::VECTOR(384) AS distance,v.embedding::STRING "
+            "FROM aioa_memory_patch.chunk_vectors" + index + " v "
+            "WHERE v.tenant_id=%s AND v.owner_id=%s AND v.space_id=%s AND v.slot_id=%s "
+            "AND v.hat_id=%s AND v.embedding_model_digest=%s "
+            "AND EXISTS(SELECT 1 FROM aioa_memory_patch.source_publications p "
+            "WHERE (p.tenant_id,p.owner_id,p.space_id,p.slot_id,p.source_id,p.version_id)="
+            "(v.tenant_id,v.owner_id,v.space_id,v.slot_id,v.source_id,v.version_id) "
+            "AND p.source_status='PUBLISHED' AND p.reviewed_license AND p.publication_proof_id IS NOT NULL) "
+            "ORDER BY distance" + ("" if approximate else ",v.chunk_id") + " LIMIT %s"
+        )
+        with self._connection.cursor() as cursor:
+            cursor.execute(
+                query,
+                (literal, *self._context.scope.binding(), hat_id, model_digest, limit),
+            )
+            rows = cursor.fetchall()
+        result = []
+        for row in rows:
+            try:
+                stored = EmbeddingVector(tuple(json.loads(row[5])))
+                if stored.bytes_sha256 != row[3]:
+                    raise ValueError("vector byte identity")
+            except (ValueError, TypeError) as error:
+                raise MemoryPatchError(ErrorCode.INTEGRITY_FAILED) from error
+            result.append(tuple(row[:5]))
+        return tuple(result)

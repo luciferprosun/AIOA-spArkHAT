@@ -28,7 +28,7 @@ ALTER TABLE aioa_memory_patch.challenges ENABLE ROW LEVEL SECURITY;
 -- C5_STATEMENT
 ALTER TABLE aioa_memory_patch.challenges FORCE ROW LEVEL SECURITY;
 -- C5_STATEMENT
-CREATE INDEX challenges_state_idx ON aioa_memory_patch.challenges (tenant_id,owner_id,space_id,slot_id,(payload->>'state'),record_id);
+CREATE INDEX challenges_state_idx ON aioa_memory_patch.challenges (tenant_id,owner_id,space_id,slot_id,(record_json::JSONB->'payload'->>'state'),record_id);
 -- C5_STATEMENT
 CREATE TABLE aioa_memory_patch.approvals (
  tenant_id STRING NOT NULL CHECK (length(tenant_id) BETWEEN 1 AND 256),
@@ -58,7 +58,7 @@ ALTER TABLE aioa_memory_patch.approvals ENABLE ROW LEVEL SECURITY;
 -- C5_STATEMENT
 ALTER TABLE aioa_memory_patch.approvals FORCE ROW LEVEL SECURITY;
 -- C5_STATEMENT
-CREATE INDEX approvals_state_idx ON aioa_memory_patch.approvals (tenant_id,owner_id,space_id,slot_id,(payload->>'state'),record_id);
+CREATE INDEX approvals_state_idx ON aioa_memory_patch.approvals (tenant_id,owner_id,space_id,slot_id,(record_json::JSONB->'payload'->>'state'),record_id);
 -- C5_STATEMENT
 CREATE TABLE aioa_memory_patch.receipts (
  tenant_id STRING NOT NULL CHECK (length(tenant_id) BETWEEN 1 AND 256),
@@ -88,10 +88,10 @@ ALTER TABLE aioa_memory_patch.receipts ENABLE ROW LEVEL SECURITY;
 -- C5_STATEMENT
 ALTER TABLE aioa_memory_patch.receipts FORCE ROW LEVEL SECURITY;
 -- C5_STATEMENT
-CREATE INDEX receipts_state_idx ON aioa_memory_patch.receipts (tenant_id,owner_id,space_id,slot_id,(payload->>'state'),record_id);
+CREATE INDEX receipts_state_idx ON aioa_memory_patch.receipts (tenant_id,owner_id,space_id,slot_id,(record_json::JSONB->'payload'->>'state'),record_id);
 -- C5_STATEMENT
-ALTER TABLE aioa_memory_patch.challenges ADD CONSTRAINT challenge_state_closed CHECK(payload->>'state' IN ('OPEN','CONSUMED','EXPIRED','SUPERSEDED'));
+ALTER TABLE aioa_memory_patch.challenges ADD CONSTRAINT challenge_state_closed CHECK((payload->>'state' IN ('OPEN','CONSUMED','EXPIRED','SUPERSEDED')) IS TRUE);
 -- C5_STATEMENT
-ALTER TABLE aioa_memory_patch.approvals ADD CONSTRAINT approval_state_closed CHECK(payload->>'state' IN ('APPROVED','REJECTED'));
+ALTER TABLE aioa_memory_patch.approvals ADD CONSTRAINT approval_state_closed CHECK((payload->>'state' IN ('APPROVED','REJECTED')) IS TRUE);
 -- C5_STATEMENT
-ALTER TABLE aioa_memory_patch.receipts ADD CONSTRAINT receipt_state_closed CHECK(payload->>'state' IN ('COMMITTED','ACTIVE'));
+ALTER TABLE aioa_memory_patch.receipts ADD CONSTRAINT receipt_state_closed CHECK((payload->>'state' IN ('COMMITTED','ACTIVE')) IS TRUE);

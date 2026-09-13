@@ -28,6 +28,6 @@ ALTER TABLE aioa_memory_patch.sharing_proposals ENABLE ROW LEVEL SECURITY;
 -- C5_STATEMENT
 ALTER TABLE aioa_memory_patch.sharing_proposals FORCE ROW LEVEL SECURITY;
 -- C5_STATEMENT
-CREATE INDEX sharing_proposals_state_idx ON aioa_memory_patch.sharing_proposals (tenant_id,owner_id,space_id,slot_id,(payload->>'state'),record_id);
+CREATE INDEX sharing_proposals_state_idx ON aioa_memory_patch.sharing_proposals (tenant_id,owner_id,space_id,slot_id,(record_json::JSONB->'payload'->>'state'),record_id);
 -- C5_STATEMENT
-ALTER TABLE aioa_memory_patch.patches ADD CONSTRAINT patch_logical_deletion_typed CHECK(jsonb_typeof(payload->'logically_deleted')='boolean');
+ALTER TABLE aioa_memory_patch.patches ADD CONSTRAINT patch_logical_deletion_typed CHECK((jsonb_typeof(payload->'logically_deleted')='boolean') IS TRUE);

@@ -28,7 +28,7 @@ ALTER TABLE aioa_memory_patch.audit_events ENABLE ROW LEVEL SECURITY;
 -- C5_STATEMENT
 ALTER TABLE aioa_memory_patch.audit_events FORCE ROW LEVEL SECURITY;
 -- C5_STATEMENT
-CREATE INDEX audit_events_state_idx ON aioa_memory_patch.audit_events (tenant_id,owner_id,space_id,slot_id,(payload->>'state'),record_id);
+CREATE INDEX audit_events_state_idx ON aioa_memory_patch.audit_events (tenant_id,owner_id,space_id,slot_id,(record_json::JSONB->'payload'->>'state'),record_id);
 -- C5_STATEMENT
 CREATE TABLE aioa_memory_patch.outbox (
  tenant_id STRING NOT NULL CHECK (length(tenant_id) BETWEEN 1 AND 256),
@@ -58,8 +58,8 @@ ALTER TABLE aioa_memory_patch.outbox ENABLE ROW LEVEL SECURITY;
 -- C5_STATEMENT
 ALTER TABLE aioa_memory_patch.outbox FORCE ROW LEVEL SECURITY;
 -- C5_STATEMENT
-CREATE INDEX outbox_state_idx ON aioa_memory_patch.outbox (tenant_id,owner_id,space_id,slot_id,(payload->>'state'),record_id);
+CREATE INDEX outbox_state_idx ON aioa_memory_patch.outbox (tenant_id,owner_id,space_id,slot_id,(record_json::JSONB->'payload'->>'state'),record_id);
 -- C5_STATEMENT
-CREATE UNIQUE INDEX audit_sequence_unique ON aioa_memory_patch.audit_events (tenant_id,owner_id,space_id,slot_id,((payload->>'sequence_number')::INT8));
+CREATE UNIQUE INDEX audit_sequence_unique ON aioa_memory_patch.audit_events (tenant_id,owner_id,space_id,slot_id,((record_json::JSONB->'payload'->>'sequence_number')::INT8));
 -- C5_STATEMENT
-ALTER TABLE aioa_memory_patch.outbox ADD CONSTRAINT outbox_state_closed CHECK(payload->>'state' IN ('PENDING','PUBLISHED'));
+ALTER TABLE aioa_memory_patch.outbox ADD CONSTRAINT outbox_state_closed CHECK((payload->>'state' IN ('PENDING','PUBLISHED')) IS TRUE);

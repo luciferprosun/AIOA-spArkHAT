@@ -13,7 +13,10 @@ from runtime.memory_patch.adapters.cockroach.pool import (
     DatabasePurpose,
     open_admitted_handle,
 )
-from runtime.memory_patch.adapters.cockroach.repositories import ScopedSQLRepository
+from runtime.memory_patch.adapters.cockroach.repositories import (
+    ScopedSQLRepository,
+    ScopedVectorRepository,
+)
 from runtime.memory_patch.errors import ErrorCode, MemoryPatchError
 from runtime.memory_patch.persistence.ports import TransactionContext
 
@@ -88,6 +91,9 @@ class CockroachTransaction:
         self._committed = False
         self._closed = False
         self._repository = ScopedSQLRepository(
+            lease.connection, context, self._check_active
+        )
+        self.vectors = ScopedVectorRepository(
             lease.connection, context, self._check_active
         )
 

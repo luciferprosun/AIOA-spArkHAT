@@ -7,6 +7,9 @@ CREATE TABLE aioa_memory_patch.schema_migrations (
  name STRING UNIQUE NOT NULL,
  checksum STRING NOT NULL CHECK (checksum ~ '^[0-9a-f]{64}$'),
  manifest_digest STRING NOT NULL CHECK (manifest_digest ~ '^[0-9a-f]{64}$'),
+ state STRING NOT NULL CHECK(state IN ('APPLYING','APPLIED')),
+ completed_statements INT8 NOT NULL CHECK(completed_statements>=0),
+ catalog_fingerprint STRING NOT NULL,
  applied_at TIMESTAMPTZ NOT NULL DEFAULT statement_timestamp()
 );
 -- C5_STATEMENT

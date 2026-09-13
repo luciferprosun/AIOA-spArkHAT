@@ -83,6 +83,14 @@ def catalog(connection, prefix):
             "SELECT schema_name FROM information_schema.schemata WHERE schema_name=%s",
             (schema,),
         ),
+        "schema_permissions": _rows(
+            connection,
+            "SELECT r.rolname,pg_catalog.has_schema_privilege(r.oid,n.oid,'USAGE'),"
+            "pg_catalog.has_schema_privilege(r.oid,n.oid,'CREATE') "
+            "FROM pg_catalog.pg_roles r JOIN pg_catalog.pg_namespace n ON n.nspname=%s "
+            "WHERE r.rolname::STRING=ANY(%s::STRING[]) ORDER BY r.rolname",
+            (schema, names),
+        ),
         "columns": _rows(
             connection,
             "SELECT table_name,column_name,data_type,is_nullable,column_default,"
@@ -139,6 +147,12 @@ def catalog(connection, prefix):
             "ORDER BY rolname",
             (names,),
         ),
+        "triggers": _rows(
+            connection,
+            "SELECT trigger_name,event_manipulation,event_object_table,action_statement,action_timing "
+            "FROM information_schema.triggers WHERE trigger_schema=%s ORDER BY trigger_name,event_manipulation",
+            (schema,),
+        ),
         "memberships": _rows(
             connection,
             "SELECT parent.rolname,member.rolname,m.admin_option "
@@ -161,9 +175,33 @@ def read_applied(connection, state):
     rows = _rows(
         connection,
         "SELECT ordinal,name,checksum,manifest_digest "
-        "FROM aioa_memory_patch.schema_migrations ORDER BY ordinal",
+        "FROM aioa_memory_patch.schema_migrations WHERE state='APPLIED' ORDER BY ordinal",
     )
     return tuple(tuple(row) for row in rows)
+
+
+def read_pending(connection, state, manifest, digest, applied):
+    if not state["schema"]:
+        return ()
+    rows = _rows(
+        connection,
+        "SELECT ordinal,name,checksum,manifest_digest,completed_statements,catalog_fingerprint "
+        "FROM aioa_memory_patch.schema_migrations WHERE state='APPLYING' ORDER BY ordinal",
+    )
+    if not rows:
+        return ()
+    if len(rows) != 1 or len(applied) >= 18:
+        raise MemoryPatchError(ErrorCode.RECOVERY_REQUIRED)
+    row = rows[0]
+    expected = manifest["units"][len(applied)]
+    if (
+        row[:4] != [expected["ordinal"], expected["path"], expected["sha256"], digest]
+        or not 0 <= row[4] <= expected["statement_count"]
+        or row[5] != canonical_sha256(state)
+    ):
+        # An acknowledgement gap or unexplained catalog change is not replayed.
+        raise MemoryPatchError(ErrorCode.RECOVERY_REQUIRED)
+    return tuple(row)
 
 
 def validate_prefix(applied, manifest, digest):
@@ -186,12 +224,15 @@ def validate_catalog(state, manifest, prefix):
         if not scoped and owner != prefix + "_security_owner":
             raise MemoryPatchError(ErrorCode.INTEGRITY_FAILED)
     roles = {row[0]: row for row in state["roles"]}
+    schema_privileges = {row[0]: row[1:] for row in state["schema_permissions"]}
     for suffix in manifest["role_suffixes"]:
         name = prefix + "_" + suffix
         row = roles.get(name)
         if not row or row[1] or row[2] or row[3] or row[5] or row[6]:
             raise MemoryPatchError(ErrorCode.INTEGRITY_FAILED)
         if row[4] != (suffix not in {"schema_owner", "security_owner"}):
+            raise MemoryPatchError(ErrorCode.INTEGRITY_FAILED)
+        if schema_privileges.get(name) != [True, False]:
             raise MemoryPatchError(ErrorCode.INTEGRITY_FAILED)
     actual_policies = {row[1] for row in state["policies"]}
     expected_policies = set()
@@ -216,6 +257,13 @@ def validate_catalog(state, manifest, prefix):
             raise MemoryPatchError(ErrorCode.INTEGRITY_FAILED)
     if not any(row[1] == "scoped_vector_l2_idx" for row in state["indexes"]):
         raise MemoryPatchError(ErrorCode.INTEGRITY_FAILED)
+    if {(row[0], row[1], row[2], row[4]) for row in state["triggers"]} != {
+        ("patch_integrity", "INSERT", "patches", "BEFORE"),
+        ("patch_integrity", "UPDATE", "patches", "BEFORE"),
+        ("review_integrity", "INSERT", "reviews", "BEFORE"),
+        ("review_integrity", "UPDATE", "reviews", "BEFORE"),
+    }:
+        raise MemoryPatchError(ErrorCode.INTEGRITY_FAILED)
     return canonical_sha256(state)
 
 
@@ -228,6 +276,7 @@ class CatalogSnapshot:
     actor_session_id: str
     scope_binding: tuple
     expires_at: datetime
+    pending: tuple = ()
     _seal: bytes = field(default=b"", repr=False)
 
 
@@ -279,6 +328,7 @@ class NativeMigrationController:
             state = catalog(connection, role_prefix(target))
             applied = read_applied(connection, state)
             validate_prefix(applied, manifest, digest)
+            pending = read_pending(connection, state, manifest, digest, applied)
             snapshot = CatalogSnapshot(
                 target.fingerprint,
                 canonical_sha256(state),
@@ -287,6 +337,7 @@ class NativeMigrationController:
                 principal.actor_session_id,
                 principal.scope.binding(),
                 self.clock() + timedelta(minutes=5),
+                pending=pending,
             )
             return replace(snapshot, _seal=self._sign(snapshot))
         finally:
@@ -347,12 +398,22 @@ class NativeMigrationController:
                 observer(stage, ordinal)
 
         try:
+            with connection.cursor() as cursor:
+                # v26.2 defaults this setting to on. Never silently commit a
+                # migration phase when its first DDL statement is encountered.
+                cursor.execute("SET autocommit_before_ddl = off")
+                cursor.execute("SHOW autocommit_before_ddl")
+                if cursor.fetchone()[0].lower() != "off":
+                    raise MemoryPatchError(ErrorCode.MIGRATION_DENIED)
             state = catalog(connection, prefix)
             if canonical_sha256(state) != snapshot.catalog_fingerprint:
                 raise MemoryPatchError(ErrorCode.MIGRATION_DENIED)
             applied = read_applied(connection, state)
             validate_prefix(applied, manifest, digest)
             if applied != snapshot.applied:
+                raise MemoryPatchError(ErrorCode.MIGRATION_DENIED)
+            pending = read_pending(connection, state, manifest, digest, applied)
+            if pending != snapshot.pending:
                 raise MemoryPatchError(ErrorCode.MIGRATION_DENIED)
             if len(applied) == 18:
                 fingerprint = validate_catalog(state, manifest, prefix)
@@ -373,7 +434,21 @@ class NativeMigrationController:
                     }
             # Roles are intentionally separate autocommit statements. Never
             # infer their rollback from a failed database transaction.
-            for ordinal, suffix in enumerate(manifest["role_suffixes"], 1):
+            role_phases = enumerate(manifest["role_suffixes"], 1) if not applied else ()
+            if applied:
+                existing_roles = {row[0]: row for row in state["roles"]}
+                for suffix in manifest["role_suffixes"]:
+                    flags = existing_roles.get(prefix + "_" + suffix)
+                    if flags is None or flags[1:] != [
+                        False,
+                        False,
+                        False,
+                        suffix not in {"schema_owner", "security_owner"},
+                        False,
+                        False,
+                    ]:
+                        raise MemoryPatchError(ErrorCode.RECOVERY_REQUIRED)
+            for ordinal, suffix in role_phases:
                 role = prefix + "_" + suffix
                 observe("role_before", ordinal)
                 flags = _rows(
@@ -406,20 +481,83 @@ class NativeMigrationController:
                 ordinal = row["ordinal"]
                 self.core.require(principal, Capability.MIGRATE)
                 observe("unit_before", ordinal)
-                try:
+                if ordinal == 1:
+                    # Only the small metadata bootstrap uses a transaction.
+                    # Its rollback is independently exercised by certification.
+                    try:
+                        with connection.cursor() as cursor:
+                            cursor.execute("BEGIN ISOLATION LEVEL SERIALIZABLE")
+                            for statement in statements[ordinal]:
+                                cursor.execute(
+                                    statement.replace("__ROLE_PREFIX__", prefix)
+                                )
+                                if connection.info.transaction_status.name != "INTRANS":
+                                    raise MemoryPatchError(ErrorCode.RECOVERY_REQUIRED)
+                            cursor.execute(
+                                "INSERT INTO aioa_memory_patch.schema_migrations(ordinal,name,checksum,manifest_digest,state,completed_statements,catalog_fingerprint) VALUES(%s,%s,%s,%s,'APPLIED',%s,%s)",
+                                (
+                                    ordinal,
+                                    row["path"],
+                                    row["sha256"],
+                                    digest,
+                                    len(statements[ordinal]),
+                                    canonical_sha256(catalog(connection, prefix)),
+                                ),
+                            )
+                            observe("unit_before_commit", ordinal)
+                        connection.commit()
+                    except BaseException:
+                        connection.rollback()
+                        raise
+                    observe("unit_after_commit", ordinal)
+                    continue
+                current = catalog(connection, prefix)
+                completed_prefix = read_applied(connection, current)
+                pending = read_pending(
+                    connection, current, manifest, digest, completed_prefix
+                )
+                start = pending[4] if pending else 0
+                if not pending:
                     with connection.cursor() as cursor:
-                        cursor.execute("BEGIN ISOLATION LEVEL SERIALIZABLE")
-                        for statement in statements[ordinal]:
-                            cursor.execute(statement.replace("__ROLE_PREFIX__", prefix))
                         cursor.execute(
-                            "INSERT INTO aioa_memory_patch.schema_migrations(ordinal,name,checksum,manifest_digest) VALUES(%s,%s,%s,%s)",
-                            (ordinal, row["path"], row["sha256"], digest),
+                            "INSERT INTO aioa_memory_patch.schema_migrations(ordinal,name,checksum,manifest_digest,state,completed_statements,catalog_fingerprint) VALUES(%s,%s,%s,%s,'APPLYING',0,%s)",
+                            (
+                                ordinal,
+                                row["path"],
+                                row["sha256"],
+                                digest,
+                                canonical_sha256(current),
+                            ),
                         )
-                        observe("unit_before_commit", ordinal)
-                    connection.commit()
-                except BaseException:
-                    connection.rollback()
-                    raise
+                for index, statement in enumerate(
+                    statements[ordinal][start:], start + 1
+                ):
+                    self.core.require(principal, Capability.MIGRATE)
+                    observe("statement_before", ordinal * 10000 + index)
+                    with connection.cursor() as cursor:
+                        cursor.execute(
+                            statement.replace("__ROLE_PREFIX__", prefix), prepare=False
+                        )
+                    if connection.info.transaction_status.name != "IDLE":
+                        raise MemoryPatchError(ErrorCode.RECOVERY_REQUIRED)
+                    after = canonical_sha256(catalog(connection, prefix))
+                    with connection.cursor() as cursor:
+                        cursor.execute(
+                            "UPDATE aioa_memory_patch.schema_migrations SET completed_statements=%s,catalog_fingerprint=%s WHERE ordinal=%s AND state='APPLYING' AND completed_statements=%s",
+                            (index, after, ordinal, index - 1),
+                        )
+                        if cursor.rowcount != 1:
+                            raise MemoryPatchError(ErrorCode.RECOVERY_REQUIRED)
+                    observe("statement_after", ordinal * 10000 + index)
+                # This checkpoint certifies acknowledged DDL, not DDL rollback.
+                observe("unit_before_commit", ordinal)
+                with connection.cursor() as cursor:
+                    cursor.execute(
+                        "UPDATE aioa_memory_patch.schema_migrations SET state='APPLIED' WHERE ordinal=%s AND state='APPLYING' AND completed_statements=%s",
+                        (ordinal, row["statement_count"]),
+                    )
+                    if cursor.rowcount != 1:
+                        raise MemoryPatchError(ErrorCode.RECOVERY_REQUIRED)
                 observe("unit_after_commit", ordinal)
             final = catalog(connection, prefix)
             fingerprint = validate_catalog(final, manifest, prefix)

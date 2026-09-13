@@ -8,7 +8,7 @@ ALTER TABLE aioa_memory_patch.patches ADD CONSTRAINT patch_proposal_binding CHEC
  payload->>'state'='DETECTED' OR
  (jsonb_typeof(payload->'proposal')='object' AND payload->'proposal'->>'content_hash' ~ '^[0-9a-f]{64}$'
  AND payload->'proposal'->>'tenant_id'=tenant_id AND payload->'proposal'->>'owner_user_id'=owner_id
- AND payload->'proposal'->>'personal_memory_space_id'=space_id) IS TRUE
+ AND payload->'proposal'->>'target_personal_memory_space_id'=space_id) IS TRUE
 );
 -- C5_STATEMENT
-CREATE INDEX patch_candidate_dedup_idx ON aioa_memory_patch.patches (tenant_id,owner_id,space_id,slot_id,(payload->>'candidate_digest'));
+CREATE INDEX patch_candidate_dedup_idx ON aioa_memory_patch.patches (tenant_id,owner_id,space_id,slot_id,(record_json::JSONB->'payload'->>'candidate_digest'));

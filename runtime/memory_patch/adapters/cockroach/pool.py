@@ -150,8 +150,14 @@ class CorePurposePool:
         denylist: JuryDenylist,
         handles: tuple[tuple[Capability, CoreDatabaseHandle], ...],
         *,
+        approved_manifest_digest: str,
         maximum_idle: int = 4,
     ):
+        from .migration_controller import load_assets
+
+        self._manifest, _, self._manifest_digest = load_assets()
+        if approved_manifest_digest != self._manifest_digest:
+            raise MemoryPatchError(ErrorCode.MIGRATION_DENIED)
         if type(handles) is not tuple or not 1 <= maximum_idle <= 8:
             raise MemoryPatchError(ErrorCode.INVALID_REQUEST)
         self._handles = dict(handles)
@@ -175,6 +181,37 @@ class CorePurposePool:
         self._lock = threading.RLock()
         self._closed = False
 
+    def _require_ready(self, connection, handle):
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT session_user,current_user,current_database()")
+            if cursor.fetchone() != (handle.role, handle.role, self.target.database):
+                raise MemoryPatchError(ErrorCode.TARGET_DENIED)
+            cursor.execute(
+                "SELECT manifest_digest,state FROM aioa_memory_patch.schema_certificate WHERE singleton=true"
+            )
+            if cursor.fetchall() != [(self._manifest_digest, "READY")]:
+                raise MemoryPatchError(ErrorCode.RECOVERY_REQUIRED)
+            cursor.execute(
+                "SELECT ordinal,name,checksum,manifest_digest FROM aioa_memory_patch.schema_migrations WHERE state='APPLIED' ORDER BY ordinal"
+            )
+            expected = [
+                (row["ordinal"], row["path"], row["sha256"], self._manifest_digest)
+                for row in self._manifest["units"]
+            ]
+            if cursor.fetchall() != expected:
+                raise MemoryPatchError(ErrorCode.RECOVERY_REQUIRED)
+            cursor.execute(
+                "SELECT c.relname,c.relrowsecurity,c.relforcerowsecurity FROM pg_catalog.pg_class c "
+                "JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace "
+                "WHERE n.nspname='aioa_memory_patch' AND c.relkind='r'"
+            )
+            flags = {row[0]: row[1:] for row in cursor.fetchall()}
+            if any(
+                flags.get(name) != (True, True)
+                for name in self._manifest["scoped_tables"]
+            ):
+                raise MemoryPatchError(ErrorCode.RECOVERY_REQUIRED)
+
     def acquire(self, context: TransactionContext) -> ConnectionLease:
         self.core.require(context.principal, context.purpose, scope=context.scope)
         self.allowlist.require_allowed(self.target)
@@ -195,6 +232,11 @@ class CorePurposePool:
                 connection = open_admitted_handle(
                     handle, self.target, self.allowlist, self.denylist
                 )
+            try:
+                self._require_ready(connection, handle)
+            except BaseException:
+                connection.close()
+                raise
             lease = ConnectionLease(connection, handle, context.purpose, self)
             self._leases.append(lease)
             return lease

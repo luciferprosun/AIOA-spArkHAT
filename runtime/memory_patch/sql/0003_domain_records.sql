@@ -28,4 +28,4 @@ ALTER TABLE aioa_memory_patch.source_records ENABLE ROW LEVEL SECURITY;
 -- C5_STATEMENT
 ALTER TABLE aioa_memory_patch.source_records FORCE ROW LEVEL SECURITY;
 -- C5_STATEMENT
-CREATE INDEX source_records_state_idx ON aioa_memory_patch.source_records (tenant_id,owner_id,space_id,slot_id,(payload->>'state'),record_id);
+CREATE INDEX source_records_state_idx ON aioa_memory_patch.source_records (tenant_id,owner_id,space_id,slot_id,(record_json::JSONB->'payload'->>'state'),record_id);

@@ -28,6 +28,6 @@ ALTER TABLE aioa_memory_patch.spaces ENABLE ROW LEVEL SECURITY;
 -- C5_STATEMENT
 ALTER TABLE aioa_memory_patch.spaces FORCE ROW LEVEL SECURITY;
 -- C5_STATEMENT
-CREATE INDEX spaces_state_idx ON aioa_memory_patch.spaces (tenant_id,owner_id,space_id,slot_id,(payload->>'state'),record_id);
+CREATE INDEX spaces_state_idx ON aioa_memory_patch.spaces (tenant_id,owner_id,space_id,slot_id,(record_json::JSONB->'payload'->>'state'),record_id);
 -- C5_STATEMENT
-ALTER TABLE aioa_memory_patch.spaces ADD CONSTRAINT space_state_closed CHECK(payload->>'state' IN ('EMPTY','CONFIGURED','ACTIVE','SUSPENDED','ARCHIVED','DELETED_PENDING','DELETED'));
+ALTER TABLE aioa_memory_patch.spaces ADD CONSTRAINT space_state_closed CHECK((payload->>'state' IN ('EMPTY','CONFIGURED','ACTIVE','SUSPENDED','ARCHIVED','DELETED_PENDING','DELETED')) IS TRUE);

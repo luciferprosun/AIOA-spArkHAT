@@ -28,4 +28,4 @@ ALTER TABLE aioa_memory_patch.ingestions ENABLE ROW LEVEL SECURITY;
 -- C5_STATEMENT
 ALTER TABLE aioa_memory_patch.ingestions FORCE ROW LEVEL SECURITY;
 -- C5_STATEMENT
-CREATE INDEX ingestions_state_idx ON aioa_memory_patch.ingestions (tenant_id,owner_id,space_id,slot_id,(payload->>'state'),record_id);
+CREATE INDEX ingestions_state_idx ON aioa_memory_patch.ingestions (tenant_id,owner_id,space_id,slot_id,(record_json::JSONB->'payload'->>'state'),record_id);

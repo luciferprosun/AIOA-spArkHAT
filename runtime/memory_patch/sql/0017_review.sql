@@ -28,8 +28,8 @@ ALTER TABLE aioa_memory_patch.reviews ENABLE ROW LEVEL SECURITY;
 -- C5_STATEMENT
 ALTER TABLE aioa_memory_patch.reviews FORCE ROW LEVEL SECURITY;
 -- C5_STATEMENT
-CREATE INDEX reviews_state_idx ON aioa_memory_patch.reviews (tenant_id,owner_id,space_id,slot_id,(payload->>'state'),record_id);
+CREATE INDEX reviews_state_idx ON aioa_memory_patch.reviews (tenant_id,owner_id,space_id,slot_id,(record_json::JSONB->'payload'->>'state'),record_id);
 -- C5_STATEMENT
-ALTER TABLE aioa_memory_patch.reviews ADD CONSTRAINT review_state_closed CHECK(payload->>'state' IN ('OPEN','CLAIMED','DECIDED'));
+ALTER TABLE aioa_memory_patch.reviews ADD CONSTRAINT review_state_closed CHECK((payload->>'state' IN ('OPEN','CLAIMED','DECIDED')) IS TRUE);
 -- C5_STATEMENT
-ALTER TABLE aioa_memory_patch.reviews ADD CONSTRAINT review_no_execution CHECK(payload->>'approval_authority'='false' AND payload->>'publication_authority'='false');
+ALTER TABLE aioa_memory_patch.reviews ADD CONSTRAINT review_no_execution CHECK((payload->>'approval_authority'='false' AND payload->>'publication_authority'='false') IS TRUE);
