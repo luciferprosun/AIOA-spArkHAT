@@ -16,6 +16,7 @@ from .models import (
     FailureKind,
     LocalExecutionReceipt,
     LocalVerificationEvidence,
+    NonEmptyText,
     RemediationOperation,
     RemediationProposal,
     ResourceEvidence,
@@ -23,6 +24,7 @@ from .models import (
     Run,
     Sha256Digest,
     ShortIdentifier,
+    Uuid7Identifier,
     WorkflowState,
     contains_sensitive_material,
 )
@@ -170,6 +172,41 @@ class LocalApprovalDecisionView(BaseModel):
     decision: ApprovalDecision
     decided_at: datetime
     decision_hash: Sha256Digest
+
+
+class LocalApprovalChallengeRequestView(LocalApprovalRequestView):
+    """Public request binding, including the run ID required by DecisionRequest."""
+
+    run_id: Uuid7Identifier
+
+
+class LocalApprovalChallengeView(BaseModel):
+    """Protected challenge: the ephemeral nonce is exposed only at this step."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    request: LocalApprovalChallengeRequestView
+    proposal: RemediationProposal
+    evidence: ResourceEvidence
+    decision_nonce: NonEmptyText = Field(min_length=16, max_length=256)
+
+
+class LocalExecutionCompletionView(BaseModel):
+    """Public projection of an already validated internal terminal result."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    run_id: Uuid7Identifier
+    proposal_id: Uuid7Identifier
+    decision: ApprovalDecision
+    final_state: Literal[
+        WorkflowState.DENIED_BY_HUMAN,
+        WorkflowState.SUCCESS_WITH_EVIDENCE,
+    ]
+    approval: LocalApprovalDecisionView
+    receipt: LocalExecutionReceipt | None = None
+    verification: LocalVerificationEvidence | None = None
+    reconciled: bool = False
 
 
 class LocalExecutionIntentView(BaseModel):

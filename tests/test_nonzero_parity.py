@@ -23,6 +23,9 @@ def digest(value):
 @unittest.skipUnless(module_descriptor()['available'], 'native nonzero extra is not installed')
 class NativeReferenceParityTests(unittest.TestCase):
     def test_fixed_evidence_proposal_approval_receipt_and_verification_hashes(self):
+        from nonzero_cloudops.models import ResultStatus
+        from nonzero_cloudops.views import ResumeRequest
+
         oracle = json.loads((Path(__file__).parent/'fixtures/nonzero_parity_v1.json').read_text())
         self.assertEqual(oracle['source_sha'], JUDGE_SHA)
         self.assertEqual(len(oracle['vectors']), 5)
@@ -53,9 +56,13 @@ class NativeReferenceParityTests(unittest.TestCase):
                                 'decision_nonce': challenge['decision_nonce']}
                         code, resolution = service.request('POST', path+'/decision', body, operator=True)
                         self.assertEqual(code, 200)
-                        code, completion = service.request('POST', path+'/resume', {'confirm_execution': True}, operator=True)
-                        self.assertEqual(code, 200)
-                        material.update(request=request, resolution=resolution['result'], completion=completion['result'])
+                        # nonzero_parity_v1 is SOURCE SEMANTIC PARITY, not a public
+                        # HTTP/CLI ABI snapshot. Hash the authoritative completion
+                        # before the transport deliberately omits private bindings.
+                        completion = service.resume(identifier(1), ResumeRequest(confirm_execution=True), operator=True)
+                        self.assertIs(completion.status, ResultStatus.SUCCESS)
+                        semantic_completion = completion.value.model_dump(mode='json', exclude_none=True)
+                        material.update(request=request, resolution=resolution['result'], completion=semantic_completion)
                     self.assertEqual(service.components.executor.mutation_calls, vector['mutation_count'])
                     self.assertEqual({name: digest(value) for name, value in material.items()}, vector['record_sha256'])
                 finally:
