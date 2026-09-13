@@ -1,6 +1,6 @@
 # AIOA spArkHAT
 
-AIOA spArkHAT (formerly AOIA-Core) is one local-first runtime for AI-assisted engineering and evidence-aware review. It keeps model output, tool results, evidence, provenance, contradictions, runtime state, and human authority separate instead of treating them as interchangeable forms of truth. This is the same repository and runtime, not a fork or an integration with a frozen hackathon application.
+AIOA spArkHAT (formerly AOIA-Core) is one local-first runtime for AI-assisted engineering and evidence-aware review. It keeps model output, tool results, evidence, provenance, contradictions, runtime state, and human authority separate instead of treating them as interchangeable forms of truth. This is the same repository and runtime, not a fork. The original hackathon repositories remain frozen; the optional native NonZero module preserves their domain semantics. The imported second project is retired from the active tree, with attribution, source hashes and its complete imported history preserved.
 
 AOIA means **Adaptive Oceanic Intelligence Architecture**. In this repository the name describes a bounded routing and control architecture; it does not imply AGI, autonomous authority, or a self-modifying system.
 
@@ -15,6 +15,7 @@ AOIA means **Adaptive Oceanic Intelligence Architecture**. In this repository th
 - local CLI, web console, and optional Textual TUI over the same runtime
 - deterministic dated-evidence review with source hashes and a mandatory human-review result
 - advisory Critical Prompt Loop: draft → three sequentially informed critics → one revision by the original model
+- optional [NonZero CloudOps native module](docs/NONZERO_CORE_INTEGRATION.md): one Core package/runtime, portable execution, exact human approval and replay-safe evidence on Python >=3.11; local one-system branch awaiting review, no live AWS backend
 
 The dated-evidence capability is a module of AIOA spArkHAT, not a second application. Its CLI command, JSON endpoints, browser workbench, tests, and documentation all live in this repository and use the same launch surface.
 

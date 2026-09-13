@@ -1,0 +1,70 @@
+{
+  "source_repo": "luciferprosun/AIOA-NonZero-CloudOps-Agent",
+  "judge_sha": "4fafed8b1a877e55d96ddd9baea0a737fbeeaa4a",
+  "source_tree_sha": "a6587b72b4f7d1365ef7de7cab107ea6578f4567",
+  "phase2_import_commit": "119a8ba12e54a2fbea42a43d62725e25fb5bc380",
+  "phase3_native_final_sha": "6563f93e2b895d494063161b438d05209e2655ca",
+  "source_file_count": 412,
+  "schema_version": "nonzero-retirement-lock-v1",
+  "license_sha256": "4da5bfd2f6754d2a3882c931b3029887af57fa8dc8ebcc435de5c49269bb20a4",
+  "native_source_map_sha256": "783ab70a51fa3c6099ed3c092ae4a6f52bbd1c9dc747b9ad4bd9e03fd9d35b8a",
+  "parity_fixture_sha256": "863e338c9fe9ccda900d720189a7d139ffcfdb70461636517fdd0d152644deb1",
+  "final_reference_manifest_sha256": "4e243baa20f7e8f297fcf718b5da9166e1663391b245d8862bf236c5039d0fbd",
+  "final_reference_test_result": {
+    "status": "PASS",
+    "passed": 1447,
+    "failed": 0,
+    "skipped": 0,
+    "result_sha256": "080479a3415fc324d0ffae4f28994e1066445cf444788550220916a29b9822ab"
+  },
+  "final_reference_gates_result": {
+    "ruff": {
+      "status": "PASS",
+      "exit_code": 0,
+      "result_sha256": "e706bf8ba57f84a234615bc9271e37f6a9b089b2e0834a6b07a308769b76f807"
+    },
+    "portable": {
+      "status": "PASS",
+      "exit_code": 0,
+      "result_sha256": "eedf59ad986c3bc7b872edb78b48489c04e5da2acc9942ccde258b0eca0111cb"
+    },
+    "p0": {
+      "status": "PASS",
+      "exit_code": 0,
+      "result_sha256": "f9b75657b1845be8b35f1fad381d4dc3fb8bc5a764983b96cfedba22c4f197b5",
+      "gates_pass": 15,
+      "proof_test_occurrences": 136
+    },
+    "p1": {
+      "status": "PASS",
+      "exit_code": 0,
+      "result_sha256": "50967b697a30eb4210f9676f423ca94793db67d3a9f3c3e99dc641744286618c",
+      "gates_pass": 6,
+      "proof_test_occurrences": 93,
+      "clone_mode": "local-no-local; remote Git transports prohibited; package download permitted"
+    },
+    "b4": {
+      "status": "PASS",
+      "exit_code": 0,
+      "result_sha256": "9d96d607c6bb2c5fe9052419d7bf25f61e31afef3dd993b81982be76a68bacfd",
+      "scenarios": 11,
+      "proof_tests": 43
+    },
+    "evidence_build": {
+      "status": "PASS",
+      "exit_code": 0,
+      "result_sha256": "0e79449e615d194b0f11addbcd5cc83c8f2d965b2ac6fc1cfe4b9318483d34b3"
+    },
+    "evidence_validate": {
+      "status": "PASS",
+      "exit_code": 0,
+      "result_sha256": "2b8bb20b53c60e941fc92b4bfcf8795b81915f7288f66c1fb9cf0792283435c9"
+    },
+    "secrets": {
+      "status": "PASS",
+      "exit_code": 0,
+      "result_sha256": "24321503d3fbc0bdcb88b5d2414803434862d2f64583ea4e357b3cfc46270016"
+    }
+  },
+  "statement": "reference source retired from active tree; recoverable from Git history / frozen source"
+}

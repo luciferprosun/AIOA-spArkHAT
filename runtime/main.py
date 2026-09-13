@@ -148,6 +148,7 @@ class AgentRuntime:
         project_dir: Path,
         debug_raw: bool = False,
         max_steps: int = MAX_AGENT_STEPS,
+        nonzero_config=None,
     ) -> None:
         self.provider_manager = provider_manager
         self.prompt_template = prompt_template
@@ -168,6 +169,11 @@ class AgentRuntime:
         self.orchestrator: GeminiGemmaOrchestrator | None = None
         self._cpl_service = None
         self._cpl_init_lock = threading.Lock()
+        self._nonzero_service = None
+        from nonzero_cloudops.contract import snapshot_config
+        self._nonzero_config = snapshot_config(nonzero_config)
+        self._nonzero_closed = False
+        self._nonzero_init_lock = threading.Lock()
         self.cpl_cost_policy = None
         self._owned_cpl_fixture = None
         self.session_log = (
@@ -228,6 +234,8 @@ class AgentRuntime:
         if not isinstance(options, dict) or set(options) - {'evidence', 'models', 'roles', 'limits', 'run_budget_usd'}:
             raise ExactCallError('INVALID_PLAN_FIELDS')
         command = prompt.lstrip().startswith('/')
+        if command and prompt.strip().split(' ', 1)[0].lower() == '/nonzero':
+            raise ExactCallError('NONZERO_REQUIRES_OPERATOR_ENDPOINTS')
         if command and prompt.strip().split(' ', 1)[0].lower() == '/cpl':
             raise ExactCallError('CPL_REQUIRES_PLAN_START_ENDPOINTS')
         if mode == 'cpl' and not command:
@@ -252,11 +260,47 @@ class AgentRuntime:
         return self.critical_loop.wait(plan['run_id'])
 
     def close(self):
+        with self._nonzero_init_lock:
+            self._nonzero_closed = True
+            if self._nonzero_service is not None:
+                self._nonzero_service.close()
         if self._cpl_service is not None:
             self._cpl_service.close()
         if self._owned_cpl_fixture is not None:
             self._owned_cpl_fixture.close()
             self._owned_cpl_fixture = None
+
+    @property
+    def nonzero_config(self):
+        """Read-only startup snapshot. Reconfiguration requires a new runtime."""
+        return self._nonzero_config
+
+    def nonzero_status(self):
+        """Describe the effective lifecycle without initializing optional state."""
+        from nonzero_cloudops import module_descriptor
+        with self._nonzero_init_lock:
+            if self._nonzero_service is not None:
+                return self._nonzero_service.status()
+            result = {**module_descriptor(self.nonzero_config),
+                      'initialized': False, 'closed': self._nonzero_closed}
+            if self._nonzero_closed:
+                result.update(available=False, availability_code='NONZERO_SERVICE_CLOSED')
+            return result
+
+    @property
+    def nonzero_cloudops(self):
+        """Own one optional portable module through the existing runtime."""
+        with self._nonzero_init_lock:
+            if self._nonzero_closed:
+                from nonzero_cloudops import NonZeroError
+                raise NonZeroError('NONZERO_SERVICE_CLOSED')
+            if self._nonzero_service is None:
+                from nonzero_cloudops import NonZeroCloudOpsService
+                from runtime_paths import runtime_state_dir
+                self._nonzero_service = NonZeroCloudOpsService(
+                    runtime_state_dir(self.project_dir) / 'nonzero_cloudops' / 'native-v1',
+                    guard=lambda: self.safeguards.kill_switch, config=self.nonzero_config)
+        return self._nonzero_service
 
     def build_model_request(
         self,
@@ -331,6 +375,7 @@ class AgentRuntime:
             "desktop_dir": str(self.desktop_dir),
             "model": self.provider_manager.describe(),
             "product_name": "AIOA spArkHAT",
+            "nonzero_cloudops": self.nonzero_status(),
             "critical_loop": {"enabled": True, "authority": "ADVISORY_ONLY",
                               "mode": "TEST" if getattr(self.provider_manager, 'fixture_base_url', None) is not None else "LIVE_PENDING_AUTHORIZATION",
                               "knowledge_promotion": "DISABLED"},
@@ -1168,7 +1213,7 @@ def print_banner(runtime: AgentRuntime) -> None:
     print(f"[INFO] Obsidian vault: {runtime.memory_store.vault_dir}")
 
 
-def create_runtime(*, cpl_fixture=False, cpl_cost_policy=None):
+def create_runtime(*, cpl_fixture=False, cpl_cost_policy=None, nonzero_config=None):
     fixture = None
     if cpl_fixture:
         from critical_loop.fixture import LocalCPLFixture
@@ -1180,6 +1225,7 @@ def create_runtime(*, cpl_fixture=False, cpl_cost_policy=None):
         prompt_template=prompt_template,
         project_dir=PROJECT_DIR,
         debug_raw=DEBUG_RAW_RESPONSE,
+        nonzero_config=nonzero_config,
     )
     runtime.cpl_cost_policy = cpl_cost_policy
     runtime._owned_cpl_fixture = fixture

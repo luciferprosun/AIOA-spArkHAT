@@ -34,6 +34,7 @@ def build_command_registry() -> CommandRegistry:
     registry.register("hat", cmd_hat)
     registry.register("review", cmd_review)
     registry.register("cpl", cmd_cpl)
+    registry.register("nonzero", cmd_nonzero)
     registry.register("scan", cmd_scan)
     registry.register("orchestrator", cmd_orchestrator)
     registry.register("worker", cmd_worker)
@@ -60,6 +61,7 @@ def cmd_help(_args: str, runtime) -> CommandResult:
                 "  /review TEXT     review supplied text against the bundled dated evidence",
                 "  /cpl             Critical Prompt Loop help / plan / start / status / verify",
                 "  /cpl fixture     explicit local HTTP 1+3+1 test (requires --cpl-fixture)",
+                "  /nonzero help    portable CloudOps module; explicit operator approval only",
                 "  /scan PATH       scan a project tree after ENTER approval",
                 "  /orchestrator on|off|status",
                 "  /worker status|memory|clear",
@@ -71,6 +73,50 @@ def cmd_help(_args: str, runtime) -> CommandResult:
             ]
         ),
     )
+
+
+def cmd_nonzero(args: str, runtime) -> CommandResult:
+    """Operator CLI only; Assistant/model requests cannot invoke this surface."""
+    from nonzero_cloudops import NonZeroError, module_descriptor
+    from providers.exact import _unique_object
+    action, _, raw = args.partition(' ')
+    action = action or 'status'
+    if action == 'help':
+        return CommandResult(True, 'Non-Zero portable/mock only: /nonzero status | ready | trace | '
+            'start-json <resource_type/resource_id JSON> | run <run_id> | approval <run_id> | '
+            'decision-json <exact DecisionRequest JSON> | resume <run_id> CONFIRM')
+    if action == 'status' and not raw:
+        status = runtime.nonzero_status() if runtime is not None else module_descriptor()
+        return CommandResult(True, json.dumps(status, indent=2))
+    try:
+        if len(raw.encode()) > 16384:
+            raise NonZeroError('NONZERO_REQUEST_TOO_LARGE', 413)
+        if action == 'ready' and not raw:
+            method, path, body = 'GET', '/ready', None
+        elif action == 'trace' and not raw:
+            result = runtime.nonzero_cloudops.trace(operator=True)
+            return CommandResult(True, json.dumps(result, indent=2), 0 if result['ok'] else 1)
+        elif action == 'start-json':
+            method, path, body = 'POST', '/api/runs', json.loads(raw, object_pairs_hook=_unique_object)
+        elif action == 'approval':
+            method, path, body = 'POST', '/api/runs/' + raw + '/approval-request', {}
+        elif action == 'decision-json':
+            body = json.loads(raw, object_pairs_hook=_unique_object)
+            method, path = 'POST', '/api/runs/' + str(body['run_id']) + '/decision'
+        elif action == 'run':
+            method, path, body = 'GET', '/api/runs/' + raw, None
+        elif action == 'resume' and raw.endswith(' CONFIRM'):
+            method, path, body = 'POST', '/api/runs/' + raw[:-8] + '/resume', {'confirm_execution': True}
+        else:
+            raise NonZeroError('NONZERO_EXPLICIT_COMMAND_REQUIRED', 400)
+        status, result = runtime.nonzero_cloudops.request(method, path, body, operator=True)
+        return CommandResult(True, json.dumps(result, indent=2), 0 if status < 400 else 1)
+    except NonZeroError as error:
+        return CommandResult(True, error.code, 1)
+    except (ValueError, KeyError, TypeError, RecursionError):
+        return CommandResult(True, 'NONZERO_INVALID_COMMAND_JSON', 1)
+    except OSError:
+        return CommandResult(True, 'NONZERO_STATE_UNAVAILABLE', 1)
 
 
 def cmd_cpl(args: str, runtime) -> CommandResult:

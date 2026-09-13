@@ -126,6 +126,11 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
             self._write_json(HTTPStatus.OK, {'token': self._service().csrf_token,
                                            'product_name': 'AIOA spArkHAT'})
             return
+        if parsed.path.startswith('/api/nonzero/'):
+            if not self._check_token():
+                return
+            self._handle_nonzero('GET', parsed, None)
+            return
         if parsed.path.startswith('/api/cpl/'):
             if not self._check_token():
                 return
@@ -183,10 +188,16 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
         parsed = urlparse(self.path)
         if not self._check_local_request():
             return
-        if (parsed.path.startswith('/api/cpl/') or parsed.path in {'/api/chat', '/api/model'}) and not self._check_token():
+        if (parsed.path.startswith(('/api/cpl/', '/api/nonzero/')) or parsed.path in {'/api/chat', '/api/model'}) and not self._check_token():
+            return
+        if parsed.path.startswith('/api/nonzero/') and self.headers.get('X-AIOA-Intent') != 'nonzero-operator-v1':
+            self._write_json(HTTPStatus.FORBIDDEN, {'ok': False, 'error': 'NONZERO_OPERATOR_INTENT_REQUIRED'})
             return
         payload = self._read_json_body()
         if payload is None:
+            return
+        if parsed.path.startswith('/api/nonzero/'):
+            self._handle_nonzero('POST', parsed, payload)
             return
 
         try:
@@ -250,6 +261,26 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
                 HTTPStatus.INTERNAL_SERVER_ERROR,
                 {"ok": False, "error": "internal_error"},
             )
+
+    def _handle_nonzero(self, method, parsed, payload):
+        from nonzero_cloudops import NonZeroError
+        try:
+            if parsed.query or parsed.fragment:
+                raise NonZeroError('NONZERO_QUERY_NOT_ALLOWED', 400)
+            if method == 'GET' and parsed.path == '/api/nonzero/status':
+                self._write_json(HTTPStatus.OK, self._service().runtime.nonzero_status())
+                return
+            service = self._service().runtime.nonzero_cloudops
+            if method == 'GET' and parsed.path == '/api/nonzero/trace':
+                self._write_json(HTTPStatus.OK, service.trace(operator=True))
+                return
+            path = '/ready' if parsed.path == '/api/nonzero/ready' else parsed.path.replace('/api/nonzero/', '/api/', 1)
+            status, result = service.request(method, path, payload, operator=True)
+            self._write_json(status, result)
+        except NonZeroError as error:
+            self._write_json(error.status, {'ok': False, 'error': error.code})
+        except Exception:
+            self._write_json(HTTPStatus.SERVICE_UNAVAILABLE, {'ok': False, 'error': 'NONZERO_STATE_OR_DEPENDENCY_UNAVAILABLE'})
 
     def _check_local_request(self):
         port = self.server.server_address[1]

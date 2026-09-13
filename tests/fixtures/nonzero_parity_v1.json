@@ -1,0 +1,65 @@
+{
+  "schema": "nonzero-fixed-input-parity-v1",
+  "source_sha": "4fafed8b1a877e55d96ddd9baea0a737fbeeaa4a",
+  "vectors": [
+    {
+      "resource_type": "AWS::EC2::EIP",
+      "resource_id": "eipalloc-0123456789abcdef0",
+      "decision": "APPROVED",
+      "record_sha256": {
+        "initial": "2b32043f38b0adeafbbfd63450b5bc6fccd436be0b04b9b791a9267deed61828",
+        "request": "78d4a525241f533b2eb7f4cf08d0666b60cb45878b3bebab48be411d6e7a5048",
+        "resolution": "411155f2055a2f410acbf0a65cac0d2a9cf2b213a42d8260844960df013b1a98",
+        "completion": "c8d92c98ff05dc4c8bf4a68d5e4e6077bc8e723d5af00d452ffb2f391872e4f2"
+      },
+      "initial_state": "AWAITING_APPROVAL",
+      "mutation_count": 1
+    },
+    {
+      "resource_type": "AWS::EC2::SecurityGroup",
+      "resource_id": "sg-0123456789abcdef0",
+      "decision": "APPROVED",
+      "record_sha256": {
+        "initial": "086688d373103264e28c18dcdf5b3245509884f1d95f5012a95526ae6274d766",
+        "request": "aed0f8a3e1d69321ad800cec629c76fea26d275bc71fbfb5a8066b30e15d03fa",
+        "resolution": "d83abe087cf0fcb512fe135a304965e7c6991b92601c5329124299304ced51c3",
+        "completion": "d6b2d0d50eb2d80cdce192826ca63a2f51ae0cc2cc39a6f4d7c2358d73e73fef"
+      },
+      "initial_state": "AWAITING_APPROVAL",
+      "mutation_count": 1
+    },
+    {
+      "resource_type": "AWS::EC2::EIP",
+      "resource_id": "eipalloc-0123456789abcdef0",
+      "decision": "DENIED",
+      "record_sha256": {
+        "initial": "2b32043f38b0adeafbbfd63450b5bc6fccd436be0b04b9b791a9267deed61828",
+        "request": "78d4a525241f533b2eb7f4cf08d0666b60cb45878b3bebab48be411d6e7a5048",
+        "resolution": "fa9f594f6e0202d4d99c7affb992c716225adda7f358480e46048a7e00dca874",
+        "completion": "3f3079a16b62444b84cb35a8a0a96868647bac7b6a7f5067766cef160806ad00"
+      },
+      "initial_state": "AWAITING_APPROVAL",
+      "mutation_count": 0
+    },
+    {
+      "resource_type": "AWS::EC2::Instance",
+      "resource_id": "i-0123456789abcdef0",
+      "decision": null,
+      "record_sha256": {
+        "initial": "2184f20b84bb5646cbdd8b484b8634c9dc73965822ebdbf8fc0e9214ae3a0a43"
+      },
+      "initial_state": "NO_ACTION_REQUIRED",
+      "mutation_count": 0
+    },
+    {
+      "resource_type": "AWS::EC2::Instance",
+      "resource_id": "i-0fedcba9876543210",
+      "decision": null,
+      "record_sha256": {
+        "initial": "00821ff38b013b48058c16de00f486403968de31d0c3918443f6db60024f76fb"
+      },
+      "initial_state": "RECOMMENDATION_ONLY",
+      "mutation_count": 0
+    }
+  ]
+}
