@@ -261,3 +261,89 @@ class PublicResponsePrivacyTests(unittest.TestCase):
 
     def test_cli_denial_and_http_replay_share_public_projection(self):
         self.cli_flow('DENIED')
+
+    def test_internal_completion_retains_authority_while_http_omits_private_fields(self):
+        from nonzero_cloudops.execution import ExecutionCompletion
+
+        self.begin()
+        self.approve()
+        service = self.core.app.runtime.nonzero_cloudops
+        resume = service.resume
+        captured = []
+
+        def capture_completion(*args, **kwargs):
+            result = resume(*args, **kwargs)
+            captured.append(result.value)
+            return result
+
+        with patch.object(service, 'resume', side_effect=capture_completion):
+            public = self.resume()
+        self.assertEqual(len(captured), 1)
+        internal = captured[0]
+        self.assertIsInstance(internal, ExecutionCompletion)
+        approval = internal.approval.model_dump(mode='json')
+        self.assertTrue({'actor_session_id', 'decision_nonce_hash'} <= approval.keys())
+        self.assertTrue(bool(approval['actor_session_id']) and bool(approval['decision_nonce_hash']))
+        self.assertFalse({'actor_session_id', 'decision_nonce_hash'} & public['approval'].keys())
+        self.assertTrue(internal.approval == self.assert_binding().local_approval)
+        self.assertEqual(public['receipt'], internal.receipt.model_dump(mode='json', exclude_none=True))
+        self.assertEqual(public['verification'], internal.verification.model_dump(mode='json', exclude_none=True))
+        self.finish(public)
+
+    def cli_restart_and_replay(self, decision):
+        run_id = self.begin(cli=True, decision=decision)
+        self.cli('decision-json '+json.dumps(self.decision))
+        binding = self.assert_binding().local_approval.model_dump()
+        self.core.restart_core()
+        self.cli('run '+run_id)
+        self.assertEqual(self.core.app.runtime.nonzero_cloudops.components.executor.mutation_calls, 0)
+        done = self.cli('resume '+run_id+' CONFIRM')
+        replay = self.cli('resume '+run_id+' CONFIRM')
+        self.assertTrue(replay['reconciled'])
+        self.assertEqual({k: v for k, v in done.items() if k != 'reconciled'},
+                         {k: v for k, v in replay.items() if k != 'reconciled'})
+        self.assertTrue(self.assert_binding().local_approval.model_dump() == binding)
+        self.cli('run '+run_id)
+        self.cli('trace')
+        self.finish(replay, mutations=0 if decision == 'DENIED' else 1)
+
+    def test_cli_approved_restart_and_reconciled_replay_remain_private(self):
+        self.cli_restart_and_replay('APPROVED')
+
+    def test_cli_denied_restart_and_reconciled_replay_remain_private(self):
+        self.cli_restart_and_replay('DENIED')
+
+    def test_cli_post_mutation_recovery_preserves_private_binding_and_public_proof(self):
+        run_id = self.begin(cli=True)
+        self.cli('decision-json '+json.dumps(self.decision))
+        service = self.core.app.runtime.nonzero_cloudops
+        append = service.provenance.append_event
+
+        def fail_result(kind, payload):
+            if kind == 'nonzero_operator_result':
+                raise OSError('synthetic CLI result write interruption')
+            return append(kind, payload)
+
+        with patch.object(service.provenance, 'append_event', side_effect=fail_result):
+            failed = self.core.app.runtime.command_registry.execute(
+                '/nonzero resume '+run_id+' CONFIRM', self.core.app.runtime)
+        self.assertEqual(failed.exit_code, 1)
+        self.assertTrue(failed.message.startswith('NONZERO_') and failed.message.replace('_', '').isalpha(),
+                        'Expected a redacted CLI failure code')
+        assert_public_privacy(self, failed.message,
+                              private_values=(self.core.token, self.nonce, *self.binding_values))
+        checkpoint = self.assert_binding()
+        binding = checkpoint.local_approval.model_dump()
+        receipt = checkpoint.local_execution_receipt.model_dump(mode='json', exclude_none=True)
+        verification = checkpoint.local_verification.model_dump(mode='json', exclude_none=True)
+        self.assertEqual(service.components.executor.mutation_calls, 1)
+        self.core.restart_core()
+        done = self.cli('resume '+run_id+' CONFIRM')
+        self.assertTrue(done['reconciled'])
+        self.assertEqual(done['receipt'], receipt)
+        self.assertEqual(done['verification'], verification)
+        self.assertTrue(self.assert_binding().local_approval.model_dump() == binding)
+        self.assertEqual(self.core.app.runtime.nonzero_cloudops.components.executor.execute_calls, 0)
+        self.cli('run '+run_id)
+        self.cli('trace')
+        self.finish(done)
