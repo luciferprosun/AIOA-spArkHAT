@@ -99,7 +99,9 @@ class NativeReview:
         self._reviewer(principal)
 
         def read(tx):
-            records = tx.scan(RecordKind.REVIEW, limit=128)
+            records = tx.scan(RecordKind.REVIEW, limit=129)
+            if len(records) > 128:
+                raise MemoryPatchError(ErrorCode.QUOTA_EXCEEDED)
             result = []
             for record in records:
                 record = self.lifecycle.get(tx, RecordKind.REVIEW, record.record_id)

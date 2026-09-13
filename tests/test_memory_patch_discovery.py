@@ -264,3 +264,160 @@ class MigrationContractTests(unittest.TestCase):
             JuryDenylist(frozenset())
         with self.assertRaises(MemoryPatchError):
             JuryDenylist.from_manifest({"schema": "jury-canary-v1", "fingerprints": []})
+
+
+class NativeDiscoveryTests(unittest.TestCase):
+    def test_dependency_free_import_and_ambient_dsns_cannot_load_drivers_or_connect(
+        self,
+    ):
+        import os
+        import subprocess
+        import sys
+
+        code = """
+import sys,socket
+def forbidden(*a,**k):raise AssertionError("network or database attempt")
+socket.create_connection=forbidden
+socket.socket.connect=forbidden
+socket.getaddrinfo=forbidden
+import runtime.memory_patch as module
+assert module.module_descriptor()["backend_status"] == "UNCONFIGURED"
+assert not any(name.split(".")[0] in {"psycopg","psycopg2","asyncpg","pydantic","transformers","openai","anthropic"} for name in sys.modules)
+assert "runtime.memory_patch.service" not in sys.modules
+print("inert")
+"""
+        env = {
+            **os.environ,
+            "DATABASE_URL_MIGRATOR": "postgresql://never.fixture.invalid/no_connection",
+            "DATABASE_URL_APP": "postgresql://never.fixture.invalid/no_connection",
+            "OPENAI_API_KEY": "synthetic-unused",
+            "ANTHROPIC_API_KEY": "synthetic-unused",
+            "MEMORY_PATCH_ENABLED": "true",
+            "MEMORY_PATCH_OPERATOR": "true",
+        }
+        result = subprocess.run(
+            [sys.executable, "-B", "-c", code],
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=20,
+        )
+        self.assertEqual(0, result.returncode, "isolated discovery failed")
+        self.assertEqual("inert", result.stdout.strip())
+
+    def test_core_startup_help_status_and_close_do_not_initialize_native_module(self):
+        import tempfile
+        from pathlib import Path
+
+        from runtime.main import AgentRuntime
+        from runtime.memory_patch.contract import MemoryPatchConfig
+
+        with (
+            tempfile.TemporaryDirectory() as directory,
+            patch("socket.create_connection") as connect,
+        ):
+            manager = Mock()
+            runtime = AgentRuntime(
+                manager,
+                "fixture",
+                Path(directory),
+                memory_patch_config=MemoryPatchConfig(),
+            )
+            try:
+                self.assertIn("memory-patch", runtime.command_registry.names())
+                self.assertIn(
+                    "/memory-patch",
+                    runtime.command_registry.execute("/help", runtime).message,
+                )
+                self.assertFalse(runtime.memory_patch_status()["enabled"])
+                runtime.memory_patch_operator_request("status", {})
+                self.assertIsNone(runtime._memory_patch_service)
+                self.assertIsNone(runtime._memory_patch_admission)
+                self.assertIsNone(runtime._cpl_service)
+                self.assertIsNone(runtime._nonzero_service)
+                self.assertEqual(
+                    403,
+                    runtime.memory_patch_operator_request(
+                        "slot-create", {"operation_key": "x"}
+                    )[0],
+                )
+                connect.assert_not_called()
+                manager.assert_not_called()
+                self.assertEqual([], list(Path(directory).rglob("*memory_patch*")))
+            finally:
+                runtime.close()
+
+    def test_enabled_module_without_approved_owner_denies_before_composition(self):
+        import tempfile
+        from pathlib import Path
+
+        from runtime.main import AgentRuntime
+        from runtime.memory_patch.contract import MemoryPatchConfig
+
+        with tempfile.TemporaryDirectory() as directory:
+            runtime = AgentRuntime(
+                Mock(),
+                "fixture",
+                Path(directory),
+                memory_patch_config=MemoryPatchConfig(True),
+            )
+            try:
+                status, value = runtime.memory_patch_operator_request(
+                    "slot-create", {"operation_key": "x"}
+                )
+                self.assertEqual(403, status)
+                self.assertFalse(value["ok"])
+                self.assertIsNone(runtime._memory_patch_service)
+            finally:
+                runtime.close()
+
+    def test_default_service_has_no_implicit_fake_or_database(self):
+        from runtime.memory_patch.contract import MemoryPatchConfig
+        from runtime.memory_patch.service import MemoryPatchService
+
+        core = make_admission()
+        with patch("socket.create_connection") as connect:
+            service = MemoryPatchService(
+                core, config=MemoryPatchConfig(True, core._assignment)
+            )
+            status, result = service.request(
+                core.local_operator(Capability.MANAGE),
+                "slot-create",
+                {"operation_key": "x"},
+            )
+            self.assertEqual(503, status)
+            self.assertEqual("BACKEND_UNCONFIGURED", result["error"]["code"])
+            connect.assert_not_called()
+            service.close()
+
+    def test_configuration_is_immutable_and_no_json_identity_configuration(self):
+        from dataclasses import FrozenInstanceError
+
+        from runtime.memory_patch.contract import MemoryPatchConfig, snapshot_config
+
+        config = MemoryPatchConfig(True, make_admission()._assignment)
+        with self.assertRaises(FrozenInstanceError):
+            config.enabled = False
+        for value in ({"enabled": True, "operator": True}, True, "enabled"):
+            with self.assertRaises(AdmissionError):
+                snapshot_config(value)
+
+    def test_unconfigured_provider_never_resolves_ambient_keys(self):
+        from test_memory_patch_correction import CorrectionFixture
+
+        from runtime.memory_patch.provider_adapter import NativeProviderAdapter
+
+        fx = CorrectionFixture()
+        packet, _ = fx.integrity.build(
+            fx.principal, fx.draft("The reviewed policy applies."), fx.bundle
+        )
+        manager = Mock()
+        with patch.dict(
+            "os.environ",
+            {"OPENAI_API_KEY": "synthetic-unused", "MEMORY_PATCH_LIVE": "true"},
+        ):
+            with self.assertRaises(MemoryPatchError):
+                NativeProviderAdapter(fx.core, manager).draft(
+                    fx.principal, packet, fx.bundle, attempt=1
+                )
+        self.assertEqual([], manager.mock_calls)

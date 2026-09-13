@@ -185,5 +185,9 @@ class NativeRetrieval:
             )
         self.core.require(principal, Capability.READ, scope=request.scope)
         return RetrievalLanes(
-            bundle, temporal, personal, budget.context_bytes_used, budget.truncated
+            bundle,
+            temporal,
+            personal,
+            budget.context_bytes_used,
+            budget.truncated or len(budget.items) < len(ranked),
         )

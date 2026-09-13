@@ -122,6 +122,10 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
         parsed = urlparse(self.path)
         if not self._check_local_request():
             return
+        if parsed.path.startswith("/api/memory-patch"):
+            if self._check_memory_patch_operator():
+                self._handle_memory_patch("GET", parsed, {})
+            return
         if parsed.path == '/api/session':
             self._write_json(HTTPStatus.OK, {'token': self._service().csrf_token,
                                            'product_name': 'AIOA spArkHAT'})
@@ -187,6 +191,13 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
     def do_POST(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler API
         parsed = urlparse(self.path)
         if not self._check_local_request():
+            return
+        if parsed.path.startswith("/api/memory-patch"):
+            if not self._check_memory_patch_operator():
+                return
+            payload = self._read_json_body()
+            if payload is not None:
+                self._handle_memory_patch("POST", parsed, payload)
             return
         if (parsed.path.startswith(('/api/cpl/', '/api/nonzero/')) or parsed.path in {'/api/chat', '/api/model'}) and not self._check_token():
             return
@@ -282,6 +293,44 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
         except Exception:
             self._write_json(HTTPStatus.SERVICE_UNAVAILABLE, {'ok': False, 'error': 'NONZERO_STATE_OR_DEPENDENCY_UNAVAILABLE'})
 
+    def _check_memory_patch_operator(self):
+        from runtime.memory_patch.contract import OPERATOR_INTENT
+
+        if not self._check_token():
+            return False
+        if self.headers.get_all("X-AIOA-Intent", []) != [OPERATOR_INTENT]:
+            self._write_json(
+                HTTPStatus.FORBIDDEN, {"ok": False, "error": "operator_intent_required"}
+            )
+            return False
+        return True
+
+    def _handle_memory_patch(self, method, parsed, payload):
+        from runtime.memory_patch.contract import OPERATION_CAPABILITIES
+        from runtime.memory_patch.errors import ErrorCode, MemoryPatchError
+        from runtime.memory_patch.views import error_response
+
+        operation = "invalid"
+        try:
+            if (
+                parsed.query
+                or parsed.fragment
+                or parsed.params
+                or not parsed.path.startswith("/api/memory-patch/")
+            ):
+                raise MemoryPatchError(ErrorCode.INVALID_REQUEST)
+            operation = parsed.path.removeprefix("/api/memory-patch/")
+            if operation != "status" and operation not in OPERATION_CAPABILITIES:
+                raise MemoryPatchError(ErrorCode.INVALID_REQUEST)
+            if method == "GET" and operation not in {"status", "list", "review-queue"}:
+                raise MemoryPatchError(ErrorCode.INVALID_REQUEST)
+            status, result = self._service().runtime.memory_patch_operator_request(
+                operation, payload
+            )
+        except Exception as error:
+            status, result = error_response(operation, error)
+        self._write_json(status, result)
+
     def _check_local_request(self):
         port = self.server.server_address[1]
         allowed_hosts = {f'127.0.0.1:{port}', f'localhost:{port}'}
@@ -357,6 +406,21 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
         return payload
 
     def _write_json(self, status: HTTPStatus, payload: object) -> None:
+        if urlparse(self.path).path.startswith("/api/memory-patch") and (
+            not isinstance(payload, dict)
+            or set(payload) != {"ok", "module", "operation", "result", "error"}
+        ):
+            # Shared Core admission/framing failures also use the closed native
+            # envelope. No raw Core exception or request echo crosses this route.
+            from runtime.memory_patch.errors import ErrorCode, MemoryPatchError
+            from runtime.memory_patch.views import error_response
+
+            code = (
+                ErrorCode.ADMISSION_DENIED
+                if status == HTTPStatus.FORBIDDEN
+                else ErrorCode.INVALID_REQUEST
+            )
+            _, payload = error_response("invalid", MemoryPatchError(code))
         body = json.dumps(payload, ensure_ascii=False, sort_keys=True).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")

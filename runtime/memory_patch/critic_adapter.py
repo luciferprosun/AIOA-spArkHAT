@@ -6,7 +6,10 @@ from typing import Protocol
 
 from runtime.core_admission import Capability, CoreActor, CoreAdmission
 from runtime.memory_patch.contracts.enums import MemoryContentKind
-from runtime.memory_patch.contracts.serialization import canonical_sha256
+from runtime.memory_patch.contracts.serialization import (
+    canonical_sha256,
+    require_sha256_hex,
+)
 from runtime.memory_patch.errors import ErrorCode, MemoryPatchError
 from runtime.memory_patch.personal.candidates import NativeCandidates
 from runtime.memory_patch.personal.contracts import CandidateDraft
@@ -91,6 +94,17 @@ class NativeCriticAdapter:
             ):
                 raise MemoryPatchError(ErrorCode.ADMISSION_DENIED)
             slots.append(review["slot_id"])
+            for name in ("role", "provider_id", "model_id"):
+                bounded_text(review[name], 256)
+            for name in ("snapshot_hash", "observer_configuration_hash"):
+                require_sha256_hex(review[name], name)
+            if review["error_category"] is not None:
+                raise MemoryPatchError(ErrorCode.INTEGRITY_FAILED)
+            for name in ("uncertainty", "evidence_conflicts"):
+                if type(review[name]) is not list or len(review[name]) > 4:
+                    raise MemoryPatchError(ErrorCode.INVALID_REQUEST)
+                for value in review[name]:
+                    bounded_text(value, 400)
             summaries.append(bounded_text(review["summary"], 500))
             if not isinstance(review["findings"], list) or len(review["findings"]) > 4:
                 raise MemoryPatchError(ErrorCode.INVALID_REQUEST)
@@ -104,9 +118,35 @@ class NativeCriticAdapter:
                     raise MemoryPatchError(ErrorCode.INVALID_REQUEST)
                 bounded_text(finding["title"], 120)
                 bounded_text(finding["detail"], 600)
+                if finding["category"] not in {
+                    "accuracy",
+                    "authority",
+                    "evidence",
+                    "safety",
+                    "logic",
+                    "completeness",
+                    "uncertainty",
+                    "other",
+                } or finding["severity"] not in {"info", "warning", "critical"}:
+                    raise MemoryPatchError(ErrorCode.INVALID_REQUEST)
         if slots != ["observer-1", "observer-2", "observer-3"]:
             raise MemoryPatchError(ErrorCode.INTEGRITY_FAILED)
-        if canonical_sha256(view) != canonical_sha256(self.existing_critic.get(run_id)):
+        # Only the bound advisory snapshot is consumed. Core's unrelated cost
+        # estimates can contain JSON floats; they are not source-domain hashes.
+        keys = (
+            "run_id",
+            "execution_status",
+            "authority",
+            "knowledge_promotion",
+            "human_review_required",
+            "model_training",
+            "reviews",
+            "evidence_chain",
+        )
+        current = self.existing_critic.get(run_id)
+        if not isinstance(current, dict) or canonical_sha256(
+            {k: view.get(k) for k in keys}
+        ) != canonical_sha256({k: current.get(k) for k in keys}):
             raise MemoryPatchError(ErrorCode.INTEGRITY_FAILED)
         draft = CandidateDraft(
             "Critic observation",

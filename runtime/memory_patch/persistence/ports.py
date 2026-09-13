@@ -235,10 +235,12 @@ class TransactionRunner:
         factory: TransactionFactory | None = None,
         *,
         sleep: Callable[[float], None] = time.sleep,
+        owns_factory: bool = True,
     ) -> None:
         self._admission = admission
         self._factory = factory
         self._sleep = sleep
+        self._owns_factory = owns_factory
         self._closed = False
 
     @property
@@ -313,6 +315,8 @@ class TransactionRunner:
         raise MemoryPatchError(ErrorCode.RETRY_EXHAUSTED)
 
     def close(self) -> None:
+        if self._closed:
+            return
         self._closed = True
-        if self._factory is not None:
+        if self._factory is not None and self._owns_factory:
             self._factory.close()

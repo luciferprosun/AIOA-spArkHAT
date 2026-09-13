@@ -13,6 +13,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Callable
 
+from tools.provenance import AppendOnlyProvenanceStore as ExistingCoreProvenanceStore
+
 from runtime.core_admission import Capability, CoreActor, CoreAdmission, CorePrincipal
 from runtime.memory_patch.contracts.enums import ActorType
 from runtime.memory_patch.contracts.records import (
@@ -278,7 +280,9 @@ class CoreLedgerPublication:
         after_log_fsync: Callable[[], None] | None = None,
     ) -> None:
         if (
-            not isinstance(store, AppendOnlyProvenanceStore)
+            not isinstance(
+                store, (AppendOnlyProvenanceStore, ExistingCoreProvenanceStore)
+            )
             or type(max_bytes) is not int
             or not 4096 <= max_bytes <= 64 * 1024 * 1024
         ):

@@ -90,6 +90,8 @@ class NativeAnswerAssembler:
                 return NativeVerifiedAnswer(
                     UNKNOWN_ANSWER, "UNVERIFIED", (), False, True, None, 0
                 )
+            if len(self._completed) >= 1024:
+                raise MemoryPatchError(ErrorCode.QUOTA_EXCEEDED)
             last = None
             for attempt in (1, 2):
                 self.verifier.integrity.consume_attempt(
@@ -132,3 +134,7 @@ class NativeAnswerAssembler:
             )
             self._completed[key] = (packet.packet_hash, result, None)
             return result
+
+    def close(self):
+        with self._lock:
+            self._completed.clear()

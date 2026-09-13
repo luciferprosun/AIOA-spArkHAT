@@ -247,6 +247,8 @@ class NativePacketIntegrity:
             if attempt == 1:
                 if previous is not None:
                     raise MemoryPatchError(ErrorCode.IDEMPOTENCY_CONFLICT)
+                if len(self._uses) >= 1024:
+                    raise MemoryPatchError(ErrorCode.QUOTA_EXCEEDED)
             elif previous != (operation_id, 1):
                 raise MemoryPatchError(ErrorCode.IDEMPOTENCY_CONFLICT)
             self._uses[packet.packet_hash] = (operation_id, attempt)
@@ -254,3 +256,5 @@ class NativePacketIntegrity:
     def close(self):
         self._closed = True
         self._key = b""
+        with self._lock:
+            self._uses.clear()
