@@ -381,9 +381,16 @@ class NonZeroCloudOpsService:
             raise NonZeroError("NONZERO_REQUEST_TOO_LARGE", 413)
         from pydantic import ValidationError
 
-        from .execution import DecisionRequest
+        from .execution import ApprovalChallenge, DecisionRequest, ExecutionCompletion
         from .models import FailureKind, ResultStatus
-        from .views import ResumeRequest, StartRunRequest
+        from .views import (
+            LocalApprovalChallengeRequestView,
+            LocalApprovalChallengeView,
+            LocalApprovalDecisionView,
+            LocalExecutionCompletionView,
+            ResumeRequest,
+            StartRunRequest,
+        )
 
         try:
             if path == "/ready":
@@ -436,6 +443,32 @@ class NonZeroCloudOpsService:
                         "provenance": source_identity(),
                     }
                 result = result.value
+            # HTTP and CLI share these exact public field allowlists. Internal
+            # results retain their validated authority bindings and durable hashes.
+            if isinstance(result, ApprovalChallenge):
+                result = LocalApprovalChallengeView(
+                    request=LocalApprovalChallengeRequestView(**{
+                        name: getattr(result.request, name)
+                        for name in LocalApprovalChallengeRequestView.model_fields
+                    }),
+                    proposal=result.proposal,
+                    evidence=result.evidence,
+                    decision_nonce=result.decision_nonce,
+                )
+            elif isinstance(result, ExecutionCompletion):
+                result = LocalExecutionCompletionView(
+                    run_id=result.run_id,
+                    proposal_id=result.proposal_id,
+                    decision=result.decision,
+                    final_state=result.final_state,
+                    approval=LocalApprovalDecisionView(**{
+                        name: getattr(result.approval, name)
+                        for name in LocalApprovalDecisionView.model_fields
+                    }),
+                    receipt=result.receipt,
+                    verification=result.verification,
+                    reconciled=result.reconciled,
+                )
             return (201 if path == "/api/runs" else 200), {
                 "ok": True,
                 "result": result.model_dump(mode="json", exclude_none=True),
