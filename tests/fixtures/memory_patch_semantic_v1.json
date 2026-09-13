@@ -1,0 +1,260 @@
+{
+  "schema": "memory-patch-semantic-v1",
+  "fixed_time": "2030-01-02T12:00:00.000000Z",
+  "review": {
+    "method": "Literal inputs reviewed against operator-accepted Phase B source blob contracts; independent standard JSON/SHA-256/IEEE754 arithmetic.",
+    "source_application_executed": false,
+    "runtime_response_snapshots_used": false,
+    "reviewed_rules": [
+      "Canonical sorted UTF-8 compact JSON, UTC microseconds Z, root-only digest exclusion.",
+      "Approval proof includes all private owner/tenant/actor fields with MemoryPatchApproval domain separator.",
+      "Commit receipt remains separate from approval; receipt hash includes exact approval proof and scope.",
+      "Audit sequence starts at zero; each successor includes previous event hash.",
+      "Patch graph and slot graph are the exact accepted source graphs. No shortcut becomes parity.",
+      "384 little-endian float32 normalized coordinates; weights 8/8/4/3/2 and integer RRF k=60, scale=1e9.",
+      "Public redaction is tested independently; these are private semantic vectors, not HTTP snapshots.",
+      "Ten attempts have nine intervening sleeps. Attempt 10 is terminal; requesting another backoff is invalid in the accepted source RetryPolicy."
+    ]
+  },
+  "canonical": {
+    "input": {
+      "z": [
+        "Café",
+        1,
+        true,
+        null
+      ],
+      "a": {
+        "content_hash": "nested-binding"
+      }
+    },
+    "expected": "{\"a\":{\"content_hash\":\"nested-binding\"},\"z\":[\"Café\",1,true,null]}"
+  },
+  "approval": {
+    "binding": {
+      "contract_type": "MemoryPatchApproval",
+      "contract_version": "1.0.0",
+      "approval_id": "approval-fixture-1",
+      "proposal_id": "proposal-fixture-1",
+      "proposal_hash": "1111111111111111111111111111111111111111111111111111111111111111",
+      "tenant_id": "tenant-fixture-a",
+      "owner_user_id": "owner-fixture-a",
+      "personal_memory_space_id": "space-fixture-a",
+      "decision": "APPROVE",
+      "approver_type": "USER",
+      "approver_id": "owner-fixture-a",
+      "reason_code": "OWNER_APPROVE",
+      "decided_at": "2030-01-02T12:00:00.000000Z"
+    },
+    "expected_proof": "5496941011dab9e03d1aa3f0839849d83046391a2605c4cd00a3f77f2f8b2b1e",
+    "expected_canonical": "{\"approval_id\":\"approval-fixture-1\",\"approver_id\":\"owner-fixture-a\",\"approver_type\":\"USER\",\"contract_type\":\"MemoryPatchApproval\",\"contract_version\":\"1.0.0\",\"decided_at\":\"2030-01-02T12:00:00.000000Z\",\"decision\":\"APPROVE\",\"owner_user_id\":\"owner-fixture-a\",\"personal_memory_space_id\":\"space-fixture-a\",\"proposal_hash\":\"1111111111111111111111111111111111111111111111111111111111111111\",\"proposal_id\":\"proposal-fixture-1\",\"reason_code\":\"OWNER_APPROVE\",\"tenant_id\":\"tenant-fixture-a\"}"
+  },
+  "commit": {
+    "fields": {
+      "schema_version": "1.0.0",
+      "commit_id": "commit-fixture-1",
+      "proposal_id": "proposal-fixture-1",
+      "proposal_content_hash": "1111111111111111111111111111111111111111111111111111111111111111",
+      "approval_id": "approval-fixture-1",
+      "approval_proof": "5496941011dab9e03d1aa3f0839849d83046391a2605c4cd00a3f77f2f8b2b1e",
+      "committed_patch_id": "patch-fixture-1",
+      "tenant_id": "tenant-fixture-a",
+      "owner_user_id": "owner-fixture-a",
+      "personal_memory_space_id": "space-fixture-a",
+      "actor_type": "COMMIT_SERVICE",
+      "actor_id": "commit-service-fixture",
+      "storage_class": "CRDB_TRANSACTIONAL",
+      "committed_at": "2030-01-02T12:00:00.000000Z"
+    },
+    "expected_hash": "4752a9f03697ccf8fbd7812cd9528179a5786bb41a92b305ab6e74783d0aad43",
+    "expected_canonical": "{\"actor_id\":\"commit-service-fixture\",\"actor_type\":\"COMMIT_SERVICE\",\"approval_id\":\"approval-fixture-1\",\"approval_proof\":\"5496941011dab9e03d1aa3f0839849d83046391a2605c4cd00a3f77f2f8b2b1e\",\"commit_id\":\"commit-fixture-1\",\"committed_at\":\"2030-01-02T12:00:00.000000Z\",\"committed_patch_id\":\"patch-fixture-1\",\"owner_user_id\":\"owner-fixture-a\",\"personal_memory_space_id\":\"space-fixture-a\",\"proposal_content_hash\":\"1111111111111111111111111111111111111111111111111111111111111111\",\"proposal_id\":\"proposal-fixture-1\",\"schema_version\":\"1.0.0\",\"storage_class\":\"CRDB_TRANSACTIONAL\",\"tenant_id\":\"tenant-fixture-a\"}"
+  },
+  "audit": [
+    {
+      "fields": {
+        "schema_version": "1.0.0",
+        "audit_event_id": "audit-fixture-1",
+        "tenant_id": "tenant-fixture-a",
+        "user_id": "owner-fixture-a",
+        "kernel_run_id": null,
+        "event_type": "DETECTED",
+        "sequence_number": 0,
+        "previous_event_hash": null,
+        "resource_type": "patch",
+        "resource_id": "patch-fixture-1",
+        "state_before": null,
+        "state_after": "DETECTED",
+        "actor_type": "USER",
+        "actor_id": "owner-fixture-a",
+        "content_hashes": {
+          "content": "1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "created_at": "2030-01-02T12:00:00.000000Z",
+        "personal_memory_space_id": "space-fixture-a",
+        "protected_payload_reference": null
+      },
+      "expected_hash": "629b0d5f379a34d41d7c49229308bf2526fa7ebcad59c132f11ec17a7642e2b3",
+      "expected_canonical": "{\"actor_id\":\"owner-fixture-a\",\"actor_type\":\"USER\",\"audit_event_id\":\"audit-fixture-1\",\"content_hashes\":{\"content\":\"1111111111111111111111111111111111111111111111111111111111111111\"},\"created_at\":\"2030-01-02T12:00:00.000000Z\",\"event_type\":\"DETECTED\",\"kernel_run_id\":null,\"personal_memory_space_id\":\"space-fixture-a\",\"previous_event_hash\":null,\"protected_payload_reference\":null,\"resource_id\":\"patch-fixture-1\",\"resource_type\":\"patch\",\"schema_version\":\"1.0.0\",\"sequence_number\":0,\"state_after\":\"DETECTED\",\"state_before\":null,\"tenant_id\":\"tenant-fixture-a\",\"user_id\":\"owner-fixture-a\"}"
+    },
+    {
+      "fields": {
+        "schema_version": "1.0.0",
+        "audit_event_id": "audit-fixture-2",
+        "tenant_id": "tenant-fixture-a",
+        "user_id": "owner-fixture-a",
+        "kernel_run_id": null,
+        "event_type": "PROPOSED",
+        "sequence_number": 1,
+        "previous_event_hash": "629b0d5f379a34d41d7c49229308bf2526fa7ebcad59c132f11ec17a7642e2b3",
+        "resource_type": "patch",
+        "resource_id": "patch-fixture-1",
+        "state_before": "DETECTED",
+        "state_after": "PROPOSED",
+        "actor_type": "USER",
+        "actor_id": "owner-fixture-a",
+        "content_hashes": {
+          "content": "1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "created_at": "2030-01-02T12:00:00.000000Z",
+        "personal_memory_space_id": "space-fixture-a",
+        "protected_payload_reference": null
+      },
+      "expected_hash": "cfdb8fbed7f01501f1c40d8a5746cad27e79b63cc8c12246341b82ff666e62cc",
+      "expected_canonical": "{\"actor_id\":\"owner-fixture-a\",\"actor_type\":\"USER\",\"audit_event_id\":\"audit-fixture-2\",\"content_hashes\":{\"content\":\"1111111111111111111111111111111111111111111111111111111111111111\"},\"created_at\":\"2030-01-02T12:00:00.000000Z\",\"event_type\":\"PROPOSED\",\"kernel_run_id\":null,\"personal_memory_space_id\":\"space-fixture-a\",\"previous_event_hash\":\"629b0d5f379a34d41d7c49229308bf2526fa7ebcad59c132f11ec17a7642e2b3\",\"protected_payload_reference\":null,\"resource_id\":\"patch-fixture-1\",\"resource_type\":\"patch\",\"schema_version\":\"1.0.0\",\"sequence_number\":1,\"state_after\":\"PROPOSED\",\"state_before\":\"DETECTED\",\"tenant_id\":\"tenant-fixture-a\",\"user_id\":\"owner-fixture-a\"}"
+    }
+  ],
+  "patch_edges": {
+    "DETECTED": [
+      "PROPOSED"
+    ],
+    "PROPOSED": [
+      "EVIDENCE_BOUND"
+    ],
+    "EVIDENCE_BOUND": [
+      "VALIDATED"
+    ],
+    "VALIDATED": [
+      "AWAITING_APPROVAL"
+    ],
+    "AWAITING_APPROVAL": [
+      "APPROVED",
+      "REJECTED"
+    ],
+    "APPROVED": [
+      "COMMITTED"
+    ],
+    "COMMITTED": [
+      "ACTIVE"
+    ],
+    "ACTIVE": [
+      "REVOKED",
+      "SUPERSEDED"
+    ],
+    "REVOKED": [],
+    "SUPERSEDED": [],
+    "REJECTED": []
+  },
+  "space_edges": {
+    "EMPTY": [
+      "CONFIGURED",
+      "DELETED_PENDING"
+    ],
+    "CONFIGURED": [
+      "ACTIVE",
+      "ARCHIVED",
+      "DELETED_PENDING"
+    ],
+    "ACTIVE": [
+      "SUSPENDED",
+      "ARCHIVED",
+      "DELETED_PENDING"
+    ],
+    "SUSPENDED": [
+      "ACTIVE",
+      "ARCHIVED",
+      "DELETED_PENDING"
+    ],
+    "ARCHIVED": [
+      "CONFIGURED",
+      "DELETED_PENDING"
+    ],
+    "DELETED_PENDING": [
+      "DELETED"
+    ],
+    "DELETED": []
+  },
+  "vector": {
+    "dimension": 384,
+    "first_two": [
+      1,
+      0
+    ],
+    "remaining_zeroes": 382,
+    "expected_float32_sha256": "373421642a44f7412f4316b06f4e62f24ef7b30c879338577170cfadcf591baa",
+    "model_digest": "aa68fc625f243f0e9c5f97aa9a7d3b7963c7dfdd10ca645d0782f3d8e8c77070"
+  },
+  "rrf": {
+    "STATUTE_SECTION": {
+      "weight": 8,
+      "rank_1": 131147540,
+      "rank_5": 123076923
+    },
+    "EXACT_IDENTIFIER": {
+      "weight": 8,
+      "rank_1": 131147540,
+      "rank_5": 123076923
+    },
+    "FULL_TEXT": {
+      "weight": 4,
+      "rank_1": 65573770,
+      "rank_5": 61538461
+    },
+    "VECTOR": {
+      "weight": 3,
+      "rank_1": 49180327,
+      "rank_5": 46153846
+    },
+    "KEYWORD": {
+      "weight": 2,
+      "rank_1": 32786885,
+      "rank_5": 30769230
+    }
+  },
+  "retry": {
+    "attempts": 10,
+    "backoff_seconds_before_retries_2_through_10": [
+      0.01,
+      0.02,
+      0.04,
+      0.08,
+      0.16,
+      0.32,
+      0.64,
+      1.0,
+      1.0
+    ],
+    "after_attempt_10": "RAISE_WITHOUT_SLEEP"
+  },
+  "intentional_native_deviations": [
+    {
+      "adr": "PERSONAL_MEMORY_AUTHORITY_ADR.md",
+      "change": "Structural source actor fields do not authenticate. Core seals/session/scope, one-use challenge, explicit commit and explicit activation add independent authority."
+    },
+    {
+      "adr": "PUBLIC_TRANSPORT_PRIVACY_ADR.md",
+      "change": "Named public views suppress private durable bindings. Changed verified text becomes UNVERIFIED."
+    },
+    {
+      "adr": "EVIDENCE_PROMOTION_ADR.md",
+      "change": "Canonical evidence requires Core capture and independently published catalog receipt; no registry flag or personal memory can self-promote."
+    },
+    {
+      "adr": "PACKAGE_CONVERGENCE_PLAN.md",
+      "change": "No source runtime import, demo startup, extra application, provider, credential resolver or database work on discovery."
+    },
+    {
+      "adr": "COCKROACH_PERSISTENCE_ADR.md",
+      "change": "C4 uses explicit fake interfaces only; domain audit/outbox and separate Core publication never claim cross-store atomicity."
+    }
+  ]
+}
