@@ -389,7 +389,7 @@ class VectorTemporalTests(unittest.TestCase):
         local = (*scope.binding(), "test-hat")
         for index, column in enumerate(columns):
             values = list(local)
-            values[index] = "foreign-" + column
+            values[index] = "foreign-" + column + "-" + scope.space_id
             foreign = CoreAdmission(
                 LocalOwnerAssignment(
                     OwnerScope(*values[:4]),
