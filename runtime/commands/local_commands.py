@@ -35,6 +35,7 @@ def build_command_registry() -> CommandRegistry:
     registry.register("review", cmd_review)
     registry.register("cpl", cmd_cpl)
     registry.register("nonzero", cmd_nonzero)
+    registry.register("memory-patch", cmd_memory_patch)
     registry.register("scan", cmd_scan)
     registry.register("orchestrator", cmd_orchestrator)
     registry.register("worker", cmd_worker)
@@ -62,6 +63,7 @@ def cmd_help(_args: str, runtime) -> CommandResult:
                 "  /cpl             Critical Prompt Loop help / plan / start / status / verify",
                 "  /cpl fixture     explicit local HTTP 1+3+1 test (requires --cpl-fixture)",
                 "  /nonzero help    portable CloudOps module; explicit operator approval only",
+                "  /memory-patch status | ACTION JSON   owner memory; explicit local operator",
                 "  /scan PATH       scan a project tree after ENTER approval",
                 "  /orchestrator on|off|status",
                 "  /worker status|memory|clear",
@@ -117,6 +119,34 @@ def cmd_nonzero(args: str, runtime) -> CommandResult:
         return CommandResult(True, 'NONZERO_INVALID_COMMAND_JSON', 1)
     except OSError:
         return CommandResult(True, 'NONZERO_STATE_UNAVAILABLE', 1)
+
+
+def cmd_memory_patch(args: str, runtime) -> CommandResult:
+    """The trusted local operator surface; never called through Assistant chat."""
+    from runtime.memory_patch.contract import module_descriptor, parse_request
+    from runtime.memory_patch.errors import ErrorCode, MemoryPatchError
+    from runtime.memory_patch.views import envelope, error_response
+
+    action = "invalid"
+    try:
+        if not isinstance(args, str) or len(args.encode("utf-8")) > 24128:
+            raise MemoryPatchError(ErrorCode.INVALID_REQUEST)
+        parts = args.strip().split(None, 1)
+        action = parts[0] if parts else "status"
+        body = parse_request(parts[1]) if len(parts) == 2 else {}
+        if runtime is None:
+            if action != "status" or body:
+                raise MemoryPatchError(ErrorCode.ADMISSION_DENIED)
+            status, result = 200, envelope("status", result=module_descriptor())
+        else:
+            status, result = runtime.memory_patch_operator_request(action, body)
+    except Exception as error:
+        status, result = error_response(action, error)
+    return CommandResult(
+        True,
+        json.dumps(result, ensure_ascii=False, sort_keys=True),
+        0 if status < 400 else 1,
+    )
 
 
 def cmd_cpl(args: str, runtime) -> CommandResult:

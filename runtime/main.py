@@ -149,6 +149,8 @@ class AgentRuntime:
         debug_raw: bool = False,
         max_steps: int = MAX_AGENT_STEPS,
         nonzero_config=None,
+        memory_patch_config=None,
+        memory_patch_dependencies=None,
     ) -> None:
         self.provider_manager = provider_manager
         self.prompt_template = prompt_template
@@ -174,6 +176,16 @@ class AgentRuntime:
         self._nonzero_config = snapshot_config(nonzero_config)
         self._nonzero_closed = False
         self._nonzero_init_lock = threading.Lock()
+        from runtime.memory_patch.contract import (
+            snapshot_config as memory_patch_snapshot,
+        )
+
+        self._memory_patch_config = memory_patch_snapshot(memory_patch_config)
+        self._memory_patch_dependencies = memory_patch_dependencies
+        self._memory_patch_service = None
+        self._memory_patch_admission = None
+        self._memory_patch_closed = False
+        self._memory_patch_init_lock = threading.RLock()
         self.cpl_cost_policy = None
         self._owned_cpl_fixture = None
         self.session_log = (
@@ -234,6 +246,8 @@ class AgentRuntime:
         if not isinstance(options, dict) or set(options) - {'evidence', 'models', 'roles', 'limits', 'run_budget_usd'}:
             raise ExactCallError('INVALID_PLAN_FIELDS')
         command = prompt.lstrip().startswith('/')
+        if command and prompt.strip().split(None, 1)[0].lower() == '/memory-patch':
+            raise ExactCallError('MEMORY_PATCH_REQUIRES_OPERATOR_ENDPOINTS')
         if command and prompt.strip().split(' ', 1)[0].lower() == '/nonzero':
             raise ExactCallError('NONZERO_REQUIRES_OPERATOR_ENDPOINTS')
         if command and prompt.strip().split(' ', 1)[0].lower() == '/cpl':
@@ -260,6 +274,12 @@ class AgentRuntime:
         return self.critical_loop.wait(plan['run_id'])
 
     def close(self):
+        with self._memory_patch_init_lock:
+            self._memory_patch_closed = True
+            if self._memory_patch_service is not None:
+                self._memory_patch_service.close()
+            if self._memory_patch_admission is not None:
+                self._memory_patch_admission.close()
         with self._nonzero_init_lock:
             self._nonzero_closed = True
             if self._nonzero_service is not None:
@@ -301,6 +321,65 @@ class AgentRuntime:
                     runtime_state_dir(self.project_dir) / 'nonzero_cloudops' / 'native-v1',
                     guard=lambda: self.safeguards.kill_switch, config=self.nonzero_config)
         return self._nonzero_service
+
+    @property
+    def memory_patch_config(self):
+        return self._memory_patch_config
+
+    def memory_patch_status(self):
+        """Discovery does not resolve a port, provider, HAT, credential or database."""
+        from runtime.memory_patch.contract import module_descriptor
+
+        with self._memory_patch_init_lock:
+            if self._memory_patch_service is not None:
+                return self._memory_patch_service.status()
+            return module_descriptor(
+                self.memory_patch_config, closed=self._memory_patch_closed
+            )
+
+    def memory_patch_operator_request(self, operation, payload):
+        """Called only by existing local CLI or admitted operator HTTP endpoints.
+
+        Body identifiers never create a principal. Core's immutable approved
+        assignment and the explicit operation select its narrow capability.
+        """
+        from runtime.core_admission import CoreAdmission
+        from runtime.memory_patch.contract import operation_capability
+        from runtime.memory_patch.errors import ErrorCode, MemoryPatchError
+        from runtime.memory_patch.views import envelope, error_response
+
+        try:
+            with self._memory_patch_init_lock:
+                if operation == "status" and type(payload) is dict and not payload:
+                    return 200, envelope(operation, result=self.memory_patch_status())
+                if self._memory_patch_closed:
+                    raise MemoryPatchError(ErrorCode.MODULE_CLOSED)
+                if self.safeguards.kill_switch or not self.memory_patch_config.enabled:
+                    raise MemoryPatchError(ErrorCode.ADMISSION_DENIED)
+                capability = operation_capability(operation)
+                if self._memory_patch_admission is None:
+                    self._memory_patch_admission = CoreAdmission(
+                        self.memory_patch_config.assignment
+                    )
+                principal = self._memory_patch_admission.local_operator(capability)
+                from runtime.memory_patch.service import (
+                    MemoryPatchService,
+                    validate_request,
+                )
+
+                validate_request(operation, payload)
+                if self._memory_patch_service is None:
+                    self._memory_patch_service = MemoryPatchService(
+                        self._memory_patch_admission,
+                        config=self.memory_patch_config,
+                        dependencies=self._memory_patch_dependencies,
+                        existing_provider_manager=self.provider_manager,
+                        existing_hat_selection=self.hat_store,
+                        existing_critic=self._cpl_service,
+                    )
+                return self._memory_patch_service.request(principal, operation, payload)
+        except Exception as error:
+            return error_response(operation, error)
 
     def build_model_request(
         self,
