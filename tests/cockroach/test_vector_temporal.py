@@ -283,13 +283,14 @@ class VectorTemporalTests(unittest.TestCase):
             },
         )
 
-    def test_09_required_application_ann_scope_and_quality(self):
-        # This required criterion remains a failing test until a scoped ANN
-        # implementation passes. It is never converted to a skip or admin test.
+    def test_09_truthful_ann_capability_and_required_fail_closed(self):
+        from runtime.memory_patch.errors import ErrorCode
+
+        # Operator C5R revises C5-09 into exact correctness plus truthful ANN
+        # capability. The required-ANN denial is tested; it is never skipped.
         query = normalize_embedding_vector([1] + [0] * 383)
         close = normalize_embedding_vector([0.9, 0.1] + [0] * 382)
-        values = (("ann-a", query), ("ann-b", close))
-        self.seed(self.core, self.factory, values)
+        self.seed(self.core, self.factory, [("ann-a", query), ("ann-b", close)])
         scope = self.core.local_operator(Capability.READ).scope
         foreign = make_core(
             tenant="foreign-ann-tenant", owner=scope.owner_id, space=scope.space_id
@@ -299,45 +300,183 @@ class VectorTemporalTests(unittest.TestCase):
             self.seed(foreign, factory, [("foreign-ann-best", query)])
         finally:
             factory.close()
+            foreign.close()
         tx = self.begin()
         try:
-            try:
-                ann = tx.vectors.search(
+            capability = tx.vectors.capabilities().descriptor()
+            self.assertEqual(capability["ann"], "UNAVAILABLE_SECURELY_ON_CRDB_26_2_5")
+            response = tx.vectors.search_with_status(
+                query, hat_id="test-hat", model_digest=self.spec.model_digest, limit=2
+            )
+            self.assertEqual(response.mode, "EXACT")
+            self.assertEqual([row[0] for row in response.hits], ["ann-a", "ann-b"])
+            denied = []
+            for options in ({"ann_required": True}, {"approximate": True}):
+                with self.assertRaises(MemoryPatchError) as caught:
+                    tx.vectors.search_with_status(
+                        query,
+                        hat_id="test-hat",
+                        model_digest=self.spec.model_digest,
+                        **options,
+                    )
+                self.assertIs(caught.exception.code, ErrorCode.ANN_UNAVAILABLE)
+                denied.append(caught.exception.code.value)
+            # A denied acceleration request leaves the exact authorized path usable.
+            self.assertEqual(
+                tx.vectors.search(
                     query,
                     hat_id="test-hat",
                     model_digest=self.spec.model_digest,
                     limit=2,
-                    approximate=True,
-                )
-            except MemoryPatchError as error:
-                self.cfg.save(
-                    "C5_VECTOR_ANN_REQUIRED_CRITERION.json",
-                    {
-                        "STATUS": "FAIL",
-                        "contract_id": "C5-09",
-                        "code": error.code.value,
-                        "reason": "Pinned v26.2.5 rejected ANN with required request-context RLS (42809); ordinary ANN remains unverified and disabled.",
-                        "RLS_weakened": False,
-                        "admin_substitution": False,
-                        "exact_fallback_presented_as_ANN": False,
-                        "required_recall": 0.8,
-                        "actual_recall": None,
-                        "reference": "https://docs.cockroachlabs.com/docs/v26.2/vector-indexes",
-                    },
-                )
-                self.fail(
-                    "C5-09 required application ANN is not certified; C5 must remain FAIL"
-                )
-            self.assertTrue(
-                set(row[0] for row in ann) <= {chunk for chunk, _ in values}
+                ),
+                response.hits,
             )
-            recall = len(
-                {row[0] for row in ann} & {chunk for chunk, _ in values}
-            ) / len(values)
-            self.assertGreaterEqual(recall, 0.8)
         finally:
             tx.rollback()
             tx.close()
+        self.cfg.save(
+            "C5_VECTOR_ANN_CAPABILITY.json",
+            {
+                "STATUS": "PASS",
+                "contract_id": "C5R-09A-09B",
+                "capability": capability,
+                "actual_mode": response.mode,
+                "required_requests_denied": denied,
+                "unauthorized_rows": 0,
+                "RLS_weakened": False,
+                "admin_substitution": False,
+                "exact_fallback_presented_as_ANN": False,
+                "ANN_recall": None,
+                "ANN_recall_measured": False,
+            },
+        )
+
+    def test_09_publication_and_independent_context_predicates(self):
+        from runtime.core_admission import (
+            CoreAdmission,
+            LocalOwnerAssignment,
+            OwnerScope,
+        )
+
+        query = normalize_embedding_vector([1] + [0] * 383)
+        scope = self.core.local_operator(Capability.READ).scope
+        self.seed(
+            self.core,
+            self.factory,
+            [
+                ("gate-current", query),
+                ("gate-unpublished", query),
+                ("gate-withdrawn", query),
+                ("gate-quarantined", query),
+            ],
+        )
+        tx = self.begin(Capability.EVIDENCE_CAPTURE)
+        try:
+            for chunk, state in (
+                ("gate-unpublished", "REVIEWED"),
+                ("gate-withdrawn", "WITHDRAWN"),
+                ("gate-quarantined", "QUARANTINED"),
+            ):
+                tx._lease.connection.execute(
+                    "UPDATE aioa_memory_patch.source_publications SET source_status=%s "
+                    "WHERE (tenant_id,owner_id,space_id,slot_id)=(%s,%s,%s,%s) AND source_id=%s",
+                    (state, *scope.binding(), "source-" + chunk),
+                )
+            tx.commit()
+        finally:
+            tx.close()
+        columns = ("tenant_id", "owner_id", "space_id", "slot_id", "hat_id")
+        local = (*scope.binding(), "test-hat")
+        for index, column in enumerate(columns):
+            values = list(local)
+            values[index] = "foreign-" + column
+            foreign = CoreAdmission(
+                LocalOwnerAssignment(
+                    OwnerScope(*values[:4]),
+                    frozenset(Capability),
+                    frozenset({values[4]}),
+                    frozenset({"test-model"}),
+                    operator_approved=True,
+                )
+            )
+            factory = self.cfg.factory(foreign)
+            try:
+                self.seed(
+                    foreign,
+                    factory,
+                    [("gate-foreign-" + column, query)],
+                    hat_id=values[4],
+                )
+            finally:
+                factory.close()
+                foreign.close()
+        tx = self.begin()
+        try:
+            c = tx._lease.connection
+            self.assertEqual(
+                c.execute("SELECT session_user,current_user").fetchone(),
+                (self.cfg.target.application_role,) * 2,
+            )
+            self.assertEqual(
+                c.execute(
+                    "SELECT rolsuper,rolbypassrls,pg_catalog.pg_has_role(session_user,'admin','MEMBER') "
+                    "FROM pg_catalog.pg_roles WHERE rolname=session_user"
+                ).fetchone(),
+                (False, False, False),
+            )
+            flags = c.execute(
+                "SELECT c.relname,c.relrowsecurity,c.relforcerowsecurity FROM pg_catalog.pg_class c "
+                "JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace "
+                "WHERE n.nspname='aioa_memory_patch' AND c.relkind='r' ORDER BY c.relname"
+            ).fetchall()
+            self.assertEqual(
+                sum(enabled and forced for _, enabled, forced in flags), 17
+            )
+            exact = tx.vectors.search(
+                query, hat_id="test-hat", model_digest=self.spec.model_digest
+            )
+            self.assertEqual([row[0] for row in exact], ["gate-current"])
+            local_rows = [
+                "gate-current",
+                "gate-quarantined",
+                "gate-unpublished",
+                "gate-withdrawn",
+            ]
+            for missing in columns:
+                predicates = [col + "=%s" for col in columns if col != missing]
+                args = [
+                    value
+                    for col, value in zip(columns, local, strict=True)
+                    if col != missing
+                ]
+                rows = c.execute(
+                    "SELECT chunk_id FROM aioa_memory_patch.chunk_vectors WHERE "
+                    + " AND ".join(predicates)
+                    + " ORDER BY chunk_id",
+                    args,
+                ).fetchall()
+                self.assertEqual([row[0] for row in rows], local_rows)
+            after = c.execute(
+                "SELECT c.relname,c.relrowsecurity,c.relforcerowsecurity FROM pg_catalog.pg_class c "
+                "JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace "
+                "WHERE n.nspname='aioa_memory_patch' AND c.relkind='r' ORDER BY c.relname"
+            ).fetchall()
+            self.assertEqual(flags, after)
+        finally:
+            tx.rollback()
+            tx.close()
+        self.cfg.save(
+            "C5_VECTOR_PUBLICATION_CONTEXT.json",
+            {
+                "STATUS": "PASS",
+                "context_columns_tested_independently": columns,
+                "foreign_rows_returned_with_one_predicate_missing": 0,
+                "excluded_publication_states": ["REVIEWED", "WITHDRAWN", "QUARANTINED"],
+                "scoped_tables_FORCE_RLS_before_after": 17,
+                "application_admin_or_bypass": False,
+                "fixture_admin_mutations": 0,
+            },
+        )
 
     def test_10_sql_personal_temporal_revocation_supersession_and_conflict(self):
         from test_memory_patch_persistence_ports import NOW
@@ -345,6 +484,10 @@ class VectorTemporalTests(unittest.TestCase):
         fixture = memory_fixture()
         self.addCleanup(fixture.close)
         admissions = fixture.rf.catalog.admissions
+        unpublished = memory_fixture()
+        self.addCleanup(unpublished.close)
+        unpublished.prepare()
+        self.assertEqual(unpublished.retrieve(), ())
         active = fixture.activate(
             fixture.draft(
                 valid_from=NOW - timedelta(days=1), valid_until=NOW + timedelta(hours=1)
@@ -436,6 +579,7 @@ class VectorTemporalTests(unittest.TestCase):
             {
                 "STATUS": "PASS",
                 "current_expired": True,
+                "unapproved_memory_suppressed": True,
                 "historical_canonical": True,
                 "future_canonical": True,
                 "client_time_cannot_revive_private_memory": True,

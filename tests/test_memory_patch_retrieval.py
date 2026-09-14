@@ -591,3 +591,120 @@ class VectorTests(unittest.TestCase):
             identity.identity_digest,
             replace(identity, input_kind="PASSAGE").identity_digest,
         )
+
+
+class SQLVectorCapabilityTests(unittest.TestCase):
+    """Capability requests cannot turn a denied ANN operation into exact SQL."""
+
+    def setUp(self):
+        from unittest.mock import MagicMock
+
+        from runtime.memory_patch.adapters.cockroach.repositories import (
+            ScopedVectorRepository,
+        )
+        from runtime.memory_patch.persistence.ports import TransactionContext
+
+        self.core = make_admission()
+        self.principal = self.core.local_operator(Capability.READ)
+        self.context = TransactionContext(self.principal, Capability.READ)
+        self.connection = MagicMock()
+        self.connection.cursor.return_value.__enter__.return_value.fetchall.return_value = []
+        self.repository = ScopedVectorRepository(
+            self.connection,
+            self.context,
+            lambda: self.core.require(self.principal, Capability.READ),
+        )
+        self.query = normalize_embedding_vector([1] + [0] * 383)
+        self.arguments = {
+            "hat_id": "test-hat",
+            "model_digest": load_approved_model_spec().model_digest,
+        }
+        self.addCleanup(self.core.close)
+
+    def test_descriptor_is_immutable_truthful_and_does_not_query(self):
+        from dataclasses import FrozenInstanceError
+
+        profile = self.repository.capabilities()
+        self.assertEqual(profile.default_mode, "EXACT")
+        self.assertTrue(profile.exact)
+        self.assertEqual(profile.ann.value, "UNAVAILABLE_SECURELY_ON_CRDB_26_2_5")
+        self.assertEqual(
+            profile.descriptor()["ann_required_failure_code"], "ANN_UNAVAILABLE"
+        )
+        with self.assertRaises(FrozenInstanceError):
+            profile.default_mode = "ANN"
+        self.connection.cursor.assert_not_called()
+
+    def test_ann_required_and_legacy_approximate_fail_before_query(self):
+        from runtime.memory_patch.errors import ErrorCode
+        from runtime.memory_patch.views import error_view
+
+        for options in (
+            {"ann_required": True},
+            {"approximate": True},
+            {"ann_required": True, "approximate": True},
+        ):
+            for method in (self.repository.search, self.repository.search_with_status):
+                with self.assertRaises(MemoryPatchError) as caught:
+                    method(self.query, **self.arguments, **options)
+                self.assertIs(caught.exception.code, ErrorCode.ANN_UNAVAILABLE)
+                public = error_view(caught.exception)
+                self.assertEqual(public["code"], "ANN_UNAVAILABLE")
+                self.assertFalse(public["retryable"])
+                self.assertFalse(public["recovery_required"])
+        self.connection.cursor.assert_not_called()
+
+    def test_exact_status_cannot_claim_ann_or_disclose_private_hits(self):
+        from dataclasses import FrozenInstanceError
+
+        result = self.repository.search_with_status(self.query, **self.arguments)
+        self.assertEqual(result.hits, ())
+        self.assertEqual(
+            result.metadata(),
+            {"mode": "EXACT", "ann_capability": "UNAVAILABLE_SECURELY_ON_CRDB_26_2_5"},
+        )
+        self.connection.cursor.assert_called_once()
+        with self.assertRaises(FrozenInstanceError):
+            result.mode = "ANN"
+        self.assertNotIn("hits", result.metadata())
+        self.assertEqual(
+            self.repository.search(self.query, **self.arguments), result.hits
+        )
+
+    def test_nonboolean_mode_requests_are_not_coerced(self):
+        from runtime.memory_patch.errors import ErrorCode
+
+        for field in ("ann_required", "approximate"):
+            for value in (0, 1, "false", "true", None, [], {}):
+                with self.assertRaises(MemoryPatchError) as caught:
+                    self.repository.search(
+                        self.query, **self.arguments, **{field: value}
+                    )
+                self.assertIs(caught.exception.code, ErrorCode.INVALID_REQUEST)
+        self.connection.cursor.assert_not_called()
+
+    def test_scope_model_and_input_validation_precede_unavailable_capability(self):
+        from runtime.memory_patch.errors import ErrorCode
+
+        for arguments in (
+            {**self.arguments, "hat_id": "other-hat"},
+            {**self.arguments, "model_digest": "0" * 64},
+            {**self.arguments, "limit": True},
+        ):
+            with self.assertRaises(MemoryPatchError) as caught:
+                self.repository.search(self.query, ann_required=True, **arguments)
+            self.assertIs(caught.exception.code, ErrorCode.INVALID_REQUEST)
+        self.connection.cursor.assert_not_called()
+
+    def test_closed_authority_denies_descriptor_and_both_search_paths(self):
+        self.core.close()
+        for action in (
+            self.repository.capabilities,
+            lambda: self.repository.search(self.query, **self.arguments),
+            lambda: self.repository.search_with_status(
+                self.query, ann_required=True, **self.arguments
+            ),
+        ):
+            with self.assertRaises(AdmissionError):
+                action()
+        self.connection.cursor.assert_not_called()

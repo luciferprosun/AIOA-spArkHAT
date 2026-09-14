@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass, field
+from enum import Enum
 from types import MappingProxyType
 
 from runtime.core_admission import Capability, OwnerScope
@@ -178,12 +180,53 @@ class ScopedSQLRepository:
                 raise MemoryPatchError(ErrorCode.STATE_CONFLICT)
 
 
+class AnnCapability(str, Enum):
+    VERIFIED_SECURE = "VERIFIED_SECURE"
+    UNAVAILABLE_SECURELY_ON_CRDB_26_2_5 = "UNAVAILABLE_SECURELY_ON_CRDB_26_2_5"
+
+
+@dataclass(frozen=True, slots=True)
+class VectorSearchCapabilities:
+    """Certified adapter profile; obtaining it never probes or changes SQL."""
+
+    certified_engine_version: str = field(default="v26.2.5", init=False)
+    default_mode: str = field(default="EXACT", init=False)
+    exact: bool = field(default=True, init=False)
+    ann: AnnCapability = field(
+        default=AnnCapability.UNAVAILABLE_SECURELY_ON_CRDB_26_2_5, init=False
+    )
+
+    def descriptor(self):
+        return {
+            "certified_engine_version": self.certified_engine_version,
+            "default_mode": self.default_mode,
+            "exact": self.exact,
+            "ann": self.ann.value,
+            "ann_required_failure_code": ErrorCode.ANN_UNAVAILABLE.value,
+        }
+
+
+@dataclass(frozen=True, slots=True, repr=False)
+class VectorSearchResult:
+    """Private SQL hits with explicit mode; metadata contains no row identities."""
+
+    hits: tuple
+    mode: str = field(default="EXACT", init=False)
+    ann_capability: AnnCapability = field(
+        default=AnnCapability.UNAVAILABLE_SECURELY_ON_CRDB_26_2_5, init=False
+    )
+
+    def metadata(self):
+        return {"mode": self.mode, "ann_capability": self.ann_capability.value}
+
+
 class ScopedVectorRepository:
     """SQL search returns internal identities; Core separately admits evidence.
 
     The complete Core scope and approved HAT/model predicates precede ranking.
-    Exact search uses the primary index and stable ties. ANN is an explicit
-    separate operation whose quality must be certified independently.
+    Exact search uses the primary index and stable ties. This certified profile
+    has no safe ANN path. Required ANN is rejected before a search query; a
+    future profile must be separately certified before enabling acceleration.
     """
 
     def __init__(self, connection, context, check_active):
@@ -193,7 +236,45 @@ class ScopedVectorRepository:
             check_active,
         )
 
-    def search(self, vector, *, hat_id, model_digest, limit=20, approximate=False):
+    def capabilities(self):
+        self._check_active()
+        if self._context.purpose is not Capability.READ:
+            raise MemoryPatchError(ErrorCode.INVALID_REQUEST)
+        return VectorSearchCapabilities()
+
+    def search_with_status(
+        self,
+        vector,
+        *,
+        hat_id,
+        model_digest,
+        limit=20,
+        ann_required=False,
+        approximate=False,
+    ):
+        """Return exact hits and truthful mode, or reject required ANN."""
+        return VectorSearchResult(
+            self.search(
+                vector,
+                hat_id=hat_id,
+                model_digest=model_digest,
+                limit=limit,
+                ann_required=ann_required,
+                approximate=approximate,
+            )
+        )
+
+    def search(
+        self,
+        vector,
+        *,
+        hat_id,
+        model_digest,
+        limit=20,
+        approximate=False,
+        ann_required=False,
+    ):
+        """Compatibility API returning exact hits only; never silently use ANN."""
         from runtime.memory_patch.retrieval.embeddings import (
             EmbeddingVector,
             load_approved_model_spec,
@@ -209,13 +290,13 @@ class ScopedVectorRepository:
             or type(limit) is not int
             or not 1 <= limit <= 100
             or type(approximate) is not bool
+            or type(ann_required) is not bool
         ):
             raise MemoryPatchError(ErrorCode.INVALID_REQUEST)
-        if approximate:
-            # v26.2.5 rejects vector-index acceleration with this required
-            # request-context RLS filter (SQLSTATE 42809). Keep this explicit
-            # mode unverified; never weaken RLS or silently substitute a scan.
-            raise MemoryPatchError(ErrorCode.UNVERIFIED)
+        if approximate or ann_required:
+            # Both the legacy opt-in and the required-capability request deny
+            # before SQL. Exact retrieval is never mislabeled as ANN.
+            raise MemoryPatchError(ErrorCode.ANN_UNAVAILABLE)
         checked = vector_from_float32_bytes(vector.float32_bytes)
         if (
             checked.values != vector.values
