@@ -21,7 +21,7 @@ aioa-sparkhat = "runtime.cli:main"
 aioa-sparkhat-web = "runtime.web_cli:main"
 
 [tool.setuptools.packages.find]
-include = ["runtime", "runtime.*"]
+include = ["runtime", "runtime.*", "tui", "tui.*"]
 exclude = ["runtime.reports", "runtime.logs", "runtime.state", "runtime.screenshots", "runtime.obsidian_vault", "runtime.nonzero_cloudops.baseline*"]
 namespaces = true
 
