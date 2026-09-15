@@ -1,0 +1,12 @@
+{
+  "schema_version": "aioa-mission-v1",
+  "mission_id": "nv01-synthetic-mission",
+  "owner_scope": {
+    "tenant_id": "synthetic-tenant",
+    "owner_id": "synthetic-owner",
+    "space_id": "synthetic-space",
+    "slot_id": "synthetic-slot"
+  },
+  "manifest_revision": 1,
+  "source_ids": ["nv01.synthetic.source"]
+}

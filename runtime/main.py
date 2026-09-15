@@ -151,22 +151,37 @@ class AgentRuntime:
         nonzero_config=None,
         memory_patch_config=None,
         memory_patch_dependencies=None,
+        inspection_only: bool = False,
+        mission_context=None,
+        mission_bindings=None,
     ) -> None:
+        if type(inspection_only) is not bool:
+            raise ValueError('INVALID_INSPECTION_MODE')
+        self._inspection_only = inspection_only
+        self._mission_context = mission_context
+        self._mission_bindings = mission_bindings
         self.provider_manager = provider_manager
         self.prompt_template = prompt_template
         self.project_dir = project_dir
         self.debug_raw = debug_raw
         self.max_steps = max_steps
         self.safeguards = load_epistemic_safeguards()
-        self.memory_store = MemoryStore(project_dir, project_dir)
-        self.hat_store = MemoryHatStore(project_dir)
-        self.worker_memory = GemmaWorkerMemory(project_dir)
-        self.executor = ExecutionEngine(project_dir, self.memory_store)
-        self.desktop_dir = detect_desktop_dir(Path.home())
-        self.local_router = LocalRouter(self.desktop_dir)
-        self.knowledge_router = KnowledgeRouter(project_dir)
-        self.aoia_kernel = AOIAEpistemicKernel(project_dir)
-        self.command_registry = build_command_registry()
+        if inspection_only:
+            # Same composition root, but no mutable legacy state or executor.
+            self.provider_manager = None
+            self.memory_store = self.hat_store = self.worker_memory = None
+            self.executor = self.desktop_dir = self.local_router = None
+            self.knowledge_router = self.aoia_kernel = self.command_registry = None
+        else:
+            self.memory_store = MemoryStore(project_dir, project_dir)
+            self.hat_store = MemoryHatStore(project_dir)
+            self.worker_memory = GemmaWorkerMemory(project_dir)
+            self.executor = ExecutionEngine(project_dir, self.memory_store)
+            self.desktop_dir = detect_desktop_dir(Path.home())
+            self.local_router = LocalRouter(self.desktop_dir)
+            self.knowledge_router = KnowledgeRouter(project_dir)
+            self.aoia_kernel = AOIAEpistemicKernel(project_dir)
+            self.command_registry = build_command_registry()
         self.use_orchestrator = False
         self.orchestrator: GeminiGemmaOrchestrator | None = None
         self._cpl_service = None
@@ -188,10 +203,20 @@ class AgentRuntime:
         self._memory_patch_init_lock = threading.RLock()
         self.cpl_cost_policy = None
         self._owned_cpl_fixture = None
-        self.session_log = (
+        self.session_log = None if inspection_only else (
             self.memory_store.paths.session_logs_dir
             / f"session_{self.memory_store.memory.session_id}.jsonl"
         )
+
+    def _require_operational_runtime(self):
+        if self._inspection_only:
+            from runtime.mission.contracts import MissionError
+            raise MissionError('INSPECTION_ONLY', status='POLICY_BLOCKED', exit_code=4)
+
+    def mission_doctor(self, *, manifest=None, trace=None):
+        """Read-only NV-01 profile discovery through this existing runtime."""
+        from runtime.mission.diagnostics import inspect_runtime
+        return inspect_runtime(self, manifest=manifest, trace=trace)
 
     def render_system_prompt(self) -> str:
         prompt = self.prompt_template
@@ -208,6 +233,7 @@ class AgentRuntime:
     @property
     def critical_loop(self):
         """One lazy advisory service, shared by CLI and WebRuntimeService."""
+        self._require_operational_runtime()
         with self._cpl_init_lock:
             if self._cpl_service is None:
                 from critical_loop.service import CriticalPromptLoopService
@@ -238,6 +264,7 @@ class AgentRuntime:
         """
         from providers.exact import ExactCallError
 
+        self._require_operational_runtime()
         if not isinstance(mode, str) or mode not in {'cpl', 'plain'}:
             raise ExactCallError('INVALID_ASSISTANT_MODE')
         if not isinstance(prompt, str) or not prompt.strip() or len(prompt.encode()) > 12000:
@@ -310,6 +337,7 @@ class AgentRuntime:
     @property
     def nonzero_cloudops(self):
         """Own one optional portable module through the existing runtime."""
+        self._require_operational_runtime()
         with self._nonzero_init_lock:
             if self._nonzero_closed:
                 from nonzero_cloudops import NonZeroError
@@ -352,6 +380,8 @@ class AgentRuntime:
             with self._memory_patch_init_lock:
                 if operation == "status" and type(payload) is dict and not payload:
                     return 200, envelope(operation, result=self.memory_patch_status())
+                if self._inspection_only:
+                    raise MemoryPatchError(ErrorCode.ADMISSION_DENIED)
                 if self._memory_patch_closed:
                     raise MemoryPatchError(ErrorCode.MODULE_CLOSED)
                 if self.safeguards.kill_switch or not self.memory_patch_config.enabled:
@@ -500,6 +530,7 @@ class AgentRuntime:
 
     def ask_model(self, prompt: str) -> str:
         """Request one structured action from the active model provider."""
+        self._require_operational_runtime()
         if self.safeguards.disable_model:
             raise RuntimeError("Model planning is disabled by EPISTEMIC_DISABLE_MODEL.")
         last_error: Exception | None = None
@@ -527,6 +558,7 @@ class AgentRuntime:
 
     def handle_user_request(self, user_input: str) -> None:
         """Run the bounded action loop for one user request."""
+        self._require_operational_runtime()
         self.memory_store.set_current_task(user_input)
         if user_input.strip().lower() in {"help", "?"}:
             result = self.command_registry.execute("/help", self)
@@ -651,6 +683,7 @@ class AgentRuntime:
 
     def handle_external_review_route(self, user_input: str) -> bool:
         """Keep external URLs and repository requests out of RHCSA retrieval."""
+        self._require_operational_runtime()
         route = classify_external_review_request(user_input)
         if route is None:
             return False
@@ -719,6 +752,7 @@ class AgentRuntime:
         return True
 
     def enable_orchestrator(self, enabled: bool = True) -> None:
+        self._require_operational_runtime()
         self.use_orchestrator = enabled
         if enabled and self.orchestrator is None:
             self.orchestrator = GeminiGemmaOrchestrator(
@@ -732,6 +766,7 @@ class AgentRuntime:
 
     def handle_orchestrated_request(self, user_input: str) -> None:
         """Run Gemini brain -> Gemma worker -> approval -> executor flow."""
+        self._require_operational_runtime()
         self.enable_orchestrator(True)
         assert self.orchestrator is not None
 
@@ -913,6 +948,7 @@ class AgentRuntime:
         planned_actions: list[dict[str, Any]],
         request_trace: list[dict[str, Any]],
     ) -> None:
+        self._require_operational_runtime()
         print(f"\n[PLAN] {len(planned_actions)} proposed step(s).")
         last_result: dict[str, Any] | None = None
         for step, action in enumerate(planned_actions, start=1):
@@ -956,6 +992,7 @@ class AgentRuntime:
 
     def run_text_request(self, user_input: str) -> dict[str, Any]:
         """Execute one text request and capture the textual transcript."""
+        self._require_operational_runtime()
         transcript_buffer = io.StringIO()
         with redirect_stdout(transcript_buffer):
             command_result = self.command_registry.execute(user_input, self)
@@ -972,6 +1009,7 @@ class AgentRuntime:
 
     def handle_local_route(self, user_input: str) -> bool:
         """Execute obvious local tasks before calling the model."""
+        self._require_operational_runtime()
         route = self.local_router.route(user_input)
         if route is None:
             return False
@@ -1005,6 +1043,7 @@ class AgentRuntime:
 
     def handle_knowledge_route(self, user_input: str) -> bool:
         """Answer Linux/RHCSA operational requests from local memory first."""
+        self._require_operational_runtime()
         if self.safeguards.disable_knowledge:
             self.log_reasoning_trace(
                 "knowledge_route_disabled",
@@ -1125,6 +1164,7 @@ class AgentRuntime:
         The goal is to save model requests for interpretation rather than for
         trivial browser setup.
         """
+        self._require_operational_runtime()
         request_trace: list[dict[str, Any]] = []
         raw_url = extract_first_url(user_input)
         if not raw_url:
@@ -1184,6 +1224,7 @@ class AgentRuntime:
 
     def save_page_text_snapshot(self, url: str, result: dict[str, Any]) -> Path | None:
         """Persist locally captured page text so quota failures do not lose context."""
+        self._require_operational_runtime()
         text = result.get("text", "").strip()
         if not text:
             return None
@@ -1212,6 +1253,7 @@ class AgentRuntime:
         return payload
 
     def log_session_event(self, kind: str, payload: dict[str, Any]) -> None:
+        self._require_operational_runtime()
         record = {
             "timestamp": dt.datetime.now().isoformat(),
             "kind": kind,
@@ -1226,6 +1268,7 @@ class AgentRuntime:
         self.memory_store.append_reasoning(kind, payload)
 
     def log_error(self, payload: dict[str, Any]) -> None:
+        self._require_operational_runtime()
         error_file = (
             self.memory_store.paths.error_logs_dir
             / f"error_{dt.datetime.now().strftime('%Y%m%d_%H%M%S_%f')}.json"
@@ -1292,7 +1335,20 @@ def print_banner(runtime: AgentRuntime) -> None:
     print(f"[INFO] Obsidian vault: {runtime.memory_store.vault_dir}")
 
 
-def create_runtime(*, cpl_fixture=False, cpl_cost_policy=None, nonzero_config=None):
+def create_runtime(*, cpl_fixture=False, cpl_cost_policy=None, nonzero_config=None,
+                   memory_patch_config=None, memory_patch_dependencies=None,
+                   inspection_only=False, mission_context=None, mission_bindings=None):
+    if type(inspection_only) is not bool:
+        raise ValueError('INVALID_INSPECTION_MODE')
+    if inspection_only:
+        if cpl_fixture or cpl_cost_policy is not None:
+            from runtime.mission.contracts import MissionError
+            raise MissionError('INSPECTION_ONLY', status='POLICY_BLOCKED', exit_code=4)
+        return AgentRuntime(
+            None, '', PROJECT_DIR, inspection_only=True,
+            nonzero_config=nonzero_config, memory_patch_config=memory_patch_config,
+            memory_patch_dependencies=memory_patch_dependencies,
+            mission_context=mission_context, mission_bindings=mission_bindings)
     fixture = None
     if cpl_fixture:
         from critical_loop.fixture import LocalCPLFixture
@@ -1305,6 +1361,10 @@ def create_runtime(*, cpl_fixture=False, cpl_cost_policy=None, nonzero_config=No
         project_dir=PROJECT_DIR,
         debug_raw=DEBUG_RAW_RESPONSE,
         nonzero_config=nonzero_config,
+        memory_patch_config=memory_patch_config,
+        memory_patch_dependencies=memory_patch_dependencies,
+        mission_context=mission_context,
+        mission_bindings=mission_bindings,
     )
     runtime.cpl_cost_policy = cpl_cost_policy
     runtime._owned_cpl_fixture = fixture
@@ -1313,6 +1373,11 @@ def create_runtime(*, cpl_fixture=False, cpl_cost_policy=None, nonzero_config=No
 
 def main() -> None:
     import argparse
+    import sys
+
+    if len(sys.argv) > 1 and sys.argv[1] in {'doctor', 'mission'}:
+        from runtime.mission.cli import run_diagnostic_cli
+        raise SystemExit(run_diagnostic_cli(sys.argv[1:], runtime_factory=create_runtime))
 
     parser = argparse.ArgumentParser(description='AIOA spArkHAT — one local runtime, formerly AOIA-Core')
     mode = parser.add_mutually_exclusive_group()

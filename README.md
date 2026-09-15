@@ -38,6 +38,11 @@ See the [CPL contract](docs/modules/CRITICAL_PROMPT_LOOP.md), [launch and accept
 
 ## Quick start
 
+The optional [NV-01 integrated foundation](docs/nv01/FOUNDATION.md) adds
+`aioa-sparkhat doctor --profile nvidia-lite --json` and `mission validate`.
+This is disabled-by-default, effect-free configuration inspection of the same
+`AgentRuntime`, not a live NVIDIA provider, scheduler, or autonomous mode.
+
 Requirements: Python 3.11 or newer. The deterministic evidence-review path uses only the Python standard library and needs no API key.
 
 Run the terminal interface:
