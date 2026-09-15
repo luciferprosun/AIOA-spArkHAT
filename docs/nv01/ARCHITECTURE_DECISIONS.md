@@ -14,7 +14,7 @@ Status: ACCEPTED_FOR_G1. Używać CoreMemoryPatchDependencies, istniejącego Own
 
 ## D04 — osobny kontrakt NVIDIA
 
-Status: ACCEPTED_FOR_G1. NV-00 nvbuild pozostaje opcjonalnym narzędziem Codexa. Exact CPL nadal wymaga OpenRouter. Produktowy adapter NVIDIA i jego certyfikacja: BLOCKED dla G1, do G3. Nie wykonywać inference w tej fazie i nie raportować starego NV_OK jako nowego wyniku.
+Status: ACCEPTED_FOR_G1. NV-00 nvbuild pozostaje opcjonalnym narzędziem Codexa. Exact CPL nadal wymaga OpenRouter. Produktowy adapter NVIDIA, BudgetGate i osobno dopuszczony live request należą do G2; pełne połączenie silników do G3. Są niedostępne w G1. Nie wykonywać inference w tej fazie i nie raportować starego NV_OK jako nowego wyniku.
 
 ## D05 — autonomy nieaktywne
 
