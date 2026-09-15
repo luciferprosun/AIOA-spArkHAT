@@ -162,6 +162,7 @@ class AgentRuntime:
         self._mission_bindings = mission_bindings
         self._lite_profile = None
         self._lite_scheduler = None
+        self._lite_memory = None
         self.provider_manager = provider_manager
         self.prompt_template = prompt_template
         self.project_dir = project_dir
@@ -305,6 +306,8 @@ class AgentRuntime:
     def close(self):
         if self._lite_scheduler is not None:
             self._lite_scheduler.close()
+        if self._lite_memory is not None:
+            self._lite_memory.close()
         with self._memory_patch_init_lock:
             self._memory_patch_closed = True
             if self._memory_patch_service is not None:
@@ -351,6 +354,22 @@ class AgentRuntime:
     def lite_request_stop(self):
         if self._lite_scheduler is not None:
             self._lite_scheduler.request_stop()
+
+    def lite_memory_status(self):
+        return ({'memory_mode': 'OFF', 'readiness': 'DISABLED'} if self._lite_memory is None
+                else self._lite_memory.describe())
+
+    def lite_memory_retrieve(self, query):
+        from runtime.mission.contracts import MissionError
+        if self._lite_memory is None:
+            raise MissionError('MEMORY_NOT_COMPOSED')
+        return self._lite_memory.retrieve(query)
+
+    def lite_memory_operator_request(self, operation, payload):
+        from runtime.mission.contracts import MissionError
+        if self._lite_memory is None:
+            raise MissionError('MEMORY_NOT_COMPOSED')
+        return self._lite_memory.operator_request(operation, payload)
 
     @property
     def nonzero_config(self):
@@ -1394,7 +1413,17 @@ def create_runtime(*, cpl_fixture=False, cpl_cost_policy=None, nonzero_config=No
         runtime._lite_profile = lite_profile
         try:
             if lite_profile.enabled and not inspection_only:
-                runtime._lite_scheduler = LiteScheduler(lite_profile, mission_context, lite_bindings)
+                from runtime.mission.lite_runtime import LiteBindings
+                if type(lite_bindings) is not LiteBindings:
+                    raise MissionError('INVALID_LITE_BINDINGS')
+                if lite_profile.memory_mode != 'OFF' and lite_bindings.memory is not None:
+                    from runtime.memory_patch.lite import LiteMemoryService
+                    runtime._lite_memory = LiteMemoryService(lite_profile, mission_context, lite_bindings.memory)
+                    runtime._memory_patch_service = runtime._lite_memory.service
+                elif lite_profile.memory_mode == 'ACTIVE' or lite_profile.memory_profile_digest is not None:
+                    raise MissionError('MEMORY_BINDINGS_REQUIRED')
+                runtime._lite_scheduler = LiteScheduler(lite_profile, mission_context, lite_bindings,
+                                                        memory=runtime._lite_memory)
             return runtime
         except Exception:
             runtime.close()

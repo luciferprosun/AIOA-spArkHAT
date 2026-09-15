@@ -47,10 +47,11 @@ class LiteBindings:
     cadence_shadow: object = None
     salience_shadow: object = None
     scheduler_owner: str = "AgentRuntime"
+    memory: object = None
 
 
 class LiteScheduler:
-    def __init__(self, profile, context, bindings):
+    def __init__(self, profile, context, bindings, *, memory=None):
         if type(profile) is not LiteProfile or type(bindings) is not LiteBindings:
             raise MissionError("INVALID_LITE_BINDINGS")
         profile.require_context(context)
@@ -66,6 +67,7 @@ class LiteScheduler:
         if getattr(bindings.provider, "budget", None) != profile.budget:
             raise MissionError("LITE_POLICY_BINDING_MISMATCH")
         self.profile, self.bindings = profile, bindings
+        self.memory = memory
         self._mutex = threading.Lock()
         self._stop = threading.Event()
         self._closed = False
@@ -108,6 +110,18 @@ class LiteScheduler:
                 "reservation_counts": {name: sum(r["status"] == name for r in self.journal.reservations())
                                        for name in ("RESERVED", "COMMITTED", "UNKNOWN", "RELEASED")},
                 "domain_mutations": 0}
+
+    def _memory_input(self, item):
+        if self.memory is None:
+            return item["input_text"]
+        context = self.memory.retrieve(item["input_text"])
+        self.journal.record(self._now(), "MEMORY_" + self.profile.memory_mode, context.describe())
+        if self.profile.memory_mode == "SHADOW":
+            return item["input_text"]
+        if context.status != "READY":
+            raise MissionError("MEMORY_DEGRADED")
+        return json.dumps({"observation": json.loads(item["input_text"]),
+                           "quoted_advisory_context": json.loads(context.prompt_json)}, sort_keys=True)
 
     def tick(self, *, execute=True):
         if not self._mutex.acquire(blocking=False):
@@ -185,9 +199,15 @@ class LiteScheduler:
             return
         if now < item["retry_at"]:
             return
+        try:
+            input_text = self._memory_input(item)
+        except MissionError as error:
+            state["queue"].pop(0)
+            self._state("DEGRADED", error.code, now)
+            return
         reservation_id = uuid.uuid4().hex
         request = ProviderRequest(item["request_id"], item["trace_id"], self.profile.provider_id,
-                                  self.profile.model_id, item["input_text"], reservation_id,
+                                  self.profile.model_id, input_text, reservation_id,
                                   self.profile.budget.max_output_tokens, self.profile.budget.request_timeout_seconds)
         try:
             estimate = self.bindings.provider.estimated_units(request)
