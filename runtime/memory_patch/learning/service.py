@@ -222,7 +222,8 @@ class NativeLearning:
         for row in self.records("DELTA"):
             value = self.delta(row)
             if (
-                value.status is not DeltaStatus.VERIFIED
+                row.payload.get("reuse_status", "CURRENT") != "CURRENT"
+                or value.status is not DeltaStatus.VERIFIED
                 or value.task_signature != self.policy.task_signature
                 or value.source_versions != versions
                 or tuple(sorted(value.evidence_refs)) != refs
@@ -286,7 +287,9 @@ class NativeLearning:
             raise MissionError("NO_CHANGE")
         return candidate
 
-    def evaluate(self, original, revision, *, trace_id, cpl_ref, critic_families):
+    def evaluate(
+        self, original, revision, *, trace_id, cpl_ref, critic_families, used_refs=()
+    ):
         original, revision = _claim(original), _claim(revision)
         # Recheck native eligibility after CPL latency, using the trusted clock.
         context = self.memory.retrieve(self.policy.task_instruction)
@@ -312,7 +315,7 @@ class NativeLearning:
                 "revision_supported": revision_valid,
             }
             if self.dynamics is not None and self.active:
-                self.dynamics.successful_reuse(original, trace_id, context)
+                self.dynamics.successful_reuse(original, trace_id, context, used_refs)
             self.last = result
             return result
         if original == revision or not revision_valid:
@@ -434,14 +437,17 @@ class NativeLearning:
                 ):
                     raise MissionError("DELTA_IDENTITY_CONFLICT")
                 # Evidence revalidation does not revive deprecated/superseded records.
-                if current.status is not DeltaStatus.VERIFIED:
+                if (
+                    current.status is not DeltaStatus.VERIFIED
+                    or previous.payload.get("reuse_status", "CURRENT") != "CURRENT"
+                ):
                     raise MissionError("DELTA_REVALIDATION_REQUIRED")
                 changed = replace(current, last_seen_at=self.now())
                 tx.replace(
                     self.record(
                         current.delta_id,
                         "DELTA",
-                        {"delta": changed.private_payload()},
+                        {**dict(previous.payload), "delta": changed.private_payload()},
                         revision=previous.revision + 1,
                     ),
                     expected_revision=previous.revision,

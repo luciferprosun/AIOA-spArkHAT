@@ -366,6 +366,10 @@ class AgentRuntime:
         return ({'mode': 'OFF', 'readiness': 'DISABLED'} if self._lite_cpl is None
                 else self._lite_cpl.describe())
 
+    def lite_dynamics_status(self):
+        dynamics = None if self._lite_cpl is None else self._lite_cpl.learning.dynamics
+        return {'mode': 'OFF', 'readiness': 'DISABLED'} if dynamics is None else dynamics.describe()
+
     def lite_memory_retrieve(self, query):
         from runtime.mission.contracts import MissionError
         if self._lite_memory is None:
@@ -1434,6 +1438,14 @@ def create_runtime(*, cpl_fixture=False, cpl_cost_policy=None, nonzero_config=No
                     runtime._lite_cpl = LiteCPL(lite_profile, mission_context, runtime._lite_memory, lite_bindings.cpl)
                 elif lite_profile.cpl_mode == 'ACTIVE':
                     raise MissionError('CPL_BINDINGS_REQUIRED')
+                if lite_bindings.dynamics is not None and lite_profile.dynamics_profile_digest is not None:
+                    from runtime.memory_patch.learning.dynamics import CoreDynamicsBindings, MemoryDynamics
+                    if type(lite_bindings.dynamics) is not CoreDynamicsBindings or runtime._lite_cpl is None:
+                        raise MissionError('DYNAMICS_BINDINGS_REQUIRED')
+                    runtime._lite_cpl.learning.dynamics = MemoryDynamics(runtime._lite_cpl.learning,
+                        lite_bindings.dynamics.policy, mission_context, lite_profile)
+                elif 'ACTIVE' in {lite_profile.dvm_mode, lite_profile.pheromone_mode}:
+                    raise MissionError('DYNAMICS_BINDINGS_REQUIRED')
                 runtime._lite_scheduler = LiteScheduler(lite_profile, mission_context, lite_bindings,
                                                         memory=runtime._lite_memory, cpl=runtime._lite_cpl)
             return runtime

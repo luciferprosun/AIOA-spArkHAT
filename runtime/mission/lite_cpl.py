@@ -222,6 +222,7 @@ class LiteCPL:
                     trace_id=item["trace_id"],
                     cpl_ref=plan["run_id"],
                     critic_families=self.policy.critic_families,
+                    used_refs=tuple(item.get("memory_refs", ())),
                 )
                 self.last = {**base, **learned}
         except Exception as error:

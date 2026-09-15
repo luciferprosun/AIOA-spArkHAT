@@ -49,6 +49,7 @@ class LiteBindings:
     scheduler_owner: str = "AgentRuntime"
     memory: object = None
     cpl: object = None
+    dynamics: object = None
 
 
 class LiteScheduler:
@@ -114,6 +115,7 @@ class LiteScheduler:
                 "domain_mutations": 0}
 
     def _memory_input(self, item):
+        item["memory_refs"] = ()
         if self.memory is None:
             return item["input_text"]
         context = self.memory.retrieve(item["input_text"])
@@ -122,6 +124,7 @@ class LiteScheduler:
             return item["input_text"]
         if context.status != "READY":
             raise MissionError("MEMORY_DEGRADED")
+        item["memory_refs"] = tuple(r.reference_id for r in context.selected)
         return json.dumps({"observation": json.loads(item["input_text"]),
                            "quoted_advisory_context": json.loads(context.prompt_json)}, sort_keys=True)
 
