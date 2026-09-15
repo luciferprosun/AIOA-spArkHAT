@@ -180,6 +180,10 @@ class CompositionTests(unittest.TestCase):
             try:
                 result = runtime.mission_doctor()
                 self.assertEqual("DISABLED", result["status"])
+                self.assertIsNone(result["trace_id"])
+                self.assertTrue(
+                    all(row["trace_id"] is None for row in result["components"])
+                )
                 self.assertEqual(0, result["AIOA_LIVE_PROVIDER_CALLS"])
                 self.assertEqual(0, result["AIOA_EFFECTS_EXECUTED"])
                 self.assertIsNone(runtime._cpl_service)

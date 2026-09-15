@@ -53,7 +53,7 @@ def result_envelope(
         "schema_version": "aioa-mission-diagnostic-v1",
         "status": status,
         "reason_code": reason,
-        "trace_id": trace.trace_id if trace else "diagnostic-nvidia-lite",
+        "trace_id": trace.trace_id if trace else None,
         "profile": PROFILE,
         "manifest_revision": revision,
         "components": components or [],
@@ -103,7 +103,7 @@ def inspect_runtime(runtime, *, manifest=None, trace=None):
         if manifest is None:
             raise MissionError("TRACE_REQUIRES_MANIFEST")
         trace.require_manifest(manifest)
-    trace_id = trace.trace_id if trace else "diagnostic-nvidia-lite"
+    trace_id = trace.trace_id if trace else None
     enabled = manifest is not None and manifest.enabled
     rows = []
 
