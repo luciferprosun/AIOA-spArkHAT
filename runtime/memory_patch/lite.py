@@ -128,6 +128,12 @@ def lexical_relevance(query, text):
 
 
 def budget_context(eligible, query, profile, *, ordered=None, reasons=(), bundle=None):
+    if ordered is not None and (
+        len(ordered) != len(eligible)
+        or {r.reference_id for r in ordered} != {r.reference_id for r in eligible}
+        or any(r not in eligible for r in ordered)
+    ):
+        raise MissionError("INELIGIBLE_CONTEXT_ORDER")
     ordered = (
         ordered
         if ordered is not None
@@ -230,6 +236,7 @@ class LiteMemoryService:
             existing_hat_selection=bindings.hat_selection,
         )
         self.last = None
+        self.learning = None
         self.closed = False
 
     def describe(self):
@@ -288,8 +295,13 @@ class LiteMemoryService:
             eligible, bundle, reasons = retrieve_eligible(
                 self.service, principal, request, self.profile.max_read_records
             )
+            if self.learning is not None:
+                eligible = (*eligible, *self.learning.context(eligible, bundle, query))
+            ordered = None
+            if self.learning is not None and self.learning.dynamics is not None:
+                ordered = self.learning.dynamics.order(eligible, query)
             self.last = budget_context(
-                eligible, query, self.profile, reasons=reasons, bundle=bundle
+                eligible, query, self.profile, ordered=ordered, reasons=reasons, bundle=bundle
             )
         except Exception as error:
             code = (

@@ -28,7 +28,7 @@ namespaces = true
 [tool.setuptools.package-data]
 runtime = ["prompts/*.txt", "adaptive_routing/*.json", "adaptive_routing/environment/*.json", "knowledge/**/*.json", "knowledge/**/*.md", "knowledge/**/*.yaml", "knowledge/**/*.pdf", "knowledge/**/*.txt", "knowledge/*.json"]
 "runtime.nonzero_cloudops" = ["LICENSE-NONZERO.txt"]
-"runtime.memory_patch" = ["LICENSE-MEMORY-PATCH.txt", "sql/*.sql", "sql/manifest.json"]
+"runtime.memory_patch" = ["LICENSE-MEMORY-PATCH.txt", "sql/*.sql", "sql/manifest.json", "sql/manifest-learning-v1.json"]
 
 [tool.setuptools.data-files]
 "share/aioa-sparkhat/web" = ["web/index.html", "web/app.js", "web/styles.css"]

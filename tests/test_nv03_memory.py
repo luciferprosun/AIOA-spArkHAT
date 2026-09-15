@@ -53,7 +53,7 @@ class NV03Tests(unittest.TestCase):
         self.assertIsNone(fx.runtime._memory_patch_service)
         self.assertFalse(fx.factory.path.exists())
         expected = canonical_sha256(
-            fx.profile, exclude_fields=("digest", "memory_profile_digest")
+            fx.profile, exclude_fields=("digest", "memory_profile_digest", "cpl_profile_digest")
         )
         self.assertEqual(expected, fx.profile.digest)
         with self.assertRaisesRegex(MissionError, "MEMORY_NOT_COMPOSED"):

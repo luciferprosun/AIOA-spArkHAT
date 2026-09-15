@@ -48,10 +48,11 @@ class LiteBindings:
     salience_shadow: object = None
     scheduler_owner: str = "AgentRuntime"
     memory: object = None
+    cpl: object = None
 
 
 class LiteScheduler:
-    def __init__(self, profile, context, bindings, *, memory=None):
+    def __init__(self, profile, context, bindings, *, memory=None, cpl=None):
         if type(profile) is not LiteProfile or type(bindings) is not LiteBindings:
             raise MissionError("INVALID_LITE_BINDINGS")
         profile.require_context(context)
@@ -68,6 +69,7 @@ class LiteScheduler:
             raise MissionError("LITE_POLICY_BINDING_MISMATCH")
         self.profile, self.bindings = profile, bindings
         self.memory = memory
+        self.cpl = cpl
         self._mutex = threading.Lock()
         self._stop = threading.Event()
         self._closed = False
@@ -262,6 +264,14 @@ class LiteScheduler:
             "validation_result": response.validation_result,
             "parsed_payload": dict(response.parsed_payload), "usage": dict(response.usage),
         })
+        if self.profile.cpl_mode != "OFF":
+            result = ({"status": "NO_CRITIC", "reason": "CPL_UNBOUND", "generation_requests": 0,
+                       "knowledge_write": "ZERO_WRITE", "execution_authority": False}
+                      if self.cpl is None else self.cpl.run(response, item, self.journal, self._now(), self._stop.is_set))
+            state["model_calls"] += result["generation_requests"]
+            state["reconciliation_required"] = state["reconciliation_required"] or self.journal.has_uncertain()
+            self._state("DEGRADED" if result["status"] == "NO_CRITIC" else "SETTLED",
+                        "CPL_" + result["status"], self._now(), result)
 
     def request_stop(self):
         # Signal-safe cooperative request: no SQLite or mutex work in a handler.

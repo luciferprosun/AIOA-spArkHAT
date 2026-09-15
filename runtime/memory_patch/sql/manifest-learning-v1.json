@@ -1,0 +1,403 @@
+{
+  "schema": "native-memory-patch-cockroach-manifest-v1",
+  "compatibility_version": "v26.2.5",
+  "native_schema": "aioa_memory_patch",
+  "role_prefix_placeholder": "__ROLE_PREFIX__",
+  "units": [
+    {
+      "ordinal": 1,
+      "path": "0001_identity.sql",
+      "sha256": "e89f8c8a1f55957fb62cb20a2a452c76eabe919733fd47d29520a1070a864665",
+      "statement_count": 3,
+      "phase": "BOOTSTRAP_TRANSACTION",
+      "source_path": "sql/cockroachdb/migrations/0001_step4_identity_and_hat_scopes.sql",
+      "source_blob_sha": "d67fb2a808060dc53ef6a92afb301f600d864f99"
+    },
+    {
+      "ordinal": 2,
+      "path": "0002_source_lineage.sql",
+      "sha256": "996af6ae16c72bca7b62da62198a7c86d45f31d669796832cf43c71db7549bae",
+      "statement_count": 3,
+      "phase": "ACKNOWLEDGED_STATEMENT_PHASES",
+      "source_path": "sql/cockroachdb/migrations/0002_step4_knowledge_lineage_and_retrieval.sql",
+      "source_blob_sha": "7f2a39e25ae00dcdb63071362ecdf21c534658be"
+    },
+    {
+      "ordinal": 3,
+      "path": "0003_domain_records.sql",
+      "sha256": "0c61d3faa6e6851c3489fcdee1e9639d5f5683ee1ae74508d06d2d4e86bce6ce",
+      "statement_count": 4,
+      "phase": "ACKNOWLEDGED_STATEMENT_PHASES",
+      "source_path": "sql/cockroachdb/migrations/0003_step4_kernel_memory_and_audit_evidence.sql",
+      "source_blob_sha": "10dbfe209d4ce455bc9a0f378d8d9870fd257612"
+    },
+    {
+      "ordinal": 4,
+      "path": "0004_roles_and_context.sql",
+      "sha256": "0b61bbdcc962aaa68c9a9a58a1ff9e1074981532ca943ba32a511aebc638b27c",
+      "statement_count": 7,
+      "phase": "ACKNOWLEDGED_STATEMENT_PHASES",
+      "source_path": "sql/cockroachdb/migrations/0004_step5_tenant_roles_session_context_rls.sql",
+      "source_blob_sha": "72ec1f2470ba8f10170555047bfeb816b1764ca9"
+    },
+    {
+      "ordinal": 5,
+      "path": "0005_idempotency.sql",
+      "sha256": "31539ba30c477d55500eb9bac468ff031b14b2d1b314c19220dc8d0bbc4c41a1",
+      "statement_count": 4,
+      "phase": "ACKNOWLEDGED_STATEMENT_PHASES",
+      "source_path": "sql/cockroachdb/migrations/0005_step6_persistence_idempotency_retry_foundation.sql",
+      "source_blob_sha": "458c8ff73457d0e59e07a87de89ce25c3350a08f"
+    },
+    {
+      "ordinal": 6,
+      "path": "0006_source_publication.sql",
+      "sha256": "d364779ff1bf649fedc529d07c1ca99a27f2ccc81f8b029bfa1ce8a62cc241dc",
+      "statement_count": 3,
+      "phase": "ACKNOWLEDGED_STATEMENT_PHASES",
+      "source_path": "sql/cockroachdb/migrations/0006_step9_source_registry_provenance_publication_states.sql",
+      "source_blob_sha": "12a5dcbbc50ae91fcf97d58dd820410a475ec20f"
+    },
+    {
+      "ordinal": 7,
+      "path": "0007_ingestion.sql",
+      "sha256": "909effcc676fffeaac1baada0ab5cade7a53928e3c3867fcc0b0126e1ea6051c",
+      "statement_count": 4,
+      "phase": "ACKNOWLEDGED_STATEMENT_PHASES",
+      "source_path": "sql/cockroachdb/migrations/0007_step10_idempotent_ingestion_saga.sql",
+      "source_blob_sha": "6141618f70f7c19331bc8b90aec62a3d2a1e68cb"
+    },
+    {
+      "ordinal": 8,
+      "path": "0008_parsing.sql",
+      "sha256": "d87798169ba322bf860cfb22e5fc1a3c89dd281443958d7becb924a386cb4843",
+      "statement_count": 3,
+      "phase": "ACKNOWLEDGED_STATEMENT_PHASES",
+      "source_path": "sql/cockroachdb/migrations/0008_step11_generic_parsing_pipeline.sql",
+      "source_blob_sha": "42fa72b36773d25c0fc96625567e8ba6ec11e135"
+    },
+    {
+      "ordinal": 9,
+      "path": "0009_scoped_hat_contracts.sql",
+      "sha256": "95deaf51b2c9ef4b19380601772a2dd130e0d586cf935a0d19683dc3cd658f55",
+      "statement_count": 3,
+      "phase": "ACKNOWLEDGED_STATEMENT_PHASES",
+      "source_path": "sql/cockroachdb/migrations/0009_step12_hat_registry_runtime_boundary.sql",
+      "source_blob_sha": "d82aae60c0db64f21cf4b520bc3a2a93e2d5eaf2"
+    },
+    {
+      "ordinal": 10,
+      "path": "0010_vectors.sql",
+      "sha256": "a610c5df749f8b7ed0b0d378dbd54293170aedbe157c3fe8e89ad512b8ed392e",
+      "statement_count": 4,
+      "phase": "ACKNOWLEDGED_STATEMENT_PHASES",
+      "source_path": "sql/cockroachdb/migrations/0010_step19_embedding_vector_retrieval.sql",
+      "source_blob_sha": "30e652dfe4a405e6d7c927c0e66c0818dec92a98"
+    },
+    {
+      "ordinal": 11,
+      "path": "0011_personal_spaces.sql",
+      "sha256": "d5ec5b1bea34fdebb9aa2dc323f10c146becd5ffa0a05fd2151fd75b2373c849",
+      "statement_count": 5,
+      "phase": "ACKNOWLEDGED_STATEMENT_PHASES",
+      "source_path": "sql/cockroachdb/migrations/0011_step27_personal_memory_persistence.sql",
+      "source_blob_sha": "6d91656ed94c0ee2669cedd1d7fb09bd286c8d54"
+    },
+    {
+      "ordinal": 12,
+      "path": "0012_candidates.sql",
+      "sha256": "12858e497e6b3cb5567dcf434fff0e633ea8ae93e1f6810991d25a774ea0fb58",
+      "statement_count": 5,
+      "phase": "ACKNOWLEDGED_STATEMENT_PHASES",
+      "source_path": "sql/cockroachdb/migrations/0012_step28_correction_candidate_bridge.sql",
+      "source_blob_sha": "ca11997a54e24763f9499611bebab7fe5259b489"
+    },
+    {
+      "ordinal": 13,
+      "path": "0013_proposals.sql",
+      "sha256": "53a699661611be81d026a55238079817a032124aa287027c2f0b973cc1b38a49",
+      "statement_count": 3,
+      "phase": "ACKNOWLEDGED_STATEMENT_PHASES",
+      "source_path": "sql/cockroachdb/migrations/0013_step29_personal_memory_patch_validation.sql",
+      "source_blob_sha": "2da101c466713db4b4891ce1bfa6a1d9c5ce6e5c"
+    },
+    {
+      "ordinal": 14,
+      "path": "0014_owner_approval_activation.sql",
+      "sha256": "c5b357b7b406a4e5231800cd676f00a1a817c927fd5f6c6dfd2f15b4c0997fab",
+      "statement_count": 15,
+      "phase": "ACKNOWLEDGED_STATEMENT_PHASES",
+      "source_path": "sql/cockroachdb/migrations/0014_step30_user_approval_commit_activation.sql",
+      "source_blob_sha": "90177684b0014238c5bd191e43b8eacac6a8aadc"
+    },
+    {
+      "ordinal": 15,
+      "path": "0015_lifecycle.sql",
+      "sha256": "3c8f7d87695bdef8a1eaf50d330b682ec8d7bb1a09056de23f20aa83456203e5",
+      "statement_count": 5,
+      "phase": "ACKNOWLEDGED_STATEMENT_PHASES",
+      "source_path": "sql/cockroachdb/migrations/0015_step32_personal_memory_lifecycle.sql",
+      "source_blob_sha": "2acc2f052878b4a18c1eb40bd1d2f80fc962fced"
+    },
+    {
+      "ordinal": 16,
+      "path": "0016_audit_outbox.sql",
+      "sha256": "479d647488b143d93b6b94c31eb5a05a4816c258af6cf9e236ae7d10d3f2bc48",
+      "statement_count": 10,
+      "phase": "ACKNOWLEDGED_STATEMENT_PHASES",
+      "source_path": "sql/cockroachdb/migrations/0016_step33_audit_ledger_hash_chain.sql",
+      "source_blob_sha": "238ad24c2e5c53e1cceae9de39840b1e574fd972"
+    },
+    {
+      "ordinal": 17,
+      "path": "0017_review.sql",
+      "sha256": "8209e88ddf9f5e9379daf104bd571bbd2543459c97b875e961d072b90a552a61",
+      "statement_count": 6,
+      "phase": "ACKNOWLEDGED_STATEMENT_PHASES",
+      "source_path": "sql/cockroachdb/migrations/0017_step34_human_review_workspace.sql",
+      "source_blob_sha": "c03c903ce569fb48515ae36f0d24e9c6d3bfc468"
+    },
+    {
+      "ordinal": 18,
+      "path": "0018_purpose_hardening.sql",
+      "sha256": "96aa721ed6ddf86fcb88325369a40775dda5963bd72290c0bd8fa9923d751b65",
+      "statement_count": 163,
+      "phase": "ACKNOWLEDGED_STATEMENT_PHASES",
+      "source_path": "sql/cockroachdb/migrations/0018_step36_credential_authority_hardening.sql",
+      "source_blob_sha": "9c68d98b816dbf522f83c6425dc0ec07244a80d1"
+    },
+    {
+      "ordinal": 19,
+      "path": "0019_learning.sql",
+      "sha256": "506e336176fb67be931efc8223bebe1017e237e1441e73a93c7a7f35b2aa318f",
+      "statement_count": 11,
+      "phase": "ACKNOWLEDGED_STATEMENT_PHASES",
+      "source_path": "native/learning-v1",
+      "source_blob_sha": null
+    }
+  ],
+  "record_tables": {
+    "source": "source_records",
+    "ingestion": "ingestions",
+    "operation": "operations",
+    "space": "spaces",
+    "patch": "patches",
+    "sharing": "sharing_proposals",
+    "challenge": "challenges",
+    "approval": "approvals",
+    "receipt": "receipts",
+    "audit": "audit_events",
+    "outbox": "outbox",
+    "review": "reviews",
+    "learning": "learning_records"
+  },
+  "scoped_tables": {
+    "source_records": {
+      "unit": 3,
+      "scoped": true,
+      "RLS": true,
+      "FORCE_RLS": true
+    },
+    "ingestions": {
+      "unit": 7,
+      "scoped": true,
+      "RLS": true,
+      "FORCE_RLS": true
+    },
+    "operations": {
+      "unit": 5,
+      "scoped": true,
+      "RLS": true,
+      "FORCE_RLS": true
+    },
+    "spaces": {
+      "unit": 11,
+      "scoped": true,
+      "RLS": true,
+      "FORCE_RLS": true
+    },
+    "patches": {
+      "unit": 12,
+      "scoped": true,
+      "RLS": true,
+      "FORCE_RLS": true
+    },
+    "sharing_proposals": {
+      "unit": 15,
+      "scoped": true,
+      "RLS": true,
+      "FORCE_RLS": true
+    },
+    "challenges": {
+      "unit": 14,
+      "scoped": true,
+      "RLS": true,
+      "FORCE_RLS": true
+    },
+    "approvals": {
+      "unit": 14,
+      "scoped": true,
+      "RLS": true,
+      "FORCE_RLS": true
+    },
+    "receipts": {
+      "unit": 14,
+      "scoped": true,
+      "RLS": true,
+      "FORCE_RLS": true
+    },
+    "audit_events": {
+      "unit": 16,
+      "scoped": true,
+      "RLS": true,
+      "FORCE_RLS": true
+    },
+    "outbox": {
+      "unit": 16,
+      "scoped": true,
+      "RLS": true,
+      "FORCE_RLS": true
+    },
+    "reviews": {
+      "unit": 17,
+      "scoped": true,
+      "RLS": true,
+      "FORCE_RLS": true
+    },
+    "source_lineage": {
+      "unit": 2,
+      "scoped": true,
+      "RLS": true,
+      "FORCE_RLS": true
+    },
+    "source_publications": {
+      "unit": 6,
+      "scoped": true,
+      "RLS": true,
+      "FORCE_RLS": true
+    },
+    "parsed_chunks": {
+      "unit": 8,
+      "scoped": true,
+      "RLS": true,
+      "FORCE_RLS": true
+    },
+    "source_hat_links": {
+      "unit": 9,
+      "scoped": true,
+      "RLS": true,
+      "FORCE_RLS": true
+    },
+    "chunk_vectors": {
+      "unit": 10,
+      "scoped": true,
+      "RLS": true,
+      "FORCE_RLS": true
+    },
+    "learning_records": {
+      "unit": 19,
+      "scoped": true,
+      "RLS": true,
+      "FORCE_RLS": true
+    }
+  },
+  "unscoped_exceptions": {
+    "context_grants": "No ordinary table write/access. Fixed security-definer helper or explicit read-only migration certificate; Core metadata only.",
+    "request_contexts": "No ordinary table write/access. Fixed security-definer helper or explicit read-only migration certificate; Core metadata only.",
+    "schema_migrations": "No ordinary table write/access. Fixed security-definer helper or explicit read-only migration certificate; Core metadata only.",
+    "schema_certificate": "No ordinary table write/access. Fixed security-definer helper or explicit read-only migration certificate; Core metadata only."
+  },
+  "role_suffixes": [
+    "schema_owner",
+    "security_owner",
+    "app",
+    "commit",
+    "reviewer",
+    "publication",
+    "ingestion",
+    "audit",
+    "broker"
+  ],
+  "ordinary_delete_policy": "DENY_ALL_LOGICAL_DELETION_ONLY",
+  "native_immutable_tables": [
+    "approvals",
+    "audit_events",
+    "chunk_vectors",
+    "operations",
+    "parsed_chunks",
+    "receipts",
+    "source_hat_links",
+    "source_lineage"
+  ],
+  "source_executed": false,
+  "C6_included": false,
+  "read_role_tables": {
+    "app": [
+      "approvals",
+      "audit_events",
+      "challenges",
+      "chunk_vectors",
+      "ingestions",
+      "operations",
+      "outbox",
+      "parsed_chunks",
+      "patches",
+      "receipts",
+      "reviews",
+      "sharing_proposals",
+      "source_hat_links",
+      "source_lineage",
+      "source_publications",
+      "source_records",
+      "spaces",
+      "learning_records"
+    ],
+    "commit": [
+      "approvals",
+      "audit_events",
+      "challenges",
+      "operations",
+      "outbox",
+      "patches",
+      "receipts",
+      "spaces"
+    ],
+    "reviewer": [
+      "audit_events",
+      "operations",
+      "outbox",
+      "patches",
+      "reviews"
+    ],
+    "publication": [
+      "audit_events",
+      "chunk_vectors",
+      "ingestions",
+      "operations",
+      "outbox",
+      "parsed_chunks",
+      "source_hat_links",
+      "source_lineage",
+      "source_publications",
+      "source_records"
+    ],
+    "ingestion": [
+      "audit_events",
+      "chunk_vectors",
+      "ingestions",
+      "operations",
+      "outbox",
+      "parsed_chunks",
+      "source_hat_links",
+      "source_lineage",
+      "source_publications",
+      "source_records"
+    ],
+    "audit": [
+      "audit_events",
+      "operations",
+      "outbox"
+    ]
+  },
+  "schema_profile": "learning-v1"
+}

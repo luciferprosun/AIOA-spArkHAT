@@ -41,6 +41,7 @@ class RecordKind(str, Enum):
     AUDIT = "audit"
     OUTBOX = "outbox"
     OPERATION = "operation"
+    LEARNING = "learning"
 
 
 @dataclass(frozen=True, slots=True, repr=False)
@@ -129,7 +130,8 @@ _WRITE_KINDS = {
     Capability.COMMIT: frozenset({RecordKind.PATCH, RecordKind.RECEIPT}) | _AUDITED,
     Capability.ACTIVATE: frozenset({RecordKind.PATCH, RecordKind.RECEIPT}) | _AUDITED,
     Capability.MANAGE: frozenset(
-        {RecordKind.SPACE, RecordKind.PATCH, RecordKind.SHARING, RecordKind.REVIEW}
+        {RecordKind.SPACE, RecordKind.PATCH, RecordKind.SHARING, RecordKind.REVIEW,
+         RecordKind.LEARNING}
     )
     | _AUDITED,
     Capability.REVIEW: frozenset({RecordKind.REVIEW}) | _AUDITED,

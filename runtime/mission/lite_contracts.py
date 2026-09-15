@@ -74,6 +74,7 @@ class LiteProfile:
     live_mutations: bool = False
     memory_mode: str = "OFF"
     memory_profile_digest: str | None = None
+    cpl_profile_digest: str | None = None
     cpl_mode: str = "OFF"
     auto_mode: str = "DISABLED"
     dvm_mode: str = "OFF"
@@ -106,7 +107,7 @@ class LiteProfile:
             raise MissionError("MODEL_NOT_FOUND")
         for name in ("memory_mode", "cpl_mode", "dvm_mode", "pheromone_mode"):
             value = getattr(self, name)
-            allowed = {"OFF", "SHADOW", "ACTIVE"} if name == "memory_mode" else {"OFF", "SHADOW"}
+            allowed = {"OFF", "SHADOW", "ACTIVE"} if name in {"memory_mode", "cpl_mode"} else {"OFF", "SHADOW"}
             if type(value) is not str or value not in allowed:
                 raise MissionError("LITE_READONLY_REQUIRED")
         if self.memory_profile_digest is not None:
@@ -116,10 +117,17 @@ class LiteProfile:
                 raise MissionError("MEMORY_MODE_MISMATCH")
         if self.memory_mode == "ACTIVE" and self.memory_profile_digest is None:
             raise MissionError("MEMORY_PROFILE_REQUIRED")
+        if self.cpl_profile_digest is not None:
+            from runtime.memory_patch.contracts.serialization import require_sha256_hex
+            require_sha256_hex(self.cpl_profile_digest, "CPL profile")
+            if self.cpl_mode == "OFF":
+                raise MissionError("CPL_MODE_MISMATCH")
+        if self.cpl_mode == "ACTIVE" and self.cpl_profile_digest is None:
+            raise MissionError("CPL_PROFILE_REQUIRED")
         if type(self.budget) is not LiteBudget or type(self.cadence) is not LiteCadence:
             raise MissionError("INVALID_LITE_POLICY")
         # Preserve NV02 manifest identity when the optional integration is absent.
-        excluded = ("digest",) + (("memory_profile_digest",) if self.memory_profile_digest is None else ())
+        excluded = ("digest",) + tuple(name for name in ("memory_profile_digest", "cpl_profile_digest") if getattr(self, name) is None)
         object.__setattr__(self, "digest", canonical_sha256(self, exclude_fields=excluded))
 
     def require_context(self, context):

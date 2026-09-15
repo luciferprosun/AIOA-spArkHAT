@@ -252,7 +252,7 @@ class MigrationUnit:
     sha256: str
 
     def __post_init__(self) -> None:
-        if type(self.ordinal) is not int or not 1 <= self.ordinal <= 18:
+        if type(self.ordinal) is not int or not 1 <= self.ordinal <= 19:
             _deny()
         if (
             type(self.path) is not str
@@ -287,7 +287,7 @@ class MigrationPlan:
             self.expected_schema_fingerprint,
         ):
             require_sha256_hex(digest, "schema identity")
-        if type(self.units) is not tuple or not 1 <= len(self.units) <= 18:
+        if type(self.units) is not tuple or not 1 <= len(self.units) <= 19:
             _deny()
         if any(type(unit) is not MigrationUnit for unit in self.units) or tuple(
             unit.ordinal for unit in self.units

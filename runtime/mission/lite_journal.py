@@ -131,6 +131,34 @@ class LiteJournal:
                 raise MissionError("INVALID_RESERVATION_TRANSITION")
             self.save()
 
+    def reserve_cpl_group(self, trace_id, models, estimates, now):
+        """Atomically reserve the exact OpenRouter 1+3+1 group before transport.
+
+        Existing actor attempts and this group share the hourly durable budget.
+        A crash with any outstanding slot triggers existing UNKNOWN recovery.
+        """
+        if (type(models) is not tuple or type(estimates) is not tuple
+                or len(models) != 5 or len(estimates) != 5 or models[0] != models[-1]
+                or any(type(m) is not str or not m or len(m) > 256 for m in models)
+                or any(type(e) is not int or not 1 <= e <= 100000 for e in estimates)):
+            raise MissionError("INVALID_CPL_RESERVATION")
+        policy = self.profile.budget
+        ids = tuple(uuid.uuid4().hex for _ in models)
+        with self.db:
+            if self.has_uncertain():
+                raise MissionError("RECONCILE_READONLY_REQUIRED")
+            count = self.db.execute("SELECT count(*) FROM reservations").fetchone()[0]
+            recent = self.db.execute("SELECT count(*),coalesce(sum(CASE WHEN status='RELEASED' THEN 0 ELSE max(estimated_units,coalesce(actual_units,0)) END),0) FROM reservations WHERE created_at > ?", (now - 3600,)).fetchone()
+            if count + 5 > policy.max_reservations:
+                raise MissionError("BUDGET_JOURNAL_FULL")
+            if recent[0] + 5 > policy.max_requests_per_hour or recent[1] + sum(estimates) > policy.max_hourly_units:
+                raise MissionError("BUDGET_EXHAUSTED")
+            self.db.executemany("INSERT INTO reservations VALUES (?,?,?,?,?,?,'RESERVED',?,NULL,NULL)",
+                [(identifier, self.profile.watch_id, trace_id, "openrouter", model, now, estimate)
+                 for identifier, model, estimate in zip(ids, models, estimates)])
+            self.save()
+        return ids
+
     def reservations(self):
         return [dict(row) for row in self.db.execute("SELECT * FROM reservations ORDER BY created_at,rowid")]
 

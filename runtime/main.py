@@ -163,6 +163,7 @@ class AgentRuntime:
         self._lite_profile = None
         self._lite_scheduler = None
         self._lite_memory = None
+        self._lite_cpl = None
         self.provider_manager = provider_manager
         self.prompt_template = prompt_template
         self.project_dir = project_dir
@@ -308,6 +309,8 @@ class AgentRuntime:
             self._lite_scheduler.close()
         if self._lite_memory is not None:
             self._lite_memory.close()
+        if self._lite_cpl is not None:
+            self._lite_cpl.close()
         with self._memory_patch_init_lock:
             self._memory_patch_closed = True
             if self._memory_patch_service is not None:
@@ -358,6 +361,10 @@ class AgentRuntime:
     def lite_memory_status(self):
         return ({'memory_mode': 'OFF', 'readiness': 'DISABLED'} if self._lite_memory is None
                 else self._lite_memory.describe())
+
+    def lite_cpl_status(self):
+        return ({'mode': 'OFF', 'readiness': 'DISABLED'} if self._lite_cpl is None
+                else self._lite_cpl.describe())
 
     def lite_memory_retrieve(self, query):
         from runtime.mission.contracts import MissionError
@@ -1422,8 +1429,13 @@ def create_runtime(*, cpl_fixture=False, cpl_cost_policy=None, nonzero_config=No
                     runtime._memory_patch_service = runtime._lite_memory.service
                 elif lite_profile.memory_mode == 'ACTIVE' or lite_profile.memory_profile_digest is not None:
                     raise MissionError('MEMORY_BINDINGS_REQUIRED')
+                if lite_profile.cpl_mode != 'OFF' and lite_bindings.cpl is not None:
+                    from runtime.mission.lite_cpl import LiteCPL
+                    runtime._lite_cpl = LiteCPL(lite_profile, mission_context, runtime._lite_memory, lite_bindings.cpl)
+                elif lite_profile.cpl_mode == 'ACTIVE':
+                    raise MissionError('CPL_BINDINGS_REQUIRED')
                 runtime._lite_scheduler = LiteScheduler(lite_profile, mission_context, lite_bindings,
-                                                        memory=runtime._lite_memory)
+                                                        memory=runtime._lite_memory, cpl=runtime._lite_cpl)
             return runtime
         except Exception:
             runtime.close()
