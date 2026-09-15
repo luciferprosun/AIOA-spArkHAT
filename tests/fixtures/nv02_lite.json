@@ -1,0 +1,11 @@
+{
+  "profile_id": "aioa-lite-agent-v1",
+  "manifest_version": 1,
+  "manifest_revision": 1,
+  "owner_scope": {"tenant_id":"nv02-fixture","owner_id":"operator","space_id":"readonly-demo","slot_id":"lite"},
+  "watch_id": "operator-demo",
+  "observation_source_ref": "local-synthetic-observation",
+  "enabled": true,
+  "budget": {"max_requests_per_hour":4,"max_hourly_units":32768,"max_retry":1,"max_output_tokens":128,"max_input_bytes":4096,"max_response_bytes":16384,"request_timeout_seconds":120,"retry_delay_seconds":2,"max_reservations":1024},
+  "cadence": {"interval_seconds":60,"freshness_seconds":120,"interpretation_interval_seconds":0,"max_evidence_events":256}
+}

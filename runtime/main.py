@@ -160,6 +160,8 @@ class AgentRuntime:
         self._inspection_only = inspection_only
         self._mission_context = mission_context
         self._mission_bindings = mission_bindings
+        self._lite_profile = None
+        self._lite_scheduler = None
         self.provider_manager = provider_manager
         self.prompt_template = prompt_template
         self.project_dir = project_dir
@@ -301,6 +303,8 @@ class AgentRuntime:
         return self.critical_loop.wait(plan['run_id'])
 
     def close(self):
+        if self._lite_scheduler is not None:
+            self._lite_scheduler.close()
         with self._memory_patch_init_lock:
             self._memory_patch_closed = True
             if self._memory_patch_service is not None:
@@ -316,6 +320,37 @@ class AgentRuntime:
         if self._owned_cpl_fixture is not None:
             self._owned_cpl_fixture.close()
             self._owned_cpl_fixture = None
+
+    def lite_status(self):
+        from dataclasses import asdict
+        from runtime.mission.contracts import MissionError
+        if self._lite_profile is None:
+            raise MissionError('LITE_PROFILE_NOT_CONFIGURED')
+        if self._lite_scheduler is not None:
+            return self._lite_scheduler.describe()
+        profile = self._lite_profile
+        value = asdict(profile)
+        value.update(state='DISABLED' if not profile.enabled else 'INSPECTION_ONLY',
+                     reason='LITE_DISABLED' if not profile.enabled else 'NO_SCHEDULER_STARTED',
+                     scheduler_owner='AgentRuntime', queue_depth=0, model_calls=0,
+                     domain_mutations=0)
+        return value
+
+    def lite_tick(self, *, execute=True):
+        from runtime.mission.contracts import MissionError
+        if self._lite_scheduler is None:
+            raise MissionError('LITE_NOT_RUNNING')
+        return self._lite_scheduler.tick(execute=execute)
+
+    def lite_run(self):
+        from runtime.mission.contracts import MissionError
+        if self._lite_scheduler is None:
+            raise MissionError('LITE_NOT_RUNNING')
+        return self._lite_scheduler.run()
+
+    def lite_request_stop(self):
+        if self._lite_scheduler is not None:
+            self._lite_scheduler.request_stop()
 
     @property
     def nonzero_config(self):
@@ -1337,9 +1372,33 @@ def print_banner(runtime: AgentRuntime) -> None:
 
 def create_runtime(*, cpl_fixture=False, cpl_cost_policy=None, nonzero_config=None,
                    memory_patch_config=None, memory_patch_dependencies=None,
-                   inspection_only=False, mission_context=None, mission_bindings=None):
+                   inspection_only=False, mission_context=None, mission_bindings=None,
+                   lite_profile=None, lite_bindings=None):
     if type(inspection_only) is not bool:
         raise ValueError('INVALID_INSPECTION_MODE')
+    if lite_profile is not None or lite_bindings is not None:
+        from runtime.mission.contracts import MissionError
+        from runtime.mission.lite_contracts import LiteProfile
+        from runtime.mission.lite_runtime import LiteScheduler
+        if type(lite_profile) is not LiteProfile:
+            raise MissionError('INVALID_LITE_MANIFEST')
+        lite_profile.require_context(mission_context)
+        if (cpl_fixture or cpl_cost_policy is not None or nonzero_config is not None
+                or memory_patch_config is not None or memory_patch_dependencies is not None
+                or mission_bindings is not None):
+            raise MissionError('LITE_READONLY_REQUIRED')
+        # Same AgentRuntime, with the existing inspection guard on every legacy
+        # operational/approval endpoint. Only the typed read-only loop is added.
+        runtime = AgentRuntime(None, '', PROJECT_DIR, inspection_only=True,
+                               mission_context=mission_context)
+        runtime._lite_profile = lite_profile
+        try:
+            if lite_profile.enabled and not inspection_only:
+                runtime._lite_scheduler = LiteScheduler(lite_profile, mission_context, lite_bindings)
+            return runtime
+        except Exception:
+            runtime.close()
+            raise
     if inspection_only:
         if cpl_fixture or cpl_cost_policy is not None:
             from runtime.mission.contracts import MissionError
@@ -1374,6 +1433,10 @@ def create_runtime(*, cpl_fixture=False, cpl_cost_policy=None, nonzero_config=No
 def main() -> None:
     import argparse
     import sys
+
+    if len(sys.argv) > 1 and sys.argv[1] == 'lite':
+        from runtime.mission.lite_cli import run_lite_cli
+        raise SystemExit(run_lite_cli(sys.argv[2:], runtime_factory=create_runtime))
 
     if len(sys.argv) > 1 and sys.argv[1] in {'doctor', 'mission'}:
         from runtime.mission.cli import run_diagnostic_cli
