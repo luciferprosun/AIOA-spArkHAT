@@ -284,8 +284,12 @@ class NativeLearning:
         if self.personal is not None and not self.personal.allowed():
             if self.dynamics is not None:
                 self.dynamics._current = {}
+                self.dynamics._current_rows = {}
+                self.dynamics.index.clear()
                 self.dynamics.last = {
                     "status": "CONSENT_HIDDEN",
+                    "index_mode": self.dynamics.policy.index_mode,
+                    "index": self.dynamics.index.snapshot.metrics(),
                     "execution_authority": False,
                 }
             return ()
@@ -815,8 +819,74 @@ class NativeLearning:
                 len(canonical_json_bytes(r, exclude_fields=("payload_digest",)))
                 for r in self.records(state)
             )
+        rows = self.run(
+            lambda tx: tx.scan(
+                RecordKind.LEARNING, limit=self.policy.maximum_records + 1
+            )
+        )
+        if len(rows) > self.policy.maximum_records:
+            raise MissionError("LEARNING_READ_BUDGET")
+        rows = tuple(
+            row
+            for row in rows
+            if row.payload.get("domain_hat") == self.policy.domain_hat
+        )
+        for row in rows:
+            self.validate_record(row)
+        durable_states = {
+            "DELTA",
+            "OVERLAY",
+            "EPISODE",
+            "TRAIL",
+            "DEPENDENCY",
+            "PHEROMONE_EVENT",
+            "TIER_EVENT",
+            "OBLIGATION",
+            "REVALIDATION_EVENT",
+        }
+        audit_states = {
+            "EPISODE",
+            "PHEROMONE_EVENT",
+            "TIER_EVENT",
+            "OBLIGATION",
+            "REVALIDATION_EVENT",
+        }
+        sizes = {
+            row.record_id: len(
+                canonical_json_bytes(row, exclude_fields=("payload_digest",))
+            )
+            for row in rows
+        }
+        accepted = sum(row.payload.get("state") == "DELTA" for row in rows)
+        durable_bytes = sum(
+            sizes[row.record_id]
+            for row in rows
+            if row.payload.get("state") in durable_states
+        )
+        audit_bytes = sum(
+            sizes[row.record_id]
+            for row in rows
+            if row.payload.get("state") in audit_states
+        )
+        index_metrics = (
+            {
+                "mode": "UNCONFIGURED",
+                "entry_count": 0,
+                "index_bytes": 0,
+                "bytes_per_entry": 0,
+            }
+            if self.dynamics is None
+            else self.dynamics.index.snapshot.metrics()
+        )
         return {
             **metrics,
+            "accepted_minimal_delta_count": accepted,
+            "durable_delta_and_adjacent_bytes": durable_bytes,
+            "durable_bytes_per_accepted_minimal_delta": 0
+            if not accepted
+            else durable_bytes / accepted,
+            "audit_provenance_bytes": audit_bytes,
+            "compact_index": index_metrics,
             "measurement": "CANONICAL_SERIALIZED_LOGICAL_BYTES",
             "delta_partition": "delta_bytes + reference_tag_bytes equals complete serialized delta payload",
             "live_database_storage": False,

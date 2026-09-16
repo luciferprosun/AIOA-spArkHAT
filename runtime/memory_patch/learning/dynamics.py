@@ -68,6 +68,11 @@ class DynamicsPolicy:
     recheck_deadline_seconds: int = 300
     obligation_deadline_seconds: int = 300
     policy_version: str = "native-dual-pheromone-dvm-v1"
+    index_mode: str = "SHADOW"
+    maximum_index_entries: int = 32
+    maximum_index_candidate_scan: int = 16
+    maximum_index_token_hashes: int = 16
+    index_policy_version: str = "native-compact-pheromone-index-v1"
     digest: str = field(init=False)
 
     def __post_init__(self):
@@ -76,6 +81,8 @@ class DynamicsPolicy:
             or self.mode not in {"SHADOW", "ACTIVE"}
             or type(self.controlled_test_corpus) is not bool
             or self.policy_version != "native-dual-pheromone-dvm-v1"
+            or self.index_mode != "SHADOW"
+            or self.index_policy_version != "native-compact-pheromone-index-v1"
         ):
             raise MissionError("INVALID_DYNAMICS_POLICY")
         for name in (
@@ -96,6 +103,11 @@ class DynamicsPolicy:
         bounded_int(self.maximum_hot_refs, 1, 4)
         bounded_int(self.recheck_deadline_seconds, 5, 3600)
         bounded_int(self.obligation_deadline_seconds, 5, 3600)
+        bounded_int(self.maximum_index_entries, 1, 32)
+        bounded_int(self.maximum_index_candidate_scan, 1, 16)
+        bounded_int(self.maximum_index_token_hashes, 1, 32)
+        if self.maximum_index_candidate_scan > self.maximum_index_entries:
+            raise MissionError("INVALID_DYNAMICS_POLICY")
         object.__setattr__(
             self, "digest", canonical_sha256(self, exclude_fields=("digest",))
         )
@@ -103,7 +115,17 @@ class DynamicsPolicy:
     @property
     def scoring_digest(self):
         return canonical_sha256(
-            self, exclude_fields=("digest", "mode", "controlled_test_corpus")
+            self,
+            exclude_fields=(
+                "digest",
+                "mode",
+                "controlled_test_corpus",
+                "index_mode",
+                "maximum_index_entries",
+                "maximum_index_candidate_scan",
+                "maximum_index_token_hashes",
+                "index_policy_version",
+            ),
         )
 
 
@@ -133,10 +155,23 @@ class MemoryDynamics:
         self.learning, self.policy, self.watch_id = learning, policy, profile.watch_id
         self.last = None
         self._current = {}
+        self._current_rows = {}
+        from runtime.memory_patch.learning.index import CompactPheromoneIndex
+
+        self.index = CompactPheromoneIndex(
+            policy.owner_scope,
+            learning.policy.task_signature,
+            mode=policy.index_mode,
+            maximum_entries=policy.maximum_index_entries,
+            candidate_scan_limit=policy.maximum_index_candidate_scan,
+            maximum_token_hashes=policy.maximum_index_token_hashes,
+        )
 
     def describe(self):
         return {
             "mode": self.policy.mode,
+            "index_mode": self.policy.index_mode,
+            "index": self.index.snapshot.metrics(),
             "policy_digest": self.policy.digest,
             "execution_authority": False,
             "auto_mode": "DISABLED",
@@ -675,6 +710,7 @@ class MemoryDynamics:
                 next(value for value in values if value[1].delta_id == delta.delta_id)
             )
         self._current = {delta.delta_id: delta for _, delta in kept}
+        self._current_rows = {delta.delta_id: row for row, delta in kept}
         self.last = {
             "obligations": [v for v in obligations if v],
             "mode": self.policy.mode,
@@ -684,6 +720,8 @@ class MemoryDynamics:
         return tuple(kept)
 
     def order(self, eligible, query):
+        from runtime.memory_patch.learning.index import lexical_token_units
+
         write = self.learning.personal is None or self.learning.personal.allowed(
             write=True
         )
@@ -763,6 +801,28 @@ class MemoryDynamics:
                     "HOT" if identifier in actual_hot else "DEEP",
                     score,
                 )
+        # Re-read accepted trail revisions after any existing NV05 tier event.
+        # The derived snapshot then represents durable post-transaction state,
+        # so replay and a fresh process reconstruct the same digest.
+        index_sources = []
+        for identifier, delta in sorted(self._current.items()):
+            trail_row, trail = self.learning.run(lambda tx: self._trail(tx, delta))
+            index_sources.append(
+                (self._current_rows[identifier], delta, trail_row, trail)
+            )
+        snapshot = self.index.rebuild(
+            tuple(index_sources), actor_family=self.learning.policy.actor.family
+        )
+        index_result = self.index.prioritize(
+            query, eligible_ids=frozenset(self._current)
+        )
+        index_refs = set(index_result.reference_ids)
+        index_proposed = [by_id[value] for value in index_result.reference_ids] + [
+            ref for ref in actual if ref.reference_id not in index_refs
+        ]
+        index_context = budget_context(
+            eligible, query, self.learning.memory.profile, ordered=index_proposed
+        )
         self.last = {
             **(self.last or {}),
             "scores": scores,
@@ -771,6 +831,25 @@ class MemoryDynamics:
             "would_select": [r.reference_id for r in proposed_context.selected],
             "selected": [r.reference_id for r in selected.selected],
             "context_byte_units": selected.context_byte_units,
+            "index": {
+                **snapshot.metrics(),
+                "candidate_scan_count": index_result.candidate_scan_count,
+                "query_token_count": index_result.query_token_count,
+                "would_prioritize": list(index_result.reference_ids),
+                "would_select": [
+                    ref.reference_id for ref in index_context.selected
+                ],
+                "context_before_index_bytes": selected.context_byte_units,
+                "context_after_index_bytes": index_context.context_byte_units,
+                "context_before_index_token_units": lexical_token_units(
+                    selected.prompt_json
+                ),
+                "context_after_index_token_units": lexical_token_units(
+                    index_context.prompt_json
+                ),
+                "token_measurement": "DETERMINISTIC_LEXICAL_UNITS_NOT_PROVIDER_BILLING",
+                "actual_behavior_changed": False,
+            },
             "migration_reason": "CONTROLLED_TEST_ACTIVE"
             if self.policy.mode == "ACTIVE"
             else "SHADOW_BASELINE_UNCHANGED",
