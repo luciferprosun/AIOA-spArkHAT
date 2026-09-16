@@ -255,7 +255,7 @@ class NativeLearning:
             raise MissionError("DELTA_BINDING_MISMATCH")
         return value
 
-    def eligible_deltas(self, eligible, bundle):
+    def eligible_deltas(self, eligible, bundle, *, rows=None):
         try:
             sources = self._sources(eligible, bundle)
         except Exception:
@@ -263,7 +263,7 @@ class NativeLearning:
         versions = tuple((r[0], r[1]) for r in sources)
         refs = tuple(sorted(r[2] for r in sources))
         result = []
-        for row in self.records("DELTA"):
+        for row in self.records("DELTA") if rows is None else rows:
             value = self.delta(row)
             if (
                 row.payload.get("reuse_status", "CURRENT") != "CURRENT"
@@ -293,13 +293,18 @@ class NativeLearning:
                     "execution_authority": False,
                 }
             return ()
-        values = self.eligible_deltas(eligible, bundle)
+        # Eligibility and invalidation must examine the same bounded snapshot.
+        # A concurrent insertion absent from this read has not been rejected;
+        # it is eligible for consideration on the next retrieval.
+        rows = self.records("DELTA")
+        values = self.eligible_deltas(eligible, bundle, rows=rows)
         if self.dynamics is not None:
             values = self.dynamics.before_context(
                 values,
                 eligible,
                 bundle,
                 query,
+                rows=rows,
                 write=self.personal is None or self.personal.allowed(write=True),
             )
         return tuple(

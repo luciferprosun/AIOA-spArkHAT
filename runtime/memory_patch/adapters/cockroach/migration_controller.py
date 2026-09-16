@@ -617,7 +617,41 @@ class NativeMigrationController:
                     connection, current, manifest, digest, completed_prefix
                 )
                 start = pending[4] if pending else 0
-                if not pending:
+                prelude_count = (
+                    manifest.get("tracking_prelude_statement_count", 0)
+                    if not pending and ordinal > 18
+                    else 0
+                )
+                if prelude_count:
+                    if (
+                        type(prelude_count) is not int
+                        or not 1 <= prelude_count < row["statement_count"]
+                        or ordinal != len(completed_prefix) + 1
+                    ):
+                        raise MemoryPatchError(ErrorCode.MIGRATION_DENIED)
+                    for index, statement in enumerate(
+                        statements[ordinal][:prelude_count], 1
+                    ):
+                        self.core.require(principal, Capability.MIGRATE)
+                        observe("statement_before", ordinal * 10000 + index)
+                        with connection.cursor() as cursor:
+                            cursor.execute(
+                                statement.replace("__ROLE_PREFIX__", prefix),
+                                prepare=False,
+                            )
+                        if connection.info.transaction_status.name != "IDLE":
+                            raise MemoryPatchError(ErrorCode.RECOVERY_REQUIRED)
+                        state = catalog(connection, prefix)
+                        observe("statement_after", ordinal * 10000 + index)
+                    after_prelude = canonical_sha256(state)
+                    with connection.cursor() as cursor:
+                        cursor.execute(
+                            "INSERT INTO aioa_memory_patch.schema_migrations(ordinal,name,checksum,manifest_digest,state,completed_statements,catalog_fingerprint) VALUES(%s,%s,%s,%s,'APPLYING',%s,%s)",
+                            (ordinal, row["path"], row["sha256"], digest,
+                             prelude_count, after_prelude),
+                        )
+                    start = prelude_count
+                elif not pending:
                     with connection.cursor() as cursor:
                         cursor.execute(
                             "INSERT INTO aioa_memory_patch.schema_migrations(ordinal,name,checksum,manifest_digest,state,completed_statements,catalog_fingerprint) VALUES(%s,%s,%s,%s,'APPLYING',0,%s)",

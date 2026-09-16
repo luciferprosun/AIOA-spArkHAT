@@ -1,5 +1,11 @@
 -- Native opt-in learning-v1 unit 0019; no automatic migration.
 -- Source namespace/bootstrap is not executed; new native schema and Core context.
+ALTER TABLE aioa_memory_patch.schema_migrations SET (schema_locked=false);
+-- C5_STATEMENT
+ALTER TABLE aioa_memory_patch.schema_migrations DROP CONSTRAINT check_ordinal, ADD CONSTRAINT check_ordinal CHECK (ordinal BETWEEN 1 AND 19);
+-- C5_STATEMENT
+ALTER TABLE aioa_memory_patch.schema_migrations SET (schema_locked=true);
+-- C5_STATEMENT
 CREATE TABLE aioa_memory_patch.learning_records (
  tenant_id STRING NOT NULL CHECK (length(tenant_id) BETWEEN 1 AND 256),
  owner_id STRING NOT NULL CHECK (length(owner_id) BETWEEN 1 AND 256),
@@ -32,7 +38,13 @@ CREATE INDEX learning_records_state_idx ON aioa_memory_patch.learning_records (t
 -- C5_STATEMENT
 ALTER TABLE aioa_memory_patch.learning_records ADD CONSTRAINT learning_advisory_only CHECK ((payload->>'execution_authority'='false' AND payload->>'publication_authority'='false' AND payload->>'privacy_scope'='PRIVATE') IS TRUE);
 -- C5_STATEMENT
+-- v26.2.5 requires CREATE for the new owner. Each phase is checkpointed;
+-- an acknowledged interruption resumes at OWNER or REVOKE, never at GRANT.
+GRANT CREATE ON SCHEMA aioa_memory_patch TO __ROLE_PREFIX___schema_owner;
+-- C5_STATEMENT
 ALTER TABLE aioa_memory_patch.learning_records OWNER TO __ROLE_PREFIX___schema_owner;
+-- C5_STATEMENT
+REVOKE CREATE ON SCHEMA aioa_memory_patch FROM __ROLE_PREFIX___schema_owner;
 -- C5_STATEMENT
 REVOKE ALL ON TABLE aioa_memory_patch.learning_records FROM PUBLIC;
 -- C5_STATEMENT

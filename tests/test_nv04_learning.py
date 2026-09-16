@@ -296,6 +296,28 @@ finally:f.close()
         self.assertEqual(18, len(base["units"]))
         self.assertEqual(base["units"], learned["units"][:18])
         self.assertNotEqual(digest, learned_digest)
+        self.assertEqual(2, learned["tracking_prelude_statement_count"])
+        self.assertIn("schema_locked=false", statements[19][0])
+        self.assertIn("DROP CONSTRAINT check_ordinal", statements[19][1])
+        self.assertIn("ordinal BETWEEN 1 AND 19", statements[19][1])
+        self.assertIn("schema_locked=true", statements[19][2])
+        self.assertEqual(16, learned["units"][-1]["statement_count"])
+        ownership = statements[19].index(
+            "ALTER TABLE aioa_memory_patch.learning_records "
+            "OWNER TO __ROLE_PREFIX___schema_owner;"
+        )
+        self.assertTrue(statements[19][ownership - 1].endswith(
+            "GRANT CREATE ON SCHEMA aioa_memory_patch "
+            "TO __ROLE_PREFIX___schema_owner;"
+        ))
+        self.assertEqual(
+            "REVOKE CREATE ON SCHEMA aioa_memory_patch "
+            "FROM __ROLE_PREFIX___schema_owner;",
+            statements[19][ownership + 1],
+        )
+        elevated_grants = [statement for statement in statements[19]
+                           if "GRANT CREATE" in statement]
+        self.assertEqual([statements[19][ownership - 1]], elevated_grants)
         sql = "\n".join(statements[19])
         for token in (
             "FORCE ROW LEVEL SECURITY",

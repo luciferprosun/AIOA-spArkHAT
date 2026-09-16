@@ -588,10 +588,11 @@ print(json.dumps({"replay":replay["status"],"result":result,"deltas":len(fx.lear
 fx.close()
 '''
         from dataclasses import asdict
+        env = dict(os.environ, PYTHONPATH=str(Path(__file__).resolve().parents[1]) + os.pathsep + str(Path(__file__).parent))
         child = subprocess.run(
             [sys.executable, "-B", "-c", "import runtime\n" + code,
              str(b.root), str(shared), json.dumps(asdict(b.scope))],
-            text=True, capture_output=True, timeout=30, check=True)
+            env=env, text=True, capture_output=True, timeout=30, check=True)
         observed = json.loads(child.stdout)
         self.assertEqual("REPLAY", observed["replay"])
         self.assertEqual("VERIFIED", observed["result"]["status"], observed)

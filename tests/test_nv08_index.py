@@ -12,13 +12,17 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+import threading
 import unittest
+from unittest.mock import patch
 
 from nv07_support import ChatFixture, QUESTION, RIGHT, WRONG
-from runtime.core_admission import OwnerScope
+from runtime.core_admission import Capability, OwnerScope
+from runtime.memory_patch.errors import MemoryPatchError
 from runtime.memory_patch.learning.dynamics import DynamicsPolicy
 from runtime.memory_patch.learning.index import CompactPheromoneIndex
 from runtime.memory_patch.learning.personal_contracts import (
+    ConsentMode,
     DomainSemantics,
     SemanticDeltaKind,
 )
@@ -255,6 +259,177 @@ class CompactIndexTests(unittest.TestCase):
         fx.runtime.lite_memory_retrieve(fx.learning.policy.task_instruction)
         self.assertEqual(1, len(fx.learning.dynamics.index.snapshot.entries))
         self.assertEqual((), fx.learning.records("INDEX_EVENT"))
+
+    def test_concurrent_insert_after_eligibility_read_is_not_false_revalidation(self):
+        fx = self.fixture("snapshot-race", dynamics=True)
+        fx.consent()
+        reader = [None]
+        lock = threading.Lock()
+        committed, classified = threading.Event(), threading.Event()
+        original_eligible = fx.learning.eligible_deltas
+        original_persist = fx.learning.persist
+        original_context = fx.learning.dynamics.before_context
+
+        def eligible(*args, **kwargs):
+            values = original_eligible(*args, **kwargs)
+            pause = False
+            with lock:
+                if reader[0] is None and not values:
+                    reader[0] = threading.get_ident()
+                    pause = True
+            if pause:
+                self.assertTrue(committed.wait(10), "peer did not commit")
+            return values
+
+        def persist(*args, **kwargs):
+            result = original_persist(*args, **kwargs)
+            if threading.get_ident() != reader[0] and not committed.is_set():
+                committed.set()
+                self.assertTrue(classified.wait(10), "reader did not classify")
+            return result
+
+        def context(*args, **kwargs):
+            try:
+                return original_context(*args, **kwargs)
+            finally:
+                if threading.get_ident() == reader[0] and committed.is_set():
+                    classified.set()
+
+        def submit():
+            return fx.learning.evaluate(
+                WRONG, RIGHT, trace_id="snapshot-race", cpl_ref="verified-fixture",
+                critic_families=(),
+            )
+
+        with (
+            patch.object(fx.learning, "eligible_deltas", side_effect=eligible),
+            patch.object(fx.learning, "persist", side_effect=persist),
+            patch.object(fx.learning.dynamics, "before_context", side_effect=context),
+            ThreadPoolExecutor(max_workers=2) as executor,
+        ):
+            futures = [executor.submit(submit) for _ in range(2)]
+            results = [future.result(timeout=20) for future in futures]
+        self.assertEqual(["DUPLICATE", "VERIFIED"], sorted(r["status"] for r in results))
+        row, = fx.learning.records("DELTA")
+        self.assertEqual("CURRENT", row.payload.get("reuse_status", "CURRENT"))
+        self.assertEqual((), fx.learning.records("OBLIGATION"))
+        for state in ("DELTA", "EPISODE", "PHEROMONE_EVENT"):
+            self.assertEqual(1, len(fx.learning.records(state)))
+        self.assertEqual("READY", fx.runtime.lite_memory_retrieve(QUESTION).status)
+        self.assertEqual(1, len(fx.learning.dynamics.index.snapshot.entries))
+        self.assertEqual((), fx.learning.records("INDEX_EVENT"))
+
+    def test_concurrent_stale_replay_stays_blocked_without_new_effects(self):
+        fx = self.fixture("stale-replay", dynamics=True)
+        fx.consent()
+
+        def submit():
+            return fx.learning.evaluate(
+                WRONG, RIGHT, trace_id="same-stale-key", cpl_ref="verified-fixture",
+                critic_families=(),
+            )
+
+        submit()
+        fx.now += timedelta(seconds=301)
+        fx.runtime.lite_memory_retrieve(QUESTION)
+        row, = fx.learning.records("DELTA")
+        self.assertEqual("REVALIDATION_REQUIRED", row.payload["reuse_status"])
+        before = fx.factory.path.read_bytes()
+        barrier = threading.Barrier(2)
+
+        def blocked():
+            barrier.wait(timeout=10)
+            with self.assertRaisesRegex(MissionError, "DELTA_REVALIDATION_REQUIRED"):
+                submit()
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            futures = [executor.submit(blocked) for _ in range(2)]
+            for future in futures:
+                future.result(timeout=20)
+        self.assertEqual(before, fx.factory.path.read_bytes())
+        self.assertEqual(1, len(fx.learning.records("DELTA")))
+        self.assertEqual(1, len(fx.learning.records("PHEROMONE_EVENT")))
+        self.assertEqual((), fx.learning.dynamics.index.snapshot.entries)
+        self.assertEqual((), fx.learning.records("INDEX_EVENT"))
+
+    def test_source_change_before_commit_requires_new_current_verification(self):
+        fx = self.fixture("source-before-commit", dynamics=True)
+        fx.consent()
+        original = fx.learning.native.transactions.run
+        writes = []
+
+        def change_before_write(context, callback):
+            if context.purpose is Capability.MANAGE:
+                writes.append(context.purpose)
+                if len(writes) == 1:
+                    fx.change_source_version()
+            return original(context, callback)
+
+        with patch.object(fx.learning.native.transactions, "run", side_effect=change_before_write):
+            with self.assertRaises(MemoryPatchError) as failure:
+                fx.learning.evaluate(WRONG, RIGHT, trace_id="old-basis",
+                                     cpl_ref="verified-fixture", critic_families=())
+        self.assertEqual("SOURCE_CHANGED_BEFORE_WRITE", str(failure.exception.__cause__))
+        self.assertEqual(1, len(writes))
+        for state in ("DELTA", "EPISODE", "PHEROMONE_EVENT", "INDEX_EVENT"):
+            self.assertEqual((), fx.learning.records(state))
+        # The operator's new independent rule binding is needed for v2.
+        fx.learning.verifiers = tuple(
+            replace(binding, verifier=replace(binding.verifier, source_versions=(("policy", "v2"),)))
+            if binding.verifier_ref == "controlled-domain-rule" else binding
+            for binding in fx.learning.verifiers
+        )
+        result = fx.learning.evaluate(WRONG, RIGHT, trace_id="new-basis",
+                                      cpl_ref="verified-fixture", critic_families=())
+        self.assertEqual("VERIFIED", result["status"])
+        self.assertEqual((("policy", "v2"),), fx.learning.delta(fx.learning.records("DELTA")[0]).source_versions)
+
+    def test_replay_after_explicit_revalidation_has_no_second_reward_or_index(self):
+        fx = self.fixture("revalidated-replay", dynamics=True)
+        fx.consent()
+
+        def submit():
+            return fx.learning.evaluate(WRONG, RIGHT, trace_id="revalidated-key",
+                                        cpl_ref="verified-fixture", critic_families=())
+
+        submit()
+        fx.now += timedelta(seconds=301)
+        fx.runtime.lite_memory_retrieve(QUESTION)
+        obligation, = fx.learning.records("OBLIGATION")
+        self.assertEqual("RESOLVED", fx.learning.dynamics.revalidate(obligation.record_id)["status"])
+        context = fx.runtime.lite_memory_retrieve(QUESTION)
+        snapshot = fx.learning.dynamics.index.snapshot
+        before = fx.factory.path.read_bytes()
+        self.assertEqual("DUPLICATE", submit()["status"])
+        self.assertEqual("ALREADY_RESOLVED", fx.learning.dynamics.revalidate(obligation.record_id)["status"])
+        self.assertEqual(before, fx.factory.path.read_bytes())
+        self.assertEqual(context.prompt_json, fx.runtime.lite_memory_retrieve(QUESTION).prompt_json)
+        self.assertEqual(snapshot.snapshot_digest, fx.learning.dynamics.index.snapshot.snapshot_digest)
+        self.assertEqual(1, len(fx.learning.records("REVALIDATION_EVENT")))
+        self.assertEqual(1, len(fx.learning.records("DELTA")))
+        self.assertEqual((), fx.learning.records("INDEX_EVENT"))
+
+    def test_high_tau_does_not_override_revoked_consent(self):
+        fx = self.fixture("revoked", dynamics=True)
+        result, _, _ = self._learn_and_index(fx)
+
+        def boost(tx):
+            row = tx.get(RecordKind.LEARNING, "trail-" + result["delta_id"])
+            tx.replace(fx.learning.record(row.record_id, "TRAIL",
+                       {**dict(row.payload), "tau_positive": 1.0, "tau_negative": 1.0},
+                       revision=row.revision + 1), expected_revision=row.revision)
+
+        fx.learning.run(boost, write=True)
+        fx.consent(ConsentMode.OFF)
+        before = fx.factory.path.read_bytes()
+        context = fx.runtime.lite_memory_retrieve(QUESTION)
+        self.assertNotIn(result["delta_id"], context.prompt_json)
+        self.assertEqual((), fx.learning.dynamics.index.snapshot.entries)
+        denied = fx.learning.evaluate(WRONG, RIGHT, trace_id="revoked-write",
+                                     cpl_ref="verified-fixture", critic_families=())
+        self.assertEqual("ZERO_WRITE", denied["knowledge_write"])
+        self.assertEqual("CONSENT_OFF", denied["reason"])
+        self.assertEqual(before, fx.factory.path.read_bytes())
 
     def test_two_owner_shared_store_has_no_read_score_log_or_index_leak(self):
         a = self.fixture("owner-a", dynamics=True)

@@ -169,8 +169,8 @@
     {
       "ordinal": 19,
       "path": "0019_learning.sql",
-      "sha256": "506e336176fb67be931efc8223bebe1017e237e1441e73a93c7a7f35b2aa318f",
-      "statement_count": 11,
+      "sha256": "8022b60a8aa850c208a5f8ca560820bac5c6008561520528ec718a7db4d21827",
+      "statement_count": 16,
       "phase": "ACKNOWLEDGED_STATEMENT_PHASES",
       "source_path": "native/learning-v1",
       "source_blob_sha": null
@@ -399,5 +399,6 @@
       "outbox"
     ]
   },
-  "schema_profile": "learning-v1"
+  "schema_profile": "learning-v1",
+  "tracking_prelude_statement_count": 2
 }

@@ -667,7 +667,7 @@ class MemoryDynamics:
 
         return self.learning.run(update, write=True)
 
-    def before_context(self, values, eligible, bundle, query, *, write=True):
+    def before_context(self, values, eligible, bundle, query, *, rows, write=True):
         if type(write) is not bool:
             raise MissionError("INVALID_DYNAMICS_WRITE_MODE")
         current_versions = tuple(
@@ -681,7 +681,7 @@ class MemoryDynamics:
         )
         eligible_ids = {delta.delta_id for _, delta in values}
         kept, obligations = [], []
-        for row in self.learning.records("DELTA"):
+        for row in rows:
             delta = self.learning.delta(row)
             if delta.task_signature != self.learning.policy.task_signature:
                 continue
