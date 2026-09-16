@@ -45,9 +45,16 @@ UNKNOWN_ANSWER = "No verified answer is available. Human review is required."
 
 class NativeAnswerAssembler:
     def __init__(
-        self, verifier: NativeVerifier, provider: CorrectedDraftPort | None = None
+        self,
+        verifier: NativeVerifier,
+        provider: CorrectedDraftPort | None = None,
+        *,
+        maximum_attempts: int = 2,
     ):
+        if type(maximum_attempts) is not int or maximum_attempts not in (1, 2):
+            raise MemoryPatchError(ErrorCode.INVALID_REQUEST)
         self.verifier, self.provider = verifier, provider
+        self.maximum_attempts = maximum_attempts
         self._completed = {}
         self._lock = threading.Lock()
 
@@ -93,7 +100,7 @@ class NativeAnswerAssembler:
             if len(self._completed) >= 1024:
                 raise MemoryPatchError(ErrorCode.QUOTA_EXCEEDED)
             last = None
-            for attempt in (1, 2):
+            for attempt in range(1, self.maximum_attempts + 1):
                 self.verifier.integrity.consume_attempt(
                     principal,
                     packet,
@@ -130,7 +137,13 @@ class NativeAnswerAssembler:
                     self._completed[key] = (packet.packet_hash, result, candidate)
                     return result
             result = NativeVerifiedAnswer(
-                UNKNOWN_ANSWER, "UNVERIFIED", (), False, True, last, 2
+                UNKNOWN_ANSWER,
+                "UNVERIFIED",
+                (),
+                False,
+                True,
+                last,
+                self.maximum_attempts,
             )
             self._completed[key] = (packet.packet_hash, result, None)
             return result

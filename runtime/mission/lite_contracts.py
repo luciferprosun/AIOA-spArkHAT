@@ -8,7 +8,12 @@ from typing import Protocol
 from runtime.core_admission import OwnerScope
 from runtime.memory_patch.contract import parse_request
 from runtime.memory_patch.contracts.serialization import canonical_sha256
-from runtime.mission.contracts import MissionContext, MissionError, bounded_int, logical_id
+from runtime.mission.contracts import (
+    MissionContext,
+    MissionError,
+    bounded_int,
+    logical_id,
+)
 
 MODEL = "nvidia/nemotron-3.5-lightning-30b-a3b"
 PROFILE = "aioa-lite-agent-v1"
@@ -76,6 +81,7 @@ class LiteProfile:
     memory_profile_digest: str | None = None
     cpl_profile_digest: str | None = None
     dynamics_profile_digest: str | None = None
+    personal_profile_digest: str | None = None
     cpl_mode: str = "OFF"
     auto_mode: str = "DISABLED"
     dvm_mode: str = "OFF"
@@ -130,12 +136,17 @@ class LiteProfile:
             require_sha256_hex(self.dynamics_profile_digest, "dynamics profile")
             if self.dvm_mode == "OFF" or self.dvm_mode != self.pheromone_mode:
                 raise MissionError("DYNAMICS_MODE_MISMATCH")
+        if self.personal_profile_digest is not None:
+            from runtime.memory_patch.contracts.serialization import require_sha256_hex
+            require_sha256_hex(self.personal_profile_digest, "personal delta profile")
+            if self.memory_mode != "ACTIVE" or self.cpl_mode != "ACTIVE":
+                raise MissionError("PERSONAL_DELTA_COMPOSITION_REQUIRED")
         if "ACTIVE" in {self.dvm_mode, self.pheromone_mode} and self.dynamics_profile_digest is None:
             raise MissionError("DYNAMICS_PROFILE_REQUIRED")
         if type(self.budget) is not LiteBudget or type(self.cadence) is not LiteCadence:
             raise MissionError("INVALID_LITE_POLICY")
         # Preserve NV02 manifest identity when the optional integration is absent.
-        excluded = ("digest",) + tuple(name for name in ("memory_profile_digest", "cpl_profile_digest", "dynamics_profile_digest") if getattr(self, name) is None)
+        excluded = ("digest",) + tuple(name for name in ("memory_profile_digest", "cpl_profile_digest", "dynamics_profile_digest", "personal_profile_digest") if getattr(self, name) is None)
         object.__setattr__(self, "digest", canonical_sha256(self, exclude_fields=excluded))
 
     def require_context(self, context):

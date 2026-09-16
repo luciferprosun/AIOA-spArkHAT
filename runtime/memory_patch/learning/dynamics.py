@@ -632,7 +632,9 @@ class MemoryDynamics:
 
         return self.learning.run(update, write=True)
 
-    def before_context(self, values, eligible, bundle, query):
+    def before_context(self, values, eligible, bundle, query, *, write=True):
+        if type(write) is not bool:
+            raise MissionError("INVALID_DYNAMICS_WRITE_MODE")
         current_versions = tuple(
             sorted(
                 v
@@ -662,11 +664,13 @@ class MemoryDynamics:
             elif self.learning.now() >= datetime.fromisoformat(trail["next_check_at"]):
                 reason = "CRITICAL_RECHECK_DUE"
             if reason:
-                obligations.append(
-                    self._obligation(row, delta, reason, current_versions)
-                )
+                if write:
+                    obligations.append(
+                        self._obligation(row, delta, reason, current_versions)
+                    )
                 continue
-            self._update_tau(delta, self.learning.now().isoformat(), "DECAY")
+            if write:
+                self._update_tau(delta, self.learning.now().isoformat(), "DECAY")
             kept.append(
                 next(value for value in values if value[1].delta_id == delta.delta_id)
             )
@@ -680,6 +684,9 @@ class MemoryDynamics:
         return tuple(kept)
 
     def order(self, eligible, query):
+        write = self.learning.personal is None or self.learning.personal.allowed(
+            write=True
+        )
         baseline = sorted(
             eligible, key=lambda r: (-lexical_relevance(query, r.text), r.reference_id)
         )
@@ -750,7 +757,7 @@ class MemoryDynamics:
         )
         for score in scores:
             identifier = score["delta_id"]
-            if self.policy.mode == "ACTIVE":
+            if self.policy.mode == "ACTIVE" and write:
                 self._tier(
                     self._current[identifier],
                     "HOT" if identifier in actual_hot else "DEEP",

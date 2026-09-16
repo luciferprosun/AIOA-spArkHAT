@@ -31,6 +31,11 @@ from runtime.memory_patch.learning.contracts import (
     VerificationVerdict,
     VerifierReceipt,
 )
+from runtime.memory_patch.learning.personal import PersonalDeltaAccess
+from runtime.memory_patch.learning.personal_contracts import (
+    CorrectionMode,
+    SemanticDeltaKind,
+)
 from runtime.memory_patch.lite import ContextReference
 from runtime.memory_patch.persistence.ports import (
     RecordKind,
@@ -49,7 +54,7 @@ class NativeLearning:
     private advisory references, outside canonical evidence/approval lanes.
     """
 
-    def __init__(self, memory, policy, verifiers, *, active):
+    def __init__(self, memory, policy, verifiers, *, active, personal_policy=None):
         if (
             type(policy) is not LearningPolicy
             or type(verifiers) is not tuple
@@ -80,6 +85,11 @@ class NativeLearning:
             self.native.core.local_operator(Capability.MANAGE)
         self.last = None
         self.dynamics = None
+        self.personal = (
+            None
+            if personal_policy is None
+            else PersonalDeltaAccess(self, personal_policy)
+        )
 
     def now(self):
         return self.native.retrieval.clock()
@@ -93,7 +103,34 @@ class NativeLearning:
         return TransactionContext(principal, cap)
 
     def run(self, callback, *, write=False):
-        return self.native.transactions.run(self._context(write), callback)
+        def guarded(tx):
+            if write and self.personal is not None:
+                self.personal.require_write(tx)
+            result = callback(tx)
+            if write and self.personal is not None:
+                rows = tx.scan(
+                    RecordKind.LEARNING, limit=self.policy.maximum_records + 1
+                )
+                maximum = self.personal.policy.maximum_learning_bytes
+                native_quota = self.native.dependencies.quota
+                if native_quota is not None and native_quota.maximum_bytes is not None:
+                    maximum = min(maximum, native_quota.maximum_bytes)
+                if (
+                    len(rows) > self.policy.maximum_records
+                    or sum(
+                        len(
+                            canonical_json_bytes(
+                                row, exclude_fields=("payload_digest",)
+                            )
+                        )
+                        for row in rows
+                    )
+                    > maximum
+                ):
+                    raise MissionError("PERSONAL_DELTA_BYTE_QUOTA")
+            return result
+
+        return self.native.transactions.run(self._context(write), guarded)
 
     def records(self, state):
         def read(tx):
@@ -104,6 +141,13 @@ class NativeLearning:
             )
             if len(rows) > self.policy.maximum_records:
                 raise MissionError("LEARNING_READ_BUDGET")
+            # One Core default personal space may hold several admitted HATs.
+            # Adapter scoping precedes count/limit; domain filtering never expands it.
+            rows = tuple(
+                row
+                for row in rows
+                if row.payload.get("domain_hat") == self.policy.domain_hat
+            )
             for row in rows:
                 self.validate_record(row)
             return rows
@@ -237,9 +281,23 @@ class NativeLearning:
         return tuple(result)
 
     def context(self, eligible, bundle, query):
+        if self.personal is not None and not self.personal.allowed():
+            if self.dynamics is not None:
+                self.dynamics._current = {}
+                self.dynamics.last = {
+                    "status": "CONSENT_HIDDEN",
+                    "execution_authority": False,
+                }
+            return ()
         values = self.eligible_deltas(eligible, bundle)
         if self.dynamics is not None:
-            values = self.dynamics.before_context(values, eligible, bundle, query)
+            values = self.dynamics.before_context(
+                values,
+                eligible,
+                bundle,
+                query,
+                write=self.personal is None or self.personal.allowed(write=True),
+            )
         return tuple(
             ContextReference(
                 value.delta_id,
@@ -296,6 +354,11 @@ class NativeLearning:
         if context.status != "READY":
             raise MissionError("MEMORY_DEGRADED")
         sources = self._sources(context.eligible, context.canonical_bundle)
+        if self.personal is not None:
+            self.personal.require_clean(original, revision)
+            original = self.personal.canonical_claim(original, sources)
+            revision = self.personal.canonical_claim(revision, sources)
+            self.personal.require_clean(original, revision)
         actor_valid, _ = self.verify(original, sources)
         revision_valid, receipts = self.verify(revision, sources)
         common = {
@@ -314,7 +377,11 @@ class NativeLearning:
                 "delta_id": None,
                 "revision_supported": revision_valid,
             }
-            if self.dynamics is not None and self.active:
+            if (
+                self.dynamics is not None
+                and self.active
+                and (self.personal is None or self.personal.allowed(write=True))
+            ):
                 self.dynamics.successful_reuse(original, trace_id, context, used_refs)
             self.last = result
             return result
@@ -367,6 +434,15 @@ class NativeLearning:
             candidate.content_hash,
             cpl_ref,
             self.policy.knowledge_digest,
+            delta_kind=SemanticDeltaKind.REPLACE
+            if self.personal is None or self.personal.policy.semantics is None
+            else self.personal.policy.semantics.delta_kind,
+            required_condition=None
+            if self.personal is None or self.personal.policy.semantics is None
+            else self.personal.policy.semantics.required_condition,
+            tags=()
+            if self.personal is None or self.personal.policy.semantics is None
+            else self.personal.policy.semantics.tags,
         )
         if not self.active:
             self.last = {
@@ -377,6 +453,15 @@ class NativeLearning:
                 "delta_id": identifier,
             }
             return self.last
+        if self.personal is not None and not self.personal.allowed(write=True):
+            self.last = {
+                **common,
+                "status": "ZERO_WRITE",
+                "knowledge_write": "ZERO_WRITE",
+                "reason": self.run(lambda tx: self.personal.reason(tx, write=True)),
+                "delta_id": None,
+            }
+            return self.last
         result = self.persist(delta, trace_id)
         if self.dynamics is not None:
             self.dynamics.correction(delta, trace_id)
@@ -384,6 +469,31 @@ class NativeLearning:
         return self.last
 
     def persist(self, delta, trace_id):
+        proof_context = None
+        source_snapshot = None
+        if self.personal is not None:
+            self.personal.require_clean(delta.private_payload())
+            if (
+                delta.scope != self.policy.owner_scope
+                or delta.domain_hat != self.policy.domain_hat
+                or delta.task_signature != self.policy.task_signature
+                or delta.policy_digest != self.policy.knowledge_digest
+                or delta.status is not DeltaStatus.VERIFIED
+                or not delta.valid_from <= self.now() < delta.valid_until
+            ):
+                raise MissionError("DELTA_BINDING_MISMATCH")
+            proof_context = self.memory.retrieve(self.policy.task_instruction)
+            sources = self._sources(
+                proof_context.eligible, proof_context.canonical_bundle
+            )
+            if (
+                delta.source_versions != tuple((r[0], r[1]) for r in sources)
+                or tuple(sorted(delta.evidence_refs))
+                != tuple(sorted(r[2] for r in sources))
+                or not self.verify(delta.verified_claim, sources)[0]
+            ):
+                raise MissionError("INDEPENDENT_VERIFICATION_REQUIRED")
+            source_snapshot = self._source_snapshot()
         overlay_id = "overlay-" + canonical_sha256(
             (self.policy.actor.fingerprint, delta.delta_id)
         )
@@ -407,6 +517,19 @@ class NativeLearning:
         )
 
         def write(tx):
+            if proof_context is not None:
+                # Sources are Core read ports, not nested native transactions.
+                # Recheck the basis and clock inside the consent-guarded write.
+                if (
+                    source_snapshot != self._source_snapshot()
+                    or not delta.valid_from <= self.now() < delta.valid_until
+                ):
+                    raise MissionError("SOURCE_CHANGED_BEFORE_WRITE")
+                current_sources = self._sources(
+                    proof_context.eligible, proof_context.canonical_bundle
+                )
+                if not self.verify(delta.verified_claim, current_sources)[0]:
+                    raise MissionError("INDEPENDENT_VERIFICATION_REQUIRED")
             previous = tx.get(RecordKind.LEARNING, delta.delta_id)
             event = tx.get(RecordKind.LEARNING, event_id)
             if event is not None:
@@ -440,6 +563,7 @@ class NativeLearning:
                 if (
                     current.status is not DeltaStatus.VERIFIED
                     or previous.payload.get("reuse_status", "CURRENT") != "CURRENT"
+                    or current.policy_digest != delta.policy_digest
                 ):
                     raise MissionError("DELTA_REVALIDATION_REQUIRED")
                 changed = replace(current, last_seen_at=self.now())
@@ -498,3 +622,182 @@ class NativeLearning:
             }
 
         return self.run(write, write=True)
+
+    def _source_snapshot(self):
+        reader = self.native.core.local_operator(Capability.READ)
+        return canonical_sha256(
+            self.native.retrieval.sources.scan_scope(
+                reader,
+                hat_id=self.policy.domain_hat,
+                limit=self.memory.profile.max_read_records + 1,
+            )
+        )
+
+    def review_claim(self, original, mode, *, proposal=None):
+        """Core review only; no actor call, no candidate may self-certify."""
+        if type(mode) is not CorrectionMode:
+            raise MissionError("INVALID_CORRECTION_MODE")
+        context = self.memory.retrieve(self.policy.task_instruction)
+        if context.status != "READY":
+            raise MissionError("MEMORY_DEGRADED")
+        sources = self._sources(context.eligible, context.canonical_bundle)
+        original = _claim(original)
+        if self.personal is not None:
+            self.personal.require_clean(original)
+            original = self.personal.canonical_claim(original, sources)
+            self.personal.require_clean(original)
+        actor_valid, actor_receipts = self.verify(original, sources)
+        base = {
+            "mode": mode.value,
+            "original_claim": original,
+            "context": context,
+            "sources": sources,
+            "actor_receipts": actor_receipts,
+            "execution_authority": False,
+        }
+        if actor_valid:
+            return {
+                **base,
+                "status": "ZERO_WRITE",
+                "verified_claim": original,
+                "receipts": actor_receipts,
+            }
+        if mode is CorrectionMode.HAT_ONLY:
+            candidates = {r[3] for r in sources if self.verify(r[3], sources)[0]}
+            if len(candidates) != 1:
+                return {
+                    **base,
+                    "status": "UNVERIFIED",
+                    "reason": "NO_UNIQUE_HAT_CORRECTION",
+                }
+            proposal = next(iter(candidates))
+        elif proposal is None:
+            return {
+                **base,
+                "status": "NEEDS_CRITICS",
+                "reason": "CPL_PROPOSAL_REQUIRED",
+            }
+        proposal = _claim(proposal)
+        if self.personal is not None:
+            self.personal.require_clean(proposal)
+            proposal = self.personal.canonical_claim(proposal, sources)
+            self.personal.require_clean(proposal)
+        valid, receipts = self.verify(proposal, sources)
+        if not valid or proposal == original:
+            return {
+                **base,
+                "status": "UNVERIFIED",
+                "reason": "INDEPENDENT_VERIFICATION_NOT_MET",
+            }
+        return {
+            **base,
+            "status": "VERIFIED_CORRECTION",
+            "verified_claim": proposal,
+            "receipts": receipts,
+        }
+
+    def correction_packet(self, review, trace_id):
+        """Canonical native packet and a small actor projection, no HMAC export."""
+        from runtime.memory_patch.correction.claims import (
+            NativeDraft,
+            extract_native_claims,
+        )
+        from runtime.memory_patch.correction.packets import (
+            CorrectionAction,
+            RequiredCorrection,
+        )
+
+        if self.native.integrity is None or review["status"] != "VERIFIED_CORRECTION":
+            raise MissionError("VERIFIED_PACKET_BINDING_REQUIRED")
+        # The caller's review dictionary does not constitute proof. Re-read it.
+        fresh = self.review_claim(
+            review["original_claim"],
+            CorrectionMode.CPL_ONLY,
+            proposal=review["verified_claim"],
+        )
+        if fresh["status"] != "VERIFIED_CORRECTION":
+            raise MissionError("INDEPENDENT_VERIFICATION_REQUIRED")
+        bundle = fresh["context"].canonical_bundle
+        draft = NativeDraft(
+            self.policy.owner_scope,
+            self.policy.domain_hat,
+            trace_id,
+            fresh["original_claim"],
+        )
+        claims = extract_native_claims(draft)
+        if len(claims) != 1:
+            raise MissionError("MINIMAL_SINGLE_CLAIM_REQUIRED")
+        correction = RequiredCorrection(
+            claims[0].claim_id,
+            CorrectionAction.REPLACE,
+            draft.text,
+            fresh["verified_claim"],
+            tuple(i.item_hash for i in bundle.items),
+        )
+        principal = self.native.core.local_operator(Capability.READ)
+        packet, receipt = self.native.integrity.build_required(
+            principal, draft, bundle, correction
+        )
+        semantics = None if self.personal is None else self.personal.policy.semantics
+        condition = None if semantics is None else semantics.required_condition
+        if condition is not None and condition not in fresh["verified_claim"]:
+            raise MissionError("SEMANTIC_CONDITION_NOT_PRESERVED")
+        payload = {
+            "schema": "native-personal-correction-projection-v1",
+            "packet_hash": packet.packet_hash,
+            "claim_id": correction.claim_id,
+            "original_claim": correction.original_text,
+            "verified_correction": correction.required_text,
+            "required_condition": condition,
+            "delta_kind": "REPLACE"
+            if semantics is None
+            else semantics.delta_kind.value,
+            "evidence_refs": tuple(r[2] for r in fresh["sources"]),
+            "source_versions": tuple((r[0], r[1]) for r in fresh["sources"]),
+            "valid_from": packet.issued_at.isoformat(),
+            "valid_until": packet.expires_at.isoformat(),
+            "reason_code": "INDEPENDENT_CURRENT_EVIDENCE",
+            "verification_status": "VERIFIED",
+        }
+        encoded = canonical_json_bytes(payload)
+        if len(encoded) > 4096:
+            raise MissionError("CORRECTION_PACKET_BUDGET")
+        if self.personal is not None:
+            self.personal.require_clean(payload)
+        return packet, receipt, bundle, payload
+
+    def storage_metrics(self):
+        """Logical canonical bytes, not database pages or compression savings."""
+        metrics = {
+            "delta_bytes": 0,
+            "reference_tag_bytes": 0,
+            "audit_event_bytes": 0,
+            "model_overlay_bytes": 0,
+            "pheromone_event_bytes": 0,
+        }
+        for row in self.records("DELTA"):
+            value = dict(row.payload["delta"])
+            refs = {
+                k: value[k]
+                for k in ("evidence_refs", "source_versions", "tags")
+                if k in value
+            }
+            reference_bytes = len(canonical_json_bytes(refs))
+            metrics["reference_tag_bytes"] += reference_bytes
+            metrics["delta_bytes"] += len(canonical_json_bytes(value)) - reference_bytes
+        for state, key in (
+            ("EPISODE", "audit_event_bytes"),
+            ("OVERLAY", "model_overlay_bytes"),
+            ("PHEROMONE_EVENT", "pheromone_event_bytes"),
+        ):
+            metrics[key] = sum(
+                len(canonical_json_bytes(r, exclude_fields=("payload_digest",)))
+                for r in self.records(state)
+            )
+        return {
+            **metrics,
+            "measurement": "CANONICAL_SERIALIZED_LOGICAL_BYTES",
+            "delta_partition": "delta_bytes + reference_tag_bytes equals complete serialized delta payload",
+            "live_database_storage": False,
+            "compression_savings_claimed": False,
+        }

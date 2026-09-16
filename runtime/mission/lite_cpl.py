@@ -71,6 +71,7 @@ class CoreLiteCPLBindings:
     service: object
     verifiers: tuple
     owns_service: bool = False
+    personal_policy: object = None
 
 
 class LiteCPL:
@@ -105,8 +106,18 @@ class LiteCPL:
         self.bindings, self.policy, self.memory = bindings, policy, memory
         self.service = bindings.service
         self.learning = NativeLearning(
-            memory, policy.learning, bindings.verifiers, active=policy.mode == "ACTIVE"
+            memory,
+            policy.learning,
+            bindings.verifiers,
+            active=policy.mode == "ACTIVE",
+            personal_policy=bindings.personal_policy,
         )
+        if profile.personal_profile_digest != (
+            None
+            if self.learning.personal is None
+            else self.learning.personal.policy.digest
+        ):
+            raise MissionError("PERSONAL_DELTA_BINDING_MISMATCH")
         if memory.learning is not None:
             raise MissionError("SECOND_LEARNING_WRITER_DENIED")
         memory.learning = self.learning
@@ -123,7 +134,12 @@ class LiteCPL:
             "last": self.last,
         }
 
-    def run(self, response, item, journal, now, stopped):
+    def run(self, response, item, journal, now, stopped, *, proposal_only=False):
+        if type(proposal_only) is not bool:
+            raise MissionError("INVALID_CPL_INVOCATION")
+        # New personal learning must return through the closed actor path first.
+        # An ordinary legacy scheduler tick cannot auto-persist its CPL candidate.
+        proposal_only = proposal_only or self.learning.personal is not None
         base = {
             "execution_authority": False,
             "generation_requests": 0,
@@ -216,6 +232,16 @@ class LiteCPL:
                 )
                 if verification.get("ok") is not True:
                     raise MissionError("CPL_TRACE_INTEGRITY_FAILED")
+                if proposal_only:
+                    from runtime.mission.advisory import _claim
+
+                    self.last = {
+                        **base,
+                        "status": "CANDIDATE",
+                        "proposed_claim": _claim(result["final_answer"]),
+                        "critic_independent_proofs": 0,
+                    }
+                    return self.last
                 learned = self.learning.evaluate(
                     response.parsed_payload["summary"],
                     result["final_answer"],

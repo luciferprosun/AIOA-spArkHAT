@@ -18,6 +18,12 @@ from runtime.memory_patch.contracts.serialization import (
     ensure_utc,
     require_sha256_hex,
 )
+from runtime.memory_patch.learning.personal_contracts import (
+    DeltaTag,
+    SemanticDeltaKind,
+    TagKind,
+    validate_tags,
+)
 from runtime.mission.advisory import _claim
 from runtime.mission.contracts import MissionError, bounded_int, id_tuple, logical_id
 
@@ -236,6 +242,9 @@ class EpistemicDelta:
     native_candidate_hash: str
     cpl_trace_ref: str
     policy_digest: str
+    delta_kind: SemanticDeltaKind = SemanticDeltaKind.REPLACE
+    required_condition: str | None = None
+    tags: tuple[DeltaTag, ...] = ()
     execution_authority: bool = field(default=False, init=False)
 
     def __post_init__(self):
@@ -279,9 +288,37 @@ class EpistemicDelta:
                 object.__setattr__(self, name, ensure_utc(getattr(self, name)))
         if self.valid_until <= self.valid_from or self.last_seen_at < self.created_at:
             raise MissionError("INVALID_DELTA_TIME")
+        if type(self.delta_kind) is not SemanticDeltaKind:
+            raise MissionError("INVALID_SEMANTIC_DELTA_KIND")
+        validate_tags(self.tags)
+        if self.required_condition is not None and (
+            self.required_condition != _claim(self.required_condition)
+            or self.required_condition not in self.verified_claim
+        ):
+            raise MissionError("SEMANTIC_CONDITION_NOT_PRESERVED")
+        if (
+            self.delta_kind
+            in {SemanticDeltaKind.ADD_MISSING_CONDITION, SemanticDeltaKind.QUALIFY}
+            and not self.required_condition
+        ):
+            raise MissionError("SEMANTIC_CONDITION_REQUIRED")
+
+    @property
+    def minimal_delta(self):
+        # One self-contained corrected meaning, not a duplicate payload or text diff.
+        return self.verified_claim
 
     def private_payload(self):
-        return json.loads(canonical_json_bytes(self))
+        value = json.loads(canonical_json_bytes(self))
+        # Preserve the existing serialized shape when the optional contract is absent.
+        if (
+            self.delta_kind is SemanticDeltaKind.REPLACE
+            and self.required_condition is None
+            and not self.tags
+        ):
+            for name in ("delta_kind", "required_condition", "tags"):
+                value.pop(name)
+        return value
 
     @classmethod
     def restore(cls, raw):
@@ -296,6 +333,11 @@ class EpistemicDelta:
             raise MissionError("MODEL_IDENTITY_REQUIRED")
         value["status"] = DeltaStatus(value["status"])
         value["privacy_scope"] = PrivacyScope(value["privacy_scope"])
+        value["delta_kind"] = SemanticDeltaKind(value.get("delta_kind", "REPLACE"))
+        value["tags"] = tuple(
+            DeltaTag(TagKind(row["kind"]), row["value"])
+            for row in value.get("tags", ())
+        )
         for name in ("delta_patch", "evidence_refs", "supersedes"):
             value[name] = tuple(value[name])
         value["source_versions"] = tuple(tuple(row) for row in value["source_versions"])

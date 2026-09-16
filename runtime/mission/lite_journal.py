@@ -10,9 +10,9 @@ from __future__ import annotations
 import fcntl
 import json
 import os
-from pathlib import Path
 import sqlite3
 import uuid
+from pathlib import Path
 
 from runtime.memory_patch.contracts.serialization import canonical_sha256
 from runtime.mission.contracts import MissionError
@@ -52,6 +52,8 @@ class LiteJournal:
                 CREATE TABLE IF NOT EXISTS evidence (
                     sequence INTEGER PRIMARY KEY AUTOINCREMENT, created_at INTEGER NOT NULL,
                     reason TEXT NOT NULL, data TEXT NOT NULL);
+                CREATE TABLE IF NOT EXISTS actor_repairs (
+                    trace_id TEXT PRIMARY KEY, reservation_id TEXT UNIQUE NOT NULL);
             ''')
             previous = self.db.execute("SELECT data FROM watch WHERE singleton=1").fetchone()
             if previous:
@@ -101,10 +103,23 @@ class LiteJournal:
         return bool(self.db.execute("SELECT 1 FROM reservations WHERE status IN ('UNKNOWN','RESERVED') LIMIT 1").fetchone())
 
     def reserve(self, reservation_id, trace_id, estimated_units, now):
+        return self._reserve(reservation_id, trace_id, estimated_units, now, repair=False)
+
+    def reserve_actor_repair(self, reservation_id, trace_id, estimated_units, now):
+        """Claim the episode's sole repair and its budget atomically before transport.
+
+        Released, failed and UNKNOWN attempts still consume the one-repair bound.
+        A fresh process cannot replay a previously claimed episode.
+        """
+        return self._reserve(reservation_id, trace_id, estimated_units, now, repair=True)
+
+    def _reserve(self, reservation_id, trace_id, estimated_units, now, *, repair):
         if type(estimated_units) is not int or estimated_units < 1:
             raise MissionError("INVALID_BUDGET_UNITS")
         policy = self.profile.budget
         with self.db:
+            if repair and self.db.execute("SELECT 1 FROM actor_repairs WHERE trace_id=?", (trace_id,)).fetchone():
+                raise MissionError("ACTOR_REPAIR_LIMIT")
             if self.has_uncertain():
                 raise MissionError("RECONCILE_READONLY_REQUIRED")
             count = self.db.execute("SELECT count(*) FROM reservations").fetchone()[0]
@@ -118,6 +133,8 @@ class LiteJournal:
             self.db.execute("INSERT INTO reservations VALUES (?,?,?,?,?,?,'RESERVED',?,NULL,NULL)",
                             (reservation_id, self.profile.watch_id, trace_id, self.profile.provider_id,
                              self.profile.model_id, now, estimated_units))
+            if repair:
+                self.db.execute("INSERT INTO actor_repairs VALUES (?,?)", (trace_id, reservation_id))
             self.save()
         # Transaction is durably committed before caller enters the transport.
 

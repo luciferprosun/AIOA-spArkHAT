@@ -52,8 +52,18 @@ class NV03Tests(unittest.TestCase):
         fx = self.fixture(mode="OFF")
         self.assertIsNone(fx.runtime._memory_patch_service)
         self.assertFalse(fx.factory.path.exists())
+        # Only these explicitly optional, unset bindings are absent from the
+        # historical NV02 payload. Every other field remains digest-protected.
+        unset_bindings = (
+            "memory_profile_digest",
+            "cpl_profile_digest",
+            "dynamics_profile_digest",
+            "personal_profile_digest",
+        )
+        for name in unset_bindings:
+            self.assertIsNone(getattr(fx.profile, name), name)
         expected = canonical_sha256(
-            fx.profile, exclude_fields=("digest", "memory_profile_digest", "cpl_profile_digest", "dynamics_profile_digest")
+            fx.profile, exclude_fields=("digest", *unset_bindings)
         )
         self.assertEqual(expected, fx.profile.digest)
         with self.assertRaisesRegex(MissionError, "MEMORY_NOT_COMPOSED"):

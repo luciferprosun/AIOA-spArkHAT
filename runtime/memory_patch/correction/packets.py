@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import threading
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 
@@ -16,6 +16,7 @@ from runtime.memory_patch.correction.claims import (
     ClaimEvidenceRelation,
     NativeClaims,
     NativeDraft,
+    extract_native_claims,
 )
 from runtime.memory_patch.errors import ErrorCode, MemoryPatchError
 from runtime.memory_patch.retrieval.contracts import FrozenEvidenceBundle
@@ -230,6 +231,50 @@ class NativePacketIntegrity:
             )
         ):
             raise MemoryPatchError(ErrorCode.INTEGRITY_FAILED)
+
+    def build_required(self, principal, draft, bundle, correction):
+        """Bind a Core-reviewed atomic correction to the existing signed packet.
+
+        The normal lexical detector cannot propose every missing condition.
+        This operation requires native support for the complete replacement.
+        Its caller must separately apply its independent factual evidence policy;
+        this receipt authenticates packet integrity, never truth or permission.
+        """
+        claims = extract_native_claims(draft)
+        if (
+            type(correction) is not RequiredCorrection
+            or len(claims) != 1
+            or correction.claim_id != claims[0].claim_id
+            or correction.original_text != draft.text
+            or correction.action is not CorrectionAction.REPLACE
+            or not correction.required_text
+            or not correction.evidence_item_hashes
+            or not set(correction.evidence_item_hashes)
+            <= {i.item_hash for i in bundle.items}
+        ):
+            raise MemoryPatchError(ErrorCode.INVALID_REQUEST)
+        corrected = NativeDraft(
+            draft.scope,
+            draft.hat_id,
+            draft.draft_id + "-corrected",
+            correction.required_text,
+        )
+        supported = self.claims.assess(principal, corrected, bundle)
+        if supported.review_required or len(supported.assessments) != 1:
+            raise MemoryPatchError(ErrorCode.EVIDENCE_DENIED)
+        base, _ = self.build(principal, draft, bundle)
+        packet = replace(
+            base,
+            corrections=(correction,),
+            prohibitions=(draft.text,),
+            review_required=False,
+            analysis_hash=canonical_sha256(
+                (base.analysis_hash, supported.analysis_hash)
+            ),
+        )
+        return packet, PacketIntegrityReceipt(
+            packet.packet_hash, self._key_id, self._mac(packet.packet_hash)
+        )
 
     def consume_attempt(
         self, principal, packet, receipt, *, operation_id: str, attempt: int
