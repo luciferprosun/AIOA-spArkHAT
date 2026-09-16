@@ -699,7 +699,10 @@ class NativeLearning:
     def correction_packet(self, review, trace_id):
         """Canonical native packet and a small actor projection, no HMAC export."""
         from runtime.memory_patch.correction.claims import (
+            ClaimAtomicity,
             NativeDraft,
+            classify_claim,
+            exact_text_spans,
             extract_native_claims,
         )
         from runtime.memory_patch.correction.packets import (
@@ -718,6 +721,24 @@ class NativeLearning:
         if fresh["status"] != "VERIFIED_CORRECTION":
             raise MissionError("INDEPENDENT_VERIFICATION_REQUIRED")
         bundle = fresh["context"].canonical_bundle
+        # Select only complete, exact excerpts from the selected HAT sources.
+        # Never split, paraphrase or synthesize a correction from compound text.
+        source_texts = {r[3] for r in fresh["sources"]}
+        candidates = {}
+        for item in bundle.items:
+            text = item.excerpt.text
+            if item.excerpt.truncated or text not in source_texts:
+                continue
+            spans = exact_text_spans(text)
+            if (
+                len(spans) == 1
+                and spans[0].text == text
+                and classify_claim(text)[1] is ClaimAtomicity.ATOMIC
+                and self.verify(text, fresh["sources"])[0]
+            ):
+                candidates.setdefault(text, []).append(item.item_hash)
+        if set(candidates) != {fresh["verified_claim"]}:
+            raise MissionError("NO_UNIQUE_EXACT_ATOMIC_CORRECTION")
         draft = NativeDraft(
             self.policy.owner_scope,
             self.policy.domain_hat,
@@ -732,7 +753,7 @@ class NativeLearning:
             CorrectionAction.REPLACE,
             draft.text,
             fresh["verified_claim"],
-            tuple(i.item_hash for i in bundle.items),
+            tuple(candidates[fresh["verified_claim"]]),
         )
         principal = self.native.core.local_operator(Capability.READ)
         packet, receipt = self.native.integrity.build_required(
@@ -752,18 +773,18 @@ class NativeLearning:
             "delta_kind": "REPLACE"
             if semantics is None
             else semantics.delta_kind.value,
-            "evidence_refs": tuple(r[2] for r in fresh["sources"]),
-            "source_versions": tuple((r[0], r[1]) for r in fresh["sources"]),
+            "evidence_refs": [r[2] for r in fresh["sources"]],
+            "source_versions": [[r[0], r[1]] for r in fresh["sources"]],
             "valid_from": packet.issued_at.isoformat(),
             "valid_until": packet.expires_at.isoformat(),
             "reason_code": "INDEPENDENT_CURRENT_EVIDENCE",
             "verification_status": "VERIFIED",
         }
+        if self.personal is not None:
+            self.personal.require_clean(payload)
         encoded = canonical_json_bytes(payload)
         if len(encoded) > 4096:
             raise MissionError("CORRECTION_PACKET_BUDGET")
-        if self.personal is not None:
-            self.personal.require_clean(payload)
         return packet, receipt, bundle, payload
 
     def storage_metrics(self):

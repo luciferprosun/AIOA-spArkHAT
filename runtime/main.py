@@ -358,6 +358,18 @@ class AgentRuntime:
         if self._lite_scheduler is not None:
             self._lite_scheduler.request_stop()
 
+    def lite_chat(self, principal, question, *, operation_id, mode):
+        """Private bounded chat; principal comes from this runtime's Core admission.
+
+        This API neither authenticates an arbitrary owner string nor grants
+        consent. Its operator must use the existing admitted identity boundary.
+        """
+        from runtime.mission.contracts import MissionError
+        if self._lite_scheduler is None:
+            raise MissionError('LITE_NOT_RUNNING')
+        return self._lite_scheduler.chat(principal, question,
+                                         operation_id=operation_id, mode=mode)
+
     def lite_memory_status(self):
         return ({'memory_mode': 'OFF', 'readiness': 'DISABLED'} if self._lite_memory is None
                 else self._lite_memory.describe())

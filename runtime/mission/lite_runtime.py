@@ -128,6 +128,20 @@ class LiteScheduler:
         return json.dumps({"observation": json.loads(item["input_text"]),
                            "quoted_advisory_context": json.loads(context.prompt_json)}, sort_keys=True)
 
+    def chat(self, principal, question, *, operation_id, mode):
+        """An explicit Core request, serialized with the existing LITE worker."""
+        from runtime.mission.lite_chat import private_chat
+
+        if not self._mutex.acquire(blocking=False):
+            raise MissionError("SCHEDULER_BUSY")
+        try:
+            if self._closed or self._stop.is_set():
+                raise MissionError("SCHEDULER_CLOSED")
+            return private_chat(self, principal, question,
+                                operation_id=operation_id, mode=mode)
+        finally:
+            self._mutex.release()
+
     def tick(self, *, execute=True):
         if not self._mutex.acquire(blocking=False):
             raise MissionError("SCHEDULER_BUSY")

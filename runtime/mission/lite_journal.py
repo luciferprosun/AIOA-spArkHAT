@@ -105,6 +105,15 @@ class LiteJournal:
     def reserve(self, reservation_id, trace_id, estimated_units, now):
         return self._reserve(reservation_id, trace_id, estimated_units, now, repair=False)
 
+    def reserve_chat_initial(self, reservation_id, trace_id, estimated_units, now):
+        """Consume an authenticated chat operation before any actor transport.
+
+        The existing bounded reservation ledger is also the replay barrier. No
+        question, answer, transcript or second persistence store is needed.
+        """
+        return self._reserve(reservation_id, trace_id, estimated_units, now,
+                             repair=False, chat_initial=True)
+
     def reserve_actor_repair(self, reservation_id, trace_id, estimated_units, now):
         """Claim the episode's sole repair and its budget atomically before transport.
 
@@ -113,11 +122,16 @@ class LiteJournal:
         """
         return self._reserve(reservation_id, trace_id, estimated_units, now, repair=True)
 
-    def _reserve(self, reservation_id, trace_id, estimated_units, now, *, repair):
+    def _reserve(self, reservation_id, trace_id, estimated_units, now, *, repair,
+                 chat_initial=False):
         if type(estimated_units) is not int or estimated_units < 1:
             raise MissionError("INVALID_BUDGET_UNITS")
         policy = self.profile.budget
         with self.db:
+            if chat_initial and self.db.execute(
+                "SELECT 1 FROM reservations WHERE trace_id=? LIMIT 1", (trace_id,)
+            ).fetchone():
+                raise MissionError("CHAT_REPLAY_ZERO_WRITE")
             if repair and self.db.execute("SELECT 1 FROM actor_repairs WHERE trace_id=?", (trace_id,)).fetchone():
                 raise MissionError("ACTOR_REPAIR_LIMIT")
             if self.has_uncertain():
