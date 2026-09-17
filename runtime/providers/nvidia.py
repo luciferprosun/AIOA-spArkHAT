@@ -15,6 +15,11 @@ from runtime.memory_patch.contract import parse_request
 from runtime.memory_patch.contracts.serialization import freeze_json
 from runtime.mission.contracts import MissionError, logical_id
 from runtime.mission.lite_contracts import LiteBudget, MODEL
+from runtime.providers.live_gate import (
+    LiveCallBlocked,
+    LiveCallGate,
+    require_transport_authorization,
+)
 
 ENDPOINT = "https://integrate.api.nvidia.com/v1/chat/completions"
 OUTPUT_SCHEMA = "aioa-readonly-advice-v1"
@@ -25,12 +30,14 @@ SYSTEM = ('Return only a JSON object with exactly two fields: "summary" (a strin
 
 
 class ProviderError(Exception):
-    def __init__(self, code, *, retryable=False, outcome_unknown=False, http_status=None):
+    def __init__(self, code, *, retryable=False, outcome_unknown=False, http_status=None,
+                 gate_reason=None):
         super().__init__(code)
         self.code = code
         self.retryable = retryable
         self.outcome_unknown = outcome_unknown
         self.http_status = http_status
+        self.gate_reason = gate_reason
 
 
 @dataclass(frozen=True, slots=True, repr=False)
@@ -66,7 +73,25 @@ class ProviderPort(Protocol):
 
 
 class HTTPTransport:
-    def __call__(self, payload, key, timeout, max_bytes):
+    transport_scope = "LIVE"
+
+    def __call__(self, payload, key, timeout, max_bytes, authorization=None):
+        return self._exchange(payload, key, timeout, max_bytes, authorization)
+
+    def _exchange(self, payload, key, timeout, max_bytes, authorization=None):
+        try:
+            require_transport_authorization(
+                authorization,
+                "LIVE",
+                transport=self,
+                payload=payload,
+                timeout=timeout,
+                max_bytes=max_bytes,
+                provider_id="nvidia",
+                model_id=MODEL,
+            )
+        except LiveCallBlocked as error:
+            raise ProviderError("LIVE_CALL_BLOCKED", gate_reason=error.reason) from None
         # Fixed TLS peer, verified certificates; no redirects or proxy targets.
         connection = http.client.HTTPSConnection("integrate.api.nvidia.com", timeout=timeout,
                                                   context=ssl.create_default_context())
@@ -116,13 +141,17 @@ class NvidiaProvider:
     provider_id = "nvidia"
     model_id = MODEL
 
-    def __init__(self, budget: LiteBudget, *, secret_supplier=environment_key, transport=None, clock=time.time):
+    def __init__(self, budget: LiteBudget, *, secret_supplier=environment_key, transport=None,
+                 clock=time.time, live_gate=None):
         if type(budget) is not LiteBudget:
             raise MissionError("INVALID_LITE_POLICY")
+        if live_gate is not None and type(live_gate) is not LiveCallGate:
+            raise MissionError("INVALID_LIVE_CALL_GATE")
         self.budget = budget
         self._secret_supplier = secret_supplier
         self._transport = transport if transport is not None else HTTPTransport()
         self._clock = clock
+        self._live_gate = live_gate
 
     def key_present(self):
         try:
@@ -151,6 +180,7 @@ class NvidiaProvider:
             "model": request.model_id,
             "messages": [{"role": "system", "content": SYSTEM}, {"role": "user", "content": request.input_text}],
             "max_tokens": request.max_output_tokens, "temperature": 1, "top_p": 0.95,
+            "response_format": {"type": "json_object"},
             "stream": False, "chat_template_kwargs": {"enable_thinking": False},
         }, ensure_ascii=False, allow_nan=False, separators=(",", ":")).encode("utf-8")
         if len(payload) > self.budget.max_input_bytes:
@@ -163,6 +193,15 @@ class NvidiaProvider:
 
     def request(self, request):
         payload = self._payload(request)
+        transport_scope = getattr(self._transport, "transport_scope", "LIVE")
+        if transport_scope not in {"TEST", "LIVE"}:
+            transport_scope = "LIVE"
+        if self._live_gate is None:
+            raise ProviderError("LIVE_CALL_BLOCKED", gate_reason="PERMIT_MISSING")
+        try:
+            self._live_gate.require(request.provider_id, request.model_id, transport_scope)
+        except LiveCallBlocked as error:
+            raise ProviderError("LIVE_CALL_BLOCKED", gate_reason=error.reason) from None
         try:
             key = self._secret_supplier()
         except Exception:
@@ -172,7 +211,25 @@ class NvidiaProvider:
         if type(key) is not str or len(key) > 8192 or any(c.isspace() for c in key):
             raise ProviderError("INVALID_API_KEY_CONFIGURATION")
         try:
-            status, raw = self._transport(payload, key, request.request_timeout, self.budget.max_response_bytes)
+            authorization = self._live_gate.authorize(
+                request.provider_id,
+                request.model_id,
+                transport_scope,
+                transport=self._transport,
+                payload=payload,
+                timeout=request.request_timeout,
+                max_bytes=self.budget.max_response_bytes,
+            )
+        except LiveCallBlocked as error:
+            raise ProviderError("LIVE_CALL_BLOCKED", gate_reason=error.reason) from None
+        try:
+            status, raw = self._transport(
+                payload,
+                key,
+                request.request_timeout,
+                self.budget.max_response_bytes,
+                authorization,
+            )
         except ProviderError:
             raise
         except (TimeoutError, socket.timeout):

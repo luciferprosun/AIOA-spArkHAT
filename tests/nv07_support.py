@@ -17,6 +17,7 @@ from providers.exact import ProviderResult
 from nv03_support import MemoryFixture
 from nv05_support import dynamics_binding
 from test_nv02_lite import FixtureTransport, success
+from live_gate_support import test_live_gate
 
 from runtime.core_admission import Capability
 from runtime.memory_patch.learning.contracts import (
@@ -127,7 +128,11 @@ class ChatFixture(MemoryFixture):
                                                  max_hourly_units=500000))
         self.transport = FixtureTransport([reply(value) for value in replies])
         self.provider = NvidiaProvider(self.profile.budget, secret_supplier=lambda: "fixture-key",
-                                       transport=self.transport, clock=lambda: self.now.timestamp())
+                                       transport=self.transport, clock=lambda: self.now.timestamp(),
+                                       live_gate=test_live_gate(
+                                           self.root / "live-gate",
+                                           clock=lambda: self.now.timestamp(),
+                                       ))
         self.bindings = replace(self.bindings, provider=self.provider, memory=memory,
                                 cpl=cpl, state_root=self.root / "chat-journal")
         if dynamics:

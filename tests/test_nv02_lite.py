@@ -18,13 +18,15 @@ from contextlib import redirect_stdout
 from unittest.mock import patch
 
 from main import AgentRuntime, create_runtime
+from live_gate_support import test_live_gate
 from runtime.core_admission import OwnerScope
 from runtime.memory_patch.contracts.serialization import canonical_json
 from runtime.mission.contracts import MissionContext, MissionError
 from runtime.mission.lite_cli import run_lite_cli
 from runtime.mission.lite_contracts import LiteCadence, LiteProfile, MODEL, parse_lite_profile
 from runtime.mission.lite_runtime import FileObservationProbe, LiteBindings
-from runtime.providers.nvidia import NvidiaProvider, ProviderError, ProviderRequest
+from runtime.providers.nvidia import NvidiaProvider, ProviderError, ProviderRequest, SYSTEM
+from runtime.providers.live_gate import require_transport_authorization
 
 
 def success(**changes):
@@ -36,10 +38,22 @@ def success(**changes):
 
 
 class FixtureTransport:
+    transport_scope = "TEST"
+
     def __init__(self, replies=None):
         self.calls, self.replies, self.before = [], list(replies or [success()]), None
 
-    def __call__(self, payload, key, timeout, max_bytes):
+    def __call__(self, payload, key, timeout, max_bytes, authorization=None):
+        require_transport_authorization(
+            authorization,
+            "TEST",
+            transport=self,
+            payload=payload,
+            timeout=timeout,
+            max_bytes=max_bytes,
+            provider_id="nvidia",
+            model_id=MODEL,
+        )
         if self.before:
             self.before()
         self.calls.append(json.loads(payload))
@@ -68,7 +82,9 @@ class NV02Tests(unittest.TestCase):
 
     def provider(self, *, transport=None, key="fixture-not-a-real-key", budget=None):
         return NvidiaProvider(budget or self.profile.budget, secret_supplier=lambda: key,
-                              transport=transport or self.transport, clock=lambda: self.clock)
+                              transport=transport or self.transport, clock=lambda: self.clock,
+                              live_gate=test_live_gate(self.root / "live-gate",
+                                                       clock=lambda: self.clock))
 
     def runtime(self, *, profile=None, provider=None, **bindings):
         profile = profile or self.profile
@@ -239,6 +255,24 @@ class NV02Tests(unittest.TestCase):
         self.assertEqual("PROVIDER_TIMEOUT", status["reason"])
         self.assertEqual("UNKNOWN", runtime._lite_scheduler.journal.reservations()[0]["status"])
 
+    def test_N210_json_mode_payload_preserves_pinned_model_and_disabled_thinking(self):
+        request = self.request()
+        provider = self.provider()
+        response = provider.request(request)
+        self.assertEqual([{
+            "model": MODEL,
+            "messages": [{"role": "system", "content": SYSTEM},
+                         {"role": "user", "content": request.input_text}],
+            "max_tokens": 256, "temperature": 1, "top_p": 0.95,
+            "response_format": {"type": "json_object"},
+            "stream": False, "chat_template_kwargs": {"enable_thinking": False},
+        }], self.transport.calls)
+        self.assertEqual("VALID", response.validation_result)
+        self.assertEqual(MODEL, response.model_id)
+        encoded = json.dumps(self.transport.calls[0], ensure_ascii=False,
+                             allow_nan=False, separators=(",", ":")).encode("utf-8")
+        self.assertEqual(len(encoded) + 256, provider.estimated_units(request))
+
     def test_N212_rate_limit_retries_with_delay_and_hard_attempt_limit(self):
         self.transport.replies = [(429, b"private upstream error")]
         runtime = self.runtime()
@@ -254,6 +288,17 @@ class NV02Tests(unittest.TestCase):
             self.clock += 1
             runtime.lite_tick()
         self.assertEqual(2, len(self.transport.calls))
+
+    def test_N212_http_429_is_post_transport_provider_outcome(self):
+        transport = FixtureTransport([(429, b"private upstream error")])
+        provider = self.provider(transport=transport)
+        with self.assertRaises(ProviderError) as caught:
+            provider.request(self.request())
+        self.assertEqual("RATE_LIMITED", caught.exception.code)
+        self.assertEqual(429, caught.exception.http_status)
+        self.assertTrue(caught.exception.retryable)
+        self.assertFalse(caught.exception.outcome_unknown)
+        self.assertEqual(1, len(transport.calls))
 
     def test_N212_rejected_attempts_count_against_hourly_budget(self):
         policy = replace(self.profile.budget, max_requests_per_hour=1)
@@ -274,12 +319,33 @@ class NV02Tests(unittest.TestCase):
             (success(model="openai/other"), "MODEL_MISMATCH"),
             (success(usage={"completion_tokens": 257}), "OUTPUT_TOKEN_LIMIT_EXCEEDED"),
         ]
+        for content in (
+            '{\n \nsummary: "Shows service manager status for a unit.",\n needs_attention: false\n}',
+            '{"summary":"x","summary":"y","needs_attention":false}',
+            '{"summary":"x","needs_attention":NaN}',
+            '{"summary":"x","needs_attention":"false"}',
+            '{"summary":"x","needs_attention":false,"capabilities":[]}',
+            '{"summary":"x","needs_attention":false,"reasoning":"private"}',
+            '{"summary":"x","needs_attention":false,"metadata":{}}',
+            '```json\n{"summary":"x","needs_attention":false}\n```',
+            json.dumps({"summary": "x" * 801, "needs_attention": False}),
+        ):
+            cases.append((success(choices=[{"finish_reason": "stop", "message": {
+                "content": content}}]), "INVALID_PROVIDER_RESPONSE"))
+        cases.append((success(choices=[{"finish_reason": "stop", "message": {
+            "content": '{"summary":"x","needs_attention":false}',
+            "function_call": {"name": "execute", "arguments": "{}"},
+        }}]), "INVALID_PROVIDER_RESPONSE"))
         for reply, expected in cases:
+            transport = FixtureTransport([reply])
             with self.subTest(code=expected), self.assertRaises(ProviderError) as caught:
-                self.provider(transport=FixtureTransport([reply])).request(self.request())
+                self.provider(transport=transport).request(self.request())
             self.assertEqual(expected, caught.exception.code)
             self.assertTrue(caught.exception.outcome_unknown)
             self.assertFalse(caught.exception.retryable)
+            self.assertEqual(200, caught.exception.http_status)
+            self.assertEqual(1, len(transport.calls))
+            self.assertEqual({"type": "json_object"}, transport.calls[0]["response_format"])
 
     def test_N213_byte_limit_and_invalid_input_are_bounded(self):
         with self.assertRaisesRegex(ProviderError, "RESPONSE_TOO_LARGE"):
@@ -289,8 +355,16 @@ class NV02Tests(unittest.TestCase):
         self.assertEqual([], self.transport.calls)
 
     def test_N214_unknown_model_has_no_fallback_or_transport(self):
-        with self.assertRaisesRegex(ProviderError, "MODEL_NOT_FOUND"):
-            self.provider().request(self.request(model_id="unknown/model"))
+        for changes in ({"model_id": "unknown/model"}, {"provider_id": "other"}):
+            with self.subTest(changes=changes), self.assertRaisesRegex(ProviderError, "MODEL_NOT_FOUND"):
+                self.provider().request(self.request(**changes))
+        self.assertEqual([], self.transport.calls)
+
+    def test_N214_output_token_request_bounds_remain_strict_in_json_mode(self):
+        provider = self.provider()
+        for tokens in (0, -1, True, 1.5, self.profile.budget.max_output_tokens + 1):
+            with self.subTest(tokens=tokens), self.assertRaisesRegex(ProviderError, "INVALID_PROVIDER_REQUEST"):
+                provider.request(self.request(max_output_tokens=tokens))
         self.assertEqual([], self.transport.calls)
 
     def test_N215_reservation_is_committed_before_transport_in_another_connection(self):
@@ -318,6 +392,31 @@ class NV02Tests(unittest.TestCase):
         resumed = self.runtime()
         self.assertEqual("RECONCILE_READONLY_REQUIRED", resumed.lite_tick()["state"])
         self.assertEqual(1, len(self.transport.calls))
+
+    def test_N216_malformed_json_mode_reply_preserves_unknown_and_consumed_attempt(self):
+        self.transport.replies = [success(choices=[{"finish_reason": "stop", "message": {
+            "content": '{summary: "Observation changed.", needs_attention: false}'}}])]
+        runtime = self.runtime()
+        self.assertEqual("INVALID_PROVIDER_RESPONSE", self.changed(runtime)["reason"])
+        journal = runtime._lite_scheduler.journal
+        records = journal.reservations()
+        self.assertEqual(1, len(records))
+        self.assertEqual("UNKNOWN", records[0]["status"])
+        self.assertGreater(records[0]["estimated_units"], 0)
+        self.assertIsNone(records[0]["actual_units"])
+        for status in ("COMMITTED", "RELEASED"):
+            with self.subTest(status=status), self.assertRaisesRegex(MissionError, "INVALID_RESERVATION_TRANSITION"):
+                journal.settle(records[0]["reservation_id"], status, reason="INVALID_CLEAR_ATTEMPT")
+        self.assertEqual(records, journal.reservations())
+        self.clock += 3601
+        self.write_source("c")
+        self.assertEqual("RECONCILE_READONLY_REQUIRED", runtime.lite_tick()["state"])
+        runtime.close()
+        resumed = self.runtime()
+        self.assertEqual("RECONCILE_READONLY_REQUIRED", resumed.lite_tick()["state"])
+        self.assertEqual(records, resumed._lite_scheduler.journal.reservations())
+        self.assertEqual(1, len(self.transport.calls))
+        self.assertEqual({"type": "json_object"}, self.transport.calls[0]["response_format"])
 
     def test_N216_5xx_and_connection_failures_are_conservative_unknown(self):
         for reply, code in [((503, b"private"), "PROVIDER_UNAVAILABLE"), (OSError("private"), "CONNECTION_FAILURE")]:

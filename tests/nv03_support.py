@@ -21,6 +21,7 @@ from test_memory_patch_lifecycle import memory_hat_manifest
 from test_memory_patch_persistence_ports import NOW, FakeFactory, FakeTransaction
 from test_memory_patch_retrieval import FakeAuthorizedSources
 from test_nv02_lite import FixtureTransport
+from live_gate_support import test_live_gate
 
 from runtime.core_admission import (
     Capability,
@@ -300,6 +301,8 @@ class MemoryFixture:
             secret_supplier=lambda: "fixture-key",
             transport=self.transport,
             clock=lambda: self.now.timestamp(),
+            live_gate=test_live_gate(self.root / "live-gate",
+                                     clock=lambda: self.now.timestamp()),
         )
         self.observation_path = self.root / "observation.json"
         if not self.observation_path.exists():

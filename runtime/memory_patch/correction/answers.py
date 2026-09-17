@@ -29,6 +29,22 @@ class CorrectedDraftPort(Protocol):
     ) -> CitedDraft: ...
 
 
+class CorrectedDraftUnavailable(RuntimeError):
+    """Preserve one bounded source code without changing the domain outcome."""
+
+    def __init__(self, source_cause: str) -> None:
+        if (
+            type(source_cause) is not str
+            or not source_cause
+            or len(source_cause) > 128
+            or not source_cause.replace("_", "").isalnum()
+            or source_cause != source_cause.upper()
+        ):
+            raise MemoryPatchError(ErrorCode.PROVIDER_DENIED)
+        self.source_cause = source_cause
+        super().__init__("CORRECTED_DRAFT_UNAVAILABLE")
+
+
 @dataclass(frozen=True, slots=True, repr=False)
 class NativeVerifiedAnswer:
     answer: str
@@ -38,6 +54,7 @@ class NativeVerifiedAnswer:
     review_required: bool
     verification: object | None
     attempts: int
+    failure_cause: str | None = None
 
 
 UNKNOWN_ANSWER = "No verified answer is available. Human review is required."
@@ -117,6 +134,21 @@ class NativeAnswerAssembler:
                     last = self.verifier.verify(
                         principal, candidate, packet, receipt, bundle
                     )
+                except CorrectedDraftUnavailable as error:
+                    # The domain result remains UNVERIFIED; the existing source
+                    # code is retained only as bounded audit/evidence metadata.
+                    result = NativeVerifiedAnswer(
+                        UNKNOWN_ANSWER,
+                        "UNVERIFIED",
+                        (),
+                        False,
+                        True,
+                        None,
+                        attempt,
+                        error.source_cause,
+                    )
+                    self._completed[key] = (packet.packet_hash, result, None)
+                    return result
                 except Exception:
                     # An unknown provider outcome never becomes a fallback answer.
                     result = NativeVerifiedAnswer(

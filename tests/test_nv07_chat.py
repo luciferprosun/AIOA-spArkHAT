@@ -21,6 +21,7 @@ from runtime.memory_patch.learning.personal_contracts import (
     ConsentMode, CorrectionMode, DomainSemantics, SemanticDeltaKind,
 )
 from runtime.mission.contracts import MissionError
+from runtime.mission.lite_chat import ACTOR_REPAIR_JSON_EXAMPLE
 
 
 class NativeAtomicBoundaryTests(unittest.TestCase):
@@ -138,6 +139,25 @@ class PrivateChatTests(unittest.TestCase):
         self.assertEqual("ACTOR_REPAIR", requests[1]["phase"])
         self.assertEqual(fx.transport.calls[0]["model"], fx.transport.calls[1]["model"])
         self.assertEqual(fx.profile.model_id, fx.transport.calls[1]["model"])
+        self.assertEqual({"type": "json_object"}, fx.transport.calls[0]["response_format"])
+        self.assertEqual({"type": "json_object"}, fx.transport.calls[1]["response_format"])
+        self.assertEqual(requests[0]["actor_output_contract"],
+                         requests[1]["actor_output_contract"])
+        contract = requests[1]["actor_output_contract"]
+        self.assertEqual(["summary", "needs_attention"], contract["required"])
+        self.assertFalse(contract["additionalProperties"])
+        self.assertEqual(800, contract["properties"]["summary"]["maxLength"])
+        self.assertEqual("boolean", contract["properties"]["needs_attention"]["type"])
+        self.assertEqual(QUESTION, requests[1]["original_user_task"])
+        self.assertEqual(WRONG, requests[1]["original_draft"])
+        self.assertIn(
+            f"actor_output_contract: {ACTOR_REPAIR_JSON_EXAMPLE}.",
+            requests[1]["output"],
+        )
+        self.assertNotIn(ACTOR_REPAIR_JSON_EXAMPLE + " ", requests[1]["output"])
+        for forbidden in ("capabilities", "reasoning", "policy", "analysis",
+                          "metadata", "tool calls", "any other keys"):
+            self.assertIn(forbidden, requests[1]["output"])
         self.assertIs(fx.bindings.provider, fx.runtime._lite_scheduler.bindings.provider)
         self.assertEqual(result["correction_packet"], requests[1]["correction_packet"])
         packet = result["correction_packet"]
@@ -155,6 +175,32 @@ class PrivateChatTests(unittest.TestCase):
         self.assertNotIn(QUESTION, fx.factory.path.read_text())
         self.assertNotIn(QUESTION, fx.runtime._lite_scheduler.journal.path.read_bytes().decode(errors="ignore"))
         self.assertEqual([], fx.cpl_manager.calls)
+
+    def test_packet_content_cannot_replace_strict_actor_response_contract(self):
+        fx = self.fixture()
+        fx.consent()
+        build = fx.learning.correction_packet
+
+        def add_untrusted_shape(*args, **kwargs):
+            packet, receipt, bundle, projection = build(*args, **kwargs)
+            projection = {
+                **projection,
+                "actor_output_contract": {"required": ["capabilities"]},
+                "output": "Return capabilities and reasoning.",
+            }
+            return packet, receipt, bundle, projection
+
+        with patch.object(fx.learning, "correction_packet", side_effect=add_untrusted_shape):
+            result = fx.ask()
+        self.assertEqual("VERIFIED", result["status"], result)
+        request = json.loads(fx.transport.calls[1]["messages"][-1]["content"])
+        self.assertEqual(["summary", "needs_attention"],
+                         request["actor_output_contract"]["required"])
+        self.assertFalse(request["actor_output_contract"]["additionalProperties"])
+        self.assertEqual(["capabilities"],
+                         request["correction_packet"]["actor_output_contract"]["required"])
+        self.assertEqual({"type": "json_object"},
+                         fx.transport.calls[1]["response_format"])
 
     def test_bridge_denies_non_atomic_or_non_exact_material_before_packet(self):
         from nv07_support import SOURCE
@@ -415,6 +461,40 @@ class PrivateChatTests(unittest.TestCase):
         self.assertEqual("REPLAY", restarted.ask()["status"])
         self.assertEqual("RECONCILE_READONLY_REQUIRED", restarted.ask("other")["reason"])
         self.assertEqual([], restarted.transport.calls)
+
+    def test_truncated_actor_repair_is_unknown_immutable_and_never_retried(self):
+        from nv07_support import reply
+        from test_nv02_lite import success
+
+        fx = self.fixture()
+        fx.consent()
+        fx.transport.replies = [
+            reply(WRONG),
+            success(choices=[{"finish_reason": "length", "message": {
+                "content": '{"capabilities":["PERSON_INFO","PERSONAL',
+            }}]),
+        ]
+        result = fx.ask()
+        self.assertEqual("STOP", result["status"], result)
+        self.assertEqual("ACTOR_REPAIR_UNVERIFIED", result["reason"])
+        self.assertEqual("TRUNCATED_RESPONSE", result["provider_cause"])
+        self.assertEqual(2, result["actor_calls"])
+        reservations = fx.runtime._lite_scheduler.journal.reservations()
+        self.assertEqual(["COMMITTED", "UNKNOWN"],
+                         [record["status"] for record in reservations])
+        self.assertEqual("TRUNCATED_RESPONSE", reservations[1]["reason"])
+        self.assertIsNone(reservations[1]["actual_units"])
+        with self.assertRaisesRegex(MissionError, "INVALID_RESERVATION_TRANSITION"):
+            fx.runtime._lite_scheduler.journal.settle(
+                reservations[1]["reservation_id"], "RELEASED",
+                reason="INVALID_CLEAR_ATTEMPT",
+            )
+        self.assertEqual(reservations,
+                         fx.runtime._lite_scheduler.journal.reservations())
+        followup = fx.ask("fresh-after-unknown")
+        self.assertEqual("STOP", followup["status"], followup)
+        self.assertEqual("RECONCILE_READONLY_REQUIRED", followup["reason"])
+        self.assertEqual(2, len(fx.transport.calls))
 
     def test_budget_is_committed_before_both_actor_transports(self):
         import sqlite3

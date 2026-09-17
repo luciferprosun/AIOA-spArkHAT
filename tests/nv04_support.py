@@ -12,6 +12,7 @@ from main import create_runtime
 from nv03_support import MemoryFixture
 from providers import ProviderManager
 from test_nv02_lite import FixtureTransport, success
+from live_gate_support import test_live_gate
 
 from runtime.memory_patch.learning.contracts import (
     CoreVerifierBinding,
@@ -28,13 +29,17 @@ WRONG = "The reviewed policy does not apply."
 RIGHT = "The reviewed policy applies."
 
 
-def actor_transport(claim):
+def actor_response(claim):
     status, raw = success()
     payload = json.loads(raw)
     payload["choices"][0]["message"]["content"] = json.dumps(
         {"summary": claim, "needs_attention": True}
     )
-    return FixtureTransport([(status, json.dumps(payload).encode())])
+    return status, json.dumps(payload).encode()
+
+
+def actor_transport(claim):
+    return FixtureTransport([actor_response(claim)])
 
 
 class LearningFixture(MemoryFixture):
@@ -132,6 +137,8 @@ class LearningFixture(MemoryFixture):
             secret_supplier=lambda: "fixture-key",
             transport=self.transport,
             clock=lambda: self.now.timestamp(),
+            live_gate=test_live_gate(self.root / "live-gate",
+                                     clock=lambda: self.now.timestamp()),
         )
         self.bindings = replace(
             self.bindings,

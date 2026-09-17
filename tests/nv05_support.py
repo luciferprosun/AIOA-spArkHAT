@@ -5,9 +5,11 @@ from __future__ import annotations
 import json
 from dataclasses import replace
 
-from nv04_support import RIGHT, WRONG, LearningFixture, actor_transport
+from nv04_support import RIGHT, WRONG, LearningFixture, actor_response
 
 from runtime.memory_patch.learning.dynamics import CoreDynamicsBindings, DynamicsPolicy
+from runtime.mission.lite_contracts import MODEL
+from runtime.providers.live_gate import require_transport_authorization
 
 
 def dynamics_binding(mode="SHADOW", *, policy_changes=None, context_changes=None):
@@ -87,11 +89,23 @@ class ContextDependentActor:
     a claim of learned real-world accuracy/performance.
     """
 
+    transport_scope = "TEST"
+
     def __init__(self):
         self.calls = []
         self.injected_delta_refs = []
 
-    def __call__(self, payload, key, timeout, maximum):
+    def __call__(self, payload, key, timeout, maximum, authorization=None):
+        require_transport_authorization(
+            authorization,
+            "TEST",
+            transport=self,
+            payload=payload,
+            timeout=timeout,
+            max_bytes=maximum,
+            provider_id="nvidia",
+            model_id=MODEL,
+        )
         request = json.loads(payload)
         context = json.loads(request["messages"][-1]["content"])
         refs = [
@@ -101,4 +115,4 @@ class ContextDependentActor:
         ]
         self.injected_delta_refs.extend(refs)
         self.calls.append(request)
-        return actor_transport(RIGHT if refs else WRONG)(payload, key, timeout, maximum)
+        return actor_response(RIGHT if refs else WRONG)
