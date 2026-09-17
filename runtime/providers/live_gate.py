@@ -1,8 +1,8 @@
 """Deterministic permit gate for bounded provider transport calls.
 
-The gate is authority metadata, never model output.  G07-B intentionally has
-no live-permit issuer: only TEST permits can be issued by this module.  A later
-operator phase may supply a separately issued, strictly parsed LIVE artifact.
+The gate is authority metadata, never model output. TEST permits use explicit
+fixtures. LIVE permits are single-use and are issued only from the production-
+owned current repository and accepted-test-evidence reader.
 """
 
 from __future__ import annotations
@@ -31,17 +31,26 @@ _ISSUED_AUTHORIZATIONS = weakref.WeakSet()
 _IGNORED_SOURCE_DIRECTORIES = frozenset(
     {".git", "__pycache__", ".mypy_cache", ".pytest_cache", "build", "dist"}
 )
-_CANONICAL_REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 _GIT_BINARY = "/usr/bin/git"
 _ACCEPTED_TEST_EVIDENCE = Path("aioa") / "accepted-test-evidence.json"
+_TEST_EVIDENCE_SCHEMA_VERSION = 2
 
 
 class LiveCallBlocked(RuntimeError):
     """A permit failed closed before provider transport."""
 
-    def __init__(self, reason: str) -> None:
+    def __init__(self, reason: str, *, technical_cause: str | None = None) -> None:
         self.reason = reason
+        self.technical_cause = technical_cause
         super().__init__("LIVE_CALL_BLOCKED")
+
+
+def _source_state_technical_cause(error: Exception) -> str:
+    """Retain a bounded internal reason without exposing paths or raw OS text."""
+    detail = str(error)
+    if re.fullmatch(r"[A-Z][A-Z0-9_]{0,127}", detail):
+        return detail
+    return type(error).__name__.upper()
 
 
 def _require_digest(value: object, *, sha: bool = False) -> str:
@@ -95,16 +104,25 @@ def source_tree_digest(root: Path) -> str:
     return digest.hexdigest()
 
 
+def _canonical_repository_root() -> Path:
+    """Derive LIVE authority from this installed module, never caller state."""
+    root = Path(__file__).resolve().parents[2]
+    if not root.is_absolute() or root.is_symlink() or not root.is_dir():
+        raise ValueError("INVALID_SOURCE_STATE_READER")
+    return root
+
+
 class RepositorySourceStateReader:
     """Production-owned LIVE reader with no injectable state callbacks."""
 
-    __slots__ = ("root",)
+    __slots__ = ()
 
     def __init__(self) -> None:
-        root = _CANONICAL_REPOSITORY_ROOT
-        if not isinstance(root, Path) or not root.is_absolute() or not root.is_dir():
-            raise ValueError("INVALID_SOURCE_STATE_READER")
-        self.root = root.resolve()
+        _canonical_repository_root()
+
+    @property
+    def root(self) -> Path:
+        return _canonical_repository_root()
 
     @property
     def test_evidence_path(self) -> Path:
@@ -242,8 +260,13 @@ def _authoritative_test_evidence_digest(
     expected = {
         "schema_version",
         "status",
+        "roadmap_version",
         "git_sha",
         "source_tree_digest",
+        "focused_result_digest",
+        "targeted_result_digest",
+        "full_regression_result_digest",
+        "build_package_result_digest",
         "tests_run",
         "failures",
         "errors",
@@ -255,8 +278,9 @@ def _authoritative_test_evidence_digest(
         raise ValueError("INVALID_TEST_EVIDENCE")
     if (
         type(evidence["schema_version"]) is not int
-        or evidence["schema_version"] != 1
+        or evidence["schema_version"] != _TEST_EVIDENCE_SCHEMA_VERSION
         or evidence["status"] != "PASS"
+        or evidence["roadmap_version"] != "2.1"
         or type(evidence["tests_run"]) is not int
         or evidence["tests_run"] <= 0
         or type(evidence["failures"]) is not int
@@ -273,6 +297,10 @@ def _authoritative_test_evidence_digest(
         raise ValueError("INVALID_TEST_EVIDENCE")
     _require_digest(evidence["git_sha"], sha=True)
     _require_digest(evidence["source_tree_digest"])
+    _require_digest(evidence["focused_result_digest"])
+    _require_digest(evidence["targeted_result_digest"])
+    _require_digest(evidence["full_regression_result_digest"])
+    _require_digest(evidence["build_package_result_digest"])
     if evidence["git_sha"] != current_head:
         raise ValueError("STALE_TEST_EVIDENCE_HEAD")
     if evidence["source_tree_digest"] != current_source_digest:
@@ -465,6 +493,45 @@ def issue_test_permit(
     )
 
 
+def issue_live_permit(
+    *,
+    permit_id: str,
+    phase: str,
+    local_gate: LocalGateResult,
+    issued_at: int,
+    expires_at: int,
+    max_live_calls: int,
+    provider_id: str,
+    model_id: str,
+) -> LocalGateDecision:
+    """Issue a LIVE permit bound to production-owned current repository state."""
+    if type(local_gate) is not LocalGateResult:
+        raise ValueError("INVALID_LOCAL_GATE_RESULT")
+    if local_gate.gate_status != "PASS":
+        return LocalGateDecision("BLOCKED", None, "LOCAL_GATE_NOT_PASS")
+    git_sha, worktree_digest, evidence_digest = RepositorySourceStateReader()()
+    if local_gate.test_suite_digest != evidence_digest:
+        raise LiveCallBlocked("TEST_SUITE_DIGEST_MISMATCH")
+    return LocalGateDecision(
+        "PASS",
+        LiveCallPermit(
+            permit_id,
+            phase,
+            git_sha,
+            worktree_digest,
+            evidence_digest,
+            local_gate.gate_status,
+            issued_at,
+            expires_at,
+            max_live_calls,
+            provider_id,
+            model_id,
+            "LIVE",
+        ),
+        None,
+    )
+
+
 class PermitUsageLedger:
     """Durably consume permit calls before transport, including across restarts."""
 
@@ -539,7 +606,7 @@ class _TransportAuthorization:
         "permit_digest", "provider_id", "model_id", "transport_scope",
         "call_ordinal", "request_digest", "_transport", "_state_reader",
         "_expected_state", "_issued_at", "_expires_at", "_clock", "_marker",
-        "_consumed", "_lock", "__weakref__",
+        "_consumed", "_lock", "_sealed", "__weakref__",
     )
 
     def __init__(
@@ -552,23 +619,29 @@ class _TransportAuthorization:
         clock: Callable[[], int],
         authority_marker: object = None,
     ) -> None:
-        self.permit_digest = permit.permit_digest
-        self.provider_id = permit.provider_id
-        self.model_id = permit.model_id
-        self.transport_scope = permit.transport_scope
-        self.call_ordinal = call_ordinal
-        self.request_digest = request_digest
-        self._transport = transport
-        self._state_reader = state_reader
-        self._expected_state = (
+        object.__setattr__(self, "permit_digest", permit.permit_digest)
+        object.__setattr__(self, "provider_id", permit.provider_id)
+        object.__setattr__(self, "model_id", permit.model_id)
+        object.__setattr__(self, "transport_scope", permit.transport_scope)
+        object.__setattr__(self, "call_ordinal", call_ordinal)
+        object.__setattr__(self, "request_digest", request_digest)
+        object.__setattr__(self, "_transport", transport)
+        object.__setattr__(self, "_state_reader", state_reader)
+        object.__setattr__(self, "_expected_state", (
             permit.git_sha, permit.worktree_digest, permit.test_suite_digest
-        )
-        self._issued_at = permit.issued_at
-        self._expires_at = permit.expires_at
-        self._clock = clock
-        self._marker = authority_marker
-        self._consumed = False
-        self._lock = threading.Lock()
+        ))
+        object.__setattr__(self, "_issued_at", permit.issued_at)
+        object.__setattr__(self, "_expires_at", permit.expires_at)
+        object.__setattr__(self, "_clock", clock)
+        object.__setattr__(self, "_marker", authority_marker)
+        object.__setattr__(self, "_consumed", False)
+        object.__setattr__(self, "_lock", threading.Lock())
+        object.__setattr__(self, "_sealed", True)
+
+    def __setattr__(self, name: str, value: object) -> None:
+        if getattr(self, "_sealed", False):
+            raise AttributeError("TRANSPORT_AUTHORIZATION_IMMUTABLE")
+        object.__setattr__(self, name, value)
 
     def consume(
         self,
@@ -597,8 +670,20 @@ class _TransportAuthorization:
                 raise LiveCallBlocked("MODEL_MISMATCH")
             if transport_request_digest(payload, timeout, max_bytes) != self.request_digest:
                 raise LiveCallBlocked("TRANSPORT_REQUEST_MISMATCH")
-            _require_matching_state(self._state_reader(), self._expected_state)
-            self._consumed = True
+            if self.transport_scope == "LIVE":
+                try:
+                    current = RepositorySourceStateReader()()
+                except LiveCallBlocked:
+                    raise
+                except Exception as error:
+                    raise LiveCallBlocked(
+                        "SOURCE_STATE_UNAVAILABLE",
+                        technical_cause=_source_state_technical_cause(error),
+                    ) from error
+            else:
+                current = self._state_reader()
+            _require_matching_state(current, self._expected_state)
+            object.__setattr__(self, "_consumed", True)
 
 
 def require_transport_authorization(
@@ -643,6 +728,11 @@ def _require_matching_state(
 class LiveCallGate:
     """Validate a permit against current local evidence and consume its budget."""
 
+    __slots__ = ("__permit", "__test_source_reader", "__usage_ledger", "__clock")
+
+    def __setattr__(self, name: str, value: object) -> None:
+        raise AttributeError("LIVE_CALL_GATE_IMMUTABLE")
+
     def __init__(
         self,
         permit: LiveCallPermit | None,
@@ -665,14 +755,36 @@ class LiveCallGate:
             and type(source_reader) is not RepositorySourceStateReader
         ):
             raise ValueError("INVALID_LIVE_CALL_GATE")
-        self.permit = permit
-        self._source_reader = source_reader
-        self.usage_ledger = usage_ledger
-        self.clock = clock
+        object.__setattr__(self, "_LiveCallGate__permit", permit)
+        object.__setattr__(
+            self,
+            "_LiveCallGate__test_source_reader",
+            None if permit is not None and permit.transport_scope == "LIVE" else source_reader,
+        )
+        object.__setattr__(self, "_LiveCallGate__usage_ledger", usage_ledger)
+        object.__setattr__(self, "_LiveCallGate__clock", clock)
+
+    @property
+    def permit(self) -> LiveCallPermit | None:
+        return self.__permit
+
+    @property
+    def usage_ledger(self) -> PermitUsageLedger:
+        return self.__usage_ledger
+
+    @property
+    def clock(self) -> Callable[[], int]:
+        return self.__clock
 
     def _current_state(self) -> tuple[str, str, str]:
         try:
-            state = self._source_reader()
+            reader = (RepositorySourceStateReader()
+                      if self.permit is not None
+                      and self.permit.transport_scope == "LIVE"
+                      else self.__test_source_reader)
+            if reader is None:
+                raise ValueError("INVALID_SOURCE_STATE")
+            state = reader()
             if type(state) is not tuple or len(state) != 3:
                 raise ValueError("INVALID_SOURCE_STATE")
             git_sha, worktree_digest, test_suite_digest = state
@@ -681,8 +793,11 @@ class LiveCallGate:
             _require_digest(test_suite_digest)
         except LiveCallBlocked:
             raise
-        except Exception:
-            raise LiveCallBlocked("SOURCE_STATE_UNAVAILABLE") from None
+        except Exception as error:
+            raise LiveCallBlocked(
+                "SOURCE_STATE_UNAVAILABLE",
+                technical_cause=_source_state_technical_cause(error),
+            ) from error
         return git_sha, worktree_digest, test_suite_digest
 
     def _validate(self, provider_id: str, model_id: str, transport_scope: str) -> LiveCallPermit:

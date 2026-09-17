@@ -31,13 +31,14 @@ SYSTEM = ('Return only a JSON object with exactly two fields: "summary" (a strin
 
 class ProviderError(Exception):
     def __init__(self, code, *, retryable=False, outcome_unknown=False, http_status=None,
-                 gate_reason=None):
+                 gate_reason=None, technical_cause=None):
         super().__init__(code)
         self.code = code
         self.retryable = retryable
         self.outcome_unknown = outcome_unknown
         self.http_status = http_status
         self.gate_reason = gate_reason
+        self.technical_cause = technical_cause
 
 
 @dataclass(frozen=True, slots=True, repr=False)
@@ -91,7 +92,11 @@ class HTTPTransport:
                 model_id=MODEL,
             )
         except LiveCallBlocked as error:
-            raise ProviderError("LIVE_CALL_BLOCKED", gate_reason=error.reason) from None
+            raise ProviderError(
+                "LIVE_CALL_BLOCKED",
+                gate_reason=error.reason,
+                technical_cause=error.technical_cause,
+            ) from error
         # Fixed TLS peer, verified certificates; no redirects or proxy targets.
         connection = http.client.HTTPSConnection("integrate.api.nvidia.com", timeout=timeout,
                                                   context=ssl.create_default_context())
@@ -201,7 +206,11 @@ class NvidiaProvider:
         try:
             self._live_gate.require(request.provider_id, request.model_id, transport_scope)
         except LiveCallBlocked as error:
-            raise ProviderError("LIVE_CALL_BLOCKED", gate_reason=error.reason) from None
+            raise ProviderError(
+                "LIVE_CALL_BLOCKED",
+                gate_reason=error.reason,
+                technical_cause=error.technical_cause,
+            ) from error
         try:
             key = self._secret_supplier()
         except Exception:
@@ -221,7 +230,11 @@ class NvidiaProvider:
                 max_bytes=self.budget.max_response_bytes,
             )
         except LiveCallBlocked as error:
-            raise ProviderError("LIVE_CALL_BLOCKED", gate_reason=error.reason) from None
+            raise ProviderError(
+                "LIVE_CALL_BLOCKED",
+                gate_reason=error.reason,
+                technical_cause=error.technical_cause,
+            ) from error
         try:
             status, raw = self._transport(
                 payload,

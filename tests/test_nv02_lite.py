@@ -580,18 +580,38 @@ class NV02Tests(unittest.TestCase):
 
     def test_real_cli_sigterm_and_sigint_persist_stopped_and_release_lease(self):
         import selectors
+        repo = Path(__file__).resolve().parents[1]
         manifest = self.root / "manifest.json"
         manifest.write_text(canonical_json(self.profile, exclude_fields=("digest",)))
         command = [sys.executable, "-B", "-m", "runtime.cli", "lite", "watch", "--manifest", str(manifest),
                    "--tenant", "test-tenant", "--owner", "test-owner", "--space", "test-space", "--slot", "test-slot",
                    "--source-id", "fixture", "--source-file", str(self.source), "--state-root", str(self.root / "signals")]
+        environment = {
+            **os.environ,
+            "AOIA_HOME": str(self.root / "provider-state"),
+            "PYTHONDONTWRITEBYTECODE": "1",
+        }
         for signum in (signal.SIGTERM, signal.SIGINT):
-            child = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            child = subprocess.Popen(
+                command,
+                cwd=repo,
+                env=environment,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
             try:
                 with selectors.DefaultSelector() as selector:
                     selector.register(child.stdout, selectors.EVENT_READ)
                     self.assertTrue(selector.select(10), "CLI did not start")
-                    started = json.loads(child.stdout.readline())
+                    started_line = child.stdout.readline()
+                if not started_line:
+                    out, err = child.communicate(timeout=10)
+                    self.fail(
+                        "CLI_STARTUP_EOF "
+                        f"returncode={child.returncode} stdout={out!r} stderr={err[-4000:]!r}"
+                    )
+                started = json.loads(started_line)
                 self.assertEqual("IDLE", started["state"])
                 child.send_signal(signum)
                 out, err = child.communicate(timeout=10)

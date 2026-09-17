@@ -33,6 +33,7 @@ class NV05ActiveTests(unittest.TestCase):
 
     def test_three_actual_processes_delta_hot_zero_write_and_revalidation(self):
         repo = Path(__file__).resolve().parents[1]
+        provider_state = self.root / "provider-state"
         results = []
         for number in (1, 2, 3):
             result = subprocess.run(
@@ -48,6 +49,8 @@ class NV05ActiveTests(unittest.TestCase):
                 env={
                     "PATH": "/usr/bin:/bin",
                     "PYTHONPATH": str(repo) + ":" + str(repo / "tests"),
+                    "AOIA_HOME": str(provider_state),
+                    "PYTHONDONTWRITEBYTECODE": "1",
                 },
                 capture_output=True,
                 text=True,

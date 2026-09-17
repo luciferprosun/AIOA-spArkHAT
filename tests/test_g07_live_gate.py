@@ -18,6 +18,7 @@ from runtime.providers.live_gate import (
     LocalGateResult,
     PermitUsageLedger,
     RepositorySourceStateReader,
+    issue_live_permit,
     issue_test_permit,
     require_transport_authorization,
     source_tree_digest,
@@ -472,6 +473,13 @@ class AuthoritativeRepositorySourceStateTests(unittest.TestCase):
         (self.repository / "contract.py").write_text("VALUE = 1\n")
         self._git("add", "contract.py")
         self._git("commit", "-q", "-m", "fixture A")
+        self.canonical_root = patch.object(
+            live_gate_module,
+            "_canonical_repository_root",
+            return_value=self.repository.resolve(),
+        )
+        self.canonical_root.start()
+        self.addCleanup(self.canonical_root.stop)
         self.request = ProviderRequest(
             request_id="request-g07-b2-authority",
             trace_id="trace-g07-b2-authority",
@@ -506,10 +514,15 @@ class AuthoritativeRepositorySourceStateTests(unittest.TestCase):
         path.parent.mkdir(parents=True, exist_ok=True)
         if raw is None:
             document = {
-                "schema_version": 1,
+                "schema_version": 2,
                 "status": "PASS",
+                "roadmap_version": "2.1",
                 "git_sha": self._head(),
                 "source_tree_digest": source_tree_digest(self.repository.resolve()),
+                "focused_result_digest": "a" * 64,
+                "targeted_result_digest": "b" * 64,
+                "full_regression_result_digest": "c" * 64,
+                "build_package_result_digest": "d" * 64,
                 "tests_run": 1,
                 "failures": 0,
                 "errors": 0,
@@ -524,12 +537,7 @@ class AuthoritativeRepositorySourceStateTests(unittest.TestCase):
         return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
     def _reader(self):
-        with patch.object(
-            live_gate_module,
-            "_CANONICAL_REPOSITORY_ROOT",
-            self.repository.resolve(),
-        ):
-            return RepositorySourceStateReader()
+        return RepositorySourceStateReader()
 
     def _permit(self, state):
         return LiveCallPermit(
@@ -572,6 +580,90 @@ class AuthoritativeRepositorySourceStateTests(unittest.TestCase):
         reader, permit, state = self._accepted_reader_and_permit()
         self.assertEqual(state, reader())
         self._gate(reader, permit, "accepted").require("nvidia", MODEL, "LIVE")
+
+    def test_reader_gate_and_authorization_cannot_be_retargeted_after_creation(self):
+        reader, permit, _state = self._accepted_reader_and_permit()
+        gate = self._gate(reader, permit, "immutable-authority")
+        with self.assertRaises(AttributeError):
+            reader.root = self.root
+        with self.assertRaises(AttributeError):
+            reader.callback = lambda: ()
+        with self.assertRaises(AttributeError):
+            gate._source_reader = lambda: ()
+        with self.assertRaises(AttributeError):
+            gate._LiveCallGate__test_source_reader = lambda: ()
+        with self.assertRaises(AttributeError):
+            gate.permit = permit
+
+        transport = HTTPTransport()
+        provider = NvidiaProvider(
+            LiteBudget(),
+            secret_supplier=lambda: "fixture-key-not-real",
+            transport=transport,
+            clock=lambda: 150,
+            live_gate=gate,
+        )
+        payload = provider._payload(self.request)
+        authorization = gate.authorize(
+            "nvidia",
+            MODEL,
+            "LIVE",
+            transport=transport,
+            payload=payload,
+            timeout=self.request.request_timeout,
+            max_bytes=provider.budget.max_response_bytes,
+        )
+        with self.assertRaises(AttributeError):
+            authorization._state_reader = lambda: permit.git_sha
+        with self.assertRaises(AttributeError):
+            authorization._consumed = False
+
+        self._commit_b()
+        self._write_evidence(completed_at=101)
+        with patch(
+            "runtime.providers.nvidia.http.client.HTTPSConnection",
+            side_effect=AssertionError("network boundary reached"),
+        ) as constructor, self.assertRaisesRegex(
+            ProviderError, "LIVE_CALL_BLOCKED"
+        ) as caught:
+            transport._exchange(
+                payload,
+                "fixture-key-not-real",
+                self.request.request_timeout,
+                provider.budget.max_response_bytes,
+                authorization,
+            )
+        self.assertEqual("GIT_SHA_MISMATCH", caught.exception.gate_reason)
+        constructor.assert_not_called()
+
+    def test_live_permit_issuer_revalidates_authority_and_remains_single_use(self):
+        evidence_digest = self._write_evidence()
+        decision = issue_live_permit(
+            permit_id="g07-c-live-a",
+            phase="G07-C",
+            local_gate=LocalGateResult("PASS", evidence_digest),
+            issued_at=100,
+            expires_at=200,
+            max_live_calls=1,
+            provider_id="nvidia",
+            model_id=MODEL,
+        )
+        self.assertEqual("PASS", decision.phase_status)
+        self.assertIsNotNone(decision.permit)
+        self.assertEqual("LIVE", decision.permit.transport_scope)
+        self.assertEqual(self._head(), decision.permit.git_sha)
+        self.assertEqual(evidence_digest, decision.permit.test_suite_digest)
+        with self.assertRaisesRegex(ValueError, "INVALID_LIVE_CALL_PERMIT"):
+            issue_live_permit(
+                permit_id="g07-c-live-too-wide",
+                phase="G07-C",
+                local_gate=LocalGateResult("PASS", evidence_digest),
+                issued_at=100,
+                expires_at=200,
+                max_live_calls=2,
+                provider_id="nvidia",
+                model_id=MODEL,
+            )
 
     def test_stale_head_callback_cannot_rescue_live_permit(self):
         reader, permit, stale_state = self._accepted_reader_and_permit()
@@ -688,6 +780,10 @@ class AuthoritativeRepositorySourceStateTests(unittest.TestCase):
                 authorization,
             )
         self.assertEqual("SOURCE_STATE_UNAVAILABLE", caught.exception.gate_reason)
+        self.assertEqual(
+            "SOURCE_TREE_SYMLINK_REJECTED", caught.exception.technical_cause
+        )
+        self.assertFalse(authorization._consumed)
         constructor.assert_not_called()
 
     def test_regular_files_have_deterministic_source_digest(self):
