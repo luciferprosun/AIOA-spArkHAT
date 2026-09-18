@@ -128,7 +128,7 @@ class LiteScheduler:
         return json.dumps({"observation": json.loads(item["input_text"]),
                            "quoted_advisory_context": json.loads(context.prompt_json)}, sort_keys=True)
 
-    def chat(self, principal, question, *, operation_id, mode):
+    def chat(self, principal, question, *, operation_id, mode, case_id=None):
         """An explicit Core request, serialized with the existing LITE worker."""
         from runtime.mission.lite_chat import private_chat
 
@@ -137,6 +137,12 @@ class LiteScheduler:
         try:
             if self._closed or self._stop.is_set():
                 raise MissionError("SCHEDULER_CLOSED")
+            if case_id is not None:
+                from runtime.memory_patch.learning.nachwg_contract import NACHWG_CASE_ID
+                from runtime.mission.nachwg_chat import nachwg_chat
+                if case_id != NACHWG_CASE_ID:
+                    raise MissionError("UNKNOWN_BOUNDED_CASE")
+                return nachwg_chat(self, principal, question, operation_id=operation_id)
             return private_chat(self, principal, question,
                                 operation_id=operation_id, mode=mode)
         finally:

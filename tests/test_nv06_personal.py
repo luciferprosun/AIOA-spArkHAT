@@ -503,6 +503,7 @@ finally:f.close()
             env={
                 "PATH": "/usr/bin:/bin",
                 "PYTHONPATH": str(project) + ":" + str(project / "tests"),
+                "AOIA_HOME": str(self.root / "child-provider-state"),
             },
             capture_output=True,
             text=True,

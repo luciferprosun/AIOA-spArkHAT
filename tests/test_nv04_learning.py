@@ -126,6 +126,7 @@ finally:f.close()
             env={
                 "PATH": "/usr/bin:/bin",
                 "PYTHONPATH": str(root) + ":" + str(root / "tests"),
+                "AOIA_HOME": str(self.root / "child-provider-state"),
             },
             capture_output=True,
             text=True,

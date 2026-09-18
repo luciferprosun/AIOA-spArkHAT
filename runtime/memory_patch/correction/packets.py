@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import json
 import threading
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta, timezone
@@ -275,6 +276,73 @@ class NativePacketIntegrity:
         return packet, PacketIntegrityReceipt(
             packet.packet_hash, self._key_id, self._mac(packet.packet_hash)
         )
+
+    def build_nachwg(self, principal, learning, answer, *, trace_id):
+        """Authenticate only this Core-recomputed domain correction.
+
+        This is not a generic caller-provided verdict/signing API. NativeLearning
+        independently re-admits current sources and checks the fixed typed rules.
+        The resulting packet reuses this service's scope, expiry and HMAC lane.
+        """
+        from runtime.memory_patch.learning.nachwg import CLAIM_SOURCES, expected_claims
+        from runtime.memory_patch.learning.nachwg_contract import NACHWG_CASE_ID
+        from runtime.memory_patch.learning.service import NativeLearning
+
+        if (type(learning) is not NativeLearning or self._closed or learning.native.integrity is not self
+                or learning.native.core is not self.core):
+            raise MemoryPatchError(ErrorCode.ADMISSION_DENIED)
+        self.core.require(principal, Capability.READ, scope=learning.policy.owner_scope)
+        review = NativeLearning.review_nachwg(learning, answer)
+        if not review["failed_claim_ids"]:
+            raise MemoryPatchError(ErrorCode.INVALID_REQUEST)
+        bundle = review["context"].canonical_bundle
+        self.claims.retrieval.require_bundle(principal, bundle)
+        original = review["answer"].payload()["claims"]
+        expected = expected_claims()
+        corrections = tuple(
+            RequiredCorrection(
+                identifier, CorrectionAction.REPLACE,
+                json.dumps(original.get(identifier, {}), sort_keys=True),
+                json.dumps(expected[identifier], sort_keys=True),
+                tuple(item.item_hash for item in bundle.items),
+            )
+            for identifier in review["failed_claim_ids"]
+        )
+        draft = NativeDraft(learning.policy.owner_scope, learning.policy.domain_hat,
+                            trace_id, review["answer"].canonical())
+        now = ensure_utc(self.clock(), "trusted_now")
+        packet = NativeCorrectionPacket(
+            draft.scope, draft.hat_id, draft.draft_hash, bundle.bundle_hash,
+            canonical_sha256((NACHWG_CASE_ID, trace_id, review["source_basis_digest"], corrections)),
+            corrections, ("case:" + NACHWG_CASE_ID, "operation:" + trace_id),
+            False, now, now + timedelta(minutes=5), TemporalQueryMode.CURRENT, None,
+        )
+        receipt = PacketIntegrityReceipt(packet.packet_hash, self._key_id, self._mac(packet.packet_hash))
+        projection = {
+            "case_id": NACHWG_CASE_ID, "original_answer_digest": canonical_sha256(review["answer"].payload()),
+            "packet_hash": packet.packet_hash, "operation_id": trace_id,
+            "corrections": [
+                {"claim_id": identifier, "required_facts": expected[identifier],
+                 "source_ids": list(CLAIM_SOURCES[identifier])}
+                for identifier in review["failed_claim_ids"]
+            ],
+            "source_versions": [[s[0], s[1]] for s in review["sources"]],
+            "source_basis_digest": review["source_basis_digest"],
+        }
+        return packet, receipt, projection
+
+    def consume_nachwg(self, principal, learning, packet, receipt, answer, *, trace_id):
+        """Bind the single repair to current evidence, owner, answer and episode."""
+        from runtime.memory_patch.learning.nachwg_contract import NACHWG_CASE_ID
+
+        self.verify(principal, packet, receipt)
+        fresh, _, _ = self.build_nachwg(principal, learning, answer, trace_id=trace_id)
+        if (packet.prohibitions != ("case:" + NACHWG_CASE_ID, "operation:" + trace_id)
+                or packet.draft_hash != fresh.draft_hash
+                or packet.analysis_hash != fresh.analysis_hash
+                or packet.corrections != fresh.corrections):
+            raise MemoryPatchError(ErrorCode.INTEGRITY_FAILED)
+        self.consume_attempt(principal, packet, receipt, operation_id=trace_id, attempt=1)
 
     def consume_attempt(
         self, principal, packet, receipt, *, operation_id: str, attempt: int

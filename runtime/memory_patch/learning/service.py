@@ -705,6 +705,11 @@ class NativeLearning:
             "receipts": receipts,
         }
 
+    def review_nachwg(self, answer):
+        """Explicitly selected bounded domain; never routes on model keywords."""
+        from runtime.memory_patch.learning.nachwg import assess
+        return assess(self, answer)
+
     def correction_packet(self, review, trace_id):
         """Canonical native packet and a small actor projection, no HMAC export."""
         from runtime.memory_patch.correction.claims import (

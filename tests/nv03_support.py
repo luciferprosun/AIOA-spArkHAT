@@ -10,7 +10,7 @@ import fcntl
 import hashlib
 import json
 import os
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
@@ -175,8 +175,10 @@ class MemoryFixture:
         scope=None,
         revision=1,
         transport=None,
+        hat_id="test-hat",
     ):
         self.root = Path(root)
+        self.hat_id = hat_id
         self.root.mkdir(parents=True, exist_ok=True)
         self.now = NOW
         self.scope = scope or OwnerScope(
@@ -185,7 +187,7 @@ class MemoryFixture:
         assignment = LocalOwnerAssignment(
             self.scope,
             frozenset(Capability),
-            frozenset({"test-hat"}),
+            frozenset({self.hat_id}),
             frozenset({MODEL}),
             operator_approved=True,
         )
@@ -235,7 +237,7 @@ class MemoryFixture:
                         chosen.approve(value)
                 reader = fixture.core.local_operator(Capability.READ)
                 request = HybridRetrievalRequest.admitted(
-                    fixture.core, reader, hat_id="test-hat", query="reviewed policy"
+                    fixture.core, reader, hat_id=fixture.hat_id, query="reviewed policy"
                 )
                 service = NativeRetrieval(
                     fixture.core,
@@ -254,7 +256,7 @@ class MemoryFixture:
             sources=self.sources,
             bundle_resolver=Resolver(),
             provenance_store=self.store,
-            hat_manifests=(memory_hat_manifest(),),
+            hat_manifests=(replace(memory_hat_manifest(), hat_id=self.hat_id),),
             quota=PersonalHatQuotaPolicy(
                 maximum_total_spaces=1,
                 maximum_active_spaces=1,
@@ -267,7 +269,7 @@ class MemoryFixture:
         )
         self.memory_profile = LiteMemoryProfile(
             self.scope,
-            "test-hat",
+            self.hat_id,
             memory_mode=mode,
             backend_id="repository-durable-test",
             freshness_policy_ref="nv03-freshness.1",
@@ -279,7 +281,7 @@ class MemoryFixture:
             self.core,
             MemoryPatchConfig(True, assignment),
             self.dependencies,
-            SimpleNamespace(active_hat=lambda: SimpleNamespace(name="test-hat")),
+            SimpleNamespace(active_hat=lambda: SimpleNamespace(name=self.hat_id)),
             backend_id="repository-durable-test",
         )
         self.context = MissionContext(
@@ -324,7 +326,7 @@ class MemoryFixture:
             self.op("slot-create", operation_key="create")
             self.op(
                 "slot-configure",
-                hat_id="test-hat",
+                hat_id=self.hat_id,
                 expected_revision=1,
                 operation_key="configure",
             )
@@ -334,12 +336,12 @@ class MemoryFixture:
 
     def _source(self, record):
         scope = record.scope
-        dimensions = trusted_dimensions(scope, "test-hat")
+        dimensions = trusted_dimensions(scope, self.hat_id)
         value = RetrievalCandidate(
             scope=scope,
             core_evidence_id=record.evidence_id,
             tenant_id=scope.tenant_id,
-            hat_scope_id="test-hat",
+            hat_scope_id=self.hat_id,
             source_id=record.source.source_id,
             knowledge_version_id=record.source.source_version_id,
             chunk_id="chunk-" + record.source.source_version_id,
@@ -379,7 +381,7 @@ class MemoryFixture:
             "MIT",
             True,
             False,
-            "test-hat",
+            self.hat_id,
         )
         principal = self.core.local_operator(Capability.EVIDENCE_CAPTURE)
         intent = self.evidence.approve_capture(principal, source)
@@ -442,7 +444,7 @@ class MemoryFixture:
             summary="Small owner-scoped record.",
             body=text,
             content_kind=content_kind,
-            hat_id="test-hat",
+            hat_id=self.hat_id,
             operation_key=key + "-candidate",
             evidence_references=references,
             valid_from="2030-01-02T12:00:00.000000Z",

@@ -370,6 +370,16 @@ class AgentRuntime:
         return self._lite_scheduler.chat(principal, question,
                                          operation_id=operation_id, mode=mode)
 
+    def lite_nachwg_chat(self, principal, *, operation_id):
+        """Explicit one-case Core entry; shares the existing scheduler mutex."""
+        from runtime.memory_patch.learning.nachwg_contract import HISTORICAL_QUESTION, NACHWG_CASE_ID
+        from runtime.mission.contracts import MissionError
+        if self._lite_scheduler is None:
+            raise MissionError('LITE_NOT_RUNNING')
+        return self._lite_scheduler.chat(principal, HISTORICAL_QUESTION,
+                                         operation_id=operation_id, mode=None,
+                                         case_id=NACHWG_CASE_ID)
+
     def lite_memory_status(self):
         return ({'memory_mode': 'OFF', 'readiness': 'DISABLED'} if self._lite_memory is None
                 else self._lite_memory.describe())

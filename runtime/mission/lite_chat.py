@@ -26,7 +26,7 @@ from runtime.memory_patch.errors import CommitOutcomeUnknown, MemoryPatchError
 from runtime.memory_patch.learning.personal_contracts import CorrectionMode
 from runtime.mission.advisory import _claim
 from runtime.mission.contracts import MissionError
-from runtime.providers.nvidia import ProviderError, ProviderRequest, ProviderResponse
+from runtime.providers.nvidia import OUTPUT_SCHEMA, ProviderError, ProviderRequest, ProviderResponse
 
 
 ACTOR_REPAIR_JSON_EXAMPLE = '{"summary":"corrected answer","needs_attention":false}'
@@ -67,7 +67,7 @@ class _BoundActor:
         if s._stop.is_set():
             raise MissionError("STOPPED_BEFORE_TRANSPORT")
 
-    def call(self, payload, *, repair=False):
+    def call(self, payload, *, repair=False, output_schema=OUTPUT_SCHEMA):
         self.require()
         self.learning.personal.require_clean(payload)
         s = self.scheduler
@@ -76,6 +76,7 @@ class _BoundActor:
             s.profile.model_id, json.dumps(payload, sort_keys=True),
             uuid.uuid4().hex, s.profile.budget.max_output_tokens,
             s.profile.budget.request_timeout_seconds,
+            requested_output_schema=output_schema,
         )
         reserve = (s.journal.reserve_actor_repair if repair
                    else s.journal.reserve_chat_initial)
@@ -109,7 +110,15 @@ class _BoundActor:
                          reason="ACTOR_REPAIR" if repair else "ACTOR_INITIAL")
         self.require()
         self.learning.personal.require_clean(response.parsed_payload)
-        _claim(response.parsed_payload["summary"])
+        if output_schema == OUTPUT_SCHEMA:
+            _claim(response.parsed_payload["summary"])
+        else:
+            from runtime.memory_patch.learning.nachwg_contract import (
+                NACHWG_OUTPUT_SCHEMA, parse_legal_answer,
+            )
+            if output_schema != NACHWG_OUTPUT_SCHEMA:
+                raise MissionError("INVALID_ACTOR_OUTPUT_SCHEMA")
+            parse_legal_answer(response.parsed_payload)
         return response
 
 

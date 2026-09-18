@@ -174,16 +174,23 @@ class NvidiaProvider:
             raise ProviderError("INVALID_PROVIDER_REQUEST") from None
         if request.provider_id != "nvidia" or request.model_id != MODEL:
             raise ProviderError("MODEL_NOT_FOUND")
-        if (request.requested_output_schema != OUTPUT_SCHEMA
+        from runtime.memory_patch.learning.nachwg_contract import NACHWG_OUTPUT_SCHEMA
+        if (request.requested_output_schema not in (OUTPUT_SCHEMA, NACHWG_OUTPUT_SCHEMA)
                 or type(request.input_text) is not str
                 or type(request.max_output_tokens) is not int
                 or not 1 <= request.max_output_tokens <= self.budget.max_output_tokens
                 or type(request.request_timeout) is not int
                 or not 1 <= request.request_timeout <= self.budget.request_timeout_seconds):
             raise ProviderError("INVALID_PROVIDER_REQUEST")
+        system = SYSTEM if request.requested_output_schema == OUTPUT_SCHEMA else (
+            "Answer the user's question as one JSON object matching the supplied "
+            "bounded factual schema. Use your own factual answers, including null "
+            "where unknown. Do not emit prose, verification verdicts, tools, or "
+            "authority claims. The schema describes format, not the correct answer."
+        )
         payload = json.dumps({
             "model": request.model_id,
-            "messages": [{"role": "system", "content": SYSTEM}, {"role": "user", "content": request.input_text}],
+            "messages": [{"role": "system", "content": system}, {"role": "user", "content": request.input_text}],
             "max_tokens": request.max_output_tokens, "temperature": 1, "top_p": 0.95,
             "response_format": {"type": "json_object"},
             "stream": False, "chat_template_kwargs": {"enable_thinking": False},
@@ -274,10 +281,14 @@ class NvidiaProvider:
             if message.get("tool_calls") or message.get("function_call"):
                 raise ValueError()
             advice = parse_request(message["content"])
-            if (set(advice) != {"summary", "needs_attention"}
+            if request.requested_output_schema == OUTPUT_SCHEMA:
+                if (set(advice) != {"summary", "needs_attention"}
                     or type(advice["summary"]) is not str or len(advice["summary"]) > 800
                     or type(advice["needs_attention"]) is not bool):
-                raise ValueError()
+                    raise ValueError()
+            else:
+                from runtime.memory_patch.learning.nachwg_contract import parse_legal_answer
+                advice = parse_legal_answer(advice).payload()
             usage = envelope.get("usage") or {}
             if type(usage) is not dict:
                 raise ValueError()
