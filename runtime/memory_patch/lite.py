@@ -204,6 +204,7 @@ class LiteMemoryService:
             or profile.digest != lite_profile.memory_profile_digest
             or profile.backend_id != bindings.backend_id
             or profile.schema_version != bindings.schema_version
+            or bindings.schema_version != "memory-patch-native-v1"
         ):
             raise MissionError("MEMORY_BINDING_MISMATCH")
         principal = bindings.core.local_operator(Capability.READ)

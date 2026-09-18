@@ -31,7 +31,10 @@ from runtime.memory_patch.learning.contracts import (
     VerificationVerdict,
     VerifierReceipt,
 )
-from runtime.memory_patch.learning.personal import PersonalDeltaAccess
+from runtime.memory_patch.learning.personal import (
+    PersonalDeltaAccess,
+    _ObservedConsentExpiry,
+)
 from runtime.memory_patch.learning.personal_contracts import (
     CorrectionMode,
     SemanticDeltaKind,
@@ -130,7 +133,13 @@ class NativeLearning:
                     raise MissionError("PERSONAL_DELTA_BYTE_QUOTA")
             return result
 
-        return self.native.transactions.run(self._context(write), guarded)
+        try:
+            return self.native.transactions.run(self._context(write), guarded)
+        except _ObservedConsentExpiry as error:
+            # The rejected transaction has rolled back. Persist only the expiry
+            # observation, so moving the clock backwards cannot revive consent.
+            self.personal.record_expiry(error.row, error.observed_at)
+            raise
 
     def records(self, state):
         def read(tx):

@@ -24,6 +24,14 @@ from runtime.memory_patch.persistence.ports import (
 from runtime.mission.contracts import MissionError
 
 
+class _ObservedConsentExpiry(MemoryPatchError):
+    """Carry a denial observation past rollback, never a partially committed write."""
+
+    def __init__(self, row, observed_at):
+        super().__init__(ErrorCode.ADMISSION_DENIED)
+        self.row, self.observed_at = row, observed_at
+
+
 class PersonalDeltaAccess:
     def __init__(self, learning, policy):
         if (
@@ -62,16 +70,15 @@ class PersonalDeltaAccess:
                 raise MemoryPatchError(ErrorCode.ADMISSION_DENIED)
         return row
 
-    def reason(self, tx, *, write=False):
-        row = self._read(tx)
+    def _reason(self, row, now, *, write=False):
         if row is None:
             return "CONSENT_OFF"
         p = row.payload
         if p["mode"] == ConsentMode.OFF.value:
             return "CONSENT_OFF"
-        now = self.learning.now()
         if (
-            not datetime.fromisoformat(p["granted_at"])
+            p.get("expiry_observed_at") is not None
+            or not datetime.fromisoformat(p["granted_at"])
             <= now
             < datetime.fromisoformat(p["expires_at"])
         ):
@@ -84,20 +91,68 @@ class PersonalDeltaAccess:
             return "CONSENT_INVALID"
         return None
 
+    def reason(self, tx, *, write=False):
+        return self._reason(self._read(tx), self.learning.now(), write=write)
+
+    def record_expiry(self, row, observed_at):
+        """Narrow an observed expired consent, without a new owner decision.
+
+        The existing revision/CAS record is also the durable rollback barrier.
+        A concurrent explicit owner renewal is never overwritten. This runs in
+        its own transaction *after* any denied learning transaction has closed.
+        Unknown persistence is propagated, not treated as an acknowledged latch.
+        """
+        if (row is None or row.payload["mode"] == ConsentMode.OFF.value
+                or row.payload.get("expiry_observed_at") is not None
+                or observed_at < datetime.fromisoformat(row.payload["expires_at"])):
+            return
+        core = self.learning.native.core
+        manager = core.local_operator(Capability.MANAGE)
+
+        def narrow(tx):
+            current = self._read(tx)
+            if (current is None or current.revision != row.revision
+                    or current.payload_digest != row.payload_digest):
+                return
+            payload = dict(current.payload)
+            payload.update(expiry_observed_at=observed_at.isoformat(),
+                           previous_digest=current.payload_digest)
+            tx.replace(StoredRecord(RecordKind.LEARNING, current.record_id,
+                       current.scope, current.revision + 1, payload),
+                       expected_revision=current.revision)
+
+        self.learning.native.transactions.run(
+            TransactionContext(manager, Capability.MANAGE), narrow
+        )
+
     def allowed(self, *, write=False):
-        return self.learning.run(lambda tx: self.reason(tx, write=write)) is None
+        def observe(tx):
+            row = self._read(tx)
+            now = self.learning.now()
+            return row, now, self._reason(row, now, write=write)
+
+        row, now, reason = self.learning.run(observe)
+        if reason == "CONSENT_EXPIRED":
+            self.record_expiry(row, now)
+        return reason is None
 
     def require_write(self, tx):
-        if self.reason(tx, write=True) is not None:
+        row, now = self._read(tx), self.learning.now()
+        reason = self._reason(row, now, write=True)
+        if reason == "CONSENT_EXPIRED":
+            raise _ObservedConsentExpiry(row, now)
+        if reason is not None:
             raise MemoryPatchError(ErrorCode.ADMISSION_DENIED)
 
     def describe(self):
+        allowed = self.allowed(write=True)
         row = self.learning.run(self._read)
+        allowed = allowed and self._reason(row, self.learning.now(), write=True) is None
         return {
             "personal_space_ref": self.policy.personal_space_ref,
             "mode": "OFF" if row is None else row.payload["mode"],
             "revision": 0 if row is None else row.revision,
-            "automatic_write_allowed": self.allowed(write=True),
+            "automatic_write_allowed": allowed,
             "history_policy": self.policy.history_policy,
             "execution_authority": False,
         }

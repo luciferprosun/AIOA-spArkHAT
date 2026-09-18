@@ -128,6 +128,13 @@ class CoreServiceGuard:
         return {name: self._get(operation_id, name) for name in
                 ("approval", "revocation", "proposal", "intent", "receipt", "verified", "blocked")}
 
+    def _expired_approval(self, operation_id):
+        # An observed expiry/policy denial is terminal for this immutable
+        # approval, including before intent creation and after clock rollback.
+        self._put(self.core.local_operator(Capability.COMMIT), Capability.COMMIT,
+                  operation_id, "blocked", {"reason": "CONSENT_EXPIRED_OR_POLICY_CHANGED"})
+        raise GuardError("CONSENT_EXPIRED_OR_POLICY_CHANGED")
+
     def _allowed(self, operation_id, proposal, observed):
         approval = self._get(operation_id, "approval")
         if approval is None:
@@ -140,7 +147,7 @@ class CoreServiceGuard:
                 or approval["policy_decision"] != "ALLOW" or approval["max_effects"] != 1
                 or approval["effect_class"] != EFFECT
                 or not approval["approved_at"] <= self._now() < approval["expires_at"]):
-            raise GuardError("CONSENT_EXPIRED_OR_POLICY_CHANGED")
+            self._expired_approval(operation_id)
         check_observation(observed, self.policy)
         if (observed["revision"] != approval["approved_revision"]
                 or observed["effect_count"] != approval["before_effect_count"]
@@ -181,7 +188,7 @@ class CoreServiceGuard:
             raise GuardError("EFFECT_BINDING_CHANGED")
         self._require(principal, Capability.COMMIT)
         if self._now() >= approval["expires_at"]:
-            raise GuardError("CONSENT_EXPIRED_OR_POLICY_CHANGED")
+            self._expired_approval(operation_id)
 
     def _proposal(self, scheduler, operation_id, observation):
         old = self._get(operation_id, "proposal")
