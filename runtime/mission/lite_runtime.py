@@ -50,6 +50,7 @@ class LiteBindings:
     memory: object = None
     cpl: object = None
     dynamics: object = None
+    service_guard: object = None
 
 
 class LiteScheduler:
@@ -71,6 +72,11 @@ class LiteScheduler:
         self.profile, self.bindings = profile, bindings
         self.memory = memory
         self.cpl = cpl
+        if bindings.service_guard is not None:
+            from runtime.service_guard.service import GuardLoopBinding
+            if (type(bindings.service_guard) is not GuardLoopBinding
+                    or bindings.service_guard.guard.policy.scope != profile.owner_scope):
+                raise MissionError("INVALID_SERVICE_GUARD_BINDING")
         self._mutex = threading.Lock()
         self._stop = threading.Event()
         self._closed = False
@@ -101,18 +107,24 @@ class LiteScheduler:
 
     def _describe(self):
         state = self.journal.state
+        guarded = self.bindings.service_guard is not None
+        effect = state.get("service_guard") or {}
         return {**{key: value for key, value in state.items() if key != "queue"},
                 "queue_depth": len(state["queue"]), "scheduler_owner": "AgentRuntime",
                 "profile_id": self.profile.profile_id, "runtime_mode": "LITE",
                 "provider_id": self.profile.provider_id, "model_id": self.profile.model_id,
-                "live_mutations": False, "auto_mode": "DISABLED",
+                "live_mutations": guarded,
+                "auto_mode": "EXPLICIT_SINGLE_EFFECT" if guarded else "DISABLED",
                 "memory_mode": self.profile.memory_mode, "cpl_mode": self.profile.cpl_mode,
                 "dvm_mode": self.profile.dvm_mode, "pheromone_mode": self.profile.pheromone_mode,
                 "budget_policy": asdict(self.profile.budget), "cadence_policy": asdict(self.profile.cadence),
                 "max_queue_depth": self.profile.max_queue_depth, "max_concurrent_inference": 1,
                 "reservation_counts": {name: sum(r["status"] == name for r in self.journal.reservations())
                                        for name in ("RESERVED", "COMMITTED", "UNKNOWN", "RELEASED")},
-                "domain_mutations": 0}
+                "domain_mutations": (None if effect.get("status") == "UNKNOWN" else
+                                     int(effect.get("verified_effect", False))) if guarded else 0,
+                "service_guard": state.get("service_guard"),
+                "guarded_effect_domain": self.bindings.service_guard is not None}
 
     def _memory_input(self, item):
         item["memory_refs"] = ()
@@ -157,6 +169,14 @@ class LiteScheduler:
             now, state = self._now(), self.journal.state
             if self._stop.is_set():
                 self._shutdown(now)
+                return self._describe()
+            if self.bindings.service_guard is not None:
+                if execute and now >= state["next_check_at"]:
+                    binding = self.bindings.service_guard
+                    result = binding.guard.cycle(self, binding.operation_id)
+                    state.update(service_guard=result, next_check_at=now + self.profile.cadence.interval_seconds)
+                    self._state("WAIT", "GUARDED_SERVICE_" + result["status"], now,
+                                {"operation_id": binding.operation_id, "status": result["status"]})
                 return self._describe()
             if state["reconciliation_required"] or self.journal.has_uncertain():
                 state["reconciliation_required"] = True
