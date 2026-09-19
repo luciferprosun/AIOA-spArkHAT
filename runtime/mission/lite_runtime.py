@@ -279,7 +279,12 @@ class LiteScheduler:
                 state["model_calls"] += 1
             retry = error.retryable and not error.outcome_unknown and item["attempts"] <= self.profile.budget.max_retry
             if retry:
-                item["retry_at"] = now + self.profile.budget.retry_delay_seconds
+                # Honor a bounded provider Retry-After when present.  The
+                # profile still caps attempts, so this cannot form a retry storm.
+                delay = getattr(error, "retry_after_seconds", None)
+                if type(delay) is not int or not 1 <= delay <= 3600:
+                    delay = self.profile.budget.retry_delay_seconds
+                item["retry_at"] = now + delay
                 reason = error.code
             else:
                 state["queue"].pop(0)

@@ -1,0 +1,102 @@
+{
+  "schema_version": 1,
+  "as_of_date": "2026-09-19",
+  "jurisdiction": "DE",
+  "disclaimer": "Deterministic software validation fixture; not individualized legal advice.",
+  "current_consolidated_status": {
+    "last_amendment": "Article 50, Act of 23 October 2024, BGBl. 2024 I No. 323",
+    "effective_for_sections_2_and_3": "2025-01-01",
+    "later_nachwg_amendment_found_through_as_of_date": false
+  },
+  "sources": [
+    {
+      "id": "nachwg-current",
+      "title": "Nachweisgesetz – current consolidated federal text",
+      "url": "https://www.gesetze-im-internet.de/nachwg/BJNR094610995.html",
+      "accessed": "2026-09-19",
+      "authority": "OFFICIAL_PRIMARY"
+    },
+    {
+      "id": "nachwg-2-current",
+      "title": "§ 2 NachwG – Nachweispflicht",
+      "url": "https://www.gesetze-im-internet.de/nachwg/__2.html",
+      "accessed": "2026-09-19",
+      "authority": "OFFICIAL_PRIMARY"
+    },
+    {
+      "id": "bgbl-1995",
+      "title": "BGBl. 1995 I p. 946 – original NachwG",
+      "url": "https://www.bgbl.de/xaver/bgbl/start.xav?start=%2F%2F%2A%5B%40attr_id%3D%27bgbl195s0946.pdf%27%5D",
+      "accessed": "2026-09-19",
+      "authority": "OFFICIAL_PRIMARY"
+    },
+    {
+      "id": "bgbl-2001",
+      "title": "BGBl. 2001 I p. 1542 – exclusion of electronic proof",
+      "url": "https://www.bgbl.de/xaver/bgbl/start.xav?start=%2F%2F%2A%5B%40attr_id%3D%27bgbl101s1542.pdf%27%5D",
+      "accessed": "2026-09-19",
+      "authority": "OFFICIAL_PRIMARY"
+    },
+    {
+      "id": "bmas-2022",
+      "title": "BMAS – implementation of the transparent working conditions directive",
+      "url": "https://www.bmas.de/DE/Service/Gesetze-und-Gesetzesvorhaben/umsetzung-der-arbeitsbedingungenrichtlinie-im-zivilrecht.html",
+      "accessed": "2026-09-19",
+      "authority": "OFFICIAL_GOVERNMENT"
+    },
+    {
+      "id": "bgb-forms",
+      "title": "BGB §§ 126a and 126b – electronic form and text form",
+      "url": "https://www.gesetze-im-internet.de/bgb/BJNR001950896.html",
+      "accessed": "2026-09-19",
+      "authority": "OFFICIAL_PRIMARY"
+    },
+    {
+      "id": "tzbfg-14",
+      "title": "§ 14(4) TzBfG – written form of a fixed term",
+      "url": "https://www.gesetze-im-internet.de/tzbfg/__14.html",
+      "accessed": "2026-09-19",
+      "authority": "OFFICIAL_PRIMARY"
+    },
+    {
+      "id": "schwarzarbg-2a",
+      "title": "§ 2a(1) SchwarzArbG – listed sectors",
+      "url": "https://www.gesetze-im-internet.de/schwarzarbg_2004/__2a.html",
+      "accessed": "2026-09-19",
+      "authority": "OFFICIAL_PRIMARY"
+    }
+  ],
+  "cases": {
+    "L1_2020": {
+      "anchors": [
+        "oral indefinite employment contract generally remains valid",
+        "documentation duty is distinct from contract validity",
+        "written record signed by employer and handed to employee",
+        "no later than one month after agreed commencement",
+        "electronic proof excluded",
+        "fixed-term limitation requires written form under § 14(4) TzBfG"
+      ],
+      "source_ids": ["bgbl-1995", "bgbl-2001", "tzbfg-14"]
+    },
+    "L2_2026": {
+      "anchors": [
+        "text form under § 126b BGB may be transmitted electronically",
+        "document accessible storable and printable",
+        "employer requests acknowledgement of receipt",
+        "employee may demand signed written record",
+        "relief excluded for § 2a(1) SchwarzArbG sectors",
+        "text form is not electronic form under § 126a BGB"
+      ],
+      "source_ids": ["nachwg-2-current", "bgb-forms", "schwarzarbg-2a"]
+    },
+    "L3_CHANGE_DETECTION": {
+      "anchors": [
+        "2022 expanded mandatory information and introduced staggered shorter deadlines and fines",
+        "2025 introduced conditional text-form electronic transmission",
+        "no later amendment of NachwG itself found through 2026-09-19",
+        "do not infer a 2026 amendment from changes to referenced legislation"
+      ],
+      "source_ids": ["nachwg-current", "bmas-2022", "nachwg-2-current"]
+    }
+  }
+}
