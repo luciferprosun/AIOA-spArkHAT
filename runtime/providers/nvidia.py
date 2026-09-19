@@ -165,7 +165,10 @@ class HTTPTransport:
                 technical_cause=error.technical_cause,
             ) from error
         # Fixed TLS peer, verified certificates; no redirects or proxy targets.
-        connection = http.client.HTTPSConnection("integrate.api.nvidia.com", timeout=timeout,
+        # Keep connection establishment short while preserving the caller's
+        # bounded total response deadline. Streaming lets the boundary observe
+        # progress without buffering indefinitely or adding a retry path.
+        connection = http.client.HTTPSConnection("integrate.api.nvidia.com", timeout=min(10, timeout),
                                                   context=ssl.create_default_context())
         deadline = time.monotonic() + timeout
         def remaining():
@@ -178,7 +181,8 @@ class HTTPTransport:
             sock = connection.sock
             sock.settimeout(remaining())
             connection.request("POST", "/v1/chat/completions", body=payload, headers={
-                "Authorization": "Bearer " + key, "Content-Type": "application/json", "Accept": "application/json"})
+                "Authorization": "Bearer " + key, "Content-Type": "application/json",
+                "Accept": "text/event-stream"})
             sock.settimeout(remaining())
             response = connection.getresponse()
             headers = _safe_headers(response)
@@ -277,7 +281,7 @@ class NvidiaProvider:
             "messages": [{"role": "system", "content": system}, {"role": "user", "content": request.input_text}],
             "max_tokens": request.max_output_tokens, "temperature": 1, "top_p": 0.95,
             "response_format": {"type": "json_object"},
-            "stream": False, "chat_template_kwargs": {"enable_thinking": False},
+            "stream": True, "chat_template_kwargs": {"enable_thinking": False},
         }, ensure_ascii=False, allow_nan=False, separators=(",", ":")).encode("utf-8")
         if len(payload) > self.budget.max_input_bytes:
             raise ProviderError("INPUT_TOO_LARGE")
@@ -296,6 +300,89 @@ class NvidiaProvider:
                     and raw.endswith("\n```")):
                 return parse_request(raw[8:-4]), 1
             raise
+
+    def _stream_envelope(self, raw: bytes):
+        """Reconstruct one strict chat envelope from bounded NVIDIA SSE bytes."""
+        try:
+            text = raw.decode("utf-8")
+        except UnicodeError:
+            raise ValueError("INVALID_PROVIDER_STREAM") from None
+        identifier = None
+        model = None
+        finish_reason = None
+        content_parts = []
+        usage = {}
+        done = False
+        event_count = 0
+        for line in text.splitlines():
+            if not line:
+                continue
+            if not line.startswith("data: "):
+                raise ValueError("INVALID_PROVIDER_STREAM")
+            data = line[6:]
+            if data == "[DONE]":
+                if done:
+                    raise ValueError("INVALID_PROVIDER_STREAM")
+                done = True
+                continue
+            if done:
+                raise ValueError("INVALID_PROVIDER_STREAM")
+            event_count += 1
+            if event_count > 4096:
+                raise ValueError("INVALID_PROVIDER_STREAM")
+            event, _repair_count = self._strict_json(data)
+            if type(event) is not dict:
+                raise ValueError("INVALID_PROVIDER_STREAM")
+            event_id = event.get("id")
+            event_model = event.get("model")
+            if event_id is not None:
+                logical_id(event_id)
+                if identifier is not None and identifier != event_id:
+                    raise ValueError("INVALID_PROVIDER_STREAM")
+                identifier = event_id
+            if event_model is not None:
+                if type(event_model) is not str or (model is not None and model != event_model):
+                    raise ValueError("INVALID_PROVIDER_STREAM")
+                model = event_model
+            event_usage = event.get("usage")
+            if event_usage is not None:
+                if type(event_usage) is not dict:
+                    raise ValueError("INVALID_PROVIDER_STREAM")
+                usage = event_usage
+            choices = event.get("choices")
+            if type(choices) is not list:
+                raise ValueError("INVALID_PROVIDER_STREAM")
+            if not choices:
+                continue
+            if len(choices) != 1 or type(choices[0]) is not dict:
+                raise ValueError("INVALID_PROVIDER_STREAM")
+            choice = choices[0]
+            delta = choice.get("delta")
+            if type(delta) is not dict:
+                raise ValueError("INVALID_PROVIDER_STREAM")
+            if delta.get("tool_calls") or delta.get("function_call"):
+                raise ValueError("INVALID_PROVIDER_STREAM")
+            content = delta.get("content")
+            if content is not None:
+                if type(content) is not str:
+                    raise ValueError("INVALID_PROVIDER_STREAM")
+                content_parts.append(content)
+            event_finish = choice.get("finish_reason")
+            if event_finish is not None:
+                if finish_reason is not None or type(event_finish) is not str:
+                    raise ValueError("INVALID_PROVIDER_STREAM")
+                finish_reason = event_finish
+        if not done or identifier is None or model is None or finish_reason is None:
+            raise ValueError("INVALID_PROVIDER_STREAM")
+        return {
+            "id": identifier,
+            "model": model,
+            "choices": [{
+                "finish_reason": finish_reason,
+                "message": {"content": "".join(content_parts)},
+            }],
+            "usage": usage,
+        }
 
     def request(self, request):
         try:
@@ -451,7 +538,10 @@ class NvidiaProvider:
         try:
             # The shared strict parser also rejects duplicates, NaN and infinity.
             try:
-                envelope, _repair_count = self._strict_json(raw.decode("utf-8"))
+                if (headers.get("content-type") or "").lower().startswith("text/event-stream"):
+                    envelope = self._stream_envelope(raw)
+                else:
+                    envelope, _repair_count = self._strict_json(raw.decode("utf-8"))
             except (json.JSONDecodeError, ValueError, TypeError, RecursionError, UnicodeError):
                 raise ProviderError(
                     "INVALID_PROVIDER_RESPONSE", outcome_unknown=True, http_status=200,

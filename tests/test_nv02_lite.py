@@ -265,7 +265,7 @@ class NV02Tests(unittest.TestCase):
                          {"role": "user", "content": request.input_text}],
             "max_tokens": 256, "temperature": 1, "top_p": 0.95,
             "response_format": {"type": "json_object"},
-            "stream": False, "chat_template_kwargs": {"enable_thinking": False},
+            "stream": True, "chat_template_kwargs": {"enable_thinking": False},
         }], self.transport.calls)
         self.assertEqual("VALID", response.validation_result)
         self.assertEqual(MODEL, response.model_id)

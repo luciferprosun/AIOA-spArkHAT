@@ -54,6 +54,26 @@ def response(*, content=None, model=MODEL, finish="stop"):
     }).encode()
 
 
+def stream_response(*, content=None, model=MODEL, finish="stop"):
+    if content is None:
+        content = json.dumps({"summary": "Read-only answer.", "needs_attention": False})
+    events = [
+        {"id": "fixture-stream-id", "model": model,
+         "choices": [{"finish_reason": None,
+                      "delta": {"role": "assistant", "content": ""}}]},
+        {"id": "fixture-stream-id", "model": model,
+         "choices": [{"finish_reason": None,
+                      "delta": {"content": content[:10]}}]},
+        {"id": "fixture-stream-id", "model": model,
+         "choices": [{"finish_reason": None,
+                      "delta": {"content": content[10:]}}]},
+        {"id": "fixture-stream-id", "model": model,
+         "choices": [{"finish_reason": finish, "delta": {}}]},
+    ]
+    return ("".join(f"data: {json.dumps(event)}\n\n" for event in events)
+            + "data: [DONE]\n\n").encode()
+
+
 class ProviderSafetyRecertificationTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
@@ -110,6 +130,30 @@ class ProviderSafetyRecertificationTests(unittest.TestCase):
         self.assertEqual("VALID", result.validation_result)
         self.assertEqual("safe-id", result.provider_request_id)
         self.assertEqual(1, transport.calls)
+
+    def test_a01b_valid_stream_is_reconstructed_then_strictly_validated(self):
+        provider, transport = self.provider(TransportResult(200, stream_response(), {
+            "content-type": "text/event-stream; charset=utf-8",
+            "x-request-id": "safe-stream-id",
+        }))
+        result = provider.request(self.request())
+        self.assertEqual("VALID", result.validation_result)
+        self.assertEqual("safe-stream-id", result.provider_request_id)
+        self.assertEqual(1, transport.calls)
+
+    def test_a01c_stream_requires_done_and_rejects_tool_calls(self):
+        incomplete = stream_response().replace(b"data: [DONE]\n\n", b"")
+        self.assert_class(TransportResult(200, incomplete, {
+            "content-type": "text/event-stream",
+        }), ProviderFailureClass.MALFORMED_JSON)
+        tool = (
+            'data: {"id":"fixture-stream-id","model":"' + MODEL
+            + '","choices":[{"finish_reason":"stop","delta":{"tool_calls":[{}]}}]}\n\n'
+            + 'data: [DONE]\n\n'
+        ).encode()
+        self.assert_class(TransportResult(200, tool, {
+            "content-type": "text/event-stream",
+        }), ProviderFailureClass.MALFORMED_JSON)
 
     def test_a02_auth_failures_are_classified_and_fail_closed(self):
         for status in (401, 403):

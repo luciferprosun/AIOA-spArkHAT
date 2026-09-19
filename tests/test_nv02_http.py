@@ -41,10 +41,25 @@ class HTTPTests(unittest.TestCase):
         self.assertEqual((200, b"small"), (status, raw))
         guard.assert_called_once()
         self.assertEqual("integrate.api.nvidia.com", constructor.call_args.args[0])
+        self.assertEqual(5, constructor.call_args.kwargs["timeout"])
         self.assertTrue(constructor.call_args.kwargs["context"].check_hostname)
         self.assertEqual(("POST", "/v1/chat/completions"), connection.request.call_args.args)
+        self.assertEqual("text/event-stream",
+                         connection.request.call_args.kwargs["headers"]["Accept"])
         self.assertEqual(513, response.read1.call_args.args[0])
         connection.close.assert_called_once()
+
+    def test_connection_timeout_is_capped_at_ten_seconds(self):
+        response = Mock(status=200)
+        response.read1.return_value = b"small"
+        response.isclosed.return_value = True
+        connection = Mock()
+        connection.getresponse.return_value = response
+        with patch("runtime.providers.nvidia.require_transport_authorization"), \
+                patch("runtime.providers.nvidia.http.client.HTTPSConnection",
+                      return_value=connection) as constructor:
+            HTTPTransport()._exchange(b"payload", "synthetic-key", 120, 512, object())
+        self.assertEqual(10, constructor.call_args.kwargs["timeout"])
 
     def test_redirect_status_returns_without_reading_body_or_second_request(self):
         connection = Mock()
