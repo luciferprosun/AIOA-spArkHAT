@@ -21,10 +21,46 @@ from runtime.memory_patch.learning.personal_contracts import (
     ConsentMode, CorrectionMode, DomainSemantics, SemanticDeltaKind,
 )
 from runtime.mission.contracts import MissionError
+from runtime.mission.lite_contracts import LiteBudget
 from runtime.mission.lite_chat import ACTOR_REPAIR_JSON_EXAMPLE
 
 
 class NativeAtomicBoundaryTests(unittest.TestCase):
+    def test_explicit_profile_budget_reopens_same_journal_in_fresh_fixture(self):
+        budget = LiteBudget(
+            max_requests_per_hour=12,
+            max_hourly_units=500_000,
+            max_retry=0,
+            request_timeout_seconds=120,
+        )
+        with tempfile.TemporaryDirectory() as root:
+            first = ChatFixture(
+                Path(root),
+                replies=(),
+                critic=False,
+                dynamics=False,
+                requests=12,
+                revision=2,
+                budget=budget,
+            )
+            try:
+                first_digest = first.profile.digest
+            finally:
+                first.close()
+            second = ChatFixture(
+                Path(root),
+                replies=(),
+                critic=False,
+                dynamics=False,
+                requests=12,
+                revision=2,
+                budget=budget,
+            )
+            try:
+                self.assertEqual(first_digest, second.profile.digest)
+            finally:
+                second.close()
+
     def test_repository_compound_denied_and_atomic_required_packet_supported(self):
         from nv07_support import SOURCE
         from runtime.memory_patch.correction.claims import (

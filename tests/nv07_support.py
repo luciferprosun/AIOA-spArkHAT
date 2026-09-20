@@ -87,7 +87,7 @@ class ChatFixture(MemoryFixture):
     def __init__(self, root, *, replies=(WRONG, RIGHT), scope=None, semantics=None,
                  critic=True, proposal=RIGHT, oracle=RIGHT, dynamics=False,
                  max_records=128, max_bytes=262144, private_values=(), revision=1,
-                 requests=24, model_version="controlled-original-model", source_text=RIGHT):
+                 requests=24, budget=None, model_version="controlled-original-model", source_text=RIGHT):
         self.source_text = source_text
         super().__init__(root, initialize=False, scope=scope)
         self.runtime.close()
@@ -124,8 +124,9 @@ class ChatFixture(MemoryFixture):
         self.profile = replace(self.profile, watch_id="nv07-chat", manifest_revision=revision,
                                cpl_mode="ACTIVE", cpl_profile_digest=policy.digest,
                                personal_profile_digest=personal.digest,
-                               budget=LiteBudget(max_requests_per_hour=requests,
-                                                 max_hourly_units=500000))
+                               budget=(LiteBudget(max_requests_per_hour=requests,
+                                                  max_hourly_units=500000)
+                                       if budget is None else budget))
         self.transport = FixtureTransport([reply(value) for value in replies])
         self.provider = NvidiaProvider(self.profile.budget, secret_supplier=lambda: "fixture-key",
                                        transport=self.transport, clock=lambda: self.now.timestamp(),
