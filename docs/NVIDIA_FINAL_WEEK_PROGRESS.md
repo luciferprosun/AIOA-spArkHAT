@@ -275,3 +275,21 @@ Next:
 1. Keep functionality frozen unless a reviewer/reproducibility failure is found.
 2. Prefer fresh-clone/install rehearsal and demo packaging over new runtime architecture.
 3. Preserve OpenRouter LIVE, live AWS and DVM promotion gates; do not weaken truthful fallback labeling for presentation.
+
+## 2026-09-22 / Batch 15 — post-3×8 closure and roadmap-history reconstruction
+
+Completed:
+- accepted `SEGMENTED_ENDURANCE_PASS` closure on the preserved frozen SHA via `docs/ENDURANCE_3X8_CLOSURE.md` + machine-readable manifest; classification remains explicitly distinct from contiguous `24H_PASS_CLOSED`;
+- completed `docs/ROADMAP_2_1_CLOSURE.md` with NV01–NV12 requirement/implementation/evidence/status/limitation mapping; NV12 stays PARTIAL relative to the original contiguous-24-hour contract;
+- added `docs/ROADMAP_HISTORY_AND_GAP_ANALYSIS.md`, reconstructing 1.0 and 2.0 only as evidence-backed historical capability phases and preserving 2.1 as the only explicitly versioned surviving NV roadmap;
+- history analysis maps the Core-first baseline → NVIDIA/LITE + Memory/CPL/Dynamics foundation → NV06–NV12 personal/recovery/effect/adversarial/recertification closure;
+- remaining gaps are explicitly non-architectural for submission: hosted-provider availability risk, OpenRouter LIVE operator gate, live AWS disabled, DVM/index SHADOW, and the historical contiguous-24-hour non-claim;
+- focused representative roadmap tests rerun with the established integration interpreter and `PYTHONPATH=runtime:tests`: 72/72 PASS across NV01 foundation, NV02 HTTP, NV03 memory and NV04 learning;
+- an earlier ad-hoc test selection collected imported helper `test_live_gate` as a pytest test and produced one fixture-collection error after 107 passing tests; this was a harness invocation issue, not a product regression, and the supported focused selection passed cleanly;
+- `git diff --check` PASS;
+- frozen certification worktree and historical evidence were read only; no push/merge/deploy/publish/submit occurred.
+
+Next:
+1. Run `PRE_CODEX_TECHNICAL_AUDIT` over authority, replay/idempotency, restart/recovery, provider UNKNOWN, evidence integrity, privacy/isolation and dead-code/TODO surfaces.
+2. Accept only bounded safe fixes backed by focused regression; keep architecture frozen.
+3. Preserve Service Guard as the sole effect executor, DVM/pheromones SHADOW, OpenRouter LIVE gated, and live AWS disabled.
