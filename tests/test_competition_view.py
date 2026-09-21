@@ -10,6 +10,24 @@ from unittest.mock import patch
 from competition_view import ENV_PATH, load_competition_demo
 
 
+COMPETITION_EVENTS = [
+    {"stage": "observe", "status": "OBSERVED", "authority": "DATA_ONLY"},
+    {"stage": "evidence_hat", "status": "READY", "authority": "ADVISORY_ONLY"},
+    {"stage": "nemotron_proposal", "status": "TEST_FIXTURE", "authority": "ADVISORY_ONLY"},
+    {"stage": "cpl_review", "status": "VERIFIED", "authority": "ADVISORY_ONLY"},
+    {"stage": "verified_delta_reuse", "status": "ZERO_WRITE", "authority": "ADVISORY_ONLY"},
+    {"stage": "stale_source_revalidation", "status": "REVALIDATION_REQUIRED", "authority": "CORE_POLICY"},
+    {"stage": "core_authority_gate", "status": "HUMAN_APPROVAL_REQUIRED", "authority": "CORE_POLICY"},
+    {"stage": "scheduler_boundary", "status": "AGENT_RUNTIME_OWNED", "authority": "COORDINATION_ONLY"},
+    {"stage": "human_approval", "status": "BOUND", "authority": "HUMAN"},
+    {"stage": "service_guard_effect", "status": "VERIFIED", "authority": "CORE_GATE"},
+    {"stage": "durable_receipt", "status": "COMMITTED_BY_TARGET_RECEIPT", "authority": "EVIDENCE_ONLY"},
+    {"stage": "independent_verification", "status": "MAINTENANCE", "authority": "MEASUREMENT"},
+    {"stage": "durable_memory_audit", "status": "PERSISTED", "authority": "EVIDENCE_ONLY"},
+    {"stage": "restart_replay", "status": "REPLAY", "authority": "CORE_REPLAY_BARRIER"},
+]
+
+
 def evidence(*, mode="TEST_FIXTURE", live=False):
     return {
         "schema": "aioa.nvidia-competition-demo.v1",
@@ -17,11 +35,8 @@ def evidence(*, mode="TEST_FIXTURE", live=False):
         "live_provider_claimed": live,
         "provider_status": "EXTERNAL_UNAVAILABLE_OR_NOT_USED",
         "task_success_rate": 1.0,
-        "scenario_count": 2,
-        "events": [
-            {"stage": "human_approval", "status": "BOUND", "authority": "HUMAN"},
-            {"stage": "service_guard_effect", "status": "VERIFIED", "authority": "CORE_GATE"},
-        ],
+        "scenario_count": len(COMPETITION_EVENTS),
+        "events": [dict(event) for event in COMPETITION_EVENTS],
         "mission": {
             "snapshot_state": "COMPLETE",
             "heartbeat_state": "COMPLETED_EVIDENCE_SNAPSHOT",

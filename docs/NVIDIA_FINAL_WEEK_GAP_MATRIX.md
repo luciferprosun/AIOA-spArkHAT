@@ -33,7 +33,7 @@ pheromones and DVM never grant execution authority.
 - NVIDIA endpoint TLS/connectivity: PASS.
 - NVIDIA hosted smoke inference: timeout at 120 seconds; external availability risk.
 - Authority Timeline backend focused regression: 80 tests PASS, 2 expected skips.
-- Deterministic competition vertical slice: PASS in `TEST_FIXTURE` mode.
+- Deterministic competition vertical slice: PASS in `TEST_FIXTURE` mode; explicit 14-stage one-system order now covers observe -> evidence/HAT -> Nemotron fixture proposal -> CPL/Core authority -> AgentRuntime scheduler boundary -> guarded effect -> durable receipt -> independent verification -> durable memory/audit -> restart recovery.
 - Broader demo/memory-CPL/timeline/Service Guard/NV10 focused regression: 120/120 PASS.
 - Competition evaluation/API/UI gate: 33/33 PASS; metrics are explicit-outcome only and hidden reasoning is not requested or stored.
 - Mission heartbeat/restart recovery plus durable receipt and independent measurement are now exposed as read-only dashboard evidence; focused E2E gate 32/32 PASS.
@@ -42,9 +42,9 @@ pheromones and DVM never grant execution authority.
 ## Highest-value remaining work
 
 1. Keep deterministic demo readiness independent from external NVIDIA hosted-inference availability.
-2. Capture at most one isolated live product validation while recovery evidence is fresh; never rewrite historical UNKNOWN.
-3. Add only bounded competition-critical hardening found by focused regression; no new authority or memory path.
-4. Freeze functionality before frontend/video window.
+2. Preserve the accepted live adapter validation without rewriting historical UNKNOWN.
+3. Add only bounded competition-critical adversarial hardening found by regression; no new authority or memory path.
+4. Freeze functionality before the frontend/video window; DVM/pheromone remains SHADOW in product claims.
 
 ## Non-goals before submission
 

@@ -23,8 +23,10 @@ class CompetitionEvaluationTests(unittest.TestCase):
         self.assertEqual("DEMO_TRAJECTORY_ONLY", value["scope"])
         self.assertEqual("TEST_FIXTURE", value["provider_mode"])
         self.assertEqual(1.0, value["task_success_rate"])
-        self.assertEqual(2, value["trajectory"]["stage_count"])
+        self.assertEqual(14, value["trajectory"]["stage_count"])
         self.assertIs(value["trajectory"]["scenario_count_matches"], True)
+        self.assertIs(value["trajectory"]["stage_order_verified"], True)
+        self.assertEqual(value["trajectory"]["required_stage_order"], value["trajectory"]["visible_stage_ids"])
         self.assertIs(value["trajectory"]["hidden_reasoning_logged"], False)
         self.assertEqual(1.0, value["trajectory_efficiency"]["effect_attempts_per_verified_effect"])
         self.assertEqual(0, value["trajectory_efficiency"]["restart_replay_dispatches"])
@@ -43,6 +45,18 @@ class CompetitionEvaluationTests(unittest.TestCase):
         self.assertEqual([], value["failure_modes"])
 
 
+
+    def test_reordered_vertical_slice_fails_closed(self):
+        broken = evidence()
+        broken["events"][0], broken["events"][1] = broken["events"][1], broken["events"][0]
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "demo.json"
+            path.write_text(json.dumps(broken), encoding="utf-8")
+            with patch.dict(os.environ, {ENV_PATH: str(path)}):
+                value = competition_evaluation()
+        self.assertEqual("FAIL", value["status"])
+        self.assertIn("VERTICAL_SLICE_STAGE_ORDER_MISMATCH", value["failure_modes"])
+        self.assertIs(value["trajectory"]["stage_order_verified"], False)
 
     def test_missing_receipt_or_recovery_evidence_fails_closed(self):
         broken = evidence()

@@ -5,6 +5,7 @@ import unittest
 from pathlib import Path
 
 from scripts.nvidia_competition_demo import run_demo
+from competition_evaluation import REQUIRED_STAGE_ORDER
 
 
 class NvidiaCompetitionDemoTests(unittest.TestCase):
@@ -16,6 +17,9 @@ class NvidiaCompetitionDemoTests(unittest.TestCase):
         self.assertEqual("TEST_FIXTURE", value["execution_mode"])
         self.assertIs(value["live_provider_claimed"], False)
         self.assertEqual(1.0, value["task_success_rate"])
+        self.assertEqual(list(REQUIRED_STAGE_ORDER), [event["stage"] for event in value["events"]])
+        self.assertEqual("TEST_FIXTURE", value["events"][2]["status"])
+        self.assertEqual("ADVISORY_ONLY", value["events"][2]["authority"])
         self.assertEqual(1, value["memory"]["first_write"])
         self.assertIs(value["memory"]["reuse_zero_write"], True)
         self.assertEqual("REVALIDATION_REQUIRED", value["memory"]["stale_revalidation"])

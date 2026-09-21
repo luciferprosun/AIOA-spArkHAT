@@ -8,6 +8,22 @@ from __future__ import annotations
 
 from competition_view import load_competition_demo
 
+REQUIRED_STAGE_ORDER = (
+    "observe",
+    "evidence_hat",
+    "nemotron_proposal",
+    "cpl_review",
+    "verified_delta_reuse",
+    "stale_source_revalidation",
+    "core_authority_gate",
+    "scheduler_boundary",
+    "human_approval",
+    "service_guard_effect",
+    "durable_receipt",
+    "independent_verification",
+    "durable_memory_audit",
+    "restart_replay",
+)
 
 def competition_evaluation() -> dict:
     view = load_competition_demo()
@@ -86,6 +102,9 @@ def competition_evaluation() -> dict:
         and receipt_verified and measurement_verified and restart_recovery_verified
     )
     failure_modes = []
+    stage_ids = [event["stage"] for event in events]
+    if stage_ids != list(REQUIRED_STAGE_ORDER):
+        failure_modes.append("VERTICAL_SLICE_STAGE_ORDER_MISMATCH")
     if not effect_tool_success:
         failure_modes.append("EFFECT_TRAJECTORY_CONTRACT_FAILED")
     if not receipt_verified:
@@ -110,7 +129,9 @@ def competition_evaluation() -> dict:
         "trajectory": {
             "stage_count": len(events),
             "scenario_count_matches": True,
-            "visible_stage_ids": [event["stage"] for event in events],
+            "visible_stage_ids": stage_ids,
+            "required_stage_order": list(REQUIRED_STAGE_ORDER),
+            "stage_order_verified": stage_ids == list(REQUIRED_STAGE_ORDER),
             "hidden_reasoning_logged": False,
         },
         "trajectory_efficiency": {

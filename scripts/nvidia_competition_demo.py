@@ -55,7 +55,11 @@ def run_demo(root: Path) -> dict:
         target.close()
 
     if not (
-        episodes[0]["new_delta_count"] == 1
+        episodes[0]["runtime_class"] == "AgentRuntime"
+        and episodes[0]["provider_path"] == "NVIDIA_ADAPTER_FIXTURE_AND_ORIGINAL_CPL_HTTP"
+        and episodes[0]["execution_authority"] is False
+        and episodes[0]["new_delta_count"] == 1
+        and episodes[0]["cpl"]["knowledge_write"] == "CREATED"
         and episodes[1]["new_delta_count"] == 0
         and episodes[1]["cpl"]["status"] == "ZERO_WRITE"
         and episodes[2]["reuse_status"] == ["REVALIDATION_REQUIRED"]
@@ -74,16 +78,25 @@ def run_demo(root: Path) -> dict:
         raise RuntimeError("COMPETITION_VERTICAL_SLICE_CONTRACT_FAILED")
 
     events = [
+        {"stage": "observe", "status": "OBSERVED", "authority": "DATA_ONLY"},
         {"stage": "evidence_hat", "status": "READY", "authority": "ADVISORY_ONLY"},
-        {"stage": "cpl_verified_correction", "status": episodes[0]["cpl"]["status"],
+        {"stage": "nemotron_proposal", "status": "TEST_FIXTURE", "authority": "ADVISORY_ONLY"},
+        {"stage": "cpl_review", "status": episodes[0]["cpl"]["status"],
          "authority": "ADVISORY_ONLY"},
         {"stage": "verified_delta_reuse", "status": episodes[1]["cpl"]["status"],
          "authority": "ADVISORY_ONLY"},
         {"stage": "stale_source_revalidation", "status": episodes[2]["reuse_status"][0],
          "authority": "CORE_POLICY"},
+        {"stage": "core_authority_gate", "status": "HUMAN_APPROVAL_REQUIRED",
+         "authority": "CORE_POLICY"},
+        {"stage": "scheduler_boundary", "status": "AGENT_RUNTIME_OWNED",
+         "authority": "COORDINATION_ONLY"},
         {"stage": "human_approval", "status": "BOUND", "authority": "HUMAN"},
         {"stage": "service_guard_effect", "status": effect["status"], "authority": "CORE_GATE"},
+        {"stage": "durable_receipt", "status": effect_evidence["receipt"]["reconciliation_state"],
+         "authority": "EVIDENCE_ONLY"},
         {"stage": "independent_verification", "status": measured["mode"], "authority": "MEASUREMENT"},
+        {"stage": "durable_memory_audit", "status": "PERSISTED", "authority": "EVIDENCE_ONLY"},
         {"stage": "restart_replay", "status": replay["status"], "authority": "CORE_REPLAY_BARRIER"},
     ]
 

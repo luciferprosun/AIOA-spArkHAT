@@ -150,3 +150,23 @@ Completed:
 - Service Guard + NV10 recovery matrix: 48/48 PASS.
 
 Evidence: /home/l/.local/state/aioa-nvidia-final-week/live-adapter-validation-20260921T1055Z/RESULT.json
+
+## 2026-09-21 / Batch 09 — explicit one-system vertical-slice contract
+
+Completed:
+- expanded the deterministic competition trajectory to the explicit 14-stage one-system story: observe -> evidence/HAT -> Nemotron proposal fixture -> CPL review -> verified-delta reuse -> stale-source revalidation -> Core authority gate -> AgentRuntime scheduler boundary -> human approval -> Service Guard effect -> durable receipt -> independent verification -> durable memory/audit -> restart/replay;
+- `nemotron_proposal` is explicitly `TEST_FIXTURE` / `ADVISORY_ONLY`; no fixture output is presented as LIVE and provider output grants no execution authority;
+- strengthened the demo contract to require AgentRuntime, the NVIDIA adapter fixture path, no model execution authority, a CREATED verified knowledge write, ZERO_WRITE reuse and stale-source revalidation before effect evidence can pass;
+- competition evaluation now fails closed if the required vertical-slice stage order is missing or reordered;
+- real demo acceptance test now binds the generated event order to the evaluation contract;
+- focused competition tests: 13/13 PASS;
+- broader competition + provider + Authority Timeline + CPL + Service Guard/NV10 + NonZero regression: 153/153 PASS;
+- `node --check web/app.js` PASS and `git diff --check` PASS;
+- fresh demo evaluation: PASS, 14 stages, stage_order_verified=true, provider_mode=TEST_FIXTURE, failure_modes=[];
+- fresh artifact: `/home/l/.local/state/aioa-nvidia-final-week/demo-batch09-20260921T115256Z/AIOA_NVIDIA_COMPETITION_DEMO.json`;
+- artifact SHA-256: `4aa353cfc884c34083eeda1f259abb08f6644c27c4e13415bf20e75eaae2f892`.
+
+Next:
+1. Continue bounded adversarial hardening only where it improves the final competition story.
+2. Keep DVM/pheromone SHADOW in product claims; controlled test evidence remains clearly labeled.
+3. Preserve provider fallback labeling and certification/development isolation while segmented endurance continues.
