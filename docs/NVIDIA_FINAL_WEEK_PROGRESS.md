@@ -139,3 +139,14 @@ Next:
 1. Keep provider availability evidence-only and avoid coupling deterministic demo readiness to hosted inference.
 2. Use the recovered live-provider window for at most one isolated product validation when it adds evidence, never to rewrite historical UNKNOWN.
 3. Continue only bounded competition-critical hardening, then move toward functional freeze.
+
+## 2026-09-21 / Batch 08 — live adapter recovery validation
+
+Completed:
+- NVIDIA hosted inference recovery confirmed through the production AIOA NvidiaProvider + LiveCallGate, not only nvbuild smoke;
+- isolated read-only request bound to frozen certified SHA ad4a425 and accepted evidence digest a7c05e24... passed HTTP 200, finish_reason=stop, validation_result=VALID;
+- permit budget consumed exactly once; no execution/effect authority; historical UNKNOWN evidence unchanged;
+- focused competition/recovery regression immediately before validation: 90/90 PASS;
+- Service Guard + NV10 recovery matrix: 48/48 PASS.
+
+Evidence: /home/l/.local/state/aioa-nvidia-final-week/live-adapter-validation-20260921T1055Z/RESULT.json
