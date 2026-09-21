@@ -254,3 +254,24 @@ Next:
 1. Treat DVM/pheromone promotion as closed for this submission: keep SHADOW unless a new, separately reviewed evidence mandate exists.
 2. Prefer reviewer/reproducibility hardening and freeze-oriented adversarial checks over new architecture.
 3. Keep OpenRouter LIVE and Non-Zero live AWS blocked under their existing operator gates.
+
+
+## 2026-09-21 / Batch 14 — one-command reviewer reproducibility preflight
+
+Completed:
+- added `scripts/nvidia_reviewer_preflight.py` as a bounded one-command reviewer check for the deterministic competition path;
+- preflight runs only the repository-durable `TEST_FIXTURE` path, writes a mode-0600 evidence artifact, then validates that artifact through the same read-only competition projection/evaluation used by the dashboard;
+- acceptance checks cover truthful provider/memory fallback labels, DVM/pheromone `SHADOW`, human-bound authority, provider-no-authority, one verified effect, zero duplicate effects, zero restart redispatch, durable receipt, independent measurement, 14-stage order and Service Guard as the sole competition effect executor;
+- preflight explicitly records that it does not validate live NVIDIA, live CockroachDB, live OpenRouter or live AWS;
+- reviewer start-here documentation now exposes the one-command path before the raw demo command;
+- minimal system-Python focused gate: 17/17 PASS; the preflight itself PASSed while truthfully reporting optional Non-Zero dependencies unavailable in that minimal interpreter;
+- canonical final-week dependency sidecar gate: 62/62 PASS across reviewer preflight, competition demo/view/evaluation, Authority Timeline, provider availability, CPL preset and Non-Zero architecture/core authority;
+- canonical preflight PASS with Non-Zero `READY`, `effect_executor=ServiceGuard`, all checks true;
+- canonical preflight artifact: `/tmp/aioa-nvidia-review-preflight-93t8ttfx/AIOA_NVIDIA_COMPETITION_DEMO.json`;
+- artifact SHA-256: `eda85ee6acbae909067cbdfb72fb046986c73bdfe13aff2ae7c6f86a68c8bbc6`;
+- Python compile and `git diff --check` PASS.
+
+Next:
+1. Keep functionality frozen unless a reviewer/reproducibility failure is found.
+2. Prefer fresh-clone/install rehearsal and demo packaging over new runtime architecture.
+3. Preserve OpenRouter LIVE, live AWS and DVM promotion gates; do not weaken truthful fallback labeling for presentation.

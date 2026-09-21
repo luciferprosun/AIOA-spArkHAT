@@ -82,6 +82,19 @@ The accepted deterministic competition path demonstrates:
 
 From the repository root, with Python 3.11+:
 
+For the fastest reproducibility check, run the one-command reviewer preflight:
+
+```bash
+PYTHONPATH=.:runtime:tests python3 scripts/nvidia_reviewer_preflight.py
+```
+
+It executes only the deterministic `TEST_FIXTURE` vertical slice and validates
+the generated artifact through the same read-only projection/evaluation used
+by the dashboard. Its JSON summary explicitly states that this run does **not**
+validate live NVIDIA, CockroachDB, OpenRouter, or AWS.
+
+To inspect the raw demo directly:
+
 ```bash
 PYTHONPATH=.:runtime:tests \
   python3 scripts/nvidia_competition_demo.py \
