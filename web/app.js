@@ -48,6 +48,9 @@ const elements = {
   reviewEvidenceDigest: document.querySelector("#review-evidence-digest"),
   reviewSnapshotHash: document.querySelector("#review-snapshot-hash"),
   reviewNextStep: document.querySelector("#review-next-step"),
+  authorityEffectBadge: document.querySelector("#authority-effect-badge"),
+  authorityTimelineSummary: document.querySelector("#authority-timeline-summary"),
+  authorityTimeline: document.querySelector("#authority-timeline"),
 };
 
 async function jsonFetch(url, options = {}) {
@@ -101,6 +104,33 @@ async function refreshStatus() {
   const payload = await jsonFetch("/api/status");
   applyStatus(payload);
   hydrateModelSelect(payload.available_models, payload.model);
+}
+
+function renderAuthorityTimeline(payload) {
+  elements.authorityEffectBadge.textContent = payload.effect_authority || "UNAVAILABLE";
+  elements.authorityTimelineSummary.textContent = payload.timeline_is_read_only_projection
+    ? "Read-only projection: model, CPL, memory and DVM can advise; only Core/human-bound gates may authorize effects."
+    : "Authority projection unavailable.";
+  elements.authorityTimeline.replaceChildren();
+  for (const event of payload.events || []) {
+    const node = document.createElement("article");
+    node.className = "finding";
+    const authority = document.createElement("span");
+    authority.className = "finding-severity";
+    authority.textContent = event.authority || "UNKNOWN";
+    const body = document.createElement("div");
+    const title = document.createElement("h4");
+    title.textContent = (event.stage || "stage").replaceAll("_", " ");
+    const detail = document.createElement("p");
+    detail.textContent = `${event.status || "UNAVAILABLE"} · ${event.source || "runtime"}`;
+    body.append(title, detail);
+    node.append(authority, body);
+    elements.authorityTimeline.appendChild(node);
+  }
+}
+
+async function refreshAuthorityTimeline() {
+  renderAuthorityTimeline(await jsonFetch("/api/authority-timeline"));
 }
 
 function parseModelChoices(availableModels) {
@@ -289,7 +319,7 @@ document.querySelector("#switch-model").addEventListener("click", async () => {
 
 document.querySelector("#refresh-status").addEventListener("click", async () => {
   try {
-    await refreshStatus();
+    await Promise.all([refreshStatus(), refreshAuthorityTimeline()]);
   } catch (error) {
     addMessage("System", `Refresh failed: ${error}`);
   }
@@ -364,15 +394,19 @@ async function bootstrap() {
     "System",
     "AIOA spArkHAT is ready. Assistant, deterministic Evidence Review and Critical Prompt Loop use one local runtime."
   );
-  const [statusResult, scenarioResult] = await Promise.allSettled([
+  const [statusResult, scenarioResult, timelineResult] = await Promise.allSettled([
     refreshStatus(),
     loadReviewScenario(),
+    refreshAuthorityTimeline(),
   ]);
   if (statusResult.status === "rejected") {
     addMessage("System", `Runtime startup failed: ${statusResult.reason}`);
   }
   if (scenarioResult.status === "rejected") {
     elements.reviewRequestStatus.textContent = `Evidence registry failed to load: ${scenarioResult.reason}`;
+  }
+  if (timelineResult.status === "rejected") {
+    elements.authorityTimelineSummary.textContent = `Authority timeline failed to load: ${timelineResult.reason}`;
   }
 }
 

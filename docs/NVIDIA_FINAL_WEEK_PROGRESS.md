@@ -43,7 +43,7 @@ Next:
 3. Add one dashboard-level end-to-end regression around the existing API/UI surfaces.
 4. Continue segmented endurance certification independently of development.
 
-## 2026-09-21 / Batch 02
+## 2026-09-21 / Batch 03
 
 Completed:
 - repair scenario matrix: 199/199 PASS across provider safety, G07/UNKNOWN,
@@ -67,3 +67,19 @@ Next:
 2. Render Authority Timeline / mission state in the existing UI.
 3. Add explicit LIVE / TEST_FIXTURE / EXTERNAL_UNAVAILABLE provider state.
 4. Add trajectory evaluation summary without storing hidden reasoning.
+
+## 2026-09-21 / Batch 04
+
+Completed:
+- added token-protected read-only `/api/competition-demo` evidence projection;
+- projection rejects inconsistent fixture-vs-LIVE claims and never executes a demo on GET;
+- added Authority Timeline panel to the existing web UI rather than rebuilding frontend;
+- timeline shows advisory/coordination/gate/effect boundaries without introducing authority;
+- JavaScript syntax and diff checks PASS;
+- combined competition-view + timeline + HTTP contract gate: 24/24 PASS;
+- broader competition API/Core/NonZero/Memory Patch gate: 84 PASS, 2 expected skips.
+
+Next:
+1. Expose mission heartbeat/recovery and effect receipt/verification from evidence.
+2. Add explicit evaluation summary for task success, tool outcomes and trajectory efficiency.
+3. Keep frontend work bounded until the final 48-hour polish window.

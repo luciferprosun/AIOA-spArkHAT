@@ -138,6 +138,12 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
                 HTTPStatus.OK, build_authority_timeline(self._service().runtime)
             )
             return
+        if parsed.path == '/api/competition-demo':
+            if not self._check_token():
+                return
+            from competition_view import load_competition_demo
+            self._write_json(HTTPStatus.OK, load_competition_demo())
+            return
         if parsed.path.startswith('/api/nonzero/'):
             if not self._check_token():
                 return

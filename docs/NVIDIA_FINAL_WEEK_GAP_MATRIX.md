@@ -33,14 +33,16 @@ pheromones and DVM never grant execution authority.
 - NVIDIA endpoint TLS/connectivity: PASS.
 - NVIDIA hosted smoke inference: timeout at 120 seconds; external availability risk.
 - Authority Timeline backend focused regression: 80 tests PASS, 2 expected skips.
+- Deterministic competition vertical slice: PASS in `TEST_FIXTURE` mode.
+- Broader demo/memory-CPL/timeline/Service Guard/NV10 focused regression: 120/120 PASS.
 
 ## Highest-value remaining work
 
 1. Add Authority Timeline UI rendering.
-2. Create one deterministic competition mission fixture using the existing runtime.
+2. Integrate the validated deterministic competition mission fixture into the existing dashboard.
 3. Expose mission heartbeat/restart/recovery and effect receipt/verification.
 4. Make provider availability explicit: LIVE, TEST_FIXTURE, or EXTERNAL_UNAVAILABLE.
-5. Run one end-to-end demo regression plus restart/replay.
+5. Run one dashboard-level end-to-end regression; backend restart/replay is already validated.
 6. Freeze functionality before frontend/video window.
 
 ## Non-goals before submission

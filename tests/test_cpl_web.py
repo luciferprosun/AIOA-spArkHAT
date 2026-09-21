@@ -4,6 +4,7 @@ from dataclasses import replace
 import http.client
 import json
 import tempfile
+from pathlib import Path
 import threading
 import time
 import unittest
@@ -107,6 +108,22 @@ class CPLWebTests(unittest.TestCase):
         self.assertIn('critical_prompt_loop', stages)
         self.assertIn('service_guard', stages)
         self.assertIn('nonzero_effect', stages)
+
+    def test_competition_demo_is_token_protected_and_explicit_fixture(self):
+        from test_competition_view import evidence
+        with tempfile.TemporaryDirectory() as temp:
+            artifact = Path(temp) / 'competition.json'
+            artifact.write_text(json.dumps(evidence()), encoding='utf-8')
+            with patch.dict('os.environ', {'AIOA_COMPETITION_DEMO_EVIDENCE': str(artifact)}):
+                self.assertEqual(
+                    self.request('GET', '/api/competition-demo', token=False)[0], 403
+                )
+                status, payload, _ = self.request('GET', '/api/competition-demo')
+        self.assertEqual(status, 200)
+        self.assertEqual(payload['status'], 'READY')
+        self.assertEqual(payload['provider_mode'], 'TEST_FIXTURE')
+        self.assertIs(payload['read_only'], True)
+        self.assertEqual(payload['effect']['replay_status'], 'REPLAY')
 
     def test_T11_status_and_cancel_responsive_during_real_http(self):
         self.fixture.faults = {1: 'delay'}

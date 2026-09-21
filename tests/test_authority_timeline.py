@@ -1,6 +1,7 @@
 """Read-only authority timeline contract tests."""
 
 import unittest
+from pathlib import Path
 
 from authority_timeline import build_authority_timeline
 
@@ -63,6 +64,16 @@ class AuthorityTimelineTests(unittest.TestCase):
         events = {item["stage"]: item for item in value["events"]}
         self.assertEqual("UNAVAILABLE", events["nonzero_effect"]["status"])
         self.assertNotIn("secret", str(value).lower())
+
+    def test_web_ui_renders_token_protected_projection(self):
+        repo = Path(__file__).resolve().parents[1]
+        html = (repo / "web/index.html").read_text(encoding="utf-8")
+        script = (repo / "web/app.js").read_text(encoding="utf-8")
+        self.assertIn('id="authority-timeline"', html)
+        self.assertIn('id="authority-effect-badge"', html)
+        self.assertIn('jsonFetch("/api/authority-timeline")', script)
+        self.assertIn("renderAuthorityTimeline", script)
+        self.assertNotIn('fetch("/api/authority-timeline", {method: "POST"', script)
 
 
 if __name__ == "__main__":
