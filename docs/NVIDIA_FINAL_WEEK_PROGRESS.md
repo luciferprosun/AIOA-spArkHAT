@@ -24,3 +24,46 @@ Next:
 2. Build the single deterministic competition vertical slice.
 3. Add mission heartbeat/restart/receipt visualization.
 4. Run focused regression and local commit for each coherent batch.
+
+## 2026-09-21 / Batch 02
+
+Completed:
+- added deterministic `scripts/nvidia_competition_demo.py` using existing AgentRuntime/NVIDIA adapter fixtures, CPL/memory contracts and Service Guard;
+- added `tests/test_nvidia_competition_demo.py` acceptance coverage;
+- the demo records `execution_mode=TEST_FIXTURE` and explicitly does not claim live provider output;
+- correction path proves first verified delta write, ZERO_WRITE reuse, then stale-source `REVALIDATION_REQUIRED`;
+- guarded disposable effect proves human-bound approval, durable effect, independent measurement, restart and replay without duplicate dispatch;
+- focused regression: 47/47 PASS across competition demo, Authority Timeline, Service Guard and NV10 recovery hardening;
+- no second Core, scheduler, executor or authority path introduced;
+- certification worktree and historical trial evidence remained untouched.
+
+Next:
+1. Render Authority Timeline and demo mission state in the existing web UI.
+2. Expose provider mode (`LIVE`, `TEST_FIXTURE`, `EXTERNAL_UNAVAILABLE`) and mission heartbeat/recovery.
+3. Add one dashboard-level end-to-end regression around the existing API/UI surfaces.
+4. Continue segmented endurance certification independently of development.
+
+## 2026-09-21 / Batch 02
+
+Completed:
+- repair scenario matrix: 199/199 PASS across provider safety, G07/UNKNOWN,
+  private chat/replay/isolation, Service Guard, NV10 crash/recovery and NonZero;
+- deterministic competition vertical slice added under
+  `scripts/nvidia_competition_demo.py`;
+- demo uses existing NV05 memory/CPL/dynamics contracts plus existing Service
+  Guard and real disposable loopback target;
+- demo is explicitly labeled `TEST_FIXTURE`; it never claims fixture output is LIVE;
+- eight visible stages: evidence HAT, CPL verified correction, verified-delta
+  ZERO_WRITE reuse, stale-source revalidation, human approval, guarded effect,
+  independent measurement, restart/replay barrier;
+- verified effect count = 1 before and after restart; duplicate effects = 0;
+- standalone vertical-slice test PASS;
+- focused vertical-slice regression: 120/120 PASS;
+- real demo artifact:
+  `/home/l/.local/state/aioa-nvidia-final-week/demo-batch02-20260921/AIOA_NVIDIA_COMPETITION_DEMO.json`.
+
+Next:
+1. Expose demo trajectory through a read-only local API.
+2. Render Authority Timeline / mission state in the existing UI.
+3. Add explicit LIVE / TEST_FIXTURE / EXTERNAL_UNAVAILABLE provider state.
+4. Add trajectory evaluation summary without storing hidden reasoning.
