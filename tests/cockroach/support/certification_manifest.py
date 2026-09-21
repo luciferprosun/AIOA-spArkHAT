@@ -155,7 +155,14 @@ class CertificationInputs:
             self.handle("migrator", DatabasePurpose.MIGRATOR),
         )
 
-    def factory(self, core, *, evidence_role="publication", read_role="app"):
+    def factory(
+        self,
+        core,
+        *,
+        evidence_role="publication",
+        read_role="app",
+        schema_profile="base",
+    ):
         mapping = {
             Capability.READ: (
                 read_role,
@@ -188,7 +195,8 @@ class CertificationInputs:
             self.allowlist,
             self.denylist,
             handles,
-            approved_manifest_digest=load_assets()[2],
+            approved_manifest_digest=load_assets(schema_profile)[2],
+            schema_profile=schema_profile,
         )
         return CockroachTransactionFactory(
             pool,

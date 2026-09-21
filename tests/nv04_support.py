@@ -59,8 +59,16 @@ class LearningFixture(MemoryFixture):
         scope=None,
         revision=1,
         dynamics=None,
+        factory_builder=None,
+        backend_id="repository-durable-test",
     ):
-        super().__init__(root, initialize=False, scope=scope)
+        super().__init__(
+            root,
+            initialize=False,
+            scope=scope,
+            factory_builder=factory_builder,
+            backend_id=backend_id,
+        )
         self.runtime.close()
         clock_file = self.root / "trusted-test-clock.txt"
         if clock_file.exists():

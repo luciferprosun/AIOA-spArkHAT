@@ -19,8 +19,21 @@ from nv05_support import ContextDependentActor, DynamicsFixture
 from runtime.memory_patch.contracts.serialization import canonical_json_bytes
 
 
-def execute(root, number):
-    fx = DynamicsFixture(root, mode="ACTIVE")
+def execute(
+    root,
+    number,
+    *,
+    factory_builder=None,
+    backend_id="repository-durable-test",
+    scope=None,
+):
+    fx = DynamicsFixture(
+        root,
+        mode="ACTIVE",
+        factory_builder=factory_builder,
+        backend_id=backend_id,
+        scope=scope,
+    )
     try:
         if number == 1:
             assert not fx.learning.records("DELTA"), "fresh corpus required"
@@ -41,7 +54,7 @@ def execute(root, number):
             "run": number,
             "pid": os.getpid(),
             "runtime_class": type(fx.runtime).__name__,
-            "backend": "repository-durable-test",
+            "backend": fx.memory_profile.backend_id,
             "provider_path": "NVIDIA_ADAPTER_FIXTURE_AND_ORIGINAL_CPL_HTTP",
             "delta_ids": [r.record_id for r in after],
             "new_delta_count": len(after) - before,

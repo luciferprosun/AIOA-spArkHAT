@@ -8,6 +8,7 @@ controlled local test transports. It never claims TEST_FIXTURE output is LIVE.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
 import sys
@@ -28,10 +29,62 @@ def _require_fresh(root: Path) -> None:
     root.mkdir(mode=0o700, parents=True, exist_ok=True)
 
 
-def run_demo(root: Path) -> dict:
+def _memory_binding(root: Path, backend: str, private_dir: Path | None):
+    if backend == "fixture":
+        if private_dir is not None:
+            raise RuntimeError("COCKROACH_PRIVATE_DIR_REQUIRES_COCKROACH_BACKEND")
+        return None, None, "repository-durable-test", "TEST_FIXTURE"
+    if backend != "cockroach":
+        raise RuntimeError("UNSUPPORTED_MEMORY_BACKEND")
+    if private_dir is None:
+        raise RuntimeError("COCKROACH_PRIVATE_DIR_REQUIRED")
+    if private_dir.is_symlink():
+        raise RuntimeError("COCKROACH_PRIVATE_DIR_SYMLINK_REJECTED")
+    private = private_dir.resolve(strict=True)
+    if not private.is_dir():
+        raise RuntimeError("COCKROACH_PRIVATE_DIR_INVALID")
+    results = root / "cockroach-certification-results"
+    results.mkdir(mode=0o700, parents=True, exist_ok=True)
+
+    from tests.cockroach.support.certification_manifest import CertificationInputs
+    from runtime.core_admission import OwnerScope
+
+    certification = CertificationInputs(private, results)
+    suffix = hashlib.sha256(str(root.resolve()).encode()).hexdigest()[:16]
+    scope = OwnerScope(
+        "nvidia-demo-tenant",
+        f"nvidia-demo-owner-{suffix}",
+        f"nvidia-demo-space-{suffix}",
+        "nvidia-demo-slot",
+    )
+
+    def factory(core):
+        return certification.factory(core, schema_profile="learning-v1")
+
+    return factory, scope, "cockroachdb-learning-v1", "LIVE_COCKROACH"
+
+
+def run_demo(
+    root: Path,
+    *,
+    memory_backend: str = "fixture",
+    cockroach_private_dir: Path | None = None,
+) -> dict:
     _require_fresh(root)
+    factory_builder, scope, backend_id, backend_mode = _memory_binding(
+        root, memory_backend, cockroach_private_dir
+    )
     memory_root = root / "memory"
-    episodes = [memory_episode(memory_root, number) for number in (1, 2, 3)]
+    episodes = [
+        memory_episode(
+            memory_root,
+            number,
+            factory_builder=factory_builder,
+            backend_id=backend_id,
+            scope=scope,
+        )
+        for number in (1, 2, 3)
+    ]
 
     target = LocalTarget(root / "target", target_id="competition-disposable-service")
     try:
@@ -56,6 +109,7 @@ def run_demo(root: Path) -> dict:
 
     if not (
         episodes[0]["runtime_class"] == "AgentRuntime"
+        and {episode["backend"] for episode in episodes} == {backend_id}
         and episodes[0]["provider_path"] == "NVIDIA_ADAPTER_FIXTURE_AND_ORIGINAL_CPL_HTTP"
         and episodes[0]["execution_authority"] is False
         and episodes[0]["new_delta_count"] == 1
@@ -96,7 +150,11 @@ def run_demo(root: Path) -> dict:
         {"stage": "durable_receipt", "status": effect_evidence["receipt"]["reconciliation_state"],
          "authority": "EVIDENCE_ONLY"},
         {"stage": "independent_verification", "status": measured["mode"], "authority": "MEASUREMENT"},
-        {"stage": "durable_memory_audit", "status": "PERSISTED", "authority": "EVIDENCE_ONLY"},
+        {
+            "stage": "durable_memory_audit",
+            "status": "COCKROACHDB_PERSISTED" if backend_mode == "LIVE_COCKROACH" else "TEST_FIXTURE_PERSISTED",
+            "authority": "EVIDENCE_ONLY",
+        },
         {"stage": "restart_replay", "status": replay["status"], "authority": "CORE_REPLAY_BARRIER"},
     ]
 
@@ -118,6 +176,9 @@ def run_demo(root: Path) -> dict:
             "runtime_factory": "AgentRuntime",
         },
         "memory": {
+            "backend_id": backend_id,
+            "backend_mode": backend_mode,
+            "schema_profile": "learning-v1" if backend_mode == "LIVE_COCKROACH" else "test-fixture",
             "first_write": episodes[0]["new_delta_count"],
             "reuse_zero_write": episodes[1]["new_delta_count"] == 0,
             "stale_revalidation": episodes[2]["reuse_status"][0],
@@ -155,8 +216,23 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", required=True, type=Path)
     parser.add_argument("--output", type=Path)
+    parser.add_argument(
+        "--memory-backend",
+        choices=("fixture", "cockroach"),
+        default="fixture",
+        help="Explicit competition memory backend; fixture remains the offline fallback.",
+    )
+    parser.add_argument(
+        "--cockroach-private-dir",
+        type=Path,
+        help="Existing disposable Cockroach certification private directory; never written by this demo.",
+    )
     args = parser.parse_args()
-    value = run_demo(args.root)
+    value = run_demo(
+        args.root,
+        memory_backend=args.memory_backend,
+        cockroach_private_dir=args.cockroach_private_dir,
+    )
     raw = json.dumps(value, ensure_ascii=False, sort_keys=True, indent=2) + "\n"
     if args.output:
         args.output.parent.mkdir(mode=0o700, parents=True, exist_ok=True)

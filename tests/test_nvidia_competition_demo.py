@@ -20,6 +20,8 @@ class NvidiaCompetitionDemoTests(unittest.TestCase):
         self.assertEqual(list(REQUIRED_STAGE_ORDER), [event["stage"] for event in value["events"]])
         self.assertEqual("TEST_FIXTURE", value["events"][2]["status"])
         self.assertEqual("ADVISORY_ONLY", value["events"][2]["authority"])
+        self.assertEqual("repository-durable-test", value["memory"]["backend_id"])
+        self.assertEqual("TEST_FIXTURE", value["memory"]["backend_mode"])
         self.assertEqual(1, value["memory"]["first_write"])
         self.assertIs(value["memory"]["reuse_zero_write"], True)
         self.assertEqual("REVALIDATION_REQUIRED", value["memory"]["stale_revalidation"])
@@ -38,6 +40,12 @@ class NvidiaCompetitionDemoTests(unittest.TestCase):
         self.assertEqual(0, value["safety"]["duplicate_effects"])
         self.assertIs(value["safety"]["provider_output_authority"], False)
         self.assertIs(value["safety"]["human_bound_effect_authority"], True)
+
+    def test_cockroach_backend_requires_explicit_private_directory(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "demo"
+            with self.assertRaisesRegex(RuntimeError, "COCKROACH_PRIVATE_DIR_REQUIRED"):
+                run_demo(root, memory_backend="cockroach")
 
 
 if __name__ == "__main__":

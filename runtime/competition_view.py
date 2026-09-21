@@ -48,6 +48,7 @@ def load_competition_demo() -> dict:
         or type(value.get("effect")) is not dict
         or type(value.get("safety")) is not dict
         or type(value.get("mission")) is not dict
+        or (value.get("memory") is not None and type(value.get("memory")) is not dict)
     ):
         return _unavailable("INVALID_EVIDENCE")
 
@@ -69,6 +70,20 @@ def load_competition_demo() -> dict:
     effect = value["effect"]
     safety = value["safety"]
     mission = value["mission"]
+    memory = value.get("memory") or {}
+    backend_id = memory.get("backend_id", "UNKNOWN_LEGACY")
+    backend_mode = memory.get("backend_mode", "UNKNOWN")
+    schema_profile = memory.get("schema_profile", "UNKNOWN")
+    if backend_mode not in {"UNKNOWN", "TEST_FIXTURE", "LIVE_COCKROACH"}:
+        return _unavailable("INVALID_EVIDENCE")
+    if backend_mode == "TEST_FIXTURE" and backend_id != "repository-durable-test":
+        return _unavailable("INVALID_EVIDENCE")
+    if backend_mode == "LIVE_COCKROACH" and (
+        backend_id != "cockroachdb-learning-v1" or schema_profile != "learning-v1"
+    ):
+        return _unavailable("INVALID_EVIDENCE")
+    if not all(type(item) is str and item for item in (backend_id, backend_mode, schema_profile)):
+        return _unavailable("INVALID_EVIDENCE")
     mission_fields = ("snapshot_state", "heartbeat_state", "last_stage", "restart_recovery", "runtime_factory")
     if not all(type(mission.get(key)) is str and mission.get(key) for key in mission_fields):
         return _unavailable("INVALID_EVIDENCE")
@@ -86,6 +101,15 @@ def load_competition_demo() -> dict:
         "scenario_count": value.get("scenario_count"),
         "events": events,
         "mission": {key: mission[key] for key in mission_fields},
+        "memory": {
+            "backend_id": backend_id,
+            "backend_mode": backend_mode,
+            "schema_profile": schema_profile,
+            "first_write": memory.get("first_write"),
+            "reuse_zero_write": memory.get("reuse_zero_write"),
+            "stale_revalidation": memory.get("stale_revalidation"),
+            "dvm_pheromone_mode": memory.get("dvm_pheromone_mode"),
+        },
         "effect": {
             key: effect.get(key)
             for key in (

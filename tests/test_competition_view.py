@@ -44,6 +44,15 @@ def evidence(*, mode="TEST_FIXTURE", live=False):
             "restart_recovery": "VERIFIED_REPLAY",
             "runtime_factory": "AgentRuntime",
         },
+        "memory": {
+            "backend_id": "repository-durable-test",
+            "backend_mode": "TEST_FIXTURE",
+            "schema_profile": "test-fixture",
+            "first_write": 1,
+            "reuse_zero_write": True,
+            "stale_revalidation": "REVALIDATION_REQUIRED",
+            "dvm_pheromone_mode": "CONTROLLED_TEST_ONLY",
+        },
         "effect": {
             "status": "VERIFIED", "verified_effect": True,
             "dispatch_attempted": True, "effect_count": 1,
@@ -87,7 +96,8 @@ class CompetitionViewTests(unittest.TestCase):
         self.assertEqual("VERIFIED_REPLAY", value["mission"]["restart_recovery"])
         self.assertEqual("COMMITTED_BY_TARGET_RECEIPT", value["effect"]["receipt_reconciliation_state"])
         self.assertEqual("MAINTENANCE", value["effect"]["independent_measurement_mode"])
-        self.assertNotIn("memory", value)
+        self.assertEqual("repository-durable-test", value["memory"]["backend_id"])
+        self.assertEqual("TEST_FIXTURE", value["memory"]["backend_mode"])
         self.assertNotIn("approval_bound", value["effect"])
 
     def test_fixture_cannot_claim_live(self):

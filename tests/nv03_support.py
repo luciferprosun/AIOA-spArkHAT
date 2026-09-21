@@ -176,6 +176,8 @@ class MemoryFixture:
         revision=1,
         transport=None,
         hat_id="test-hat",
+        factory_builder=None,
+        backend_id="repository-durable-test",
     ):
         self.root = Path(root)
         self.hat_id = hat_id
@@ -224,7 +226,11 @@ class MemoryFixture:
                 self._source(record)
         else:
             self.add_source("policy", "v1", "The reviewed policy applies.")
-        self.factory = DurableFactory(self.root / "memory.json")
+        self.factory = (
+            factory_builder(self.core)
+            if factory_builder is not None
+            else DurableFactory(self.root / "memory.json")
+        )
         (self.root / "provenance").mkdir(mode=0o700, exist_ok=True)
         self.store = AppendOnlyProvenanceStore(self.root, clock=lambda: self.now)
         fixture = self
@@ -271,7 +277,7 @@ class MemoryFixture:
             self.scope,
             self.hat_id,
             memory_mode=mode,
-            backend_id="repository-durable-test",
+            backend_id=backend_id,
             freshness_policy_ref="nv03-freshness.1",
             write_policy_ref="native-owner-explicit-v1",
             **(profile_changes or {}),
@@ -282,7 +288,7 @@ class MemoryFixture:
             MemoryPatchConfig(True, assignment),
             self.dependencies,
             SimpleNamespace(active_hat=lambda: SimpleNamespace(name=self.hat_id)),
-            backend_id="repository-durable-test",
+            backend_id=backend_id,
         )
         self.context = MissionContext(
             self.scope, frozenset({"observation"}), "CONTRACT_TEST"
@@ -321,7 +327,10 @@ class MemoryFixture:
             mission_context=self.context,
             lite_bindings=self.bindings,
         )
-        if initialize and mode == "ACTIVE" and not self.factory.path.exists():
+        storage_path = getattr(self.factory, "path", None)
+        if initialize and mode == "ACTIVE" and (
+            storage_path is None or not storage_path.exists()
+        ):
             self.op("initialize-publication")
             self.op("slot-create", operation_key="create")
             self.op(

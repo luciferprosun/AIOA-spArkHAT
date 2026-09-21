@@ -170,3 +170,25 @@ Next:
 1. Continue bounded adversarial hardening only where it improves the final competition story.
 2. Keep DVM/pheromone SHADOW in product claims; controlled test evidence remains clearly labeled.
 3. Preserve provider fallback labeling and certification/development isolation while segmented endurance continues.
+
+## 2026-09-21 / Batch 10 — Cockroach-backed competition memory composition
+
+Completed:
+- extended the existing NV03/NV04/NV05 test composition ports so the same Memory Patch / learning-v1 logic can bind either the durable repository fixture or an explicitly supplied Cockroach transaction factory; no second memory engine was created;
+- extended the disposable certification factory with explicit `schema_profile` binding so `learning-v1` (19 migrations) is verified by `CorePurposePool` before use; default/base behavior remains unchanged;
+- added `--memory-backend cockroach` plus explicit `--cockroach-private-dir` to the competition demo; Cockroach credentials/config are read from the existing disposable private directory and are never copied into the artifact;
+- default competition behavior remains `repository-durable-test` / `TEST_FIXTURE`, preserving deterministic offline fallback;
+- Cockroach mode uses a fresh owner/space scope per fresh demo root and reports `cockroachdb-learning-v1` / `LIVE_COCKROACH`;
+- competition evidence projection/evaluation and the existing dashboard now expose the exact memory backend and schema profile instead of implying storage;
+- first real Cockroach-backed three-episode memory smoke PASS: verified write=1, ZERO_WRITE reuse=0 new writes, stale source -> `REVALIDATION_REQUIRED`;
+- full competition vertical slice with Cockroach PASS: durable memory stage=`COCKROACHDB_PERSISTED`, effect=`VERIFIED`, duplicate effects=0, restart recovery=`VERIFIED_REPLAY`;
+- accepted artifact: `/home/l/.local/state/aioa-nvidia-final-week/demo-cockroach-20260921T130522Z/AIOA_NVIDIA_COMPETITION_DEMO.json`;
+- artifact SHA-256: `c012799a70aa789b6548944c5f9e41bfdda73b83cece0d537dedda77ab4fd17c`;
+- real artifact projected `READY` and competition evaluation `PASS` with zero failure modes;
+- focused regression: 107/107 PASS; broad competition/CPL/Memory Patch/Service Guard/NV10/NonZero regression: 575/575 PASS; `node --check` and `git diff --check` PASS;
+- segmented endurance remained isolated and healthy after the live Cockroach demo: 20,478.742 s attested, zero downtime, Cockroach READY/PASS, frozen source PASS, zero provider calls; Segment 2 RUNNING, Segment 3 PENDING.
+
+Next:
+1. P1: prepare the existing CPL UI/config preset for primary + three distinct OpenRouter observers; no LIVE calls until the operator installs `OPENROUTER_API_KEY` and explicitly authorizes plan/budget.
+2. Preserve Cockroach as an explicit demo backend and repository durable storage as the labeled offline fallback.
+3. Keep DVM/pheromone SHADOW and avoid adding any new authority path.

@@ -16,7 +16,7 @@ pheromones and DVM never grant execution authority.
 | NVIDIA/LITE | Integrated and safety-gated | Availability can change independently of demo mode | Explicit evidence-only LIVE / EXTERNAL_UNAVAILABLE projection + deterministic TEST_FIXTURE fallback |
 | CPL | Present; plan/start/verify + web API | Not shown in one end-to-end story | Surface in competition dashboard |
 | Knowledge HAT | Present with Linux corpus/provenance | Not visually connected to correction story | Reuse one deterministic evidence case |
-| Cockroach Memory Patch | Live schema, 19 migrations, certificate READY | Needs concise demo evidence | Reuse; no new store |
+| Cockroach Memory Patch | Live schema, 19 migrations, certificate READY | Cockroach-backed competition memory path now passes; offline repository fixture remains explicit fallback | Surface backend truthfully; no new store |
 | Personal Delta | Verified correction/reuse present | Needs one visible correction episode | Reuse S2 semantics |
 | MemoryDynamics / DVM / pheromones | Implemented; benchmarked; production status SHADOW | No proven quality gain for promotion | Keep SHADOW; show measured restraint |
 | Service Guard | Real disposable target, receipt, independent verification | Live S6 depends on unstable provider | Use deterministic proposal for demo + retain live option |
@@ -35,16 +35,17 @@ pheromones and DVM never grant execution authority.
 - Authority Timeline backend focused regression: 80 tests PASS, 2 expected skips.
 - Deterministic competition vertical slice: PASS in `TEST_FIXTURE` mode; explicit 14-stage one-system order now covers observe -> evidence/HAT -> Nemotron fixture proposal -> CPL/Core authority -> AgentRuntime scheduler boundary -> guarded effect -> durable receipt -> independent verification -> durable memory/audit -> restart recovery.
 - Broader demo/memory-CPL/timeline/Service Guard/NV10 focused regression: 120/120 PASS.
+- Cockroach-backed competition vertical slice: PASS with `cockroachdb-learning-v1` / `LIVE_COCKROACH`, verified delta write -> ZERO_WRITE reuse -> stale revalidation, durable Service Guard effect/replay, and explicit dashboard backend projection; accepted artifact SHA-256 `c012799a70aa789b6548944c5f9e41bfdda73b83cece0d537dedda77ab4fd17c`.
 - Competition evaluation/API/UI gate: 33/33 PASS; metrics are explicit-outcome only and hidden reasoning is not requested or stored.
 - Mission heartbeat/restart recovery plus durable receipt and independent measurement are now exposed as read-only dashboard evidence; focused E2E gate 32/32 PASS.
 - Provider availability is now a separate read-only evidence projection: recovered `NV_OK` evidence -> `LIVE`, explicit outage evidence -> `EXTERNAL_UNAVAILABLE`, missing/invalid evidence -> `UNKNOWN`; focused provider/web gate 42/42 PASS.
 
 ## Highest-value remaining work
 
-1. Keep deterministic demo readiness independent from external NVIDIA hosted-inference availability.
-2. Preserve the accepted live adapter validation without rewriting historical UNKNOWN.
-3. Add only bounded competition-critical adversarial hardening found by regression; no new authority or memory path.
-4. Freeze functionality before the frontend/video window; DVM/pheromone remains SHADOW in product claims.
+1. Prepare the existing CPL UI/config surface for the exact primary + three-observer OpenRouter preset without making LIVE calls until a key and explicit budget/plan authorization exist.
+2. Keep deterministic demo readiness independent from external NVIDIA hosted-inference availability, with `repository-durable-test` clearly labeled as offline fallback and Cockroach shown only when actually used.
+3. Preserve the accepted live adapter validation without rewriting historical UNKNOWN.
+4. Add only bounded competition-critical adversarial hardening found by regression, then freeze functionality before the frontend/video window; DVM/pheromone remains SHADOW in product claims.
 
 ## Non-goals before submission
 

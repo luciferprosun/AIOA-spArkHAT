@@ -58,6 +58,7 @@ const elements = {
   competitionTaskSuccess: document.querySelector("#competition-task-success"),
   competitionVerifiedEffects: document.querySelector("#competition-verified-effects"),
   competitionDuplicateEffects: document.querySelector("#competition-duplicate-effects"),
+  competitionMemoryBackend: document.querySelector("#competition-memory-backend"),
   competitionMissionHeartbeat: document.querySelector("#competition-mission-heartbeat"),
   competitionReceiptState: document.querySelector("#competition-receipt-state"),
   competitionMeasurementState: document.querySelector("#competition-measurement-state"),
@@ -154,6 +155,12 @@ function renderCompetitionEvaluation(payload) {
     ? `${Math.round(payload.task_success_rate * 100)}%` : "—";
   elements.competitionVerifiedEffects.textContent = String(payload.tool_usage?.verified_effects ?? "—");
   elements.competitionDuplicateEffects.textContent = String(payload.tool_usage?.duplicate_effects ?? "—");
+  const memory = payload.memory || {};
+  elements.competitionMemoryBackend.textContent = memory.backend_mode === "LIVE_COCKROACH"
+    ? "CockroachDB LIVE"
+    : memory.backend_mode === "TEST_FIXTURE"
+      ? "Fixture"
+      : "Unknown";
   const reliability = payload.reliability || {};
   const replay = reliability.restart_replay_status || "UNAVAILABLE";
   const independent = reliability.independent_effect_verified === true ? "VERIFIED" : "UNVERIFIED";
@@ -164,7 +171,7 @@ function renderCompetitionEvaluation(payload) {
   elements.competitionRestartRecovery.textContent = reliability.restart_recovery_state || "UNAVAILABLE";
   const attempts = payload.trajectory_efficiency?.effect_attempts_per_verified_effect;
   elements.competitionRecoveryStatus.textContent =
-    `Receipt: ${reliability.receipt_state || "UNAVAILABLE"} · restart/replay: ${replay} · independent measurement: ${independent} · effect attempts/verified effect: ${attempts ?? "—"}.`;
+    `Memory: ${memory.backend_id || "UNKNOWN"} (${memory.schema_profile || "UNKNOWN"}) · receipt: ${reliability.receipt_state || "UNAVAILABLE"} · restart/replay: ${replay} · independent measurement: ${independent} · effect attempts/verified effect: ${attempts ?? "—"}.`;
 }
 
 async function refreshCompetitionEvaluation() {

@@ -39,6 +39,7 @@ def competition_evaluation() -> dict:
     events = view["events"]
     effect = view["effect"]
     mission = view["mission"]
+    memory = view.get("memory", {})
     task_success_rate = view.get("task_success_rate")
     scenario_count = view.get("scenario_count")
     if (
@@ -125,6 +126,11 @@ def competition_evaluation() -> dict:
         "status": "PASS" if not failure_modes else "FAIL",
         "scope": "DEMO_TRAJECTORY_ONLY",
         "provider_mode": view["provider_mode"],
+        "memory": {
+            "backend_id": memory.get("backend_id", "UNKNOWN_LEGACY"),
+            "backend_mode": memory.get("backend_mode", "UNKNOWN"),
+            "schema_profile": memory.get("schema_profile", "UNKNOWN"),
+        },
         "task_success_rate": float(task_success_rate),
         "trajectory": {
             "stage_count": len(events),
