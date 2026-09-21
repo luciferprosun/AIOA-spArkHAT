@@ -14,7 +14,7 @@ pheromones and DVM never grant execution authority.
 | --- | --- | --- | --- |
 | AgentRuntime | Present; owns LITE scheduler | No unified demo projection | Reuse |
 | NVIDIA/LITE | Integrated and safety-gated | Availability can change independently of demo mode | Explicit evidence-only LIVE / EXTERNAL_UNAVAILABLE projection + deterministic TEST_FIXTURE fallback |
-| CPL | Present; plan/start/verify + web API | Not shown in one end-to-end story | Surface in competition dashboard |
+| CPL | Present; plan/start/verify + web API; exact 1+3+1 competition preset now exposed read-only in existing UI | LIVE OpenRouter still intentionally blocked until key + explicit cost policy + bounded validation | Keep advisory-only preset; run one bounded LIVE gate only after operator installs credentials/policy |
 | Knowledge HAT | Present with Linux corpus/provenance | Not visually connected to correction story | Reuse one deterministic evidence case |
 | Cockroach Memory Patch | Live schema, 19 migrations, certificate READY | Cockroach-backed competition memory path now passes; offline repository fixture remains explicit fallback | Surface backend truthfully; no new store |
 | Personal Delta | Verified correction/reuse present | Needs one visible correction episode | Reuse S2 semantics |
@@ -42,9 +42,9 @@ pheromones and DVM never grant execution authority.
 
 ## Highest-value remaining work
 
-1. Prepare the existing CPL UI/config surface for the exact primary + three-observer OpenRouter preset without making LIVE calls until a key and explicit budget/plan authorization exist.
-2. Keep deterministic demo readiness independent from external NVIDIA hosted-inference availability, with `repository-durable-test` clearly labeled as offline fallback and Cockroach shown only when actually used.
-3. Preserve the accepted live adapter validation without rewriting historical UNKNOWN.
+1. P1 UI/config preparation is complete; keep the exact OpenRouter preset read-only/fail-closed until `OPENROUTER_API_KEY`, explicit cost policy and one bounded LIVE validation are available.
+2. P2: expose Non-Zero readiness/approval/receipt through the existing read-only competition projection only if it can reuse current authority/effect evidence without creating a second executor.
+3. Keep deterministic demo readiness independent from external NVIDIA hosted-inference availability, with `repository-durable-test` clearly labeled as offline fallback and Cockroach shown only when actually used.
 4. Add only bounded competition-critical adversarial hardening found by regression, then freeze functionality before the frontend/video window; DVM/pheromone remains SHADOW in product claims.
 
 ## Non-goals before submission

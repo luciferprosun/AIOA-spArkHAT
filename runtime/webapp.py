@@ -168,6 +168,9 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
                 service = self._service().runtime.critical_loop
                 if parsed.path == '/api/cpl/status':
                     payload = service.status()
+                elif parsed.path == '/api/cpl/preset':
+                    from critical_loop.preset import build_openrouter_cpl_preset
+                    payload = build_openrouter_cpl_preset(service)
                 elif parsed.path == '/api/cpl/fixture':
                     from critical_loop.fixture import FIXTURE_PROMPT, FIXTURE_EVIDENCE
                     payload = {'prompt': FIXTURE_PROMPT, 'evidence': FIXTURE_EVIDENCE,

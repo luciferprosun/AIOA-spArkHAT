@@ -192,3 +192,24 @@ Next:
 1. P1: prepare the existing CPL UI/config preset for primary + three distinct OpenRouter observers; no LIVE calls until the operator installs `OPENROUTER_API_KEY` and explicitly authorizes plan/budget.
 2. Preserve Cockroach as an explicit demo backend and repository durable storage as the labeled offline fallback.
 3. Keep DVM/pheromone SHADOW and avoid adding any new authority path.
+
+## 2026-09-21 / Batch 11 — fail-closed OpenRouter CPL competition preset
+
+Completed:
+- added read-only `aioa.cpl-preset.v1` projection for the existing strict CPL path; it does not plan, approve, start or call a provider;
+- exact competition binding is now one click from the existing UI: primary `minimax/minimax-m3:free`; observers `google/gemma-4-26b-a4b-it:free`, `google/gemma-4-31b-it:free`, `qwen/qwen3.8-27b:free` in the fixed Logic/Safety/Evidence roles;
+- existing Assistant selector remains the explicit CPL-default vs Plain-Chat-bypass control; no second review engine or authority path was added;
+- preset readiness is fail-closed: LIVE requires OpenRouter configured, enabled live cost policy and positive session budget; fresh quote/model validation still occurs during immutable plan admission;
+- loading the preset edits only local form fields, opens the existing plan options and invalidates any stale plan; it cannot auto-start a run;
+- token-protected `/api/cpl/preset` exposes model/role/readiness metadata only and never secrets;
+- current Linux LIVE readiness check confirmed `OPENROUTER_API_KEY` absent, cost policy disabled and zero session budget; no OpenRouter request was attempted;
+- focused complete CPL regression: 142/142 PASS;
+- post-UI focused web/preset regression: 26/26 PASS;
+- broad competition/CPL/Memory Patch/Service Guard/NV10/NonZero integration regression: 520/520 PASS;
+- `node --check web/app.js`, Python compile and `git diff --check` PASS;
+- segmented endurance remained isolated: 23,489.276614 attested seconds, zero downtime, Cockroach READY/PASS, frozen source/evidence PASS, zero provider calls; Segment 2 RUNNING, Segment 3 PENDING.
+
+Next:
+1. Do not run LIVE OpenRouter until the operator installs the key and explicit live cost policy; then perform only one bounded 5-call acceptance smoke before labeling the preset LIVE-validated.
+2. P2: expose Non-Zero readiness/approval/receipt through existing read-only competition projections without introducing a second effect executor.
+3. Keep DVM/pheromone SHADOW and preserve deterministic fallback/Cockroach backend labeling.

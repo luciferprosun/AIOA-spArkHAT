@@ -11,6 +11,7 @@ import unittest
 from unittest.mock import patch
 
 from critical_loop.fixture import FIXTURE_PROMPT, FIXTURE_EVIDENCE
+from critical_loop.preset import MODELS, PRESET_ID
 from providers.exact import ExactCallError
 from webapp import WebRuntimeService, make_server
 
@@ -154,6 +155,21 @@ class CPLWebTests(unittest.TestCase):
         self.assertEqual(payload['provider_mode'], 'LIVE')
         self.assertEqual(payload['status'], 'RECOVERED')
         self.assertIs(payload['read_only'], True)
+
+    def test_cpl_competition_preset_is_token_protected_read_only_and_no_call(self):
+        self.assertEqual(self.request('GET', '/api/cpl/preset', token=False)[0], 403)
+        before = list(self.fixture.requests)
+        status, payload, _ = self.request('GET', '/api/cpl/preset')
+        self.assertEqual(status, 200)
+        self.assertEqual(payload['schema'], 'aioa.cpl-preset.v1')
+        self.assertEqual(payload['preset_id'], PRESET_ID)
+        self.assertEqual(payload['models'], list(MODELS))
+        self.assertEqual(payload['authority'], 'ADVISORY_ONLY')
+        self.assertIs(payload['read_only'], True)
+        self.assertEqual(payload['scope'], 'TEST')
+        self.assertIs(payload['live_preconditions_ready'], False)
+        self.assertIn('NOT_LIVE_RUNTIME', payload['blocking_reasons'])
+        self.assertEqual(self.fixture.requests, before)
 
     def test_competition_dashboard_end_to_end_uses_real_demo_evidence(self):
         from scripts.nvidia_competition_demo import run_demo

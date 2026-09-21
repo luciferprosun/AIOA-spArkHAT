@@ -4,6 +4,7 @@ const state = {
   sessionToken: null,
   cplPlan: null,
   cplStatus: null,
+  cplPreset: null,
   cplPoll: null,
   cplRunId: null,
   cplRevision: 0,
@@ -458,12 +459,13 @@ async function bootstrap() {
     "System",
     "AIOA spArkHAT is ready. Assistant, deterministic Evidence Review and Critical Prompt Loop use one local runtime."
   );
-  const [statusResult, scenarioResult, timelineResult, evaluationResult, providerResult] = await Promise.allSettled([
+  const [statusResult, scenarioResult, timelineResult, evaluationResult, providerResult, cplPresetResult] = await Promise.allSettled([
     refreshStatus(),
     loadReviewScenario(),
     refreshAuthorityTimeline(),
     refreshCompetitionEvaluation(),
     refreshProviderAvailability(),
+    refreshCPLPreset(),
   ]);
   if (statusResult.status === "rejected") {
     addMessage("System", `Runtime startup failed: ${statusResult.reason}`);
@@ -479,6 +481,9 @@ async function bootstrap() {
   }
   if (providerResult.status === "rejected") {
     elements.competitionProviderEvidence.textContent = `Provider availability failed to load: ${providerResult.reason}`;
+  }
+  if (cplPresetResult.status === "rejected") {
+    cplElement('preset-status').textContent = `Competition CPL preset failed to load: ${cplPresetResult.reason}`;
   }
 }
 
@@ -519,6 +524,25 @@ function applyCPLStatus(status) {
   }
 }
 
+function renderCPLPreset(preset) {
+  state.cplPreset = preset;
+  const mapping = [
+    `primary ${preset.primary_model}`,
+    ...(preset.observer_models || []).map((model, index) => `${preset.roles?.[index] || `observer-${index + 1}`} ${model}`),
+  ].join(' · ');
+  if (preset.scope === 'TEST') {
+    cplElement('preset-status').textContent = `PREPARED · TEST fixture only · ${mapping}. Loading this preset does not call OpenRouter.`;
+  } else if (preset.live_preconditions_ready) {
+    cplElement('preset-status').textContent = `PREPARED · LIVE preconditions present · ${mapping}. Planning and one-use approval are still required before any provider call.`;
+  } else {
+    cplElement('preset-status').textContent = `PREPARED · LIVE NOT READY (${(preset.blocking_reasons || []).join(', ') || 'UNKNOWN'}) · ${mapping}. Loading only edits local form fields.`;
+  }
+}
+
+async function refreshCPLPreset() {
+  renderCPLPreset(await jsonFetch('/api/cpl/preset'));
+}
+
 function cplError(error) {
   cplElement('request-status').textContent = `CPL stopped: ${error}. The selected CPL mode has not fallen back to chat.`;
   cplElement('start').disabled = true;
@@ -536,6 +560,7 @@ function setCPLBusy(running) {
   elements.promptInput.disabled = running;
   document.querySelector('#assistant-submit').disabled = running;
   for (const element of cplElement('plan-form').querySelectorAll('input,textarea,button')) element.disabled = running;
+  cplElement('load-preset').disabled = running;
   if (state.cplStatus && state.cplStatus.mode !== 'TEST') cplElement('load-fixture').disabled = true;
 }
 
@@ -642,6 +667,17 @@ const changedCPLInput = () => invalidateCPLPlan('Input changed. Preview a new im
 cplElement('plan-form').addEventListener('input', changedCPLInput);
 elements.promptInput.addEventListener('input', changedCPLInput);
 elements.modelSelect.addEventListener('change', changedCPLInput);
+cplElement('load-preset').addEventListener('click', () => {
+  if (!state.cplPreset || state.cplRunning) return;
+  invalidateCPLPlan();
+  cplElement('models').value = state.cplPreset.models.join('\n');
+  cplElement('budget').value = state.cplPreset.scope === 'LIVE'
+    ? state.cplPreset.run_budget_usd_suggestion : '0';
+  cplElement('limits').value = '';
+  cplElement('options').open = true;
+  invalidateCPLPlan('Competition OpenRouter preset loaded locally. No provider call occurred; preview a new immutable plan before any authorization.');
+});
+
 cplElement('load-fixture').addEventListener('click', async () => {
   invalidateCPLPlan();
   const revision = state.cplRevision;

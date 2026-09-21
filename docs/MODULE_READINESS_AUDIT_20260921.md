@@ -145,10 +145,13 @@ P0:
 - keep 3x8 endurance untouched.
 
 P1:
-- once operator provides an OpenRouter key, run one bounded live CPL smoke with
-  the prepared four-model binding;
-- expose a simple UI selector/preset for CPL enabled vs plain mode and show the
-  three observer identities.
+- UI/config preparation is complete: the existing CPL-vs-Plain selector now
+  includes a read-only competition preset loader with the exact primary + three
+  observer identities and fail-closed readiness blockers; loading it performs
+  no provider call;
+- once operator provides an OpenRouter key and explicit live cost policy, run
+  one bounded live CPL smoke with the prepared four-model binding before
+  presenting the preset as LIVE-validated.
 
 P2:
 - expose Non-Zero readiness/approval/receipt status in the competition

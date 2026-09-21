@@ -101,4 +101,4 @@ After a key is installed:
 5. Require no authority/write promotion from observer output.
 6. Preserve provider errors/UNKNOWN; do not automatically retry an ambiguous
    call.
-7. Only after this gate passes expose the preset in the competition UI.
+7. The competition UI may expose the exact preset and fail-closed readiness blockers before LIVE validation, but must not claim LIVE readiness. Only after this gate passes may the UI present the preset as LIVE-validated.
