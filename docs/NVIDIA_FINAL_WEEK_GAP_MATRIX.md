@@ -13,7 +13,7 @@ pheromones and DVM never grant execution authority.
 | Subsystem | Existing state | Competition gap | Action |
 | --- | --- | --- | --- |
 | AgentRuntime | Present; owns LITE scheduler | No unified demo projection | Reuse |
-| NVIDIA/LITE | Integrated and safety-gated | Hosted inference currently times out intermittently | Preserve live path + explicit demo/test fallback |
+| NVIDIA/LITE | Integrated and safety-gated | Availability can change independently of demo mode | Explicit evidence-only LIVE / EXTERNAL_UNAVAILABLE projection + deterministic TEST_FIXTURE fallback |
 | CPL | Present; plan/start/verify + web API | Not shown in one end-to-end story | Surface in competition dashboard |
 | Knowledge HAT | Present with Linux corpus/provenance | Not visually connected to correction story | Reuse one deterministic evidence case |
 | Cockroach Memory Patch | Live schema, 19 migrations, certificate READY | Needs concise demo evidence | Reuse; no new store |
@@ -37,11 +37,12 @@ pheromones and DVM never grant execution authority.
 - Broader demo/memory-CPL/timeline/Service Guard/NV10 focused regression: 120/120 PASS.
 - Competition evaluation/API/UI gate: 33/33 PASS; metrics are explicit-outcome only and hidden reasoning is not requested or stored.
 - Mission heartbeat/restart recovery plus durable receipt and independent measurement are now exposed as read-only dashboard evidence; focused E2E gate 32/32 PASS.
+- Provider availability is now a separate read-only evidence projection: recovered `NV_OK` evidence -> `LIVE`, explicit outage evidence -> `EXTERNAL_UNAVAILABLE`, missing/invalid evidence -> `UNKNOWN`; focused provider/web gate 42/42 PASS.
 
 ## Highest-value remaining work
 
-1. Complete provider availability projection: LIVE, TEST_FIXTURE, or EXTERNAL_UNAVAILABLE.
-2. Keep deterministic demo readiness independent from external NVIDIA hosted-inference availability.
+1. Keep deterministic demo readiness independent from external NVIDIA hosted-inference availability.
+2. Capture at most one isolated live product validation while recovery evidence is fresh; never rewrite historical UNKNOWN.
 3. Add only bounded competition-critical hardening found by focused regression; no new authority or memory path.
 4. Freeze functionality before frontend/video window.
 

@@ -52,6 +52,8 @@ const elements = {
   authorityTimelineSummary: document.querySelector("#authority-timeline-summary"),
   authorityTimeline: document.querySelector("#authority-timeline"),
   competitionProviderMode: document.querySelector("#competition-provider-mode"),
+  competitionProviderAvailability: document.querySelector("#competition-provider-availability"),
+  competitionProviderEvidence: document.querySelector("#competition-provider-evidence"),
   competitionEvaluationSummary: document.querySelector("#competition-evaluation-summary"),
   competitionTaskSuccess: document.querySelector("#competition-task-success"),
   competitionVerifiedEffects: document.querySelector("#competition-verified-effects"),
@@ -167,6 +169,25 @@ function renderCompetitionEvaluation(payload) {
 
 async function refreshCompetitionEvaluation() {
   renderCompetitionEvaluation(await jsonFetch("/api/competition-evaluation"));
+}
+
+function renderProviderAvailability(payload) {
+  const mode = payload.provider_mode || "UNKNOWN";
+  elements.competitionProviderAvailability.textContent = mode;
+  if (payload.evidence_available === true) {
+    const checked = payload.checked_at_utc || "unknown time";
+    const model = payload.model || "unknown model";
+    const reason = payload.reason ? ` · reason: ${payload.reason}` : "";
+    elements.competitionProviderEvidence.textContent =
+      `${payload.status || mode} · ${model} · checked ${checked}${reason} · read-only evidence.`;
+  } else {
+    elements.competitionProviderEvidence.textContent =
+      `${payload.status || "UNAVAILABLE"} · no explicit provider-availability evidence configured.`;
+  }
+}
+
+async function refreshProviderAvailability() {
+  renderProviderAvailability(await jsonFetch("/api/provider-availability"));
 }
 
 function parseModelChoices(availableModels) {
@@ -355,7 +376,7 @@ document.querySelector("#switch-model").addEventListener("click", async () => {
 
 document.querySelector("#refresh-status").addEventListener("click", async () => {
   try {
-    await Promise.all([refreshStatus(), refreshAuthorityTimeline(), refreshCompetitionEvaluation()]);
+    await Promise.all([refreshStatus(), refreshAuthorityTimeline(), refreshCompetitionEvaluation(), refreshProviderAvailability()]);
   } catch (error) {
     addMessage("System", `Refresh failed: ${error}`);
   }
@@ -430,11 +451,12 @@ async function bootstrap() {
     "System",
     "AIOA spArkHAT is ready. Assistant, deterministic Evidence Review and Critical Prompt Loop use one local runtime."
   );
-  const [statusResult, scenarioResult, timelineResult, evaluationResult] = await Promise.allSettled([
+  const [statusResult, scenarioResult, timelineResult, evaluationResult, providerResult] = await Promise.allSettled([
     refreshStatus(),
     loadReviewScenario(),
     refreshAuthorityTimeline(),
     refreshCompetitionEvaluation(),
+    refreshProviderAvailability(),
   ]);
   if (statusResult.status === "rejected") {
     addMessage("System", `Runtime startup failed: ${statusResult.reason}`);
@@ -447,6 +469,9 @@ async function bootstrap() {
   }
   if (evaluationResult.status === "rejected") {
     elements.competitionEvaluationSummary.textContent = `Competition evaluation failed to load: ${evaluationResult.reason}`;
+  }
+  if (providerResult.status === "rejected") {
+    elements.competitionProviderEvidence.textContent = `Provider availability failed to load: ${providerResult.reason}`;
   }
 }
 

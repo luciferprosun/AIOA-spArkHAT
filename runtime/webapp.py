@@ -150,6 +150,12 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
             from competition_evaluation import competition_evaluation
             self._write_json(HTTPStatus.OK, competition_evaluation())
             return
+        if parsed.path == '/api/provider-availability':
+            if not self._check_token():
+                return
+            from provider_availability import provider_availability
+            self._write_json(HTTPStatus.OK, provider_availability())
+            return
         if parsed.path.startswith('/api/nonzero/'):
             if not self._check_token():
                 return

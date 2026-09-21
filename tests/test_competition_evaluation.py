@@ -61,7 +61,7 @@ class CompetitionEvaluationTests(unittest.TestCase):
         with patch.dict(os.environ, {}, clear=True):
             value = competition_evaluation()
         self.assertEqual("UNAVAILABLE", value["status"])
-        self.assertEqual("EXTERNAL_UNAVAILABLE", value["provider_mode"])
+        self.assertEqual("UNKNOWN", value["provider_mode"])
         self.assertIs(value["hidden_reasoning_logged"], False)
 
     def test_invalid_effect_metrics_fail_closed(self):

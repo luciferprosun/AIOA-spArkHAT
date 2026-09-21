@@ -140,6 +140,21 @@ class CPLWebTests(unittest.TestCase):
         self.assertEqual(payload['tool_usage']['duplicate_effects'], 0)
         self.assertIs(payload['trajectory']['hidden_reasoning_logged'], False)
 
+    def test_provider_availability_is_token_protected_and_evidence_backed(self):
+        from test_provider_availability import recovered
+        with tempfile.TemporaryDirectory() as temp:
+            artifact = Path(temp) / 'provider.json'
+            artifact.write_text(json.dumps(recovered()), encoding='utf-8')
+            with patch.dict('os.environ', {'AIOA_NVIDIA_PROVIDER_EVIDENCE': str(artifact)}):
+                self.assertEqual(
+                    self.request('GET', '/api/provider-availability', token=False)[0], 403
+                )
+                status, payload, _ = self.request('GET', '/api/provider-availability')
+        self.assertEqual(status, 200)
+        self.assertEqual(payload['provider_mode'], 'LIVE')
+        self.assertEqual(payload['status'], 'RECOVERED')
+        self.assertIs(payload['read_only'], True)
+
     def test_competition_dashboard_end_to_end_uses_real_demo_evidence(self):
         from scripts.nvidia_competition_demo import run_demo
         with tempfile.TemporaryDirectory() as temp:

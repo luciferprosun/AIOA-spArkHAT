@@ -16,7 +16,7 @@ def _unavailable(status: str) -> dict:
     return {
         "schema": "aioa.competition-view.v1",
         "status": status,
-        "provider_mode": "EXTERNAL_UNAVAILABLE",
+        "provider_mode": "UNKNOWN",
         "evidence_available": False,
         "read_only": True,
     }

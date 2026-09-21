@@ -120,3 +120,22 @@ Next:
 1. Complete explicit provider-availability projection so the dashboard distinguishes LIVE, TEST_FIXTURE and EXTERNAL_UNAVAILABLE from evidence rather than inference.
 2. Keep deterministic demo readiness independent from hosted NVIDIA availability.
 3. Run the next focused regression after the provider-state batch, then continue toward functional freeze.
+
+## 2026-09-21 / Batch 07
+
+Completed:
+- added token-protected read-only `/api/provider-availability` projection backed only by explicit local evidence;
+- provider availability no longer defaults to `EXTERNAL_UNAVAILABLE` when evidence is absent; it reports `UNKNOWN` instead of inventing an outage;
+- validated NVIDIA recovery evidence (`aioa.nvidia-provider-recovery.v1`) projects `LIVE` only when doctor/connectivity, exact `NV_OK` smoke digest, endpoint binding and non-mutation guards all validate;
+- explicit outage evidence can project `EXTERNAL_UNAVAILABLE` with bounded reason codes such as `TIMEOUT` or `RATE_LIMIT`;
+- symlinked, malformed or inconsistent provider evidence fails closed to `UNKNOWN` / `INVALID_EVIDENCE`;
+- existing dashboard now separates demo execution mode (`TEST_FIXTURE` / `LIVE`) from hosted NVIDIA availability and shows evidence timestamp/model;
+- real recovery marker from 2026-09-21T07:42:49Z projected `LIVE` for `nvidia/nemotron-3.5-lightning-30b-a3b` without making a new provider call;
+- focused competition/provider/web regression: 42/42 PASS;
+- `node --check web/app.js` PASS and `git diff --check` PASS;
+- segmented endurance remained isolated and healthy: 10235.275397 attested seconds, zero downtime, source/evidence PASS, Cockroach PASS, zero provider calls.
+
+Next:
+1. Keep provider availability evidence-only and avoid coupling deterministic demo readiness to hosted inference.
+2. Use the recovered live-provider window for at most one isolated product validation when it adds evidence, never to rewrite historical UNKNOWN.
+3. Continue only bounded competition-critical hardening, then move toward functional freeze.

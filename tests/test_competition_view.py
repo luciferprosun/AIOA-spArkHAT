@@ -57,7 +57,7 @@ class CompetitionViewTests(unittest.TestCase):
         with patch.dict(os.environ, {}, clear=True):
             value = load_competition_demo()
         self.assertEqual("NOT_CONFIGURED", value["status"])
-        self.assertEqual("EXTERNAL_UNAVAILABLE", value["provider_mode"])
+        self.assertEqual("UNKNOWN", value["provider_mode"])
         self.assertIs(value["read_only"], True)
 
     def test_valid_fixture_is_projected_without_extra_fields(self):
