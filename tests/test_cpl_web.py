@@ -93,6 +93,21 @@ class CPLWebTests(unittest.TestCase):
         self.assertEqual(self.request('POST', '/api/cpl/plan', payload,
             headers={'Origin': f'http://127.0.0.1:{self.port}'})[0], 201)
 
+    def test_authority_timeline_is_token_protected_read_only_projection(self):
+        self.assertEqual(
+            self.request('GET', '/api/authority-timeline', token=False)[0], 403
+        )
+        status, payload, _ = self.request('GET', '/api/authority-timeline')
+        self.assertEqual(status, 200)
+        self.assertEqual(payload['schema'], 'aioa.authority-timeline.v1')
+        self.assertEqual(payload['effect_authority'], 'CORE_HUMAN_GATED_ONLY')
+        self.assertIs(payload['provider_output_authority'], False)
+        self.assertIs(payload['timeline_is_read_only_projection'], True)
+        stages = {item['stage'] for item in payload['events']}
+        self.assertIn('critical_prompt_loop', stages)
+        self.assertIn('service_guard', stages)
+        self.assertIn('nonzero_effect', stages)
+
     def test_T11_status_and_cancel_responsive_during_real_http(self):
         self.fixture.faults = {1: 'delay'}
         plan = self.plan()

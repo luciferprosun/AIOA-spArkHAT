@@ -130,6 +130,14 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
             self._write_json(HTTPStatus.OK, {'token': self._service().csrf_token,
                                            'product_name': 'AIOA spArkHAT'})
             return
+        if parsed.path == '/api/authority-timeline':
+            if not self._check_token():
+                return
+            from authority_timeline import build_authority_timeline
+            self._write_json(
+                HTTPStatus.OK, build_authority_timeline(self._service().runtime)
+            )
+            return
         if parsed.path.startswith('/api/nonzero/'):
             if not self._check_token():
                 return
