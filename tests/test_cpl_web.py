@@ -140,6 +140,28 @@ class CPLWebTests(unittest.TestCase):
         self.assertEqual(payload['tool_usage']['duplicate_effects'], 0)
         self.assertIs(payload['trajectory']['hidden_reasoning_logged'], False)
 
+    def test_competition_dashboard_end_to_end_uses_real_demo_evidence(self):
+        from scripts.nvidia_competition_demo import run_demo
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / 'demo-runtime'
+            artifact = Path(temp) / 'competition.json'
+            artifact.write_text(json.dumps(run_demo(root)), encoding='utf-8')
+            with patch.dict('os.environ', {'AIOA_COMPETITION_DEMO_EVIDENCE': str(artifact)}):
+                demo_status, demo, _ = self.request('GET', '/api/competition-demo')
+                eval_status, evaluation, _ = self.request('GET', '/api/competition-evaluation')
+                timeline_status, timeline, _ = self.request('GET', '/api/authority-timeline')
+        self.assertEqual((demo_status, eval_status, timeline_status), (200, 200, 200))
+        self.assertEqual(demo['mission']['heartbeat_state'], 'COMPLETED_EVIDENCE_SNAPSHOT')
+        self.assertEqual(demo['mission']['restart_recovery'], 'VERIFIED_REPLAY')
+        self.assertEqual(demo['effect']['receipt_reconciliation_state'], 'COMMITTED_BY_TARGET_RECEIPT')
+        self.assertEqual(demo['effect']['independent_measurement_mode'], 'MAINTENANCE')
+        self.assertEqual(evaluation['status'], 'PASS')
+        self.assertIs(evaluation['reliability']['durable_receipt_verified'], True)
+        self.assertIs(evaluation['reliability']['independent_effect_verified'], True)
+        self.assertEqual(evaluation['tool_usage']['duplicate_effects'], 0)
+        self.assertEqual(timeline['effect_authority'], 'CORE_HUMAN_GATED_ONLY')
+        self.assertIs(timeline['provider_output_authority'], False)
+
     def test_T11_status_and_cancel_responsive_during_real_http(self):
         self.fixture.faults = {1: 'delay'}
         plan = self.plan()

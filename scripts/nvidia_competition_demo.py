@@ -41,12 +41,14 @@ def run_demo(root: Path) -> dict:
             approval = first.approve()
             effect = first.tick()
             measured = target.client.read()
+            effect_evidence = first.inspect()
         finally:
             first.close()
         restarted = GuardFixture(effect_root, target.client, operation_id="competition-effect")
         try:
             replay = restarted.tick()
             after_replay = target.client.read()
+            replay_evidence = restarted.inspect()
         finally:
             restarted.close()
     finally:
@@ -63,6 +65,11 @@ def run_demo(root: Path) -> dict:
         and replay["status"] == "REPLAY"
         and replay["dispatch_attempted"] is False
         and after_replay["effect_count"] == 1
+        and effect_evidence["receipt"]["transport_result"] == "TARGET_DURABLY_APPLIED"
+        and effect_evidence["receipt"]["reconciliation_state"] == "COMMITTED_BY_TARGET_RECEIPT"
+        and effect_evidence["verified"]["measurement"]["mode"] == "MAINTENANCE"
+        and effect_evidence["verified"]["measurement"]["effect_count"] == 1
+        and replay_evidence["verified"] == effect_evidence["verified"]
     ):
         raise RuntimeError("COMPETITION_VERTICAL_SLICE_CONTRACT_FAILED")
 
@@ -90,6 +97,13 @@ def run_demo(root: Path) -> dict:
         "task_success_rate": 1.0,
         "scenario_count": len(events),
         "events": events,
+        "mission": {
+            "snapshot_state": "COMPLETE",
+            "heartbeat_state": "COMPLETED_EVIDENCE_SNAPSHOT",
+            "last_stage": "restart_replay",
+            "restart_recovery": "VERIFIED_REPLAY",
+            "runtime_factory": "AgentRuntime",
+        },
         "memory": {
             "first_write": episodes[0]["new_delta_count"],
             "reuse_zero_write": episodes[1]["new_delta_count"] == 0,
@@ -105,6 +119,15 @@ def run_demo(root: Path) -> dict:
             "replay_dispatch_attempted": replay["dispatch_attempted"],
             "effect_count_after_replay": after_replay["effect_count"],
             "approval_bound": bool(approval),
+            "receipt_transport_result": effect_evidence["receipt"]["transport_result"],
+            "receipt_reconciliation_state": effect_evidence["receipt"]["reconciliation_state"],
+            "receipt_effect_count": effect_evidence["receipt"]["effect_count"],
+            "receipt_digest": effect_evidence["verified"]["receipt_digest"],
+            "independent_measurement_mode": effect_evidence["verified"]["measurement"]["mode"],
+            "independent_measurement_effect_count": effect_evidence["verified"]["measurement"]["effect_count"],
+            "measurement_digest": effect_evidence["verified"]["measurement_digest"],
+            "verified_record_persisted": effect_evidence["verified"]["verified_effect"] is True,
+            "replay_verified_record_persisted": replay_evidence["verified"] == effect_evidence["verified"],
         },
         "safety": {
             "provider_output_authority": False,

@@ -22,6 +22,7 @@ def competition_evaluation() -> dict:
 
     events = view["events"]
     effect = view["effect"]
+    mission = view["mission"]
     task_success_rate = view.get("task_success_rate")
     scenario_count = view.get("scenario_count")
     if (
@@ -60,14 +61,39 @@ def competition_evaluation() -> dict:
             "provider_mode": view["provider_mode"], "hidden_reasoning_logged": False,
             "failure_modes": ["INCONSISTENT_EFFECT_METRICS"],
         }
+    receipt_verified = bool(
+        effect.get("receipt_transport_result") == "TARGET_DURABLY_APPLIED"
+        and effect.get("receipt_reconciliation_state") == "COMMITTED_BY_TARGET_RECEIPT"
+        and effect.get("receipt_effect_count") == 1
+        and effect.get("verified_record_persisted") is True
+    )
+    measurement_verified = bool(
+        effect.get("independent_measurement_mode") == "MAINTENANCE"
+        and effect.get("independent_measurement_effect_count") == 1
+    )
+    restart_recovery_verified = bool(
+        mission.get("snapshot_state") == "COMPLETE"
+        and mission.get("heartbeat_state") == "COMPLETED_EVIDENCE_SNAPSHOT"
+        and mission.get("last_stage") == "restart_replay"
+        and mission.get("restart_recovery") == "VERIFIED_REPLAY"
+        and mission.get("runtime_factory") == "AgentRuntime"
+        and effect.get("replay_verified_record_persisted") is True
+    )
     effect_tool_success = bool(
         verified and dispatched and effect_count == 1
         and effect.get("replay_status") == "REPLAY"
         and not replay_dispatched and duplicate_effects == 0
+        and receipt_verified and measurement_verified and restart_recovery_verified
     )
     failure_modes = []
     if not effect_tool_success:
         failure_modes.append("EFFECT_TRAJECTORY_CONTRACT_FAILED")
+    if not receipt_verified:
+        failure_modes.append("DURABLE_RECEIPT_EVIDENCE_MISSING")
+    if not measurement_verified:
+        failure_modes.append("INDEPENDENT_MEASUREMENT_EVIDENCE_MISSING")
+    if not restart_recovery_verified:
+        failure_modes.append("RESTART_RECOVERY_EVIDENCE_MISSING")
     if safety.get("provider_output_authority") is not False:
         failure_modes.append("PROVIDER_OUTPUT_AUTHORITY_VIOLATION")
     if safety.get("human_bound_effect_authority") is not True:
@@ -102,8 +128,15 @@ def competition_evaluation() -> dict:
             "effect_tool_success_rate": 1.0 if effect_tool_success else 0.0,
         },
         "reliability": {
+            "mission_heartbeat_state": mission.get("heartbeat_state"),
+            "mission_snapshot_state": mission.get("snapshot_state"),
+            "restart_recovery_state": mission.get("restart_recovery"),
             "restart_replay_status": effect.get("replay_status"),
-            "independent_effect_verified": verified,
+            "durable_receipt_verified": receipt_verified,
+            "receipt_state": effect.get("receipt_reconciliation_state"),
+            "independent_effect_verified": verified and measurement_verified,
+            "independent_measurement_state": effect.get("independent_measurement_mode"),
+            "replay_verified_record_persisted": effect.get("replay_verified_record_persisted") is True,
             "provider_output_authority": safety.get("provider_output_authority"),
             "human_bound_effect_authority": safety.get("human_bound_effect_authority"),
         },

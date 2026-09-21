@@ -100,3 +100,23 @@ Next:
 2. Add one dashboard-level end-to-end regression over demo + evaluation + authority timeline.
 3. Keep provider recovery isolated; do not let external NVIDIA timeouts block deterministic demo readiness.
 4. Continue segmented endurance certification independently of development.
+
+## 2026-09-21 / Batch 06
+
+Completed:
+- strengthened the deterministic competition artifact with explicit mission snapshot, heartbeat-state and restart-recovery evidence;
+- projected durable Service Guard receipt state plus independent post-effect measurement through the existing read-only competition API;
+- preserved one Core / one scheduler / one authority path; the new fields are evidence-only and cannot execute or approve anything;
+- competition evaluation now fails closed when durable receipt, independent measurement or restart-recovery evidence is missing;
+- dashboard now shows mission heartbeat, durable receipt, independent measurement and restart recovery alongside task/effect metrics;
+- added a dashboard-level end-to-end HTTP regression using a freshly executed real deterministic demo artifact across `/api/competition-demo`, `/api/competition-evaluation` and `/api/authority-timeline`;
+- focused regression: 32/32 PASS;
+- `node --check web/app.js` PASS and `git diff --check` PASS;
+- fresh accepted demo artifact: `/home/l/.local/state/aioa-nvidia-final-week/demo-batch06-20260921T100742Z/AIOA_NVIDIA_COMPETITION_DEMO.json`;
+- artifact SHA-256: `78d28afe4b80610112c713258bd5401d3323ec24efc15d05bb76689a949c2985`;
+- segmented endurance remained isolated and healthy during this batch: 9633.394554 attested seconds, zero downtime, source/evidence PASS, Cockroach PASS, zero provider calls.
+
+Next:
+1. Complete explicit provider-availability projection so the dashboard distinguishes LIVE, TEST_FIXTURE and EXTERNAL_UNAVAILABLE from evidence rather than inference.
+2. Keep deterministic demo readiness independent from hosted NVIDIA availability.
+3. Run the next focused regression after the provider-state batch, then continue toward functional freeze.

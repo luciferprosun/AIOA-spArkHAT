@@ -36,14 +36,14 @@ pheromones and DVM never grant execution authority.
 - Deterministic competition vertical slice: PASS in `TEST_FIXTURE` mode.
 - Broader demo/memory-CPL/timeline/Service Guard/NV10 focused regression: 120/120 PASS.
 - Competition evaluation/API/UI gate: 33/33 PASS; metrics are explicit-outcome only and hidden reasoning is not requested or stored.
+- Mission heartbeat/restart recovery plus durable receipt and independent measurement are now exposed as read-only dashboard evidence; focused E2E gate 32/32 PASS.
 
 ## Highest-value remaining work
 
-1. Expose mission heartbeat/restart/recovery and effect receipt/independent verification in the existing dashboard.
-2. Complete provider availability projection: LIVE, TEST_FIXTURE, or EXTERNAL_UNAVAILABLE.
-3. Run one dashboard-level end-to-end regression over demo + evaluation + Authority Timeline.
-4. Keep deterministic demo readiness independent from external NVIDIA hosted-inference availability.
-5. Freeze functionality before frontend/video window.
+1. Complete provider availability projection: LIVE, TEST_FIXTURE, or EXTERNAL_UNAVAILABLE.
+2. Keep deterministic demo readiness independent from external NVIDIA hosted-inference availability.
+3. Add only bounded competition-critical hardening found by focused regression; no new authority or memory path.
+4. Freeze functionality before frontend/video window.
 
 ## Non-goals before submission
 

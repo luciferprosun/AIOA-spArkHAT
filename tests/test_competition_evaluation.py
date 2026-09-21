@@ -34,8 +34,28 @@ class CompetitionEvaluationTests(unittest.TestCase):
         self.assertEqual(0, value["tool_usage"]["restart_replay_dispatches"])
         self.assertEqual(0, value["tool_usage"]["duplicate_effects"])
         self.assertEqual(1.0, value["tool_usage"]["effect_tool_success_rate"])
+        self.assertEqual("COMPLETED_EVIDENCE_SNAPSHOT", value["reliability"]["mission_heartbeat_state"])
+        self.assertEqual("VERIFIED_REPLAY", value["reliability"]["restart_recovery_state"])
+        self.assertIs(value["reliability"]["durable_receipt_verified"], True)
+        self.assertEqual("COMMITTED_BY_TARGET_RECEIPT", value["reliability"]["receipt_state"])
+        self.assertIs(value["reliability"]["independent_effect_verified"], True)
+        self.assertEqual("MAINTENANCE", value["reliability"]["independent_measurement_state"])
         self.assertEqual([], value["failure_modes"])
 
+
+
+    def test_missing_receipt_or_recovery_evidence_fails_closed(self):
+        broken = evidence()
+        broken["effect"]["receipt_reconciliation_state"] = "UNKNOWN"
+        broken["mission"]["restart_recovery"] = "UNKNOWN"
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "demo.json"
+            path.write_text(json.dumps(broken), encoding="utf-8")
+            with patch.dict(os.environ, {ENV_PATH: str(path)}):
+                value = competition_evaluation()
+        self.assertEqual("FAIL", value["status"])
+        self.assertIn("DURABLE_RECEIPT_EVIDENCE_MISSING", value["failure_modes"])
+        self.assertIn("RESTART_RECOVERY_EVIDENCE_MISSING", value["failure_modes"])
 
     def test_missing_evidence_does_not_invent_success(self):
         with patch.dict(os.environ, {}, clear=True):
@@ -86,6 +106,10 @@ class CompetitionEvaluationTests(unittest.TestCase):
         self.assertIn('id="competition-evaluation-panel"', html)
         self.assertIn('id="competition-provider-mode"', html)
         self.assertIn('id="competition-duplicate-effects"', html)
+        self.assertIn('id="competition-mission-heartbeat"', html)
+        self.assertIn('id="competition-receipt-state"', html)
+        self.assertIn('id="competition-measurement-state"', html)
+        self.assertIn('id="competition-restart-recovery"', html)
         self.assertIn('jsonFetch("/api/competition-evaluation")', script)
         self.assertIn("renderCompetitionEvaluation", script)
         self.assertNotIn('fetch("/api/competition-evaluation", {method: "POST"', script)

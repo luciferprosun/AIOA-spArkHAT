@@ -47,6 +47,7 @@ def load_competition_demo() -> dict:
         or type(value.get("events")) is not list
         or type(value.get("effect")) is not dict
         or type(value.get("safety")) is not dict
+        or type(value.get("mission")) is not dict
     ):
         return _unavailable("INVALID_EVIDENCE")
 
@@ -67,6 +68,13 @@ def load_competition_demo() -> dict:
 
     effect = value["effect"]
     safety = value["safety"]
+    mission = value["mission"]
+    mission_fields = ("snapshot_state", "heartbeat_state", "last_stage", "restart_recovery", "runtime_factory")
+    if not all(type(mission.get(key)) is str and mission.get(key) for key in mission_fields):
+        return _unavailable("INVALID_EVIDENCE")
+    digest_fields = ("receipt_digest", "measurement_digest")
+    if any(type(effect.get(key)) is not str or len(effect.get(key)) != 64 for key in digest_fields):
+        return _unavailable("INVALID_EVIDENCE")
     return {
         "schema": "aioa.competition-view.v1",
         "status": "READY",
@@ -77,11 +85,16 @@ def load_competition_demo() -> dict:
         "task_success_rate": value.get("task_success_rate"),
         "scenario_count": value.get("scenario_count"),
         "events": events,
+        "mission": {key: mission[key] for key in mission_fields},
         "effect": {
             key: effect.get(key)
             for key in (
                 "status", "verified_effect", "dispatch_attempted", "effect_count",
                 "replay_status", "replay_dispatch_attempted", "effect_count_after_replay",
+                "receipt_transport_result", "receipt_reconciliation_state", "receipt_effect_count",
+                "receipt_digest", "independent_measurement_mode",
+                "independent_measurement_effect_count", "measurement_digest",
+                "verified_record_persisted", "replay_verified_record_persisted",
             )
         },
         "safety": {

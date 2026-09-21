@@ -22,11 +22,27 @@ def evidence(*, mode="TEST_FIXTURE", live=False):
             {"stage": "human_approval", "status": "BOUND", "authority": "HUMAN"},
             {"stage": "service_guard_effect", "status": "VERIFIED", "authority": "CORE_GATE"},
         ],
+        "mission": {
+            "snapshot_state": "COMPLETE",
+            "heartbeat_state": "COMPLETED_EVIDENCE_SNAPSHOT",
+            "last_stage": "restart_replay",
+            "restart_recovery": "VERIFIED_REPLAY",
+            "runtime_factory": "AgentRuntime",
+        },
         "effect": {
             "status": "VERIFIED", "verified_effect": True,
             "dispatch_attempted": True, "effect_count": 1,
             "replay_status": "REPLAY", "replay_dispatch_attempted": False,
             "effect_count_after_replay": 1,
+            "receipt_transport_result": "TARGET_DURABLY_APPLIED",
+            "receipt_reconciliation_state": "COMMITTED_BY_TARGET_RECEIPT",
+            "receipt_effect_count": 1,
+            "receipt_digest": "a" * 64,
+            "independent_measurement_mode": "MAINTENANCE",
+            "independent_measurement_effect_count": 1,
+            "measurement_digest": "b" * 64,
+            "verified_record_persisted": True,
+            "replay_verified_record_persisted": True,
         },
         "safety": {
             "provider_output_authority": False, "duplicate_effects": 0,
@@ -53,6 +69,9 @@ class CompetitionViewTests(unittest.TestCase):
         self.assertEqual("READY", value["status"])
         self.assertEqual("TEST_FIXTURE", value["provider_mode"])
         self.assertEqual(0, value["safety"]["duplicate_effects"])
+        self.assertEqual("VERIFIED_REPLAY", value["mission"]["restart_recovery"])
+        self.assertEqual("COMMITTED_BY_TARGET_RECEIPT", value["effect"]["receipt_reconciliation_state"])
+        self.assertEqual("MAINTENANCE", value["effect"]["independent_measurement_mode"])
         self.assertNotIn("memory", value)
         self.assertNotIn("approval_bound", value["effect"])
 

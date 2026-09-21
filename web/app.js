@@ -56,6 +56,10 @@ const elements = {
   competitionTaskSuccess: document.querySelector("#competition-task-success"),
   competitionVerifiedEffects: document.querySelector("#competition-verified-effects"),
   competitionDuplicateEffects: document.querySelector("#competition-duplicate-effects"),
+  competitionMissionHeartbeat: document.querySelector("#competition-mission-heartbeat"),
+  competitionReceiptState: document.querySelector("#competition-receipt-state"),
+  competitionMeasurementState: document.querySelector("#competition-measurement-state"),
+  competitionRestartRecovery: document.querySelector("#competition-restart-recovery"),
   competitionRecoveryStatus: document.querySelector("#competition-recovery-status"),
 };
 
@@ -148,11 +152,17 @@ function renderCompetitionEvaluation(payload) {
     ? `${Math.round(payload.task_success_rate * 100)}%` : "—";
   elements.competitionVerifiedEffects.textContent = String(payload.tool_usage?.verified_effects ?? "—");
   elements.competitionDuplicateEffects.textContent = String(payload.tool_usage?.duplicate_effects ?? "—");
-  const replay = payload.reliability?.restart_replay_status || "UNAVAILABLE";
-  const independent = payload.reliability?.independent_effect_verified === true ? "VERIFIED" : "UNVERIFIED";
+  const reliability = payload.reliability || {};
+  const replay = reliability.restart_replay_status || "UNAVAILABLE";
+  const independent = reliability.independent_effect_verified === true ? "VERIFIED" : "UNVERIFIED";
+  elements.competitionMissionHeartbeat.textContent = reliability.mission_heartbeat_state || "UNAVAILABLE";
+  elements.competitionReceiptState.textContent = reliability.durable_receipt_verified === true
+    ? "VERIFIED" : "UNVERIFIED";
+  elements.competitionMeasurementState.textContent = reliability.independent_measurement_state || "UNAVAILABLE";
+  elements.competitionRestartRecovery.textContent = reliability.restart_recovery_state || "UNAVAILABLE";
   const attempts = payload.trajectory_efficiency?.effect_attempts_per_verified_effect;
   elements.competitionRecoveryStatus.textContent =
-    `Restart/replay: ${replay} · independent measurement: ${independent} · effect attempts/verified effect: ${attempts ?? "—"}.`;
+    `Receipt: ${reliability.receipt_state || "UNAVAILABLE"} · restart/replay: ${replay} · independent measurement: ${independent} · effect attempts/verified effect: ${attempts ?? "—"}.`;
 }
 
 async function refreshCompetitionEvaluation() {
