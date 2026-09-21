@@ -9,6 +9,7 @@ from unittest.mock import patch
 
 from competition_evaluation import competition_evaluation
 from competition_view import ENV_PATH
+from nonzero_cloudops import module_descriptor
 from test_competition_view import evidence
 
 
@@ -25,6 +26,17 @@ class CompetitionEvaluationTests(unittest.TestCase):
         self.assertEqual(1.0, value["task_success_rate"])
         self.assertEqual("repository-durable-test", value["memory"]["backend_id"])
         self.assertEqual("TEST_FIXTURE", value["memory"]["backend_mode"])
+        descriptor = module_descriptor()
+        self.assertEqual("READY" if descriptor["available"] else "UNAVAILABLE", value["nonzero"]["status"])
+        self.assertEqual(descriptor["availability_code"], value["nonzero"]["availability_code"])
+        self.assertEqual("CORE_NATIVE", value["nonzero"]["implementation"])
+        self.assertEqual("portable", value["nonzero"]["mode"])
+        self.assertEqual("mock", value["nonzero"]["provider"])
+        self.assertEqual("CORE_HUMAN_GATE_VERIFIED", value["nonzero"]["approval_status"])
+        self.assertEqual("SERVICE_GUARD_RECEIPT_VERIFIED", value["nonzero"]["receipt_status"])
+        self.assertEqual("ServiceGuard", value["nonzero"]["competition_effect_executor"])
+        self.assertIs(value["nonzero"]["nonzero_executor_invoked"], False)
+        self.assertIs(value["nonzero"]["read_only"], True)
         self.assertEqual(14, value["trajectory"]["stage_count"])
         self.assertIs(value["trajectory"]["scenario_count_matches"], True)
         self.assertIs(value["trajectory"]["stage_order_verified"], True)
@@ -127,6 +139,12 @@ class CompetitionEvaluationTests(unittest.TestCase):
         self.assertIn('id="competition-receipt-state"', html)
         self.assertIn('id="competition-measurement-state"', html)
         self.assertIn('id="competition-restart-recovery"', html)
+        self.assertIn('id="competition-nonzero-readiness"', html)
+        self.assertIn('id="competition-nonzero-approval"', html)
+        self.assertIn('id="competition-nonzero-receipt"', html)
+        self.assertIn('id="competition-effect-executor"', html)
+        self.assertIn('id="competition-nonzero-boundary"', html)
+        self.assertIn("Non-Zero executor was not invoked", script)
         self.assertIn('jsonFetch("/api/competition-evaluation")', script)
         self.assertIn("renderCompetitionEvaluation", script)
         self.assertNotIn('fetch("/api/competition-evaluation", {method: "POST"', script)

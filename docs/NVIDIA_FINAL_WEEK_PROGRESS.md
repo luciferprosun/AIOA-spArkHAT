@@ -213,3 +213,25 @@ Next:
 1. Do not run LIVE OpenRouter until the operator installs the key and explicit live cost policy; then perform only one bounded 5-call acceptance smoke before labeling the preset LIVE-validated.
 2. P2: expose Non-Zero readiness/approval/receipt through existing read-only competition projections without introducing a second effect executor.
 3. Keep DVM/pheromone SHADOW and preserve deterministic fallback/Cockroach backend labeling.
+
+## 2026-09-21 / Batch 12 — Non-Zero read-only competition authority alignment
+
+Completed:
+- extended the existing read-only competition evaluation/dashboard with a bounded `aioa.nonzero-competition-projection.v1`; no new API write route, Core, scheduler, executor or authority path was added;
+- Non-Zero readiness is derived from the existing dependency-free module descriptor only; in the integration environment it reports `AVAILABLE`, `CORE_NATIVE`, `portable` / `mock`, `live_aws_enabled=false`;
+- competition approval status is derived only from the already-recorded Core human-approval event plus the existing human-bound safety invariant; the projection cannot approve an effect;
+- competition receipt status is derived only from the already-verified Service Guard durable receipt; the projection does not manufacture a Non-Zero receipt;
+- the projection explicitly reports `competition_effect_executor=ServiceGuard`, `nonzero_executor_invoked=false`, `read_only=true`, and `CONTRACT_ALIGNMENT_ONLY_NO_SECOND_EXECUTOR`;
+- dashboard now renders Non-Zero readiness, approval-contract alignment, receipt source and effect executor beside the existing competition evidence;
+- endpoint-level regression proves reading the projection leaves `AgentRuntime._nonzero_service` uninitialized;
+- fresh deterministic projection smoke: competition `PASS`, Non-Zero `READY`, Core human gate verified, Service Guard receipt verified, one verified effect, zero duplicate effects, zero failure modes;
+- focused P2 regression: 13/13 PASS;
+- full repository regression in the integration venv: 1016/1016 PASS, 4 expected optional UI skips (Playwright/Textual);
+- `node --check web/app.js` PASS and `git diff --check` PASS;
+- segmented endurance remained isolated and healthy at close check: 26,802.389474 attested seconds, zero downtime, Cockroach READY/PASS with 19 migrations, frozen source/evidence PASS, zero provider calls; Segment 2 RUNNING, Segment 3 PENDING.
+
+Next:
+1. Treat P0/P1/P2 composition as functionally complete and prefer freeze-oriented adversarial checks over new architecture.
+2. Keep OpenRouter LIVE blocked until operator installs `OPENROUTER_API_KEY` and explicitly authorizes live policy/budget.
+3. Keep Non-Zero live AWS disabled/un-certified and Service Guard as the competition effect executor.
+4. Preserve DVM/pheromone SHADOW and deterministic provider/memory fallback labels.

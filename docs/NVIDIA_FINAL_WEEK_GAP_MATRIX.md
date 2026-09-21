@@ -21,7 +21,7 @@ pheromones and DVM never grant execution authority.
 | MemoryDynamics / DVM / pheromones | Implemented; benchmarked; production status SHADOW | No proven quality gain for promotion | Keep SHADOW; show measured restraint |
 | Service Guard | Real disposable target, receipt, independent verification | Live S6 depends on unstable provider | Use deterministic proposal for demo + retain live option |
 | Scheduler | AgentRuntime-owned, lease/mutex/replay tested | Needs visible heartbeat/recovery | Surface status only |
-| NonZero | Integrated, human-bound authority, web API | Not yet tied visually to same mission | Reuse existing boundary |
+| NonZero | Integrated CORE_NATIVE portable/mock, human-bound authority, web API | Read-only competition projection now shows readiness plus alignment to the existing Core human gate and Service Guard receipt | Preserve contract alignment only; Service Guard remains the competition effect executor and NonZero is not invoked |
 | Provenance / evidence | Present and append-only contracts tested | Evidence is scattered across surfaces | Add read-only unified projection |
 | Web UI | Existing local app with CPL, Memory Patch, NonZero | No competition mission dashboard | Extend, do not rebuild |
 
@@ -39,13 +39,14 @@ pheromones and DVM never grant execution authority.
 - Competition evaluation/API/UI gate: 33/33 PASS; metrics are explicit-outcome only and hidden reasoning is not requested or stored.
 - Mission heartbeat/restart recovery plus durable receipt and independent measurement are now exposed as read-only dashboard evidence; focused E2E gate 32/32 PASS.
 - Provider availability is now a separate read-only evidence projection: recovered `NV_OK` evidence -> `LIVE`, explicit outage evidence -> `EXTERNAL_UNAVAILABLE`, missing/invalid evidence -> `UNKNOWN`; focused provider/web gate 42/42 PASS.
+- Non-Zero competition status is now a read-only contract-alignment projection: `CORE_NATIVE` portable/mock readiness, existing Core human-gate approval and existing Service Guard receipt are surfaced without initializing or invoking the Non-Zero executor; Service Guard remains the sole competition effect executor. Focused P2 gate: 13/13 PASS; full integration regression: 1016/1016 PASS with 4 expected optional UI skips.
 
 ## Highest-value remaining work
 
-1. P1 UI/config preparation is complete; keep the exact OpenRouter preset read-only/fail-closed until `OPENROUTER_API_KEY`, explicit cost policy and one bounded LIVE validation are available.
-2. P2: expose Non-Zero readiness/approval/receipt through the existing read-only competition projection only if it can reuse current authority/effect evidence without creating a second executor.
-3. Keep deterministic demo readiness independent from external NVIDIA hosted-inference availability, with `repository-durable-test` clearly labeled as offline fallback and Cockroach shown only when actually used.
-4. Add only bounded competition-critical adversarial hardening found by regression, then freeze functionality before the frontend/video window; DVM/pheromone remains SHADOW in product claims.
+1. P1/P2 integration is complete; keep the exact OpenRouter preset read-only/fail-closed until `OPENROUTER_API_KEY`, explicit cost policy and one bounded LIVE validation are operator-authorized.
+2. Keep deterministic demo readiness independent from external NVIDIA hosted-inference availability, with `repository-durable-test` clearly labeled as offline fallback and Cockroach shown only when actually used.
+3. Add only bounded competition-critical adversarial hardening found by regression, then freeze functionality before the frontend/video window; DVM/pheromone remains SHADOW in product claims.
+4. Preserve Non-Zero as contract-alignment/readiness evidence in the competition dashboard; do not replace Service Guard, enable live AWS, or create a second effect path for presentation optics.
 
 ## Non-goals before submission
 

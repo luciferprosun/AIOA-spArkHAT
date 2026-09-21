@@ -11,6 +11,7 @@ import unittest
 from unittest.mock import patch
 
 from critical_loop.fixture import FIXTURE_PROMPT, FIXTURE_EVIDENCE
+from nonzero_cloudops import module_descriptor as competition_nonzero_descriptor
 from critical_loop.preset import MODELS, PRESET_ID
 from providers.exact import ExactCallError
 from webapp import WebRuntimeService, make_server
@@ -140,6 +141,12 @@ class CPLWebTests(unittest.TestCase):
         self.assertEqual(payload['status'], 'PASS')
         self.assertEqual(payload['tool_usage']['duplicate_effects'], 0)
         self.assertIs(payload['trajectory']['hidden_reasoning_logged'], False)
+        self.assertEqual(payload['nonzero']['status'], 'READY' if competition_nonzero_descriptor()['available'] else 'UNAVAILABLE')
+        self.assertEqual(payload['nonzero']['approval_status'], 'CORE_HUMAN_GATE_VERIFIED')
+        self.assertEqual(payload['nonzero']['receipt_status'], 'SERVICE_GUARD_RECEIPT_VERIFIED')
+        self.assertEqual(payload['nonzero']['competition_effect_executor'], 'ServiceGuard')
+        self.assertIs(payload['nonzero']['nonzero_executor_invoked'], False)
+        self.assertIsNone(self.service.runtime._nonzero_service)
 
     def test_provider_availability_is_token_protected_and_evidence_backed(self):
         from test_provider_availability import recovered
@@ -190,6 +197,12 @@ class CPLWebTests(unittest.TestCase):
         self.assertIs(evaluation['reliability']['durable_receipt_verified'], True)
         self.assertIs(evaluation['reliability']['independent_effect_verified'], True)
         self.assertEqual(evaluation['tool_usage']['duplicate_effects'], 0)
+        self.assertEqual(evaluation['nonzero']['status'], 'READY' if competition_nonzero_descriptor()['available'] else 'UNAVAILABLE')
+        self.assertEqual(evaluation['nonzero']['approval_status'], 'CORE_HUMAN_GATE_VERIFIED')
+        self.assertEqual(evaluation['nonzero']['receipt_status'], 'SERVICE_GUARD_RECEIPT_VERIFIED')
+        self.assertEqual(evaluation['nonzero']['competition_effect_executor'], 'ServiceGuard')
+        self.assertIs(evaluation['nonzero']['nonzero_executor_invoked'], False)
+        self.assertIsNone(self.service.runtime._nonzero_service)
         self.assertEqual(timeline['effect_authority'], 'CORE_HUMAN_GATED_ONLY')
         self.assertIs(timeline['provider_output_authority'], False)
 

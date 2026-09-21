@@ -65,6 +65,11 @@ const elements = {
   competitionMeasurementState: document.querySelector("#competition-measurement-state"),
   competitionRestartRecovery: document.querySelector("#competition-restart-recovery"),
   competitionRecoveryStatus: document.querySelector("#competition-recovery-status"),
+  competitionNonzeroReadiness: document.querySelector("#competition-nonzero-readiness"),
+  competitionNonzeroApproval: document.querySelector("#competition-nonzero-approval"),
+  competitionNonzeroReceipt: document.querySelector("#competition-nonzero-receipt"),
+  competitionEffectExecutor: document.querySelector("#competition-effect-executor"),
+  competitionNonzeroBoundary: document.querySelector("#competition-nonzero-boundary"),
 };
 
 async function jsonFetch(url, options = {}) {
@@ -162,6 +167,14 @@ function renderCompetitionEvaluation(payload) {
     : memory.backend_mode === "TEST_FIXTURE"
       ? "Fixture"
       : "Unknown";
+  const nonzero = payload.nonzero || {};
+  elements.competitionNonzeroReadiness.textContent = nonzero.status || "UNAVAILABLE";
+  elements.competitionNonzeroApproval.textContent = nonzero.approval_status || "UNVERIFIED";
+  elements.competitionNonzeroReceipt.textContent = nonzero.receipt_status || "UNVERIFIED";
+  elements.competitionEffectExecutor.textContent = nonzero.competition_effect_executor || "UNKNOWN";
+  elements.competitionNonzeroBoundary.textContent = nonzero.nonzero_executor_invoked === false
+    ? `Non-Zero ${nonzero.implementation || "UNKNOWN"} · ${nonzero.mode || "UNKNOWN"}/${nonzero.provider || "UNKNOWN"} · ${nonzero.relationship || "read-only"}. Competition receipt stays owned by ${nonzero.receipt_source || "ServiceGuard"}; Non-Zero executor was not invoked.`
+    : "Non-Zero boundary unavailable or inconsistent.";
   const reliability = payload.reliability || {};
   const replay = reliability.restart_replay_status || "UNAVAILABLE";
   const independent = reliability.independent_effect_verified === true ? "VERIFIED" : "UNVERIFIED";

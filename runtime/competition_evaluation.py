@@ -7,6 +7,57 @@ is neither requested nor stored.
 from __future__ import annotations
 
 from competition_view import load_competition_demo
+from nonzero_cloudops import module_descriptor as nonzero_module_descriptor
+
+NONZERO_PROJECTION_SCHEMA = "aioa.nonzero-competition-projection.v1"
+
+
+def _nonzero_projection(events: list[dict], safety: dict, receipt_verified: bool) -> dict:
+    """Describe Non-Zero contract alignment without initializing or executing it.
+
+    The competition effect stays owned by ServiceGuard. This projection only
+    reports whether the existing CORE_NATIVE Non-Zero contract is available and
+    whether the already-observed Core human gate / ServiceGuard receipt satisfy
+    the same human-bound authority story.
+    """
+    try:
+        descriptor = nonzero_module_descriptor()
+    except Exception:
+        descriptor = {}
+    approval_event = next((row for row in events if row.get("stage") == "human_approval"), {})
+    approval_verified = bool(
+        approval_event.get("status") == "BOUND"
+        and approval_event.get("authority") == "HUMAN"
+        and safety.get("human_bound_effect_authority") is True
+    )
+    contract_ready = bool(
+        descriptor.get("available") is True
+        and descriptor.get("implementation") == "CORE_NATIVE"
+        and descriptor.get("mode") == "portable"
+        and descriptor.get("provider") == "mock"
+        and descriptor.get("live_aws_enabled") is False
+        and descriptor.get("external_models_enabled") is False
+    )
+    return {
+        "schema": NONZERO_PROJECTION_SCHEMA,
+        "status": "READY" if contract_ready else "UNAVAILABLE",
+        "availability_code": descriptor.get("availability_code", "UNAVAILABLE"),
+        "implementation": descriptor.get("implementation", "UNKNOWN"),
+        "contract_version": descriptor.get("contract_version", "UNKNOWN"),
+        "mode": descriptor.get("mode", "UNKNOWN"),
+        "provider": descriptor.get("provider", "UNKNOWN"),
+        "authority": descriptor.get("authority", "UNKNOWN"),
+        "live_aws_enabled": descriptor.get("live_aws_enabled", False),
+        "approval_status": "CORE_HUMAN_GATE_VERIFIED" if approval_verified else "UNVERIFIED",
+        "approval_source": "competition.human_approval",
+        "receipt_status": "SERVICE_GUARD_RECEIPT_VERIFIED" if receipt_verified else "UNVERIFIED",
+        "receipt_source": "ServiceGuard",
+        "competition_effect_executor": "ServiceGuard",
+        "nonzero_executor_invoked": False,
+        "read_only": True,
+        "relationship": "CONTRACT_ALIGNMENT_ONLY_NO_SECOND_EXECUTOR",
+    }
+
 
 REQUIRED_STAGE_ORDER = (
     "observe",
@@ -102,6 +153,7 @@ def competition_evaluation() -> dict:
         and not replay_dispatched and duplicate_effects == 0
         and receipt_verified and measurement_verified and restart_recovery_verified
     )
+    nonzero = _nonzero_projection(events, safety, receipt_verified)
     failure_modes = []
     stage_ids = [event["stage"] for event in events]
     if stage_ids != list(REQUIRED_STAGE_ORDER):
@@ -131,6 +183,7 @@ def competition_evaluation() -> dict:
             "backend_mode": memory.get("backend_mode", "UNKNOWN"),
             "schema_profile": memory.get("schema_profile", "UNKNOWN"),
         },
+        "nonzero": nonzero,
         "task_success_rate": float(task_success_rate),
         "trajectory": {
             "stage_count": len(events),
