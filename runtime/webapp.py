@@ -144,6 +144,12 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
             from competition_view import load_competition_demo
             self._write_json(HTTPStatus.OK, load_competition_demo())
             return
+        if parsed.path == '/api/competition-evaluation':
+            if not self._check_token():
+                return
+            from competition_evaluation import competition_evaluation
+            self._write_json(HTTPStatus.OK, competition_evaluation())
+            return
         if parsed.path.startswith('/api/nonzero/'):
             if not self._check_token():
                 return

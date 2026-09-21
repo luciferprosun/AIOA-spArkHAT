@@ -51,6 +51,12 @@ const elements = {
   authorityEffectBadge: document.querySelector("#authority-effect-badge"),
   authorityTimelineSummary: document.querySelector("#authority-timeline-summary"),
   authorityTimeline: document.querySelector("#authority-timeline"),
+  competitionProviderMode: document.querySelector("#competition-provider-mode"),
+  competitionEvaluationSummary: document.querySelector("#competition-evaluation-summary"),
+  competitionTaskSuccess: document.querySelector("#competition-task-success"),
+  competitionVerifiedEffects: document.querySelector("#competition-verified-effects"),
+  competitionDuplicateEffects: document.querySelector("#competition-duplicate-effects"),
+  competitionRecoveryStatus: document.querySelector("#competition-recovery-status"),
 };
 
 async function jsonFetch(url, options = {}) {
@@ -131,6 +137,26 @@ function renderAuthorityTimeline(payload) {
 
 async function refreshAuthorityTimeline() {
   renderAuthorityTimeline(await jsonFetch("/api/authority-timeline"));
+}
+
+function renderCompetitionEvaluation(payload) {
+  elements.competitionProviderMode.textContent = payload.provider_mode || "EXTERNAL_UNAVAILABLE";
+  elements.competitionEvaluationSummary.textContent = payload.status === "PASS"
+    ? "PASS · explicit trajectory/outcome metrics only; hidden reasoning is not requested or stored."
+    : `${payload.status || "UNAVAILABLE"} · competition evidence is not being presented as a successful run.`;
+  elements.competitionTaskSuccess.textContent = Number.isFinite(payload.task_success_rate)
+    ? `${Math.round(payload.task_success_rate * 100)}%` : "—";
+  elements.competitionVerifiedEffects.textContent = String(payload.tool_usage?.verified_effects ?? "—");
+  elements.competitionDuplicateEffects.textContent = String(payload.tool_usage?.duplicate_effects ?? "—");
+  const replay = payload.reliability?.restart_replay_status || "UNAVAILABLE";
+  const independent = payload.reliability?.independent_effect_verified === true ? "VERIFIED" : "UNVERIFIED";
+  const attempts = payload.trajectory_efficiency?.effect_attempts_per_verified_effect;
+  elements.competitionRecoveryStatus.textContent =
+    `Restart/replay: ${replay} · independent measurement: ${independent} · effect attempts/verified effect: ${attempts ?? "—"}.`;
+}
+
+async function refreshCompetitionEvaluation() {
+  renderCompetitionEvaluation(await jsonFetch("/api/competition-evaluation"));
 }
 
 function parseModelChoices(availableModels) {
@@ -319,7 +345,7 @@ document.querySelector("#switch-model").addEventListener("click", async () => {
 
 document.querySelector("#refresh-status").addEventListener("click", async () => {
   try {
-    await Promise.all([refreshStatus(), refreshAuthorityTimeline()]);
+    await Promise.all([refreshStatus(), refreshAuthorityTimeline(), refreshCompetitionEvaluation()]);
   } catch (error) {
     addMessage("System", `Refresh failed: ${error}`);
   }
@@ -394,10 +420,11 @@ async function bootstrap() {
     "System",
     "AIOA spArkHAT is ready. Assistant, deterministic Evidence Review and Critical Prompt Loop use one local runtime."
   );
-  const [statusResult, scenarioResult, timelineResult] = await Promise.allSettled([
+  const [statusResult, scenarioResult, timelineResult, evaluationResult] = await Promise.allSettled([
     refreshStatus(),
     loadReviewScenario(),
     refreshAuthorityTimeline(),
+    refreshCompetitionEvaluation(),
   ]);
   if (statusResult.status === "rejected") {
     addMessage("System", `Runtime startup failed: ${statusResult.reason}`);
@@ -407,6 +434,9 @@ async function bootstrap() {
   }
   if (timelineResult.status === "rejected") {
     elements.authorityTimelineSummary.textContent = `Authority timeline failed to load: ${timelineResult.reason}`;
+  }
+  if (evaluationResult.status === "rejected") {
+    elements.competitionEvaluationSummary.textContent = `Competition evaluation failed to load: ${evaluationResult.reason}`;
   }
 }
 

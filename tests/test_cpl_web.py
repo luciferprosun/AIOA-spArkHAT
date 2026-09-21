@@ -125,6 +125,21 @@ class CPLWebTests(unittest.TestCase):
         self.assertIs(payload['read_only'], True)
         self.assertEqual(payload['effect']['replay_status'], 'REPLAY')
 
+    def test_competition_evaluation_is_token_protected_and_has_no_hidden_reasoning(self):
+        from test_competition_view import evidence
+        with tempfile.TemporaryDirectory() as temp:
+            artifact = Path(temp) / 'competition.json'
+            artifact.write_text(json.dumps(evidence()), encoding='utf-8')
+            with patch.dict('os.environ', {'AIOA_COMPETITION_DEMO_EVIDENCE': str(artifact)}):
+                self.assertEqual(
+                    self.request('GET', '/api/competition-evaluation', token=False)[0], 403
+                )
+                status, payload, _ = self.request('GET', '/api/competition-evaluation')
+        self.assertEqual(status, 200)
+        self.assertEqual(payload['status'], 'PASS')
+        self.assertEqual(payload['tool_usage']['duplicate_effects'], 0)
+        self.assertIs(payload['trajectory']['hidden_reasoning_logged'], False)
+
     def test_T11_status_and_cancel_responsive_during_real_http(self):
         self.fixture.faults = {1: 'delay'}
         plan = self.plan()

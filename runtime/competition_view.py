@@ -27,9 +27,12 @@ def load_competition_demo() -> dict:
     if not raw_path:
         return _unavailable("NOT_CONFIGURED")
     try:
-        path = Path(raw_path).expanduser().resolve(strict=True)
+        candidate = Path(raw_path).expanduser()
+        if candidate.is_symlink():
+            return _unavailable("INVALID_EVIDENCE")
+        path = candidate.resolve(strict=True)
         stat = path.stat()
-        if not path.is_file() or path.is_symlink() or stat.st_size > MAX_BYTES:
+        if not path.is_file() or stat.st_size > MAX_BYTES:
             return _unavailable("INVALID_EVIDENCE")
         raw = path.read_bytes()
         value = json.loads(raw.decode("utf-8"))

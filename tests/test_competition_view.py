@@ -65,6 +65,17 @@ class CompetitionViewTests(unittest.TestCase):
         self.assertEqual("INVALID_EVIDENCE", value["status"])
         self.assertIs(value["evidence_available"], False)
 
+    def test_symlink_evidence_is_rejected(self):
+        with tempfile.TemporaryDirectory() as temp:
+            target = Path(temp) / "demo.json"
+            target.write_text(json.dumps(evidence()), encoding="utf-8")
+            link = Path(temp) / "demo-link.json"
+            link.symlink_to(target)
+            with patch.dict(os.environ, {ENV_PATH: str(link)}):
+                value = load_competition_demo()
+        self.assertEqual("INVALID_EVIDENCE", value["status"])
+        self.assertIs(value["evidence_available"], False)
+
 
 if __name__ == "__main__":
     unittest.main()

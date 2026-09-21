@@ -147,6 +147,25 @@
             <div id="authority-timeline" class="finding-list"></div>
           </section>
 
+          <section id="competition-evaluation-panel" class="review-card" aria-live="polite">
+            <div class="review-result-head">
+              <div>
+                <p class="eyebrow">Competition trajectory evaluation</p>
+                <h3>Visible outcomes only · no hidden reasoning</h3>
+              </div>
+              <span id="competition-provider-mode" class="badge">Loading</span>
+            </div>
+            <p id="competition-evaluation-summary" class="legal-boundary">
+              Read-only metrics derived from explicit demo events, effect receipts, verification and replay evidence.
+            </p>
+            <div class="hero-grid">
+              <article class="metric-card"><span>Task success</span><strong id="competition-task-success">—</strong></article>
+              <article class="metric-card"><span>Verified effects</span><strong id="competition-verified-effects">—</strong></article>
+              <article class="metric-card"><span>Duplicate effects</span><strong id="competition-duplicate-effects">—</strong></article>
+            </div>
+            <p id="competition-recovery-status" class="note">Recovery evidence not loaded.</p>
+          </section>
+
           <section id="chat-log" class="chat-log" aria-live="polite" aria-label="Assistant answers"></section>
           <form id="composer" class="composer">
             <label class="label" for="prompt-input">Your question</label>

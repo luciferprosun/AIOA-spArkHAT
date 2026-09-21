@@ -76,10 +76,27 @@ Completed:
 - added Authority Timeline panel to the existing web UI rather than rebuilding frontend;
 - timeline shows advisory/coordination/gate/effect boundaries without introducing authority;
 - JavaScript syntax and diff checks PASS;
-- combined competition-view + timeline + HTTP contract gate: 24/24 PASS;
-- broader competition API/Core/NonZero/Memory Patch gate: 84 PASS, 2 expected skips.
+- combined competition demo/view + timeline + HTTP contract gate: 27/27 PASS;
+- symlinked competition evidence is rejected before projection.
 
 Next:
 1. Expose mission heartbeat/recovery and effect receipt/verification from evidence.
 2. Add explicit evaluation summary for task success, tool outcomes and trajectory efficiency.
 3. Keep frontend work bounded until the final 48-hour polish window.
+
+
+## 2026-09-21 / Batch 05
+
+Completed:
+- added read-only `/api/competition-evaluation` projection over explicit demo evidence;
+- evaluation reports task success, tool outcomes, duplicate effects and restart/replay without requesting or storing hidden reasoning;
+- added explicit `TEST_FIXTURE` / provider-mode badge and trajectory metrics to the existing competition dashboard;
+- fail-closed checks reject invalid trajectory/effect metrics and symlinked evidence;
+- token protection preserved; GET projection grants no execution authority;
+- JavaScript syntax check PASS; focused competition/web gate: 33/33 PASS.
+
+Next:
+1. Expose mission heartbeat/current recovery state and effect receipt/independent verification in the dashboard.
+2. Add one dashboard-level end-to-end regression over demo + evaluation + authority timeline.
+3. Keep provider recovery isolated; do not let external NVIDIA timeouts block deterministic demo readiness.
+4. Continue segmented endurance certification independently of development.

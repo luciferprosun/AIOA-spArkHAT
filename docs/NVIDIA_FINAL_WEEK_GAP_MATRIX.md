@@ -35,15 +35,15 @@ pheromones and DVM never grant execution authority.
 - Authority Timeline backend focused regression: 80 tests PASS, 2 expected skips.
 - Deterministic competition vertical slice: PASS in `TEST_FIXTURE` mode.
 - Broader demo/memory-CPL/timeline/Service Guard/NV10 focused regression: 120/120 PASS.
+- Competition evaluation/API/UI gate: 33/33 PASS; metrics are explicit-outcome only and hidden reasoning is not requested or stored.
 
 ## Highest-value remaining work
 
-1. Add Authority Timeline UI rendering.
-2. Integrate the validated deterministic competition mission fixture into the existing dashboard.
-3. Expose mission heartbeat/restart/recovery and effect receipt/verification.
-4. Make provider availability explicit: LIVE, TEST_FIXTURE, or EXTERNAL_UNAVAILABLE.
-5. Run one dashboard-level end-to-end regression; backend restart/replay is already validated.
-6. Freeze functionality before frontend/video window.
+1. Expose mission heartbeat/restart/recovery and effect receipt/independent verification in the existing dashboard.
+2. Complete provider availability projection: LIVE, TEST_FIXTURE, or EXTERNAL_UNAVAILABLE.
+3. Run one dashboard-level end-to-end regression over demo + evaluation + Authority Timeline.
+4. Keep deterministic demo readiness independent from external NVIDIA hosted-inference availability.
+5. Freeze functionality before frontend/video window.
 
 ## Non-goals before submission
 
