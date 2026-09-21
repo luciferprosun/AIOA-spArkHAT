@@ -235,3 +235,22 @@ Next:
 2. Keep OpenRouter LIVE blocked until operator installs `OPENROUTER_API_KEY` and explicitly authorizes live policy/budget.
 3. Keep Non-Zero live AWS disabled/un-certified and Service Guard as the competition effect executor.
 4. Preserve DVM/pheromone SHADOW and deterministic provider/memory fallback labels.
+
+## 2026-09-21 / Batch 13 — fail-closed SHADOW competition dynamics
+
+Completed:
+- competition demo now executes the existing NV05 MemoryDynamics path explicitly in `SHADOW` mode for both repository-fixture and Cockroach-backed compositions; the generic NV05 controlled-test helper retains its historical `ACTIVE` default for its dedicated contract tests;
+- demo acceptance now requires every memory episode to report `dvm.mode=SHADOW`; an unexpected ACTIVE/non-SHADOW episode fails the competition run instead of being presented as acceptable evidence;
+- read-only competition evidence projection now accepts only `memory.dvm_pheromone_mode=SHADOW`; forged or stale ACTIVE evidence is rejected as `INVALID_EVIDENCE`;
+- fresh deterministic artifact projected `READY` with `dvm_pheromone_mode=SHADOW`, one verified effect, zero duplicate effects and `VERIFIED_REPLAY` recovery;
+- fresh artifact: `/home/l/.local/state/aioa-nvidia-final-week/demo-shadow-hardening-20260921T170721Z/AIOA_NVIDIA_COMPETITION_DEMO.json`;
+- artifact SHA-256: `9ef87e506e738376d92f3226019bae13f2a7cf4368500ec3dd87b6739bf5cbef`;
+- focused dynamics/competition regression: 35/35 PASS; Python compile and `git diff --check` PASS;
+- canonical full repository regression with the existing optional Non-Zero dependency sidecar: 1017/1017 PASS, 4 expected optional UI skips;
+- an earlier exploratory full-suite invocation without the required Non-Zero optional dependencies failed only on missing `pydantic`; rerunning with the established regression environment produced the clean 1017/1017 PASS above;
+- segmented endurance remained isolated; no frozen certification or historical evidence root was modified.
+
+Next:
+1. Treat DVM/pheromone promotion as closed for this submission: keep SHADOW unless a new, separately reviewed evidence mandate exists.
+2. Prefer reviewer/reproducibility hardening and freeze-oriented adversarial checks over new architecture.
+3. Keep OpenRouter LIVE and Non-Zero live AWS blocked under their existing operator gates.

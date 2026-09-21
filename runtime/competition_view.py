@@ -74,6 +74,9 @@ def load_competition_demo() -> dict:
     backend_id = memory.get("backend_id", "UNKNOWN_LEGACY")
     backend_mode = memory.get("backend_mode", "UNKNOWN")
     schema_profile = memory.get("schema_profile", "UNKNOWN")
+    dvm_pheromone_mode = memory.get("dvm_pheromone_mode")
+    if dvm_pheromone_mode != "SHADOW":
+        return _unavailable("INVALID_EVIDENCE")
     if backend_mode not in {"UNKNOWN", "TEST_FIXTURE", "LIVE_COCKROACH"}:
         return _unavailable("INVALID_EVIDENCE")
     if backend_mode == "TEST_FIXTURE" and backend_id != "repository-durable-test":
@@ -108,7 +111,7 @@ def load_competition_demo() -> dict:
             "first_write": memory.get("first_write"),
             "reuse_zero_write": memory.get("reuse_zero_write"),
             "stale_revalidation": memory.get("stale_revalidation"),
-            "dvm_pheromone_mode": memory.get("dvm_pheromone_mode"),
+            "dvm_pheromone_mode": dvm_pheromone_mode,
         },
         "effect": {
             key: effect.get(key)

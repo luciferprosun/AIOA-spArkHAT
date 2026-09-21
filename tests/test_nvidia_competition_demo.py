@@ -22,6 +22,7 @@ class NvidiaCompetitionDemoTests(unittest.TestCase):
         self.assertEqual("ADVISORY_ONLY", value["events"][2]["authority"])
         self.assertEqual("repository-durable-test", value["memory"]["backend_id"])
         self.assertEqual("TEST_FIXTURE", value["memory"]["backend_mode"])
+        self.assertEqual("SHADOW", value["memory"]["dvm_pheromone_mode"])
         self.assertEqual(1, value["memory"]["first_write"])
         self.assertIs(value["memory"]["reuse_zero_write"], True)
         self.assertEqual("REVALIDATION_REQUIRED", value["memory"]["stale_revalidation"])

@@ -40,6 +40,7 @@ pheromones and DVM never grant execution authority.
 - Mission heartbeat/restart recovery plus durable receipt and independent measurement are now exposed as read-only dashboard evidence; focused E2E gate 32/32 PASS.
 - Provider availability is now a separate read-only evidence projection: recovered `NV_OK` evidence -> `LIVE`, explicit outage evidence -> `EXTERNAL_UNAVAILABLE`, missing/invalid evidence -> `UNKNOWN`; focused provider/web gate 42/42 PASS.
 - Non-Zero competition status is now a read-only contract-alignment projection: `CORE_NATIVE` portable/mock readiness, existing Core human-gate approval and existing Service Guard receipt are surfaced without initializing or invoking the Non-Zero executor; Service Guard remains the sole competition effect executor. Focused P2 gate: 13/13 PASS; full integration regression: 1016/1016 PASS with 4 expected optional UI skips.
+- DVM/pheromone competition semantics are now fail-closed at `SHADOW`: the demo composes NV05 in SHADOW mode, the artifact records that exact mode, and the read-only projection rejects ACTIVE/non-SHADOW evidence. Focused gate: 35/35 PASS; canonical full regression: 1017/1017 PASS with 4 expected optional UI skips.
 
 ## Highest-value remaining work
 

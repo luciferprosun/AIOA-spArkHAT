@@ -26,10 +26,13 @@ def execute(
     factory_builder=None,
     backend_id="repository-durable-test",
     scope=None,
+    dynamics_mode="ACTIVE",
 ):
+    if dynamics_mode not in {"ACTIVE", "SHADOW"}:
+        raise ValueError("UNSUPPORTED_DYNAMICS_MODE")
     fx = DynamicsFixture(
         root,
-        mode="ACTIVE",
+        mode=dynamics_mode,
         factory_builder=factory_builder,
         backend_id=backend_id,
         scope=scope,
@@ -84,7 +87,9 @@ def execute(
                 value["new_delta_count"] == 0 and value["cpl"]["status"] == "ZERO_WRITE"
             ), value
             assert value["delta_ids"][0] in value["injected_delta_refs"], value
-            assert value["trails"][0]["tier"] == "HOT", value
+            assert value["trails"][0]["tier"] == (
+                "HOT" if dynamics_mode == "ACTIVE" else "DEEP"
+            ), value
             assert any(e["reason"] == "VERIFIED_REUSE" for e in value["tau_events"]), (
                 value
             )

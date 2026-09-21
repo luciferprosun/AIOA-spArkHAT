@@ -82,6 +82,7 @@ def run_demo(
             factory_builder=factory_builder,
             backend_id=backend_id,
             scope=scope,
+            dynamics_mode="SHADOW",
         )
         for number in (1, 2, 3)
     ]
@@ -110,6 +111,7 @@ def run_demo(
     if not (
         episodes[0]["runtime_class"] == "AgentRuntime"
         and {episode["backend"] for episode in episodes} == {backend_id}
+        and {episode["dvm"].get("mode") for episode in episodes} == {"SHADOW"}
         and episodes[0]["provider_path"] == "NVIDIA_ADAPTER_FIXTURE_AND_ORIGINAL_CPL_HTTP"
         and episodes[0]["execution_authority"] is False
         and episodes[0]["new_delta_count"] == 1
@@ -182,7 +184,7 @@ def run_demo(
             "first_write": episodes[0]["new_delta_count"],
             "reuse_zero_write": episodes[1]["new_delta_count"] == 0,
             "stale_revalidation": episodes[2]["reuse_status"][0],
-            "dvm_pheromone_mode": "CONTROLLED_TEST_ONLY",
+            "dvm_pheromone_mode": episodes[0]["dvm"]["mode"],
         },
         "effect": {
             "status": effect["status"],

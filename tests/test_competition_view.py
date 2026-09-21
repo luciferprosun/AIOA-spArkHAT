@@ -51,7 +51,7 @@ def evidence(*, mode="TEST_FIXTURE", live=False):
             "first_write": 1,
             "reuse_zero_write": True,
             "stale_revalidation": "REVALIDATION_REQUIRED",
-            "dvm_pheromone_mode": "CONTROLLED_TEST_ONLY",
+            "dvm_pheromone_mode": "SHADOW",
         },
         "effect": {
             "status": "VERIFIED", "verified_effect": True,
@@ -98,7 +98,19 @@ class CompetitionViewTests(unittest.TestCase):
         self.assertEqual("MAINTENANCE", value["effect"]["independent_measurement_mode"])
         self.assertEqual("repository-durable-test", value["memory"]["backend_id"])
         self.assertEqual("TEST_FIXTURE", value["memory"]["backend_mode"])
+        self.assertEqual("SHADOW", value["memory"]["dvm_pheromone_mode"])
         self.assertNotIn("approval_bound", value["effect"])
+
+    def test_non_shadow_dvm_evidence_is_rejected(self):
+        broken = evidence()
+        broken["memory"]["dvm_pheromone_mode"] = "ACTIVE"
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "demo.json"
+            path.write_text(json.dumps(broken), encoding="utf-8")
+            with patch.dict(os.environ, {ENV_PATH: str(path)}):
+                value = load_competition_demo()
+        self.assertEqual("INVALID_EVIDENCE", value["status"])
+        self.assertIs(value["evidence_available"], False)
 
     def test_fixture_cannot_claim_live(self):
         with tempfile.TemporaryDirectory() as temp:
