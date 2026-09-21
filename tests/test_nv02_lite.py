@@ -18,7 +18,7 @@ from contextlib import redirect_stdout
 from unittest.mock import patch
 
 from main import AgentRuntime, create_runtime
-from live_gate_support import test_live_gate
+from live_gate_support import test_live_gate as run_live_gate_check
 from runtime.core_admission import OwnerScope
 from runtime.memory_patch.contracts.serialization import canonical_json
 from runtime.mission.contracts import MissionContext, MissionError
@@ -83,7 +83,7 @@ class NV02Tests(unittest.TestCase):
     def provider(self, *, transport=None, key="fixture-not-a-real-key", budget=None):
         return NvidiaProvider(budget or self.profile.budget, secret_supplier=lambda: key,
                               transport=transport or self.transport, clock=lambda: self.clock,
-                              live_gate=test_live_gate(self.root / "live-gate",
+                              live_gate=run_live_gate_check(self.root / "live-gate",
                                                        clock=lambda: self.clock))
 
     def runtime(self, *, profile=None, provider=None, **bindings):
