@@ -8,7 +8,7 @@
 
 ## Publication status
 
-This reviewer guide is being prepared on the local integration/competition branch before controlled consolidation. It does **not** claim that the remote default branch already contains every change documented here. Public merge/push/tagging remains a separate operator-approved release step.
+This reviewer guide belongs to the public integrated AIOA spArkHAT review surface. The public default branch is the reviewer source of truth after controlled release. Branch-only work must not be treated as published until it is merged to the default branch.
 
 ## Executive summary
 

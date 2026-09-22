@@ -18,3 +18,13 @@ This log starts at the 2026-09-22 reviewer checkpoint. It does not fabricate ret
 - Validation: documentation link/readability checks, file-by-file tracked inventory, git diff --check
 - Authority: no push, merge, deploy, publication, submission, repo-visibility change, frozen-upstream mutation, or product-effect execution
 - Result summary: historical material preserved; current vs historical reviewer paths made explicit; no destructive cleanup performed
+
+## 2026-09-22 — Public reviewer release preparation
+
+- Tool: ChatGPT
+- Model: GPT-5.6 Sol
+- Use: reviewer-navigation correction, public-release preparation, GitHub PR orchestration
+- Human direction: explicit authorization to publish the prepared AIOA spArkHAT integration to GitHub
+- Material outputs: README reviewer navigation; NLnet publication-status clarification
+- Validation: deterministic NVIDIA reviewer preflight PASS; git diff --check PASS; PR mergeability CLEAN
+- Authority: no force-push, no frozen-upstream mutation, no secret publication
