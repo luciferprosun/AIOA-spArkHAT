@@ -42,7 +42,7 @@ Adapt the draft to the actual recorded deployment before submitting. Never repla
 
 1. Keep the published main and isolated reviewer launch green; preserve the exact tested version.
 2. Finish the operator-facing task and dashboard flow in the existing runtime. Keep Service Guard as the only competition executor and avoid a new Core.
-3. Record the useful end-to-end result using [the demo runbook](NVIDIA_DEMO_RUNBOOK.md); keep live/fixture and human-approval labels visible.
+3. Record the useful end-to-end result using [the demo runbook](NVIDIA_DEMO_RUNBOOK.md) and [submission pack](NVIDIA_SUBMISSION_PACK.md); keep live/fixture and human-approval labels visible.
 4. Complete and verify the official project form before the operational cutoff. No submission is made by this checklist.
 
 OpenRouter can be configured later. Additional grant drafting and an optional Gold24h are not prerequisites for these steps. Existing frozen hackathon repositories and NLnet history remain preserved.

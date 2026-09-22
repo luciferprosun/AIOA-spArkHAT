@@ -46,6 +46,9 @@ documents first.
 8. **Evidence and validation ledger**
    - `docs/NVIDIA_FINAL_WEEK_PROGRESS.md`
 
+9. **Final submission / recording pack**
+   - `docs/NVIDIA_SUBMISSION_PACK.md`
+
 ## Competition vertical slice
 
 The competition trajectory is deliberately one runtime and one authority path:
