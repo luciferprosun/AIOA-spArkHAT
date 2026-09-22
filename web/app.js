@@ -56,6 +56,7 @@ const elements = {
   competitionProviderAvailability: document.querySelector("#competition-provider-availability"),
   competitionProviderEvidence: document.querySelector("#competition-provider-evidence"),
   competitionEvaluationSummary: document.querySelector("#competition-evaluation-summary"),
+  competitionUseCaseSummary: document.querySelector("#competition-use-case-summary"),
   competitionTaskSuccess: document.querySelector("#competition-task-success"),
   competitionVerifiedEffects: document.querySelector("#competition-verified-effects"),
   competitionDuplicateEffects: document.querySelector("#competition-duplicate-effects"),
@@ -178,6 +179,10 @@ function renderCompetitionEvaluation(payload) {
   const reliability = payload.reliability || {};
   const replay = reliability.restart_replay_status || "UNAVAILABLE";
   const independent = reliability.independent_effect_verified === true ? "VERIFIED" : "UNVERIFIED";
+  const verifiedMode = reliability.independent_measurement_state || "UNAVAILABLE";
+  const duplicateEffects = payload.tool_usage?.duplicate_effects;
+  elements.competitionUseCaseSummary.textContent =
+    `Use case: long-running service maintenance. The agent observes and prepares a transition; after the human-bound gate, Service Guard applies one disposable local effect. Verified target state: ${verifiedMode}; duplicate effects after restart: ${duplicateEffects ?? "—"}.`;
   elements.competitionMissionHeartbeat.textContent = reliability.mission_heartbeat_state || "UNAVAILABLE";
   elements.competitionReceiptState.textContent = reliability.durable_receipt_verified === true
     ? "VERIFIED" : "UNVERIFIED";
