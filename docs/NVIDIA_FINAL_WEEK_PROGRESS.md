@@ -343,3 +343,15 @@ Completed:
 Next:
 1. Phase 7 reviewer cleanup only: remove ambiguity/noise without deleting NLnet, grant, historical or evidence documentation.
 2. Then freeze the Core Zero / Epistemic Control feasibility decision and prepare the Codex backlog/handoff.
+
+## 2026-09-22 / Batch 19 — reviewer cleanup
+
+Completed:
+- tightened reviewer navigation without deleting or renaming historical/grant material;
+- README now exposes NVIDIA start-here, reviewer quickstart, reproducibility and troubleshooting before broad project documentation;
+- NVIDIA reviewer start-here now puts the deterministic one-command preflight first and explicitly preserves `TEST_FIXTURE` interpretation;
+- preserved `docs/nms/NLNET_UPDATE_SUMMARY.md` and `docs/reviewer/QUICK_START_FOR_GRANT_REVIEWERS.md` unchanged;
+- recorded the cleanup boundary in `docs/REVIEWER_CLEANUP_20260922.md`;
+- no runtime or authority behavior changed.
+
+Next: dedicated Core Zero / Epistemic Control feasibility audit, defaulting to one authority Core plus advisory/shadow epistemic control and NO-GO for dual authority.

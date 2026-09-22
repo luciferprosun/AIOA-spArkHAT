@@ -231,6 +231,10 @@ The suite covers routing determinism, execution containment, evidence/provenance
 
 ## Reviewer and governance entry points
 
+- [NVIDIA reviewer start here](docs/reviewer/NVIDIA_REVIEWER_START_HERE.md)
+- [Reviewer quickstart](docs/REVIEWER_QUICKSTART.md)
+- [Reproducibility report](docs/REPRODUCIBILITY_REPORT.md)
+- [Troubleshooting](docs/TROUBLESHOOTING.md)
 - [Project overview](docs/reviewer/PROJECT_OVERVIEW_FOR_REVIEWERS.md)
 - [Implemented capabilities](docs/governance/IMPLEMENTED_CAPABILITIES.md)
 - [Authority scope](AUTHORITY_SCOPE.md)

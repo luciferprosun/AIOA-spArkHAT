@@ -12,29 +12,38 @@ documents first.
 
 ## 3-minute review path
 
-1. **Competition story and current gaps**
+1. **Run the deterministic reviewer preflight**
+   - `PYTHONPATH=.:runtime:tests python3 scripts/nvidia_reviewer_preflight.py`
+   - expected top-level status: `PASS`
+   - this path is intentionally `TEST_FIXTURE`, not a LIVE-provider claim
+
+2. **Read the reproducibility and troubleshooting notes**
+   - `docs/REPRODUCIBILITY_REPORT.md`
+   - `docs/TROUBLESHOOTING.md`
+
+3. **Competition story and current gaps**
    - `docs/NVIDIA_FINAL_WEEK_GAP_MATRIX.md`
 
-2. **Deterministic end-to-end demo**
+4. **Deterministic end-to-end demo source/test**
    - `scripts/nvidia_competition_demo.py`
    - `tests/test_nvidia_competition_demo.py`
 
-3. **Human/authority boundary**
+5. **Human/authority boundary**
    - `runtime/service_guard/`
    - `runtime/nonzero_cloudops/`
    - `runtime/authority_timeline.py`
 
-4. **Memory and verified learning**
+6. **Memory and verified learning**
    - `runtime/memory_patch/`
    - CockroachDB backend: 19 applied migrations with a READY
      `learning-v1` certificate in the certified disposable environment
 
-5. **Critical Prompt Loop**
+7. **Critical Prompt Loop**
    - `runtime/critical_loop/`
    - exact contract: primary draft -> 3 bounded critics -> primary revision
    - critics are advisory metadata only and never gain execution authority
 
-6. **Evidence and validation ledger**
+8. **Evidence and validation ledger**
    - `docs/NVIDIA_FINAL_WEEK_PROGRESS.md`
 
 ## Competition vertical slice
