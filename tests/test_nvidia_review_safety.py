@@ -33,6 +33,30 @@ class NvidiaReviewSafetyTests(unittest.TestCase):
             self.assertEqual(0, summary["evaluation"]["duplicate_effects"])
             self.assertFalse(any(summary["claims"].values()))
 
+    def test_relative_output_stays_under_foreign_caller_directory(self):
+        import shutil
+        with tempfile.TemporaryDirectory() as temp:
+            base = Path(temp)
+            checkout = base / "checkout"
+            for directory in ("runtime", "scripts", "tests"):
+                shutil.copytree(REPO / directory, checkout / directory,
+                                ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
+            caller = base / "caller"
+            caller.mkdir()
+            home = base / "home"
+            home.mkdir()
+            env = {"PATH": os.defpath, "HOME": str(home), "LANG": "C.UTF-8",
+                   "PYTHONDONTWRITEBYTECODE": "1", "AOIA_HOME": str(base / "state"),
+                   "AWS_EC2_METADATA_DISABLED": "true"}
+            run = subprocess.run(
+                [sys.executable, "-I", "-B", str(checkout / "scripts/nvidia_reviewer_preflight.py"),
+                 "--root", "relative-review"],
+                cwd=caller, env=env, capture_output=True, text=True, timeout=90)
+            self.assertEqual(0, run.returncode, run.stdout + run.stderr)
+            self.assertEqual("PASS", json.loads(run.stdout)["status"])
+            self.assertTrue((caller / "relative-review/demo/target/target-state.json").is_file())
+            self.assertFalse((checkout / "relative-review").exists())
+
     def test_artifact_existing_file_is_not_overwritten(self):
         with tempfile.TemporaryDirectory() as temp:
             output = Path(temp) / "artifact.json"

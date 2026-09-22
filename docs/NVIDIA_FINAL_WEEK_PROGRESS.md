@@ -415,3 +415,9 @@ Next: stop the autonomous post-3x8 preparation loop and hand off to the bounded 
 - All 314 recorded Python/workflow source digests stayed unchanged during regression.
 - No production `runtime/` change, frozen-source/evidence mutation, credential access, live model call, live AWS enablement, or DVM/pheromone promotion.
 - EU drafting is paused; existing committed grant history remains preserved. Release requires all exact-head PR checks, then verification of the public main workflow.
+
+### Relative-root follow-up before PR #7 merge
+
+Final review of candidate `997acf1` found that a relative CLI output root could place target state in the source checkout when the child used its fixed module cwd. A disposable-copy regression reproduced this despite a PASS summary. The test helper now binds that root to the caller's absolute path before starting the child; it does not resolve symlinks or change production runtime code.
+
+The previous 1027/4 full-suite result above belongs to candidate `997acf1`. The follow-up adds a ninth safety test; all **13 NVIDIA tests PASS** locally. Full-suite and exact-head CI evidence for the follow-up must be read from the final PR #7 run before release. No historical endurance result is changed.

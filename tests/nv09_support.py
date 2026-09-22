@@ -45,7 +45,8 @@ def response(value):
 
 class LocalTarget:
     def __init__(self, root, *, scope=SCOPE, target_id="disposable-nv09", drop_ack=False):
-        self.root, self.scope, self.target_id = Path(root), scope, target_id
+        # Bind a relative root to the caller before changing the child cwd.
+        self.root, self.scope, self.target_id = Path(root).absolute(), scope, target_id
         self.key = secrets.token_bytes(32)
         self.config = {"root": str(self.root), "scope": list(scope.binding()),
                        "target_id": target_id, "key": self.key.hex(), "drop_ack": drop_ack}
