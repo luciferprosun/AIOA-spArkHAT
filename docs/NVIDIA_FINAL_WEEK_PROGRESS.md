@@ -327,3 +327,19 @@ Completed:
 - DVM/pheromone remains `SHADOW`; OpenRouter LIVE and live AWS remain blocked.
 
 Next: Phase 5 fresh-clone / reproducibility from a clean disposable clone, then reviewer quickstart/troubleshooting/report updates.
+
+## 2026-09-22 / Batch 18 — fresh-clone / reviewer reproducibility closure
+
+Completed:
+- created a new no-hardlink clone from committed competition SHA `b9a4701d8d32ed341a83d02477c12981d1eda79c`; clone status remained clean on the expected branch/SHA;
+- validated Python `3.12.3`, Git `2.43.0` and pip `24.0`;
+- installed `aioa-sparkhat 0.1.0` into a clean isolated target with `--no-deps --no-build-isolation`; import resolution from outside the checkout confirmed the installed package rather than source-path leakage;
+- installed CLI help executed successfully;
+- fresh-clone one-command `scripts/nvidia_reviewer_preflight.py` returned `PASS` with 14 stages, one verified effect, zero duplicate effects, zero replay dispatches, `ServiceGuard` executor, truthful `TEST_FIXTURE` provider/memory labels and DVM/pheromone `SHADOW`;
+- fresh-clone artifact SHA-256: `bb38b581979ecf825cc8112149743cfd1e61c9a140151c3e865ea33652a0a786`;
+- active-worktree focused reviewer regression: `21/21 PASS`;
+- prepared `docs/REPRODUCIBILITY_REPORT.md`, `docs/REVIEWER_QUICKSTART.md` and `docs/TROUBLESHOOTING.md`; no live NVIDIA/OpenRouter/AWS call was made and no LIVE claim was inferred from fixture evidence.
+
+Next:
+1. Phase 7 reviewer cleanup only: remove ambiguity/noise without deleting NLnet, grant, historical or evidence documentation.
+2. Then freeze the Core Zero / Epistemic Control feasibility decision and prepare the Codex backlog/handoff.
