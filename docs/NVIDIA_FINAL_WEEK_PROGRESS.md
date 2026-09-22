@@ -378,3 +378,13 @@ Completed:
 - no runtime behavior changed in this phase.
 
 Next: prepare `OPENAI_WORKFLOW_FEEDBACK_DRAFT.md` without sending it, then perform final PRE_CODEX_READY cleanliness/evidence check.
+
+## 2026-09-22 / Batch 22 — workflow feedback draft
+
+Completed:
+- prepared `docs/OPENAI_WORKFLOW_FEEDBACK_DRAFT.md` as an operator-review draft only;
+- feedback covers scheduled engineering runs, ChatGPT/Codex handoff, long-process monitoring, durable evidence ledgers, path-level read-only controls and quota visibility;
+- the document explicitly forbids automatic sending;
+- no external message or submission was made.
+
+Next: final PRE_CODEX_READY cleanliness/evidence check only.
