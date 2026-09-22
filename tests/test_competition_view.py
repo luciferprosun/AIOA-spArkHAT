@@ -112,6 +112,38 @@ class CompetitionViewTests(unittest.TestCase):
         self.assertEqual("INVALID_EVIDENCE", value["status"])
         self.assertIs(value["evidence_available"], False)
 
+    def test_boolean_count_type_confusion_is_rejected(self):
+        broken = evidence()
+        broken["effect"]["receipt_effect_count"] = True
+        broken["effect"]["independent_measurement_effect_count"] = True
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "demo.json"
+            path.write_text(json.dumps(broken), encoding="utf-8")
+            with patch.dict(os.environ, {ENV_PATH: str(path)}):
+                value = load_competition_demo()
+        self.assertEqual("INVALID_EVIDENCE", value["status"])
+        self.assertIs(value["evidence_available"], False)
+
+    def test_boolean_duplicate_effects_type_confusion_is_rejected(self):
+        broken = evidence()
+        broken["safety"]["duplicate_effects"] = False
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "demo.json"
+            path.write_text(json.dumps(broken), encoding="utf-8")
+            with patch.dict(os.environ, {ENV_PATH: str(path)}):
+                value = load_competition_demo()
+        self.assertEqual("INVALID_EVIDENCE", value["status"])
+
+    def test_non_hex_effect_digest_is_rejected(self):
+        broken = evidence()
+        broken["effect"]["receipt_digest"] = "z" * 64
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "demo.json"
+            path.write_text(json.dumps(broken), encoding="utf-8")
+            with patch.dict(os.environ, {ENV_PATH: str(path)}):
+                value = load_competition_demo()
+        self.assertEqual("INVALID_EVIDENCE", value["status"])
+
     def test_fixture_cannot_claim_live(self):
         with tempfile.TemporaryDirectory() as temp:
             path = Path(temp) / "demo.json"

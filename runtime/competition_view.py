@@ -90,8 +90,32 @@ def load_competition_demo() -> dict:
     mission_fields = ("snapshot_state", "heartbeat_state", "last_stage", "restart_recovery", "runtime_factory")
     if not all(type(mission.get(key)) is str and mission.get(key) for key in mission_fields):
         return _unavailable("INVALID_EVIDENCE")
+    bool_effect_fields = (
+        "verified_effect", "dispatch_attempted", "replay_dispatch_attempted",
+        "verified_record_persisted", "replay_verified_record_persisted",
+    )
+    if any(type(effect.get(key)) is not bool for key in bool_effect_fields):
+        return _unavailable("INVALID_EVIDENCE")
+    count_fields = (
+        "receipt_effect_count", "independent_measurement_effect_count",
+    )
+    if any(type(effect.get(key)) is not int or effect.get(key) < 0 for key in count_fields):
+        return _unavailable("INVALID_EVIDENCE")
+    bool_safety_fields = (
+        "provider_output_authority", "human_bound_effect_authority",
+        "hidden_chain_of_thought_recorded",
+    )
+    if any(type(safety.get(key)) is not bool for key in bool_safety_fields):
+        return _unavailable("INVALID_EVIDENCE")
+    if type(safety.get("duplicate_effects")) is not int or safety.get("duplicate_effects") < 0:
+        return _unavailable("INVALID_EVIDENCE")
     digest_fields = ("receipt_digest", "measurement_digest")
-    if any(type(effect.get(key)) is not str or len(effect.get(key)) != 64 for key in digest_fields):
+    if any(
+        type(effect.get(key)) is not str
+        or len(effect.get(key)) != 64
+        or any(ch not in "0123456789abcdefABCDEF" for ch in effect.get(key))
+        for key in digest_fields
+    ):
         return _unavailable("INVALID_EVIDENCE")
     return {
         "schema": "aioa.competition-view.v1",

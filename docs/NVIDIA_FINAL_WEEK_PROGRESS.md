@@ -313,3 +313,17 @@ Next:
 1. Run the bounded adversarial/failure regression phase and accept only small reversible fixes with direct tests.
 2. Then perform fresh-clone/reproducibility/reviewer rehearsal and package the deterministic one-command demo.
 3. Keep OpenRouter LIVE, live AWS and DVM promotion blocked under the existing operator/evidence gates.
+
+## 2026-09-22 / Batch 17 — Phase 4 adversarial/failure regression
+
+Completed:
+- adversarial/failure matrix rerun across provider UNKNOWN/failure handling, owner isolation, Service Guard replay/idempotency, lost ACK/crash recovery, evidence boundaries, Non-Zero containment and competition projection;
+- found and bounded AFR-001: Python bool/int type-confusion at the read-only competition evidence boundary plus digest shape weakness;
+- hardened exact scalar typing and 64-hex digest validation without changing execution authority, scheduler, provider, memory or Service Guard behavior;
+- focused reviewer regression: `21/21 PASS`;
+- bounded adversarial suite: `141/141 PASS`;
+- broader adversarial suite: `401/401 PASS`;
+- canonical offline full regression after fix: `1019 PASS, 4 expected skips, 0 FAIL` in `555.07 s`;
+- DVM/pheromone remains `SHADOW`; OpenRouter LIVE and live AWS remain blocked.
+
+Next: Phase 5 fresh-clone / reproducibility from a clean disposable clone, then reviewer quickstart/troubleshooting/report updates.

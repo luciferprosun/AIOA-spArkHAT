@@ -92,6 +92,18 @@ class CompetitionEvaluationTests(unittest.TestCase):
         self.assertEqual("UNKNOWN", value["provider_mode"])
         self.assertIs(value["hidden_reasoning_logged"], False)
 
+    def test_boolean_receipt_counts_cannot_produce_false_pass(self):
+        broken = evidence()
+        broken["effect"]["receipt_effect_count"] = True
+        broken["effect"]["independent_measurement_effect_count"] = True
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "demo.json"
+            path.write_text(json.dumps(broken), encoding="utf-8")
+            with patch.dict(os.environ, {ENV_PATH: str(path)}):
+                value = competition_evaluation()
+        self.assertEqual("UNAVAILABLE", value["status"])
+        self.assertIs(value["hidden_reasoning_logged"], False)
+
     def test_invalid_effect_metrics_fail_closed(self):
         broken = evidence()
         broken["effect"]["effect_count"] = "one"
