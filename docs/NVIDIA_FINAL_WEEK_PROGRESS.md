@@ -293,3 +293,23 @@ Next:
 1. Run `PRE_CODEX_TECHNICAL_AUDIT` over authority, replay/idempotency, restart/recovery, provider UNKNOWN, evidence integrity, privacy/isolation and dead-code/TODO surfaces.
 2. Accept only bounded safe fixes backed by focused regression; keep architecture frozen.
 3. Preserve Service Guard as the sole effect executor, DVM/pheromones SHADOW, OpenRouter LIVE gated, and live AWS disabled.
+
+## 2026-09-22 / Batch 16 — PRE_CODEX technical audit closure
+
+Completed:
+- preserved segmented endurance evidence now reports PASS for both remaining segments on frozen SHA `ad4a425714a764f61f5ff22f2cc59f18abc36984`;
+- source/evidence stayed PASS and Cockroach stayed READY/PASS with 19 migrations;
+- completed `docs/PRE_CODEX_TECHNICAL_AUDIT.md` across authority, replay/idempotency, restart/recovery, provider UNKNOWN, evidence integrity, privacy/isolation and dead-code/TODO surfaces;
+- verdict: `PRE_CODEX_READY — GO with preserved external/non-production gates`;
+- no P0 competition-path defect was found;
+- retained five bounded findings, with TCA-001 through TCA-003 assigned to Codex/reviewer cleanup and TCA-004 through TCA-005 held for post-submission maintenance unless regression elevates them;
+- architecture freeze remains in force and Service Guard remains the competition effect executor;
+- hybrid-core decision: NO-GO for dual authority; GO for one authoritative Core plus advisory/shadow epistemic control.
+- fresh reviewer preflight PASS: 14 stages, zero duplicate effects, zero restart redispatch, Service Guard executor, provider/memory TEST_FIXTURE and DVM/pheromone SHADOW.
+- preflight artifact SHA-256: `da04b0850c1ef24632682daf8db5a6fdf89e608b36a6b34039785ed5f167f899`.
+- audit finalization made documentation-only changes; frozen certification and historical evidence remained read only.
+
+Next:
+1. Run the bounded adversarial/failure regression phase and accept only small reversible fixes with direct tests.
+2. Then perform fresh-clone/reproducibility/reviewer rehearsal and package the deterministic one-command demo.
+3. Keep OpenRouter LIVE, live AWS and DVM promotion blocked under the existing operator/evidence gates.
