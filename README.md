@@ -8,6 +8,23 @@ AIOA spArkHAT (formerly AOIA-Core) is one local-first runtime for AI-assisted en
 
 AOIA means **Adaptive Oceanic Intelligence Architecture**. In this repository the name describes a bounded routing and control architecture; it does not imply AGI, autonomous authority, or a self-modifying system.
 
+## NVIDIA competition: reproduce the demo
+
+```bash
+python3 -I -B scripts/nvidia_reviewer_preflight.py
+```
+
+Use Python 3.11+ and the complete source checkout. The summary reports the
+artifact path and SHA-256, 14 stages, Service Guard as the effect executor,
+zero duplicate effects and no redispatch on replay. The default run needs no
+API key, Codex session or external database.
+
+**This is an explicit TEST_FIXTURE replay:** model replies and human approval
+are simulated by controlled fixtures; the guarded effect is limited to a real
+disposable loopback service. It is not a live cloud deployment or a 24-hour run.
+See the [NVIDIA demo runbook](docs/NVIDIA_DEMO_RUNBOOK.md) for the recording
+sequence and the boundaries between replay, fresh-process tests and endurance.
+
 ## What is implemented
 
 - preserved deterministic local routing before provider use in the explicit Plain Chat/action bypass

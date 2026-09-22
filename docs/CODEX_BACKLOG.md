@@ -8,6 +8,24 @@ Preparation HEAD: `4d1099b`
 
 Codex should improve the existing one-system product, not redesign authority. Preserve one `AgentRuntime`, one final effect authority, `ServiceGuard` as the competition effect executor, human-bound approval, durable receipt/independent verification, and DVM/pheromones in `SHADOW`.
 
+## NVIDIA-only continuation — 2026-09-22
+
+The EU reviewer draft is paused and excluded from this NVIDIA batch. Published
+baseline before this batch: `5eb9ab48c70fb47cef2da33416cf9c9a44f00348`.
+Always read current Git/CI state rather than treating the preparation HEAD above
+as the final candidate.
+
+- CDB-001/CDB-002: bounded reviewer clarification and negative executor-construction
+  regression added. No legacy implementation was deleted or authority changed.
+- CDB-003: foreign-working-directory launch is hardened and tested without
+  PYTHONPATH or credentials. Fixture helpers still live in `tests/`; moving that
+  code remains a separate low-risk decision, not a completed refactor.
+- CDB-004: dashboard polish remains for the focused frontend/demo phase. Reuse
+  [the NVIDIA runbook](NVIDIA_DEMO_RUNBOOK.md); do not add approval shortcuts.
+- Release rule for this authorized batch: publish by a non-destructive PR only
+  after every CI check completes successfully for the exact head SHA. A mergeable
+  or empty/pending check set is not a passing check set.
+
 ## P0 — reviewer/submission blockers only
 
 No open P0 defect is currently known. If a new P0 appears, stop feature work and reproduce it with a minimal failing test before changing runtime behavior.
@@ -90,7 +108,8 @@ Produce a static reachability/ownership map for legacy commands, orchestration h
 - live AWS Non-Zero: disabled and un-certified; do not enable for demo optics.
 - DVM/pheromone/index promotion: remains `SHADOW`; no promotion in final-week sprint.
 - optional contiguous 24h Gold Test: do not launch.
-- push/merge/deploy/publish/submission/visibility changes: operator-only and currently forbidden.
+- deploy/submission/visibility changes: operator-only; no authorization is granted by this backlog.
+- push/merge/publication: require an explicit current operator mandate. The NVIDIA-only reviewer batch above has that mandate, subject to all-green exact-SHA CI; it does not authorize unrelated releases.
 
 ## Required regression gates
 

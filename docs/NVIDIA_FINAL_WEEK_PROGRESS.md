@@ -401,3 +401,17 @@ Completed:
 - final verdict: **PRE_CODEX_READY**.
 
 Next: stop the autonomous post-3x8 preparation loop and hand off to the bounded Codex sprint using `docs/CODEX_HANDOFF_20260924.md`.
+
+
+## 2026-09-22 — NVIDIA reviewer portability and recording preparation
+
+- Baseline: `5eb9ab48c70fb47cef2da33416cf9c9a44f00348`.
+- Reproduced and corrected foreign-cwd child-module discovery in the controlled loopback target fixture.
+- Preflight artifact creation is exclusive at mode 0600; existing files and symlinks are refused rather than overwritten. Symlink roots are rejected before demo allocation.
+- Added eight bounded regression tests, including constructor guards against legacy/NonZero execution paths and a parent-process loopback-network assertion. This is not an OS-wide network-sandbox claim.
+- Added an isolated preflight step to Python 3.11/3.12 CI and read-only `push: main` / manual workflow triggers, preserving all existing certification checks.
+- New [demo runbook](NVIDIA_DEMO_RUNBOOK.md), simplified source-checkout command and explicit fixture/approval/restart/endurance scope. No final video or competition submission is claimed.
+- Local NVIDIA suite: **12 PASS**. Supported offline regression: **1027 PASS / 4 expected UI skips / 0 FAIL**, 565.26 seconds, exit 0. Separate provisioned Cockroach tests were not rerun by this offline command.
+- All 314 recorded Python/workflow source digests stayed unchanged during regression.
+- No production `runtime/` change, frozen-source/evidence mutation, credential access, live model call, live AWS enablement, or DVM/pheromone promotion.
+- EU drafting is paused; existing committed grant history remains preserved. Release requires all exact-head PR checks, then verification of the public main workflow.
