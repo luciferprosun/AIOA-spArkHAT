@@ -20,9 +20,16 @@ def evidence(case, **facts):
 
 
 def child(config, *, expected=0):
+    root = Path(__file__).resolve().parent.parent
+    inherited = os.environ.get("PYTHONPATH")
+    pythonpath = os.pathsep.join(
+        [str(root), str(root / "runtime"), str(root / "tests")]
+        + ([inherited] if inherited else [])
+    )
     result = subprocess.run([sys.executable, "-B", "-m", "nv10_support"],
                             input=json.dumps(config), text=True, capture_output=True,
-                            timeout=30, env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"})
+                            timeout=30, env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1",
+                                            "PYTHONPATH": pythonpath})
     if result.returncode != expected:
         raise AssertionError((result.returncode, expected, result.stdout, result.stderr))
     return json.loads(result.stdout) if expected == 0 else result
