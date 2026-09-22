@@ -10,9 +10,9 @@ Requirements:
 From a fresh clone:
 
 ```bash
-git clone <repository-url> aioa-sparkhat
+git clone https://github.com/luciferprosun/AIOA-spArkHAT.git aioa-sparkhat
 cd aioa-sparkhat
-PYTHONPATH=.:runtime:tests python3 scripts/nvidia_reviewer_preflight.py
+python3 -I -B scripts/nvidia_reviewer_preflight.py
 ```
 
 Expected top-level result:

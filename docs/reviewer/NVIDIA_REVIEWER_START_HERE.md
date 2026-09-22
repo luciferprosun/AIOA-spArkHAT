@@ -13,7 +13,7 @@ documents first.
 ## 3-minute review path
 
 1. **Run the deterministic reviewer preflight**
-   - `PYTHONPATH=.:runtime:tests python3 scripts/nvidia_reviewer_preflight.py`
+   - `python3 -I -B scripts/nvidia_reviewer_preflight.py`
    - expected top-level status: `PASS`
    - this path is intentionally `TEST_FIXTURE`, not a LIVE-provider claim
 
@@ -79,7 +79,8 @@ The accepted deterministic competition path demonstrates:
 - one human-bound guarded effect;
 - durable effect receipt;
 - independent post-effect measurement;
-- process restart and replay without a duplicate effect;
+- runtime teardown/recreation and replay without a duplicate effect;
+- separate NV09/NV10 tests cover actual fresh-process crash recovery;
 - explicit provider state (`LIVE`, `TEST_FIXTURE`,
   `EXTERNAL_UNAVAILABLE`, or `UNKNOWN`);
 - optional CockroachDB-backed Memory Patch using the existing
@@ -94,7 +95,7 @@ From the repository root, with Python 3.11+:
 For the fastest reproducibility check, run the one-command reviewer preflight:
 
 ```bash
-PYTHONPATH=.:runtime:tests python3 scripts/nvidia_reviewer_preflight.py
+python3 -I -B scripts/nvidia_reviewer_preflight.py
 ```
 
 It executes only the deterministic `TEST_FIXTURE` vertical slice and validates
@@ -128,6 +129,18 @@ http://127.0.0.1:4311
 
 The competition dashboard is read-only evidence projection. Reading it cannot
 approve or execute an effect.
+
+## Rehearsal and authority scope
+
+Use [the submission checklist](../NVIDIA_SUBMISSION_CHECKLIST.md) to distinguish engineering readiness from final competition entry requirements.
+
+The [demo runbook](../NVIDIA_DEMO_RUNBOOK.md) gives a planned 90-second sequence.
+The offline demo uses a simulated human approval to exercise the real Core
+contract. It does not claim a person approved a new action during the fixture run.
+The target is disposable and loopback-only; no live cloud effect is performed.
+Legacy `ExecutionEngine` and Non-Zero remain preserved for their own supported
+paths but are not constructed by this competition replay. A negative regression
+in `tests/test_nvidia_review_safety.py` verifies that boundary.
 
 ## NVIDIA live validation
 

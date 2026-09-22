@@ -1,5 +1,7 @@
 # AIOA spArkHAT — Codex Handoff — 2026-09-24
 
+> NVIDIA-only continuation: first read the 2026-09-22 continuation section of [CODEX_BACKLOG.md](CODEX_BACKLOG.md) and [NVIDIA_DEMO_RUNBOOK.md](NVIDIA_DEMO_RUNBOOK.md). The earlier preparation SHAs below are historical. Check the actual current main/CI and do not resume EU drafting.
+
 Prepared: 2026-09-22
 Competition worktree: `/media/l/LSC_DATA1/AIOA_NVIDIA_FINAL_WEEK_20260921`
 Branch: `codex/nvidia-final-week-20260921`
