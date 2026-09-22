@@ -355,3 +355,16 @@ Completed:
 - no runtime or authority behavior changed.
 
 Next: dedicated Core Zero / Epistemic Control feasibility audit, defaulting to one authority Core plus advisory/shadow epistemic control and NO-GO for dual authority.
+
+## 2026-09-22 / Batch 20 — Core Zero / Epistemic Control feasibility
+
+Completed:
+- completed a dedicated feasibility audit in `docs/CORE_ZERO_EPISTEMIC_CONTROL_FEASIBILITY_20260922.md`;
+- decision: **NO-GO** for dual authority / second Core / second scheduler / second executor;
+- decision: **GO** for one authoritative Core with CPL, Knowledge HAT, Personal Delta, Memory Patch and DVM/pheromone as advisory/shadow epistemic control surfaces;
+- Service Guard remains the competition effect executor and explicit human approval remains the effect boundary;
+- defined future promotion criteria requiring a concrete need, single-final-authority proof, replay/revocation semantics, adversarial tests and post-submission review;
+- no runtime implementation change was made by this phase;
+- focused authority/epistemic-control regression: `91/91 PASS`.
+
+Next: prepare `CODEX_BACKLOG.md` and `CODEX_HANDOFF_20260924.md`, then draft `OPENAI_WORKFLOW_FEEDBACK_DRAFT.md` without sending it.
