@@ -228,9 +228,16 @@ class NV10GuardTests(unittest.TestCase):
         self.fx.close()
         config = {**self.target.config, "port": self.target.port,
                   "fixture_root": str(self.fx.root), "operation_id": self.fx.operation_id}
+        root = Path(__file__).resolve().parent.parent
+        inherited = os.environ.get("PYTHONPATH")
+        pythonpath = os.pathsep.join(
+            [str(root), str(root / "runtime"), str(root / "tests")]
+            + ([inherited] if inherited else [])
+        )
         crashed = subprocess.run([sys.executable, "-B", "-m", "nv09_support"],
                                  input=json.dumps(config), capture_output=True, text=True,
-                                 timeout=30, env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"})
+                                 timeout=30, env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1",
+                                                  "PYTHONPATH": pythonpath})
         self.assertEqual(73, crashed.returncode, crashed.stdout + crashed.stderr)
         fresh = self.probe()
         self.assertIsNotNone(fresh["before"]["intent"])
