@@ -26,6 +26,10 @@ as the final candidate.
   after every CI check completes successfully for the exact head SHA. A mergeable
   or empty/pending check set is not a passing check set.
 
+## Verified competition requirements — 2026-09-22
+
+Read [NVIDIA_SUBMISSION_CHECKLIST.md](NVIDIA_SUBMISSION_CHECKLIST.md) before the final sprint. The organizer brief prioritizes a working long-running task, innovation and usefulness. The recorded prototype must demonstrate a useful outcome, not only a fixture test report. Finish that flow before optional refactors or extra benchmark work. No mandatory OpenClaw migration or continuous 24-hour test is stated in the fetched brief. Luma registration is not the Airtable project submission; final form acceptance remains an explicit release gate.
+
 ## P0 — reviewer/submission blockers only
 
 No open P0 defect is currently known. If a new P0 appears, stop feature work and reproduce it with a minimal failing test before changing runtime behavior.

@@ -132,6 +132,8 @@ approve or execute an effect.
 
 ## Rehearsal and authority scope
 
+Use [the submission checklist](../NVIDIA_SUBMISSION_CHECKLIST.md) to distinguish engineering readiness from final competition entry requirements.
+
 The [demo runbook](../NVIDIA_DEMO_RUNBOOK.md) gives a planned 90-second sequence.
 The offline demo uses a simulated human approval to exercise the real Core
 contract. It does not claim a person approved a new action during the fixture run.

@@ -2,7 +2,7 @@
 
 ## Purpose and scope
 
-Show one auditable maintenance workflow in AIOA spArkHAT, not a collection of unrelated modules. The public [Berlin challenge page](https://luma.com/claw-agent-challenge-berlin) asks for a long-running claw agent; detailed submission rules come with registration. This runbook is a rehearsal, not a submission or proof of prize eligibility.
+Show one auditable maintenance workflow in AIOA spArkHAT, not a collection of unrelated modules. The organizer brief and official rules are mapped in [the submission checklist](NVIDIA_SUBMISSION_CHECKLIST.md). They ask for a useful long-running agent and a short working-demo video or site link. This runbook is a rehearsal, not a submission or proof of prize eligibility.
 
 ## Reproduce first
 
@@ -58,7 +58,7 @@ Show a revoked/stale approval being refused using the existing NV09 tests. Do no
 2. Require the supported offline suite, isolated preflight and both Python CI jobs to pass on that candidate. Do not merge while checks are pending or failing.
 3. Label any separately captured live inference with its actual provider, timestamp, scope and outcome. A missing key means unavailable, never a silent fixture substitution.
 4. Prepare the existing dashboard, record the sequence, then confirm the video is accessible to judges without exposing credentials or private state.
-5. Verify the official submission brief/form, mandatory fields, deadline/timezone and rights before the final submit. The working delivery target is 2 October; this is not a claim that this runbook verified the official deadline.
+5. Verify the official submission brief/form, mandatory fields, deadline/timezone and rights before the final submit. The rules specify 2 October 2026 at 11:59 PM Pacific Standard Time; the operational target is earlier that day in Germany. Recheck the exact source wording and form before sending.
 
 ## Remaining focused sprint
 
