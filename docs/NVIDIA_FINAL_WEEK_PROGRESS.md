@@ -388,3 +388,16 @@ Completed:
 - no external message or submission was made.
 
 Next: final PRE_CODEX_READY cleanliness/evidence check only.
+
+## 2026-09-22 / Batch 23 — PRE_CODEX_READY final check
+
+Completed:
+- all post-3x8 preparation priorities 1–10 are present and committed: endurance closure/manifest, Roadmap 2.1 closure, roadmap history/gaps, technical audit, adversarial hardening, reproducibility/reviewer rehearsal, reviewer cleanup, single-Core epistemic feasibility decision, Codex backlog/handoff and OpenAI workflow feedback draft;
+- machine-readable segmented manifest parses successfully and records `SEGMENTED_ENDURANCE_PASS` with Segment 1/2/3 all `PASS` on frozen SHA `ad4a425714a764f61f5ff22f2cc59f18abc36984`;
+- no runtime/source changes occurred after adversarial hardening commit `b9a4701`; subsequent preparation commits are documentation/reviewer navigation only;
+- final deterministic reviewer preflight: `PASS`, 14 stages, zero duplicate effects, zero restart redispatch, `ServiceGuard` executor, provider/memory `TEST_FIXTURE`, DVM/pheromone `SHADOW`;
+- final preflight artifact SHA-256: `fd5b9b0836495216a9e50197b1130e0b9643046f1e08bbc09e3fa80cecdcebab`;
+- frozen certification worktree remains clean at the certified SHA; segmented status remains `PASS` with zero downtime and zero provider calls in Segments 2/3;
+- final verdict: **PRE_CODEX_READY**.
+
+Next: stop the autonomous post-3x8 preparation loop and hand off to the bounded Codex sprint using `docs/CODEX_HANDOFF_20260924.md`.
