@@ -1,5 +1,8 @@
 # AOIA/NMS NLnet Update Summary
 
+> **Historical reviewer snapshot.** This document is preserved for grant/NLnet audit history. For the current integrated state, validation numbers, multi-hackathon convergence, and GenAI disclosure, start with [NLnet Reviewer — Project Context and Repository Guide](../reviewer/NLNET_REVIEWER_START_HERE.md) and [GenAI Transparency](../governance/GENAI_TRANSPARENCY.md).
+
+
 ## Project Summary
 
 AOIA/NMS is an open-source AI safety and epistemic-control effort built around AOIA-Core. It aims to make AI-assisted engineering workflows more auditable by separating evidence, provenance, contradictions, model output, and reviewer reasoning.

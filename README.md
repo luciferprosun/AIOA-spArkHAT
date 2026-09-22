@@ -2,6 +2,8 @@
 
 > **NVIDIA reviewers:** start with [NVIDIA Reviewer — Start Here](docs/reviewer/NVIDIA_REVIEWER_START_HERE.md) for the competition vertical slice, demo path, authority model, memory/CPL/Non-Zero integration, and validation evidence. The rest of this README documents the wider AIOA spArkHAT runtime and project history.
 
+> **NLnet / grant reviewers:** start with [NLnet Reviewer — Project Context and Repository Guide](docs/reviewer/NLNET_REVIEWER_START_HERE.md). It explains the multi-hackathon convergence, current-vs-historical boundaries, reproducibility status, 3×8 endurance qualification, and [GenAI transparency](docs/governance/GENAI_TRANSPARENCY.md). Historical grant/audit material is intentionally preserved during active review.
+
 AIOA spArkHAT (formerly AOIA-Core) is one local-first runtime for AI-assisted engineering and evidence-aware review. It keeps model output, tool results, evidence, provenance, contradictions, runtime state, and human authority separate instead of treating them as interchangeable forms of truth. This is the same repository and runtime, not a fork. The original hackathon repositories remain frozen; the optional native NonZero module preserves their domain semantics. The imported second project is retired from the active tree, with attribution, source hashes and its complete imported history preserved.
 
 AOIA means **Adaptive Oceanic Intelligence Architecture**. In this repository the name describes a bounded routing and control architecture; it does not imply AGI, autonomous authority, or a self-modifying system.

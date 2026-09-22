@@ -1,5 +1,8 @@
 # Quick Start for Grant Reviewers
 
+> **Historical reviewer snapshot.** This document is preserved for grant/NLnet audit history. For the current integrated state, validation numbers, multi-hackathon convergence, and GenAI disclosure, start with [NLnet Reviewer — Project Context and Repository Guide](NLNET_REVIEWER_START_HERE.md) and [GenAI Transparency](../governance/GENAI_TRANSPARENCY.md).
+
+
 ## 1. What AOIA-Core is
 
 AOIA-Core is a local-first deterministic and rule-based runtime prototype for
