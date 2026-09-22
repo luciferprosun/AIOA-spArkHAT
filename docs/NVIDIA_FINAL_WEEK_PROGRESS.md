@@ -368,3 +368,13 @@ Completed:
 - focused authority/epistemic-control regression: `91/91 PASS`.
 
 Next: prepare `CODEX_BACKLOG.md` and `CODEX_HANDOFF_20260924.md`, then draft `OPENAI_WORKFLOW_FEEDBACK_DRAFT.md` without sending it.
+
+## 2026-09-22 / Batch 21 — Codex backlog and handoff
+
+Completed:
+- prepared `docs/CODEX_BACKLOG.md` with no open known P0, bounded P1 cleanup, deferred P2 maintenance and explicit operator-only gates;
+- prepared `docs/CODEX_HANDOFF_20260924.md` with accepted evidence, hard safety boundaries, single-Core decision, first execution sequence and regression commands;
+- handoff explicitly forbids dual authority, live AWS, unauthorized OpenRouter LIVE, DVM promotion, Gold Test launch and repository publication actions;
+- no runtime behavior changed in this phase.
+
+Next: prepare `OPENAI_WORKFLOW_FEEDBACK_DRAFT.md` without sending it, then perform final PRE_CODEX_READY cleanliness/evidence check.
