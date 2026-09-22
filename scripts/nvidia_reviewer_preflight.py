@@ -30,12 +30,18 @@ from scripts.nvidia_competition_demo import run_demo  # noqa: E402
 
 def _write_artifact(path: Path, value: dict) -> str:
     raw = json.dumps(value, ensure_ascii=False, sort_keys=True, indent=2) + "\n"
-    path.write_text(raw, encoding="utf-8")
-    path.chmod(0o600)
+    # Exclusive creation rejects existing files and symlinks without truncation.
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as stream:
+        stream.write(raw)
+        stream.flush()
+        os.fsync(stream.fileno())
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
 def run_preflight(workspace: Path) -> dict:
+    if workspace.is_symlink():
+        raise RuntimeError("PREFLIGHT_ROOT_SYMLINK_REJECTED")
     if workspace.exists() and any(workspace.iterdir()):
         raise RuntimeError("PREFLIGHT_ROOT_MUST_BE_FRESH")
     workspace.mkdir(mode=0o700, parents=True, exist_ok=True)
