@@ -26,15 +26,19 @@ from runtime.memory_patch.persistence.migration_contract import (
 )
 
 
-def load_assets():
+def load_assets(schema_profile="base"):
     root = importlib.resources.files("runtime.memory_patch").joinpath("sql")
     try:
-        manifest = json.loads(root.joinpath("manifest.json").read_text())
+        if schema_profile not in {"base", "learning-v1"}:
+            raise ValueError("schema profile")
+        filename = "manifest.json" if schema_profile == "base" else "manifest-learning-v1.json"
+        manifest = json.loads(root.joinpath(filename).read_text())
         if (
             manifest["schema"] != "native-memory-patch-cockroach-manifest-v1"
             or manifest["compatibility_version"] != "v26.2.5"
             or manifest["native_schema"] != "aioa_memory_patch"
-            or [u["ordinal"] for u in manifest["units"]] != list(range(1, 19))
+            or [u["ordinal"] for u in manifest["units"]]
+            != list(range(1, 19 if schema_profile == "base" else 20))
         ):
             raise ValueError("manifest")
         statements = {}
@@ -214,7 +218,7 @@ def read_pending(connection, state, manifest, digest, applied):
     )
     if not rows:
         return ()
-    if len(rows) != 1 or len(applied) >= 18:
+    if len(rows) != 1 or len(applied) >= len(manifest["units"]):
         raise MemoryPatchError(ErrorCode.RECOVERY_REQUIRED)
     row = rows[0]
     expected = manifest["units"][len(applied)]
@@ -233,7 +237,7 @@ def validate_prefix(applied, manifest, digest):
         (u["ordinal"], u["path"], u["sha256"], digest)
         for u in manifest["units"][: len(applied)]
     )
-    if len(applied) > 18 or applied != expected:
+    if len(applied) > len(manifest["units"]) or applied != expected:
         raise MemoryPatchError(ErrorCode.MIGRATION_DENIED)
 
 
@@ -374,7 +378,7 @@ class CatalogSnapshot:
 
 
 class NativeMigrationController:
-    def __init__(self, core, allowlist, denylist, handle, *, clock=None):
+    def __init__(self, core, allowlist, denylist, handle, *, clock=None, schema_profile="base"):
         if (
             type(handle) is not CoreDatabaseHandle
             or handle.purpose is not DatabasePurpose.MIGRATOR
@@ -387,6 +391,8 @@ class NativeMigrationController:
             handle,
         )
         self.clock = clock or (lambda: datetime.now(timezone.utc))
+        load_assets(schema_profile)
+        self.schema_profile = schema_profile
         self.admission = MigrationAdmission(core, allowlist, denylist, clock=self.clock)
         self._key = secrets.token_bytes(32)
         self._closed = False
@@ -410,7 +416,7 @@ class NativeMigrationController:
     def inspect(self, principal, target, *, disposable_ownership_confirmed):
         """Separate explicit read-only operator action, never ordinary startup."""
         self._target(principal, target, disposable_ownership_confirmed)
-        manifest, _, digest = load_assets()
+        manifest, _, digest = load_assets(self.schema_profile)
         connection = open_admitted_handle(
             self.handle, target, self.allowlist, self.denylist
         )
@@ -438,7 +444,7 @@ class NativeMigrationController:
 
     def plan(self, principal, target, snapshot):
         self._snapshot(principal, target, snapshot)
-        manifest, _, digest = load_assets()
+        manifest, _, digest = load_assets(self.schema_profile)
         return MigrationPlan(
             "plan_" + secrets.token_hex(16),
             target,
@@ -460,13 +466,13 @@ class NativeMigrationController:
             or snapshot.scope_binding != principal.scope.binding()
             or self.clock() >= snapshot.expires_at
             or not hmac.compare_digest(snapshot._seal, self._sign(snapshot))
-            or snapshot.manifest_digest != load_assets()[2]
+            or snapshot.manifest_digest != load_assets(self.schema_profile)[2]
         ):
             raise MemoryPatchError(ErrorCode.MIGRATION_DENIED)
 
     def execute(self, principal, plan, authorization, snapshot, *, observer=None):
         self._snapshot(principal, plan.target, snapshot)
-        manifest, statements, digest = load_assets()
+        manifest, statements, digest = load_assets(self.schema_profile)
         expected_units = tuple(
             MigrationUnit(u["ordinal"], u["path"], u["sha256"])
             for u in manifest["units"]
@@ -508,7 +514,7 @@ class NativeMigrationController:
             pending = read_pending(connection, state, manifest, digest, applied)
             if pending != snapshot.pending:
                 raise MemoryPatchError(ErrorCode.MIGRATION_DENIED)
-            if len(applied) == 18:
+            if len(applied) == len(manifest["units"]):
                 fingerprint = validate_catalog(state, manifest, prefix)
                 certificate = _rows(
                     connection,
@@ -611,7 +617,41 @@ class NativeMigrationController:
                     connection, current, manifest, digest, completed_prefix
                 )
                 start = pending[4] if pending else 0
-                if not pending:
+                prelude_count = (
+                    manifest.get("tracking_prelude_statement_count", 0)
+                    if not pending and ordinal > 18
+                    else 0
+                )
+                if prelude_count:
+                    if (
+                        type(prelude_count) is not int
+                        or not 1 <= prelude_count < row["statement_count"]
+                        or ordinal != len(completed_prefix) + 1
+                    ):
+                        raise MemoryPatchError(ErrorCode.MIGRATION_DENIED)
+                    for index, statement in enumerate(
+                        statements[ordinal][:prelude_count], 1
+                    ):
+                        self.core.require(principal, Capability.MIGRATE)
+                        observe("statement_before", ordinal * 10000 + index)
+                        with connection.cursor() as cursor:
+                            cursor.execute(
+                                statement.replace("__ROLE_PREFIX__", prefix),
+                                prepare=False,
+                            )
+                        if connection.info.transaction_status.name != "IDLE":
+                            raise MemoryPatchError(ErrorCode.RECOVERY_REQUIRED)
+                        state = catalog(connection, prefix)
+                        observe("statement_after", ordinal * 10000 + index)
+                    after_prelude = canonical_sha256(state)
+                    with connection.cursor() as cursor:
+                        cursor.execute(
+                            "INSERT INTO aioa_memory_patch.schema_migrations(ordinal,name,checksum,manifest_digest,state,completed_statements,catalog_fingerprint) VALUES(%s,%s,%s,%s,'APPLYING',%s,%s)",
+                            (ordinal, row["path"], row["sha256"], digest,
+                             prelude_count, after_prelude),
+                        )
+                    start = prelude_count
+                elif not pending:
                     with connection.cursor() as cursor:
                         cursor.execute(
                             "INSERT INTO aioa_memory_patch.schema_migrations(ordinal,name,checksum,manifest_digest,state,completed_statements,catalog_fingerprint) VALUES(%s,%s,%s,%s,'APPLYING',0,%s)",
@@ -658,7 +698,7 @@ class NativeMigrationController:
             fingerprint = validate_catalog(final, manifest, prefix)
             completed = read_applied(connection, final)
             validate_prefix(completed, manifest, digest)
-            if len(completed) != 18:
+            if len(completed) != len(manifest["units"]):
                 raise MemoryPatchError(ErrorCode.RECOVERY_REQUIRED)
             existing = _rows(
                 connection,
@@ -668,17 +708,17 @@ class NativeMigrationController:
                 if existing != [[digest, fingerprint, "READY"]]:
                     raise MemoryPatchError(ErrorCode.RECOVERY_REQUIRED)
             else:
-                observe("certificate_before", 18)
+                observe("certificate_before", len(manifest["units"]))
                 with connection.cursor() as cursor:
                     cursor.execute(
                         "INSERT INTO aioa_memory_patch.schema_certificate VALUES(true,%s,%s,'READY')",
                         (digest, fingerprint),
                     )
-                observe("certificate_after", 18)
+                observe("certificate_after", len(manifest["units"]))
             return {
                 "state": "READY",
-                "replayed": len(applied) == 18 and bool(existing),
-                "applied_this_run": 18 - len(applied),
+                "replayed": len(applied) == len(manifest["units"]) and bool(existing),
+                "applied_this_run": len(manifest["units"]) - len(applied),
                 "manifest_digest": digest,
                 "catalog_fingerprint": fingerprint,
                 "progress": tuple(progress),

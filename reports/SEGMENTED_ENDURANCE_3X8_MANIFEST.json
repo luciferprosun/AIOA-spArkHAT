@@ -1,0 +1,66 @@
+{
+  "schema": "aioa.segmented-endurance-closure-manifest.v1",
+  "generated_at": "2026-09-21T23:36:59Z",
+  "classification": "SEGMENTED_ENDURANCE_PASS",
+  "contiguous_24h_pass_closed": false,
+  "qualification": "SEGMENTED_ENDURANCE_3X8H_ONLY",
+  "frozen_sha": "ad4a425714a764f61f5ff22f2cc59f18abc36984",
+  "source": {
+    "status": "PASS",
+    "worktree_clean": true,
+    "source_digest": "a90dd64d8f028ce3b194e01d955561c20e173cc4d09a9854df550fd0367a12e4",
+    "evidence_digest": "a7c05e24c23a713d38d957095d67c249ef11b004af783ba61ebc34006d0687c3"
+  },
+  "cockroach": {
+    "status": "PASS",
+    "certificate_state": "READY",
+    "migration_count": 19
+  },
+  "required_total_active_seconds": 86400,
+  "total_active_seconds": 86837.003281,
+  "downtime_seconds": 0.0,
+  "accepted_invalidation_found": false,
+  "provider_accounting": {
+    "segmented_monitor_calls_at_segment1_boundary": 0,
+    "segments_2_3_calls": 0,
+    "scope_note": "Does not rewrite historical source-trial provider activity outside accepted segmented accounting."
+  },
+  "segments": [
+    {
+      "segment": 1,
+      "status": "PASS",
+      "active_seconds": 28898.455834,
+      "required_active_seconds": 28800,
+      "downtime_seconds": 0.0,
+      "completed_or_boundary_at": "2026-09-20T22:14:37.744224Z",
+      "evidence_sha256": "2c42c8b3e24343212f874cb56f21e4250b2ba840406885696a7ae360e3cbb8e5"
+    },
+    {
+      "segment": 2,
+      "status": "PASS",
+      "active_seconds": 28909.535109910998,
+      "required_active_seconds": 28800,
+      "downtime_seconds": 0.0,
+      "completed_or_boundary_at": "2026-09-21T15:28:52.859090Z",
+      "evidence_sha256": "08c5dc30d56df442355e8ea60e86e685b8917e75e8b9af0fd0d41ee2829d5c21"
+    },
+    {
+      "segment": 3,
+      "status": "PASS",
+      "active_seconds": 29029.012337035383,
+      "required_active_seconds": 28800,
+      "downtime_seconds": 0.0,
+      "completed_or_boundary_at": "2026-09-21T23:30:52.868698Z",
+      "evidence_sha256": "c4ee54bbeeefa42625f552c0f5d13b3aa7f601c77ce85fa7da618c65e67b5342"
+    }
+  ],
+  "closure_evidence": {
+    "segmented_complete_sha256": "4cfede5a8589f601ae3af9e4208861f00f46044e99ce88709870eedd0150637e",
+    "functional_closure_sha256": "aaee1447dc924ed8b07baf1757b8b17c06fd0bbfa81cec9357380339184c3b6e"
+  },
+  "limitations": {
+    "original_contiguous_24h_pass_closed": false,
+    "nv12b_live_effect_path": null,
+    "nv12b_independent_cloud_proof": null
+  }
+}

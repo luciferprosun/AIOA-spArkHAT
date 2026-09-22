@@ -130,6 +130,32 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
             self._write_json(HTTPStatus.OK, {'token': self._service().csrf_token,
                                            'product_name': 'AIOA spArkHAT'})
             return
+        if parsed.path == '/api/authority-timeline':
+            if not self._check_token():
+                return
+            from authority_timeline import build_authority_timeline
+            self._write_json(
+                HTTPStatus.OK, build_authority_timeline(self._service().runtime)
+            )
+            return
+        if parsed.path == '/api/competition-demo':
+            if not self._check_token():
+                return
+            from competition_view import load_competition_demo
+            self._write_json(HTTPStatus.OK, load_competition_demo())
+            return
+        if parsed.path == '/api/competition-evaluation':
+            if not self._check_token():
+                return
+            from competition_evaluation import competition_evaluation
+            self._write_json(HTTPStatus.OK, competition_evaluation())
+            return
+        if parsed.path == '/api/provider-availability':
+            if not self._check_token():
+                return
+            from provider_availability import provider_availability
+            self._write_json(HTTPStatus.OK, provider_availability())
+            return
         if parsed.path.startswith('/api/nonzero/'):
             if not self._check_token():
                 return
@@ -142,6 +168,9 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
                 service = self._service().runtime.critical_loop
                 if parsed.path == '/api/cpl/status':
                     payload = service.status()
+                elif parsed.path == '/api/cpl/preset':
+                    from critical_loop.preset import build_openrouter_cpl_preset
+                    payload = build_openrouter_cpl_preset(service)
                 elif parsed.path == '/api/cpl/fixture':
                     from critical_loop.fixture import FIXTURE_PROMPT, FIXTURE_EVIDENCE
                     payload = {'prompt': FIXTURE_PROMPT, 'evidence': FIXTURE_EVIDENCE,

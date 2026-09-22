@@ -14,9 +14,11 @@ FIXTURE_EVIDENCE = json.dumps([
 
 
 class LocalCPLFixture:
-    def __init__(self, *, faults=None, delay_seconds=2.0):
+    def __init__(self, *, faults=None, delay_seconds=2.0, atomic_claim=None):
         self.faults = dict(faults or {})
         self.delay_seconds = delay_seconds
+        # Explicit contract-test output; does not change the provider/service.
+        self.atomic_claim = atomic_claim
         self.requests = []
         self.lock = threading.Lock()
         self.entered = threading.Event()
@@ -60,7 +62,7 @@ class LocalCPLFixture:
                         }
                         content = json.dumps(review)
                     elif 'initial_draft' in material:
-                        content = ('Synthetic policy v2 dated 2026-09-11 specifies three parallel demo jobs. '
+                        content = fixture.atomic_claim if fixture.atomic_claim is not None else ('Synthetic policy v2 dated 2026-09-11 specifies three parallel demo jobs. '
                                    'The older two-job value is superseded. Advisory result only; human review is required.')
                     else:
                         content = 'Two parallel demo jobs are allowed. (Synthetic draft; intentionally stale.)'

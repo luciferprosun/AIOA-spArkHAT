@@ -4,12 +4,15 @@ from dataclasses import replace
 import http.client
 import json
 import tempfile
+from pathlib import Path
 import threading
 import time
 import unittest
 from unittest.mock import patch
 
 from critical_loop.fixture import FIXTURE_PROMPT, FIXTURE_EVIDENCE
+from nonzero_cloudops import module_descriptor as competition_nonzero_descriptor
+from critical_loop.preset import MODELS, PRESET_ID
 from providers.exact import ExactCallError
 from webapp import WebRuntimeService, make_server
 
@@ -92,6 +95,116 @@ class CPLWebTests(unittest.TestCase):
         self.assertEqual(self.fixture.requests, [])
         self.assertEqual(self.request('POST', '/api/cpl/plan', payload,
             headers={'Origin': f'http://127.0.0.1:{self.port}'})[0], 201)
+
+    def test_authority_timeline_is_token_protected_read_only_projection(self):
+        self.assertEqual(
+            self.request('GET', '/api/authority-timeline', token=False)[0], 403
+        )
+        status, payload, _ = self.request('GET', '/api/authority-timeline')
+        self.assertEqual(status, 200)
+        self.assertEqual(payload['schema'], 'aioa.authority-timeline.v1')
+        self.assertEqual(payload['effect_authority'], 'CORE_HUMAN_GATED_ONLY')
+        self.assertIs(payload['provider_output_authority'], False)
+        self.assertIs(payload['timeline_is_read_only_projection'], True)
+        stages = {item['stage'] for item in payload['events']}
+        self.assertIn('critical_prompt_loop', stages)
+        self.assertIn('service_guard', stages)
+        self.assertIn('nonzero_effect', stages)
+
+    def test_competition_demo_is_token_protected_and_explicit_fixture(self):
+        from test_competition_view import evidence
+        with tempfile.TemporaryDirectory() as temp:
+            artifact = Path(temp) / 'competition.json'
+            artifact.write_text(json.dumps(evidence()), encoding='utf-8')
+            with patch.dict('os.environ', {'AIOA_COMPETITION_DEMO_EVIDENCE': str(artifact)}):
+                self.assertEqual(
+                    self.request('GET', '/api/competition-demo', token=False)[0], 403
+                )
+                status, payload, _ = self.request('GET', '/api/competition-demo')
+        self.assertEqual(status, 200)
+        self.assertEqual(payload['status'], 'READY')
+        self.assertEqual(payload['provider_mode'], 'TEST_FIXTURE')
+        self.assertIs(payload['read_only'], True)
+        self.assertEqual(payload['effect']['replay_status'], 'REPLAY')
+
+    def test_competition_evaluation_is_token_protected_and_has_no_hidden_reasoning(self):
+        from test_competition_view import evidence
+        with tempfile.TemporaryDirectory() as temp:
+            artifact = Path(temp) / 'competition.json'
+            artifact.write_text(json.dumps(evidence()), encoding='utf-8')
+            with patch.dict('os.environ', {'AIOA_COMPETITION_DEMO_EVIDENCE': str(artifact)}):
+                self.assertEqual(
+                    self.request('GET', '/api/competition-evaluation', token=False)[0], 403
+                )
+                status, payload, _ = self.request('GET', '/api/competition-evaluation')
+        self.assertEqual(status, 200)
+        self.assertEqual(payload['status'], 'PASS')
+        self.assertEqual(payload['tool_usage']['duplicate_effects'], 0)
+        self.assertIs(payload['trajectory']['hidden_reasoning_logged'], False)
+        self.assertEqual(payload['nonzero']['status'], 'READY' if competition_nonzero_descriptor()['available'] else 'UNAVAILABLE')
+        self.assertEqual(payload['nonzero']['approval_status'], 'CORE_HUMAN_GATE_VERIFIED')
+        self.assertEqual(payload['nonzero']['receipt_status'], 'SERVICE_GUARD_RECEIPT_VERIFIED')
+        self.assertEqual(payload['nonzero']['competition_effect_executor'], 'ServiceGuard')
+        self.assertIs(payload['nonzero']['nonzero_executor_invoked'], False)
+        self.assertIsNone(self.service.runtime._nonzero_service)
+
+    def test_provider_availability_is_token_protected_and_evidence_backed(self):
+        from test_provider_availability import recovered
+        with tempfile.TemporaryDirectory() as temp:
+            artifact = Path(temp) / 'provider.json'
+            artifact.write_text(json.dumps(recovered()), encoding='utf-8')
+            with patch.dict('os.environ', {'AIOA_NVIDIA_PROVIDER_EVIDENCE': str(artifact)}):
+                self.assertEqual(
+                    self.request('GET', '/api/provider-availability', token=False)[0], 403
+                )
+                status, payload, _ = self.request('GET', '/api/provider-availability')
+        self.assertEqual(status, 200)
+        self.assertEqual(payload['provider_mode'], 'LIVE')
+        self.assertEqual(payload['status'], 'RECOVERED')
+        self.assertIs(payload['read_only'], True)
+
+    def test_cpl_competition_preset_is_token_protected_read_only_and_no_call(self):
+        self.assertEqual(self.request('GET', '/api/cpl/preset', token=False)[0], 403)
+        before = list(self.fixture.requests)
+        status, payload, _ = self.request('GET', '/api/cpl/preset')
+        self.assertEqual(status, 200)
+        self.assertEqual(payload['schema'], 'aioa.cpl-preset.v1')
+        self.assertEqual(payload['preset_id'], PRESET_ID)
+        self.assertEqual(payload['models'], list(MODELS))
+        self.assertEqual(payload['authority'], 'ADVISORY_ONLY')
+        self.assertIs(payload['read_only'], True)
+        self.assertEqual(payload['scope'], 'TEST')
+        self.assertIs(payload['live_preconditions_ready'], False)
+        self.assertIn('NOT_LIVE_RUNTIME', payload['blocking_reasons'])
+        self.assertEqual(self.fixture.requests, before)
+
+    def test_competition_dashboard_end_to_end_uses_real_demo_evidence(self):
+        from scripts.nvidia_competition_demo import run_demo
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / 'demo-runtime'
+            artifact = Path(temp) / 'competition.json'
+            artifact.write_text(json.dumps(run_demo(root)), encoding='utf-8')
+            with patch.dict('os.environ', {'AIOA_COMPETITION_DEMO_EVIDENCE': str(artifact)}):
+                demo_status, demo, _ = self.request('GET', '/api/competition-demo')
+                eval_status, evaluation, _ = self.request('GET', '/api/competition-evaluation')
+                timeline_status, timeline, _ = self.request('GET', '/api/authority-timeline')
+        self.assertEqual((demo_status, eval_status, timeline_status), (200, 200, 200))
+        self.assertEqual(demo['mission']['heartbeat_state'], 'COMPLETED_EVIDENCE_SNAPSHOT')
+        self.assertEqual(demo['mission']['restart_recovery'], 'VERIFIED_REPLAY')
+        self.assertEqual(demo['effect']['receipt_reconciliation_state'], 'COMMITTED_BY_TARGET_RECEIPT')
+        self.assertEqual(demo['effect']['independent_measurement_mode'], 'MAINTENANCE')
+        self.assertEqual(evaluation['status'], 'PASS')
+        self.assertIs(evaluation['reliability']['durable_receipt_verified'], True)
+        self.assertIs(evaluation['reliability']['independent_effect_verified'], True)
+        self.assertEqual(evaluation['tool_usage']['duplicate_effects'], 0)
+        self.assertEqual(evaluation['nonzero']['status'], 'READY' if competition_nonzero_descriptor()['available'] else 'UNAVAILABLE')
+        self.assertEqual(evaluation['nonzero']['approval_status'], 'CORE_HUMAN_GATE_VERIFIED')
+        self.assertEqual(evaluation['nonzero']['receipt_status'], 'SERVICE_GUARD_RECEIPT_VERIFIED')
+        self.assertEqual(evaluation['nonzero']['competition_effect_executor'], 'ServiceGuard')
+        self.assertIs(evaluation['nonzero']['nonzero_executor_invoked'], False)
+        self.assertIsNone(self.service.runtime._nonzero_service)
+        self.assertEqual(timeline['effect_authority'], 'CORE_HUMAN_GATED_ONLY')
+        self.assertIs(timeline['provider_output_authority'], False)
 
     def test_T11_status_and_cancel_responsive_during_real_http(self):
         self.fixture.faults = {1: 'delay'}

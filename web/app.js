@@ -4,6 +4,7 @@ const state = {
   sessionToken: null,
   cplPlan: null,
   cplStatus: null,
+  cplPreset: null,
   cplPoll: null,
   cplRunId: null,
   cplRevision: 0,
@@ -48,6 +49,27 @@ const elements = {
   reviewEvidenceDigest: document.querySelector("#review-evidence-digest"),
   reviewSnapshotHash: document.querySelector("#review-snapshot-hash"),
   reviewNextStep: document.querySelector("#review-next-step"),
+  authorityEffectBadge: document.querySelector("#authority-effect-badge"),
+  authorityTimelineSummary: document.querySelector("#authority-timeline-summary"),
+  authorityTimeline: document.querySelector("#authority-timeline"),
+  competitionProviderMode: document.querySelector("#competition-provider-mode"),
+  competitionProviderAvailability: document.querySelector("#competition-provider-availability"),
+  competitionProviderEvidence: document.querySelector("#competition-provider-evidence"),
+  competitionEvaluationSummary: document.querySelector("#competition-evaluation-summary"),
+  competitionTaskSuccess: document.querySelector("#competition-task-success"),
+  competitionVerifiedEffects: document.querySelector("#competition-verified-effects"),
+  competitionDuplicateEffects: document.querySelector("#competition-duplicate-effects"),
+  competitionMemoryBackend: document.querySelector("#competition-memory-backend"),
+  competitionMissionHeartbeat: document.querySelector("#competition-mission-heartbeat"),
+  competitionReceiptState: document.querySelector("#competition-receipt-state"),
+  competitionMeasurementState: document.querySelector("#competition-measurement-state"),
+  competitionRestartRecovery: document.querySelector("#competition-restart-recovery"),
+  competitionRecoveryStatus: document.querySelector("#competition-recovery-status"),
+  competitionNonzeroReadiness: document.querySelector("#competition-nonzero-readiness"),
+  competitionNonzeroApproval: document.querySelector("#competition-nonzero-approval"),
+  competitionNonzeroReceipt: document.querySelector("#competition-nonzero-receipt"),
+  competitionEffectExecutor: document.querySelector("#competition-effect-executor"),
+  competitionNonzeroBoundary: document.querySelector("#competition-nonzero-boundary"),
 };
 
 async function jsonFetch(url, options = {}) {
@@ -101,6 +123,92 @@ async function refreshStatus() {
   const payload = await jsonFetch("/api/status");
   applyStatus(payload);
   hydrateModelSelect(payload.available_models, payload.model);
+}
+
+function renderAuthorityTimeline(payload) {
+  elements.authorityEffectBadge.textContent = payload.effect_authority || "UNAVAILABLE";
+  elements.authorityTimelineSummary.textContent = payload.timeline_is_read_only_projection
+    ? "Read-only projection: model, CPL, memory and DVM can advise; only Core/human-bound gates may authorize effects."
+    : "Authority projection unavailable.";
+  elements.authorityTimeline.replaceChildren();
+  for (const event of payload.events || []) {
+    const node = document.createElement("article");
+    node.className = "finding";
+    const authority = document.createElement("span");
+    authority.className = "finding-severity";
+    authority.textContent = event.authority || "UNKNOWN";
+    const body = document.createElement("div");
+    const title = document.createElement("h4");
+    title.textContent = (event.stage || "stage").replaceAll("_", " ");
+    const detail = document.createElement("p");
+    detail.textContent = `${event.status || "UNAVAILABLE"} · ${event.source || "runtime"}`;
+    body.append(title, detail);
+    node.append(authority, body);
+    elements.authorityTimeline.appendChild(node);
+  }
+}
+
+async function refreshAuthorityTimeline() {
+  renderAuthorityTimeline(await jsonFetch("/api/authority-timeline"));
+}
+
+function renderCompetitionEvaluation(payload) {
+  elements.competitionProviderMode.textContent = payload.provider_mode || "EXTERNAL_UNAVAILABLE";
+  elements.competitionEvaluationSummary.textContent = payload.status === "PASS"
+    ? "PASS · explicit trajectory/outcome metrics only; hidden reasoning is not requested or stored."
+    : `${payload.status || "UNAVAILABLE"} · competition evidence is not being presented as a successful run.`;
+  elements.competitionTaskSuccess.textContent = Number.isFinite(payload.task_success_rate)
+    ? `${Math.round(payload.task_success_rate * 100)}%` : "—";
+  elements.competitionVerifiedEffects.textContent = String(payload.tool_usage?.verified_effects ?? "—");
+  elements.competitionDuplicateEffects.textContent = String(payload.tool_usage?.duplicate_effects ?? "—");
+  const memory = payload.memory || {};
+  elements.competitionMemoryBackend.textContent = memory.backend_mode === "LIVE_COCKROACH"
+    ? "CockroachDB LIVE"
+    : memory.backend_mode === "TEST_FIXTURE"
+      ? "Fixture"
+      : "Unknown";
+  const nonzero = payload.nonzero || {};
+  elements.competitionNonzeroReadiness.textContent = nonzero.status || "UNAVAILABLE";
+  elements.competitionNonzeroApproval.textContent = nonzero.approval_status || "UNVERIFIED";
+  elements.competitionNonzeroReceipt.textContent = nonzero.receipt_status || "UNVERIFIED";
+  elements.competitionEffectExecutor.textContent = nonzero.competition_effect_executor || "UNKNOWN";
+  elements.competitionNonzeroBoundary.textContent = nonzero.nonzero_executor_invoked === false
+    ? `Non-Zero ${nonzero.implementation || "UNKNOWN"} · ${nonzero.mode || "UNKNOWN"}/${nonzero.provider || "UNKNOWN"} · ${nonzero.relationship || "read-only"}. Competition receipt stays owned by ${nonzero.receipt_source || "ServiceGuard"}; Non-Zero executor was not invoked.`
+    : "Non-Zero boundary unavailable or inconsistent.";
+  const reliability = payload.reliability || {};
+  const replay = reliability.restart_replay_status || "UNAVAILABLE";
+  const independent = reliability.independent_effect_verified === true ? "VERIFIED" : "UNVERIFIED";
+  elements.competitionMissionHeartbeat.textContent = reliability.mission_heartbeat_state || "UNAVAILABLE";
+  elements.competitionReceiptState.textContent = reliability.durable_receipt_verified === true
+    ? "VERIFIED" : "UNVERIFIED";
+  elements.competitionMeasurementState.textContent = reliability.independent_measurement_state || "UNAVAILABLE";
+  elements.competitionRestartRecovery.textContent = reliability.restart_recovery_state || "UNAVAILABLE";
+  const attempts = payload.trajectory_efficiency?.effect_attempts_per_verified_effect;
+  elements.competitionRecoveryStatus.textContent =
+    `Memory: ${memory.backend_id || "UNKNOWN"} (${memory.schema_profile || "UNKNOWN"}) · receipt: ${reliability.receipt_state || "UNAVAILABLE"} · restart/replay: ${replay} · independent measurement: ${independent} · effect attempts/verified effect: ${attempts ?? "—"}.`;
+}
+
+async function refreshCompetitionEvaluation() {
+  renderCompetitionEvaluation(await jsonFetch("/api/competition-evaluation"));
+}
+
+function renderProviderAvailability(payload) {
+  const mode = payload.provider_mode || "UNKNOWN";
+  elements.competitionProviderAvailability.textContent = mode;
+  if (payload.evidence_available === true) {
+    const checked = payload.checked_at_utc || "unknown time";
+    const model = payload.model || "unknown model";
+    const reason = payload.reason ? ` · reason: ${payload.reason}` : "";
+    elements.competitionProviderEvidence.textContent =
+      `${payload.status || mode} · ${model} · checked ${checked}${reason} · read-only evidence.`;
+  } else {
+    elements.competitionProviderEvidence.textContent =
+      `${payload.status || "UNAVAILABLE"} · no explicit provider-availability evidence configured.`;
+  }
+}
+
+async function refreshProviderAvailability() {
+  renderProviderAvailability(await jsonFetch("/api/provider-availability"));
 }
 
 function parseModelChoices(availableModels) {
@@ -289,7 +397,7 @@ document.querySelector("#switch-model").addEventListener("click", async () => {
 
 document.querySelector("#refresh-status").addEventListener("click", async () => {
   try {
-    await refreshStatus();
+    await Promise.all([refreshStatus(), refreshAuthorityTimeline(), refreshCompetitionEvaluation(), refreshProviderAvailability()]);
   } catch (error) {
     addMessage("System", `Refresh failed: ${error}`);
   }
@@ -364,15 +472,31 @@ async function bootstrap() {
     "System",
     "AIOA spArkHAT is ready. Assistant, deterministic Evidence Review and Critical Prompt Loop use one local runtime."
   );
-  const [statusResult, scenarioResult] = await Promise.allSettled([
+  const [statusResult, scenarioResult, timelineResult, evaluationResult, providerResult, cplPresetResult] = await Promise.allSettled([
     refreshStatus(),
     loadReviewScenario(),
+    refreshAuthorityTimeline(),
+    refreshCompetitionEvaluation(),
+    refreshProviderAvailability(),
+    refreshCPLPreset(),
   ]);
   if (statusResult.status === "rejected") {
     addMessage("System", `Runtime startup failed: ${statusResult.reason}`);
   }
   if (scenarioResult.status === "rejected") {
     elements.reviewRequestStatus.textContent = `Evidence registry failed to load: ${scenarioResult.reason}`;
+  }
+  if (timelineResult.status === "rejected") {
+    elements.authorityTimelineSummary.textContent = `Authority timeline failed to load: ${timelineResult.reason}`;
+  }
+  if (evaluationResult.status === "rejected") {
+    elements.competitionEvaluationSummary.textContent = `Competition evaluation failed to load: ${evaluationResult.reason}`;
+  }
+  if (providerResult.status === "rejected") {
+    elements.competitionProviderEvidence.textContent = `Provider availability failed to load: ${providerResult.reason}`;
+  }
+  if (cplPresetResult.status === "rejected") {
+    cplElement('preset-status').textContent = `Competition CPL preset failed to load: ${cplPresetResult.reason}`;
   }
 }
 
@@ -413,6 +537,25 @@ function applyCPLStatus(status) {
   }
 }
 
+function renderCPLPreset(preset) {
+  state.cplPreset = preset;
+  const mapping = [
+    `primary ${preset.primary_model}`,
+    ...(preset.observer_models || []).map((model, index) => `${preset.roles?.[index] || `observer-${index + 1}`} ${model}`),
+  ].join(' · ');
+  if (preset.scope === 'TEST') {
+    cplElement('preset-status').textContent = `PREPARED · TEST fixture only · ${mapping}. Loading this preset does not call OpenRouter.`;
+  } else if (preset.live_preconditions_ready) {
+    cplElement('preset-status').textContent = `PREPARED · LIVE preconditions present · ${mapping}. Planning and one-use approval are still required before any provider call.`;
+  } else {
+    cplElement('preset-status').textContent = `PREPARED · LIVE NOT READY (${(preset.blocking_reasons || []).join(', ') || 'UNKNOWN'}) · ${mapping}. Loading only edits local form fields.`;
+  }
+}
+
+async function refreshCPLPreset() {
+  renderCPLPreset(await jsonFetch('/api/cpl/preset'));
+}
+
 function cplError(error) {
   cplElement('request-status').textContent = `CPL stopped: ${error}. The selected CPL mode has not fallen back to chat.`;
   cplElement('start').disabled = true;
@@ -430,6 +573,7 @@ function setCPLBusy(running) {
   elements.promptInput.disabled = running;
   document.querySelector('#assistant-submit').disabled = running;
   for (const element of cplElement('plan-form').querySelectorAll('input,textarea,button')) element.disabled = running;
+  cplElement('load-preset').disabled = running;
   if (state.cplStatus && state.cplStatus.mode !== 'TEST') cplElement('load-fixture').disabled = true;
 }
 
@@ -536,6 +680,17 @@ const changedCPLInput = () => invalidateCPLPlan('Input changed. Preview a new im
 cplElement('plan-form').addEventListener('input', changedCPLInput);
 elements.promptInput.addEventListener('input', changedCPLInput);
 elements.modelSelect.addEventListener('change', changedCPLInput);
+cplElement('load-preset').addEventListener('click', () => {
+  if (!state.cplPreset || state.cplRunning) return;
+  invalidateCPLPlan();
+  cplElement('models').value = state.cplPreset.models.join('\n');
+  cplElement('budget').value = state.cplPreset.scope === 'LIVE'
+    ? state.cplPreset.run_budget_usd_suggestion : '0';
+  cplElement('limits').value = '';
+  cplElement('options').open = true;
+  invalidateCPLPlan('Competition OpenRouter preset loaded locally. No provider call occurred; preview a new immutable plan before any authorization.');
+});
+
 cplElement('load-fixture').addEventListener('click', async () => {
   invalidateCPLPlan();
   const revision = state.cplRevision;

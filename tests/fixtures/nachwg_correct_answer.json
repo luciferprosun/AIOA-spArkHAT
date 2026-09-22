@@ -1,0 +1,12 @@
+{
+  "claims": {
+    "LEGAL_DISTINCTION": {"ordinary_oral_agreement_valid": true, "proof_duty_separate": true, "all_employment_agreements_form_free": false, "proof_duties_2022": "expanded"},
+    "ELECTRONIC_TEXT_FORM": {"electronic_transmission_permitted": true, "proof_form": "text_form", "effective_from": "2025-01-01", "signed_paper_always_required": false},
+    "ACCESSIBILITY": {"employee_access_required": true},
+    "SAVE_AND_PRINT": {"saving_required": true, "printing_required": true},
+    "RECEIPT_CONFIRMATION_REQUEST": {"employer_requests_receipt": true},
+    "PAPER_REQUEST_SAFEGUARD": {"employee_can_request_signed_record": true, "employer_provides_without_delay": true},
+    "SECTOR_EXCEPTION": {"electronic_simplification_excludes_sectors": true, "statute": "SchwarzArbG", "section": "2a", "paragraph": 1},
+    "CONTROLLING_PROVISION": {"statute": "NachwG", "section": "2", "paragraph": 1}
+  }
+}

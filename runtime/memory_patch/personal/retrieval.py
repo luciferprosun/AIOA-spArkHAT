@@ -39,12 +39,14 @@ class NativeMemoryRetrieval:
     ):
         self.lifecycle, self.claims = lifecycle, claims
 
-    def retrieve(self, principal, *, hat_id, at, canonical_bundle, limit=128):
+    def retrieve(self, principal, *, hat_id, at, canonical_bundle, limit=128, max_scan_records=1023):
         self.lifecycle.core.require(principal, Capability.READ)
         if (
             hat_id not in principal.hat_ids
             or type(limit) is not int
             or not 1 <= limit <= 128
+            or type(max_scan_records) is not int
+            or not 1 <= max_scan_records <= 1023
         ):
             raise MemoryPatchError(ErrorCode.OWNER_DENIED)
         if self.claims is None:
@@ -57,8 +59,8 @@ class NativeMemoryRetrieval:
             space = self.lifecycle.get(tx, RecordKind.SPACE, "owner-memory-slot")
             if space.payload["state"] != PersonalMemorySpaceState.ACTIVE.value:
                 return ()
-            records = tx.scan(RecordKind.PATCH, limit=1024, states=("ACTIVE",))
-            if len(records) >= 1024:
+            records = tx.scan(RecordKind.PATCH, limit=max_scan_records + 1, states=("ACTIVE",))
+            if len(records) > max_scan_records:
                 raise MemoryPatchError(ErrorCode.QUOTA_EXCEEDED)
             result = []
             for record in sorted(

@@ -167,10 +167,11 @@ class CorePurposePool:
         *,
         approved_manifest_digest: str,
         maximum_idle: int = 4,
+        schema_profile: str = "base",
     ):
         from .migration_controller import load_assets
 
-        self._manifest, _, self._manifest_digest = load_assets()
+        self._manifest, _, self._manifest_digest = load_assets(schema_profile)
         if approved_manifest_digest != self._manifest_digest:
             raise MemoryPatchError(ErrorCode.MIGRATION_DENIED)
         if type(handles) is not tuple or not 1 <= maximum_idle <= 8:

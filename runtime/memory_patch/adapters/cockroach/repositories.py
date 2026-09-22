@@ -26,6 +26,7 @@ TABLES = MappingProxyType(
         RecordKind.AUDIT: "audit_events",
         RecordKind.OUTBOX: "outbox",
         RecordKind.REVIEW: "reviews",
+        RecordKind.LEARNING: "learning_records",
     }
 )
 

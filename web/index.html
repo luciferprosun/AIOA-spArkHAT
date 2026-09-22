@@ -133,6 +133,55 @@
             </div>
           </section>
 
+          <section id="authority-timeline-panel" class="review-card" aria-live="polite">
+            <div class="review-result-head">
+              <div>
+                <p class="eyebrow">Competition authority timeline</p>
+                <h3>What may advise, coordinate, gate, or execute</h3>
+              </div>
+              <span id="authority-effect-badge" class="badge">Loading</span>
+            </div>
+            <p id="authority-timeline-summary" class="legal-boundary">
+              Read-only projection. It does not create approval, execution authority, or a new scheduler path.
+            </p>
+            <div id="authority-timeline" class="finding-list"></div>
+          </section>
+
+          <section id="competition-evaluation-panel" class="review-card" aria-live="polite">
+            <div class="review-result-head">
+              <div>
+                <p class="eyebrow">Competition trajectory evaluation</p>
+                <h3>Visible outcomes only · no hidden reasoning</h3>
+              </div>
+              <span id="competition-provider-mode" class="badge">Loading</span>
+            </div>
+            <p id="competition-evaluation-summary" class="legal-boundary">
+              Read-only metrics derived from explicit demo events, effect receipts, verification and replay evidence.
+            </p>
+            <div class="hero-grid">
+              <article class="metric-card"><span>Task success</span><strong id="competition-task-success">—</strong></article>
+              <article class="metric-card"><span>Verified effects</span><strong id="competition-verified-effects">—</strong></article>
+              <article class="metric-card"><span>Duplicate effects</span><strong id="competition-duplicate-effects">—</strong></article>
+              <article class="metric-card"><span>Memory backend</span><strong id="competition-memory-backend">—</strong></article>
+            </div>
+            <div class="hero-grid">
+              <article class="metric-card"><span>Mission heartbeat</span><strong id="competition-mission-heartbeat">—</strong></article>
+              <article class="metric-card"><span>Durable receipt</span><strong id="competition-receipt-state">—</strong></article>
+              <article class="metric-card"><span>Independent measure</span><strong id="competition-measurement-state">—</strong></article>
+              <article class="metric-card"><span>Restart recovery</span><strong id="competition-restart-recovery">—</strong></article>
+              <article class="metric-card"><span>Hosted NVIDIA</span><strong id="competition-provider-availability">—</strong></article>
+            </div>
+            <div class="hero-grid">
+              <article class="metric-card"><span>Non-Zero readiness</span><strong id="competition-nonzero-readiness">—</strong></article>
+              <article class="metric-card"><span>Non-Zero approval contract</span><strong id="competition-nonzero-approval">—</strong></article>
+              <article class="metric-card"><span>Competition receipt source</span><strong id="competition-nonzero-receipt">—</strong></article>
+              <article class="metric-card"><span>Effect executor</span><strong id="competition-effect-executor">—</strong></article>
+            </div>
+            <p id="competition-nonzero-boundary" class="note">Non-Zero authority alignment not loaded.</p>
+            <p id="competition-provider-evidence" class="note">Provider availability evidence not loaded.</p>
+            <p id="competition-recovery-status" class="note">Recovery evidence not loaded.</p>
+          </section>
+
           <section id="chat-log" class="chat-log" aria-live="polite" aria-label="Assistant answers"></section>
           <form id="composer" class="composer">
             <label class="label" for="prompt-input">Your question</label>
@@ -151,6 +200,10 @@
             </div>
             <p class="legal-boundary">Advisory only. Critics are sequentially informed, not independent consensus. No tools, automatic knowledge promotion or model training. Completion and hashes do not prove truth.</p>
             <p id="cpl-transport-note" class="note"></p>
+            <div class="review-actions">
+              <button id="cpl-load-preset" type="button" class="button button-ghost">Load competition OpenRouter preset</button>
+            </div>
+            <p id="cpl-preset-status" class="note" aria-live="polite">Competition preset readiness not loaded.</p>
             <form id="cpl-plan-form">
               <details id="cpl-options"><summary>Optional evidence, exact models, limits and budget</summary>
               <label class="label" for="cpl-evidence">Explicit evidence / dated source references (quoted, untrusted data)</label>
