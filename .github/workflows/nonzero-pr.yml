@@ -73,6 +73,7 @@ jobs:
               ('test_main.RuntimeArchitectureTests.test_browser_open_search_screenshot_visible_text_and_navigation', 'Playwright is not installed'),
               ('unittest.loader.ModuleSkipped.test_tui_phase1', 'optional dependency textual is not installed'),
               ('unittest.loader.ModuleSkipped.test_tui_phase2', 'optional dependency textual is not installed'),
+              ('test_nvidia_trajectory_export.NvidiaTrajectoryExportTest.test_projection_validates_with_pinned_nvidia_atif_model', 'set NVIDIA_NAT_ATIF_SITE to pinned NVIDIA NeMo Agent Toolkit site'),
           }
           for pattern in ('test*.py', 'test_nonzero_*.py'):
               suite = unittest.defaultTestLoader.discover('tests', pattern=pattern)
