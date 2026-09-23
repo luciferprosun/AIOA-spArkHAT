@@ -77,5 +77,15 @@ See:
 
 ## Publication
 
-Pending exact-head GitHub CI and PR merge. Record the final PR, merge SHA and
-fresh-clone evidence here after publication.
+Published through GitHub PR **#12** after all four exact-head CI jobs passed on
+Python 3.11 and 3.12.
+
+- PR head: `d9a839041f9fff3e5cc3618f21dd2ad6d3e6bd8a`
+- public `main` merge SHA: `e3e050408856393b45668775beda5a42b9affe74`
+- public-main CI: PASS
+- fresh clone of the public merge SHA: PASS
+- public-main reviewer preflight: PASS
+- pinned local NVIDIA ATIF-v1.7 validator on the public merge SHA: PASS
+
+The repository description/topics were also tightened for reviewer discovery.
+The optional contiguous Gold 24h run remains intentionally deferred.
