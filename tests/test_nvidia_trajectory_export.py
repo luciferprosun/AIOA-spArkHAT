@@ -70,6 +70,24 @@ class NvidiaTrajectoryExportTest(unittest.TestCase):
         self.assertFalse(first["extra"]["live_provider_claimed"])
         self.assertEqual(len(first["extra"]["source_canonical_json_sha256"]), 64)
 
+    def test_context_continuation_keeps_one_logical_session(self) -> None:
+        module = _load_module()
+        value = module.competition_demo_to_atif(
+            _demo(),
+            session_id="gold24-session-001",
+            continued_trajectory_ref="trajectory-segment-002.json",
+        )
+        self.assertEqual(value["session_id"], "gold24-session-001")
+        self.assertEqual(
+            value["continued_trajectory_ref"], "trajectory-segment-002.json"
+        )
+        with self.assertRaises(module.TrajectoryExportError):
+            module.competition_demo_to_atif(_demo(), session_id="")
+        with self.assertRaises(module.TrajectoryExportError):
+            module.competition_demo_to_atif(
+                _demo(), continued_trajectory_ref=""
+            )
+
     def test_live_or_hidden_reasoning_inputs_fail_closed(self) -> None:
         module = _load_module()
         value = _demo()
@@ -145,7 +163,13 @@ class NvidiaTrajectoryExportTest(unittest.TestCase):
             artifact = root / "trajectory.json"
             module = _load_module()
             artifact.write_text(
-                json.dumps(module.competition_demo_to_atif(_demo())),
+                json.dumps(
+                    module.competition_demo_to_atif(
+                        _demo(),
+                        session_id="gold24-session-001",
+                        continued_trajectory_ref="trajectory-segment-002.json",
+                    )
+                ),
                 encoding="utf-8",
             )
             validator = subprocess.run(
@@ -158,6 +182,8 @@ class NvidiaTrajectoryExportTest(unittest.TestCase):
                         "p=json.load(open(sys.argv[1])); "
                         "o=Trajectory.model_validate(p); "
                         "assert o.schema_version==ATIF_VERSION; "
+                        "assert o.session_id=='gold24-session-001'; "
+                        "assert o.continued_trajectory_ref=='trajectory-segment-002.json'; "
                         "assert all(s.reasoning_content is None for s in o.steps); "
                         "print(ATIF_VERSION)"
                     ),

@@ -20,8 +20,12 @@ as the final candidate.
 - CDB-003: foreign-working-directory launch is hardened and tested without
   PYTHONPATH or credentials. Fixture helpers still live in `tests/`; moving that
   code remains a separate low-risk decision, not a completed refactor.
-- CDB-004: dashboard polish remains for the focused frontend/demo phase. Reuse
-  [the NVIDIA runbook](NVIDIA_DEMO_RUNBOOK.md); do not add approval shortcuts.
+- CDB-004: bounded reviewer/dashboard clarity was completed in the 2026-09-23
+  Sol final-polish sprint. The dashboard now makes provider mode, memory mode,
+  ZERO_WRITE reuse, Core + human authority, receipt, independent verification,
+  replay safety, ServiceGuard and SHADOW dynamics legible without adding write
+  controls or approval shortcuts. Do not churn this surface unless a reproduced
+  defect appears.
 - Release rule for this authorized batch: publish by a non-destructive PR only
   after every CI check completes successfully for the exact head SHA. A mergeable
   or empty/pending check set is not a passing check set.
@@ -78,19 +82,23 @@ Acceptance:
 - artifact schema and 14-stage order unchanged;
 - no LIVE-provider behavior added.
 
-### CDB-004 — reviewer/UI polish
+### CDB-004 — reviewer/UI polish — COMPLETED 2026-09-23
 
-Goal: improve competition dashboard readability without adding write controls or authority.
+Completed:
+- provider mode and memory backend remain literal;
+- verified reuse is surfaced as `ZERO_WRITE`;
+- the authority boundary is surfaced as `CORE + HUMAN` only when the
+  evidence proves a human-bound effect authority and provider output has no
+  authority;
+- receipt, independent verification, restart recovery, ServiceGuard and
+  DVM/pheromone `SHADOW` remain visible;
+- Authority Timeline remains a read-only projection.
 
-Preferred improvements:
-- make provider mode, memory backend, authority boundary, receipt, independent verification, replay safety and Non-Zero contract-alignment legible at a glance;
-- keep `TEST_FIXTURE`, `LIVE_COCKROACH`, `UNKNOWN`, `EXTERNAL_UNAVAILABLE` labels literal;
-- preserve Authority Timeline as read-only projection.
-
-Acceptance:
+Acceptance evidence:
 - endpoint/token protections unchanged;
 - UI remains read-only for competition evidence;
-- dashboard E2E regression green.
+- focused reviewer/trajectory/dashboard regression green;
+- canonical full offline regression green after the batch.
 
 ## P2 — post-submission maintenance unless elevated by a failing test
 
@@ -111,7 +119,11 @@ Produce a static reachability/ownership map for legacy commands, orchestration h
 - OpenRouter LIVE: blocked until `OPENROUTER_API_KEY`, explicit live cost policy and bounded budget are operator-provided.
 - live AWS Non-Zero: disabled and un-certified; do not enable for demo optics.
 - DVM/pheromone/index promotion: remains `SHADOW`; no promotion in final-week sprint.
-- optional contiguous 24h Gold Test: do not launch.
+- optional contiguous 24h Gold Test: do not launch during ordinary polish. It is
+  reserved for the final frozen candidate only. Follow
+  [NVIDIA_GOLD24H_CONTEXT_CONTINUITY.md](NVIDIA_GOLD24H_CONTEXT_CONTINUITY.md):
+  authoritative state must be durable/checkpointed and must not depend on one
+  Nemotron/operator conversation remaining open.
 - deploy/submission/visibility changes: operator-only; no authorization is granted by this backlog.
 - push/merge/publication: require an explicit current operator mandate. The NVIDIA-only reviewer batch above has that mandate, subject to all-green exact-SHA CI; it does not authorize unrelated releases.
 

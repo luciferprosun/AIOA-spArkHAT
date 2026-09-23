@@ -12,9 +12,9 @@ Use Python 3.11+ and a complete source checkout, including `tests/`:
 python3 -I -B scripts/nvidia_reviewer_preflight.py
 ```
 
-The script also supports invocation by absolute path from another working directory. No provider credential, paid inference, external database or Codex session is needed. It returns the artifact path, SHA-256 and individual checks. Default output is a fresh temporary directory. An explicit `--root` must be fresh and must not be a symlink; existing artifact files are never overwritten.
+The script also supports invocation by absolute path from another working directory. No provider credential, paid inference, external database or Codex session is needed. It returns the demo artifact and a read-only `ATIF-v1.7` trajectory sidecar, SHA-256 digests and individual checks. Default output is a fresh temporary directory. An explicit `--root` must be fresh and must not be a symlink; existing artifact files are never overwritten.
 
-Expected summary: `status=PASS`, `stage_count=14`, `effect_executor=ServiceGuard`, `duplicate_effects=0`, `restart_replay_dispatches=0`, provider and memory `TEST_FIXTURE`, dynamics `SHADOW`.
+Expected summary: `status=PASS`, `stage_count=14`, `effect_executor=ServiceGuard`, `duplicate_effects=0`, `restart_replay_dispatches=0`, `trajectory_schema=ATIF-v1.7`, provider and memory `TEST_FIXTURE`, dynamics `SHADOW`. The trajectory contains explicit visible events only; hidden reasoning is neither requested nor exported.
 
 ## Four distinctions that must stay on screen
 
@@ -63,16 +63,19 @@ Show a revoked/stale approval being refused using the existing NV09 tests. Do no
 ## Remaining focused sprint
 
 - Before Codex returns on 24 September at approximately 15:00 Europe/Berlin: keep the reviewer path reproducible, preserve evidence and finish only bounded defects with tests.
-- Codex sprint: take the remaining CDB-003 fixture-layout decision and CDB-004 dashboard clarity work from [the backlog](CODEX_BACKLOG.md). No new Core or authority route.
+- The Sol sprint has completed the bounded CDB-004 reviewer/dashboard clarity work and added the read-only ATIF trajectory sidecar. Codex should verify current main/CI before considering any additional UI change.
+- CDB-003 fixture-layout refactoring remains optional and should be skipped unless a concrete reviewer or packaging defect requires it.
 - Backend target freeze: 29 September; 30 September–2 October reserved for frontend, video and submission checks.
 - OpenRouter live CPL waits for the operator's local setup and explicit bounded acceptance. It does not block this offline reviewer path.
-- Gold 24h remains optional on a final frozen candidate only; never displace the recording/submission buffer.
+- Gold 24h remains optional and **must be last**, on the final frozen candidate only. Use the [context-continuity plan](NVIDIA_GOLD24H_CONTEXT_CONTINUITY.md); never make the test depend on one Nemotron/operator conversation remaining open.
 
 ## Related reviewer material
 
 - [NVIDIA start here](reviewer/NVIDIA_REVIEWER_START_HERE.md)
 - [Reviewer quickstart](REVIEWER_QUICKSTART.md)
 - [Roadmap 2.1 closure](ROADMAP_2_1_CLOSURE.md)
+- [NVIDIA / Nemotron alignment audit](NVIDIA_NEMOTRON_OFFICIAL_AUDIT_20260923.md)
+- [Gold 24h context-continuity plan](NVIDIA_GOLD24H_CONTEXT_CONTINUITY.md)
 - [Codex handoff](CODEX_HANDOFF_20260924.md)
 
 NLnet/grant history and frozen hackathon repositories remain preserved. No EU proposal content is changed by this sprint.

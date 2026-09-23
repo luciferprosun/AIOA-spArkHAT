@@ -23,6 +23,9 @@ class NvidiaReviewerPreflightTests(unittest.TestCase):
         self.assertEqual(0, result["evaluation"]["duplicate_effects"])
         self.assertEqual(0, result["evaluation"]["restart_replay_dispatches"])
         self.assertEqual("ServiceGuard", result["evaluation"]["effect_executor"])
+        self.assertEqual("ATIF-v1.7", result["trajectory_schema"])
+        self.assertEqual(64, len(result["trajectory_artifact_sha256"]))
+        self.assertTrue(result["checks"]["trajectory_export_ready"])
         self.assertFalse(any(result["claims"].values()))
 
     def test_preflight_requires_fresh_root(self):

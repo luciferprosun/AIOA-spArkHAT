@@ -25,6 +25,7 @@ for value in (REPO, REPO / "runtime", REPO / "tests"):
 
 from competition_evaluation import competition_evaluation  # noqa: E402
 from competition_view import ENV_PATH, load_competition_demo  # noqa: E402
+from runtime.nvidia_trajectory import competition_demo_to_atif  # noqa: E402
 from scripts.nvidia_competition_demo import run_demo  # noqa: E402
 
 
@@ -48,6 +49,9 @@ def run_preflight(workspace: Path) -> dict:
     demo = run_demo(workspace / "demo", memory_backend="fixture")
     artifact = workspace / "AIOA_NVIDIA_COMPETITION_DEMO.json"
     digest = _write_artifact(artifact, demo)
+    trajectory = competition_demo_to_atif(demo)
+    trajectory_artifact = workspace / "AIOA_NVIDIA_TRAJECTORY_ATIF.json"
+    trajectory_digest = _write_artifact(trajectory_artifact, trajectory)
 
     previous = os.environ.get(ENV_PATH)
     os.environ[ENV_PATH] = str(artifact)
@@ -88,6 +92,15 @@ def run_preflight(workspace: Path) -> dict:
             evaluation.get("nonzero", {}).get("competition_effect_executor") == "ServiceGuard"
             and evaluation.get("nonzero", {}).get("nonzero_executor_invoked") is False
         ),
+        "trajectory_export_ready": (
+            trajectory.get("schema_version") == "ATIF-v1.7"
+            and len(trajectory.get("steps", ())) == 15
+            and all(
+                step.get("step_id") == index
+                and "reasoning_content" not in step
+                for index, step in enumerate(trajectory.get("steps", ()), start=1)
+            )
+        ),
     }
     return {
         "schema": "aioa.nvidia-reviewer-preflight.v1",
@@ -95,6 +108,9 @@ def run_preflight(workspace: Path) -> dict:
         "scope": "DETERMINISTIC_TEST_FIXTURE_ONLY",
         "artifact": str(artifact),
         "artifact_sha256": digest,
+        "trajectory_artifact": str(trajectory_artifact),
+        "trajectory_artifact_sha256": trajectory_digest,
+        "trajectory_schema": trajectory.get("schema_version"),
         "checks": checks,
         "projection": {
             "provider_mode": view.get("provider_mode"),

@@ -66,12 +66,29 @@ def _validate_source(demo: Mapping[str, Any]) -> list[Mapping[str, Any]]:
     return validated
 
 
-def competition_demo_to_atif(demo: Mapping[str, Any]) -> dict[str, Any]:
+def _optional_text(value: object, field: str) -> str | None:
+    if value is None:
+        return None
+    if not isinstance(value, str) or not value or len(value) > 512:
+        raise TrajectoryExportError(f"INVALID_FIELD:{field}")
+    return value
+
+
+def competition_demo_to_atif(
+    demo: Mapping[str, Any],
+    *,
+    session_id: str | None = None,
+    continued_trajectory_ref: str | None = None,
+) -> dict[str, Any]:
     """Project bounded deterministic competition evidence into ATIF-v1.7 JSON."""
     if not isinstance(demo, Mapping):
         raise TrajectoryExportError("SOURCE_NOT_OBJECT")
     events = _validate_source(demo)
     source_digest = _canonical_sha256(demo)
+    session_id = _optional_text(session_id, "session_id")
+    continued_trajectory_ref = _optional_text(
+        continued_trajectory_ref, "continued_trajectory_ref"
+    )
 
     steps: list[dict[str, Any]] = [
         {
@@ -102,9 +119,9 @@ def competition_demo_to_atif(demo: Mapping[str, Any]) -> dict[str, Any]:
             }
         )
 
-    return {
+    result = {
         "schema_version": ATIF_VERSION,
-        "session_id": f"aioa-fixture-{source_digest[:16]}",
+        "session_id": session_id or f"aioa-fixture-{source_digest[:16]}",
         "trajectory_id": f"competition-{source_digest[:16]}",
         "agent": {
             "name": str(demo.get("product_name") or "AIOA spArkHAT"),
@@ -128,3 +145,6 @@ def competition_demo_to_atif(demo: Mapping[str, Any]) -> dict[str, Any]:
             "raw_provider_trace": False,
         },
     }
+    if continued_trajectory_ref is not None:
+        result["continued_trajectory_ref"] = continued_trajectory_ref
+    return result

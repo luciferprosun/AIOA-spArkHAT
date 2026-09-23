@@ -28,7 +28,7 @@ Human approval at a consequential action boundary is deliberate; show autonomous
 
 | Criterion | Available evidence | Remaining delivery gate |
 | --- | --- | --- |
-| Working deployment / technical execution | Reproducible 14-stage local replay, fresh-process tests, CI and separately pinned 3x8 evidence | Show an actual useful task in the final deployed prototype. A fixture-only replay is engineering evidence, not proof that an arbitrary real task is solved. |
+| Working deployment / technical execution | Reproducible 14-stage local replay, read-only ATIF-v1.7 trajectory sidecar, fresh-process tests, CI and separately pinned 3x8 evidence | Show an actual useful task in the final deployed prototype. A fixture-only replay is engineering evidence, not proof that an arbitrary real task is solved. |
 | Innovation and creativity | CPL advisory review, verified-delta reuse, ZERO_WRITE, stale-source revalidation, separated execution authority | Explain one differentiator in plain language; do not promote SHADOW mechanisms without measured benefit. |
 | Real-world value | Receipt/verification/replay example for operators of long-running maintenance agents | Name the user and show the before/after result, rather than only test counts or architecture terms. |
 
@@ -41,8 +41,8 @@ Adapt the draft to the actual recorded deployment before submitting. Never repla
 ## Next execution priorities
 
 1. Keep the published main and isolated reviewer launch green; preserve the exact tested version.
-2. Finish the operator-facing task and dashboard flow in the existing runtime. Keep Service Guard as the only competition executor and avoid a new Core.
+2. Preserve the completed reviewer-dashboard clarity: TEST_FIXTURE/LIVE, ZERO_WRITE, Core + human authority, ServiceGuard, receipt, independent verification, replay safety and SHADOW dynamics must remain visible.
 3. Record the useful end-to-end result using [the demo runbook](NVIDIA_DEMO_RUNBOOK.md) and [submission pack](NVIDIA_SUBMISSION_PACK.md); keep live/fixture and human-approval labels visible.
 4. Complete and verify the official project form before the operational cutoff. No submission is made by this checklist.
 
-OpenRouter can be configured later. Additional grant drafting and an optional Gold24h are not prerequisites for these steps. Existing frozen hackathon repositories and NLnet history remain preserved.
+OpenRouter can be configured later. Additional grant drafting is not a prerequisite. The optional Gold24h is reserved for the **final frozen candidate after ordinary release gates**, using the [context-continuity plan](NVIDIA_GOLD24H_CONTEXT_CONTINUITY.md); it must not consume the recording/submission safety buffer. Existing frozen hackathon repositories and NLnet history remain preserved.

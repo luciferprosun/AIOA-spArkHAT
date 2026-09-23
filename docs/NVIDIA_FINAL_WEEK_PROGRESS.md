@@ -421,3 +421,28 @@ Next: stop the autonomous post-3x8 preparation loop and hand off to the bounded 
 Final review of candidate `997acf1` found that a relative CLI output root could place target state in the source checkout when the child used its fixed module cwd. A disposable-copy regression reproduced this despite a PASS summary. The test helper now binds that root to the caller's absolute path before starting the child; it does not resolve symlinks or change production runtime code.
 
 The previous 1027/4 full-suite result above belongs to candidate `997acf1`. The follow-up adds a ninth safety test; all **13 NVIDIA tests PASS** locally. Full-suite and exact-head CI evidence for the follow-up must be read from the final PR #7 run before release. No historical endurance result is changed.
+
+## 2026-09-23 — Sol final-polish / trajectory and reviewer clarity
+
+Integrated on branch `sol/nvidia-final-integration-20260923` from public main
+`730601488fbaf3ba63ebc2677a5828ee5cf8f1ba` plus the bounded Sol audit commits:
+
+- added read-only ATIF-v1.7 export of the 14-stage competition trajectory;
+- bound the ATIF artifact and digest into deterministic reviewer preflight;
+- exporter preserves explicit visible events only and fails closed on authority
+  or SHADOW-boundary violations;
+- completed CDB-004 dashboard clarity: ZERO_WRITE, Core + human authority,
+  ServiceGuard, receipt, independent verification, replay safety and SHADOW;
+- documented Nemotron alignment and final Gold 24h context continuity;
+- consolidated the earlier NVIDIA-specific reviewer skill into one canonical
+  `skills/evidence-audit/` package and hardened its fail-closed/read-only wrapper;
+- validated that canonical skill with NVIDIA SkillEvaluator Tier 1 rather than
+  publishing a second overlapping skill;
+- focused evidence-audit/trajectory/preflight/dashboard gate: **24/24 PASS** with the pinned NVIDIA ATIF validator enabled;
+- canonical offline regression: **1041 PASS / 5 expected skips / 0 FAIL**;
+- NVIDIA SkillEvaluator Tier 1: **6/6 PASS, quality A 100/100** with one low non-blocking lint advisory;
+- Non-Zero focused regression with isolated optional dependencies: **101/101 PASS**.
+
+No new LIVE provider call, live AWS enablement, authority-path change,
+DVM/pheromone promotion or Gold 24h run occurred in this sprint. Publication
+still requires exact-head GitHub CI before merge.

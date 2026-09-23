@@ -155,6 +155,8 @@ class EvidenceAuditSkillTest(unittest.TestCase):
         self.assertEqual(after, before)
         payload = json.loads(completed.stdout)
         self.assertEqual(payload["status"], "PASS")
+        self.assertEqual(payload["trajectory_schema"], "ATIF-v1.7")
+        self.assertEqual(64, len(payload["trajectory_artifact_sha256"]))
 
     def test_eval_dataset_routes_to_one_canonical_skill(self) -> None:
         payload = json.loads(

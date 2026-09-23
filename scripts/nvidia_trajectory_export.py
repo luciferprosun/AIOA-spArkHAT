@@ -60,9 +60,18 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--input", required=True, type=Path)
     parser.add_argument("--output", type=Path)
+    parser.add_argument("--session-id")
+    parser.add_argument(
+        "--continued-trajectory-ref",
+        help="Optional ATIF continuation link for a later context segment.",
+    )
     args = parser.parse_args()
     try:
-        payload = competition_demo_to_atif(_load_source(args.input))
+        payload = competition_demo_to_atif(
+            _load_source(args.input),
+            session_id=args.session_id,
+            continued_trajectory_ref=args.continued_trajectory_ref,
+        )
     except TrajectoryExportError as exc:
         print(json.dumps({"status": "FAIL", "reason": str(exc)}), file=sys.stderr)
         return EXIT_FAILURE

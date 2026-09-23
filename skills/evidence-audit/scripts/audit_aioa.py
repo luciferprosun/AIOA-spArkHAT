@@ -41,6 +41,7 @@ REQUIRED_PREFLIGHT_CHECKS = (
     "independent_measurement_verified",
     "stage_order_verified",
     "service_guard_remains_executor",
+    "trajectory_export_ready",
 )
 
 
@@ -194,6 +195,8 @@ def _summarize(payload: Mapping[str, Any]) -> dict[str, Any]:
         "provider_mode": projection.get("provider_mode"),
         "memory_mode": projection.get("memory_mode"),
         "dvm_pheromone_mode": projection.get("dvm_pheromone_mode"),
+        "trajectory_schema": payload.get("trajectory_schema"),
+        "trajectory_artifact_sha256": payload.get("trajectory_artifact_sha256"),
         "live_provider_validated_by_this_run": (
             claims.get("live_provider_validated_by_this_run") is True
         ),

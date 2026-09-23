@@ -85,6 +85,7 @@ A PASS requires all of the following:
 - provider mode is TEST_FIXTURE;
 - memory mode is TEST_FIXTURE;
 - DVM / pheromone mode is SHADOW;
+- the read-only trajectory sidecar is emitted as `ATIF-v1.7`;
 - all LIVE claims emitted by this run are false.
 
 For exact claim wording, read `references/CLAIM_BOUNDARIES.md`.
@@ -134,8 +135,9 @@ and explicit TEST_FIXTURE labels.
 ## Output expectations
 
 Return status, scope, stage count, duplicate effects, restart redispatches,
-effect executor, provider mode, memory mode, DVM/pheromone mode, whether this
-run validates any LIVE provider, and a concise list of claims still unproven.
+effect executor, provider mode, memory mode, DVM/pheromone mode, ATIF trajectory
+schema/digest, whether this run validates any LIVE provider, and a concise list
+of claims still unproven.
 
 Do not expose secrets, hidden chain-of-thought, credential paths, or unrelated
 repository content.

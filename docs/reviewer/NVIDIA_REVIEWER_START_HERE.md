@@ -15,6 +15,10 @@ documents first.
 1. **Run the deterministic reviewer preflight**
    - `python3 -I -B scripts/nvidia_reviewer_preflight.py`
    - expected top-level status: `PASS`
+   - the run emits both the deterministic demo artifact and a read-only
+     `ATIF-v1.7` trajectory sidecar with SHA-256 digests
+   - the trajectory exports explicit visible events only; hidden reasoning is
+     neither requested nor exported
    - this path is intentionally `TEST_FIXTURE`, not a LIVE-provider claim
 
 2. **Read the reproducibility and troubleshooting notes**
@@ -45,9 +49,12 @@ documents first.
 
 8. **Evidence and validation ledger**
    - `docs/NVIDIA_FINAL_WEEK_PROGRESS.md`
+   - `docs/NVIDIA_NEMOTRON_OFFICIAL_AUDIT_20260923.md`
 
 9. **Final submission / recording pack**
    - `docs/NVIDIA_SUBMISSION_PACK.md`
+   - optional final Gold 24h continuity design:
+     `docs/NVIDIA_GOLD24H_CONTEXT_CONTINUITY.md`
 
 ## Competition vertical slice
 

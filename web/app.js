@@ -61,6 +61,9 @@ const elements = {
   competitionVerifiedEffects: document.querySelector("#competition-verified-effects"),
   competitionDuplicateEffects: document.querySelector("#competition-duplicate-effects"),
   competitionMemoryBackend: document.querySelector("#competition-memory-backend"),
+  competitionVerifiedReuse: document.querySelector("#competition-verified-reuse"),
+  competitionDynamicsMode: document.querySelector("#competition-dynamics-mode"),
+  competitionAuthorityBoundary: document.querySelector("#competition-authority-boundary"),
   competitionMissionHeartbeat: document.querySelector("#competition-mission-heartbeat"),
   competitionReceiptState: document.querySelector("#competition-receipt-state"),
   competitionMeasurementState: document.querySelector("#competition-measurement-state"),
@@ -168,6 +171,9 @@ function renderCompetitionEvaluation(payload) {
     : memory.backend_mode === "TEST_FIXTURE"
       ? "Fixture"
       : "Unknown";
+  elements.competitionVerifiedReuse.textContent = memory.reuse_zero_write === true
+    ? "ZERO_WRITE" : "UNVERIFIED";
+  elements.competitionDynamicsMode.textContent = memory.dvm_pheromone_mode || "UNKNOWN";
   const nonzero = payload.nonzero || {};
   elements.competitionNonzeroReadiness.textContent = nonzero.status || "UNAVAILABLE";
   elements.competitionNonzeroApproval.textContent = nonzero.approval_status || "UNVERIFIED";
@@ -177,6 +183,10 @@ function renderCompetitionEvaluation(payload) {
     ? `Non-Zero ${nonzero.implementation || "UNKNOWN"} · ${nonzero.mode || "UNKNOWN"}/${nonzero.provider || "UNKNOWN"} · ${nonzero.relationship || "read-only"}. Competition receipt stays owned by ${nonzero.receipt_source || "ServiceGuard"}; Non-Zero executor was not invoked.`
     : "Non-Zero boundary unavailable or inconsistent.";
   const reliability = payload.reliability || {};
+  elements.competitionAuthorityBoundary.textContent =
+    reliability.human_bound_effect_authority === true
+    && reliability.provider_output_authority === false
+      ? "CORE + HUMAN" : "UNVERIFIED";
   const replay = reliability.restart_replay_status || "UNAVAILABLE";
   const independent = reliability.independent_effect_verified === true ? "VERIFIED" : "UNVERIFIED";
   const verifiedMode = reliability.independent_measurement_state || "UNAVAILABLE";
