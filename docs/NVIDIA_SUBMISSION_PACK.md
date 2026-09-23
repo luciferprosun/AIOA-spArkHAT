@@ -260,20 +260,25 @@ Do not submit until all are true:
 
 ## Current technical checkpoint
 
-Public main before the 2026-09-23 final-polish sprint:
-`730601488fbaf3ba63ebc2677a5828ee5cf8f1ba`
+Published through PR **#12** on 2026-09-23.
 
-Current sprint candidate, before publication:
+Current public main:
+`e3e050408856393b45668775beda5a42b9affe74`
+
+Verified on the published sprint path:
+- GitHub CI on PR head: all four Python 3.11/3.12 packaging/certify jobs PASS
+- public-main CI for the merge SHA: PASS
+- public fresh-clone reviewer rehearsal: PASS and clean
 - deterministic reviewer preflight: PASS
 - ATIF-v1.7 trajectory sidecar: PASS
 - focused evidence-audit/trajectory/preflight/dashboard tests: 24/24 PASS with the pinned ATIF validator enabled
 - full offline regression: 1041 PASS, 5 expected skips, 0 FAIL
-- NVIDIA SkillEvaluator Tier 1: 6/6 PASS, quality A 100/100
+- Non-Zero focused regression with isolated optional dependencies: 101/101 PASS
+- NVIDIA SkillEvaluator Tier 1: 6/6 PASS, quality A 100/100, one low non-blocking lint advisory
 - memory mode: TEST_FIXTURE in the deterministic reviewer path
 - provider mode: TEST_FIXTURE in the deterministic reviewer path
 - DVM / pheromones: SHADOW
 - effect executor: ServiceGuard
 
-This file is a preparation artifact. After the sprint PR is merged, record the
-exact final public SHA and rerun the fresh-clone gate before using these claims
-in the final form.
+This remains a preparation artifact: the demo video and official project form
+are still outstanding, and `24H_PASS_CLOSED` is not claimed.

@@ -10,6 +10,14 @@ This repository is intentionally broader than the NVIDIA competition demo.
 For a fast review, use the path below instead of reading the historical project
 documents first.
 
+### Published reviewer checkpoint
+
+The 2026-09-23 reviewer sprint was merged through PR #12. Public main at that
+checkpoint is `e3e050408856393b45668775beda5a42b9affe74`. Its Python 3.11/3.12
+packaging and certification CI passed, and a fresh public clone reproduced the
+reviewer preflight plus the pinned local NVIDIA ATIF-v1.7 validation. The Gold
+24h run is intentionally not included in that claim.
+
 ## 3-minute review path
 
 1. **Run the deterministic reviewer preflight**

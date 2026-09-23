@@ -444,5 +444,10 @@ Integrated on branch `sol/nvidia-final-integration-20260923` from public main
 - Non-Zero focused regression with isolated optional dependencies: **101/101 PASS**.
 
 No new LIVE provider call, live AWS enablement, authority-path change,
-DVM/pheromone promotion or Gold 24h run occurred in this sprint. Publication
-still requires exact-head GitHub CI before merge.
+DVM/pheromone promotion or Gold 24h run occurred in this sprint.
+
+Publication closure:
+- PR #12 merged after all exact-head Python 3.11/3.12 CI jobs passed;
+- public main became `e3e050408856393b45668775beda5a42b9affe74`;
+- public-main CI passed on that merge SHA;
+- fresh public clone reviewer/preflight + pinned ATIF validation passed cleanly.

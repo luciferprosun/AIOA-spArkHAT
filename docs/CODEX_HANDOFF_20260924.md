@@ -5,7 +5,8 @@
 Prepared: 2026-09-22; updated by the bounded Sol final-polish sprint on 2026-09-23.
 
 Public main before the Sol sprint: `730601488fbaf3ba63ebc2677a5828ee5cf8f1ba`.
-Sol integration branch: `sol/nvidia-final-integration-20260923`.
+Published Sol sprint PR: `#12`.
+Current public main after that merge: `e3e050408856393b45668775beda5a42b9affe74`.
 The local worktree path is intentionally not part of the public handoff contract.
 Frozen certified product SHA remains: `ad4a425714a764f61f5ff22f2cc59f18abc36984`.
 
@@ -52,7 +53,7 @@ Read in this order before changing code:
 
 ## Most recent accepted regression evidence
 
-On the 2026-09-23 Sol final-polish candidate:
+On the published 2026-09-23 Sol sprint (public main `e3e0504`):
 
 - canonical offline full regression: **1041 PASS, 5 expected skips, 0 FAIL**;
 - focused evidence-audit/trajectory/preflight/dashboard gate: **24/24 PASS** with the pinned ATIF validator enabled;

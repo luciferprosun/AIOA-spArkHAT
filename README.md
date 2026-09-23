@@ -1,5 +1,7 @@
 # AIOA spArkHAT
 
+[![Core and native NonZero](https://github.com/luciferprosun/AIOA-spArkHAT/actions/workflows/nonzero-pr.yml/badge.svg?branch=main)](https://github.com/luciferprosun/AIOA-spArkHAT/actions/workflows/nonzero-pr.yml)
+
 > **NVIDIA reviewers:** start with [NVIDIA Reviewer — Start Here](docs/reviewer/NVIDIA_REVIEWER_START_HERE.md) for the competition vertical slice, demo path, authority model, memory/CPL/Non-Zero integration, and validation evidence. The rest of this README documents the wider AIOA spArkHAT runtime and project history.
 
 > **NLnet / grant reviewers:** start with [NLnet Reviewer — Project Context and Repository Guide](docs/reviewer/NLNET_REVIEWER_START_HERE.md). It explains the multi-hackathon convergence, current-vs-historical boundaries, reproducibility status, 3×8 endurance qualification, and [GenAI transparency](docs/governance/GENAI_TRANSPARENCY.md). Historical grant/audit material is intentionally preserved during active review.
