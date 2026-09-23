@@ -101,3 +101,17 @@ pinned NVIDIA model validator locally.
 
 `NO-GO` for using Nemotron output as authority, a second scheduler, or a second
 effect executor.
+
+## Follow-up — ATIF exporter gate satisfied locally
+
+Later on 2026-09-23, the exporter gate above was exercised with NVIDIA's pinned
+`nvidia-nat-atif==1.7.0` package. The generated deterministic fixture trajectory
+passed `nat.atif.trajectory.Trajectory.model_validate` as `ATIF-v1.7`, with
+sequential step IDs and no `reasoning_content`.
+
+The updated claim is intentionally narrow: local schema compatibility for the
+read-only TEST_FIXTURE evidence exporter is validated. This does not establish
+LIVE Nemotron/provider availability, a raw provider transcript, NVIDIA
+certification, benchmark reproduction, or `24H_PASS_CLOSED`.
+
+Detailed evidence: `docs/NVIDIA_ATIF_EXPORT_VALIDATION_20260923.md`.
