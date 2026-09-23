@@ -1,17 +1,17 @@
 {
-  "skill_name": "aioa-nvidia-reviewer",
+  "skill_name": "evidence-audit",
   "evals": [
     {
       "id": "reviewer-pass-trajectory",
       "prompt": "Review this AIOA spArkHAT checkout for the NVIDIA deterministic competition trajectory and report replay safety.",
       "expected_output": "A claim-safe summary including stage count, duplicate effects, restart redispatches, executor, and fixture labels.",
       "assertions": [
-        "Runs scripts/review_aioa.py",
+        "Runs scripts/audit_aioa.py",
         "Reports TEST_FIXTURE truthfully",
         "Does not enable a live provider"
       ],
-      "expected_skill": "aioa-nvidia-reviewer",
-      "expected_script": "scripts/review_aioa.py"
+      "expected_skill": "evidence-audit",
+      "expected_script": "scripts/audit_aioa.py"
     },
     {
       "id": "reviewer-live-claim-boundary",
@@ -21,7 +21,7 @@
         "Preserves the TEST_FIXTURE label",
         "Does not claim live Nemotron"
       ],
-      "expected_skill": "aioa-nvidia-reviewer"
+      "expected_skill": "evidence-audit"
     },
     {
       "id": "reviewer-duplicate-effects",
@@ -31,7 +31,7 @@
         "Uses deterministic preflight evidence",
         "Reports both duplicate and restart metrics"
       ],
-      "expected_skill": "aioa-nvidia-reviewer"
+      "expected_skill": "evidence-audit"
     },
     {
       "id": "reviewer-executor-boundary",
@@ -41,7 +41,7 @@
         "Reports ServiceGuard",
         "Preserves the single-executor boundary"
       ],
-      "expected_skill": "aioa-nvidia-reviewer"
+      "expected_skill": "evidence-audit"
     },
     {
       "id": "reviewer-24h-negative",
@@ -51,7 +51,7 @@
         "Does not claim 24H_PASS_CLOSED",
         "Explains the evidence scope"
       ],
-      "expected_skill": "aioa-nvidia-reviewer"
+      "expected_skill": "evidence-audit"
     },
     {
       "id": "reviewer-deployment-negative",

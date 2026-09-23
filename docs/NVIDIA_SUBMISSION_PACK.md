@@ -42,7 +42,10 @@ Expected reviewer metrics:
 - duplicate effects: 0
 - restart redispatches: 0
 - effect executor: ServiceGuard
+- verified reuse: ZERO_WRITE
+- authority boundary: Core + human
 - DVM / pheromone mode: SHADOW
+- trajectory sidecar: ATIF-v1.7, visible events only
 ## Judging criterion mapping
 
 ### 1. Working deployment / real engineering
@@ -50,10 +53,11 @@ Expected reviewer metrics:
 Evidence:
 - public fresh clone works;
 - one-command deterministic reviewer preflight;
+- the same preflight emits a read-only ATIF-v1.7 trajectory sidecar with an independent SHA-256;
 - documented local web launcher works from a foreign working directory;
-- public main CI green on Python 3.11 and 3.12;
-- packaging and certification checks pass;
-- full offline regression after latest reviewer-start fix: 1029 PASS, 4 expected skips, 0 FAIL;
+- public main CI is required green on Python 3.11 and 3.12 for the exact published head;
+- NVIDIA SkillEvaluator Tier 1 on the current sprint skill: 6/6 PASS, quality A 100/100;
+- full offline regression on the integrated sprint candidate: 1041 PASS, 5 expected skips, 0 FAIL;
 - durable receipt + independent verification + restart/replay are exercised, not described only on slides.
 
 ### 2. Innovation / creativity
@@ -97,7 +101,7 @@ Allowed:
 - SEGMENTED_ENDURANCE_PASS
 - FUNCTIONAL_CLOSURE_PASS
 - deterministic reviewer preflight PASS
-- 1029 PASS / 4 expected skips on the latest full offline regression
+- 1041 PASS / 5 expected skips on the integrated candidate's supported offline regression
 - zero duplicate effects in the competition trajectory
 - restart/replay protection demonstrated
 - Service Guard is the competition effect executor
@@ -256,15 +260,20 @@ Do not submit until all are true:
 
 ## Current technical checkpoint
 
-Public main SHA at preparation time:
-`4303a4d0697905ae07439218bc28420bd7055fa7`
+Public main before the 2026-09-23 final-polish sprint:
+`730601488fbaf3ba63ebc2677a5828ee5cf8f1ba`
 
-Latest verified public fresh-clone rehearsal:
-- preflight: PASS
-- health endpoint: ok
-- dashboard evaluation: PASS
-- static UI: PASS
-- memory mode: TEST_FIXTURE
-- provider mode: TEST_FIXTURE
+Current sprint candidate, before publication:
+- deterministic reviewer preflight: PASS
+- ATIF-v1.7 trajectory sidecar: PASS
+- focused evidence-audit/trajectory/preflight/dashboard tests: 24/24 PASS with the pinned ATIF validator enabled
+- full offline regression: 1041 PASS, 5 expected skips, 0 FAIL
+- NVIDIA SkillEvaluator Tier 1: 6/6 PASS, quality A 100/100
+- memory mode: TEST_FIXTURE in the deterministic reviewer path
+- provider mode: TEST_FIXTURE in the deterministic reviewer path
+- DVM / pheromones: SHADOW
+- effect executor: ServiceGuard
 
-This file is a preparation artifact. The final form contents must be checked against the final frozen submission SHA.
+This file is a preparation artifact. After the sprint PR is merged, record the
+exact final public SHA and rerun the fresh-clone gate before using these claims
+in the final form.

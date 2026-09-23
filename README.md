@@ -15,9 +15,11 @@ python3 -I -B scripts/nvidia_reviewer_preflight.py
 ```
 
 Use Python 3.11+ and the complete source checkout. The summary reports the
-artifact path and SHA-256, 14 stages, Service Guard as the effect executor,
-zero duplicate effects and no redispatch on replay. The default run needs no
-API key, Codex session or external database.
+deterministic demo artifact and a read-only **ATIF-v1.7 trajectory sidecar**,
+their SHA-256 digests, 14 stages, Service Guard as the effect executor, zero
+duplicate effects and no redispatch on replay. The exported trajectory contains
+only explicit visible events; hidden reasoning is neither requested nor
+exported. The default run needs no API key, Codex session or external database.
 
 **This is an explicit TEST_FIXTURE replay:** model replies and human approval
 are simulated by controlled fixtures; the guarded effect is limited to a real
@@ -251,6 +253,8 @@ The suite covers routing determinism, execution containment, evidence/provenance
 ## Reviewer and governance entry points
 
 - [NVIDIA reviewer start here](docs/reviewer/NVIDIA_REVIEWER_START_HERE.md)
+- [NVIDIA / Nemotron alignment audit](docs/NVIDIA_NEMOTRON_OFFICIAL_AUDIT_20260923.md)
+- [Gold 24h context-continuity plan](docs/NVIDIA_GOLD24H_CONTEXT_CONTINUITY.md)
 - [NLnet reviewer start here](docs/reviewer/NLNET_REVIEWER_START_HERE.md)
 - [Reviewer quickstart](docs/REVIEWER_QUICKSTART.md)
 - [Reproducibility report](docs/REPRODUCIBILITY_REPORT.md)
