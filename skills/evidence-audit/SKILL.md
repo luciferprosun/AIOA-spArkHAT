@@ -1,11 +1,11 @@
 ---
-name: aioa-nvidia-reviewer
-version: "0.1.0"
+name: evidence-audit
+version: "0.2.0"
 description: Use when reviewing AIOA spArkHAT NVIDIA replay safety, authority boundaries, or deterministic evidence claims.
 license: MIT
 compatibility: Python 3.12+ and an AIOA spArkHAT checkout with scripts/nvidia_reviewer_preflight.py
 metadata:
-  author: AIOA spArkHAT Team <team@example.com>
+  author: LuciferSOL <42999854+luciferprosun@users.noreply.github.com>
   tags:
     - nvidia
     - reviewer
@@ -13,7 +13,7 @@ metadata:
     - safety
 ---
 
-# AIOA NVIDIA Reviewer
+# AIOA Evidence Audit
 
 ## Purpose
 
@@ -36,7 +36,7 @@ authority, fixture/live boundaries, or submission-facing evidence claims.
 ## Instructions
 
 1. Confirm the target is an AIOA spArkHAT source checkout.
-2. Run the bundled read-only reviewer wrapper.
+2. Run the bundled read-only evidence-audit wrapper.
 3. Parse the JSON result from stdout.
 4. Report only claims supported by that result.
 5. If status is not PASS, preserve the failure and list the failed gates.
@@ -45,16 +45,16 @@ authority, fixture/live boundaries, or submission-facing evidence claims.
 
 If the agent host exposes a `run_script` helper, use:
 
-`run_script("scripts/review_aioa.py", args=["--repo", "."])`
+`run_script("scripts/audit_aioa.py", args=["--repo", "."])`
 
 Otherwise, from the repository root run:
 
-`python3 skills/aioa-nvidia-reviewer/scripts/review_aioa.py --repo .`
+`python3 skills/evidence-audit/scripts/audit_aioa.py --repo .`
 ## Available Scripts
 
 | Script | Purpose | Arguments |
 | --- | --- | --- |
-| `scripts/review_aioa.py` | Runs the deterministic reviewer preflight with provider credentials removed and returns a claim-safe JSON summary. | `--repo PATH`, optional `--timeout-s SECONDS` |
+| `scripts/audit_aioa.py` | Runs the deterministic evidence preflight with provider credentials removed and returns a claim-safe JSON summary. | `--repo PATH`, optional `--timeout-s SECONDS` |
 
 ## Safety contract
 
@@ -71,7 +71,7 @@ It must never:
 - promote DVM or pheromone mechanisms beyond SHADOW;
 - grant execution authority to provider output, critics, memory, or the skill.
 
-Temporary artifacts may be created only in an isolated temporary directory.
+The existing deterministic preflight may exercise only disposable local TEST_FIXTURE effects inside an isolated temporary directory. It must not perform an external or production effect, and its temporary artifacts are deleted when the wrapper exits.
 ## Required PASS evidence
 
 A PASS requires all of the following:
@@ -100,13 +100,13 @@ production deployment.
 Review the default checkout:
 
 ```bash
-python3 skills/aioa-nvidia-reviewer/scripts/review_aioa.py --repo .
+python3 skills/evidence-audit/scripts/audit_aioa.py --repo .
 ```
 
 Review another checkout with a bounded timeout:
 
 ```bash
-python3 skills/aioa-nvidia-reviewer/scripts/review_aioa.py --repo /path/to/aioa --timeout-s 120
+python3 skills/evidence-audit/scripts/audit_aioa.py --repo /path/to/aioa --timeout-s 120
 ```
 
 Expected successful output includes `"status": "PASS"`, stage count 14,
