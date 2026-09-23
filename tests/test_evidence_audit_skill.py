@@ -39,7 +39,7 @@ class EvidenceAuditSkillTest(unittest.TestCase):
     def test_sanitized_environment_uses_isolated_home(self) -> None:
         module = _load_script_module()
         values = {
-            "HOME": "/home/l",
+            "HOME": "/tmp/source-home",
             "OPENROUTER_API_KEY": "placeholder-openrouter-secret",
             "NVIDIA_API_KEY": "placeholder-nvidia-secret",
             "AWS_SECRET_ACCESS_KEY": "placeholder-aws-secret",

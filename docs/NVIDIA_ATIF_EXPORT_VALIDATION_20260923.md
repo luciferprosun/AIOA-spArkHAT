@@ -49,8 +49,8 @@ accepted the output with:
 - no LIVE provider claim;
 - no raw provider trace.
 
-Evidence directory:
-`/home/l/.local/state/aioa-nvidia-24h-sprint/atif-validation/20260923T062010Z`
+Evidence directory (local sprint state, not committed to the repository):
+`atif-validation/20260923T062010Z`
 
 SHA-256:
 
