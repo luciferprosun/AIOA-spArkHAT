@@ -8,6 +8,7 @@ from pathlib import Path
 from .aureon_provider import AureonProvider
 from .base import ModelProvider
 from .gemini_provider import GeminiProvider
+from .nebius import DEFAULT_NEBIUS_MODEL, NebiusProvider
 from .openai_compatible import OpenAICompatibleProvider
 from runtime_paths import runtime_state_dir
 
@@ -15,6 +16,7 @@ from runtime_paths import runtime_state_dir
 DEFAULT_MODEL = "openrouter/google/gemma-3-27b-it"
 DEFAULT_PROVIDER_CHAIN = [
     {"name": "openrouter", "model": "google/gemma-3-27b-it", "enabled": True},
+    {"name": "nebius", "model": DEFAULT_NEBIUS_MODEL, "enabled": False},
     {"name": "gemini", "model": "gemini-2.5-flash", "enabled": True},
     {"name": "xai", "model": "grok-4.3", "enabled": True},
     {"name": "deepseek", "model": "deepseek-chat", "enabled": True},
@@ -24,6 +26,9 @@ DEFAULT_MODEL_PRESETS: dict[str, str] = {
     "gemma": "openrouter/google/gemma-3-27b-it",
     "openrouter": "openrouter/free",
     "openrouter-gemma": "openrouter/google/gemma-3-27b-it",
+    "nebius": f"nebius/{DEFAULT_NEBIUS_MODEL}",
+    "nemotron": f"nebius/{DEFAULT_NEBIUS_MODEL}",
+    "nebius-nemotron-super": f"nebius/{DEFAULT_NEBIUS_MODEL}",
     "gemini": "gemini/gemini-2.5-flash",
     "grok": "xai/grok-4.3",
     "xai": "xai/grok-4.3",
@@ -32,10 +37,12 @@ DEFAULT_MODEL_PRESETS: dict[str, str] = {
 }
 
 API_FILE_CANDIDATES = [
+    Path.home() / ".config" / "aoia" / "secrets" / "nebius.env",
     Path.home() / ".config" / "aoia" / "secrets" / "openrouter.env",
     Path.home() / ".config" / "aoia" / "secrets" / "gemini.env",
     Path.home() / ".config" / "aoia" / "secrets" / "xai.env",
     Path.home() / ".config" / "aoia" / "secrets" / "deepseek.env",
+    Path.home() / ".config" / "nebius" / "api.env",
     Path.home() / ".config" / "openrouter" / "api.env",
     Path.home() / ".config" / "gemini" / "api.env",
     Path.home() / ".config" / "xai" / "api.env",
@@ -205,6 +212,11 @@ class ProviderManager:
             return "Gemini uses GEMINI_API_KEY and the google-genai SDK."
         if provider == "openrouter":
             return "OpenRouter uses OPENROUTER_API_KEY. Current Gemma preset: google/gemma-3-27b-it."
+        if provider == "nebius":
+            return (
+                "Nebius Token Factory uses NEBIUS_API_KEY and an official "
+                "NEBIUS_BASE_URL; explicit Nebius selection fails closed with no provider fallback."
+            )
         if provider == "deepseek":
             return "DeepSeek uses DEEPSEEK_API_KEY and an OpenAI-compatible endpoint."
         if provider == "xai":
@@ -239,6 +251,8 @@ class ProviderManager:
         return f"{provider}/{model}"
 
     def _fallback_candidates(self) -> list[str]:
+        if self.current_model.split("/", 1)[0] == "nebius":
+            return [self.current_model]
         candidates = [self.current_model]
         candidates.extend(
             provider.full_name
@@ -311,6 +325,12 @@ class ProviderManager:
             if not api_key:
                 raise FileNotFoundError("GEMINI_API_KEY not found")
             return GeminiProvider(api_key, model)
+        if provider == "nebius":
+            return NebiusProvider(
+                api_key=self._load_env_key("NEBIUS_API_KEY"),
+                model=model,
+                base_url=os.getenv("NEBIUS_BASE_URL") or None,
+            )
         if provider == "openrouter":
             return OpenAICompatibleProvider(
                 provider="openrouter",
@@ -357,6 +377,8 @@ class ProviderManager:
             return bool(os.getenv("AUREON_API_BASE_URL", "").strip())
         if provider == "gemini":
             return bool(os.getenv("GEMINI_API_KEY", "").strip())
+        if provider == "nebius":
+            return bool(os.getenv("NEBIUS_API_KEY", "").strip())
         if provider == "openrouter":
             return bool(os.getenv("OPENROUTER_API_KEY", "").strip())
         if provider == "xai":
