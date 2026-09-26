@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 import tempfile
@@ -110,6 +111,48 @@ class NebiusProviderTests(unittest.TestCase):
                     manager._build_provider(
                         f"nebius/{DEFAULT_NEBIUS_MODEL}"
                     )
+
+    def test_model_discovery_returns_exact_token_factory_ids(self) -> None:
+        provider = NebiusProvider("test-key-not-a-real-secret")
+
+        class Response:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc, tb):
+                return False
+
+            def read(self, _limit):
+                return json.dumps(
+                    {
+                        "data": [
+                            {"id": "nvidia/nemotron-3-nano"},
+                            {"id": DEFAULT_NEBIUS_MODEL},
+                            {"id": "other/vendor-model"},
+                            {"id": DEFAULT_NEBIUS_MODEL},
+                        ]
+                    }
+                ).encode()
+
+        def opener(request, timeout):
+            self.assertEqual(request.full_url, f"{provider.base_url}/models")
+            self.assertEqual(timeout, 3)
+            self.assertTrue(request.headers["Authorization"].startswith("Bearer "))
+            return Response()
+
+        models = provider.discover_models(timeout_seconds=3, opener=opener)
+        self.assertEqual(
+            models,
+            (
+                "nvidia/nemotron-3-nano",
+                DEFAULT_NEBIUS_MODEL,
+                "other/vendor-model",
+            ),
+        )
+        self.assertEqual(
+            provider.discover_nemotron_models(timeout_seconds=3, opener=opener),
+            ("nvidia/nemotron-3-nano", DEFAULT_NEBIUS_MODEL),
+        )
 
     def test_competition_profile_locks_runtime_to_nebius_nemotron(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

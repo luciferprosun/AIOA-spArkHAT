@@ -1,4 +1,4 @@
-"""Bounded, one-attempt OpenRouter transport; independent of agent actions.
+"""Bounded, one-attempt exact provider transport; independent of agent actions.
 
 The ordinary provider path retains its existing policy. This module never
 retries, follows redirects, uses proxies, chooses a model, or supplies a
@@ -14,7 +14,7 @@ import socket
 import ssl
 import threading
 import time
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from urllib.parse import urlsplit
 
 from .messages import ChatMessage
@@ -94,12 +94,13 @@ class ExactRequest:
     transport_scope: str = 'LIVE'
 
     def validate(self):
-        if self.provider_connection_id != 'openrouter':
+        if self.provider_connection_id not in {'openrouter', 'nebius'}:
             raise ExactCallError('UNSUPPORTED_STRICT_CPL')
         if (not isinstance(self.requested_model, str)
                 or len(self.requested_model) > 180
                 or not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._-]*/[A-Za-z0-9][A-Za-z0-9._:-]*', self.requested_model)
-                or self.requested_model.lower() in {'openrouter/auto', 'openrouter/free', 'openrouter/router', 'free/router'}):
+                or (self.provider_connection_id == 'openrouter'
+                    and self.requested_model.lower() in {'openrouter/auto', 'openrouter/free', 'openrouter/router', 'free/router'})):
             raise ExactCallError('EXACT_MODEL_REQUIRED')
         for value, maximum in [(self.max_output_tokens, 4096),
                                (self.max_input_tokens, 65536), (self.max_response_bytes, 262144)]:
@@ -137,6 +138,7 @@ class ProviderResult:
     usage: dict[str, int] | None
     finish_reason: str
     transport_scope: str
+    latency_ms: int | None = None
 
     def metadata(self):
         payload = asdict(self)
@@ -201,18 +203,29 @@ def generate_http_exact(adapter, request: ExactRequest, cancel: CancellationToke
                         deadline: float, *, fixture: bool = False) -> ProviderResult:
     request.validate()
     cancel.check(deadline)
-    if adapter.provider != 'openrouter' or adapter.model != request.requested_model:
+    if (adapter.provider != request.provider_connection_id
+            or adapter.model != request.requested_model):
         raise ExactCallError('CONNECTION_BINDING_MISMATCH')
     parsed = urlsplit(adapter.base_url)
     if fixture:
         if (request.transport_scope != 'TEST' or parsed.scheme != 'http'
                 or parsed.hostname != '127.0.0.1' or not parsed.port):
             raise ExactCallError('FIXTURE_LOOPBACK_ONLY')
-    elif (request.transport_scope != 'LIVE' or parsed.scheme != 'https'
-          or parsed.netloc != 'openrouter.ai' or parsed.path.rstrip('/') != '/api/v1'):
+    elif request.transport_scope != 'LIVE' or parsed.scheme != 'https':
         raise ExactCallError('UNSUPPORTED_STRICT_ENDPOINT')
+    elif request.provider_connection_id == 'openrouter':
+        if parsed.netloc != 'openrouter.ai' or parsed.path.rstrip('/') != '/api/v1':
+            raise ExactCallError('UNSUPPORTED_STRICT_ENDPOINT')
+    elif request.provider_connection_id == 'nebius':
+        host = (parsed.hostname or '').lower()
+        official_host = host == 'api.tokenfactory.nebius.com'
+        regional_host = host.startswith('api.tokenfactory.') and host.endswith('.nebius.com')
+        if (not (official_host or regional_host) or parsed.port is not None
+                or parsed.path.rstrip('/') != '/v1'):
+            raise ExactCallError('UNSUPPORTED_STRICT_ENDPOINT')
     if parsed.username or parsed.password or parsed.query or parsed.fragment:
         raise ExactCallError('INVALID_ENDPOINT')
+    started = time.monotonic()
     payload = {'model': request.requested_model,
                'messages': [asdict(m) for m in request.messages],
                'temperature': 0, 'max_tokens': request.max_output_tokens,
@@ -287,7 +300,8 @@ def generate_http_exact(adapter, request: ExactRequest, cancel: CancellationToke
         if response.status != 200:
             # The error body has already been bounded. Do not expose it at all.
             raise ExactCallError(f'PROVIDER_HTTP_{response.status}')
-        return decode_response(b''.join(chunks), request)
+        result = decode_response(b''.join(chunks), request)
+        return replace(result, latency_ms=max(0, int((time.monotonic() - started) * 1000)))
     except ExactCallError:
         raise
     except (TimeoutError, socket.timeout):

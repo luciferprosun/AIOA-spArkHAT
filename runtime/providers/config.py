@@ -119,10 +119,13 @@ class ProviderManager:
         return self.generate_with_fallback(prompt)
 
     def strict_status(self) -> dict:
-        enabled = any(p.name == "openrouter" and p.enabled for p in self.provider_chain)
-        return {"provider": "openrouter", "enabled": enabled,
+        provider = "openrouter"
+        if self.fixture_base_url is None and self.current_model.startswith("nebius/"):
+            provider = "nebius"
+        enabled = any(p.name == provider and p.enabled for p in self.provider_chain)
+        return {"provider": provider, "enabled": enabled,
                 "mode": "TEST" if self.fixture_base_url is not None else "LIVE_PENDING_AUTHORIZATION",
-                "configured": self.fixture_base_url is not None or self._provider_is_available("openrouter"),
+                "configured": self.fixture_base_url is not None or self._provider_is_available(provider),
                 "fallback": False, "retry": False}
 
     def generate_exact(self, request, cancel, deadline):
@@ -135,19 +138,39 @@ class ProviderManager:
         fixture = self.fixture_base_url is not None
         if (request.transport_scope == "TEST") != fixture:
             raise ExactCallError("TRANSPORT_SCOPE_MISMATCH")
-        if not fixture and not self._provider_is_available("openrouter"):
+        provider = request.provider_connection_id
+        if not fixture and not self._provider_is_available(provider):
             raise ExactCallError("PROVIDER_UNCONFIGURED")
-        adapter = OpenAICompatibleProvider(
-            provider="openrouter", model=request.requested_model,
-            api_key="fixture-key-not-a-real-credential" if fixture else self._load_env_key("OPENROUTER_API_KEY"),
-            base_url=self.fixture_base_url if fixture else "https://openrouter.ai/api/v1",
-        )
+        if fixture:
+            adapter = OpenAICompatibleProvider(
+                provider="openrouter",
+                model=request.requested_model,
+                api_key="fixture-key-not-a-real-credential",
+                base_url=self.fixture_base_url,
+            )
+        elif provider == "nebius":
+            adapter = NebiusProvider(
+                api_key=self._load_env_key("NEBIUS_API_KEY"),
+                model=request.requested_model,
+                base_url=os.getenv("NEBIUS_BASE_URL") or None,
+            )
+        elif provider == "openrouter":
+            adapter = OpenAICompatibleProvider(
+                provider="openrouter",
+                model=request.requested_model,
+                api_key=self._load_env_key("OPENROUTER_API_KEY"),
+                base_url="https://openrouter.ai/api/v1",
+            )
+        else:
+            raise ExactCallError("UNSUPPORTED_STRICT_CPL")
         return adapter.generate_exact(request, cancel, deadline, fixture=fixture)
 
     def strict_known_secrets(self) -> tuple[str, ...]:
         if self.fixture_base_url is not None:
             return ("fixture-key-not-a-real-credential",)
-        value = os.getenv("OPENROUTER_API_KEY", "").strip()
+        provider = self.strict_status()["provider"]
+        env_name = "NEBIUS_API_KEY" if provider == "nebius" else "OPENROUTER_API_KEY"
+        value = os.getenv(env_name, "").strip()
         return (value,) if value else ()
 
     def generate_with_fallback(self, prompt: str) -> str:

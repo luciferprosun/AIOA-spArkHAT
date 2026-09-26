@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import json
 import os
+import urllib.error
+import urllib.request
 from urllib.parse import urlparse
 
 from .openai_compatible import OpenAICompatibleProvider
@@ -8,6 +11,7 @@ from .openai_compatible import OpenAICompatibleProvider
 
 DEFAULT_NEBIUS_BASE_URL = "https://api.tokenfactory.nebius.com/v1"
 DEFAULT_NEBIUS_MODEL = "nvidia/nemotron-3-super-120b-a12b"
+MAX_MODELS_RESPONSE_BYTES = 1_048_576
 
 
 def normalize_nebius_base_url(value: str | None) -> str:
@@ -68,4 +72,59 @@ class NebiusProvider(OpenAICompatibleProvider):
             base_url=normalize_nebius_base_url(
                 base_url if base_url is not None else os.getenv("NEBIUS_BASE_URL")
             ),
+        )
+
+    def discover_models(self, *, timeout_seconds: float = 20.0, opener=None) -> tuple[str, ...]:
+        """Return exact model IDs advertised by Token Factory.
+
+        The response is bounded and provider error bodies are never surfaced.
+        """
+        if opener is None:
+            opener = urllib.request.urlopen
+        request = urllib.request.Request(
+            f"{self.base_url}/models",
+            headers={
+                "Authorization": f"Bearer {self.api_key}",
+                "Accept": "application/json",
+            },
+            method="GET",
+        )
+        try:
+            with opener(request, timeout=timeout_seconds) as response:
+                raw = response.read(MAX_MODELS_RESPONSE_BYTES + 1)
+        except urllib.error.HTTPError as error:
+            raise RuntimeError(f"nebius model discovery HTTP {error.code}") from None
+        except (OSError, urllib.error.URLError, TimeoutError):
+            raise RuntimeError("nebius model discovery transport error") from None
+
+        if len(raw) > MAX_MODELS_RESPONSE_BYTES:
+            raise RuntimeError("nebius model discovery response too large")
+        try:
+            payload = json.loads(raw.decode("utf-8"))
+            data = payload["data"]
+            if not isinstance(data, list):
+                raise ValueError
+            values = []
+            for item in data:
+                if not isinstance(item, dict):
+                    raise ValueError
+                model_id = item.get("id")
+                if not isinstance(model_id, str) or not model_id.strip() or len(model_id) > 180:
+                    raise ValueError
+                values.append(model_id.strip())
+        except (UnicodeError, json.JSONDecodeError, KeyError, TypeError, ValueError):
+            raise RuntimeError("invalid nebius models response") from None
+
+        if not values:
+            raise RuntimeError("nebius model catalog is empty")
+        return tuple(dict.fromkeys(values))
+
+    def discover_nemotron_models(self, *, timeout_seconds: float = 20.0, opener=None) -> tuple[str, ...]:
+        return tuple(
+            model
+            for model in self.discover_models(
+                timeout_seconds=timeout_seconds,
+                opener=opener,
+            )
+            if model.lower().startswith("nvidia/nemotron")
         )
