@@ -6,7 +6,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from providers.config import ProviderManager
+from providers.config import NEBIUS_COMPETITION_PROFILE, ProviderManager
 from providers.nebius import (
     DEFAULT_NEBIUS_BASE_URL,
     DEFAULT_NEBIUS_MODEL,
@@ -110,6 +110,36 @@ class NebiusProviderTests(unittest.TestCase):
                     manager._build_provider(
                         f"nebius/{DEFAULT_NEBIUS_MODEL}"
                     )
+
+    def test_competition_profile_locks_runtime_to_nebius_nemotron(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            env = {
+                "AOIA_HOME": str(Path(tmp) / "state"),
+                "AIOA_COMPETITION_PROFILE": NEBIUS_COMPETITION_PROFILE,
+            }
+            with patch.dict(os.environ, env, clear=True):
+                manager = ProviderManager(Path(tmp) / "project")
+                self.assertEqual(
+                    manager.current_model,
+                    f"nebius/{DEFAULT_NEBIUS_MODEL}",
+                )
+                self.assertEqual(
+                    [(item.name, item.enabled) for item in manager.provider_chain],
+                    [("nebius", True)],
+                )
+                with self.assertRaisesRegex(ValueError, "locked to Nebius"):
+                    manager.switch_model("gemini")
+
+    def test_competition_profile_rejects_non_nemotron_model(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            env = {
+                "AOIA_HOME": str(Path(tmp) / "state"),
+                "AIOA_COMPETITION_PROFILE": NEBIUS_COMPETITION_PROFILE,
+                "NEBIUS_MODEL": "meta-llama/Llama-3.3-70B-Instruct",
+            }
+            with patch.dict(os.environ, env, clear=True):
+                with self.assertRaisesRegex(ValueError, "requires an NVIDIA Nemotron"):
+                    ProviderManager(Path(tmp) / "project")
 
 
 if __name__ == "__main__":

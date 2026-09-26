@@ -14,6 +14,7 @@ from runtime_paths import runtime_state_dir
 
 
 DEFAULT_MODEL = "openrouter/google/gemma-3-27b-it"
+NEBIUS_COMPETITION_PROFILE = "nebius-personal-ai"
 DEFAULT_PROVIDER_CHAIN = [
     {"name": "openrouter", "model": "google/gemma-3-27b-it", "enabled": True},
     {"name": "nebius", "model": DEFAULT_NEBIUS_MODEL, "enabled": False},
@@ -98,8 +99,17 @@ class ProviderManager:
         self.config_path = state_dir / "state" / "model_config.json"
         self.providers_path = state_dir / "state" / "providers.json"
         self.config_path.parent.mkdir(parents=True, exist_ok=True)
+        self.competition_profile = os.getenv("AIOA_COMPETITION_PROFILE", "").strip()
+        if self.competition_profile not in {"", NEBIUS_COMPETITION_PROFILE}:
+            raise ValueError(f"Unsupported competition profile: {self.competition_profile}")
         self.provider_chain = self._load_provider_chain()
         self.current_model = self.normalize_model_name(self._load_model_name())
+        if self.competition_profile == NEBIUS_COMPETITION_PROFILE:
+            selected = os.getenv("NEBIUS_MODEL", DEFAULT_NEBIUS_MODEL).strip()
+            if not selected.lower().startswith("nvidia/nemotron"):
+                raise ValueError("Nebius competition profile requires an NVIDIA Nemotron model")
+            self.current_model = f"nebius/{selected}"
+            self.provider_chain = [ProviderConfig("nebius", selected, True)]
         self.provider: ModelProvider | None = None
         self.last_used_model = ""
 
@@ -168,6 +178,11 @@ class ProviderManager:
 
     def switch_model(self, model_name: str) -> str:
         normalized = self.normalize_model_name(model_name)
+        if (
+            self.competition_profile == NEBIUS_COMPETITION_PROFILE
+            and not normalized.lower().startswith("nebius/nvidia/nemotron")
+        ):
+            raise ValueError("Competition profile is locked to Nebius-hosted NVIDIA Nemotron")
         self.current_model = normalized
         self.last_used_model = ""
         self.provider = None
