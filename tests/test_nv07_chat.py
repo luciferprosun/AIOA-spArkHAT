@@ -371,6 +371,32 @@ class PrivateChatTests(unittest.TestCase):
         self.assertEqual(1, len(fx.transport.calls))
         self.assertEqual((), fx.learning.records("DELTA"))
 
+    def test_private_transcript_and_provider_reasoning_are_not_persisted_as_delta(self):
+        fx = self.fixture()
+        fx.consent()
+        transcript_marker = "PRIVATE_TRANSCRIPT_SENTINEL_91d34"
+        reasoning_marker = "PRIVATE_COT_SENTINEL_a7b206"
+        status, raw = fx.transport.replies[0]
+        envelope = json.loads(raw)
+        envelope["choices"][0]["message"]["reasoning_content"] = reasoning_marker
+        fx.transport.replies[0] = status, json.dumps(envelope).encode()
+
+        result = fx.ask(question=f"{QUESTION} {transcript_marker}")
+
+        self.assertEqual("CREATED", result["knowledge_write"], result)
+        delta_rows = fx.learning.records("DELTA")
+        overlay_rows = fx.learning.records("OVERLAY")
+        self.assertEqual(1, len(delta_rows))
+        self.assertEqual(1, len(overlay_rows))
+        durable_experience = canonical_json_bytes({
+            "delta": [row.payload for row in delta_rows],
+            "overlay": [row.payload for row in overlay_rows],
+        }).decode()
+        self.assertNotIn(transcript_marker, durable_experience)
+        self.assertNotIn(reasoning_marker, durable_experience)
+        self.assertEqual(WRONG, fx.learning.delta(delta_rows[0]).original_claim)
+        self.assertEqual(RIGHT, fx.learning.delta(delta_rows[0]).verified_claim)
+
     def test_bad_actor_repair_stops_without_delta_or_second_repair(self):
         fx = self.fixture(replies=(WRONG, WRONG), dynamics=True)
         fx.consent()
