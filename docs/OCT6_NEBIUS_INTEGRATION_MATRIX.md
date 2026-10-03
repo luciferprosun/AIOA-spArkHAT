@@ -476,3 +476,19 @@ All preparation commits are OPTIONAL read-only tooling or EVIDENCE_ONLY document
 - Authority impact: none; read-only local Git inspection/documentation only.
 - Validation: focused preflight suite (latest12PASS), diff/compile/secret checks; no additional runtime/live results claimed.
 - Files: `docs/OCT6_POST_UNLOCK_TEST_PLAN.md`, `docs/OCT6_UNLOCK_AND_INTEGRATION_RUNBOOK.md`.
+
+### db55c3975e184ef1cae6ce6dcf34cfe6dee124dc
+
+- Purpose: fail-closed runbook shell gates, stage-aware tests and preparation inventory.
+- Category: EVIDENCE_ONLY plus OPTIONAL focused test; disposition: retain preparation only, priority P0/P4.
+- Dependencies: prior integration-order/preflight documents.
+- Authority impact: none; documented gates stop after errors.
+- Validation: runbook regression RED→GREEN;12PASS focused suite.
+- Files: `docs/OCT6_NEBIUS_INTEGRATION_MATRIX.md`, `docs/OCT6_POST_UNLOCK_TEST_PLAN.md`, `docs/OCT6_UNLOCK_AND_INTEGRATION_RUNBOOK.md`, `tests/test_oct6_integration_preflight.py`.
+
+### Final preparation seal (full SHA in external handoff_record.json)
+
+- Purpose: seal readiness report and complete preparation inventory.
+- Category: EVIDENCE_ONLY; disposition retain provenance only; priority P0.
+- Files: this matrix and `docs/PRE_OCT6_READINESS_REPORT.md`.
+- Dependencies: all preparation stages; authority impact none; validation final external preflight, focused tests, static/secret checks and bundle verification.
