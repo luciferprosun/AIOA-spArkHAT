@@ -7,7 +7,7 @@ no scheduler, approval authority, or second executor.
 
 ## Current state
 
-The typed client, worker contract, and fixture tests are implemented. Live
+The typed client, one-attempt HTTPS adapter, worker contract, and fixture tests are implemented. Live
 deployment is `BLOCKED_BY_CREDENTIALS`: this workspace has no
 Nebius serverless project/endpoint credentials or deployment approval. No job,
 endpoint, container image, or recurring cloud resource was created.
@@ -26,6 +26,15 @@ The deployment adapter must authenticate the host through cloud-injected
 credentials and pass only this JSON contract to the worker. Never put a model
 provider key or cloud credential in a manifest, receipt, source file, or job
 argument. Do not expose a shell operation.
+
+The controller reads `NEBIUS_SERVERLESS_ENDPOINT_URL` and
+`NEBIUS_SERVERLESS_AUTH_TOKEN` only from the process environment. Live URLs
+must use HTTPS without userinfo, query, fragment, private/loopback addresses,
+or a custom port. The adapter performs one request and follows no redirects.
+A timeout or lost connection becomes `TARGET_OUTCOME_UNKNOWN`; ServiceGuard
+then uses `READ_RECEIPT` and `READ_STATE` before any later decision. The
+explicit HTTP loopback mode exists only for tests and cannot be constructed by
+`from_environment()`.
 
 ## Durable state and fencing requirements
 
