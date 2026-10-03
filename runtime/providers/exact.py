@@ -20,11 +20,52 @@ from urllib.parse import urlsplit
 from .messages import ChatMessage
 
 
+def sanitize_diagnostics(value) -> dict:
+    """Independently admit typed metadata, never provider text or raw payloads.
+
+    Unknown string formats are omitted, rather than truncated into a receipt.
+    Usage is copied field by field; booleans, nested values and extensions fail
+    admission. This is intentionally independent of successful decoding.
+    """
+    if type(value) is not dict:
+        return {}
+    result = {}
+    def safe_string(item):
+        return (type(item) is str and len(item) <= 180
+                and not re.search(r'(?i)(bearer|sk-|akia|asia|nebius[_-]?api[_-]?key|secret|password|authorization)', item))
+    if value.get('provider') in ('nebius', 'openrouter'):
+        result['provider'] = value['provider']
+    for key in ('requested_model', 'reported_model'):
+        item = value.get(key)
+        if (safe_string(item) and re.fullmatch(
+                r'[A-Za-z0-9][A-Za-z0-9._-]*/[A-Za-z0-9][A-Za-z0-9._:-]*', item)):
+            result[key] = item
+    if value.get('finish_reason') in ('stop', 'length', 'content_filter', 'tool_calls', 'function_call'):
+        result['finish_reason'] = value['finish_reason']
+    item = value.get('request_id')
+    if (safe_string(item) and len(item) <= 128 and (
+            re.fullmatch(r'(?:chatcmpl|cmpl|req|request|gen)[-_][A-Za-z0-9._:-]{1,112}', item)
+            or re.fullmatch(r'[a-fA-F0-9]{8}(?:-[a-fA-F0-9]{4}){3}-[a-fA-F0-9]{12}', item))):
+        result['request_id'] = item
+    for key, maximum, minimum in (('latency_ms', 86_400_000, 0), ('http_status', 599, 100)):
+        item = value.get(key)
+        if type(item) is int and minimum <= item <= maximum:
+            result[key] = item
+    usage = value.get('usage')
+    if type(usage) is dict:
+        clean = {key: usage[key] for key in ('prompt_tokens', 'completion_tokens', 'total_tokens')
+                 if type(usage.get(key)) is int and 0 <= usage[key] <= 2**31 - 1}
+        if clean:
+            result['usage'] = clean
+    return result
+
+
 class ExactCallError(RuntimeError):
     """Public-safe error code; never includes provider body or credentials."""
 
-    def __init__(self, code: str):
+    def __init__(self, code: str, *, safe_metadata=None):
         self.code = code
+        self.safe_metadata = sanitize_diagnostics(safe_metadata)
         super().__init__(code)
 
 
@@ -92,8 +133,11 @@ class ExactRequest:
     timeout_seconds: float = 20.0
     response_schema_json: str | None = None
     transport_scope: str = 'LIVE'
+    bound_reasoning_tokens: bool = False
 
     def validate(self):
+        if type(self.bound_reasoning_tokens) is not bool:
+            raise ExactCallError('INVALID_REQUEST_LIMIT')
         if self.provider_connection_id not in {'openrouter', 'nebius'}:
             raise ExactCallError('UNSUPPORTED_STRICT_CPL')
         if (not isinstance(self.requested_model, str)
@@ -156,11 +200,18 @@ def _unique_object(pairs):
 
 
 def decode_response(raw: bytes, request: ExactRequest) -> ProviderResult:
+    metadata = {}
     try:
         payload = json.loads(raw.decode('utf-8'), object_pairs_hook=_unique_object,
                              parse_constant=lambda _x: (_ for _ in ()).throw(ValueError('non-finite JSON')))
         if not isinstance(payload, dict):
             raise ValueError('object required')
+        choices = payload.get('choices')
+        choice = choices[0] if type(choices) is list and len(choices) == 1 and type(choices[0]) is dict else {}
+        metadata = sanitize_diagnostics({
+            'provider': request.provider_connection_id, 'requested_model': request.requested_model,
+            'reported_model': payload.get('model'), 'request_id': payload.get('id'),
+            'finish_reason': choice.get('finish_reason'), 'usage': payload.get('usage')})
         reported = payload.get('model')
         if not isinstance(reported, str) or not reported.strip():
             raise ExactCallError('MISSING_REPORTED_MODEL')
@@ -170,11 +221,13 @@ def decode_response(raw: bytes, request: ExactRequest) -> ProviderResult:
         if not isinstance(choices, list) or len(choices) != 1:
             raise ValueError('one choice required')
         choice = choices[0]
+        if type(choice) is not dict:
+            raise ValueError('choice object required')
+        if choice.get('finish_reason') != 'stop':
+            raise ExactCallError('INCOMPLETE_COMPLETION')
         content = choice['message']['content']
         if not isinstance(content, str) or not content.strip():
             raise ValueError('content required')
-        if choice.get('finish_reason') != 'stop':
-            raise ExactCallError('INCOMPLETE_COMPLETION')
         if len(content.encode('utf-8')) > request.max_output_tokens * 16:
             raise ExactCallError('OUTPUT_SIZE_EXCEEDED')
         usage = payload.get('usage')
@@ -193,10 +246,10 @@ def decode_response(raw: bytes, request: ExactRequest) -> ProviderResult:
             raise ValueError('invalid request id')
         return ProviderResult(content.strip(), request.provider_connection_id, request.requested_model,
                               reported, 'EXACT_MATCH', request_id, usage, 'stop', request.transport_scope)
-    except ExactCallError:
-        raise
+    except ExactCallError as error:
+        raise ExactCallError(error.code, safe_metadata=metadata) from None
     except (UnicodeError, ValueError, KeyError, TypeError, IndexError, RecursionError) as error:
-        raise ExactCallError('INVALID_PROVIDER_RESPONSE') from None
+        raise ExactCallError('INVALID_PROVIDER_RESPONSE', safe_metadata=metadata) from None
 
 
 def generate_http_exact(adapter, request: ExactRequest, cancel: CancellationToken,
@@ -228,8 +281,11 @@ def generate_http_exact(adapter, request: ExactRequest, cancel: CancellationToke
     started = time.monotonic()
     payload = {'model': request.requested_model,
                'messages': [asdict(m) for m in request.messages],
-               'temperature': 0, 'max_tokens': request.max_output_tokens,
+               'temperature': 0,
                'stream': False, 'n': 1}
+    # Nebius documents this field as bounding visible AND reasoning tokens.
+    # Opt-in preserves existing non-reasoning transport contracts.
+    payload['max_completion_tokens' if request.bound_reasoning_tokens else 'max_tokens'] = request.max_output_tokens
     if request.response_schema_json is not None:
         try:
             schema = json.loads(request.response_schema_json)
@@ -261,6 +317,7 @@ def generate_http_exact(adapter, request: ExactRequest, cancel: CancellationToke
         if expired.is_set():
             raise ExactCallError('TRANSPORT_TIMEOUT')
 
+    http_status = None
     try:
         check_call()
         # Resolve/connect before sending any generation body. If system DNS or
@@ -276,6 +333,7 @@ def generate_http_exact(adapter, request: ExactRequest, cancel: CancellationToke
                             'Content-Type': 'application/json', 'Accept': 'application/json'})
         check_call()
         response = connection.getresponse()
+        http_status = response.status
         length = response.getheader('Content-Length')
         if length is not None and (not length.isdigit() or int(length) > request.max_response_bytes):
             raise ExactCallError('HTTP_BODY_LIMIT_EXCEEDED')
@@ -302,8 +360,10 @@ def generate_http_exact(adapter, request: ExactRequest, cancel: CancellationToke
             raise ExactCallError(f'PROVIDER_HTTP_{response.status}')
         result = decode_response(b''.join(chunks), request)
         return replace(result, latency_ms=max(0, int((time.monotonic() - started) * 1000)))
-    except ExactCallError:
-        raise
+    except ExactCallError as error:
+        raise ExactCallError(error.code, safe_metadata={**error.safe_metadata,
+            'latency_ms': max(0, int((time.monotonic() - started) * 1000)),
+            'http_status': http_status}) from None
     except (TimeoutError, socket.timeout):
         raise ExactCallError('CANCELLED' if cancel.cancelled else 'TRANSPORT_TIMEOUT') from None
     except (OSError, http.client.HTTPException, ValueError):

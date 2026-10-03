@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import datetime as dt
 import os
 from pathlib import Path
 import sys
@@ -64,7 +65,72 @@ class NebiusLiveProbeTests(unittest.TestCase):
             "allow_cost": False,
             "catalog_only": True,
             "timeout_seconds": 3.0,
+            "cost_quote": {
+                "model_id": DEFAULT_NEBIUS_MODEL, "currency": "USD",
+                "input_usd_per_million": "0.06", "output_usd_per_million": "0.24",
+                "quoted_utc": dt.datetime.now(dt.timezone.utc).isoformat(),
+                "source_url": "https://nebius.com/services/token-factory/models/nvidia-nemotron-models-inference",
+            },
         }
+
+    def test_missing_cost_quote_blocks_generation(self):
+        args = self.base_args()
+        args.update(catalog_only=False, allow_cost=True, cost_quote=None)
+        fake = FakeProvider(catalog=(DEFAULT_NEBIUS_MODEL,))
+        receipt = run_probe(**args, provider_factory=provider_factory(fake))
+        self.assertEqual(receipt['reason'], 'UNVERIFIED_COST_BOUND')
+        self.assertEqual(len(fake.requests), 0)
+
+    def test_over_ceiling_or_stale_quote_blocks_generation(self):
+        for changes in ({'input_usd_per_million': '1000'}, {'quoted_utc': '2020-01-01T00:00:00+00:00'},
+                        {'output_usd_per_million': 'NaN'}, {'source_url': 'https://example.com'}):
+            args = self.base_args()
+            args['cost_quote'].update(changes)
+            args.update(catalog_only=False, allow_cost=True)
+            fake = FakeProvider(catalog=(DEFAULT_NEBIUS_MODEL,))
+            receipt = run_probe(**args, provider_factory=provider_factory(fake))
+            self.assertEqual(receipt['status'], 'BLOCKED')
+            self.assertEqual(len(fake.requests), 0)
+
+    def test_timeout_is_bounded_before_catalog(self):
+        for value in (31, 0, float('nan'), True):
+            args = self.base_args()
+            args['timeout_seconds'] = value
+            receipt = run_probe(**args, provider_factory=lambda **_: self.fail('provider called'))
+            self.assertEqual(receipt['reason'], 'INVALID_TIMEOUT')
+
+    def test_arbitrary_provider_error_text_is_never_receipted(self):
+        for error in (RuntimeError('nebius private-text'), ExactCallError('private-text')):
+            args = self.base_args()
+            args.update(catalog_only=False, allow_cost=True)
+            fake = FakeProvider(catalog=(DEFAULT_NEBIUS_MODEL,), result=error)
+            receipt = run_probe(**args, provider_factory=provider_factory(fake))
+            self.assertEqual(receipt['reason'], 'TOKEN_FACTORY_ERROR')
+            self.assertNotIn('private-text', json.dumps(receipt))
+
+    def test_smoke_prompt_small_and_reasoning_included_in_bound(self):
+        args = self.base_args()
+        args.update(catalog_only=False, allow_cost=True, max_output_tokens=512)
+        fake = FakeProvider(catalog=(DEFAULT_NEBIUS_MODEL,), result=ExactCallError('TRANSPORT_TIMEOUT'))
+        receipt = run_probe(**args, provider_factory=provider_factory(fake))
+        self.assertEqual(len(fake.requests), 1)
+        self.assertEqual([m.content for m in fake.requests[0].messages],
+                         ['Return exactly: OK', 'Reply exactly with OK.'])
+        self.assertTrue(fake.requests[0].bound_reasoning_tokens)
+        self.assertTrue(receipt['inference_attempted'])
+        self.assertLess(float(receipt['cost_bound']['upper_bound_usd']), .25)
+
+    def test_existing_receipt_blocks_before_network(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            receipt = Path(tmp)/'receipt.json'
+            receipt.write_text('{}')
+            with patch.object(sys, 'argv', ['probe', '--catalog-only', '--allow-live-network',
+                                           '--receipt', str(receipt)]), \
+                 patch.object(nebius_live_probe, 'load_api_environment'), \
+                 patch.object(nebius_live_probe, 'run_probe', side_effect=AssertionError('network called')), \
+                 patch('sys.stdout', StringIO()):
+                self.assertEqual(nebius_live_probe.main(), 2)
+            self.assertEqual(receipt.read_text(), '{}')
 
 
     def test_missing_key_blocks_before_provider(self):
@@ -242,7 +308,7 @@ class NebiusLiveProbeTests(unittest.TestCase):
     def test_failure_diagnostics_are_allowlisted_and_recursive(self):
         args = self.base_args()
         args.update(catalog_only=False, allow_cost=True)
-        secret = "live-secret-must-not-persist"
+        secret = "live-" + "secret-must-not-persist"
         error = DiagnosticExactError(
             "INCOMPLETE_COMPLETION",
             {

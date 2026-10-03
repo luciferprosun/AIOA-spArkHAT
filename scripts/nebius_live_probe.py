@@ -11,7 +11,10 @@ import argparse
 import datetime as dt
 import hashlib
 import json
+import math
+from decimal import Decimal, InvalidOperation
 import os
+import re
 from pathlib import Path
 import subprocess
 import sys
@@ -22,7 +25,7 @@ RUNTIME = REPO / "runtime"
 if str(RUNTIME) not in sys.path:
     sys.path.insert(0, str(RUNTIME))
 
-from providers.exact import CancellationToken, ExactCallError, ExactRequest  # noqa: E402
+from providers.exact import CancellationToken, ExactCallError, ExactRequest, sanitize_diagnostics  # noqa: E402
 from providers.config import load_api_environment  # noqa: E402
 from providers.messages import ChatMessage  # noqa: E402
 from providers.nebius import (  # noqa: E402
@@ -68,43 +71,62 @@ def _write_receipt(path: Path, payload: dict) -> None:
 
 
 def _safe_error(error: Exception) -> str:
-    if isinstance(error, ExactCallError):
+    exact_codes = {'INCOMPLETE_COMPLETION', 'MODEL_IDENTITY_MISMATCH', 'MISSING_REPORTED_MODEL',
+                   'INVALID_PROVIDER_RESPONSE', 'TRANSPORT_TIMEOUT', 'TRANSPORT_ERROR', 'CANCELLED',
+                   'DEADLINE_EXCEEDED', 'HTTP_BODY_LIMIT_EXCEEDED', 'INCOMPLETE_HTTP_BODY',
+                   'OUTPUT_SIZE_EXCEEDED', 'USAGE_LIMIT_EXCEEDED', 'INVALID_REQUEST_LIMIT',
+                   'INPUT_LIMIT_EXCEEDED', 'INVALID_MESSAGES', 'INVALID_TIMEOUT', 'EXACT_MODEL_REQUIRED',
+                   'CONNECTION_BINDING_MISMATCH', 'UNSUPPORTED_STRICT_ENDPOINT', 'INVALID_ENDPOINT',
+                   'INVALID_TRANSPORT_SCOPE', 'INVALID_RESPONSE_SCHEMA'}
+    if (isinstance(error, ExactCallError) and type(error.code) is str
+            and (error.code in exact_codes or re.fullmatch(r'PROVIDER_HTTP_[1-5][0-9]{2}', error.code))):
         return error.code
     message = str(error)
-    if isinstance(error, RuntimeError) and message.startswith("nebius "):
+    if isinstance(error, RuntimeError) and message in {
+            'nebius catalog unavailable', 'nebius catalog invalid', 'nebius catalog too large'}:
         return message.replace(" ", "_").upper()
-    return type(error).__name__.upper()
+    return 'TOKEN_FACTORY_ERROR'
 
 
 def _safe_metadata(value) -> dict:
     """Return only bounded provider metadata; never copy arbitrary input data."""
 
-    if type(value) is not dict:
-        return {}
-    result = {}
-    finish_reason = value.get("finish_reason")
-    if type(finish_reason) is str and 0 < len(finish_reason) <= 64:
-        result["finish_reason"] = finish_reason
-    request_id = value.get("request_id")
-    if type(request_id) is str and 0 < len(request_id) <= 256:
-        result["request_id"] = request_id
-    latency_ms = value.get("latency_ms")
-    if type(latency_ms) is int and 0 <= latency_ms <= 86_400_000:
-        result["latency_ms"] = latency_ms
-    usage = value.get("usage")
-    if type(usage) is dict:
-        safe_usage = {
-            name: usage[name]
-            for name in ("prompt_tokens", "completion_tokens", "total_tokens")
-            if type(usage.get(name)) is int and 0 <= usage[name] <= 2**31 - 1
-        }
-        if safe_usage:
-            result["usage"] = safe_usage
-    return result
+    return sanitize_diagnostics(value)
+
+
+PRICE_SOURCE = 'https://nebius.com/services/token-factory/models/nvidia-nemotron-models-inference'
+
+
+def _cost_bound(quote, request):
+    """Fresh explicit official quote plus conservative admission limits."""
+    required = {'model_id', 'currency', 'input_usd_per_million', 'output_usd_per_million',
+                'quoted_utc', 'source_url'}
+    try:
+        if (type(quote) is not dict or set(quote) != required
+                or quote['model_id'] != request.requested_model or quote['currency'] != 'USD'
+                or quote['source_url'] != PRICE_SOURCE):
+            raise ValueError()
+        created = dt.datetime.fromisoformat(quote['quoted_utc'].replace('Z', '+00:00'))
+        age = (dt.datetime.now(dt.timezone.utc) - created).total_seconds()
+        prices = [Decimal(quote[key]) for key in ('input_usd_per_million', 'output_usd_per_million')]
+        if not 0 <= age <= 86400 or any(not p.is_finite() or not 0 <= p <= 100 for p in prices):
+            raise ValueError()
+        bound = (prices[0] * request.max_input_tokens + prices[1] * request.max_output_tokens) / 1_000_000
+        if bound > Decimal('0.25'):
+            raise ValueError()
+        return {'usd_ceiling': '0.25', 'upper_bound_usd': str(bound),
+                'input_usd_per_million': str(prices[0]), 'output_usd_per_million': str(prices[1]),
+                'quoted_utc': created.isoformat(), 'source_url': PRICE_SOURCE,
+                'input_bound_policy': 'utf8-bytes-plus-framing-v1'}
+    except (KeyError, TypeError, ValueError, AttributeError, InvalidOperation, OverflowError):
+        return None
 
 
 def _safe_failure_diagnostics(error: Exception) -> dict:
-    return _safe_metadata(getattr(error, "safe_metadata", None))
+    clean = _safe_metadata(getattr(error, "safe_metadata", None))
+    clean.pop('provider', None)
+    clean.pop('requested_model', None)
+    return clean
 
 
 def _base_receipt(model: str, base_url: str) -> dict:
@@ -132,11 +154,17 @@ def run_probe(
     timeout_seconds: float = 20.0,
     max_output_tokens: int = 256,
     provider_factory=NebiusProvider,
+    cost_quote=None,
 ) -> dict:
     receipt = _base_receipt(model, base_url)
+    receipt.update(inference_attempted=False, max_output_tokens=max_output_tokens,
+                   timeout_seconds=timeout_seconds)
 
     if type(max_output_tokens) is not int or not 32 <= max_output_tokens <= 512:
         return {**receipt, "status": "BLOCKED", "reason": "INVALID_OUTPUT_TOKEN_LIMIT"}
+    if (type(timeout_seconds) not in (int, float) or not math.isfinite(timeout_seconds)
+            or not 0 < timeout_seconds <= 30):
+        return {**receipt, 'status': 'BLOCKED', 'reason': 'INVALID_TIMEOUT'}
 
     if not api_key.strip():
         return {**receipt, "status": "BLOCKED", "reason": "NEBIUS_API_KEY_MISSING"}
@@ -196,21 +224,28 @@ def run_probe(
         (
             ChatMessage(
                 "system",
-                "Return one brief acknowledgement. This is a bounded transport smoke test.",
+                "Return exactly: OK",
             ),
-            ChatMessage("user", "Acknowledge the Nebius Token Factory smoke test."),
+            ChatMessage("user", "Reply exactly with OK."),
         ),
         max_output_tokens,
         max_input_tokens=2048,
         max_response_bytes=16384,
         timeout_seconds=timeout_seconds,
         transport_scope="LIVE",
+        bound_reasoning_tokens=True,
     )
+    bound = _cost_bound(cost_quote, request)
+    if bound is None:
+        return {**receipt, 'status': 'BLOCKED', 'reason': 'UNVERIFIED_COST_BOUND',
+                'live_inference_validated': False}
+    receipt.update(cost_bound=bound, inference_attempted=True, token_limit_field='max_completion_tokens',
+                   reasoning_included_in_output_bound=True)
     try:
         result = provider.generate_exact(
             request,
             CancellationToken(),
-            time.monotonic() + timeout_seconds + 2.0,
+            time.monotonic() + timeout_seconds,
         )
     except Exception as error:
         return {
@@ -256,10 +291,7 @@ def run_probe(
         "live_inference_validated": True,
         "reported_model": result.reported_model,
         "identity_status": result.identity_status,
-        "request_id": result.request_id,
-        "usage": result.usage,
-        "finish_reason": result.finish_reason,
-        "latency_ms": result.latency_ms,
+        **_safe_metadata(result.metadata()),
         "response_bytes": len(content_bytes),
         "response_sha256": hashlib.sha256(content_bytes).hexdigest(),
     }
@@ -278,8 +310,37 @@ def main() -> int:
     parser.add_argument("--timeout-seconds", type=float, default=20.0)
     parser.add_argument("--max-output-tokens", type=int, default=256)
     parser.add_argument("--receipt", type=Path)
+    parser.add_argument('--cost-quote', type=Path)
     args = parser.parse_args()
 
+    paid = args.allow_live_provider_cost and not args.catalog_only
+    state = _repository_state()
+    frozen_main = 'd26266e54ee940d7ada30aa02783dc697618a72c'
+    if paid:
+        refs = [subprocess.check_output(['git', '-C', str(REPO), 'rev-parse', ref], text=True).strip()
+                for ref in ('main', 'origin/main')]
+        if state['git_branch'] != 'nebius-personal-ai' or refs != [frozen_main, frozen_main]:
+            print('BLOCKED: REPOSITORY_INTEGRITY_GATE')
+            return 2
+        if args.receipt is None:
+            print('BLOCKED: NEW_RECEIPT_REQUIRED')
+            return 2
+    try:
+        quote = json.loads(args.cost_quote.read_text()) if args.cost_quote else None
+    except (OSError, ValueError):
+        print('BLOCKED: INVALID_COST_QUOTE')
+        return 2
+    # Reserve before any network or inference; an existing receipt cannot cause
+    # another paid call. A crash leaves evidence of the reserved attempt.
+    descriptor = None
+    if args.receipt is not None:
+        try:
+            descriptor = os.open(args.receipt, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            os.write(descriptor, b'{"status":"UNKNOWN","reason":"PROBE_RESERVED_RECONCILE_BEFORE_RETRY"}\n')
+            os.fsync(descriptor)
+        except OSError:
+            print('BLOCKED: RECEIPT_RESERVATION_FAILED')
+            return 2
     result = run_probe(
         api_key=os.getenv("NEBIUS_API_KEY", ""),
         model=args.model,
@@ -289,10 +350,17 @@ def main() -> int:
         catalog_only=args.catalog_only,
         timeout_seconds=args.timeout_seconds,
         max_output_tokens=args.max_output_tokens,
+        cost_quote=quote,
     )
 
-    if args.receipt is not None:
-        _write_receipt(args.receipt, result)
+    if descriptor is not None:
+        with os.fdopen(descriptor, 'w', encoding='utf-8') as stream:
+            stream.seek(0)
+            stream.truncate()
+            json.dump(result, stream, sort_keys=True, indent=2, allow_nan=False)
+            stream.write('\n')
+            stream.flush()
+            os.fsync(stream.fileno())
     print(json.dumps(result, ensure_ascii=False, sort_keys=True, indent=2))
     if result["status"] == "PASS":
         return 0
