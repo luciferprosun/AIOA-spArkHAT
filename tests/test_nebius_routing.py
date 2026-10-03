@@ -13,8 +13,10 @@ from unittest.mock import patch
 
 from runtime.mission.lite_contracts import LiteBudget
 from runtime.providers.nebius_routing import (
+    CompetitionPurpose,
     EscalationCondition,
     ModelRole,
+    NebiusCompetitionPolicy,
     NebiusModelRouter,
     NebiusProviderPort,
     RouteBudget,
@@ -85,6 +87,72 @@ def quote(model=LIGHTNING, *, age=timedelta(minutes=1), input_rate="1", output_r
 
 
 class NebiusRoutingTests(unittest.TestCase):
+    def test_competition_policy_defaults_to_exact_lightning_with_current_quote(self):
+        policy = NebiusCompetitionPolicy(
+            catalog_receipt(),
+            {LIGHTNING: quote()},
+            role_budgets=route_budgets(),
+        )
+        route = policy.select()
+        self.assertEqual(ModelRole.FAST, route.role)
+        self.assertEqual(LIGHTNING, route.model_id)
+        self.assertEqual("nebius", route.provider_id)
+        self.assertEqual("ADVISORY_ONLY", route.authority)
+
+    def test_competition_super_requires_explicit_cpl_purpose_and_current_quote(self):
+        policy = NebiusCompetitionPolicy(
+            catalog_receipt(),
+            {SUPER: quote(SUPER)},
+            role_budgets=route_budgets(),
+        )
+        with self.assertRaises(RoutingError) as caught:
+            policy.select(ModelRole.BALANCED)
+        self.assertEqual("MODEL_ROLE_POLICY_DENIED", caught.exception.code)
+        route = policy.select(
+            ModelRole.BALANCED, purpose=CompetitionPurpose.MULTI_AGENT_CPL
+        )
+        self.assertEqual(SUPER, route.model_id)
+
+        missing_quote = NebiusCompetitionPolicy(
+            catalog_receipt(), {}, role_budgets=route_budgets()
+        )
+        with self.assertRaises(ProviderError) as caught:
+            missing_quote.select(
+                ModelRole.BALANCED, purpose=CompetitionPurpose.MULTI_AGENT_CPL
+            )
+        self.assertEqual("MISSING_PRICE_QUOTE", caught.exception.code)
+
+    def test_competition_ultra_requires_escalation_and_operator_policy(self):
+        policy = NebiusCompetitionPolicy(
+            catalog_receipt(),
+            {ULTRA: quote(ULTRA)},
+            role_budgets=route_budgets(),
+        )
+        with self.assertRaises(RoutingError) as caught:
+            policy.select(
+                ModelRole.ULTRA,
+                purpose=CompetitionPurpose.OPERATOR_ESCALATION,
+                escalation=EscalationCondition.EVIDENCE_AMBIGUITY,
+            )
+        self.assertEqual("OPERATOR_ESCALATION_REQUIRED", caught.exception.code)
+        route = policy.select(
+            ModelRole.ULTRA,
+            purpose=CompetitionPurpose.OPERATOR_ESCALATION,
+            escalation=EscalationCondition.EVIDENCE_AMBIGUITY,
+            operator_approved=True,
+        )
+        self.assertEqual(ULTRA, route.model_id)
+
+    def test_competition_policy_never_falls_back_when_default_is_missing(self):
+        policy = NebiusCompetitionPolicy(
+            catalog_receipt((SUPER, ULTRA)),
+            {SUPER: quote(SUPER), ULTRA: quote(ULTRA)},
+            role_budgets=route_budgets(),
+        )
+        with self.assertRaises(RoutingError) as caught:
+            policy.select()
+        self.assertEqual("MODEL_ROLE_UNAVAILABLE", caught.exception.code)
+
     def test_exact_live_catalog_ids_map_to_roles_without_rewriting(self):
         router = NebiusModelRouter(catalog_receipt(), role_budgets=route_budgets())
         self.assertEqual(LIGHTNING, router.select(ModelRole.FAST).model_id)

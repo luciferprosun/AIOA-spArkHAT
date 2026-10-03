@@ -5,11 +5,34 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
+import re
+
+from runtime.providers.nebius_routing import (
+    RoutingError,
+    validate_competition_model,
+)
+from runtime.providers.nvidia import ProviderError
 
 MAX_BYTES = 128 * 1024
 EXPECTED_SCHEMA = "aioa.nvidia-competition-demo.v1"
 ALLOWED_MODES = {"TEST_FIXTURE", "LIVE"}
 ENV_PATH = "AIOA_COMPETITION_DEMO_EVIDENCE"
+_HEX = re.compile(r"[0-9a-f]{64}\Z")
+_PERSONAL_STATES = frozenset({
+    "ADVISORY", "VERIFIED", "ZERO_WRITE", "APPROVAL_REQUIRED", "APPROVED",
+    "EXECUTED", "RECONCILED", "REPLAY_BLOCKED",
+})
+_PERSONAL_STATUS_KEYS = frozenset({
+    "schema", "operation_id", "target_id", "proposal_id", "provider_id",
+    "model_id", "execution_mode", "model_authority", "memory", "cpl_status",
+    "verification_status", "state", "timeline", "approval", "verified_effect",
+    "reconciliation_pending", "receipt_id", "receipt_digest",
+    "measurement_digest", "replay_reason", "updated_at",
+})
+_RESERVATION_KEYS = frozenset({
+    "reservation_id", "watch_id", "trace_id", "provider_id", "model_id",
+    "created_at", "status", "estimated_units", "actual_units", "reason",
+})
 
 
 def _unavailable(status: str) -> dict:
@@ -19,6 +42,197 @@ def _unavailable(status: str) -> dict:
         "provider_mode": "UNKNOWN",
         "evidence_available": False,
         "read_only": True,
+    }
+
+
+def _personal_unavailable() -> dict:
+    return {
+        "schema": "aioa.nebius-personal-ai-view.v1",
+        "status": "INVALID_EVIDENCE",
+        "evidence_available": False,
+        "read_only": True,
+    }
+
+
+def project_nebius_personal_ai(status: dict, reservations: list[dict], *,
+                               catalog: dict, cost_quote: dict,
+                               expected_execution_mode: str) -> dict:
+    """Strictly project redacted Personal AI state and its budget journal."""
+    try:
+        if (
+            type(status) is not dict
+            or set(status) != _PERSONAL_STATUS_KEYS
+            or status.get("schema") != "aioa.personal-ai-demo.v1"
+            or status.get("provider_id") != "nebius"
+            or status.get("execution_mode") not in {"LIVE", "FIXTURE"}
+            or expected_execution_mode not in {"LIVE", "FIXTURE"}
+            or status["execution_mode"] != expected_execution_mode
+            or status.get("model_authority") != "ADVISORY_ONLY"
+            or type(status.get("operation_id")) is not str
+            or not status["operation_id"]
+            or type(status.get("target_id")) is not str
+            or not status["target_id"]
+            or type(status.get("proposal_id")) is not str
+            or _HEX.fullmatch(status["proposal_id"]) is None
+        ):
+            raise ValueError()
+        validate_competition_model(
+            status["model_id"], catalog, cost_quote
+        )
+
+        memory = status.get("memory")
+        if (
+            type(memory) is not dict
+            or set(memory) != {
+                "status", "selected_count", "eligible_count", "context_digest",
+                "context_byte_units", "truncated", "execution_authority",
+            }
+            or memory.get("status") not in {"RETRIEVED", "EMPTY"}
+            or any(
+                type(memory.get(name)) is not int
+                or not 0 <= memory[name] <= maximum
+                for name, maximum in (
+                    ("selected_count", 16),
+                    ("eligible_count", 40),
+                    ("context_byte_units", 8192),
+                )
+            )
+            or memory["selected_count"] > memory["eligible_count"]
+            or (memory["status"] == "RETRIEVED") != (memory["selected_count"] > 0)
+            or type(memory.get("context_digest")) is not str
+            or _HEX.fullmatch(memory["context_digest"]) is None
+            or type(memory.get("truncated")) is not bool
+            or memory.get("execution_authority") is not False
+        ):
+            raise ValueError()
+
+        verification = status.get("verification_status")
+        if (
+            verification not in {"VERIFIED", "ZERO_WRITE"}
+            or status.get("cpl_status") != verification
+            or status.get("state") not in _PERSONAL_STATES
+            or status.get("approval") not in {"REQUIRED", "APPROVED"}
+            or type(status.get("verified_effect")) is not bool
+            or type(status.get("reconciliation_pending")) is not bool
+            or type(status.get("updated_at")) is not int
+            or not 0 <= status["updated_at"] <= 2**53
+        ):
+            raise ValueError()
+
+        timeline = status.get("timeline")
+        if (
+            type(timeline) is not list
+            or not 1 <= len(timeline) <= 16
+            or any(
+                type(row) is not dict
+                or set(row) != {"state", "at"}
+                or row.get("state") not in _PERSONAL_STATES
+                or type(row.get("at")) is not int
+                or not 0 <= row["at"] <= 2**53
+                for row in timeline
+            )
+            or timeline[-1]["state"] != status["state"]
+        ):
+            raise ValueError()
+
+        receipt_values = (
+            status.get("receipt_digest"), status.get("measurement_digest")
+        )
+        if status["verified_effect"]:
+            if (
+                type(status.get("receipt_id")) is not str
+                or not status["receipt_id"].startswith("target-")
+                or len(status["receipt_id"]) != 71
+                or any(type(item) is not str or _HEX.fullmatch(item) is None
+                       for item in receipt_values)
+            ):
+                raise ValueError()
+        elif status.get("receipt_id") is not None or any(
+            item is not None for item in receipt_values
+        ):
+            raise ValueError()
+        if (
+            status.get("replay_reason") not in {None, "DURABLE_VERIFIED_EFFECT"}
+            or (status["state"] == "REPLAY_BLOCKED")
+            != (status.get("replay_reason") == "DURABLE_VERIFIED_EFFECT")
+        ):
+            raise ValueError()
+
+        if type(reservations) is not list or not reservations:
+            raise ValueError()
+        estimated_units, actual_units, actual_present = 0, 0, False
+        for row in reservations:
+            if (
+                type(row) is not dict
+                or set(row) != _RESERVATION_KEYS
+                or row.get("provider_id") != "nebius"
+                or row.get("model_id") != status["model_id"]
+                or row.get("status")
+                not in {"RESERVED", "COMMITTED", "UNKNOWN", "RELEASED"}
+                or type(row.get("estimated_units")) is not int
+                or not 1 <= row["estimated_units"] <= 1_000_000
+                or (
+                    row.get("actual_units") is not None
+                    and (
+                        type(row["actual_units"]) is not int
+                        or not 0 <= row["actual_units"] <= 1_000_000
+                    )
+                )
+                or any(
+                    type(row.get(name)) is not expected
+                    for name, expected in (
+                        ("reservation_id", str), ("watch_id", str),
+                        ("trace_id", str), ("created_at", int), ("reason", str),
+                    )
+                )
+            ):
+                raise ValueError()
+            estimated_units += row["estimated_units"]
+            if row["actual_units"] is not None:
+                actual_units += row["actual_units"]
+                actual_present = True
+        if estimated_units > 1_000_000 or actual_units > 1_000_000:
+            raise ValueError()
+    except (KeyError, TypeError, ValueError, RoutingError, ProviderError):
+        return _personal_unavailable()
+
+    return {
+        "schema": "aioa.nebius-personal-ai-view.v1",
+        "status": "READY",
+        "evidence_available": True,
+        "read_only": True,
+        "operation_id": status["operation_id"],
+        "target_id": status["target_id"],
+        "proposal_id": status["proposal_id"],
+        "provider": {
+            "provider_id": "nebius",
+            "model_id": status["model_id"],
+            "execution_mode": status["execution_mode"],
+            "authority": "ADVISORY_ONLY",
+            "fallback": False,
+            "estimated_units": estimated_units,
+            "actual_units": actual_units if actual_present else None,
+        },
+        "memory": dict(memory),
+        "cpl": {"status": status["cpl_status"], "authority": "ADVISORY_ONLY"},
+        "verification": {
+            "status": verification,
+            "delta": "VERIFIED_DELTA" if verification == "VERIFIED" else "ZERO_WRITE",
+        },
+        "approval": {"status": status["approval"]},
+        "service_guard": {
+            "state": status["state"],
+            "verified_effect": status["verified_effect"],
+            "reconciliation_pending": status["reconciliation_pending"],
+        },
+        "receipt": {
+            "id": status["receipt_id"],
+            "digest": status["receipt_digest"],
+            "measurement_digest": status["measurement_digest"],
+        },
+        "replay": {"reason": status["replay_reason"]},
+        "timeline": [dict(row) for row in timeline],
+        "updated_at": status["updated_at"],
     }
 
 

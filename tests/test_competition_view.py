@@ -7,7 +7,12 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from competition_view import ENV_PATH, load_competition_demo
+from competition_view import (
+    ENV_PATH,
+    load_competition_demo,
+    project_nebius_personal_ai,
+)
+from test_nebius_routing import LIGHTNING, catalog_receipt, quote
 
 
 COMPETITION_EVENTS = [
@@ -76,7 +81,150 @@ def evidence(*, mode="TEST_FIXTURE", live=False):
     }
 
 
+def personal_ai_status(*, mode="FIXTURE"):
+    states = [
+        "ADVISORY",
+        "ZERO_WRITE",
+        "APPROVAL_REQUIRED",
+        "APPROVED",
+        "EXECUTED",
+        "RECONCILED",
+        "REPLAY_BLOCKED",
+    ]
+    return {
+        "schema": "aioa.personal-ai-demo.v1",
+        "operation_id": "personal-ai-operation",
+        "target_id": "nebius-disposable-target",
+        "proposal_id": "1" * 64,
+        "provider_id": "nebius",
+        "model_id": LIGHTNING,
+        "execution_mode": mode,
+        "model_authority": "ADVISORY_ONLY",
+        "memory": {
+            "status": "EMPTY",
+            "selected_count": 0,
+            "eligible_count": 0,
+            "context_digest": "2" * 64,
+            "context_byte_units": 2,
+            "truncated": False,
+            "execution_authority": False,
+        },
+        "cpl_status": "ZERO_WRITE",
+        "verification_status": "ZERO_WRITE",
+        "state": "REPLAY_BLOCKED",
+        "timeline": [
+            {"state": state, "at": 100 + number}
+            for number, state in enumerate(states)
+        ],
+        "approval": "APPROVED",
+        "verified_effect": True,
+        "reconciliation_pending": False,
+        "receipt_id": "target-" + "3" * 64,
+        "receipt_digest": "4" * 64,
+        "measurement_digest": "5" * 64,
+        "replay_reason": "DURABLE_VERIFIED_EFFECT",
+        "updated_at": 110,
+    }
+
+
+def reservations():
+    return [
+        {
+            "reservation_id": "reservation",
+            "watch_id": "personal-ai-watch",
+            "trace_id": "trace",
+            "provider_id": "nebius",
+            "model_id": LIGHTNING,
+            "created_at": 100,
+            "status": "COMMITTED",
+            "estimated_units": 512,
+            "actual_units": 60,
+            "reason": "SERVICE_PROPOSAL",
+        }
+    ]
+
+
 class CompetitionViewTests(unittest.TestCase):
+    def test_personal_ai_projection_exposes_every_bounded_operator_state(self):
+        value = project_nebius_personal_ai(
+            personal_ai_status(),
+            reservations(),
+            catalog=catalog_receipt(),
+            cost_quote=quote(),
+            expected_execution_mode="FIXTURE",
+        )
+        self.assertEqual("READY", value["status"])
+        self.assertEqual(
+            {
+                "provider_id": "nebius",
+                "model_id": LIGHTNING,
+                "execution_mode": "FIXTURE",
+                "authority": "ADVISORY_ONLY",
+                "fallback": False,
+                "estimated_units": 512,
+                "actual_units": 60,
+            },
+            value["provider"],
+        )
+        self.assertEqual("EMPTY", value["memory"]["status"])
+        self.assertEqual("ZERO_WRITE", value["cpl"]["status"])
+        self.assertEqual("ZERO_WRITE", value["verification"]["status"])
+        self.assertEqual("APPROVED", value["approval"]["status"])
+        self.assertEqual("REPLAY_BLOCKED", value["service_guard"]["state"])
+        self.assertEqual("4" * 64, value["receipt"]["digest"])
+        self.assertEqual("DURABLE_VERIFIED_EFFECT", value["replay"]["reason"])
+        self.assertEqual(
+            [row["state"] for row in personal_ai_status()["timeline"]],
+            [row["state"] for row in value["timeline"]],
+        )
+        self.assertTrue(value["read_only"])
+
+    def test_personal_ai_projection_rejects_private_or_unknown_fields(self):
+        for field in ("private_text", "prompt", "response", "chain_of_thought"):
+            with self.subTest(field=field):
+                status = personal_ai_status()
+                status[field] = "secret private content"
+                value = project_nebius_personal_ai(
+                    status,
+                    reservations(),
+                    catalog=catalog_receipt(),
+                    cost_quote=quote(),
+                    expected_execution_mode="FIXTURE",
+                )
+                self.assertEqual("INVALID_EVIDENCE", value["status"])
+
+    def test_personal_ai_projection_rejects_false_live_claim(self):
+        value = project_nebius_personal_ai(
+            personal_ai_status(mode="LIVE"),
+            reservations(),
+            catalog=catalog_receipt(),
+            cost_quote=quote(),
+            expected_execution_mode="FIXTURE",
+        )
+        self.assertEqual("INVALID_EVIDENCE", value["status"])
+
+    def test_personal_ai_projection_rejects_malformed_hashes_and_counts(self):
+        broken_hash = personal_ai_status()
+        broken_hash["receipt_digest"] = "z" * 64
+        broken_count = personal_ai_status()
+        broken_count["memory"]["selected_count"] = False
+        bad_reservation = reservations()
+        bad_reservation[0]["estimated_units"] = True
+        for status, rows in (
+            (broken_hash, reservations()),
+            (broken_count, reservations()),
+            (personal_ai_status(), bad_reservation),
+        ):
+            with self.subTest():
+                value = project_nebius_personal_ai(
+                    status,
+                    rows,
+                    catalog=catalog_receipt(),
+                    cost_quote=quote(),
+                    expected_execution_mode="FIXTURE",
+                )
+                self.assertEqual("INVALID_EVIDENCE", value["status"])
+
     def test_not_configured_is_explicit_and_read_only(self):
         with patch.dict(os.environ, {}, clear=True):
             value = load_competition_demo()

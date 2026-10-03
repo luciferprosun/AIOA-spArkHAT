@@ -41,6 +41,12 @@ class ModelRole(str, Enum):
     ULTRA = "ULTRA"
 
 
+class CompetitionPurpose(str, Enum):
+    DEFAULT = "DEFAULT"
+    MULTI_AGENT_CPL = "MULTI_AGENT_CPL"
+    OPERATOR_ESCALATION = "OPERATOR_ESCALATION"
+
+
 class EscalationCondition(str, Enum):
     OPERATOR_REQUEST = "OPERATOR_REQUEST"
     EVIDENCE_AMBIGUITY = "EVIDENCE_AMBIGUITY"
@@ -261,6 +267,74 @@ def _cost_quote(quote: dict, model_id: str, now: datetime) -> tuple[Decimal, Dec
     except (KeyError, TypeError, ValueError, InvalidOperation, RoutingError):
         raise ProviderError("STALE_COST_QUOTE") from None
     return input_price, output_price
+
+
+def validate_competition_model(model_id: str, catalog_receipt: dict, quote: dict, *,
+                               now: datetime | None = None) -> str:
+    """Validate one exact catalog model and its current quote without fallback."""
+    selected_now = now or datetime.now(timezone.utc)
+    placeholder = RouteBudget(1, 1, 1, "1")
+    router = NebiusModelRouter(
+        catalog_receipt,
+        role_budgets={role: placeholder for role in ModelRole},
+        now=selected_now,
+    )
+    if type(model_id) is not str or model_id not in router.models:
+        raise RoutingError("MODEL_NOT_FOUND")
+    _cost_quote(quote, model_id, selected_now)
+    return model_id
+
+
+class NebiusCompetitionPolicy:
+    """Operator policy for the competition's exact FAST/BALANCED/ULTRA roles."""
+
+    def __init__(self, catalog_receipt: dict, cost_quotes: dict, *,
+                 role_budgets: dict[ModelRole, RouteBudget],
+                 policy_clock=lambda: datetime.now(timezone.utc)):
+        if type(cost_quotes) is not dict or not callable(policy_clock):
+            raise RoutingError("INVALID_COMPETITION_POLICY")
+        now = policy_clock()
+        if not isinstance(now, datetime) or now.tzinfo is None:
+            raise RoutingError("INVALID_COMPETITION_POLICY")
+        NebiusModelRouter(catalog_receipt, role_budgets=role_budgets, now=now)
+        self._catalog = dict(catalog_receipt)
+        self._quotes = dict(cost_quotes)
+        self._budgets = dict(role_budgets)
+        self._clock = policy_clock
+
+    def select(self, role: ModelRole = ModelRole.FAST, *,
+               purpose: CompetitionPurpose = CompetitionPurpose.DEFAULT,
+               escalation: EscalationCondition | None = None,
+               operator_approved: bool = False) -> ModelRoute:
+        if type(role) is not ModelRole or type(purpose) is not CompetitionPurpose:
+            raise RoutingError("INVALID_COMPETITION_POLICY")
+        if role is ModelRole.FAST:
+            allowed = (purpose is CompetitionPurpose.DEFAULT
+                       and escalation is None and operator_approved is False)
+        elif role is ModelRole.BALANCED:
+            allowed = (purpose is CompetitionPurpose.MULTI_AGENT_CPL
+                       and escalation is None and operator_approved is False)
+        else:
+            allowed = (purpose is CompetitionPurpose.OPERATOR_ESCALATION
+                       and type(escalation) is EscalationCondition
+                       and operator_approved is True)
+        if not allowed:
+            code = ("OPERATOR_ESCALATION_REQUIRED"
+                    if role is ModelRole.ULTRA else "MODEL_ROLE_POLICY_DENIED")
+            raise RoutingError(code)
+        now = self._clock()
+        if not isinstance(now, datetime) or now.tzinfo is None:
+            raise RoutingError("INVALID_COMPETITION_POLICY")
+        route = NebiusModelRouter(
+            self._catalog, role_budgets=self._budgets, now=now
+        ).select(role, escalation=escalation)
+        selected_quote = self._quotes.get(route.model_id)
+        if selected_quote is None:
+            raise ProviderError("MISSING_PRICE_QUOTE")
+        validate_competition_model(
+            route.model_id, self._catalog, selected_quote, now=now
+        )
+        return route
 
 
 class NebiusProviderPort:
