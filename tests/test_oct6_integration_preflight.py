@@ -87,3 +87,23 @@ class PreflightTests(unittest.TestCase):
         report = self.report()
         self.assertIn('Preflight: PASS', preflight.render_human(report))
         self.assertEqual(json.loads(json.dumps(report))['branch'], 'nebius-personal-ai')
+
+    def test_captured_active_target_without_changing_local_main(self):
+        self.git('checkout', '-b', 'active', self.base)
+        (self.root / 'shared.txt').write_text('active target\n')
+        self.git('commit', '-am', 'active')
+        target = self.git('rev-parse', 'HEAD').strip()
+        self.git('update-ref', 'refs/remotes/origin/main', target)
+        self.git('checkout', 'nebius-personal-ai')
+        before = self.git('show-ref')
+        report = preflight.inspect(self.root, expected_main=self.base,
+                                   expected_origin_main=target, target_sha=target, evidence=[])
+        self.assertEqual(report['status'], 'PASS')
+        self.assertEqual(report['changed_file_overlap'], ['shared.txt'])
+        self.assertEqual(report['main'], self.base)
+        self.assertEqual(report['target_sha'], target)
+        self.assertEqual(before, self.git('show-ref'))
+
+    def test_invalid_target_sha(self):
+        with self.assertRaises(ValueError):
+            preflight.inspect(self.root, target_sha='--all')
