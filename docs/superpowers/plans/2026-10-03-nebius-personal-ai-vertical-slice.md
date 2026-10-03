@@ -153,4 +153,3 @@
 - [ ] **Step 3: Write the runbook with exact fixture demo, restart, live-provider, and blocked Serverless deployment commands.**
 - [ ] **Step 4: Write the report and non-overwriting manifest with branch SHA, model identity, LIVE/FIXTURE labels, receipt hashes, state sequence, test counts, blockers, and `MAIN TOUCHED = NO`.**
 - [ ] **Step 5: Commit evidence/documentation, confirm clean worktree, confirm `main` and `origin/main` remain unchanged, and do not push or deploy.**
-

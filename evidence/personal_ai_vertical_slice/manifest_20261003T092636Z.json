@@ -1,0 +1,116 @@
+{
+  "branch": "nebius-personal-ai",
+  "created_utc": "2026-10-03T09:26:36Z",
+  "fixture_demo": {
+    "cpl_status": "VERIFIED",
+    "execution_mode": "FIXTURE",
+    "measurement_digest": "4fcae2c7a4b2eeb438696fcc046a3c1020ff2b49f7240f2968130568b4582d18",
+    "memory_execution_authority": false,
+    "memory_selected_count": 2,
+    "memory_status": "RETRIEVED",
+    "model_authority": "ADVISORY_ONLY",
+    "private_content_persisted": false,
+    "receipt_digest": "b8fec0a3bcbdbb86a49683373c9667576ec3f734e7f2b3cdc23f08016bdec658",
+    "receipt_id": "target-fb9467d8c8e25e0eff7a6f49a06e03653905d417bf6af5ac803c02a4486acb75",
+    "replay_reason": "DURABLE_VERIFIED_EFFECT",
+    "state_sequence": [
+      "ADVISORY",
+      "VERIFIED",
+      "APPROVAL_REQUIRED",
+      "APPROVED",
+      "EXECUTED",
+      "RECONCILED",
+      "REPLAY_BLOCKED"
+    ],
+    "target_apply_count": 1,
+    "transport_apply_calls": 1,
+    "verification_status": "VERIFIED",
+    "verified_effect": true
+  },
+  "implementation_sha": "54a161c3959c633dd08b05e4ae83537657570875",
+  "live_smoke": {
+    "authority": "ADVISORY_ONLY",
+    "attempt_count_prompt_02": 1,
+    "fallback": false,
+    "finish_reason": null,
+    "latency_ms": null,
+    "live_catalog_validated": true,
+    "live_inference_validated": false,
+    "mode": "LIVE",
+    "path": "evidence/cloud_activation/live_smoke_20261003T092018Z.json",
+    "reason": "INCOMPLETE_COMPLETION",
+    "request_id": null,
+    "response_content_persisted": false,
+    "sha256": "88ab9e4887d15cd85a0f59e8abb1353a9ee7f6f865142e7f7a5f5f12e6bd1696",
+    "status": "FAIL",
+    "usage": null
+  },
+  "main_sha": "d26266e54ee940d7ada30aa02783dc697618a72c",
+  "main_touched": false,
+  "model": {
+    "catalog_receipt_sha256": "899173937a9367667e9352f7a8d5e48990c30765c3347da309fb332d39716f3f",
+    "exact_id": "nvidia/Nemotron-3_5-Lightning",
+    "fallback": false,
+    "provider": "nebius"
+  },
+  "origin_main_sha": "d26266e54ee940d7ada30aa02783dc697618a72c",
+  "schema": "aioa.personal-ai-vertical-slice-evidence.v1",
+  "serverless": {
+    "deployment_status": "BLOCKED_BY_CREDENTIALS",
+    "https_adapter_status": "OFFLINE_VERIFIED",
+    "live_effect_claimed": false
+  },
+  "starting_sha": "5871f254b13dda6e1a26801747bcff0f3bb495f1",
+  "static_checks": {
+    "changed_file_secret_scan": "PASS",
+    "diff_check": "PASS",
+    "json_validation": "PASS",
+    "node_check": "PASS",
+    "python_files_compiled": 13,
+    "receipt_mode": "0600",
+    "secret_scan_path_count": 23
+  },
+  "tests": {
+    "fail": 0,
+    "groups": [
+      {
+        "duration_seconds": 13.524,
+        "log_sha256": "9b25ee27a49f1f58cbbe63daf4efc0a94be1bb88a9aa20aa8a1d1fb0d2b8ab5c",
+        "name": "prompt02_targeted",
+        "pass": 61,
+        "timeout": false
+      },
+      {
+        "duration_seconds": 0.891,
+        "log_sha256": "c877c28d7392450a121e2ed2e3dca45b3c795ce2a8d294b7d3287978107e590c",
+        "name": "nebius_cpl_serverless",
+        "pass": 16,
+        "timeout": false
+      },
+      {
+        "duration_seconds": 27.82,
+        "log_sha256": "ba81994fbd5c07139df08eb76906b852c340d0d91aebcf8f5b1caa7b99601d9c",
+        "name": "lite_http_serviceguard",
+        "pass": 78,
+        "timeout": false
+      },
+      {
+        "duration_seconds": 38.453,
+        "log_sha256": "a3678e11db663a984141ae377b55f0af8425c580aeb80a4746e792f0613b7455",
+        "name": "nv10_recovery",
+        "pass": 31,
+        "timeout": false
+      },
+      {
+        "duration_seconds": 55.548,
+        "log_sha256": "2fecbfef38dc336935cbd58e7015a1da9bbf246e9157971a897bb37a314e2ea0",
+        "name": "private_chat_isolation",
+        "pass": 43,
+        "timeout": false
+      }
+    ],
+    "pass": 229,
+    "skipped": 0,
+    "timeouts": 0
+  }
+}

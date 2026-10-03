@@ -196,4 +196,3 @@ class NebiusHttpsEffectTransport:
             raise TargetUnknown() from None
         finally:
             connection.close()
-
