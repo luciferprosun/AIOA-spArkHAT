@@ -1,0 +1,166 @@
+test_explicit_profile_budget_reopens_same_journal_in_fresh_fixture (tests.test_nv07_chat.NativeAtomicBoundaryTests.test_explicit_profile_budget_reopens_same_journal_in_fresh_fixture) ... ok
+test_repository_compound_denied_and_atomic_required_packet_supported (tests.test_nv07_chat.NativeAtomicBoundaryTests.test_repository_compound_denied_and_atomic_required_packet_supported) ... ok
+test_actor_binding_change_after_packet_blocks_repair_transport (tests.test_nv07_chat.PrivateChatTests.test_actor_binding_change_after_packet_blocks_repair_transport) ... ok
+test_bad_actor_repair_stops_without_delta_or_second_repair (tests.test_nv07_chat.PrivateChatTests.test_bad_actor_repair_stops_without_delta_or_second_repair) ... ok
+test_bridge_denies_ambiguous_exact_atomic_candidates_before_packet (tests.test_nv07_chat.PrivateChatTests.test_bridge_denies_ambiguous_exact_atomic_candidates_before_packet) ... ok
+test_bridge_denies_non_atomic_or_non_exact_material_before_packet (tests.test_nv07_chat.PrivateChatTests.test_bridge_denies_non_atomic_or_non_exact_material_before_packet) ... ok
+test_budget_is_committed_before_both_actor_transports (tests.test_nv07_chat.PrivateChatTests.test_budget_is_committed_before_both_actor_transports) ... ok
+test_byte_limit_rolls_back_delta (tests.test_nv07_chat.PrivateChatTests.test_byte_limit_rolls_back_delta) ... ok
+test_concurrent_users_share_store_without_read_cache_score_or_log_leak (tests.test_nv07_chat.PrivateChatTests.test_concurrent_users_share_store_without_read_cache_score_or_log_leak) ... ok
+test_correct_answer_does_not_force_a_repair (tests.test_nv07_chat.PrivateChatTests.test_correct_answer_does_not_force_a_repair) ... ok
+test_cpl_and_hybrid_keep_five_calls_plus_distinct_actor_repair (tests.test_nv07_chat.PrivateChatTests.test_cpl_and_hybrid_keep_five_calls_plus_distinct_actor_repair) ... ok
+test_cpl_outage_does_not_fall_back_or_learn (tests.test_nv07_chat.PrivateChatTests.test_cpl_outage_does_not_fall_back_or_learn) ... ok
+test_critic_agreement_without_independent_proof_is_zero_write (tests.test_nv07_chat.PrivateChatTests.test_critic_agreement_without_independent_proof_is_zero_write) ... ok
+test_each_semantic_kind_survives_closed_loop (tests.test_nv07_chat.PrivateChatTests.test_each_semantic_kind_survives_closed_loop) ... ok
+test_exhausted_actor_budget_cannot_reach_repair_or_learning (tests.test_nv07_chat.PrivateChatTests.test_exhausted_actor_budget_cannot_reach_repair_or_learning) ... ok
+test_explicit_style_alias_is_zero_write (tests.test_nv07_chat.PrivateChatTests.test_explicit_style_alias_is_zero_write) ... ok
+test_final_core_check_rejects_source_withdrawn_during_repair (tests.test_nv07_chat.PrivateChatTests.test_final_core_check_rejects_source_withdrawn_during_repair) ... ok
+test_final_core_rule_check_can_reject_native_supported_actor_repair (tests.test_nv07_chat.PrivateChatTests.test_final_core_rule_check_can_reject_native_supported_actor_repair) ... ok
+test_fresh_process_recovers_delta_and_replay_without_chat_retention (tests.test_nv07_chat.PrivateChatTests.test_fresh_process_recovers_delta_and_replay_without_chat_retention) ... ok
+test_hat_only_works_without_critics (tests.test_nv07_chat.PrivateChatTests.test_hat_only_works_without_critics) ... ok
+test_linux_packet_returns_to_same_bound_actor_before_minimal_write (tests.test_nv07_chat.PrivateChatTests.test_linux_packet_returns_to_same_bound_actor_before_minimal_write) ... ok
+test_neutral_delta_reused_under_new_model_version_without_new_delta (tests.test_nv07_chat.PrivateChatTests.test_neutral_delta_reused_under_new_model_version_without_new_delta) ... ok
+test_new_private_user_has_no_implicit_grant_or_delta (tests.test_nv07_chat.PrivateChatTests.test_new_private_user_has_no_implicit_grant_or_delta) ... ok
+test_off_and_manual_never_auto_write (tests.test_nv07_chat.PrivateChatTests.test_off_and_manual_never_auto_write) ... ok
+test_packet_content_cannot_replace_strict_actor_response_contract (tests.test_nv07_chat.PrivateChatTests.test_packet_content_cannot_replace_strict_actor_response_contract) ... ok
+test_private_transcript_and_provider_reasoning_are_not_persisted_as_delta (tests.test_nv07_chat.PrivateChatTests.test_private_transcript_and_provider_reasoning_are_not_persisted_as_delta) ... ok
+test_protected_value_from_core_alias_cannot_escape_chat (tests.test_nv07_chat.PrivateChatTests.test_protected_value_from_core_alias_cannot_escape_chat) ... ok
+test_protected_values_block_question_and_actor_output (tests.test_nv07_chat.PrivateChatTests.test_protected_values_block_question_and_actor_output) ... ok
+test_replay_changes_no_delta_reward_counter_or_journal (tests.test_nv07_chat.PrivateChatTests.test_replay_changes_no_delta_reward_counter_or_journal) ... ok
+test_revocation_during_repair_prevents_write (tests.test_nv07_chat.PrivateChatTests.test_revocation_during_repair_prevents_write) ... ok
+test_revocation_hides_previously_approved_delta_from_actor (tests.test_nv07_chat.PrivateChatTests.test_revocation_hides_previously_approved_delta_from_actor) ... ok
+test_truncated_actor_repair_is_unknown_immutable_and_never_retried (tests.test_nv07_chat.PrivateChatTests.test_truncated_actor_repair_is_unknown_immutable_and_never_retried) ... ok
+test_unknown_or_forged_user_cannot_reach_actor_or_memory (tests.test_nv07_chat.PrivateChatTests.test_unknown_or_forged_user_cannot_reach_actor_or_memory) ... ok
+test_unknown_provider_outcome_is_not_replayed_after_restart (tests.test_nv07_chat.PrivateChatTests.test_unknown_provider_outcome_is_not_replayed_after_restart) ... ok
+test_version_change_blocks_stale_delta_despite_dynamics (tests.test_nv07_chat.PrivateChatTests.test_version_change_blocks_stale_delta_despite_dynamics) ... ok
+test_close_and_reload_of_one_owner_preserves_other_active_transaction (tests.test_nv07_isolation.SharedOwnerIsolationTests.test_close_and_reload_of_one_owner_preserves_other_active_transaction) ... ok
+test_cross_tenant_same_operation_key_replays_only_its_scoped_outcome (tests.test_nv07_isolation.SharedOwnerIsolationTests.test_cross_tenant_same_operation_key_replays_only_its_scoped_outcome) ... ok
+test_fresh_process_reconstructs_both_scopes_without_cross_owner_artifacts (tests.test_nv07_isolation.SharedOwnerIsolationTests.test_fresh_process_reconstructs_both_scopes_without_cross_owner_artifacts) ... ok
+test_high_score_never_revives_stale_revoked_or_revalidation_required_memory (tests.test_nv07_isolation.SharedOwnerIsolationTests.test_high_score_never_revives_stale_revoked_or_revalidation_required_memory) ... ok
+test_read_write_during_other_owner_revalidation_never_exposes_private_state (tests.test_nv07_isolation.SharedOwnerIsolationTests.test_read_write_during_other_owner_revalidation_never_exposes_private_state) ... ok
+test_same_owner_concurrent_replay_has_one_delta_reward_and_index (tests.test_nv07_isolation.SharedOwnerIsolationTests.test_same_owner_concurrent_replay_has_one_delta_reward_and_index) ... ok
+test_source_change_during_other_owner_context_invalidates_only_affected_owner (tests.test_nv07_isolation.SharedOwnerIsolationTests.test_source_change_during_other_owner_context_invalidates_only_affected_owner) ... ok
+test_two_owners_concurrently_share_physical_store_with_private_views (tests.test_nv07_isolation.SharedOwnerIsolationTests.test_two_owners_concurrently_share_physical_store_with_private_views) ... ok
+test_boolean_count_type_confusion_is_rejected (tests.test_competition_view.CompetitionViewTests.test_boolean_count_type_confusion_is_rejected) ... ok
+test_boolean_duplicate_effects_type_confusion_is_rejected (tests.test_competition_view.CompetitionViewTests.test_boolean_duplicate_effects_type_confusion_is_rejected) ... ok
+test_fixture_cannot_claim_live (tests.test_competition_view.CompetitionViewTests.test_fixture_cannot_claim_live) ... ok
+test_non_hex_effect_digest_is_rejected (tests.test_competition_view.CompetitionViewTests.test_non_hex_effect_digest_is_rejected) ... ok
+test_non_shadow_dvm_evidence_is_rejected (tests.test_competition_view.CompetitionViewTests.test_non_shadow_dvm_evidence_is_rejected) ... ok
+test_not_configured_is_explicit_and_read_only (tests.test_competition_view.CompetitionViewTests.test_not_configured_is_explicit_and_read_only) ... ok
+test_personal_ai_projection_exposes_every_bounded_operator_state (tests.test_competition_view.CompetitionViewTests.test_personal_ai_projection_exposes_every_bounded_operator_state) ... ok
+test_personal_ai_projection_rejects_false_live_claim (tests.test_competition_view.CompetitionViewTests.test_personal_ai_projection_rejects_false_live_claim) ... ok
+test_personal_ai_projection_rejects_malformed_hashes_and_counts (tests.test_competition_view.CompetitionViewTests.test_personal_ai_projection_rejects_malformed_hashes_and_counts) ... ok
+test_personal_ai_projection_rejects_private_or_unknown_fields (tests.test_competition_view.CompetitionViewTests.test_personal_ai_projection_rejects_private_or_unknown_fields) ... ok
+test_symlink_evidence_is_rejected (tests.test_competition_view.CompetitionViewTests.test_symlink_evidence_is_rejected) ... ok
+test_valid_fixture_is_projected_without_extra_fields (tests.test_competition_view.CompetitionViewTests.test_valid_fixture_is_projected_without_extra_fields) ... ok
+test_boolean_receipt_counts_cannot_produce_false_pass (tests.test_competition_evaluation.CompetitionEvaluationTests.test_boolean_receipt_counts_cannot_produce_false_pass) ... ok
+test_inconsistent_effect_metrics_fail_closed (tests.test_competition_evaluation.CompetitionEvaluationTests.test_inconsistent_effect_metrics_fail_closed) ... ok
+test_inconsistent_trajectory_metrics_fail_closed (tests.test_competition_evaluation.CompetitionEvaluationTests.test_inconsistent_trajectory_metrics_fail_closed) ... ok
+test_invalid_effect_metrics_fail_closed (tests.test_competition_evaluation.CompetitionEvaluationTests.test_invalid_effect_metrics_fail_closed) ... ok
+test_missing_evidence_does_not_invent_success (tests.test_competition_evaluation.CompetitionEvaluationTests.test_missing_evidence_does_not_invent_success) ... ok
+test_missing_receipt_or_recovery_evidence_fails_closed (tests.test_competition_evaluation.CompetitionEvaluationTests.test_missing_receipt_or_recovery_evidence_fails_closed) ... ok
+test_ready_fixture_reports_explicit_outcome_metrics (tests.test_competition_evaluation.CompetitionEvaluationTests.test_ready_fixture_reports_explicit_outcome_metrics) ... ok
+test_reordered_vertical_slice_fails_closed (tests.test_competition_evaluation.CompetitionEvaluationTests.test_reordered_vertical_slice_fails_closed) ... ok
+test_web_ui_renders_read_only_evaluation_summary (tests.test_competition_evaluation.CompetitionEvaluationTests.test_web_ui_renders_read_only_evaluation_summary) ... ok
+test_compact_panel_shows_all_bounded_states_and_authority_boundary (tests.test_webapp.PersonalAIStaticUITests.test_compact_panel_shows_all_bounded_states_and_authority_boundary) ... ok
+test_panel_uses_redacted_projection_without_private_transcript_fields (tests.test_webapp.PersonalAIStaticUITests.test_panel_uses_redacted_projection_without_private_transcript_fields) ... ok
+test_prepare_approve_and_resume_are_separate_explicit_controls (tests.test_webapp.PersonalAIStaticUITests.test_prepare_approve_and_resume_are_separate_explicit_controls) ... ok
+test_all_personal_ai_routes_require_the_session_token (tests.test_webapp.PersonalAIWebTests.test_all_personal_ai_routes_require_the_session_token) ... ok
+test_exact_approval_and_separate_resume_intent_gate_the_only_effect (tests.test_webapp.PersonalAIWebTests.test_exact_approval_and_separate_resume_intent_gate_the_only_effect) ... FAIL
+test_prepare_requires_operator_intent_strict_fields_and_stops_for_approval (tests.test_webapp.PersonalAIWebTests.test_prepare_requires_operator_intent_strict_fields_and_stops_for_approval) ... FAIL
+test_status_is_token_protected_read_only_and_sanitized (tests.test_webapp.PersonalAIWebTests.test_status_is_token_protected_read_only_and_sanitized) ... FAIL
+test_approval_executes_once_reconciles_and_blocks_replay (tests.test_nebius_personal_ai.NebiusPersonalAITests.test_approval_executes_once_reconciles_and_blocks_replay) ... FAIL
+test_conflicting_idempotency_key_reuse_fails_closed (tests.test_nebius_personal_ai.NebiusPersonalAITests.test_conflicting_idempotency_key_reuse_fails_closed) ... ok
+test_lost_ack_restart_reconciles_without_second_apply (tests.test_nebius_personal_ai.NebiusPersonalAITests.test_lost_ack_restart_reconciles_without_second_apply) ... ok
+test_private_hat_restart_prepares_redacted_advisory_without_effect (tests.test_nebius_personal_ai.NebiusPersonalAITests.test_private_hat_restart_prepares_redacted_advisory_without_effect) ... FAIL
+test_zero_write_and_approval_do_not_execute (tests.test_nebius_personal_ai.NebiusPersonalAITests.test_zero_write_and_approval_do_not_execute) ... FAIL
+
+======================================================================
+FAIL: test_exact_approval_and_separate_resume_intent_gate_the_only_effect (tests.test_webapp.PersonalAIWebTests.test_exact_approval_and_separate_resume_intent_gate_the_only_effect)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/media/l/LSC_DATA1/NVIDIA_NEBIUS/AIOA-spArkHAT-nebius/tests/test_webapp.py", line 137, in test_exact_approval_and_separate_resume_intent_gate_the_only_effect
+    prepared = self.prepare()
+               ^^^^^^^^^^^^^^
+  File "/media/l/LSC_DATA1/NVIDIA_NEBIUS/AIOA-spArkHAT-nebius/tests/test_webapp.py", line 94, in prepare
+    self.assertEqual(200, status, payload)
+AssertionError: 200 != 503 : {'error': 'PERSONAL_AI_PROJECTION_INVALID', 'ok': False}
+
+======================================================================
+FAIL: test_prepare_requires_operator_intent_strict_fields_and_stops_for_approval (tests.test_webapp.PersonalAIWebTests.test_prepare_requires_operator_intent_strict_fields_and_stops_for_approval)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/media/l/LSC_DATA1/NVIDIA_NEBIUS/AIOA-spArkHAT-nebius/tests/test_webapp.py", line 128, in test_prepare_requires_operator_intent_strict_fields_and_stops_for_approval
+    prepared = self.prepare()
+               ^^^^^^^^^^^^^^
+  File "/media/l/LSC_DATA1/NVIDIA_NEBIUS/AIOA-spArkHAT-nebius/tests/test_webapp.py", line 94, in prepare
+    self.assertEqual(200, status, payload)
+AssertionError: 200 != 503 : {'error': 'PERSONAL_AI_PROJECTION_INVALID', 'ok': False}
+
+======================================================================
+FAIL: test_status_is_token_protected_read_only_and_sanitized (tests.test_webapp.PersonalAIWebTests.test_status_is_token_protected_read_only_and_sanitized)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/media/l/LSC_DATA1/NVIDIA_NEBIUS/AIOA-spArkHAT-nebius/tests/test_webapp.py", line 181, in test_status_is_token_protected_read_only_and_sanitized
+    self.prepare()
+  File "/media/l/LSC_DATA1/NVIDIA_NEBIUS/AIOA-spArkHAT-nebius/tests/test_webapp.py", line 94, in prepare
+    self.assertEqual(200, status, payload)
+AssertionError: 200 != 503 : {'error': 'PERSONAL_AI_PROJECTION_INVALID', 'ok': False}
+
+======================================================================
+FAIL: test_approval_executes_once_reconciles_and_blocks_replay (tests.test_nebius_personal_ai.NebiusPersonalAITests.test_approval_executes_once_reconciles_and_blocks_replay)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/media/l/LSC_DATA1/NVIDIA_NEBIUS/AIOA-spArkHAT-nebius/tests/test_nebius_personal_ai.py", line 253, in test_approval_executes_once_reconciles_and_blocks_replay
+    self.assertEqual("RECONCILED", completed["state"])
+AssertionError: 'RECONCILED' != 'EXECUTED'
+- RECONCILED
++ EXECUTED
+
+
+======================================================================
+FAIL: test_private_hat_restart_prepares_redacted_advisory_without_effect (tests.test_nebius_personal_ai.NebiusPersonalAITests.test_private_hat_restart_prepares_redacted_advisory_without_effect)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/media/l/LSC_DATA1/NVIDIA_NEBIUS/AIOA-spArkHAT-nebius/tests/test_nebius_personal_ai.py", line 206, in test_private_hat_restart_prepares_redacted_advisory_without_effect
+    self.assertEqual(
+AssertionError: Lists differ: ['ADVISORY', 'VERIFIED', 'APPROVAL_REQUIRED'] != ['ADVISORY', 'VERIFIED', 'ZERO_WRITE', 'APPROVAL_REQUIRED']
+
+First differing element 2:
+'APPROVAL_REQUIRED'
+'ZERO_WRITE'
+
+Second list contains 1 additional elements.
+First extra element 3:
+'APPROVAL_REQUIRED'
+
+- ['ADVISORY', 'VERIFIED', 'APPROVAL_REQUIRED']
++ ['ADVISORY', 'VERIFIED', 'ZERO_WRITE', 'APPROVAL_REQUIRED']
+?                         ++++++++++++++
+
+
+======================================================================
+FAIL: test_zero_write_and_approval_do_not_execute (tests.test_nebius_personal_ai.NebiusPersonalAITests.test_zero_write_and_approval_do_not_execute)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/media/l/LSC_DATA1/NVIDIA_NEBIUS/AIOA-spArkHAT-nebius/tests/test_nebius_personal_ai.py", line 233, in test_zero_write_and_approval_do_not_execute
+    self.assertEqual(
+AssertionError: Lists differ: ['ADVISORY', 'ZERO_WRITE', 'APPROVAL_REQUIRED'] != ['ADVISORY', 'VERIFIED', 'ZERO_WRITE', 'APPROVAL_REQUIRED']
+
+First differing element 1:
+'ZERO_WRITE'
+'VERIFIED'
+
+Second list contains 1 additional elements.
+First extra element 3:
+'APPROVAL_REQUIRED'
+
+- ['ADVISORY', 'ZERO_WRITE', 'APPROVAL_REQUIRED']
++ ['ADVISORY', 'VERIFIED', 'ZERO_WRITE', 'APPROVAL_REQUIRED']
+?             ++++++++++++
+
+
+----------------------------------------------------------------------
+Ran 76 tests in 67.586s
+
+FAILED (failures=6)

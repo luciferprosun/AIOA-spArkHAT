@@ -1,0 +1,50 @@
+{
+  "authority": "ADVISORY_ONLY",
+  "base_url": "https://api.tokenfactory.nebius.com/v1",
+  "catalog_model_count": 25,
+  "catalog_nemotron_ids": [
+    "nvidia/Nemotron-3_5-Lightning",
+    "nvidia/Nemotron-3-Ultra-550b-a55b",
+    "nvidia/nemotron-3-super-120b-a12b"
+  ],
+  "cost_bound": {
+    "input_bound_policy": "utf8-bytes-plus-framing-v1",
+    "input_usd_per_million": "0.06",
+    "output_usd_per_million": "0.24",
+    "quoted_utc": "2026-10-03T13:03:09.271830+00:00",
+    "source_url": "https://nebius.com/services/token-factory/models/nvidia-nemotron-models-inference",
+    "upper_bound_usd": "0.00024576",
+    "usd_ceiling": "0.25"
+  },
+  "created_utc": "2026-10-03T13:05:34.352253+00:00",
+  "fallback": false,
+  "finish_reason": "stop",
+  "git_branch": "nebius-personal-ai",
+  "git_sha": "3134b3dfbbad02e0476f3857af30b11306e5051d",
+  "identity_status": "EXACT_MATCH",
+  "inference_attempted": true,
+  "latency_ms": 1157,
+  "live_catalog_validated": true,
+  "live_inference_validated": true,
+  "max_output_tokens": 512,
+  "provider": "nebius",
+  "reasoning_included_in_output_bound": true,
+  "reported_model": "nvidia/Nemotron-3_5-Lightning",
+  "request_id": "chatcmpl-994b9c6e",
+  "requested_model": "nvidia/Nemotron-3_5-Lightning",
+  "response_bytes": 2,
+  "response_content_persisted": false,
+  "response_sha256": "565339bc4d33d72817b583024112eb7f5cdf3e5eef0252d6ec1b9c9a94e12bb3",
+  "schema": "aioa.nebius-live-probe.v1",
+  "scope": "LIVE_TOKEN_FACTORY_SMOKE",
+  "selected_model_in_catalog": true,
+  "status": "PASS",
+  "timeout_seconds": 30.0,
+  "token_limit_field": "max_completion_tokens",
+  "usage": {
+    "completion_tokens": 136,
+    "prompt_tokens": 25,
+    "total_tokens": 161
+  },
+  "worktree_clean": false
+}

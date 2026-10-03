@@ -1,0 +1,8 @@
+{
+  "model_id": "nvidia/Nemotron-3_5-Lightning",
+  "currency": "USD",
+  "input_usd_per_million": "0.06",
+  "output_usd_per_million": "0.24",
+  "quoted_utc": "2026-10-03T13:03:09.271830+00:00",
+  "source_url": "https://nebius.com/services/token-factory/models/nvidia-nemotron-models-inference"
+}
