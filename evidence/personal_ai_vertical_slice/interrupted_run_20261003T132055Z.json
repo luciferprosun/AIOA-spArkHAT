@@ -1,0 +1,16 @@
+{
+  "schema": "aioa.prompt03-interrupted-run.v1",
+  "status": "UNKNOWN",
+  "classification": "OFFLINE_RUN_INTERRUPTED_SIGTERM",
+  "complete": false,
+  "aggregate_pass_claimed": false,
+  "timeout": 0,
+  "paid_inference_attempts": 0,
+  "logs": [
+    "evidence/personal_ai_vertical_slice/prompt03_regression_20261003T132055Z_cpl.log",
+    "evidence/personal_ai_vertical_slice/prompt03_regression_20261003T132055Z_lite_serviceguard_https.log",
+    "evidence/personal_ai_vertical_slice/prompt03_regression_20261003T132055Z_live_diagnostics.log",
+    "evidence/personal_ai_vertical_slice/prompt03_regression_20261003T132055Z_nebius.log"
+  ],
+  "superseded_by_complete_runs": true
+}

@@ -1,0 +1,1055 @@
+{
+  "api_status": "PASS_BOOTSTRAP_AND_DISTINCT_INTENT_GATES_LEGACY_MUTATIONS_DENIED",
+  "approval_gate": "PASS_EXACT_HUMAN_APPROVAL_ZERO_EFFECTS_UNTIL_RESUME",
+  "architecture_doc_status": "READY",
+  "authority_invariants": {
+    "CPL_AUTHORITY": "NONE",
+    "EFFECT_BOUNDARY": "SERVICEGUARD",
+    "EVIDENCE": "RECEIPT_PLUS_INDEPENDENT_READBACK",
+    "HUMAN_EFFECT_AUTHORITY": true,
+    "MEMORY_AUTHORITY": "NONE",
+    "MODEL_AUTHORITY": "NONE",
+    "PROVIDER": "ADVISORY_ONLY",
+    "UNKNOWN_POLICY": "RECONCILE_BEFORE_RETRY",
+    "effect_executor_count": 1,
+    "memory_engine_count": 1,
+    "scheduler_count": 1
+  },
+  "branch": "nebius-personal-ai",
+  "browser_evidence": "evidence/personal_ai_vertical_slice/browser_demo_20261003T131600Z.json",
+  "browser_evidence_sha256": "32d58c45730a73c7fd9d7c314991f99f88a9a0243b9b7de211a42feeffc6ee92",
+  "cpl_scope": "SEPARATE_SYNTHETIC_DEMONSTRATION",
+  "cpl_status": "COMPLETED_ADVISORY",
+  "created_utc": "2026-10-03T13:54:40.955562+00:00",
+  "demo_launcher_status": "PASS_FIXTURE_AND_EXPLICIT_BLOCKED_LIVE_CONFIGURATION",
+  "demo_start_command": "./scripts/start_nebius_personal_ai_demo.sh",
+  "demo_url": "http://127.0.0.1:4311",
+  "devpost_draft_status": "READY_NOT_SUBMITTED",
+  "duplicate_effect_count": 0,
+  "effect_apply_count": 1,
+  "exact_model": "nvidia/Nemotron-3_5-Lightning",
+  "fallback": false,
+  "final_sha_candidate": "8cef056aa5b8f68defffdc2e3c56dc452b27d572",
+  "final_sha_candidate_scope": "IMPLEMENTATION_COMMIT_BEFORE_EVIDENCE_ONLY_FINAL_COMMIT",
+  "fixture_cpl_generation_requests": 5,
+  "fixture_demo_evidence": "evidence/personal_ai_vertical_slice/fixture_demo_20261003T132724Z.json",
+  "fixture_demo_result": "PASS",
+  "fixture_demo_sha256": "cff20e7406d57ce2afa7f9d4977052e90893fca35a8a4eb1665bad096c97c698",
+  "fresh_final_test_receipt": "evidence/personal_ai_vertical_slice/prompt03_regression_20261003T134707Z.json",
+  "fresh_final_test_totals": {
+    "fail": 0,
+    "pass": 118,
+    "skip": 0,
+    "timeout": 0
+  },
+  "hat_reference_count": 2,
+  "historical_live_attempt_count": 3,
+  "independent_readback": "VERIFIED",
+  "known_blockers": [
+    {
+      "component": "Nebius Serverless",
+      "deployment_authorized": false,
+      "status": "BLOCKED_BY_CREDENTIALS"
+    },
+    {
+      "authorized_smoke_consumed": true,
+      "component": "LIVE provider demo",
+      "status": "BLOCKED_BY_ADDITIONAL_COST_AUTHORIZATION"
+    }
+  ],
+  "known_limits": [
+    "CPL fixture is a separate synthetic 1+3+1 demonstration, not maintenance-action proof.",
+    "One successful tiny live smoke does not validate longer advisory prompts or full LIVE CPL.",
+    "Canonical learning from private preferences remains ZERO_WRITE; no Verified Delta admission is claimed."
+  ],
+  "live_attempt_count": 1,
+  "live_attempt_scope": "PROMPT_03_ONLY",
+  "live_metadata": {
+    "cost_bound": {
+      "input_bound_policy": "utf8-bytes-plus-framing-v1",
+      "input_usd_per_million": "0.06",
+      "output_usd_per_million": "0.24",
+      "quoted_utc": "2026-10-03T13:03:09.271830+00:00",
+      "source_url": "https://nebius.com/services/token-factory/models/nvidia-nemotron-models-inference",
+      "upper_bound_usd": "0.00024576",
+      "usd_ceiling": "0.25"
+    },
+    "finish_reason": "stop",
+    "latency_ms": 1157,
+    "max_output_tokens": 512,
+    "request_id": "chatcmpl-994b9c6e",
+    "timeout_seconds": 30.0,
+    "token_limit_field": "max_completion_tokens",
+    "usage": {
+      "completion_tokens": 136,
+      "prompt_tokens": 25,
+      "total_tokens": 161
+    }
+  },
+  "live_provider_mode_status": "BLOCKED_BY_ADDITIONAL_COST_AUTHORIZATION",
+  "live_receipt_mode": "0600",
+  "live_receipt_path": "evidence/cloud_activation/live_smoke_20261003T130702Z.json",
+  "live_receipt_sha256": "c6b24ca23e7e164637da4432274031fc5f1264e0b742c6aaddfc28cd57ee606a",
+  "live_result": "PASS",
+  "main_sha": "d26266e54ee940d7ada30aa02783dc697618a72c",
+  "main_touched": false,
+  "memory_execution_authority": false,
+  "memory_persistence": true,
+  "mission": "PROMPT_03_COMPLETED_WITH_EXTERNAL_BLOCKERS",
+  "origin_main_sha": "d26266e54ee940d7ada30aa02783dc697618a72c",
+  "private_content_persisted": false,
+  "private_content_persistence_scope": "PUBLIC_PROJECTION_RECEIPTS_JOURNALS_AND_SELF_TEST",
+  "private_memory_storage": "OWNER_SCOPED_NATIVE_BACKEND",
+  "provider": "nebius",
+  "provider_mode": "FIXTURE",
+  "reconciliation_status": "RECONCILED",
+  "remaining_manual_actions": [
+    "Record the fixture demo using the runbook and165-second script.",
+    "Review the draft and submit manually if desired; nothing has been published.",
+    "Supply separate credentials and authorization before any future deployment or paid demo."
+  ],
+  "replay_status": "REPLAY_BLOCKED",
+  "response_content_persisted": false,
+  "runtime_source_unchanged_since_full_regression": true,
+  "schema": "aioa.personal-ai-vertical-slice.manifest-final.v2",
+  "secret_scan": {
+    "categories_checked": [
+      "AWS_ACCESS_KEY",
+      "BEARER_LITERAL",
+      "HIGH_ENTROPY_TOKEN_ASSIGNMENT",
+      "NEBIUS_KEY",
+      "OPENAI_KEY",
+      "PRIVATE_KEY"
+    ],
+    "files_checked": 89,
+    "results": [
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "docs/nebius_devpost_submission_draft.md",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "docs/nebius_final_architecture.md",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "docs/nebius_lightning_incomplete_completion_analysis.md",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "docs/nebius_personal_ai_demo_runbook.md",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "docs/nebius_personal_ai_video_script_180s.md",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "docs/superpowers/plans/2026-10-03-nebius-prompt03-execution.md",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "evidence/cloud_activation/live_smoke_20261003T130702Z.json",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "evidence/cloud_activation/price_quote_20261003T130309Z.json",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "evidence/personal_ai_vertical_slice/browser_demo_20261003T131600Z.json",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "evidence/personal_ai_vertical_slice/demo_panel_20261003T131600Z.png",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "evidence/personal_ai_vertical_slice/fixture_demo_20261003T132724Z.json",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "evidence/personal_ai_vertical_slice/fixture_marker_debug_20261003T133500Z.json",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "evidence/personal_ai_vertical_slice/interrupted_run_20261003T132055Z.json",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "evidence/personal_ai_vertical_slice/prompt03_regression_20261003T125634Z.json",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "evidence/personal_ai_vertical_slice/prompt03_regression_20261003T125634Z_cpl.log",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "evidence/personal_ai_vertical_slice/prompt03_regression_20261003T125634Z_lite_serviceguard_https.log",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "evidence/personal_ai_vertical_slice/prompt03_regression_20261003T125634Z_nebius.log",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "evidence/personal_ai_vertical_slice/prompt03_regression_20261003T125634Z_nv10_recovery.log",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "evidence/personal_ai_vertical_slice/prompt03_regression_20261003T125634Z_private_memory_competition_web.log",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "evidence/personal_ai_vertical_slice/prompt03_regression_20261003T125634Z_secret_scanner.log",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "evidence/personal_ai_vertical_slice/prompt03_regression_20261003T131046Z.json",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "evidence/personal_ai_vertical_slice/prompt03_regression_20261003T131046Z_live_diagnostics.log",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "evidence/personal_ai_vertical_slice/prompt03_regression_20261003T131046Z_secret_scanner.log",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "evidence/personal_ai_vertical_slice/prompt03_regression_20261003T131617Z.json",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "evidence/personal_ai_vertical_slice/prompt03_regression_20261003T131617Z_cpl.log",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "evidence/personal_ai_vertical_slice/prompt03_regression_20261003T131617Z_demo_launcher.log",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "evidence/personal_ai_vertical_slice/prompt03_regression_20261003T131617Z_lite_serviceguard_https.log",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "evidence/personal_ai_vertical_slice/prompt03_regression_20261003T131617Z_live_diagnostics.log",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "evidence/personal_ai_vertical_slice/prompt03_regression_20261003T131617Z_nebius.log",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "evidence/personal_ai_vertical_slice/prompt03_regression_20261003T131617Z_nv10_recovery.log",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "evidence/personal_ai_vertical_slice/prompt03_regression_20261003T131617Z_private_memory_competition_web.log",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "evidence/personal_ai_vertical_slice/prompt03_regression_20261003T131617Z_secret_scanner.log",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "evidence/personal_ai_vertical_slice/prompt03_regression_20261003T132055Z_cpl.log",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "evidence/personal_ai_vertical_slice/prompt03_regression_20261003T132055Z_lite_serviceguard_https.log",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "evidence/personal_ai_vertical_slice/prompt03_regression_20261003T132055Z_live_diagnostics.log",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "evidence/personal_ai_vertical_slice/prompt03_regression_20261003T132055Z_nebius.log",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "evidence/personal_ai_vertical_slice/prompt03_regression_20261003T132742Z.json",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "evidence/personal_ai_vertical_slice/prompt03_regression_20261003T132742Z_cpl.log",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "evidence/personal_ai_vertical_slice/prompt03_regression_20261003T132742Z_demo_launcher.log",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "evidence/personal_ai_vertical_slice/prompt03_regression_20261003T132742Z_lite_serviceguard_https.log",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "evidence/personal_ai_vertical_slice/prompt03_regression_20261003T132742Z_live_diagnostics.log",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "evidence/personal_ai_vertical_slice/prompt03_regression_20261003T132742Z_nebius.log",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "evidence/personal_ai_vertical_slice/prompt03_regression_20261003T132742Z_nv10_recovery.log",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "evidence/personal_ai_vertical_slice/prompt03_regression_20261003T132742Z_private_memory_competition_web.log",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "evidence/personal_ai_vertical_slice/prompt03_regression_20261003T132742Z_secret_scanner.log",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "evidence/personal_ai_vertical_slice/prompt03_regression_20261003T133729Z.json",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "evidence/personal_ai_vertical_slice/prompt03_regression_20261003T133729Z_cpl.log",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "evidence/personal_ai_vertical_slice/prompt03_regression_20261003T133729Z_demo_launcher.log",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "evidence/personal_ai_vertical_slice/prompt03_regression_20261003T133729Z_lite_serviceguard_https.log",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "evidence/personal_ai_vertical_slice/prompt03_regression_20261003T133729Z_live_diagnostics.log",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "evidence/personal_ai_vertical_slice/prompt03_regression_20261003T133729Z_nebius.log",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "evidence/personal_ai_vertical_slice/prompt03_regression_20261003T133729Z_nv10_recovery.log",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "evidence/personal_ai_vertical_slice/prompt03_regression_20261003T133729Z_private_memory_competition_web.log",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "evidence/personal_ai_vertical_slice/prompt03_regression_20261003T133729Z_secret_scanner.log",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "evidence/personal_ai_vertical_slice/prompt03_regression_20261003T134707Z.json",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "evidence/personal_ai_vertical_slice/prompt03_regression_20261003T134707Z_demo_launcher.log",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "evidence/personal_ai_vertical_slice/prompt03_regression_20261003T134707Z_demo_ui.log",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "evidence/personal_ai_vertical_slice/prompt03_regression_20261003T134707Z_live_diagnostics.log",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "evidence/personal_ai_vertical_slice/prompt03_regression_20261003T134707Z_private_memory_competition_web.log",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "evidence/personal_ai_vertical_slice/prompt03_static_20261003T132535Z.json",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "evidence/personal_ai_vertical_slice/prompt03_static_20261003T133231Z.json",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "evidence/personal_ai_vertical_slice/prompt03_static_20261003T134319Z.json",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "runtime/authority_timeline.py",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "runtime/competition_view.py",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "runtime/personal_ai_demo.py",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "runtime/personal_ai_demo_launcher.py",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "runtime/personal_ai_fixture.py",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "runtime/providers/config.py",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "runtime/providers/exact.py",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "runtime/providers/nebius.py",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "runtime/providers/nebius_routing.py",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "runtime/service_guard/service.py",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "runtime/webapp.py",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "scripts/check_changed_secrets.py",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "scripts/check_prompt03_static.py",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "scripts/nebius_live_probe.py",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "scripts/run_prompt03_regressions.py",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "scripts/start_nebius_personal_ai_demo.sh",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "tests/test_changed_secrets.py",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "tests/test_competition_view.py",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "tests/test_nebius_live_probe.py",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "tests/test_nebius_personal_ai.py",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "tests/test_nebius_provider.py",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "tests/test_nebius_safe_diagnostics.py",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "tests/test_personal_ai_demo_launcher.py",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "tests/test_personal_ai_demo_ui.py",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "tests/test_webapp.py",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "web/app.js",
+        "status": "PASS"
+      },
+      {
+        "category": "ALL_REQUIRED_CATEGORIES",
+        "path": "web/index.html",
+        "status": "PASS"
+      }
+    ],
+    "schema": "aioa.changed-file-secret-scan.v1",
+    "status": "PASS"
+  },
+  "serverless_deployment_authorized": false,
+  "serverless_deployment_status": "BLOCKED_BY_CREDENTIALS",
+  "serviceguard_status": "PASS",
+  "starting_sha": "628f9ccb2f9ada475bf2c27a2c377ed04458d1df",
+  "state_sequence": [
+    "APPROVAL_REQUIRED",
+    "APPROVED",
+    "EXECUTED",
+    "RECONCILED",
+    "REPLAY_BLOCKED"
+  ],
+  "static_check_status": "PASS",
+  "static_checks": [
+    {
+      "category": "GIT_DIFF_CHECK",
+      "path": ".",
+      "status": "PASS"
+    },
+    {
+      "category": "JSON_VALIDATION",
+      "path": "evidence/cloud_activation/live_smoke_20261003T130702Z.json",
+      "status": "PASS"
+    },
+    {
+      "category": "JSON_VALIDATION",
+      "path": "evidence/cloud_activation/price_quote_20261003T130309Z.json",
+      "status": "PASS"
+    },
+    {
+      "category": "JSON_VALIDATION",
+      "path": "evidence/personal_ai_vertical_slice/browser_demo_20261003T131600Z.json",
+      "status": "PASS"
+    },
+    {
+      "category": "JSON_VALIDATION",
+      "path": "evidence/personal_ai_vertical_slice/fixture_demo_20261003T132724Z.json",
+      "status": "PASS"
+    },
+    {
+      "category": "JSON_VALIDATION",
+      "path": "evidence/personal_ai_vertical_slice/fixture_marker_debug_20261003T133500Z.json",
+      "status": "PASS"
+    },
+    {
+      "category": "JSON_VALIDATION",
+      "path": "evidence/personal_ai_vertical_slice/interrupted_run_20261003T132055Z.json",
+      "status": "PASS"
+    },
+    {
+      "category": "JSON_VALIDATION",
+      "path": "evidence/personal_ai_vertical_slice/prompt03_regression_20261003T125634Z.json",
+      "status": "PASS"
+    },
+    {
+      "category": "JSON_VALIDATION",
+      "path": "evidence/personal_ai_vertical_slice/prompt03_regression_20261003T131046Z.json",
+      "status": "PASS"
+    },
+    {
+      "category": "JSON_VALIDATION",
+      "path": "evidence/personal_ai_vertical_slice/prompt03_regression_20261003T131617Z.json",
+      "status": "PASS"
+    },
+    {
+      "category": "JSON_VALIDATION",
+      "path": "evidence/personal_ai_vertical_slice/prompt03_regression_20261003T132742Z.json",
+      "status": "PASS"
+    },
+    {
+      "category": "JSON_VALIDATION",
+      "path": "evidence/personal_ai_vertical_slice/prompt03_regression_20261003T133729Z.json",
+      "status": "PASS"
+    },
+    {
+      "category": "JSON_VALIDATION",
+      "path": "evidence/personal_ai_vertical_slice/prompt03_regression_20261003T134707Z.json",
+      "status": "PASS"
+    },
+    {
+      "category": "JSON_VALIDATION",
+      "path": "evidence/personal_ai_vertical_slice/prompt03_static_20261003T132535Z.json",
+      "status": "PASS"
+    },
+    {
+      "category": "JSON_VALIDATION",
+      "path": "evidence/personal_ai_vertical_slice/prompt03_static_20261003T133231Z.json",
+      "status": "PASS"
+    },
+    {
+      "category": "JSON_VALIDATION",
+      "path": "evidence/personal_ai_vertical_slice/prompt03_static_20261003T134319Z.json",
+      "status": "PASS"
+    },
+    {
+      "category": "PYTHON_COMPILE",
+      "path": "runtime/authority_timeline.py",
+      "status": "PASS"
+    },
+    {
+      "category": "PYTHON_COMPILE",
+      "path": "runtime/competition_view.py",
+      "status": "PASS"
+    },
+    {
+      "category": "PYTHON_COMPILE",
+      "path": "runtime/personal_ai_demo.py",
+      "status": "PASS"
+    },
+    {
+      "category": "PYTHON_COMPILE",
+      "path": "runtime/personal_ai_demo_launcher.py",
+      "status": "PASS"
+    },
+    {
+      "category": "PYTHON_COMPILE",
+      "path": "runtime/personal_ai_fixture.py",
+      "status": "PASS"
+    },
+    {
+      "category": "PYTHON_COMPILE",
+      "path": "runtime/providers/config.py",
+      "status": "PASS"
+    },
+    {
+      "category": "PYTHON_COMPILE",
+      "path": "runtime/providers/exact.py",
+      "status": "PASS"
+    },
+    {
+      "category": "PYTHON_COMPILE",
+      "path": "runtime/providers/nebius.py",
+      "status": "PASS"
+    },
+    {
+      "category": "PYTHON_COMPILE",
+      "path": "runtime/providers/nebius_routing.py",
+      "status": "PASS"
+    },
+    {
+      "category": "PYTHON_COMPILE",
+      "path": "runtime/service_guard/service.py",
+      "status": "PASS"
+    },
+    {
+      "category": "PYTHON_COMPILE",
+      "path": "runtime/webapp.py",
+      "status": "PASS"
+    },
+    {
+      "category": "PYTHON_COMPILE",
+      "path": "scripts/check_changed_secrets.py",
+      "status": "PASS"
+    },
+    {
+      "category": "PYTHON_COMPILE",
+      "path": "scripts/check_prompt03_static.py",
+      "status": "PASS"
+    },
+    {
+      "category": "PYTHON_COMPILE",
+      "path": "scripts/nebius_live_probe.py",
+      "status": "PASS"
+    },
+    {
+      "category": "PYTHON_COMPILE",
+      "path": "scripts/run_prompt03_regressions.py",
+      "status": "PASS"
+    },
+    {
+      "category": "SHELL_SYNTAX",
+      "path": "scripts/start_nebius_personal_ai_demo.sh",
+      "status": "PASS"
+    },
+    {
+      "category": "PYTHON_COMPILE",
+      "path": "tests/test_changed_secrets.py",
+      "status": "PASS"
+    },
+    {
+      "category": "PYTHON_COMPILE",
+      "path": "tests/test_competition_view.py",
+      "status": "PASS"
+    },
+    {
+      "category": "PYTHON_COMPILE",
+      "path": "tests/test_nebius_live_probe.py",
+      "status": "PASS"
+    },
+    {
+      "category": "PYTHON_COMPILE",
+      "path": "tests/test_nebius_personal_ai.py",
+      "status": "PASS"
+    },
+    {
+      "category": "PYTHON_COMPILE",
+      "path": "tests/test_nebius_provider.py",
+      "status": "PASS"
+    },
+    {
+      "category": "PYTHON_COMPILE",
+      "path": "tests/test_nebius_safe_diagnostics.py",
+      "status": "PASS"
+    },
+    {
+      "category": "PYTHON_COMPILE",
+      "path": "tests/test_personal_ai_demo_launcher.py",
+      "status": "PASS"
+    },
+    {
+      "category": "PYTHON_COMPILE",
+      "path": "tests/test_personal_ai_demo_ui.py",
+      "status": "PASS"
+    },
+    {
+      "category": "PYTHON_COMPILE",
+      "path": "tests/test_webapp.py",
+      "status": "PASS"
+    },
+    {
+      "category": "JAVASCRIPT_SYNTAX",
+      "path": "web/app.js",
+      "status": "PASS"
+    }
+  ],
+  "static_evidence": "evidence/personal_ai_vertical_slice/prompt03_static_20261003T135129Z.json",
+  "target_mode": "FIXTURE",
+  "test_counting_policy": "LATEST_RESULT_PER_DISJOINT_FAMILY_NO_DUPLICATE_AGGREGATION",
+  "test_groups": [
+    {
+      "command": [
+        "/usr/bin/python3",
+        "-m",
+        "unittest",
+        "tests.test_nebius_safe_diagnostics",
+        "tests.test_nebius_live_probe",
+        "-v"
+      ],
+      "credentials_removed": true,
+      "elapsed_seconds": 1.964,
+      "evidence": "evidence/personal_ai_vertical_slice/prompt03_regression_20261003T134707Z.json",
+      "exit_code": 0,
+      "fail": 0,
+      "fresh_temporary_home": true,
+      "group": "live_diagnostics",
+      "log_path": "evidence/personal_ai_vertical_slice/prompt03_regression_20261003T134707Z_live_diagnostics.log",
+      "paid_requests_authorized": false,
+      "pass": 32,
+      "skip": 0,
+      "status": "PASS",
+      "tested_sha": "8cef056aa5b8f68defffdc2e3c56dc452b27d572",
+      "tests_run": 32,
+      "timeout": 0
+    },
+    {
+      "command": [
+        "/usr/bin/python3",
+        "-m",
+        "unittest",
+        "tests.test_nebius_provider",
+        "tests.test_nebius_cpl",
+        "tests.test_nebius_routing",
+        "tests.test_nebius_https_transport",
+        "-v"
+      ],
+      "credentials_removed": true,
+      "elapsed_seconds": 3.453,
+      "evidence": "evidence/personal_ai_vertical_slice/prompt03_regression_20261003T133729Z.json",
+      "exit_code": 0,
+      "fail": 0,
+      "fresh_temporary_home": true,
+      "group": "nebius",
+      "log_path": "evidence/personal_ai_vertical_slice/prompt03_regression_20261003T133729Z_nebius.log",
+      "paid_requests_authorized": false,
+      "pass": 33,
+      "skip": 0,
+      "status": "PASS",
+      "tested_sha": "9289d9af5eef09cd62c0f47ed57f85d5bd03f13a",
+      "tests_run": 33,
+      "timeout": 0
+    },
+    {
+      "command": [
+        "/usr/bin/python3",
+        "-m",
+        "unittest",
+        "tests.test_cpl_service",
+        "tests.test_cpl_original_contract",
+        "tests.test_cpl_original_redaction",
+        "tests.test_cpl_generic",
+        "tests.test_cpl_evidence",
+        "tests.test_cpl_wait_contract",
+        "tests.test_cpl_preset",
+        "tests.test_cpl_web",
+        "tests.test_cpl_retrieval_root",
+        "tests.test_cpl_assistant_cli",
+        "-v"
+      ],
+      "credentials_removed": true,
+      "elapsed_seconds": 57.379,
+      "evidence": "evidence/personal_ai_vertical_slice/prompt03_regression_20261003T133729Z.json",
+      "exit_code": 0,
+      "fail": 0,
+      "fresh_temporary_home": true,
+      "group": "cpl",
+      "log_path": "evidence/personal_ai_vertical_slice/prompt03_regression_20261003T133729Z_cpl.log",
+      "paid_requests_authorized": false,
+      "pass": 143,
+      "skip": 0,
+      "status": "PASS",
+      "tested_sha": "9289d9af5eef09cd62c0f47ed57f85d5bd03f13a",
+      "tests_run": 143,
+      "timeout": 0
+    },
+    {
+      "command": [
+        "/usr/bin/python3",
+        "-m",
+        "unittest",
+        "tests.test_nv02_lite",
+        "tests.test_nv02_http",
+        "tests.test_nv09_service_guard",
+        "tests.test_serverless_effect_transport",
+        "-v"
+      ],
+      "credentials_removed": true,
+      "elapsed_seconds": 29.503,
+      "evidence": "evidence/personal_ai_vertical_slice/prompt03_regression_20261003T133729Z.json",
+      "exit_code": 0,
+      "fail": 0,
+      "fresh_temporary_home": true,
+      "group": "lite_serviceguard_https",
+      "log_path": "evidence/personal_ai_vertical_slice/prompt03_regression_20261003T133729Z_lite_serviceguard_https.log",
+      "paid_requests_authorized": false,
+      "pass": 83,
+      "skip": 0,
+      "status": "PASS",
+      "tested_sha": "9289d9af5eef09cd62c0f47ed57f85d5bd03f13a",
+      "tests_run": 83,
+      "timeout": 0
+    },
+    {
+      "command": [
+        "/usr/bin/python3",
+        "-m",
+        "unittest",
+        "tests.test_nv10_guard",
+        "tests.test_nv10_memory",
+        "tests.test_nv10_recovery",
+        "-v"
+      ],
+      "credentials_removed": true,
+      "elapsed_seconds": 36.234,
+      "evidence": "evidence/personal_ai_vertical_slice/prompt03_regression_20261003T133729Z.json",
+      "exit_code": 0,
+      "fail": 0,
+      "fresh_temporary_home": true,
+      "group": "nv10_recovery",
+      "log_path": "evidence/personal_ai_vertical_slice/prompt03_regression_20261003T133729Z_nv10_recovery.log",
+      "paid_requests_authorized": false,
+      "pass": 31,
+      "skip": 0,
+      "status": "PASS",
+      "tested_sha": "9289d9af5eef09cd62c0f47ed57f85d5bd03f13a",
+      "tests_run": 31,
+      "timeout": 0
+    },
+    {
+      "command": [
+        "/usr/bin/python3",
+        "-m",
+        "unittest",
+        "tests.test_nv07_chat",
+        "tests.test_nv07_isolation",
+        "tests.test_competition_view",
+        "tests.test_competition_evaluation",
+        "tests.test_webapp",
+        "tests.test_nebius_personal_ai",
+        "-v"
+      ],
+      "credentials_removed": true,
+      "elapsed_seconds": 61.461,
+      "evidence": "evidence/personal_ai_vertical_slice/prompt03_regression_20261003T134707Z.json",
+      "exit_code": 0,
+      "fail": 0,
+      "fresh_temporary_home": true,
+      "group": "private_memory_competition_web",
+      "log_path": "evidence/personal_ai_vertical_slice/prompt03_regression_20261003T134707Z_private_memory_competition_web.log",
+      "paid_requests_authorized": false,
+      "pass": 79,
+      "skip": 0,
+      "status": "PASS",
+      "tested_sha": "8cef056aa5b8f68defffdc2e3c56dc452b27d572",
+      "tests_run": 79,
+      "timeout": 0
+    },
+    {
+      "command": [
+        "/usr/bin/python3",
+        "-m",
+        "unittest",
+        "tests.test_changed_secrets",
+        "-v"
+      ],
+      "credentials_removed": true,
+      "elapsed_seconds": 0.2,
+      "evidence": "evidence/personal_ai_vertical_slice/prompt03_regression_20261003T133729Z.json",
+      "exit_code": 0,
+      "fail": 0,
+      "fresh_temporary_home": true,
+      "group": "secret_scanner",
+      "log_path": "evidence/personal_ai_vertical_slice/prompt03_regression_20261003T133729Z_secret_scanner.log",
+      "paid_requests_authorized": false,
+      "pass": 11,
+      "skip": 0,
+      "status": "PASS",
+      "tested_sha": "9289d9af5eef09cd62c0f47ed57f85d5bd03f13a",
+      "tests_run": 11,
+      "timeout": 0
+    },
+    {
+      "command": [
+        "/usr/bin/python3",
+        "-m",
+        "unittest",
+        "tests.test_personal_ai_demo_launcher",
+        "-v"
+      ],
+      "credentials_removed": true,
+      "elapsed_seconds": 34.599,
+      "evidence": "evidence/personal_ai_vertical_slice/prompt03_regression_20261003T134707Z.json",
+      "exit_code": 0,
+      "fail": 0,
+      "fresh_temporary_home": true,
+      "group": "demo_launcher",
+      "log_path": "evidence/personal_ai_vertical_slice/prompt03_regression_20261003T134707Z_demo_launcher.log",
+      "paid_requests_authorized": false,
+      "pass": 5,
+      "skip": 0,
+      "status": "PASS",
+      "tested_sha": "8cef056aa5b8f68defffdc2e3c56dc452b27d572",
+      "tests_run": 5,
+      "timeout": 0
+    },
+    {
+      "command": [
+        "/usr/bin/python3",
+        "-m",
+        "unittest",
+        "tests.test_personal_ai_demo_ui",
+        "-v"
+      ],
+      "credentials_removed": true,
+      "elapsed_seconds": 1.73,
+      "evidence": "evidence/personal_ai_vertical_slice/prompt03_regression_20261003T134707Z.json",
+      "exit_code": 0,
+      "fail": 0,
+      "fresh_temporary_home": true,
+      "group": "demo_ui",
+      "log_path": "evidence/personal_ai_vertical_slice/prompt03_regression_20261003T134707Z_demo_ui.log",
+      "paid_requests_authorized": false,
+      "pass": 2,
+      "skip": 0,
+      "status": "PASS",
+      "tested_sha": "8cef056aa5b8f68defffdc2e3c56dc452b27d572",
+      "tests_run": 2,
+      "timeout": 0
+    }
+  ],
+  "test_totals": {
+    "fail": 0,
+    "pass": 419,
+    "skip": 0,
+    "timeout": 0
+  },
+  "ui_screenshot": "evidence/personal_ai_vertical_slice/demo_panel_20261003T131600Z.png",
+  "ui_status": "PASS_ACTUAL_CHROMIUM_BUTTON_FLOW_AND_REAL_RENDERER_NEGATIVE_TESTS",
+  "verification_status": "VERIFIED",
+  "verified_delta_status": "ZERO_WRITE",
+  "video_script_status": "READY_165_SECONDS",
+  "zero_write_test": "PASS"
+}

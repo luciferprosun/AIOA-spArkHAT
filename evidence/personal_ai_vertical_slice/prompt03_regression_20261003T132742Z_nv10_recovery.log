@@ -1,0 +1,56 @@
+NV10_EVIDENCE {"case": "process-crash-after-effect", "duplicate_effects": 0, "exit_code": 73, "fresh_pid": 93172, "label": "REAL_LOCAL_TARGET", "requests": [["GET", "/receipts/1382ed48589e82f4609460ee391ec39228182ae54255c6d1fc27435d916f3c20"], ["GET", "/state"]]}
+NV10_EVIDENCE {"case": "guard-expiry-clock", "fresh_pid": 93176, "label": "REAL_LOCAL_TARGET", "revivals": 0, "t1": 1791034164, "t2": 1791034167}
+NV10_EVIDENCE {"case": "http-lost-ack-fresh-process", "duplicate_effects": 0, "fresh_pid": 93181, "label": "REAL_LOCAL_TARGET", "requests": [["GET", "/receipts/1382ed48589e82f4609460ee391ec39228182ae54255c6d1fc27435d916f3c20"], ["GET", "/state"]]}
+NV10_EVIDENCE {"case": "guard-full-isolation", "label": "REAL_LOCAL_TARGET/FIXTURE", "leaks": 0, "pre_sql_denial": true, "reused_effect_authority": 0, "scopes": 3}
+NV10_EVIDENCE {"case": "target-ABA2", "label": "REAL_LOCAL_TARGET", "revisions": [1, 2, 3], "stale_effects": 0}
+NV10_EVIDENCE {"case": "unknown-intent-readonly", "effects": 0, "label": "FIXTURE/REAL_LOCAL_TARGET", "requests": [["GET", "/receipts/1382ed48589e82f4609460ee391ec39228182ae54255c6d1fc27435d916f3c20"], ["GET", "/state"]], "retry_count": 0, "unknown_preserved": true}
+NV10_EVIDENCE {"case": "verifier-conflict", "false_verified": 0, "receipts": [{"input_digest": "006b898b48cb440f40af37a450a338823dddf72da5962336821f54c2eacd97ff", "supported": true, "verifier": "linux-corpus"}, {"input_digest": "006b898b48cb440f40af37a450a338823dddf72da5962336821f54c2eacd97ff", "supported": false, "verifier": "controlled-domain-rule"}], "status": "CONTESTED"}
+NV10_EVIDENCE {"case": "historical-query", "current_applicable": 0, "historical_at": "2030-01-02T11:59:59+00:00", "mode": "AS_OF", "version": "historical-v1"}
+NV10_EVIDENCE {"case": "source-unavailable", "current_delta_uses": 0, "reason_codes": ["ELIGIBLE_BEFORE_RELEVANCE", "PERSONAL_SPACE_UNCONFIGURED"], "status": "READY", "stimulus": "reference_removed"}
+NV10_EVIDENCE {"case": "source-unavailable", "current_delta_uses": 0, "reason_codes": ["ELIGIBLE_BEFORE_RELEVANCE", "EVIDENCE_OR_PROVENANCE_INELIGIBLE", "PERSONAL_SPACE_UNCONFIGURED"], "status": "READY", "stimulus": "withdrawn"}
+NV10_EVIDENCE {"case": "source-unavailable", "current_delta_uses": 0, "reason_codes": ["ELIGIBLE_BEFORE_RELEVANCE", "PERSONAL_SPACE_UNCONFIGURED"], "status": "READY", "stimulus": "resolver_missing"}
+NV10_EVIDENCE {"case": "source-unavailable", "current_delta_uses": 0, "reason_codes": ["ELIGIBLE_BEFORE_RELEVANCE", "EVIDENCE_OR_PROVENANCE_INELIGIBLE", "PERSONAL_SPACE_UNCONFIGURED"], "status": "READY", "stimulus": "version_unavailable"}
+NV10_EVIDENCE {"case": "consent-clock-rollback", "clock_t1": "2030-01-02T12:00:00+00:00", "clock_t2": "2030-01-02T14:00:00+00:00", "fresh_pid": 93196, "label": "FIXTURE", "revision": 2, "revivals": 0}
+NV10_EVIDENCE {"case": "revoked-memory-clock", "fresh_pid": 93202, "retained_deltas": 1, "revoked_uses": 0}
+NV10_EVIDENCE {"case": "source-ABA2", "fresh_pid": 93203, "old_binding": "v1", "rollback_reuse": 0, "versions": ["v1", "v2", "v3"]}
+NV10_EVIDENCE {"case": "schema-mismatch", "dictionary": "NOT_APPLICABLE", "incomplete_delta": "REJECTED", "index_unknown": "REJECTED", "native_unknown": "REJECTED"}
+NV10_EVIDENCE {"case": "write-expiry-after-rollback", "expiry_durable": true, "partial_mutations": 0}
+NV10_EVIDENCE {"actual_process_exit": 75, "case": "crash-before-commit", "fresh_pid": 93206, "label": "FIXTURE", "partial_accepted_mutations": 0}
+NV10_EVIDENCE {"case": "restart-mid-checkpoint", "exit_code": 76, "fresh_pids": [93208, 93209], "label": "LOCAL_CONTROLLED", "reservations": 1, "unknown_preserved": true}
+NV10_EVIDENCE {"case": "state-format", "corrupt_digest": "REJECTED", "label": "LOCAL_CONTROLLED", "truncated_payload": "REJECTED", "wrong_version": "REJECTED"}
+test_actual_crash_after_effect_is_reconciled_by_a_second_fresh_process (tests.test_nv10_guard.NV10GuardTests.test_actual_crash_after_effect_is_reconciled_by_a_second_fresh_process) ... ok
+test_checkpoint_loss_replays_durable_verified_effect_without_actor_or_post (tests.test_nv10_guard.NV10GuardTests.test_checkpoint_loss_replays_durable_verified_effect_without_actor_or_post) ... ok
+test_expiry_before_intent_stays_blocked_after_rollback_and_fresh_process (tests.test_nv10_guard.NV10GuardTests.test_expiry_before_intent_stays_blocked_after_rollback_and_fresh_process) ... ok
+test_lost_http_ack_reconciles_in_fresh_process_with_get_only (tests.test_nv10_guard.NV10GuardTests.test_lost_http_ack_reconciles_in_fresh_process_with_get_only) ... ok
+test_old_scheduler_cannot_execute_after_lease_passes_to_replacement (tests.test_nv10_guard.NV10GuardTests.test_old_scheduler_cannot_execute_after_lease_passes_to_replacement) ... ok
+test_owner_and_tenant_isolation_covers_all_guard_phases_audit_and_checkpoint (tests.test_nv10_guard.NV10GuardTests.test_owner_and_tenant_isolation_covers_all_guard_phases_audit_and_checkpoint) ... ok
+test_owner_approval_cannot_transfer_to_different_target (tests.test_nv10_guard.NV10GuardTests.test_owner_approval_cannot_transfer_to_different_target) ... ok
+test_poisoned_observation_and_summary_cannot_grant_authority (tests.test_nv10_guard.NV10GuardTests.test_poisoned_observation_and_summary_cannot_grant_authority) ... ok
+test_proposal_bounds_preserve_contract_and_reject_overflow (tests.test_nv10_guard.NV10GuardTests.test_proposal_bounds_preserve_contract_and_reject_overflow) ... ok
+test_receipt_metadata_cannot_override_invalid_facts_or_trigger_retry (tests.test_nv10_guard.NV10GuardTests.test_receipt_metadata_cannot_override_invalid_facts_or_trigger_retry) ... ok
+test_staged_effect_token_expires_at_boundary_and_never_revives (tests.test_nv10_guard.NV10GuardTests.test_staged_effect_token_expires_at_boundary_and_never_revives) ... ok
+test_target_a_b_a2_keeps_monotonic_revision_and_denies_original_approval (tests.test_nv10_guard.NV10GuardTests.test_target_a_b_a2_keeps_monotonic_revision_and_denies_original_approval) ... ok
+test_unknown_intent_ack_is_preserved_across_fresh_process_without_post (tests.test_nv10_guard.NV10GuardTests.test_unknown_intent_ack_is_preserved_across_fresh_process_without_post) ... ok
+test_cache_index_loss_rebuilds_from_evidence_and_never_from_score (tests.test_nv10_memory.NV10MemoryTests.test_cache_index_loss_rebuilds_from_evidence_and_never_from_score) ... ok
+test_conflicting_independent_verifiers_return_explicit_contested_result (tests.test_nv10_memory.NV10MemoryTests.test_conflicting_independent_verifiers_return_explicit_contested_result) ... ok
+test_expiry_latch_unknown_is_fail_closed_and_read_back_before_reuse (tests.test_nv10_memory.NV10MemoryTests.test_expiry_latch_unknown_is_fail_closed_and_read_back_before_reuse) ... ok
+test_expiry_observation_never_overwrites_explicit_new_owner_consent (tests.test_nv10_memory.NV10MemoryTests.test_expiry_observation_never_overwrites_explicit_new_owner_consent) ... ok
+test_historical_selection_labels_version_and_never_changes_current_authority (tests.test_nv10_memory.NV10MemoryTests.test_historical_selection_labels_version_and_never_changes_current_authority) ... ok
+test_missing_source_variants_never_reuse_delta_or_model_memory (tests.test_nv10_memory.NV10MemoryTests.test_missing_source_variants_never_reuse_delta_or_model_memory) ... ok
+test_observed_expiry_survives_clock_rollback_and_fresh_process (tests.test_nv10_memory.NV10MemoryTests.test_observed_expiry_survives_clock_rollback_and_fresh_process) ... ok
+test_poisoned_delta_tags_and_pheromone_metadata_cannot_revive_revocation (tests.test_nv10_memory.NV10MemoryTests.test_poisoned_delta_tags_and_pheromone_metadata_cannot_revive_revocation) ... ok
+test_revoke_rollback_keeps_history_and_clears_current_index (tests.test_nv10_memory.NV10MemoryTests.test_revoke_rollback_keeps_history_and_clears_current_index) ... ok
+test_source_a_b_a2_does_not_restore_original_binding (tests.test_nv10_memory.NV10MemoryTests.test_source_a_b_a2_does_not_restore_original_binding) ... ok
+test_source_and_summary_instructions_are_data_without_consent_or_truth (tests.test_nv10_memory.NV10MemoryTests.test_source_and_summary_instructions_are_data_without_consent_or_truth) ... ok
+test_unavailable_authoritative_store_is_explicitly_degraded (tests.test_nv10_memory.NV10MemoryTests.test_unavailable_authoritative_store_is_explicitly_degraded) ... ok
+test_unknown_native_and_index_schema_and_truncated_delta_reject (tests.test_nv10_memory.NV10MemoryTests.test_unknown_native_and_index_schema_and_truncated_delta_reject) ... ok
+test_write_time_expiry_rolls_back_then_persists_denial (tests.test_nv10_memory.NV10MemoryTests.test_write_time_expiry_rolls_back_then_persists_denial) ... ok
+test_actual_process_exit_before_commit_has_no_partial_mutation (tests.test_nv10_recovery.NV10RecoveryTests.test_actual_process_exit_before_commit_has_no_partial_mutation) ... ok
+test_corrupt_disposable_checkpoint_fails_instead_of_guessing_state (tests.test_nv10_recovery.NV10RecoveryTests.test_corrupt_disposable_checkpoint_fails_instead_of_guessing_state) ... ok
+test_restart_after_durable_reservation_preserves_unknown_checkpoint (tests.test_nv10_recovery.NV10RecoveryTests.test_restart_after_durable_reservation_preserves_unknown_checkpoint) ... ok
+test_unknown_target_envelope_version_digest_and_truncation_reject (tests.test_nv10_recovery.NV10RecoveryTests.test_unknown_target_envelope_version_digest_and_truncation_reject) ... ok
+
+----------------------------------------------------------------------
+Ran 31 tests in 33.042s
+
+OK

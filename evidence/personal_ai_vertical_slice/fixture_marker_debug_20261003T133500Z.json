@@ -1,0 +1,12 @@
+{
+  "schema": "aioa.prompt03-fix-verification.v1",
+  "status": "FAIL",
+  "scope": "INTERMEDIATE_FIXTURE_MARKER_EXPERIMENT",
+  "tests_run": 24,
+  "pass": 22,
+  "fail": 2,
+  "timeout": 0,
+  "reason": "LOCAL_FIXTURE_REQUIRES_EXACT_PUBLIC_AUTH_MARKER",
+  "credential_exposure": false,
+  "resolved_by": "RESTORE_PUBLIC_PROTOCOL_MARKER_CONSTANT"
+}

@@ -1,0 +1,60 @@
+{
+  "branch": "nebius-personal-ai",
+  "created_utc": "2026-10-03T13:10:48.853880+00:00",
+  "groups": [
+    {
+      "command": [
+        "/usr/bin/python3",
+        "-m",
+        "unittest",
+        "tests.test_nebius_safe_diagnostics",
+        "tests.test_nebius_live_probe",
+        "-v"
+      ],
+      "credentials_removed": true,
+      "elapsed_seconds": 1.919,
+      "exit_code": 0,
+      "fail": 0,
+      "fresh_temporary_home": true,
+      "group": "live_diagnostics",
+      "log_path": "evidence/personal_ai_vertical_slice/prompt03_regression_20261003T131046Z_live_diagnostics.log",
+      "paid_requests_authorized": false,
+      "pass": 32,
+      "skip": 0,
+      "status": "PASS",
+      "tests_run": 32,
+      "timeout": 0
+    },
+    {
+      "command": [
+        "/usr/bin/python3",
+        "-m",
+        "unittest",
+        "tests.test_changed_secrets",
+        "-v"
+      ],
+      "credentials_removed": true,
+      "elapsed_seconds": 0.245,
+      "exit_code": 0,
+      "fail": 0,
+      "fresh_temporary_home": true,
+      "group": "secret_scanner",
+      "log_path": "evidence/personal_ai_vertical_slice/prompt03_regression_20261003T131046Z_secret_scanner.log",
+      "paid_requests_authorized": false,
+      "pass": 11,
+      "skip": 0,
+      "status": "PASS",
+      "tests_run": 11,
+      "timeout": 0
+    }
+  ],
+  "schema": "aioa.prompt03-regression.v1",
+  "status": "PASS",
+  "tested_sha": "f1800b8fd812ad58aa09b281094dd572c603f858",
+  "totals": {
+    "fail": 0,
+    "pass": 43,
+    "skip": 0,
+    "timeout": 0
+  }
+}

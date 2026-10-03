@@ -1,0 +1,7 @@
+test_measured_zero_and_one_remain_exact (tests.test_personal_ai_demo_ui.PersonalAIDemoUITests.test_measured_zero_and_one_remain_exact) ... ok
+test_unknown_readback_never_displays_zero_effects (tests.test_personal_ai_demo_ui.PersonalAIDemoUITests.test_unknown_readback_never_displays_zero_effects) ... ok
+
+----------------------------------------------------------------------
+Ran 2 tests in 1.535s
+
+OK

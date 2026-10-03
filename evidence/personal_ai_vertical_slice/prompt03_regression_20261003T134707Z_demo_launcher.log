@@ -1,0 +1,10 @@
+test_full_authority_and_restart_sequence (tests.test_personal_ai_demo_launcher.DemoLauncherTests.test_full_authority_and_restart_sequence) ... ok
+test_http_flow_requires_distinct_intents_and_restarts_whole_runtime (tests.test_personal_ai_demo_launcher.DemoLauncherTests.test_http_flow_requires_distinct_intents_and_restarts_whole_runtime) ... ok
+test_live_provider_requires_separate_cost_authorization (tests.test_personal_ai_demo_launcher.DemoLauncherTests.test_live_provider_requires_separate_cost_authorization) ... ok
+test_self_test_checks_survive_optimized_python (tests.test_personal_ai_demo_launcher.DemoLauncherTests.test_self_test_checks_survive_optimized_python) ... ok
+test_start_does_not_call_provider_or_approve (tests.test_personal_ai_demo_launcher.DemoLauncherTests.test_start_does_not_call_provider_or_approve) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 33.501s
+
+OK
