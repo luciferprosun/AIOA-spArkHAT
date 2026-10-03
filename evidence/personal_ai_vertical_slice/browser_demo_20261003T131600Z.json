@@ -1,0 +1,70 @@
+{
+  "schema": "aioa.prompt03-browser-demo.v1",
+  "status": "PASS",
+  "browser": "local Chromium headless CDP",
+  "created_utc": "2026-10-03T13:20:56.808Z",
+  "url": "http://127.0.0.1:4313",
+  "state_sequence": [
+    "APPROVAL_REQUIRED",
+    "APPROVED",
+    "EXECUTED",
+    "RECONCILED",
+    "REPLAY_BLOCKED"
+  ],
+  "stages": [
+    {
+      "state": "APPROVAL_REQUIRED",
+      "effect_apply_count": 0,
+      "duplicate_effect_count": 0,
+      "provider_mode": "FIXTURE",
+      "target_mode": "FIXTURE",
+      "receipt_digest": null
+    },
+    {
+      "state": "APPROVED",
+      "effect_apply_count": 0,
+      "duplicate_effect_count": 0,
+      "provider_mode": "FIXTURE",
+      "target_mode": "FIXTURE",
+      "receipt_digest": null
+    },
+    {
+      "state": "EXECUTED",
+      "effect_apply_count": 1,
+      "duplicate_effect_count": 0,
+      "provider_mode": "FIXTURE",
+      "target_mode": "FIXTURE",
+      "receipt_digest": "42ff32d76e14b307b18faefb1aadbf977cb4e6eba8d8a681a4f8f895ec6c2279"
+    },
+    {
+      "state": "RECONCILED",
+      "effect_apply_count": 1,
+      "duplicate_effect_count": 0,
+      "provider_mode": "FIXTURE",
+      "target_mode": "FIXTURE",
+      "receipt_digest": "42ff32d76e14b307b18faefb1aadbf977cb4e6eba8d8a681a4f8f895ec6c2279"
+    },
+    {
+      "state": "REPLAY_BLOCKED",
+      "effect_apply_count": 1,
+      "duplicate_effect_count": 0,
+      "provider_mode": "FIXTURE",
+      "target_mode": "FIXTURE",
+      "receipt_digest": "42ff32d76e14b307b18faefb1aadbf977cb4e6eba8d8a681a4f8f895ec6c2279"
+    }
+  ],
+  "visible_statuses": [
+    "ADVISORY",
+    "VERIFIED",
+    "ZERO_WRITE",
+    "APPROVAL_REQUIRED",
+    "APPROVED",
+    "EXECUTED",
+    "RECONCILED",
+    "REPLAY_BLOCKED",
+    "FIXTURE"
+  ],
+  "private_text_captured": false,
+  "authorization_tokens_persisted": false,
+  "paid_calls": 0
+}

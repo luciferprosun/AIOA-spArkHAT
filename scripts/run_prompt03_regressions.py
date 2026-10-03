@@ -15,12 +15,14 @@ import time
 
 
 GROUPS = {
-    "nebius": ["nebius_provider", "nebius_live_probe", "nebius_safe_diagnostics", "nebius_cpl", "nebius_routing", "nebius_https_transport"],
+    "live_diagnostics": ["nebius_safe_diagnostics", "nebius_live_probe"],
+    "nebius": ["nebius_provider", "nebius_cpl", "nebius_routing", "nebius_https_transport"],
     "cpl": ["cpl_service", "cpl_original_contract", "cpl_original_redaction", "cpl_generic", "cpl_evidence", "cpl_wait_contract", "cpl_preset", "cpl_web", "cpl_retrieval_root", "cpl_assistant_cli"],
     "lite_serviceguard_https": ["nv02_lite", "nv02_http", "nv09_service_guard", "serverless_effect_transport"],
     "nv10_recovery": ["nv10_guard", "nv10_memory", "nv10_recovery"],
     "private_memory_competition_web": ["nv07_chat", "nv07_isolation", "competition_view", "competition_evaluation", "webapp", "nebius_personal_ai"],
     "secret_scanner": ["changed_secrets"],
+    "demo_launcher": ["personal_ai_demo_launcher"],
 }
 
 
@@ -37,6 +39,11 @@ def main() -> int:
         return 1
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     output = args.output or root / "evidence/personal_ai_vertical_slice" / f"prompt03_regression_{stamp}.json"
+    if not output.is_absolute():
+        output = root / output
+    if not output.resolve().is_relative_to(root):
+        print(json.dumps({"status": "BLOCKED", "category": "OUTPUT_PATH_OUTSIDE_REPOSITORY"}))
+        return 1
     output.parent.mkdir(parents=True, exist_ok=True)
     groups = []
     for group in args.group or GROUPS:
