@@ -345,12 +345,15 @@ class NebiusProviderPort:
     def __init__(self, route: ModelRoute, budget: LiteBudget, quote: dict, *,
                  secret_supplier: Callable[[], str] = _environment_key,
                  provider_factory=NebiusProvider, clock=time.time,
-                 policy_clock=lambda: datetime.now(timezone.utc)):
+                 policy_clock=lambda: datetime.now(timezone.utc), transport_scope="LIVE"):
         if (type(route) is not ModelRoute or route.provider_id != self.provider_id
                 or route.authority != "ADVISORY_ONLY" or type(budget) is not LiteBudget
                 or not callable(secret_supplier) or not callable(provider_factory)
                 or not callable(clock) or not callable(policy_clock)):
             raise ProviderError("INVALID_PROVIDER_CONFIGURATION")
+        if transport_scope not in {"LIVE", "TEST"} or (transport_scope == "TEST" and provider_factory is NebiusProvider):
+            raise ProviderError("INVALID_PROVIDER_CONFIGURATION")
+        self._transport_scope = transport_scope
         if (route.budget.max_output_tokens > budget.max_output_tokens
                 or route.budget.timeout_seconds > budget.request_timeout_seconds):
             raise ProviderError("MODEL_ROUTE_EXCEEDS_LITE_BUDGET")
@@ -400,7 +403,7 @@ class NebiusProviderPort:
             request.max_output_tokens,
             max_input_tokens=min(65536, self.route.budget.max_input_tokens),
             max_response_bytes=self.budget.max_response_bytes,
-            timeout_seconds=float(request.request_timeout), transport_scope="LIVE",
+            timeout_seconds=float(request.request_timeout), transport_scope=self._transport_scope,
         )
         try:
             exact.validate()
@@ -467,7 +470,7 @@ class NebiusProviderPort:
                 or result.requested_model != self.model_id
                 or result.reported_model != self.model_id
                 or result.identity_status != "EXACT_MATCH"
-                or result.transport_scope != "LIVE"
+                or result.transport_scope != self._transport_scope
                 or result.finish_reason != "stop"):
             raise ProviderError("PROVIDER_IDENTITY_MISMATCH", outcome_unknown=True)
         try:

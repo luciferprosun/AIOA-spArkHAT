@@ -60,6 +60,18 @@ class WebRuntimeService:
         self.runtime.close()
 
     def status_payload(self) -> dict:
+        owner = getattr(self, 'personal_ai_demo_owner', None)
+        if owner is not None:
+            return {'product_name': 'AIOA spArkHAT', 'demo': True, 'session_id': 'isolated-personal-ai-demo',
+                'cwd': str(owner.root), 'model': 'nebius/' + owner.runtime._lite_scheduler.profile.model_id,
+                'available_models': [], 'browser_active': False, 'current_url': None,
+                'vault_dir': 'Private native HAT backend; content hidden', 'tools': [],
+                'previous_commands': [], 'recent_outputs': [], 'open_tabs': [],
+                'critical_loop': {'enabled': False, 'mode': 'TEST' if owner.mode == 'FIXTURE' else 'LIVE_PENDING_AUTHORIZATION',
+                    'authority': 'ADVISORY_ONLY', 'live_enabled': False, 'session_budget_usd': '0', 'run_ids': [],
+                    'status': 'USE_PERSONAL_AI_PREPARE'},
+                'evidence_review': {'enabled': True, 'provider_call': False, 'authority': 'METADATA_ONLY_NO_AUTHORITY'},
+                'assistant': {'default_mode': 'personal-ai-demo', 'plain_chat': 'DISABLED'}}
         payload = self.runtime.snapshot_status()
         payload["available_models"] = self.runtime.provider_manager.available_models()
         payload["evidence_review"] = {
@@ -110,7 +122,18 @@ class WebRuntimeService:
         if self.personal_ai is None:
             raise RuntimeError("PERSONAL_AI_NOT_CONFIGURED")
         operation_id = self.personal_ai.bindings.scheduler.bindings.service_guard.operation_id
-        return self._personal_ai_projection(self.personal_ai.status(operation_id))
+        from runtime.personal_ai_demo import PersonalAIDemoError
+        try:
+            return self._personal_ai_projection(self.personal_ai.status(operation_id))
+        except PersonalAIDemoError as error:
+            owner = getattr(self, 'personal_ai_demo_owner', None)
+            if error.code != 'OPERATION_BINDING_MISMATCH' or owner is None:
+                raise
+            return {'status': 'READY', 'state': 'NOT_PREPARED', 'configured': True,
+                'provider': {'provider_id': 'nebius', 'model_id': owner.runtime._lite_scheduler.profile.model_id,
+                    'mode': owner.mode, 'execution_mode': owner.mode, 'authority': 'ADVISORY_ONLY', 'fallback': False},
+                'target': {'mode': 'FIXTURE'}, 'service_guard': {'state': 'NOT_PREPARED'},
+                'blocked_reason': 'BLOCKED_BY_ADDITIONAL_COST_AUTHORIZATION' if owner.mode == 'LIVE' else None}
 
     def personal_ai_prepare(self, payload):
         if self.personal_ai is None:
@@ -128,6 +151,33 @@ class WebRuntimeService:
         if self.personal_ai is None:
             raise RuntimeError("PERSONAL_AI_NOT_CONFIGURED")
         with self.lock:
+            return self._personal_ai_projection(self.personal_ai.resume(operation_id))
+
+    def personal_ai_restart(self, operation_id):
+        from runtime.personal_ai_demo import PersonalAIDemoError
+        with self.lock:
+            owner = getattr(self, 'personal_ai_demo_owner', None)
+            if owner is None:
+                raise PersonalAIDemoError('DEMO_RESTART_NOT_CONFIGURED')
+            # Validate before closing; a restart cannot execute an unconsumed approval.
+            current = self.personal_ai.status(operation_id)
+            if current['state'] not in {'EXECUTED', 'RECONCILED'}:
+                raise PersonalAIDemoError('RECONCILE_STATE_DENIED')
+            from runtime.personal_ai_demo_launcher import DemoComposition
+            root, mode = owner.root, owner.mode
+            owner.close()
+            restarted = DemoComposition(root, mode=mode)
+            self.runtime, self.personal_ai = restarted.runtime, restarted.personal_ai
+            self.personal_ai_catalog, self.personal_ai_cost_quote = restarted.catalog, restarted.quote
+            self.personal_ai_demo_owner = restarted
+            return self._personal_ai_projection(self.personal_ai.reconcile_restart(operation_id))
+
+    def personal_ai_replay(self, operation_id):
+        from runtime.personal_ai_demo import PersonalAIDemoError
+        with self.lock:
+            current = self.personal_ai.status(operation_id)
+            if current['state'] not in {'RECONCILED', 'REPLAY_BLOCKED'}:
+                raise PersonalAIDemoError('REPLAY_STATE_DENIED')
             return self._personal_ai_projection(self.personal_ai.resume(operation_id))
 
 
@@ -224,6 +274,19 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
         if parsed.path.startswith('/api/cpl/'):
             if not self._check_token():
                 return
+            owner = getattr(self._service(), 'personal_ai_demo_owner', None)
+            if owner is not None:
+                if parsed.path == '/api/cpl/status':
+                    self._write_json(HTTPStatus.OK, self._service().status_payload()['critical_loop'])
+                elif parsed.path == '/api/cpl/preset':
+                    self._write_json(HTTPStatus.OK, {'schema': 'aioa.cpl-preset.v1', 'enabled': False,
+                        'preset_id': 'personal-ai-demo-only', 'scope': 'TEST' if owner.mode == 'FIXTURE' else 'LIVE_PENDING_AUTHORIZATION',
+                        'primary_model': 'fixture/synthetic', 'observer_models': [], 'roles': [],
+                        'live_preconditions_ready': False, 'blocking_reasons': ['USE_PERSONAL_AI_PREPARE'],
+                        'authority': 'ADVISORY_ONLY', 'read_only': True})
+                else:
+                    self._write_json(HTTPStatus.SERVICE_UNAVAILABLE, {'ok': False, 'error': 'USE_PERSONAL_AI_PREPARE'})
+                return
             try:
                 service = self._service().runtime.critical_loop
                 if parsed.path == '/api/cpl/status':
@@ -295,6 +358,8 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
                 '/api/personal-ai/prepare': ('prepare', PERSONAL_AI_OPERATOR_INTENT),
                 '/api/personal-ai/approve': ('approve', PERSONAL_AI_APPROVAL_INTENT),
                 '/api/personal-ai/resume': ('resume', PERSONAL_AI_RESUME_INTENT),
+                '/api/personal-ai/restart': ('restart', 'personal-ai-restart-v1'),
+                '/api/personal-ai/replay': ('replay', 'personal-ai-replay-v1'),
             }
             selected = actions.get(parsed.path)
             if selected is None or parsed.query or parsed.fragment or parsed.params:
@@ -304,7 +369,7 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
             action, expected_intent = selected
             if self.headers.get_all('X-AIOA-Intent', []) != [expected_intent]:
                 intent_name = {
-                    'prepare': 'OPERATOR', 'approve': 'APPROVAL', 'resume': 'RESUME'
+                    'prepare': 'OPERATOR', 'approve': 'APPROVAL', 'resume': 'RESUME', 'restart': 'RESTART', 'replay': 'REPLAY'
                 }[action]
                 self._write_json(
                     HTTPStatus.FORBIDDEN,
@@ -322,6 +387,10 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
             return
         payload = self._read_json_body()
         if payload is None:
+            return
+        if getattr(self._service(), 'personal_ai_demo_owner', None) is not None and (
+                parsed.path.startswith('/api/cpl/') or parsed.path in {'/api/chat', '/api/model'}):
+            self._write_json(HTTPStatus.FORBIDDEN, {'ok': False, 'error': 'DEMO_PERSONAL_AI_ONLY'})
             return
         if parsed.path.startswith('/api/nonzero/'):
             self._handle_nonzero('POST', parsed, payload)
@@ -416,6 +485,8 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
             'prepare': {'operation_id', 'target_id', 'memory_query'},
             'approve': {'proposal_id'},
             'resume': {'operation_id'},
+            'restart': {'operation_id'},
+            'replay': {'operation_id'},
         }
         try:
             if action == 'status':
@@ -429,6 +500,10 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
                     result = self._service().personal_ai_prepare(payload)
                 elif action == 'approve':
                     result = self._service().personal_ai_approve(payload['proposal_id'])
+                elif action == 'restart':
+                    result = self._service().personal_ai_restart(payload['operation_id'])
+                elif action == 'replay':
+                    result = self._service().personal_ai_replay(payload['operation_id'])
                 else:
                     result = self._service().personal_ai_resume(payload['operation_id'])
             if result.get('status') != 'READY':

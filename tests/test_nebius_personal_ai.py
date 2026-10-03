@@ -204,7 +204,7 @@ class NebiusPersonalAITests(unittest.TestCase):
                 result = service.prepare(self.request(guard))
                 self.assertEqual("APPROVAL_REQUIRED", result["state"])
                 self.assertEqual(
-                    ["ADVISORY", "VERIFIED", "APPROVAL_REQUIRED"],
+                    ["ADVISORY", "VERIFIED", "ZERO_WRITE", "APPROVAL_REQUIRED"],
                     [step["state"] for step in result["timeline"]],
                 )
                 self.assertGreater(result["memory"]["selected_count"], 0)
@@ -219,6 +219,12 @@ class NebiusPersonalAITests(unittest.TestCase):
                 self.assertNotIn(PREFERENCE, rendered)
                 self.assertNotIn(PREFERENCE, persisted)
                 self.assertNotIn("Private fixture model reason", persisted)
+                provider_prompt = guard.model_instances[0].calls[0].messages[-1].content
+                self.assertIn(PREFERENCE, provider_prompt)
+                self.assertNotIn(PREFERENCE, (root / "guard" / "native-fixture.json").read_text())
+                self.assertNotIn("Private fixture model reason", (root / "guard" / "native-fixture.json").read_text())
+                self.assertEqual("NOT_RUN", result["cpl_status"])
+                self.assertEqual("ZERO_WRITE", result["verified_delta_status"])
             finally:
                 guard.close()
                 reopened.close()
@@ -231,7 +237,7 @@ class NebiusPersonalAITests(unittest.TestCase):
                 service = guard.service(root / "demo", empty_memory)
                 prepared = service.prepare(self.request(guard))
                 self.assertEqual(
-                    ["ADVISORY", "ZERO_WRITE", "APPROVAL_REQUIRED"],
+                    ["ADVISORY", "VERIFIED", "ZERO_WRITE", "APPROVAL_REQUIRED"],
                     [step["state"] for step in prepared["timeline"]],
                 )
                 approved = service.approve(prepared["proposal_id"])
@@ -250,7 +256,7 @@ class NebiusPersonalAITests(unittest.TestCase):
                 prepared = service.prepare(self.request(guard))
                 service.approve(prepared["proposal_id"])
                 completed = service.resume(guard.operation_id)
-                self.assertEqual("RECONCILED", completed["state"])
+                self.assertEqual("EXECUTED", completed["state"])
                 self.assertEqual(1, guard.store.apply_count)
                 self.assertTrue(completed["verified_effect"])
                 self.assertTrue(completed["receipt_id"].startswith("target-"))
@@ -330,6 +336,27 @@ class NebiusPersonalAITests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "TARGET_IDEMPOTENCY_CONFLICT"):
             handle_target_request({**request, "command": conflicting}, store)
         self.assertEqual(1, store.apply_count)
+
+    def test_verified_core_commit_recovers_after_projection_write_crash(self):
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            guard = NebiusGuardFixture(root / "guard")
+            try:
+                service = guard.service(root / "demo", empty_memory)
+                prepared = service.prepare(self.request(guard))
+                service.approve(prepared["proposal_id"])
+                with patch.object(service, "_write", side_effect=OSError("controlled projection crash")):
+                    with self.assertRaises(OSError):
+                        service.resume(guard.operation_id)
+                recovered = guard.service(root / "demo", empty_memory).resume(guard.operation_id)
+                self.assertEqual("REPLAY_BLOCKED", recovered["state"])
+                self.assertTrue(recovered["verified_effect"])
+                self.assertIsNotNone(recovered["receipt_digest"])
+                self.assertEqual(recovered["effect_apply_count"], 1)
+                self.assertEqual(guard.store.apply_count, 1)
+            finally:
+                guard.close()
 
 
 if __name__ == "__main__":

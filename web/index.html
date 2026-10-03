@@ -171,9 +171,11 @@
               </label>
             </div>
             <div class="review-actions personal-ai-actions">
-              <button id="personal-ai-prepare" type="button" class="button button-primary">Prepare scenario</button>
-              <button id="personal-ai-approve" type="button" class="button button-ghost" disabled>Approve exact proposal</button>
-              <button id="personal-ai-resume" type="button" class="button button-ghost" disabled>Execute / reconcile</button>
+              <button id="personal-ai-prepare" type="button" class="button button-primary">Prepare Maintenance Demo</button>
+              <button id="personal-ai-approve" type="button" class="button button-ghost" disabled>Approve Exact Action</button>
+              <button id="personal-ai-resume" type="button" class="button button-ghost" disabled>Execute / Resume</button>
+              <button id="personal-ai-restart" type="button" class="button button-ghost" disabled>Simulate Restart / Reconcile</button>
+              <button id="personal-ai-replay-button" type="button" class="button button-ghost" disabled>Replay Same Operation</button>
             </div>
             <p id="personal-ai-message" class="note">Preparation stops before approval and performs no effect.</p>
             <dl class="personal-ai-grid">
@@ -185,6 +187,9 @@
               <div><dt>Receipt id / hash</dt><dd id="personal-ai-receipt">—</dd></div>
               <div><dt>Reconciliation / replay</dt><dd id="personal-ai-replay">—</dd></div>
               <div><dt>Budget units</dt><dd id="personal-ai-usage">—</dd></div>
+              <div><dt>Effect target mode</dt><dd id="personal-ai-target-mode">UNKNOWN</dd></div>
+              <div><dt>Effect / duplicates</dt><dd id="personal-ai-effects">0 / 0</dd></div>
+              <div><dt>Exact action / proposal</dt><dd id="personal-ai-exact-action">Not prepared</dd></div>
             </dl>
             <div id="personal-ai-timeline" class="personal-ai-timeline" aria-label="Personal AI state timeline"></div>
           </section>

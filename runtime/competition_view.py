@@ -29,6 +29,7 @@ _PERSONAL_STATUS_KEYS = frozenset({
     "reconciliation_pending", "receipt_id", "receipt_digest",
     "measurement_digest", "replay_reason", "updated_at",
 })
+_PERSONAL_EXTRA_KEYS = frozenset({"provider_mode", "target_mode", "verified_delta_status", "effect_apply_count", "duplicate_effect_count", "action"})
 _RESERVATION_KEYS = frozenset({
     "reservation_id", "watch_id", "trace_id", "provider_id", "model_id",
     "created_at", "status", "estimated_units", "actual_units", "reason",
@@ -61,8 +62,9 @@ def project_nebius_personal_ai(status: dict, reservations: list[dict], *,
     try:
         if (
             type(status) is not dict
-            or set(status) != _PERSONAL_STATUS_KEYS
-            or status.get("schema") != "aioa.personal-ai-demo.v1"
+            or set(status) not in (_PERSONAL_STATUS_KEYS, _PERSONAL_STATUS_KEYS | _PERSONAL_EXTRA_KEYS)
+            or status.get("schema") not in {"aioa.personal-ai-demo.v1", "aioa.personal-ai-demo.v2"}
+            or (status.get("schema") == "aioa.personal-ai-demo.v2" and not _PERSONAL_EXTRA_KEYS <= set(status))
             or status.get("provider_id") != "nebius"
             or status.get("execution_mode") not in {"LIVE", "FIXTURE"}
             or expected_execution_mode not in {"LIVE", "FIXTURE"}
@@ -76,9 +78,17 @@ def project_nebius_personal_ai(status: dict, reservations: list[dict], *,
             or _HEX.fullmatch(status["proposal_id"]) is None
         ):
             raise ValueError()
-        validate_competition_model(
-            status["model_id"], catalog, cost_quote
-        )
+        if catalog.get("schema") == "aioa.nebius-fixture-catalog.v1":
+            if (expected_execution_mode != "FIXTURE" or status.get("provider_mode", "FIXTURE") != "FIXTURE"
+                    or catalog.get("status") != "FIXTURE" or catalog.get("transport_scope") != "TEST"
+                    or catalog.get("live_catalog_validated") is not False or catalog.get("provider") != "nebius"
+                    or catalog.get("authority") != "ADVISORY_ONLY" or catalog.get("fallback") is not False
+                    or catalog.get("response_content_persisted") is not False
+                    or type(catalog.get("catalog_nemotron_ids")) is not list
+                    or status["model_id"] not in catalog["catalog_nemotron_ids"]):
+                raise ValueError()
+        else:
+            validate_competition_model(status["model_id"], catalog, cost_quote)
 
         memory = status.get("memory")
         if (
@@ -109,7 +119,7 @@ def project_nebius_personal_ai(status: dict, reservations: list[dict], *,
         verification = status.get("verification_status")
         if (
             verification not in {"VERIFIED", "ZERO_WRITE"}
-            or status.get("cpl_status") != verification
+            or status.get("cpl_status") not in {"VERIFIED", "ZERO_WRITE", "NOT_RUN", "COMPLETED_ADVISORY"}
             or status.get("state") not in _PERSONAL_STATES
             or status.get("approval") not in {"REQUIRED", "APPROVED"}
             or type(status.get("verified_effect")) is not bool
@@ -118,6 +128,17 @@ def project_nebius_personal_ai(status: dict, reservations: list[dict], *,
             or not 0 <= status["updated_at"] <= 2**53
         ):
             raise ValueError()
+        if _PERSONAL_EXTRA_KEYS <= set(status):
+            if (status["provider_mode"] not in {"LIVE", "FIXTURE"} or status["target_mode"] not in {"LIVE", "FIXTURE"}
+                    or status["verified_delta_status"] != "ZERO_WRITE"
+                    or (status["schema"] == "aioa.personal-ai-demo.v2" and status["cpl_status"] not in {"NOT_RUN", "COMPLETED_ADVISORY"})
+                    or any(type(status[k]) is not int or not 0 <= status[k] <= 1 for k in ("effect_apply_count", "duplicate_effect_count"))):
+                raise ValueError()
+            action = status["action"]
+            if (type(action) is not dict or set(action) != {"effect", "expected_target_revision"}
+                    or action.get("effect") != "SET_MAINTENANCE"
+                    or type(action.get("expected_target_revision")) is not int or not 1 <= action["expected_target_revision"] <= 2**53):
+                raise ValueError()
 
         timeline = status.get("timeline")
         if (
@@ -208,22 +229,31 @@ def project_nebius_personal_ai(status: dict, reservations: list[dict], *,
             "provider_id": "nebius",
             "model_id": status["model_id"],
             "execution_mode": status["execution_mode"],
+            "mode": status.get("provider_mode", status["execution_mode"]),
             "authority": "ADVISORY_ONLY",
             "fallback": False,
             "estimated_units": estimated_units,
             "actual_units": actual_units if actual_present else None,
         },
         "memory": dict(memory),
-        "cpl": {"status": status["cpl_status"], "authority": "ADVISORY_ONLY"},
+        "cpl": {"status": status["cpl_status"] if status["schema"] == "aioa.personal-ai-demo.v2" else "NOT_RUN",
+                "authority": "ADVISORY_ONLY",
+                "scope": ("LEGACY_UNATTESTED" if status["schema"] == "aioa.personal-ai-demo.v1" else
+                          "SEPARATE_SYNTHETIC_DEMONSTRATION" if status["cpl_status"] == "COMPLETED_ADVISORY" else "NOT_RUN")},
         "verification": {
             "status": verification,
-            "delta": "VERIFIED_DELTA" if verification == "VERIFIED" else "ZERO_WRITE",
+            "delta": "ZERO_WRITE",
         },
         "approval": {"status": status["approval"]},
+        "target": {"mode": status.get("target_mode", status["execution_mode"])},
+        "action": dict(status["action"]) if "action" in status else None,
+        "effects": {"apply_count": None if status["reconciliation_pending"] else status.get("effect_apply_count", 1 if status["verified_effect"] else 0),
+                    "duplicate_count": None if status["reconciliation_pending"] else status.get("duplicate_effect_count", 0)},
         "service_guard": {
             "state": status["state"],
             "verified_effect": status["verified_effect"],
             "reconciliation_pending": status["reconciliation_pending"],
+            "outcome": "UNKNOWN" if status["reconciliation_pending"] else ("VERIFIED" if status["verified_effect"] else "NOT_EXECUTED"),
         },
         "receipt": {
             "id": status["receipt_id"],

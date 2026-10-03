@@ -92,6 +92,11 @@ const elements = {
   personalAIPrepare: document.querySelector("#personal-ai-prepare"),
   personalAIApprove: document.querySelector("#personal-ai-approve"),
   personalAIResume: document.querySelector("#personal-ai-resume"),
+  personalAIRestart: document.querySelector("#personal-ai-restart"),
+  personalAIReplayButton: document.querySelector("#personal-ai-replay-button"),
+  personalAITargetMode: document.querySelector("#personal-ai-target-mode"),
+  personalAIEffects: document.querySelector("#personal-ai-effects"),
+  personalAIExactAction: document.querySelector("#personal-ai-exact-action"),
 };
 
 async function jsonFetch(url, options = {}) {
@@ -128,7 +133,9 @@ function applyStatus(status) {
   state.currentModel = status.model;
   elements.currentModelBadge.textContent = status.model;
   elements.sessionModel.textContent = status.model;
-  elements.sessionSummary.textContent = status.browser_active
+  elements.sessionSummary.textContent = status.demo
+    ? "Isolated Personal AI demo · typed fixture target · exact human approval required."
+    : status.browser_active
     ? "Browser session is active and ready for operator-approved actions."
     : "Browser is idle. Local routing, evidence review, shell, and filesystem tools are ready.";
   elements.statusCwd.textContent = status.cwd;
@@ -139,6 +146,11 @@ function applyStatus(status) {
   elements.metricCommands.textContent = String((status.previous_commands || []).length);
   elements.metricOutputs.textContent = String((status.recent_outputs || []).length);
   if (status.critical_loop) applyCPLStatus(status.critical_loop);
+  if (status.demo) {
+    document.querySelector('#assistant-submit').disabled = true;
+    document.querySelector('#assistant-mode').disabled = true;
+    elements.modelSelect.disabled = true;
+  }
 }
 
 async function refreshStatus() {
@@ -246,13 +258,17 @@ async function refreshProviderAvailability() {
 
 function renderPersonalAI(payload) {
   state.personalAI = payload;
-  const mode = payload.provider?.execution_mode || "UNKNOWN";
+  const mode = payload.provider?.mode || payload.provider?.execution_mode || "UNKNOWN";
   const provider = payload.provider?.provider_id || "UNKNOWN";
   const model = payload.provider?.model_id || "UNKNOWN";
   elements.personalAIProvider.textContent = `${provider} · ${model} · ${mode}`;
+  elements.personalAITargetMode.textContent = payload.target?.mode || "UNKNOWN";
+  elements.personalAIEffects.textContent = payload.service_guard?.reconciliation_pending
+    ? "UNKNOWN · reconcile before retry" : `${payload.effects?.apply_count ?? 0} applied · ${payload.effects?.duplicate_count ?? 0} duplicate`;
+  elements.personalAIExactAction.textContent = payload.proposal_id ? `${payload.target_id} · ${payload.action?.effect || "SET_MAINTENANCE"} · revision ${payload.action?.expected_target_revision ?? "UNKNOWN"} · proposal ${payload.proposal_id}` : "Not prepared";
   const selected = payload.memory?.selected_count ?? 0;
   elements.personalAIMemory.textContent = `${payload.memory?.status || "UNKNOWN"} · ${selected} bounded reference${selected === 1 ? "" : "s"} · content hidden`;
-  elements.personalAICPL.textContent = `${payload.cpl?.status || "UNKNOWN"} · ADVISORY_ONLY`;
+  elements.personalAICPL.textContent = `${payload.cpl?.status || "UNKNOWN"} · ${payload.cpl?.scope || "NOT_RUN"} · ADVISORY_ONLY`;
   elements.personalAIVerification.textContent = `${payload.verification?.status || "UNKNOWN"} · ${payload.verification?.delta || "UNKNOWN"}`;
   elements.personalAIApproval.textContent = payload.approval?.status || "REQUIRED";
   elements.personalAIGuard.textContent = `${payload.service_guard?.state || "UNKNOWN"} · effect ${payload.service_guard?.verified_effect === true ? "VERIFIED" : "NOT VERIFIED"}`;
@@ -271,7 +287,10 @@ function renderPersonalAI(payload) {
   const current = payload.service_guard?.state;
   elements.personalAIApprove.disabled = current !== "APPROVAL_REQUIRED";
   elements.personalAIResume.disabled = !["APPROVED", "EXECUTED", "RECONCILED"].includes(current);
-  elements.personalAIPrepare.disabled = current && current !== "APPROVAL_REQUIRED";
+  elements.personalAIRestart.disabled = !["EXECUTED", "RECONCILED"].includes(current);
+  elements.personalAIReplayButton.disabled = !["RECONCILED", "REPLAY_BLOCKED"].includes(current);
+  elements.personalAIPrepare.disabled = Boolean(payload.blocked_reason) || (current && !["NOT_PREPARED", "APPROVAL_REQUIRED"].includes(current));
+  if (payload.blocked_reason) elements.personalAIMessage.textContent = payload.blocked_reason;
 }
 
 async function refreshPersonalAI() {
@@ -317,6 +336,24 @@ async function resumePersonalAI() {
   elements.personalAIMessage.textContent = payload.service_guard?.state === "REPLAY_BLOCKED"
     ? "Replay blocked by the durable verified receipt. No duplicate effect was sent."
     : "ServiceGuard result loaded from receipt and independent readback.";
+}
+
+async function restartPersonalAI() {
+  const payload = await jsonFetch("/api/personal-ai/restart", {
+    method: "POST", headers: {"X-AIOA-Intent": "personal-ai-restart-v1"},
+    body: JSON.stringify({operation_id: state.personalAI.operation_id}),
+  });
+  renderPersonalAI(payload);
+  elements.personalAIMessage.textContent = "Runtime reopened from persistent files. Independent readback reconciled; no dispatch and no second effect.";
+}
+
+async function replayPersonalAI() {
+  const payload = await jsonFetch("/api/personal-ai/replay", {
+    method: "POST", headers: {"X-AIOA-Intent": "personal-ai-replay-v1"},
+    body: JSON.stringify({operation_id: state.personalAI.operation_id}),
+  });
+  renderPersonalAI(payload);
+  elements.personalAIMessage.textContent = "REPLAY_BLOCKED · duplicate effects = 0.";
 }
 
 function parseModelChoices(availableModels) {
@@ -584,6 +621,14 @@ elements.personalAIResume.addEventListener("click", async () => {
     try { await refreshPersonalAI(); } catch (_statusError) { /* remain fail closed */ }
   }
 });
+elements.personalAIRestart.addEventListener("click", async () => {
+  try { await restartPersonalAI(); }
+  catch (error) { elements.personalAIMessage.textContent = `Restart/reconciliation stopped: ${error}`; }
+});
+elements.personalAIReplayButton.addEventListener("click", async () => {
+  try { await replayPersonalAI(); }
+  catch (error) { elements.personalAIMessage.textContent = `Replay stopped: ${error}`; }
+});
 
 async function bootstrap() {
   try {
@@ -659,6 +704,10 @@ function applyCPLStatus(status) {
     : `Live execution requires an enabled strict provider, an explicit cost policy, a run budget and approval of one immutable plan. Session budget: ${status.session_budget_usd || '0'} USD. No automatic fixture fallback.`;
   cplElement('load-fixture').disabled = status.mode !== 'TEST';
   cplElement('load-fixture').hidden = status.mode !== 'TEST';
+  if (status.enabled === false) {
+    cplElement('transport-note').textContent = "Use Prepare Maintenance Demo in the Operator Console. This launcher exposes the bounded Personal AI scenario.";
+    cplElement('load-fixture').disabled = true;
+  }
   if (!state.cplRunId && status.run_ids && status.run_ids.length) {
     state.cplRunId = status.run_ids[status.run_ids.length - 1];
     jsonFetch(`/api/cpl/runs/${state.cplRunId}`).then(renderCPL).catch(cplError);
@@ -667,6 +716,10 @@ function applyCPLStatus(status) {
 
 function renderCPLPreset(preset) {
   state.cplPreset = preset;
+  if (preset.enabled === false) {
+    cplElement('preset-status').textContent = "Use Prepare Maintenance Demo in the Operator Console · separate synthetic CPL demonstration · ADVISORY_ONLY.";
+    return;
+  }
   const mapping = [
     `primary ${preset.primary_model}`,
     ...(preset.observer_models || []).map((model, index) => `${preset.roles?.[index] || `observer-${index + 1}`} ${model}`),

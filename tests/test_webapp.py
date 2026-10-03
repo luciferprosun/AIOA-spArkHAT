@@ -174,7 +174,7 @@ class PersonalAIWebTests(unittest.TestCase):
             intent=PERSONAL_AI_RESUME_INTENT,
         )
         self.assertEqual(200, status, completed)
-        self.assertEqual("RECONCILED", completed["service_guard"]["state"])
+        self.assertEqual("EXECUTED", completed["service_guard"]["state"])
         self.assertEqual(1, self.guard.store.apply_count)
 
     def test_status_is_token_protected_read_only_and_sanitized(self):

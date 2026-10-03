@@ -159,6 +159,7 @@ class CompetitionViewTests(unittest.TestCase):
                 "provider_id": "nebius",
                 "model_id": LIGHTNING,
                 "execution_mode": "FIXTURE",
+                "mode": "FIXTURE",
                 "authority": "ADVISORY_ONLY",
                 "fallback": False,
                 "estimated_units": 512,
@@ -167,7 +168,8 @@ class CompetitionViewTests(unittest.TestCase):
             value["provider"],
         )
         self.assertEqual("EMPTY", value["memory"]["status"])
-        self.assertEqual("ZERO_WRITE", value["cpl"]["status"])
+        self.assertEqual("NOT_RUN", value["cpl"]["status"])
+        self.assertEqual("LEGACY_UNATTESTED", value["cpl"]["scope"])
         self.assertEqual("ZERO_WRITE", value["verification"]["status"])
         self.assertEqual("APPROVED", value["approval"]["status"])
         self.assertEqual("REPLAY_BLOCKED", value["service_guard"]["state"])
@@ -192,6 +194,27 @@ class CompetitionViewTests(unittest.TestCase):
                     expected_execution_mode="FIXTURE",
                 )
                 self.assertEqual("INVALID_EVIDENCE", value["status"])
+
+    def test_legacy_verified_memory_label_does_not_attest_cpl_or_delta(self):
+        status = personal_ai_status()
+        status["cpl_status"] = "VERIFIED"
+        status["verification_status"] = "VERIFIED"
+        value = project_nebius_personal_ai(status, reservations(), catalog=catalog_receipt(),
+            cost_quote=quote(), expected_execution_mode="FIXTURE")
+        self.assertEqual("READY", value["status"])
+        self.assertEqual("NOT_RUN", value["cpl"]["status"])
+        self.assertEqual("LEGACY_UNATTESTED", value["cpl"]["scope"])
+        self.assertEqual("ZERO_WRITE", value["verification"]["delta"])
+
+    def test_v2_rejects_legacy_cpl_verified_claim(self):
+        status = personal_ai_status()
+        status.update(schema="aioa.personal-ai-demo.v2", cpl_status="VERIFIED",
+            provider_mode="FIXTURE", target_mode="FIXTURE", verified_delta_status="ZERO_WRITE",
+            effect_apply_count=1, duplicate_effect_count=0,
+            action={"effect": "SET_MAINTENANCE", "expected_target_revision": 1})
+        value = project_nebius_personal_ai(status, reservations(), catalog=catalog_receipt(),
+            cost_quote=quote(), expected_execution_mode="FIXTURE")
+        self.assertEqual("INVALID_EVIDENCE", value["status"])
 
     def test_personal_ai_projection_rejects_false_live_claim(self):
         value = project_nebius_personal_ai(

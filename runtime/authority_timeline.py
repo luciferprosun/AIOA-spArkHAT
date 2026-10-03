@@ -27,7 +27,7 @@ def _state(value: Mapping) -> str:
 
 def build_authority_timeline(runtime) -> dict:
     """Project subsystem state without creating any new authority or mutation path."""
-    provider = _safe(runtime.provider_manager.describe)
+    provider = _safe(lambda: runtime.provider_manager.describe())
     critical = _safe(lambda: runtime.critical_loop.status())
     lite = _safe(runtime.lite_status)
     memory = _safe(runtime.lite_memory_status)

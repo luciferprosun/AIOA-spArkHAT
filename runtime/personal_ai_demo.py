@@ -68,6 +68,9 @@ _STATE_KEYS = frozenset(
         "reconciliation_pending",
         "replay_reason",
         "updated_at",
+        "provider_mode", "target_mode", "verified_delta_status",
+        "effect_apply_count", "duplicate_effect_count",
+        "action",
     }
 )
 
@@ -84,12 +87,17 @@ class PersonalAIDemoBindings:
     guard: CoreServiceGuard
     scheduler: object
     execution_mode: str
+    cpl_prepare: Callable[[], str] | None = None
+    provider_mode: str | None = None
+    target_mode: str = "FIXTURE"
 
     def __post_init__(self) -> None:
         if (
             self.memory_retrieve is not None
             and not callable(self.memory_retrieve)
         ):
+            raise PersonalAIDemoError("INVALID_PERSONAL_AI_BINDINGS")
+        if self.provider_mode not in {None, "LIVE", "FIXTURE"} or self.target_mode not in {"LIVE", "FIXTURE"}:
             raise PersonalAIDemoError("INVALID_PERSONAL_AI_BINDINGS")
         if (
             type(self.guard) is not CoreServiceGuard
@@ -150,7 +158,7 @@ class PersonalAIDemoService:
         if (
             type(value) is not dict
             or set(value) != _STATE_KEYS
-            or value.get("schema") != "aioa.personal-ai-demo.v1"
+            or value.get("schema") != "aioa.personal-ai-demo.v2"
             or value.get("execution_mode") not in {"LIVE", "FIXTURE"}
             or value.get("model_authority") != "ADVISORY_ONLY"
             or value.get("state") not in _STATES
@@ -194,9 +202,18 @@ class PersonalAIDemoService:
             )
             or value.get("replay_reason")
             not in {None, "DURABLE_VERIFIED_EFFECT"}
-            or value.get("cpl_status") not in {"VERIFIED", "ZERO_WRITE"}
-            or value.get("verification_status") != value.get("cpl_status")
+            or value.get("cpl_status") not in {"NOT_RUN", "COMPLETED_ADVISORY"}
+            or value.get("verification_status") not in {"VERIFIED", "ZERO_WRITE"}
+            or value.get("verified_delta_status") != "ZERO_WRITE"
+            or value.get("provider_mode") not in {"LIVE", "FIXTURE"}
+            or value.get("target_mode") not in {"LIVE", "FIXTURE"}
+            or any(type(value.get(name)) is not int or not 0 <= value[name] <= 1 for name in ("effect_apply_count", "duplicate_effect_count"))
         ):
+            raise PersonalAIDemoError("PERSONAL_AI_STATE_INTEGRITY")
+        action = value.get("action")
+        if (type(action) is not dict or set(action) != {"effect", "expected_target_revision"}
+                or action.get("effect") != "SET_MAINTENANCE"
+                or type(action.get("expected_target_revision")) is not int or not 1 <= action["expected_target_revision"] <= 2**53):
             raise PersonalAIDemoError("PERSONAL_AI_STATE_INTEGRITY")
         memory = value.get("memory")
         if (
@@ -212,10 +229,9 @@ class PersonalAIDemoService:
                 "execution_authority",
             }
             or type(memory["status"]) is not str
-            or any(
-                type(memory[name]) is not int or not 0 <= memory[name] <= 1024
-                for name in ("selected_count", "eligible_count", "context_byte_units")
-            )
+            or any(type(memory[name]) is not int or not 0 <= memory[name] <= maximum
+                   for name, maximum in (("selected_count", 16), ("eligible_count", 40), ("context_byte_units", 8192)))
+            or memory["selected_count"] > memory["eligible_count"]
             or type(memory["truncated"]) is not bool
             or memory["execution_authority"] is not False
             or type(memory["context_digest"]) is not str
@@ -235,6 +251,8 @@ class PersonalAIDemoService:
             or state["provider_id"] != profile.provider_id
             or state["model_id"] != profile.model_id
             or state["execution_mode"] != self.bindings.execution_mode
+            or state["provider_mode"] != (self.bindings.provider_mode or self.bindings.execution_mode)
+            or state["target_mode"] != self.bindings.target_mode
         ):
             raise PersonalAIDemoError("PERSONAL_AI_BINDING_MISMATCH")
         return state
@@ -292,6 +310,8 @@ class PersonalAIDemoService:
             "measurement_digest": state["measurement_digest"],
             "replay_reason": state["replay_reason"],
             "updated_at": state["updated_at"],
+            **{name: state[name] for name in ("provider_mode", "target_mode", "verified_delta_status", "effect_apply_count", "duplicate_effect_count")},
+            "action": dict(state["action"]),
         }
 
     def prepare(self, request: dict) -> dict:
@@ -336,8 +356,9 @@ class PersonalAIDemoService:
             if any(reference.execution_authority for reference in context.selected):
                 raise PersonalAIDemoError("MEMORY_AUTHORITY_DENIED")
 
+            cpl_status = self.bindings.cpl_prepare() if self.bindings.cpl_prepare is not None else "NOT_RUN"
             result = self.bindings.guard.cycle(
-                self.bindings.scheduler, operation_id
+                self.bindings.scheduler, operation_id, advisory_context=context
             )
             if (
                 result.get("status") != "BLOCKED"
@@ -354,7 +375,15 @@ class PersonalAIDemoService:
 
             profile = self.bindings.scheduler.profile
             now = self._now()
-            verification = "VERIFIED" if context.selected else "ZERO_WRITE"
+            # Retrieval and CPL agreement never prove a canonical learning delta.
+            # The existing ServiceGuard independently validates this typed proposal.
+            from runtime.service_guard.contracts import check_observation, parse_proposal, EFFECT
+            observed = check_observation(self.bindings.guard.target.read(), self.bindings.guard.policy)
+            typed = parse_proposal(proposal)
+            if (typed["target_id"] != observed["target_id"] or typed["observed_mode"] != observed["mode"]
+                    or typed["expected_target_revision"] != observed["revision"] or typed["proposed_effect"] != EFFECT):
+                raise PersonalAIDemoError("PROPOSAL_INDEPENDENT_VERIFICATION_FAILED")
+            verification = "VERIFIED"
             proposal_digest = canonical_sha256(proposal)
             proposal_id = canonical_sha256(
                 {
@@ -365,7 +394,7 @@ class PersonalAIDemoService:
                 }
             )
             state = {
-                "schema": "aioa.personal-ai-demo.v1",
+                "schema": "aioa.personal-ai-demo.v2",
                 "operation_id": operation_id,
                 "target_id": target_id,
                 "proposal_id": proposal_id,
@@ -385,12 +414,19 @@ class PersonalAIDemoService:
                     "truncated": context.truncated,
                     "execution_authority": False,
                 },
-                "cpl_status": verification,
+                "cpl_status": cpl_status,
                 "verification_status": verification,
+                "verified_delta_status": "ZERO_WRITE",
+                "provider_mode": self.bindings.provider_mode or self.bindings.execution_mode,
+                "target_mode": self.bindings.target_mode,
+                "effect_apply_count": observed["effect_count"],
+                "duplicate_effect_count": 0,
+                "action": {"effect": typed["proposed_effect"], "expected_target_revision": typed["expected_target_revision"]},
                 "state": "APPROVAL_REQUIRED",
                 "timeline": [
                     {"state": "ADVISORY", "at": now},
                     {"state": verification, "at": now},
+                    {"state": "ZERO_WRITE", "at": now},
                     {"state": "APPROVAL_REQUIRED", "at": now},
                 ],
                 "proposal_digest": proposal_digest,
@@ -422,6 +458,12 @@ class PersonalAIDemoService:
                 state["operation_id"],
             )
             approval = records.get("approval")
+            if canonical_sha256(records.get("proposal")) != state["proposal_digest"]:
+                raise PersonalAIDemoError("PROPOSAL_BINDING_MISMATCH")
+            from runtime.service_guard.contracts import check_observation
+            observed = check_observation(self.bindings.guard.target.read(), self.bindings.guard.policy)
+            if observed["revision"] != state["action"]["expected_target_revision"]:
+                raise PersonalAIDemoError("PROPOSAL_BINDING_MISMATCH")
             if approval is None:
                 approval = self.bindings.guard.approve(
                     self.bindings.guard.core.local_operator(
@@ -453,12 +495,16 @@ class PersonalAIDemoService:
             )
             status = result.get("status")
             if status == "UNKNOWN":
-                if state["state"] == "APPROVED":
+                if state["state"] == "APPROVED" and result.get("dispatch_attempted") is True:
                     self._append(state, "EXECUTED")
                 state["reconciliation_pending"] = True
                 self._write(state)
                 return self._view(state)
             if status == "REPLAY":
+                # A crash may follow Core's verified commit but precede this
+                # coordinator's projection write. Recover evidence before replay.
+                records = self.bindings.guard.inspect(self.bindings.guard.core.local_operator(Capability.READ), operation_id)
+                self._recover_evidence(state, records)
                 self._append(state, "REPLAY_BLOCKED")
                 state["replay_reason"] = "DURABLE_VERIFIED_EFFECT"
                 state["reconciliation_pending"] = False
@@ -482,14 +528,55 @@ class PersonalAIDemoService:
                 raise PersonalAIDemoError("SERVICE_GUARD_EVIDENCE_MISSING")
             if state["state"] == "APPROVED":
                 self._append(state, "EXECUTED")
-            self._append(state, "RECONCILED")
+            self._append(state, "RECONCILED" if result.get("reconciled") is True else "EXECUTED")
             state["receipt_id"] = receipt["receipt_id"]
             state["receipt_digest"] = canonical_sha256(receipt)
             state["measurement_digest"] = verified["measurement_digest"]
             state["verified_effect"] = True
             state["reconciliation_pending"] = False
+            state["effect_apply_count"] = receipt["effect_count"]
             self._write(state)
             return self._view(state)
+
+    def _recover_evidence(self, state: dict, records: dict) -> None:
+        from runtime.service_guard.contracts import check_observation
+        receipt, verified = records.get("receipt"), records.get("verified")
+        if (type(receipt) is not dict or type(verified) is not dict
+                or verified.get("verified_effect") is not True
+                or type(receipt.get("receipt_id")) is not str
+                or type(verified.get("measurement_digest")) is not str
+                or _HEX.fullmatch(verified["measurement_digest"]) is None):
+            raise PersonalAIDemoError("SERVICE_GUARD_EVIDENCE_MISSING")
+        observed = check_observation(self.bindings.guard.target.read(), self.bindings.guard.policy)
+        if canonical_sha256(observed) != verified["measurement_digest"]:
+            raise PersonalAIDemoError("RESTART_READBACK_MISMATCH")
+        state["receipt_id"] = receipt["receipt_id"]
+        state["receipt_digest"] = canonical_sha256(receipt)
+        state["measurement_digest"] = verified["measurement_digest"]
+        state["verified_effect"] = True
+        state["effect_apply_count"] = observed["effect_count"]
+        state["reconciliation_pending"] = False
+
+    def reconcile_restart(self, operation_id: str) -> dict:
+        """Read and reconcile only; never dispatch an unexecuted approval."""
+        with locked_private_file(self.lock_path, exclusive=True):
+            state = self._load()
+            if state is None or state["operation_id"] != operation_id:
+                raise PersonalAIDemoError("OPERATION_BINDING_MISMATCH")
+            if state["state"] not in {"EXECUTED", "RECONCILED"}:
+                raise PersonalAIDemoError("RECONCILE_STATE_DENIED")
+            records = self.bindings.guard.inspect(self.bindings.guard.core.local_operator(Capability.READ), operation_id)
+            if records.get("verified") is not None:
+                # Even after a recorded verification, freshly measure actual state.
+                from runtime.service_guard.contracts import check_observation
+                observed = check_observation(self.bindings.guard.target.read(), self.bindings.guard.policy)
+                if canonical_sha256(observed) != records["verified"].get("measurement_digest"):
+                    raise PersonalAIDemoError("RESTART_READBACK_MISMATCH")
+                self._recover_evidence(state, records)
+                self._append(state, "RECONCILED")
+                self._write(state)
+                return self._view(state)
+        return self.resume(operation_id)
 
     def status(self, operation_id: str) -> dict:
         try:

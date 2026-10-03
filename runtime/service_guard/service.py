@@ -194,7 +194,7 @@ class CoreServiceGuard:
         if self._now() >= approval["expires_at"]:
             self._expired_approval(operation_id)
 
-    def _proposal(self, scheduler, operation_id, observation):
+    def _proposal(self, scheduler, operation_id, observation, advisory_context=None):
         old = self._get(operation_id, "proposal")
         if old is not None:
             return parse_proposal(old)
@@ -207,6 +207,13 @@ class CoreServiceGuard:
                   "observation": {key: observation[key] for key in
                                   ("target_id", "mode", "revision", "effect_count")},
                   "output_contract": actor_contract()}
+        if advisory_context is not None:
+            from runtime.memory_patch.lite import MemoryContext
+            if (type(advisory_context) is not MemoryContext or advisory_context.status != "READY"
+                    or len(advisory_context.prompt_json.encode()) > 8192
+                    or any(ref.execution_authority for ref in advisory_context.selected)):
+                raise GuardError("INVALID_ADVISORY_MEMORY_CONTEXT")
+            prompt["quoted_advisory_context"] = json.loads(advisory_context.prompt_json)
         request = ProviderRequest(uuid.uuid4().hex, trace, s.profile.provider_id,
                                   s.profile.model_id, json.dumps(prompt, sort_keys=True),
                                   uuid.uuid4().hex, s.profile.budget.max_output_tokens,
@@ -225,6 +232,8 @@ class CoreServiceGuard:
                     or response.authority != "ADVISORY_ONLY"):
                 raise ProviderError("INVALID_PROVIDER_RESPONSE", outcome_unknown=True)
             proposal = parse_proposal(response.parsed_payload)
+            # Typed fields remain advisory; free-form model content is transient.
+            proposal["reason_summary"] = "Typed advisory proposal; inspect exact action and independent observation."
         except Exception as error:
             unknown = not isinstance(error, ProviderError) or error.outcome_unknown
             s.journal.settle(request.budget_reservation_id, "UNKNOWN" if unknown else "RELEASED",
@@ -272,7 +281,7 @@ class CoreServiceGuard:
         return {"status": "VERIFIED", "verified_effect": True, "event": event,
                 "dispatch_attempted": False, "reconciled": True}
 
-    def cycle(self, scheduler, operation_id):
+    def cycle(self, scheduler, operation_id, advisory_context=None):
         if (scheduler.profile.owner_scope != self.policy.scope
                 or scheduler.bindings.service_guard.guard is not self):
             raise GuardError("SCHEDULER_GUARD_BINDING_MISMATCH")
@@ -293,7 +302,7 @@ class CoreServiceGuard:
                 intent_seen = True
                 return self._reconcile(principal, operation_id, intent)
             observed = check_observation(self.target.read(), self.policy)
-            proposal = self._proposal(scheduler, operation_id, observed)
+            proposal = self._proposal(scheduler, operation_id, observed, advisory_context)
             approval = self._allowed(operation_id, proposal, self.target.read())
             command = self._command(operation_id, approval, proposal)
             ownership = self._put(principal, Capability.COMMIT, operation_id, "intent", command)

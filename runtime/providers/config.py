@@ -90,12 +90,13 @@ def load_api_environment() -> None:
 class ProviderManager:
     """Cloud-provider manager with fallback routing and no fake offline mode."""
 
-    def __init__(self, project_dir: Path, *, fixture_base_url: str | None = None) -> None:
+    def __init__(self, project_dir: Path, *, fixture_base_url: str | None = None,
+                 state_dir: Path | None = None) -> None:
         if fixture_base_url is None:
             load_api_environment()
         self.fixture_base_url = fixture_base_url
         self.project_dir = project_dir
-        state_dir = runtime_state_dir(project_dir)
+        state_dir = runtime_state_dir(project_dir) if state_dir is None else Path(state_dir)
         self.config_path = state_dir / "state" / "model_config.json"
         self.providers_path = state_dir / "state" / "providers.json"
         self.config_path.parent.mkdir(parents=True, exist_ok=True)
