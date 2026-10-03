@@ -1,12 +1,17 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
+import sys
 import tempfile
 import unittest
+from unittest.mock import patch
+from io import StringIO
 
 from providers.exact import ProviderResult
 from providers.nebius import DEFAULT_NEBIUS_MODEL
+from scripts import nebius_live_probe
 from scripts.nebius_live_probe import _write_receipt, run_probe
 
 
@@ -87,6 +92,25 @@ class NebiusLiveProbeTests(unittest.TestCase):
         self.assertFalse(result["live_inference_validated"])
         self.assertEqual([kind for kind, _ in calls], ["discover"])
 
+    def test_catalog_only_selects_preferred_model_from_live_catalog(self):
+        preferred = "nvidia/Nemotron-3_5-Lightning"
+        calls = []
+        fake = FakeProvider(catalog=(DEFAULT_NEBIUS_MODEL, preferred), calls=calls)
+        result = run_probe(**self.base_args(), provider_factory=lambda **_: fake)
+        self.assertEqual(result["status"], "PASS")
+        self.assertEqual(result["requested_model"], preferred)
+        self.assertTrue(result["selected_model_in_catalog"])
+        self.assertEqual([kind for kind, _ in calls], ["discover"])
+
+    def test_catalog_only_uses_configured_model_if_preferred_missing(self):
+        calls = []
+        fake = FakeProvider(catalog=(DEFAULT_NEBIUS_MODEL,), calls=calls)
+        result = run_probe(**self.base_args(), provider_factory=lambda **_: fake)
+        self.assertEqual(result["status"], "PASS")
+        self.assertEqual(result["requested_model"], DEFAULT_NEBIUS_MODEL)
+        self.assertTrue(result["selected_model_in_catalog"])
+        self.assertEqual([kind for kind, _ in calls], ["discover"])
+
     def test_missing_selected_model_fails_before_generation(self):
         calls = []
         fake = FakeProvider(catalog=("nvidia/nemotron-3-nano",), calls=calls)
@@ -150,6 +174,20 @@ class NebiusLiveProbeTests(unittest.TestCase):
             )
             with self.assertRaises(FileExistsError):
                 _write_receipt(path, {"status": "FAIL"})
+
+    def test_cli_loads_configured_secret_without_printing_it(self):
+        secret = "test-key-not-a-real-secret"
+        output = StringIO()
+        with patch.dict(os.environ, {}, clear=True), \
+             patch.object(nebius_live_probe, "load_api_environment",
+                          side_effect=lambda: os.environ.__setitem__("NEBIUS_API_KEY", secret)) as load, \
+             patch.object(sys, "argv", ["nebius_live_probe"]), \
+             patch("sys.stdout", output):
+            # No network authorization means the probe exits before transport.
+            code = nebius_live_probe.main()
+        self.assertEqual(code, 2)
+        load.assert_called_once_with()
+        self.assertNotIn(secret, output.getvalue())
 
 
 if __name__ == "__main__":

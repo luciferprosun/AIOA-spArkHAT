@@ -24,7 +24,7 @@ from runtime.service_guard.contracts import (
     EFFECT, OUTPUT_SCHEMA, GuardError, ServicePolicy, actor_contract,
     check_observation, parse_proposal,
 )
-from runtime.service_guard.target import LoopbackTargetClient, TargetUnknown, _issue_effect
+from runtime.service_guard.target import TargetUnknown, _issue_effect
 
 
 def plain(value):
@@ -34,9 +34,13 @@ def plain(value):
 class CoreServiceGuard:
     """Admitted domain service; does not create a Core, credential source or loop."""
     def __init__(self, core, runner, policy, target, *, clock=time.time):
+        target_port = (
+            type(getattr(target, "scope", None)) is type(policy.scope)
+            and type(getattr(target, "target_id", None)) is str
+            and all(callable(getattr(target, name, None)) for name in ("read", "receipt", "dispatch"))
+        ) if type(policy) is ServicePolicy else False
         if (type(core) is not CoreAdmission or type(runner) is not TransactionRunner
-                or type(policy) is not ServicePolicy
-                or not isinstance(target, LoopbackTargetClient)
+                or type(policy) is not ServicePolicy or not target_port
                 or target.scope != policy.scope or target.target_id != policy.target_id
                 or not callable(clock)):
             raise GuardError("INVALID_SERVICE_BINDINGS")
@@ -217,7 +221,8 @@ class CoreServiceGuard:
         try:
             response = provider.request(request)
             if (type(response) is not ProviderResponse or response.request_id != request.request_id
-                    or response.model_id != request.model_id or response.validation_result != "VALID"):
+                    or response.model_id != request.model_id or response.validation_result != "VALID"
+                    or response.authority != "ADVISORY_ONLY"):
                 raise ProviderError("INVALID_PROVIDER_RESPONSE", outcome_unknown=True)
             proposal = parse_proposal(response.parsed_payload)
         except Exception as error:

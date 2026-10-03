@@ -71,6 +71,8 @@ class LiteProfile:
     runtime_mode: str = "LITE"
     provider_id: str = "nvidia"
     model_id: str = MODEL
+    route_role: str | None = None
+    escalation_condition: str | None = None
     scheduler_policy_ref: str = "lite-fixed-cadence-v1"
     budget_policy_ref: str = "lite-durable-units-v1"
     freshness_policy_ref: str = "lite-change-gate-v1"
@@ -101,7 +103,7 @@ class LiteProfile:
             raise MissionError("LITE_READONLY_REQUIRED")
         fixed = {
             "profile_id": PROFILE, "manifest_version": 1, "runtime_mode": "LITE",
-            "provider_id": "nvidia", "max_concurrent_inference": 1,
+            "max_concurrent_inference": 1,
             "auto_mode": "DISABLED", "scheduler_policy_ref": "lite-fixed-cadence-v1",
             "budget_policy_ref": "lite-durable-units-v1",
             "freshness_policy_ref": "lite-change-gate-v1",
@@ -110,8 +112,20 @@ class LiteProfile:
             value = getattr(self, name)
             if type(value) is not type(expected) or value != expected:
                 raise MissionError("UNSUPPORTED_LITE_CONFIGURATION")
-        if self.model_id != MODEL or type(self.model_id) is not str:
-            raise MissionError("MODEL_NOT_FOUND")
+        if self.provider_id == "nvidia":
+            if (self.model_id != MODEL or type(self.model_id) is not str
+                    or self.route_role is not None or self.escalation_condition is not None):
+                raise MissionError("MODEL_NOT_FOUND")
+        elif self.provider_id == "nebius":
+            roles = {"FAST", "BALANCED", "ULTRA"}
+            conditions = {"OPERATOR_REQUEST", "EVIDENCE_AMBIGUITY", "CPL_CONFLICT"}
+            if (type(self.model_id) is not str or not self.model_id.startswith("nvidia/")
+                    or type(self.route_role) is not str or self.route_role not in roles
+                    or (self.route_role == "ULTRA" and self.escalation_condition not in conditions)
+                    or (self.route_role != "ULTRA" and self.escalation_condition is not None)):
+                raise MissionError("UNSUPPORTED_LITE_CONFIGURATION")
+        else:
+            raise MissionError("UNSUPPORTED_LITE_CONFIGURATION")
         for name in ("memory_mode", "cpl_mode", "dvm_mode", "pheromone_mode"):
             value = getattr(self, name)
             allowed = {"OFF", "SHADOW", "ACTIVE"}
@@ -147,6 +161,8 @@ class LiteProfile:
             raise MissionError("INVALID_LITE_POLICY")
         # Preserve NV02 manifest identity when the optional integration is absent.
         excluded = ("digest",) + tuple(name for name in ("memory_profile_digest", "cpl_profile_digest", "dynamics_profile_digest", "personal_profile_digest") if getattr(self, name) is None)
+        if self.provider_id == "nvidia":
+            excluded += ("route_role", "escalation_condition")
         object.__setattr__(self, "digest", canonical_sha256(self, exclude_fields=excluded))
 
     def require_context(self, context):

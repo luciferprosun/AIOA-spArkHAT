@@ -94,7 +94,8 @@ class _BoundActor:
             if (type(response) is not ProviderResponse
                     or response.request_id != request.request_id
                     or response.model_id != request.model_id
-                    or response.validation_result != "VALID"):
+                    or response.validation_result != "VALID"
+                    or response.authority != "ADVISORY_ONLY"):
                 raise ProviderError("INVALID_PROVIDER_RESPONSE", outcome_unknown=True)
         except ProviderError as error:
             s.journal.settle(request.budget_reservation_id,

@@ -138,6 +138,61 @@ class LoopbackTargetClient:
                 connection.close()
 
 
+class CloudEffectTargetClient:
+    """Typed serverless target transport below the existing ServiceGuard.
+
+    The injected transport is a host-owned Nebius job/client adapter. This
+    object exposes only state read, receipt read, and SET_MAINTENANCE; there is
+    no shell or local-effect fallback.
+    """
+
+    __slots__ = ("scope", "target_id", "_transport", "max_response_bytes")
+    _SCHEMA = "aioa.nebius-serverless-target.v1"
+
+    def __init__(self, *, scope, target_id, transport, max_response_bytes=16384):
+        if (type(scope) is not OwnerScope or type(target_id) is not str
+                or not callable(getattr(transport, "invoke", None))
+                or type(max_response_bytes) is not int or not 512 <= max_response_bytes <= 65536):
+            raise GuardError("INVALID_CLOUD_TARGET_HANDLE")
+        for name, value in dict(scope=scope, target_id=target_id, _transport=transport,
+                                max_response_bytes=max_response_bytes).items():
+            object.__setattr__(self, name, value)
+
+    def __setattr__(self, name, value):
+        raise AttributeError("IMMUTABLE_CLOUD_TARGET_HANDLE")
+
+    def _invoke(self, action, **fields):
+        request = {"schema": self._SCHEMA, "action": action, "target_id": self.target_id,
+                   "scope": list(self.scope.binding()), **fields}
+        try:
+            response = self._transport.invoke(request)
+            if response is not None:
+                raw = canonical_json_bytes(response)
+                if len(raw) > self.max_response_bytes or type(response) is not dict:
+                    raise ValueError("TARGET_RESPONSE_LIMIT")
+            elif action != "READ_RECEIPT":
+                raise ValueError("TARGET_RESPONSE_INVALID")
+            return response
+        except GuardError:
+            raise
+        except Exception:
+            raise TargetUnknown() from None
+
+    def read(self):
+        return self._invoke("READ_STATE")
+
+    def receipt(self, key):
+        if type(key) is not str or _HEX.fullmatch(key) is None:
+            raise GuardError("INVALID_EFFECT_KEY")
+        return self._invoke("READ_RECEIPT", idempotency_key=key)
+
+    def dispatch(self, command, authorization=None):
+        if type(authorization) is not _EffectAuthorization:
+            raise GuardError("EFFECT_AUTHORIZATION_DENIED")
+        with authorization.consume(self, command):
+            return self._invoke("APPLY_SET_MAINTENANCE", command=command)
+
+
 @contextmanager
 def _read_only():
     yield

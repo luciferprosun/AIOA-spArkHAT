@@ -23,6 +23,7 @@ if str(RUNTIME) not in sys.path:
     sys.path.insert(0, str(RUNTIME))
 
 from providers.exact import CancellationToken, ExactCallError, ExactRequest  # noqa: E402
+from providers.config import load_api_environment  # noqa: E402
 from providers.messages import ChatMessage  # noqa: E402
 from providers.nebius import (  # noqa: E402
     DEFAULT_NEBIUS_BASE_URL,
@@ -118,6 +119,18 @@ def run_probe(
     nemotron_models = tuple(
         value for value in catalog if value.lower().startswith("nvidia/nemotron")
     )
+    if catalog_only:
+        # Select from the live catalog, preferring Lightning while keeping the
+        # configured exact Nemotron ID as the only fallback candidate.
+        preferred_model = "nvidia/Nemotron-3_5-Lightning"
+        selected = (
+            preferred_model
+            if preferred_model in catalog
+            else model if model in nemotron_models else ""
+        )
+        if selected:
+            model = selected
+            receipt["requested_model"] = selected
     receipt.update(
         catalog_model_count=len(catalog),
         catalog_nemotron_ids=list(nemotron_models),
@@ -186,6 +199,9 @@ def run_probe(
 
 
 def main() -> int:
+    # Match ProviderManager's established local secret-file loading. Values
+    # remain only in the process environment and are never logged or receipted.
+    load_api_environment()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--catalog-only", action="store_true")
     parser.add_argument("--allow-live-network", action="store_true")

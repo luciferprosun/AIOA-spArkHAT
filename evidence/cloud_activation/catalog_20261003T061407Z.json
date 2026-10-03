@@ -1,0 +1,24 @@
+{
+  "authority": "ADVISORY_ONLY",
+  "base_url": "https://api.tokenfactory.nebius.com/v1",
+  "catalog_model_count": 25,
+  "catalog_nemotron_ids": [
+    "nvidia/Nemotron-3_5-Lightning",
+    "nvidia/Nemotron-3-Ultra-550b-a55b",
+    "nvidia/nemotron-3-super-120b-a12b"
+  ],
+  "created_utc": "2026-10-03T06:14:08.148944+00:00",
+  "fallback": false,
+  "git_branch": "nebius-personal-ai",
+  "git_sha": "1949ccf712a5088c422f0263fbfaee35ed220c85",
+  "live_catalog_validated": true,
+  "live_inference_validated": false,
+  "provider": "nebius",
+  "requested_model": "nvidia/Nemotron-3_5-Lightning",
+  "response_content_persisted": false,
+  "schema": "aioa.nebius-live-probe.v1",
+  "scope": "LIVE_TOKEN_FACTORY_CATALOG_ONLY",
+  "selected_model_in_catalog": true,
+  "status": "PASS",
+  "worktree_clean": false
+}

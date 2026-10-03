@@ -1,0 +1,21 @@
+{
+  "schema": "aioa.nebius-serverless-package.v1",
+  "status": "BLOCKED_BY_CREDENTIALS",
+  "integration_mode": "CONTRACT_ONLY",
+  "runtime": "python3.12",
+  "handler": "runtime.service_guard.serverless_worker:handle_target_request",
+  "state_root_env": "AOIA_HOME",
+  "state_root_required": true,
+  "replicas": 1,
+  "max_concurrency": 1,
+  "background_loops": false,
+  "local_effect_fallback": false,
+  "secret_source": "cloud_secret_injection_only",
+  "required_durable_store": [
+    "read_state(target_id, scope)",
+    "read_receipt(target_id, scope, idempotency_key)",
+    "apply_once(command): atomic revision fence plus durable receipt"
+  ],
+  "allowed_actions": ["READ_STATE", "READ_RECEIPT", "APPLY_SET_MAINTENANCE"],
+  "forbidden_capabilities": ["shell", "arbitrary_tool_calls", "local_filesystem_effects", "model_authority"]
+}

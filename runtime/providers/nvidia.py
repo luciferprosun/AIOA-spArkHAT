@@ -83,6 +83,7 @@ class ProviderResponse:
     validation_result: str = "VALID"
     http_status: int = 200
     safe_metadata: object = None
+    authority: str = "ADVISORY_ONLY"
 
 
 class ProviderPort(Protocol):

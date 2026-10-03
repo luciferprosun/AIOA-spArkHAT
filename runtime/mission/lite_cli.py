@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 import signal
 import sqlite3
@@ -13,7 +14,13 @@ from runtime.mission.cli import DiagnosticParser, read_manifest_file
 from runtime.mission.contracts import MissionContext, MissionError
 from runtime.mission.lite_contracts import parse_lite_profile
 from runtime.mission.lite_runtime import FileObservationProbe, LiteBindings
-from runtime.providers.nvidia import NvidiaProvider
+from runtime.providers.nvidia import NvidiaProvider, ProviderError
+from runtime.providers.config import load_api_environment
+from runtime.providers.nebius_routing import (
+    RoutingError,
+    create_lite_nebius_provider,
+    load_policy_json,
+)
 
 
 def run_lite_cli(argv, *, runtime_factory):
@@ -34,7 +41,26 @@ def run_lite_cli(argv, *, runtime_factory):
         args = parser.parse_args(argv)
         context = MissionContext(OwnerScope(args.tenant, args.owner, args.space, args.slot), frozenset({args.source_id}))
         profile = parse_lite_profile(read_manifest_file(args.manifest), context)
-        provider = NvidiaProvider(profile.budget)
+        if profile.provider_id == "nebius":
+            load_api_environment()
+            catalog_path = os.environ.get("AIOA_NEBIUS_CATALOG_RECEIPT", "")
+            quotes_path = os.environ.get("AIOA_NEBIUS_COST_QUOTES", "")
+            ceiling = os.environ.get("AIOA_NEBIUS_USD_CEILING", "")
+            if not catalog_path or not quotes_path or not ceiling:
+                raise MissionError("NEBIUS_ROUTE_CONFIGURATION_REQUIRED")
+            try:
+                receipt = load_policy_json(catalog_path, max_bytes=16384)
+                quotes = load_policy_json(quotes_path)
+                provider = create_lite_nebius_provider(
+                    model_id=profile.model_id, route_role=profile.route_role,
+                    escalation_condition=profile.escalation_condition,
+                    budget=profile.budget, catalog_receipt=receipt,
+                    cost_quotes=quotes, usd_ceiling=ceiling,
+                )
+            except (RoutingError, ProviderError) as error:
+                raise MissionError(error.code) from None
+        else:
+            provider = NvidiaProvider(profile.budget)
         state_root = Path(args.state_root).resolve()
         if args.operation == "watch":
             if not args.source_file or not profile.enabled:
