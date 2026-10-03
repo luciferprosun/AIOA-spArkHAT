@@ -13,6 +13,10 @@ from .openai_compatible import OpenAICompatibleProvider
 from runtime_paths import runtime_state_dir
 
 
+# Public protocol marker required by LocalCPLFixture's loopback-only gate.
+# This is not an operator credential and must never be used for LIVE transport.
+LOCAL_FIXTURE_AUTH_MARKER = "fixture-key-not-a-real-credential"
+
 DEFAULT_MODEL = "openrouter/google/gemma-3-27b-it"
 NEBIUS_COMPETITION_PROFILE = "nebius-personal-ai"
 DEFAULT_PROVIDER_CHAIN = [
@@ -146,7 +150,7 @@ class ProviderManager:
             adapter = OpenAICompatibleProvider(
                 provider="openrouter",
                 model=request.requested_model,
-                api_key="fixture",  # Public marker for the isolated loopback transport.
+                api_key=LOCAL_FIXTURE_AUTH_MARKER,
                 base_url=self.fixture_base_url,
             )
         elif provider == "nebius":
