@@ -263,15 +263,17 @@ function renderPersonalAI(payload) {
   const model = payload.provider?.model_id || "UNKNOWN";
   elements.personalAIProvider.textContent = `${provider} · ${model} · ${mode}`;
   elements.personalAITargetMode.textContent = payload.target?.mode || "UNKNOWN";
-  elements.personalAIEffects.textContent = payload.service_guard?.reconciliation_pending
-    ? "UNKNOWN · reconcile before retry" : `${payload.effects?.apply_count ?? 0} applied · ${payload.effects?.duplicate_count ?? 0} duplicate`;
+  const pending = payload.service_guard?.reconciliation_pending === true;
+  const applyCount = !pending && Number.isInteger(payload.effects?.apply_count) ? payload.effects.apply_count : "UNKNOWN";
+  const duplicateCount = !pending && Number.isInteger(payload.effects?.duplicate_count) ? payload.effects.duplicate_count : "UNKNOWN";
+  elements.personalAIEffects.textContent = `${applyCount} applied · ${duplicateCount} duplicate`;
   elements.personalAIExactAction.textContent = payload.proposal_id ? `${payload.target_id} · ${payload.action?.effect || "SET_MAINTENANCE"} · revision ${payload.action?.expected_target_revision ?? "UNKNOWN"} · proposal ${payload.proposal_id}` : "Not prepared";
   const selected = payload.memory?.selected_count ?? 0;
   elements.personalAIMemory.textContent = `${payload.memory?.status || "UNKNOWN"} · ${selected} bounded reference${selected === 1 ? "" : "s"} · content hidden`;
   elements.personalAICPL.textContent = `${payload.cpl?.status || "UNKNOWN"} · ${payload.cpl?.scope || "NOT_RUN"} · ADVISORY_ONLY`;
   elements.personalAIVerification.textContent = `${payload.verification?.status || "UNKNOWN"} · ${payload.verification?.delta || "UNKNOWN"}`;
   elements.personalAIApproval.textContent = payload.approval?.status || "REQUIRED";
-  elements.personalAIGuard.textContent = `${payload.service_guard?.state || "UNKNOWN"} · effect ${payload.service_guard?.verified_effect === true ? "VERIFIED" : "NOT VERIFIED"}`;
+  elements.personalAIGuard.textContent = `${payload.service_guard?.state || "UNKNOWN"} · effect ${payload.service_guard?.outcome || (payload.service_guard?.verified_effect === true ? "VERIFIED" : "NOT VERIFIED")}${pending ? " · RECONCILIATION PENDING" : ""}`;
   elements.personalAIReceipt.textContent = payload.receipt?.id
     ? `${payload.receipt.id} · ${payload.receipt.digest}` : "—";
   elements.personalAIReplay.textContent = payload.replay?.reason

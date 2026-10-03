@@ -23,6 +23,7 @@ GROUPS = {
     "private_memory_competition_web": ["nv07_chat", "nv07_isolation", "competition_view", "competition_evaluation", "webapp", "nebius_personal_ai"],
     "secret_scanner": ["changed_secrets"],
     "demo_launcher": ["personal_ai_demo_launcher"],
+    "demo_ui": ["personal_ai_demo_ui"],
 }
 
 
