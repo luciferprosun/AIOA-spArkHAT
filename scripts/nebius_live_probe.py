@@ -76,6 +76,37 @@ def _safe_error(error: Exception) -> str:
     return type(error).__name__.upper()
 
 
+def _safe_metadata(value) -> dict:
+    """Return only bounded provider metadata; never copy arbitrary input data."""
+
+    if type(value) is not dict:
+        return {}
+    result = {}
+    finish_reason = value.get("finish_reason")
+    if type(finish_reason) is str and 0 < len(finish_reason) <= 64:
+        result["finish_reason"] = finish_reason
+    request_id = value.get("request_id")
+    if type(request_id) is str and 0 < len(request_id) <= 256:
+        result["request_id"] = request_id
+    latency_ms = value.get("latency_ms")
+    if type(latency_ms) is int and 0 <= latency_ms <= 86_400_000:
+        result["latency_ms"] = latency_ms
+    usage = value.get("usage")
+    if type(usage) is dict:
+        safe_usage = {
+            name: usage[name]
+            for name in ("prompt_tokens", "completion_tokens", "total_tokens")
+            if type(usage.get(name)) is int and 0 <= usage[name] <= 2**31 - 1
+        }
+        if safe_usage:
+            result["usage"] = safe_usage
+    return result
+
+
+def _safe_failure_diagnostics(error: Exception) -> dict:
+    return _safe_metadata(getattr(error, "safe_metadata", None))
+
+
 def _base_receipt(model: str, base_url: str) -> dict:
     return {
         "schema": "aioa.nebius-live-probe.v1",
@@ -99,9 +130,13 @@ def run_probe(
     allow_cost: bool,
     catalog_only: bool,
     timeout_seconds: float = 20.0,
+    max_output_tokens: int = 256,
     provider_factory=NebiusProvider,
 ) -> dict:
     receipt = _base_receipt(model, base_url)
+
+    if type(max_output_tokens) is not int or not 32 <= max_output_tokens <= 512:
+        return {**receipt, "status": "BLOCKED", "reason": "INVALID_OUTPUT_TOKEN_LIMIT"}
 
     if not api_key.strip():
         return {**receipt, "status": "BLOCKED", "reason": "NEBIUS_API_KEY_MISSING"}
@@ -165,7 +200,7 @@ def run_probe(
             ),
             ChatMessage("user", "Acknowledge the Nebius Token Factory smoke test."),
         ),
-        32,
+        max_output_tokens,
         max_input_tokens=2048,
         max_response_bytes=16384,
         timeout_seconds=timeout_seconds,
@@ -178,7 +213,39 @@ def run_probe(
             time.monotonic() + timeout_seconds + 2.0,
         )
     except Exception as error:
-        return {**receipt, "status": "FAIL", "reason": _safe_error(error)}
+        return {
+            **receipt,
+            "status": "FAIL",
+            "reason": _safe_error(error),
+            "live_inference_validated": False,
+            **_safe_failure_diagnostics(error),
+        }
+
+    if (
+        result.provider_connection_id != "nebius"
+        or result.requested_model != model
+        or result.reported_model != model
+        or result.identity_status != "EXACT_MATCH"
+        or result.finish_reason != "stop"
+        or result.transport_scope != "LIVE"
+    ):
+        reason = (
+            "INCOMPLETE_COMPLETION"
+            if result.finish_reason != "stop"
+            else "MODEL_IDENTITY_MISMATCH"
+        )
+        return {
+            **receipt,
+            "status": "FAIL",
+            "reason": reason,
+            "live_inference_validated": False,
+            **_safe_metadata({
+                "finish_reason": result.finish_reason,
+                "request_id": result.request_id,
+                "usage": result.usage,
+                "latency_ms": result.latency_ms,
+            }),
+        }
 
     content_bytes = result.content.encode("utf-8")
 
@@ -209,6 +276,7 @@ def main() -> int:
     parser.add_argument("--model", default=os.getenv("NEBIUS_MODEL", DEFAULT_NEBIUS_MODEL))
     parser.add_argument("--base-url", default=os.getenv("NEBIUS_BASE_URL", DEFAULT_NEBIUS_BASE_URL))
     parser.add_argument("--timeout-seconds", type=float, default=20.0)
+    parser.add_argument("--max-output-tokens", type=int, default=256)
     parser.add_argument("--receipt", type=Path)
     args = parser.parse_args()
 
@@ -220,6 +288,7 @@ def main() -> int:
         allow_cost=args.allow_live_provider_cost,
         catalog_only=args.catalog_only,
         timeout_seconds=args.timeout_seconds,
+        max_output_tokens=args.max_output_tokens,
     )
 
     if args.receipt is not None:

@@ -9,7 +9,7 @@ import unittest
 from unittest.mock import patch
 from io import StringIO
 
-from providers.exact import ProviderResult
+from providers.exact import ExactCallError, ProviderResult
 from providers.nebius import DEFAULT_NEBIUS_MODEL
 from scripts import nebius_live_probe
 from scripts.nebius_live_probe import _write_receipt, run_probe
@@ -20,6 +20,7 @@ class FakeProvider:
         self.catalog = tuple(catalog)
         self.result = result
         self.calls = calls if calls is not None else []
+        self.requests = []
         self.base_url = "https://api.tokenfactory.nebius.com/v1"
 
     def discover_models(self, *, timeout_seconds):
@@ -28,7 +29,16 @@ class FakeProvider:
 
     def generate_exact(self, request, cancel, deadline):
         self.calls.append(("generate", request.requested_model))
+        self.requests.append(request)
+        if isinstance(self.result, BaseException):
+            raise self.result
         return self.result
+
+
+class DiagnosticExactError(ExactCallError):
+    def __init__(self, code, metadata):
+        super().__init__(code)
+        self.safe_metadata = metadata
 
 
 def provider_factory(fake):
@@ -162,6 +172,108 @@ class NebiusLiveProbeTests(unittest.TestCase):
         self.assertNotIn("private response text", encoded)
         self.assertNotIn("test-key-not-a-real-secret", encoded)
         self.assertEqual([kind for kind, _ in calls], ["discover", "generate"])
+
+    def test_smoke_defaults_to_256_output_tokens(self):
+        args = self.base_args()
+        args.update(catalog_only=False, allow_cost=True)
+        result = ProviderResult(
+            "ack", "nebius", DEFAULT_NEBIUS_MODEL, DEFAULT_NEBIUS_MODEL,
+            "EXACT_MATCH", "req-default", {"total_tokens": 9}, "stop", "LIVE", 4,
+        )
+        fake = FakeProvider(catalog=(DEFAULT_NEBIUS_MODEL,), result=result)
+
+        receipt = run_probe(**args, provider_factory=provider_factory(fake))
+
+        self.assertEqual("PASS", receipt["status"])
+        self.assertEqual(256, fake.requests[0].max_output_tokens)
+
+    def test_output_token_limit_is_bounded_before_provider(self):
+        for value in (31, 513, True):
+            with self.subTest(value=value):
+                args = self.base_args()
+                args.update(catalog_only=False, allow_cost=True, max_output_tokens=value)
+                result = run_probe(
+                    **args, provider_factory=lambda **_: self.fail("provider called")
+                )
+                self.assertEqual("BLOCKED", result["status"])
+                self.assertEqual("INVALID_OUTPUT_TOKEN_LIMIT", result["reason"])
+
+    def test_probe_rejects_non_exact_result_identity(self):
+        args = self.base_args()
+        args.update(catalog_only=False, allow_cost=True)
+        result = ProviderResult(
+            "ack", "nebius", DEFAULT_NEBIUS_MODEL, "nvidia/other-model",
+            "MISMATCH", "req-wrong",
+            {"total_tokens": 9, "api_key": "must-not-persist"},
+            "stop", "LIVE", 4,
+        )
+        fake = FakeProvider(catalog=(DEFAULT_NEBIUS_MODEL,), result=result)
+
+        receipt = run_probe(**args, provider_factory=provider_factory(fake))
+
+        self.assertEqual("FAIL", receipt["status"])
+        self.assertEqual("MODEL_IDENTITY_MISMATCH", receipt["reason"])
+        self.assertFalse(receipt["live_inference_validated"])
+        self.assertEqual({"total_tokens": 9}, receipt["usage"])
+        self.assertNotIn("must-not-persist", json.dumps(receipt, sort_keys=True))
+
+    def test_probe_keeps_truncated_completion_failed(self):
+        args = self.base_args()
+        args.update(catalog_only=False, allow_cost=True)
+        error = DiagnosticExactError(
+            "INCOMPLETE_COMPLETION",
+            {
+                "finish_reason": "length",
+                "request_id": "req-truncated",
+                "usage": {"prompt_tokens": 11, "completion_tokens": 256,
+                          "total_tokens": 267},
+                "latency_ms": 212,
+            },
+        )
+        fake = FakeProvider(catalog=(DEFAULT_NEBIUS_MODEL,), result=error)
+
+        receipt = run_probe(**args, provider_factory=provider_factory(fake))
+
+        self.assertEqual("FAIL", receipt["status"])
+        self.assertEqual("INCOMPLETE_COMPLETION", receipt["reason"])
+        self.assertEqual("length", receipt["finish_reason"])
+        self.assertFalse(receipt["live_inference_validated"])
+
+    def test_failure_diagnostics_are_allowlisted_and_recursive(self):
+        args = self.base_args()
+        args.update(catalog_only=False, allow_cost=True)
+        secret = "live-secret-must-not-persist"
+        error = DiagnosticExactError(
+            "INCOMPLETE_COMPLETION",
+            {
+                "finish_reason": "length",
+                "request_id": "req-safe",
+                "usage": {
+                    "prompt_tokens": 7,
+                    "completion_tokens": 256,
+                    "total_tokens": 263,
+                    "api_key": secret,
+                    "nested": {"response_content": "private model text"},
+                },
+                "latency_ms": 88,
+                "response_content": "private model text",
+                "authorization": "Bearer " + secret,
+            },
+        )
+        fake = FakeProvider(catalog=(DEFAULT_NEBIUS_MODEL,), result=error)
+
+        receipt = run_probe(**args, provider_factory=provider_factory(fake))
+        encoded = json.dumps(receipt, sort_keys=True)
+
+        self.assertEqual(
+            {"prompt_tokens": 7, "completion_tokens": 256, "total_tokens": 263},
+            receipt["usage"],
+        )
+        self.assertEqual("req-safe", receipt["request_id"])
+        self.assertEqual(88, receipt["latency_ms"])
+        self.assertNotIn(secret, encoded)
+        self.assertNotIn("private model text", encoded)
+        self.assertNotIn("authorization", encoded.casefold())
 
 
     def test_receipt_write_is_exclusive(self):
