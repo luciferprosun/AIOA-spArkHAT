@@ -107,3 +107,12 @@ class PreflightTests(unittest.TestCase):
     def test_invalid_target_sha(self):
         with self.assertRaises(ValueError):
             preflight.inspect(self.root, target_sha='--all')
+
+    def test_runbook_command_blocks_fail_closed(self):
+        import re
+        doc = (Path(__file__).parents[1] / 'docs/OCT6_UNLOCK_AND_INTEGRATION_RUNBOOK.md').read_text()
+        blocks = re.findall(r'```bash\n(.*?)```', doc, re.S)
+        self.assertGreaterEqual(len(blocks), 3)
+        for block in blocks:
+            self.assertEqual(block.splitlines()[0], 'set -euo pipefail')
+            self.assertIn('umask 077', block)

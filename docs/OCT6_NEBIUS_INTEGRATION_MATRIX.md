@@ -427,3 +427,52 @@ docs(nebius): seal Prompt 03 final evidence and verification manifest
 Do not cherry-pick the full range. Recreate final reviewed behavior against the active Core. Mixed commits require file/hunk separation and tests; subjects do not classify content reliably. Never replay ea6b953 independently. Do not duplicate merge payloads. Keep historical logs, images and failed receipts in provenance storage rather than importing them into future runtime. Preserve original SHAs in every new integration commit message.
 
 The correction bridge commit e24aa76 is test-only: inspect active base memory hooks before assuming new implementation is needed. The full CPL fixture remains a separate synthetic demonstration. Private preference context creates ZERO_WRITE, not canonical learning.
+
+## Preparation mission commit appendix
+
+All preparation commits are OPTIONAL read-only tooling or EVIDENCE_ONLY documentation, P0/P4; never part of the product runtime port. The final sealing commit is self-describing documentation/test safety fixes; its full identity/files are recorded in the external final preflight and handoff record to avoid a recursive self-SHA.
+
+### f9db3c0055f7a0cfc6258ca05d6c8786b6f35f57
+
+- Purpose: chore(preflight): add read-only October 6 integration inventory.
+- Category: OPTIONAL; disposition: retain preservation/integration preparation, do not port product runtime; priority P4/P0.
+- Dependencies: sealed source ea48547; earlier preparation contracts where referenced.
+- Authority impact: none; read-only local Git inspection/documentation only.
+- Validation: focused preflight suite (latest12PASS), diff/compile/secret checks; no additional runtime/live results claimed.
+- Files: `scripts/oct6_integration_preflight.py`, `tests/test_oct6_integration_preflight.py`.
+
+### 97f6e323b758864598b89426831cf205fc1659df
+
+- Purpose: docs(integration): map sealed Nebius provenance and staged reconciliation.
+- Category: EVIDENCE_ONLY; disposition: retain preservation/integration preparation, do not port product runtime; priority P4/P0.
+- Dependencies: sealed source ea48547; earlier preparation contracts where referenced.
+- Authority impact: none; read-only local Git inspection/documentation only.
+- Validation: focused preflight suite (latest12PASS), diff/compile/secret checks; no additional runtime/live results claimed.
+- Files: `docs/OCT6_CONFLICT_FORECAST.md`, `docs/OCT6_INTEGRATION_ORDER.md`, `docs/OCT6_NEBIUS_INTEGRATION_MATRIX.md`.
+
+### 6378c445ad557bbae33018730f87e6c1fd1a2fe0
+
+- Purpose: docs(architecture): specify Core-owned cloud workers and gated scale roadmap.
+- Category: EVIDENCE_ONLY; disposition: retain preservation/integration preparation, do not port product runtime; priority P4/P0.
+- Dependencies: sealed source ea48547; earlier preparation contracts where referenced.
+- Authority impact: none; read-only local Git inspection/documentation only.
+- Validation: focused preflight suite (latest12PASS), diff/compile/secret checks; no additional runtime/live results claimed.
+- Files: `docs/NEBIUS_CLOUD_AGENT_LAYER_V1_SPEC.md`, `docs/NEBIUS_SCALE_ROADMAP.md`.
+
+### a4d246457197e91ff01bc44f930a994084fe3ec6
+
+- Purpose: chore(preflight): compare captured post-unlock target without moving main.
+- Category: OPTIONAL; disposition: retain preservation/integration preparation, do not port product runtime; priority P4/P0.
+- Dependencies: sealed source ea48547; earlier preparation contracts where referenced.
+- Authority impact: none; read-only local Git inspection/documentation only.
+- Validation: focused preflight suite (latest12PASS), diff/compile/secret checks; no additional runtime/live results claimed.
+- Files: `scripts/oct6_integration_preflight.py`, `tests/test_oct6_integration_preflight.py`.
+
+### 4f796e4d26fc1cd97fd6dfcf294bfe10d29f79cf
+
+- Purpose: docs(runbook): gate post-unlock integration and define offline test checkpoints.
+- Category: EVIDENCE_ONLY; disposition: retain preservation/integration preparation, do not port product runtime; priority P4/P0.
+- Dependencies: sealed source ea48547; earlier preparation contracts where referenced.
+- Authority impact: none; read-only local Git inspection/documentation only.
+- Validation: focused preflight suite (latest12PASS), diff/compile/secret checks; no additional runtime/live results claimed.
+- Files: `docs/OCT6_POST_UNLOCK_TEST_PLAN.md`, `docs/OCT6_UNLOCK_AND_INTEGRATION_RUNBOOK.md`.

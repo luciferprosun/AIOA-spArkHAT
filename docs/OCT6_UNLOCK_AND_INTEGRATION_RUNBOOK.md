@@ -12,11 +12,15 @@ Obtain and record explicit human confirmation that the prior NVIDIA freeze is ov
 4. Run read-only preflight against the captured active target; review matrix/order/conflict forecast, then create a dedicated integration branch/worktree only if preflight is clean.
 5. Run the active target offline baseline, then integrate I1 provider/config only and checkpoint after its tests pass.
 
+Run each command block in a dedicated Bash session. Blocks fail immediately on failed gates and create private artifacts. Later blocks reuse captured variables from that same session; if the session was lost, reload reviewed values from captured_shas.txt rather than guessing.
+
 ## 3. Exact capture and fetch commands (post-release only)
 
 Use a fresh directory; fail if it already exists. Commands below preserve local main and do not develop on it. Review configured remote origin before fetching; fetching can move origin/main as expected AFTER release only.
 
 ```bash
+set -euo pipefail
+umask 077
 cd /media/l/LSC_DATA1/NVIDIA_NEBIUS/AIOA-spArkHAT-nebius
 test "$(git branch --show-current)" = nebius-personal-ai
 test -z "$(git status --porcelain)"
@@ -45,6 +49,8 @@ Review `OCT6_NEBIUS_INTEGRATION_MATRIX.md`, `OCT6_INTEGRATION_ORDER.md`, `OCT6_C
 ## 4. Dedicated integration worktree
 
 ```bash
+set -euo pipefail
+umask 077
 integration_branch=integration/oct6-nebius-cloud-v1
 integration_dir=/media/l/LSC_DATA1/NVIDIA_NEBIUS/AIOA-oct6-integration
 git show-ref --verify --quiet "refs/heads/$integration_branch" && exit 1
@@ -71,6 +77,8 @@ Capture checkpoint with `git rev-parse HEAD` and save it externally in the stage
 For a committed failing stage on the dedicated integration branch:
 
 ```bash
+set -euo pipefail
+umask 077
 test "$(git branch --show-current)" = integration/oct6-nebius-cloud-v1
 # Replace with the reviewed integration commit, never an original source/main commit.
 git revert <failed-integration-stage-SHA>
