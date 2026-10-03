@@ -317,6 +317,9 @@ def main() -> int:
     state = _repository_state()
     frozen_main = 'd26266e54ee940d7ada30aa02783dc697618a72c'
     if paid:
+        if args.model != 'nvidia/Nemotron-3_5-Lightning':
+            print('BLOCKED: PROMPT03_EXACT_LIGHTNING_REQUIRED')
+            return 2
         refs = [subprocess.check_output(['git', '-C', str(REPO), 'rev-parse', ref], text=True).strip()
                 for ref in ('main', 'origin/main')]
         if state['git_branch'] != 'nebius-personal-ai' or refs != [frozen_main, frozen_main]:

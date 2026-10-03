@@ -7,11 +7,22 @@ import urllib.request
 from urllib.parse import urlparse
 
 from .openai_compatible import OpenAICompatibleProvider
+from .exact import sanitize_diagnostics
 
 
 DEFAULT_NEBIUS_BASE_URL = "https://api.tokenfactory.nebius.com/v1"
 DEFAULT_NEBIUS_MODEL = "nvidia/nemotron-3-super-120b-a12b"
 MAX_MODELS_RESPONSE_BYTES = 1_048_576
+
+
+class _NoCatalogRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        # Authenticated discovery must never forward a credential to a redirect.
+        return None
+
+
+def catalog_opener():
+    return urllib.request.build_opener(urllib.request.ProxyHandler({}), _NoCatalogRedirect())
 
 
 def normalize_nebius_base_url(value: str | None) -> str:
@@ -80,7 +91,7 @@ class NebiusProvider(OpenAICompatibleProvider):
         The response is bounded and provider error bodies are never surfaced.
         """
         if opener is None:
-            opener = urllib.request.urlopen
+            opener = catalog_opener().open
         request = urllib.request.Request(
             f"{self.base_url}/models",
             headers={
@@ -110,6 +121,8 @@ class NebiusProvider(OpenAICompatibleProvider):
                     raise ValueError
                 model_id = item.get("id")
                 if not isinstance(model_id, str) or not model_id.strip() or len(model_id) > 180:
+                    raise ValueError
+                if sanitize_diagnostics({'reported_model': model_id}).get('reported_model') != model_id:
                     raise ValueError
                 values.append(model_id.strip())
         except (UnicodeError, json.JSONDecodeError, KeyError, TypeError, ValueError):

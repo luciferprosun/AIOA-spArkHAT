@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import tempfile
 import unittest
+import urllib.request
 from unittest.mock import patch
 
 from providers.config import NEBIUS_COMPETITION_PROFILE, ProviderManager
@@ -13,10 +14,22 @@ from providers.nebius import (
     DEFAULT_NEBIUS_MODEL,
     NebiusProvider,
     normalize_nebius_base_url,
+    catalog_opener,
 )
 
 
 class NebiusProviderTests(unittest.TestCase):
+    def test_authenticated_catalog_never_follows_redirects_or_environment_proxies(self):
+        opener = catalog_opener()
+        redirects = [h for h in opener.handlers if isinstance(h, urllib.request.HTTPRedirectHandler)]
+        self.assertEqual(len(redirects), 1)
+        request = urllib.request.Request(DEFAULT_NEBIUS_BASE_URL+'/models',
+                                         headers={'Authorization': 'Bearer fixture'})
+        self.assertIsNone(redirects[0].redirect_request(request, None, 302, 'redirect', {},
+                                                      'https://untrusted.example/models'))
+        self.assertFalse(any(isinstance(h, urllib.request.ProxyHandler) and h.proxies
+                             for h in opener.handlers))
+
     def test_default_provider_uses_token_factory_and_nemotron_super(self) -> None:
         provider = NebiusProvider("test-key-not-a-real-secret")
         self.assertEqual(provider.provider, "nebius")
