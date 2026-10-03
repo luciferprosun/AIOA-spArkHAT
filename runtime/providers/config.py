@@ -146,7 +146,7 @@ class ProviderManager:
             adapter = OpenAICompatibleProvider(
                 provider="openrouter",
                 model=request.requested_model,
-                api_key="fixture-key-not-a-real-credential",
+                api_key="fixture",  # Public marker for the isolated loopback transport.
                 base_url=self.fixture_base_url,
             )
         elif provider == "nebius":
