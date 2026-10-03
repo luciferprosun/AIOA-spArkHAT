@@ -12,6 +12,7 @@ const state = {
   cplDelivered: new Set(),
   cplAsked: new Set(),
   modelSwitchPending: false,
+  personalAI: null,
 };
 
 const elements = {
@@ -74,6 +75,23 @@ const elements = {
   competitionNonzeroReceipt: document.querySelector("#competition-nonzero-receipt"),
   competitionEffectExecutor: document.querySelector("#competition-effect-executor"),
   competitionNonzeroBoundary: document.querySelector("#competition-nonzero-boundary"),
+  personalAIProvider: document.querySelector("#personal-ai-provider"),
+  personalAIMemory: document.querySelector("#personal-ai-memory"),
+  personalAICPL: document.querySelector("#personal-ai-cpl"),
+  personalAIVerification: document.querySelector("#personal-ai-verification"),
+  personalAIApproval: document.querySelector("#personal-ai-approval"),
+  personalAIGuard: document.querySelector("#personal-ai-guard"),
+  personalAIReceipt: document.querySelector("#personal-ai-receipt"),
+  personalAIReplay: document.querySelector("#personal-ai-replay"),
+  personalAIUsage: document.querySelector("#personal-ai-usage"),
+  personalAITimeline: document.querySelector("#personal-ai-timeline"),
+  personalAIMessage: document.querySelector("#personal-ai-message"),
+  personalAIOperation: document.querySelector("#personal-ai-operation"),
+  personalAITarget: document.querySelector("#personal-ai-target"),
+  personalAIQuery: document.querySelector("#personal-ai-query"),
+  personalAIPrepare: document.querySelector("#personal-ai-prepare"),
+  personalAIApprove: document.querySelector("#personal-ai-approve"),
+  personalAIResume: document.querySelector("#personal-ai-resume"),
 };
 
 async function jsonFetch(url, options = {}) {
@@ -224,6 +242,81 @@ function renderProviderAvailability(payload) {
 
 async function refreshProviderAvailability() {
   renderProviderAvailability(await jsonFetch("/api/provider-availability"));
+}
+
+function renderPersonalAI(payload) {
+  state.personalAI = payload;
+  const mode = payload.provider?.execution_mode || "UNKNOWN";
+  const provider = payload.provider?.provider_id || "UNKNOWN";
+  const model = payload.provider?.model_id || "UNKNOWN";
+  elements.personalAIProvider.textContent = `${provider} · ${model} · ${mode}`;
+  const selected = payload.memory?.selected_count ?? 0;
+  elements.personalAIMemory.textContent = `${payload.memory?.status || "UNKNOWN"} · ${selected} bounded reference${selected === 1 ? "" : "s"} · content hidden`;
+  elements.personalAICPL.textContent = `${payload.cpl?.status || "UNKNOWN"} · ADVISORY_ONLY`;
+  elements.personalAIVerification.textContent = `${payload.verification?.status || "UNKNOWN"} · ${payload.verification?.delta || "UNKNOWN"}`;
+  elements.personalAIApproval.textContent = payload.approval?.status || "REQUIRED";
+  elements.personalAIGuard.textContent = `${payload.service_guard?.state || "UNKNOWN"} · effect ${payload.service_guard?.verified_effect === true ? "VERIFIED" : "NOT VERIFIED"}`;
+  elements.personalAIReceipt.textContent = payload.receipt?.id
+    ? `${payload.receipt.id} · ${payload.receipt.digest}` : "—";
+  elements.personalAIReplay.textContent = payload.replay?.reason
+    || (payload.service_guard?.reconciliation_pending ? "RECONCILIATION PENDING" : "—");
+  elements.personalAIUsage.textContent = `${payload.provider?.estimated_units ?? "—"} estimated · ${payload.provider?.actual_units ?? "—"} actual`;
+  elements.personalAITimeline.replaceChildren();
+  for (const row of payload.timeline || []) {
+    const item = document.createElement("span");
+    item.className = "personal-ai-state";
+    item.textContent = row.state || "UNKNOWN";
+    elements.personalAITimeline.appendChild(item);
+  }
+  const current = payload.service_guard?.state;
+  elements.personalAIApprove.disabled = current !== "APPROVAL_REQUIRED";
+  elements.personalAIResume.disabled = !["APPROVED", "EXECUTED", "RECONCILED"].includes(current);
+  elements.personalAIPrepare.disabled = current && current !== "APPROVAL_REQUIRED";
+}
+
+async function refreshPersonalAI() {
+  renderPersonalAI(await jsonFetch("/api/personal-ai/status"));
+}
+
+async function preparePersonalAI() {
+  const payload = await jsonFetch("/api/personal-ai/prepare", {
+    method: "POST",
+    headers: {"X-AIOA-Intent": "personal-ai-prepare-v1"},
+    body: JSON.stringify({
+      operation_id: elements.personalAIOperation.value.trim(),
+      target_id: elements.personalAITarget.value.trim(),
+      memory_query: elements.personalAIQuery.value.trim(),
+    }),
+  });
+  renderPersonalAI(payload);
+  if (payload.service_guard?.state !== "APPROVAL_REQUIRED") {
+    throw new Error("Preparation did not stop at the approval boundary.");
+  }
+  elements.personalAIMessage.textContent = "Prepared and verified. No effect occurred. Inspect the exact proposal id before approving.";
+}
+
+async function approvePersonalAI() {
+  if (!state.personalAI?.proposal_id) throw new Error("Prepare an exact proposal first.");
+  const payload = await jsonFetch("/api/personal-ai/approve", {
+    method: "POST",
+    headers: {"X-AIOA-Intent": "personal-ai-approve-exact-v1"},
+    body: JSON.stringify({proposal_id: state.personalAI.proposal_id}),
+  });
+  renderPersonalAI(payload);
+  elements.personalAIMessage.textContent = "Exact proposal approved. The effect has not run; Execute / reconcile is a separate action.";
+}
+
+async function resumePersonalAI() {
+  if (!state.personalAI?.operation_id) throw new Error("Prepare an operation first.");
+  const payload = await jsonFetch("/api/personal-ai/resume", {
+    method: "POST",
+    headers: {"X-AIOA-Intent": "personal-ai-resume-v1"},
+    body: JSON.stringify({operation_id: state.personalAI.operation_id}),
+  });
+  renderPersonalAI(payload);
+  elements.personalAIMessage.textContent = payload.service_guard?.state === "REPLAY_BLOCKED"
+    ? "Replay blocked by the durable verified receipt. No duplicate effect was sent."
+    : "ServiceGuard result loaded from receipt and independent readback.";
 }
 
 function parseModelChoices(availableModels) {
@@ -412,7 +505,7 @@ document.querySelector("#switch-model").addEventListener("click", async () => {
 
 document.querySelector("#refresh-status").addEventListener("click", async () => {
   try {
-    await Promise.all([refreshStatus(), refreshAuthorityTimeline(), refreshCompetitionEvaluation(), refreshProviderAvailability()]);
+    await Promise.all([refreshStatus(), refreshAuthorityTimeline(), refreshCompetitionEvaluation(), refreshProviderAvailability(), refreshPersonalAI()]);
   } catch (error) {
     addMessage("System", `Refresh failed: ${error}`);
   }
@@ -476,6 +569,22 @@ document.querySelector("#load-corrected").addEventListener("click", () => {
   }
 });
 
+elements.personalAIPrepare.addEventListener("click", async () => {
+  try { await preparePersonalAI(); }
+  catch (error) { elements.personalAIMessage.textContent = `Preparation stopped: ${error}`; }
+});
+elements.personalAIApprove.addEventListener("click", async () => {
+  try { await approvePersonalAI(); }
+  catch (error) { elements.personalAIMessage.textContent = `Approval stopped: ${error}`; }
+});
+elements.personalAIResume.addEventListener("click", async () => {
+  try { await resumePersonalAI(); }
+  catch (error) {
+    elements.personalAIMessage.textContent = `Outcome unknown or stopped: ${error}. Read status before any further action.`;
+    try { await refreshPersonalAI(); } catch (_statusError) { /* remain fail closed */ }
+  }
+});
+
 async function bootstrap() {
   try {
     state.sessionToken = (await jsonFetch('/api/session')).token;
@@ -487,13 +596,14 @@ async function bootstrap() {
     "System",
     "AIOA spArkHAT is ready. Assistant, deterministic Evidence Review and Critical Prompt Loop use one local runtime."
   );
-  const [statusResult, scenarioResult, timelineResult, evaluationResult, providerResult, cplPresetResult] = await Promise.allSettled([
+  const [statusResult, scenarioResult, timelineResult, evaluationResult, providerResult, cplPresetResult, personalAIResult] = await Promise.allSettled([
     refreshStatus(),
     loadReviewScenario(),
     refreshAuthorityTimeline(),
     refreshCompetitionEvaluation(),
     refreshProviderAvailability(),
     refreshCPLPreset(),
+    refreshPersonalAI(),
   ]);
   if (statusResult.status === "rejected") {
     addMessage("System", `Runtime startup failed: ${statusResult.reason}`);
@@ -512,6 +622,9 @@ async function bootstrap() {
   }
   if (cplPresetResult.status === "rejected") {
     cplElement('preset-status').textContent = `Competition CPL preset failed to load: ${cplPresetResult.reason}`;
+  }
+  if (personalAIResult.status === "rejected") {
+    elements.personalAIMessage.textContent = `Personal AI is not prepared or configured: ${personalAIResult.reason}`;
   }
 }
 

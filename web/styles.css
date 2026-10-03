@@ -23,6 +23,74 @@
 .cpl-panel button:disabled { opacity: .5; cursor: not-allowed; }
 @media (max-width: 1150px) { .cpl-review-grid { grid-template-columns: 1fr; } }
 
+.personal-ai-panel {
+  border-color: rgba(118, 72, 180, 0.2);
+  background: linear-gradient(145deg, rgba(255, 252, 246, 0.94), rgba(239, 232, 249, 0.72));
+}
+
+.personal-ai-inputs,
+.personal-ai-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.personal-ai-inputs label {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.personal-ai-inputs .select {
+  margin: 6px 0 0;
+}
+
+.personal-ai-grid {
+  margin: 18px 0 0;
+}
+
+.personal-ai-grid div {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.58);
+}
+
+.personal-ai-grid dt {
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-size: 0.76rem;
+}
+
+.personal-ai-grid dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 0.78rem;
+}
+
+.personal-ai-timeline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 14px;
+}
+
+.personal-ai-state {
+  padding: 6px 9px;
+  border-radius: 999px;
+  background: rgba(118, 72, 180, 0.12);
+  color: #553285;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.personal-ai-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -581,6 +649,11 @@ textarea {
     flex-direction: column;
   }
 
+  .personal-ai-inputs,
+  .personal-ai-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
   .boundary-badges {
     justify-content: flex-start;
   }
@@ -605,5 +678,10 @@ textarea {
 
   .review-actions #run-review {
     margin-left: 0;
+  }
+
+  .personal-ai-inputs,
+  .personal-ai-grid {
+    grid-template-columns: 1fr;
   }
 }

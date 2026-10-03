@@ -38,13 +38,21 @@ HOST = os.getenv("AOIA_WEB_HOST", "127.0.0.1")
 PORT = int(os.getenv("AOIA_WEB_PORT", "4311"))
 MAX_REQUEST_BYTES = 24_000
 LOOPBACK_HOSTS = {"127.0.0.1", "localhost"}
+PERSONAL_AI_OPERATOR_INTENT = "personal-ai-prepare-v1"
+PERSONAL_AI_APPROVAL_INTENT = "personal-ai-approve-exact-v1"
+PERSONAL_AI_RESUME_INTENT = "personal-ai-resume-v1"
 
 
 class WebRuntimeService:
     """Shared runtime adapter used by the local AOIA-Core UI."""
 
-    def __init__(self, *, cpl_fixture=False, cpl_cost_policy=None, runtime=None) -> None:
+    def __init__(self, *, cpl_fixture=False, cpl_cost_policy=None, runtime=None,
+                 personal_ai=None, personal_ai_catalog=None,
+                 personal_ai_cost_quote=None) -> None:
         self.runtime = runtime or create_runtime(cpl_fixture=cpl_fixture, cpl_cost_policy=cpl_cost_policy)
+        self.personal_ai = personal_ai
+        self.personal_ai_catalog = personal_ai_catalog
+        self.personal_ai_cost_quote = personal_ai_cost_quote
         self.lock = Lock()
         self.csrf_token = secrets.token_urlsafe(32)
 
@@ -78,6 +86,49 @@ class WebRuntimeService:
             result = self.runtime.assistant_request(prompt, mode=mode, plan_options=plan_options)
             result['status'] = self.status_payload()
             return result
+
+    def _personal_ai_projection(self, status):
+        from competition_view import project_nebius_personal_ai
+        from runtime.personal_ai_demo import PersonalAIDemoService
+
+        if (
+            type(self.personal_ai) is not PersonalAIDemoService
+            or type(self.personal_ai_catalog) is not dict
+            or type(self.personal_ai_cost_quote) is not dict
+        ):
+            raise RuntimeError("PERSONAL_AI_NOT_CONFIGURED")
+        scheduler = self.personal_ai.bindings.scheduler
+        return project_nebius_personal_ai(
+            status,
+            scheduler.journal.reservations(),
+            catalog=self.personal_ai_catalog,
+            cost_quote=self.personal_ai_cost_quote,
+            expected_execution_mode=self.personal_ai.bindings.execution_mode,
+        )
+
+    def personal_ai_status(self):
+        if self.personal_ai is None:
+            raise RuntimeError("PERSONAL_AI_NOT_CONFIGURED")
+        operation_id = self.personal_ai.bindings.scheduler.bindings.service_guard.operation_id
+        return self._personal_ai_projection(self.personal_ai.status(operation_id))
+
+    def personal_ai_prepare(self, payload):
+        if self.personal_ai is None:
+            raise RuntimeError("PERSONAL_AI_NOT_CONFIGURED")
+        with self.lock:
+            return self._personal_ai_projection(self.personal_ai.prepare(payload))
+
+    def personal_ai_approve(self, proposal_id):
+        if self.personal_ai is None:
+            raise RuntimeError("PERSONAL_AI_NOT_CONFIGURED")
+        with self.lock:
+            return self._personal_ai_projection(self.personal_ai.approve(proposal_id))
+
+    def personal_ai_resume(self, operation_id):
+        if self.personal_ai is None:
+            raise RuntimeError("PERSONAL_AI_NOT_CONFIGURED")
+        with self.lock:
+            return self._personal_ai_projection(self.personal_ai.resume(operation_id))
 
 
 _SERVICE: WebRuntimeService | None = None
@@ -156,6 +207,15 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
             from provider_availability import provider_availability
             self._write_json(HTTPStatus.OK, provider_availability())
             return
+        if parsed.path == '/api/personal-ai/status':
+            if not self._check_token():
+                return
+            if parsed.query or parsed.fragment or parsed.params:
+                self._write_json(HTTPStatus.BAD_REQUEST,
+                                 {'ok': False, 'error': 'INVALID_PERSONAL_AI_REQUEST'})
+                return
+            self._handle_personal_ai('status', None)
+            return
         if parsed.path.startswith('/api/nonzero/'):
             if not self._check_token():
                 return
@@ -227,6 +287,33 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
             payload = self._read_json_body()
             if payload is not None:
                 self._handle_memory_patch("POST", parsed, payload)
+            return
+        if parsed.path.startswith('/api/personal-ai/'):
+            if not self._check_token():
+                return
+            actions = {
+                '/api/personal-ai/prepare': ('prepare', PERSONAL_AI_OPERATOR_INTENT),
+                '/api/personal-ai/approve': ('approve', PERSONAL_AI_APPROVAL_INTENT),
+                '/api/personal-ai/resume': ('resume', PERSONAL_AI_RESUME_INTENT),
+            }
+            selected = actions.get(parsed.path)
+            if selected is None or parsed.query or parsed.fragment or parsed.params:
+                self._write_json(HTTPStatus.NOT_FOUND,
+                                 {'ok': False, 'error': 'not_found'})
+                return
+            action, expected_intent = selected
+            if self.headers.get_all('X-AIOA-Intent', []) != [expected_intent]:
+                intent_name = {
+                    'prepare': 'OPERATOR', 'approve': 'APPROVAL', 'resume': 'RESUME'
+                }[action]
+                self._write_json(
+                    HTTPStatus.FORBIDDEN,
+                    {'ok': False, 'error': f'PERSONAL_AI_{intent_name}_INTENT_REQUIRED'},
+                )
+                return
+            payload = self._read_json_body()
+            if payload is not None:
+                self._handle_personal_ai(action, payload)
             return
         if (parsed.path.startswith(('/api/cpl/', '/api/nonzero/')) or parsed.path in {'/api/chat', '/api/model'}) and not self._check_token():
             return
@@ -321,6 +408,45 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
             self._write_json(error.status, {'ok': False, 'error': error.code})
         except Exception:
             self._write_json(HTTPStatus.SERVICE_UNAVAILABLE, {'ok': False, 'error': 'NONZERO_STATE_OR_DEPENDENCY_UNAVAILABLE'})
+
+    def _handle_personal_ai(self, action, payload):
+        from runtime.personal_ai_demo import PersonalAIDemoError
+
+        expected_fields = {
+            'prepare': {'operation_id', 'target_id', 'memory_query'},
+            'approve': {'proposal_id'},
+            'resume': {'operation_id'},
+        }
+        try:
+            if action == 'status':
+                result = self._service().personal_ai_status()
+            else:
+                if type(payload) is not dict or set(payload) != expected_fields[action]:
+                    code = ('INVALID_PREPARE_REQUEST' if action == 'prepare'
+                            else 'INVALID_PERSONAL_AI_REQUEST')
+                    raise PersonalAIDemoError(code)
+                if action == 'prepare':
+                    result = self._service().personal_ai_prepare(payload)
+                elif action == 'approve':
+                    result = self._service().personal_ai_approve(payload['proposal_id'])
+                else:
+                    result = self._service().personal_ai_resume(payload['operation_id'])
+            if result.get('status') != 'READY':
+                self._write_json(HTTPStatus.SERVICE_UNAVAILABLE,
+                                 {'ok': False, 'error': 'PERSONAL_AI_PROJECTION_INVALID'})
+                return
+            self._write_json(HTTPStatus.OK, result)
+        except PersonalAIDemoError as error:
+            conflicts = {
+                'PROPOSAL_BINDING_MISMATCH', 'PERSONAL_AI_OPERATION_CONFLICT',
+                'APPROVAL_STATE_DENIED', 'RESUME_STATE_DENIED',
+                'OPERATION_BINDING_MISMATCH',
+            }
+            status = HTTPStatus.CONFLICT if error.code in conflicts else HTTPStatus.BAD_REQUEST
+            self._write_json(status, {'ok': False, 'error': error.code})
+        except (KeyError, RuntimeError):
+            self._write_json(HTTPStatus.SERVICE_UNAVAILABLE,
+                             {'ok': False, 'error': 'PERSONAL_AI_NOT_CONFIGURED'})
 
     def _check_memory_patch_operator(self):
         from runtime.memory_patch.contract import OPERATOR_INTENT
