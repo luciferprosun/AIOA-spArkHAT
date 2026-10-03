@@ -65,7 +65,9 @@ class SafeDiagnosticsTests(unittest.TestCase):
 
     def test_diagnostic_strings_reject_credentials_and_arbitrary_text(self):
         for value in ('Bearer private', 'sk-' + 'A' * 48, 'AKIA' + 'A' * 16,
-                      'nebius_api_key_' + 'B' * 48, 'private HAT text\n', 'x' * 200):
+                      'nebius_api_key_' + 'B' * 48, 'req-neb_' + 'B' * 48,
+                      'req-nebius_' + 'C' * 48, 'req-v1.' + 'D'*32 + '.' + 'E'*32,
+                      'private HAT text\n', 'x' * 200):
             with self.subTest(value=value[:10]):
                 clean = sanitize_diagnostics({'request_id': value, 'finish_reason': value,
                                               'reported_model': value, 'provider': value})

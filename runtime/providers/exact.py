@@ -32,7 +32,7 @@ def sanitize_diagnostics(value) -> dict:
     result = {}
     def safe_string(item):
         return (type(item) is str and len(item) <= 180
-                and not re.search(r'(?i)(bearer|sk-|akia|asia|nebius[_-]?api[_-]?key|secret|password|authorization)', item))
+                and not re.search(r'(?i)(bearer|sk-|akia|asia|neb_|nebius_|v1\.[A-Za-z0-9_-]{16,}\.|secret|password|authorization)', item))
     if value.get('provider') in ('nebius', 'openrouter'):
         result['provider'] = value['provider']
     for key in ('requested_model', 'reported_model'):
