@@ -50,7 +50,12 @@ Required gates are the complete lab unittest suite under the isolated HOME,
 secret scan against `dd50630d0f274790143da8563884c6b439308277`, and path/import
 and branch/ref audits. Only `lab/archaioa/**` and `tests/lab_archaioa/**` are
 in scope. No production integration, network calls, paid calls or dependencies
-are introduced. The final execution report records measured gate outcomes.
+are introduced. The complete suite passed: **120 PASS, 0 FAIL, 0 TIMEOUT**,
+including all **107 PRE-01..PRE-03 regression tests** and thirteen PRE-04 tests.
+All six independent unsafe-property fixtures were rejected as expected.
+Compilation, whitespace, secret and path/import gates passed. The branch is
+`nebius-personal-ai`; main and origin/main remain frozen at
+`d26266e54ee940d7ada30aa02783dc697618a72c`.
 
 ## PRE-05 assumptions
 
