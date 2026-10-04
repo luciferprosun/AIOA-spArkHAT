@@ -10,6 +10,17 @@ AIOA spArkHAT (formerly AOIA-Core) is one local-first runtime for AI-assisted en
 
 AOIA means **Adaptive Oceanic Intelligence Architecture**. In this repository the name describes a bounded routing and control architecture; it does not imply AGI, autonomous authority, or a self-modifying system.
 
+## Open-source governance and security
+
+- [Security policy and private vulnerability reporting](SECURITY.md)
+- [Project governance](GOVERNANCE.md)
+- [Contributing guide](CONTRIBUTING.md)
+- [Code of Conduct](CODE_OF_CONDUCT.md)
+- [Support](SUPPORT.md)
+- [Maintainers](MAINTAINERS.md)
+
+GitHub Private Vulnerability Reporting, secret scanning, push protection, and Dependabot security updates are enabled for the repository.
+
 ## NVIDIA competition: reproduce the demo
 
 ```bash
