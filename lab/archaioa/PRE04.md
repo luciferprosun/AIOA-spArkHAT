@@ -39,7 +39,8 @@ post-consumption replay, UNKNOWN retry, stale commit/resolution, open liability,
 evidence-free reconciliation, immutable state and finite-domain rejection.
 
 The TLA artifact is **SPEC_ONLY / UNCHECKED_BY_TLC**. Java/TLC are unavailable
-and were neither searched for nor installed. Manual/structural review provides
+on PATH; no TLC jar was found in /tmp, /usr/share or /opt. Nothing was
+installed or downloaded. Manual/structural review provides
 no TLC syntax validation or model-check proof. Python provides executable
 bounded exhaustive evidence, not a proof about external services.
 
