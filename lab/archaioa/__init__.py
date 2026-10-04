@@ -24,3 +24,17 @@ __all__ = (
     'ambiguity_liability', 'check_completion', 'classify_fault', 'is_blocking',
     'open_liability', 'propagate_taint', 'resolve_liability',
 )
+
+from .attenuation import (
+    AuthorityBounds, attenuate_authority, attenuate_scope, scope_contains,
+    validate_attenuation, validate_authority_attenuation,
+)
+from .decision_binding import (
+    DecisionBinding, DecisionState, bind_decision, require_current_decision, validate_decision_binding,
+)
+
+__all__ += (
+    'AuthorityBounds', 'attenuate_authority', 'attenuate_scope', 'scope_contains',
+    'validate_attenuation', 'validate_authority_attenuation',
+    'DecisionBinding', 'DecisionState', 'bind_decision', 'require_current_decision', 'validate_decision_binding',
+)
