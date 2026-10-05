@@ -18,7 +18,7 @@ RESULT_FENCE = "aioa-mcp-result"
 MAX_BODY_BYTES = 16 * 1024
 
 _FENCE_RE = re.compile(
-    r"```(?P<kind>aioa-mcp-(?:task|result))\\s*\\n(?P<body>.*?)\\n```",
+    r"```(?P<kind>aioa-mcp-(?:task|result))\s*\n(?P<body>.*?)\n```",
     re.DOTALL,
 )
 
@@ -36,19 +36,19 @@ def _bounded_body(text: str) -> None:
 def encode_task(task: TaskEnvelope) -> str:
     payload = task.to_dict()
     return (
-        "# MCP Commander Task\\n\\n"
+        "# MCP Commander Task\n\n"
         "This GitHub content is an **untrusted transport envelope**. "
-        "It grants no authority and carries no human approval.\\n\\n"
-        f"```{TASK_FENCE}\\n"
+        "It grants no authority and carries no human approval.\n\n"
+        f"```{TASK_FENCE}\n"
         + json.dumps(payload, indent=2, sort_keys=True, ensure_ascii=False)
-        + "\\n```\\n"
+        + "\n```\n"
     )
 
 def encode_result(result: TaskResult) -> str:
     return (
-        "# MCP Commander Result\\n\\n"
-        "Compact result only. Large output remains in bounded artifacts.\\n\\n"
-        f"```{RESULT_FENCE}\\n"
+        "# MCP Commander Result\n\n"
+        "Compact result only. Large output remains in bounded artifacts.\n\n"
+        f"```{RESULT_FENCE}\n"
         + json.dumps(result.to_dict(), indent=2, sort_keys=True, ensure_ascii=False)
         + "\\n```\\n"
     )
