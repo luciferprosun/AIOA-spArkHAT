@@ -8,6 +8,7 @@ on:
       - 'MCP_Server/**'
       - 'tests/test_mcp_bridge_contract.py'
       - 'tests/test_mcp_task_bus.py'
+      - 'tests/test_mcp_authority_projection.py'
       - '.github/workflows/mcp-nebius-bridge.yml'
   workflow_dispatch:
 
@@ -33,4 +34,4 @@ jobs:
       - name: Compile bridge
         run: python -m compileall -q runtime/mcp_bridge tests/test_mcp_bridge_contract.py
       - name: Run MCP bridge contract tests
-        run: python -m unittest tests.test_mcp_bridge_contract tests.test_mcp_task_bus -v
+        run: python -m unittest tests.test_mcp_bridge_contract tests.test_mcp_task_bus tests.test_mcp_authority_projection -v
