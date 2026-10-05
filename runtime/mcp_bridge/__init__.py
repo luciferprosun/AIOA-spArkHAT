@@ -5,6 +5,7 @@ open sockets, execute shell commands, or grant effect authority.
 """
 
 from .adapter import AIOAObservation, admit_commander_result, build_task
+from .authority import AuthorityProjection, project_authority
 from .contracts import (
     RiskClass,
     TaskEnvelope,
@@ -13,9 +14,11 @@ from .contracts import (
     TransitionError,
 )
 from .policy import PolicyDecision, PolicyEffect, evaluate_task
+from .task_bus import encode_result, encode_task, parse_result, parse_task
 
 __all__ = [
     "AIOAObservation",
+    "AuthorityProjection",
     "PolicyDecision",
     "PolicyEffect",
     "RiskClass",
@@ -26,4 +29,9 @@ __all__ = [
     "admit_commander_result",
     "build_task",
     "evaluate_task",
+    "project_authority",
+    "encode_task",
+    "parse_task",
+    "encode_result",
+    "parse_result",
 ]
