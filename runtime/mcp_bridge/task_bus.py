@@ -50,7 +50,7 @@ def encode_result(result: TaskResult) -> str:
         "Compact result only. Large output remains in bounded artifacts.\n\n"
         f"```{RESULT_FENCE}\n"
         + json.dumps(result.to_dict(), indent=2, sort_keys=True, ensure_ascii=False)
-        + "\\n```\\n"
+        + "\n```\n"
     )
 
 def _extract(text: str, expected_kind: str) -> dict[str, Any]:
