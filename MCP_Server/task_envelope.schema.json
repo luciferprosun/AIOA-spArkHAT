@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sparkhat.eu/schemas/aioa-mcp-commander-v1-task.json",
+  "title": "AIOA MCP Commander TaskEnvelope v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "protocol_version",
+    "task_id",
+    "created_at",
+    "target_project",
+    "operation",
+    "risk",
+    "payload",
+    "idempotency_key",
+    "source"
+  ],
+  "properties": {
+    "protocol_version": {"const": "aioa.mcp-commander.v1"},
+    "task_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "created_at": {"type": "string", "minLength": 1, "maxLength": 64},
+    "target_project": {"type": "string", "minLength": 1, "maxLength": 96},
+    "operation": {"type": "string", "minLength": 1, "maxLength": 96},
+    "risk": {
+      "enum": ["READ", "WRITE_LOCAL", "EXEC_LOCAL", "DESTRUCTIVE", "OPEN_WORLD"]
+    },
+    "payload": {"type": "object", "maxProperties": 256},
+    "idempotency_key": {"type": "string", "minLength": 1, "maxLength": 160},
+    "source": {"type": "string", "minLength": 1, "maxLength": 64}
+  }
+}
