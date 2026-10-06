@@ -9,6 +9,7 @@ import uuid
 
 from .contracts import PROTOCOL_VERSION, RiskClass, TaskEnvelope, TaskResult
 from .policy import expected_risk
+from .read_ops import validate_read_payload
 
 
 @dataclass(frozen=True)
@@ -53,6 +54,8 @@ def build_task(
     source: str = "chatgpt",
 ) -> TaskEnvelope:
     risk = expected_risk(operation)
+    if risk is RiskClass.READ:
+        validate_read_payload(operation, payload)
     if risk is None:
         # Unknown operations are still representable only at an explicitly
         # dangerous risk class so policy cannot accidentally treat them as READ.
