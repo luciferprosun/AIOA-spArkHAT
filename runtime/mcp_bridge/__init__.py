@@ -15,6 +15,7 @@ from .contracts import (
     TransitionError,
 )
 from .policy import PolicyDecision, PolicyEffect, evaluate_task
+from .read_ops import VERIFIED_READ_OPERATIONS, validate_read_payload
 from .task_bus import encode_result, encode_task, parse_result, parse_task
 
 __all__ = [
@@ -27,6 +28,7 @@ __all__ = [
     "TaskResult",
     "TaskState",
     "TransportClaim",
+    "VERIFIED_READ_OPERATIONS",
     "TransitionError",
     "admit_commander_result",
     "build_task",
@@ -37,4 +39,5 @@ __all__ = [
     "encode_result",
     "parse_result",
     "parse_claim_comment",
+    "validate_read_payload",
 ]
