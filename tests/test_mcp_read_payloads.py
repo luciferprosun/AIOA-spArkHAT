@@ -13,6 +13,7 @@ class MCPReadPayloadTests(unittest.TestCase):
         cases = [
             ("system.status", {}),
             ("git.status", {}),
+            ("git.status", {"short": True}),
             ("git.branches", {}),
             ("git.diff", {"max_bytes": 500, "max_lines": 12}),
             ("git.log", {"limit": 2}),
@@ -36,6 +37,10 @@ class MCPReadPayloadTests(unittest.TestCase):
                 validate_read_payload(operation, payload)
                 task = build_task(operation, payload)
                 self.assertEqual(task.operation, operation)
+
+    def test_git_status_short_must_be_boolean(self) -> None:
+        with self.assertRaises(ContractError):
+            build_task("git.status", {"short": "yes"})
 
     def test_unknown_payload_key_is_rejected(self) -> None:
         with self.assertRaises(ContractError):
