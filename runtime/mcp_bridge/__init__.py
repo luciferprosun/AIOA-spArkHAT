@@ -6,6 +6,7 @@ open sockets, execute shell commands, or grant effect authority.
 
 from .adapter import AIOAObservation, admit_commander_result, build_task
 from .authority import AuthorityProjection, project_authority
+from .claim import TransportClaim, parse_claim_comment
 from .contracts import (
     RiskClass,
     TaskEnvelope,
@@ -25,6 +26,7 @@ __all__ = [
     "TaskEnvelope",
     "TaskResult",
     "TaskState",
+    "TransportClaim",
     "TransitionError",
     "admit_commander_result",
     "build_task",
@@ -34,4 +36,5 @@ __all__ = [
     "parse_task",
     "encode_result",
     "parse_result",
+    "parse_claim_comment",
 ]
