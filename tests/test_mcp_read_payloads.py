@@ -58,6 +58,23 @@ class MCPReadPayloadTests(unittest.TestCase):
         with self.assertRaises(ContractError):
             build_task("artifact.get", {"artifact_id": "not-an-id"})
 
+    def test_artifact_get_live_bounds_are_enforced(self) -> None:
+        artifact_id = "5e9f72f3-4983-489c-9f2b-6f1299e8ca4b"
+        build_task(
+            "artifact.get",
+            {"artifact_id": artifact_id, "max_bytes": 400, "max_lines": 12},
+        )
+        with self.assertRaises(ContractError):
+            build_task(
+                "artifact.get",
+                {"artifact_id": artifact_id, "max_bytes": 401, "max_lines": 12},
+            )
+        with self.assertRaises(ContractError):
+            build_task(
+                "artifact.get",
+                {"artifact_id": artifact_id, "max_bytes": 400, "max_lines": 13},
+            )
+
     def test_unverified_approval_status_fails_before_transport(self) -> None:
         with self.assertRaisesRegex(ContractError, "schema is not verified"):
             build_task("approval.status", {})
