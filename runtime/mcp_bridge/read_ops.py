@@ -121,8 +121,14 @@ def validate_read_payload(operation: str, payload: dict[str, Any]) -> None:
             f"{operation} is not in the planner verified READ registry"
         )
 
-    if operation in {"system.status", "git.status", "git.branches", "artifact.list"}:
+    if operation in {"system.status", "git.branches", "artifact.list"}:
         _exact_keys(operation, payload, allowed=frozenset())
+        return
+
+    if operation == "git.status":
+        _exact_keys(operation, payload, allowed=frozenset({"short"}))
+        if "short" in payload and type(payload["short"]) is not bool:
+            raise ContractError("git.status.short must be a boolean")
         return
 
     if operation == "git.diff":
