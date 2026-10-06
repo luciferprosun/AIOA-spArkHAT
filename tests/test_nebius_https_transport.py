@@ -102,7 +102,7 @@ class NebiusHttpsEffectTransportTests(unittest.TestCase):
             endpoint = f"http://127.0.0.1:{server.server_port}/invoke"
             transport = NebiusHttpsEffectTransport(
                 endpoint_url=endpoint,
-                auth_token="fixture-auth-not-real",
+                auth_token="fixture-token",
                 timeout_seconds=2,
                 transport_scope="TEST",
             )
@@ -116,14 +116,14 @@ class NebiusHttpsEffectTransportTests(unittest.TestCase):
         self.assertEqual(1, server.calls)
         self.assertEqual(request, json.loads(server.request_body))
         self.assertEqual("application/json", server.request_headers["Content-Type"])
-        self.assertEqual("Bearer fixture-auth-not-real",
+        self.assertEqual("Bearer fixture-token",
                          server.request_headers["Authorization"])
 
     def test_arbitrary_action_is_rejected_before_transport(self):
         with fixture_server() as server:
             transport = NebiusHttpsEffectTransport(
                 endpoint_url=f"http://127.0.0.1:{server.server_port}/invoke",
-                auth_token="fixture-auth-not-real",
+                auth_token="fixture-token",
                 timeout_seconds=2,
                 transport_scope="TEST",
             )
@@ -137,7 +137,7 @@ class NebiusHttpsEffectTransportTests(unittest.TestCase):
         with fixture_server(response={"padding": "x" * 2000}) as server:
             transport = NebiusHttpsEffectTransport(
                 endpoint_url=f"http://127.0.0.1:{server.server_port}/invoke",
-                auth_token="fixture-auth-not-real",
+                auth_token="fixture-token",
                 timeout_seconds=2,
                 max_response_bytes=512,
                 transport_scope="TEST",
@@ -151,7 +151,7 @@ class NebiusHttpsEffectTransportTests(unittest.TestCase):
         with fixture_server(delay=0.2) as server:
             transport = NebiusHttpsEffectTransport(
                 endpoint_url=f"http://127.0.0.1:{server.server_port}/invoke",
-                auth_token="fixture-auth-not-real",
+                auth_token="fixture-token",
                 timeout_seconds=0.05,
                 transport_scope="TEST",
             )

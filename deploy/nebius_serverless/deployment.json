@@ -10,7 +10,7 @@
   "max_concurrency": 1,
   "background_loops": false,
   "local_effect_fallback": false,
-  "secret_source": "cloud_secret_injection_only",
+  "secret_source": "injected",
   "required_durable_store": [
     "read_state(target_id, scope)",
     "read_receipt(target_id, scope, idempotency_key)",
