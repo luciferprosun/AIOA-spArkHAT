@@ -93,3 +93,23 @@ Question `[MCP-QUESTION] ... Single worker launcher ownership` was resolved with
 Task `task-sprint-search-approval-schema-001` remains open in the private mailbox. It is a READ-only `fs.search` intended to discover the exact local `approval.status` schema. It has not yet been claimed. The hourly sprint monitor should resume this discovery when the worker resumes polling.
 
 No AIOA `main` changes were made.
+
+
+## Sprint continuation — artifact pagination hardening
+
+The live worker confirmed additional bounded-artifact behavior:
+
+- `artifact.get` with `max_bytes=1200`, `max_lines=30` -> controlled `INVALID_ARGUMENTS`
+- `artifact.get` with `max_bytes=400`, `max_lines=12` -> PASS
+- planner-side bounds were tightened to the live-verified values `400/12`
+- CI runs #29, #30 and #31 -> SUCCESS
+
+The search artifact for `approval.status` was successfully produced and the first bounded page showed documentation hits. It also returned `next_offset=400`, which provides evidence that the local artifact contract supports pagination semantics.
+
+Pending task:
+
+- Issue #43: paginated `artifact.get` with `offset=400`, `max_bytes=400`, `max_lines=12`
+- do not create a duplicate while #43 remains open
+- after PASS, use the returned source hit to read the exact local `approval.status` implementation and only then verify its payload schema
+
+Remote WRITE/EXEC remain disabled. AIOA `main` remains untouched.
