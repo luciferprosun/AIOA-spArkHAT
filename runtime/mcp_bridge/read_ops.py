@@ -206,9 +206,9 @@ def validate_read_payload(operation: str, payload: dict[str, Any]) -> None:
         )
         _artifact_id(operation, payload["artifact_id"])
         if "max_bytes" in payload:
-            _bounded_int(operation, "max_bytes", payload["max_bytes"], minimum=1, maximum=4096)
+            _bounded_int(operation, "max_bytes", payload["max_bytes"], minimum=1, maximum=400)
         if "max_lines" in payload:
-            _bounded_int(operation, "max_lines", payload["max_lines"], minimum=1, maximum=100)
+            _bounded_int(operation, "max_lines", payload["max_lines"], minimum=1, maximum=12)
         return
 
     raise ContractError(f"{operation} READ payload validation is incomplete")
