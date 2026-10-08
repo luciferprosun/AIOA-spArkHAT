@@ -1,8 +1,8 @@
 {
   "schema": "aioa.nebius-roadmap-status.v1",
   "scope": "LOCAL_INTEGRATION_CANDIDATE_ONLY",
-  "basis_sha": "f459da5c24e2f12f5bb72ccc8951d048c1d31c6b",
-  "selected_block": "13-LOCAL",
+  "basis_sha": "c3bea200e69783f204eda481aeff3bef64ff8242",
+  "selected_block": "H-UNIFIED",
   "claims_live_provider_or_effect": false,
   "blocks": [
     {
@@ -167,10 +167,10 @@
         "scripts/nvidia_reviewer_preflight.py",
         "docs/nebius_devpost_submission_draft.md"
       ],
-      "scope_and_open_items": "Deterministic local rehearsal exists; submission/release/attestation/main integration are separate human gates and remain unperformed."
+      "scope_and_open_items": "Same-Core deterministic unified local slice; mandatory CG0-CG4 compliance precedes main integration. Public judging, runtime LIVE validation and submission are separate human/external gates."
     }
   ],
-  "validation": "Block05/06 seals preserved. Block07 accepted LOCAL_FIXTURE checkpoint 8c59464f. Block08 targeted/focused/static/secret/diff/fresh review and external seal required. Full suite reserved for final convergence candidate; main integration NO.",
+  "validation": "H unified fixture: 13 targeted / 123 focused PASS; unified reviewer PASS. Final full regression deferred to compliance candidate; no LIVE claim.",
   "execution_program": "SOL61_ULTRA_LOCAL_CONVERGENCE",
   "acceptance_record": "External current sealed phase checkpoint; candidate presence does not imply whole-system acceptance."
 }

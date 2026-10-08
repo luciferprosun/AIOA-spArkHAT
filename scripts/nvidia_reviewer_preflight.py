@@ -40,12 +40,20 @@ def _write_artifact(path: Path, value: dict) -> str:
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
-def run_preflight(workspace: Path) -> dict:
+def run_preflight(workspace: Path, *, unified=False) -> dict:
     if workspace.is_symlink():
         raise RuntimeError("PREFLIGHT_ROOT_SYMLINK_REJECTED")
     if workspace.exists() and any(workspace.iterdir()):
         raise RuntimeError("PREFLIGHT_ROOT_MUST_BE_FRESH")
     workspace.mkdir(mode=0o700, parents=True, exist_ok=True)
+    if unified:
+        from nv13_unified import run_unified
+        proof=run_unified(workspace/'unified')
+        artifact=workspace/'AIOA_ONE_CORE_NEBIUS_REVIEW.json'
+        digest=_write_artifact(artifact,proof)
+        return {'schema':'aioa.one-core-reviewer.v1','status':proof['status'],
+            'scope':'OFFLINE_NATIVE_FIXTURE','artifact':str(artifact),'artifact_sha256':digest,
+            'proof':proof,'live_provider_validated':False,'official_nat_atif_validated':False}
     demo = run_demo(workspace / "demo", memory_backend="fixture")
     artifact = workspace / "AIOA_NVIDIA_COMPETITION_DEMO.json"
     digest = _write_artifact(artifact, demo)
@@ -153,9 +161,10 @@ def main() -> int:
         type=Path,
         help="Fresh output directory. If omitted, a fresh /tmp reviewer directory is created.",
     )
+    parser.add_argument('--unified', action='store_true', help='Explicit one-Core offline Nebius reviewer fixture')
     args = parser.parse_args()
     root = args.root or Path(tempfile.mkdtemp(prefix="aioa-nvidia-review-preflight-"))
-    result = run_preflight(root)
+    result = run_preflight(root, unified=args.unified)
     print(json.dumps(result, ensure_ascii=False, sort_keys=True, indent=2))
     return 0 if result["status"] == "PASS" else 1
 

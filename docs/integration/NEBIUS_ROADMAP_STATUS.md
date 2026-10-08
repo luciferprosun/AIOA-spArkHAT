@@ -28,3 +28,6 @@ Block 09 sealed local fixture checkpoint: `6338c6c`. Blocks 10/11 offline candid
 Block12: restricted explicit checker/fault local PASS; historical endurance integrity BLOCKED_EVIDENCE.
 
 Block13: opt-in native operator READ console PASS; model availability/current production authority not claimed.
+
+## Unified local slice
+13 targeted and 123 focused tests plus unified reviewer PASS. Same-Core offline fixture only; full suite reserved for final compliance candidate. CG0-CG4 is mandatory before main integration.
