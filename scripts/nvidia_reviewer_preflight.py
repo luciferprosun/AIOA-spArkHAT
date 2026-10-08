@@ -79,6 +79,11 @@ def run_preflight(workspace: Path) -> dict:
         "authority_human_bound": view.get("safety", {}).get("human_bound_effect_authority") is True,
         "provider_has_no_authority": view.get("safety", {}).get("provider_output_authority") is False,
         "receipt_graph_replay_stable": demo.get("safety", {}).get("receipt_graph_replay_stable") is True,
+        "context_capsule_replay_stable": demo.get('safety', {}).get('context_capsule_replay_stable') is True,
+        "context_capsule_has_no_authority": (
+            demo.get('context_capsule', {}).get('authority') == 'NONE'
+            and demo.get('context_capsule', {}).get('purpose') == 'ADVISORY_CONTEXT_ONLY'
+        ),
         "receipt_graph_has_no_authority": (
             demo.get("receipt_graph", {}).get("authority") == "NONE"
             and demo.get("receipt_graph", {}).get("verification") == "PROVENANCE_ONLY"

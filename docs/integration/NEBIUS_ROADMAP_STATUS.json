@@ -1,8 +1,8 @@
 {
   "schema": "aioa.nebius-roadmap-status.v1",
   "scope": "LOCAL_INTEGRATION_CANDIDATE_ONLY",
-  "basis_sha": "c91fa13a530017a2fe1d876ad70f9b2cb4219103",
-  "selected_block": "05",
+  "basis_sha": "35a9d520cf4ccb6416b0d929910d026213922087",
+  "selected_block": "06",
   "exactly_one_block_implemented": true,
   "claims_live_provider_or_effect": false,
   "blocks": [
@@ -65,13 +65,15 @@
     {
       "block": "06",
       "capability": "Context Capsules / HAT Minimization",
-      "status": "PARTIAL",
+      "status": "PASS_IMPLEMENTED",
       "source_files": [
-        "runtime/memory_patch/lite.py",
+        "runtime/memory_patch/retrieval/capsule.py",
+        "runtime/memory_patch/retrieval/service.py",
         "runtime/memory_patch/personal/retrieval.py",
-        "runtime/memory_patch/learning/index.py"
+        "runtime/memory_patch/retrieval/temporal.py",
+        "tests/nv05_demo.py"
       ],
-      "scope_and_open_items": "Bounded owner-scoped HAT/retrieval and source lineage exist. Explicit least-context capsule/decision-root minimization product proof remains incomplete. Not selected."
+      "scope_and_open_items": "Bounded CURRENT metadata-only immutable capsule over native admitted lanes; exact request/bundle hashes, Core owner/HAT/source checks, separate native personal lane, explicit subset and hard serialized byte budget. No payload export, new engine/store/authority or LITE prompt change; AS_OF/FUTURE capsules remain open."
     },
     {
       "block": "07",
@@ -158,5 +160,5 @@
       "scope_and_open_items": "Deterministic local rehearsal exists; submission/release/attestation/main integration are separate human gates and remain unperformed."
     }
   ],
-  "validation": "Targeted graph/demo/preflight tests passed 25/25, including eight rehashed-measurement regressions; corrected whole-source regression required before local checkpoint. External evidence remains separate; rerun native reviewer/full gates for this checkout."
+  "validation": "Block06 repaired targeted capsule/demo/preflight 44/44 PASS, including 17 fresh-review regressions; focused/current native whole-source/static/secret/import/reviewer gates required before local checkpoint. Existing block05 acceptance/evidence preserved. Main integration remains NO-GO; blocks07/08 unchanged."
 }

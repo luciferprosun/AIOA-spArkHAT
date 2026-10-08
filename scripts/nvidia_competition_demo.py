@@ -177,6 +177,8 @@ def run_demo(
         "scenario_count": len(events),
         "events": events,
         "receipt_graph": receipt_graph,
+        "context_capsule": episodes[0]['context_capsule'],
+        "context_capsule_snapshot_phase": "EPISODE1_BEFORE_SOURCE_REVISION_CHANGE",
         "mission": {
             "snapshot_state": "COMPLETE",
             "heartbeat_state": "COMPLETED_EVIDENCE_SNAPSHOT",
@@ -218,6 +220,7 @@ def run_demo(
             "hidden_chain_of_thought_recorded": False,
             "human_bound_effect_authority": True,
             "receipt_graph_replay_stable": receipt_graph == replay_graph,
+            "context_capsule_replay_stable": episodes[0]['context_capsule_replay_stable'],
         },
     }
 

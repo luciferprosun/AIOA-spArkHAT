@@ -14,6 +14,9 @@ class NvidiaReviewerPreflightTests(unittest.TestCase):
 
         self.assertEqual("PASS", result["status"])
         self.assertEqual("DETERMINISTIC_TEST_FIXTURE_ONLY", result["scope"])
+        self.assertIn('context_capsule_replay_stable', result['checks'])
+        self.assertIs(result['checks']['context_capsule_replay_stable'], True)
+        self.assertIs(result['checks']['context_capsule_has_no_authority'], True)
         self.assertIn("receipt_graph_replay_stable", result["checks"])
         self.assertIs(result["checks"]["receipt_graph_replay_stable"], True)
         self.assertIs(result["checks"]["receipt_graph_has_no_authority"], True)

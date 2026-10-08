@@ -34,3 +34,6 @@ Duplicate Core/authority/task schema/provider client/scheduler/memory/evidence s
 ## 2026-10-08 local convergence update
 
 STEP3 clean native baseline at c91fa13: 1283 PASS, 4 exact native-approved UI skips, no failures/errors/timeouts. Continue on existing integration branch only. Audited all canonical blocks 01-14 against files and observed tests; selected exactly block 05. Keep causal/bi-temporal graph as a bounded READ projection over existing ServiceGuard OPERATION/AUDIT records; no graph datastore or competing receipt schema. The reviewer uses the same deterministic demo/preflight. MCP/fixture authority/private raw evidence remain external. Production custody/distributed authority/cloud execution remain OPEN or human-gated. SmartRouter is excluded.
+# Block 06 local convergence checkpoint
+
+The next accepted local capability is a metadata-only context capsule over existing native retrieval lanes. Reuse the existing request/bundle hashes, Core owner/HAT READ checks, temporal/current source binding, native personal context and `context_budget_bytes`. Payload stays in the current memory/retrieval path; no new store, admission engine or authority path is introduced. The existing reviewer slice alone exposes the projection. MCP remains external. Main remains NO-GO while blocks 07/08 and architectural acceptance gates remain open; do not start them here.

@@ -251,3 +251,6 @@ For a deeper review:
 8. `runtime/nonzero_cloudops/`;
 9. `docs/NVIDIA_FINAL_WEEK_PROGRESS.md`;
 10. `README.md` for the wider project history and general runtime.
+# Context capsule snapshot
+
+The same reviewer path now includes the bounded [block 06 context capsule](CONTEXT_CAPSULE.md), with native owner/HAT/source validation and restart-stable metadata only. It grants no authority and exports no raw context.

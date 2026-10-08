@@ -117,6 +117,11 @@ class NativeRetrieval:
             self._port().require_binding(principal, item, record.evidence_id)
         return bundle
 
+    def context_capsule(self, principal, request, lanes, *, selected_refs=None):
+        """Explicit Core READ projection; not wired into planner or effect paths."""
+        from runtime.memory_patch.retrieval.capsule import project_context_capsule
+        return project_context_capsule(self, principal, request, lanes, selected_refs=selected_refs)
+
     def retrieve(
         self,
         principal: CorePrincipal,

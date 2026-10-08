@@ -17,6 +17,8 @@ import runtime  # noqa: F401 - legacy module bootstrap
 from nv05_support import ContextDependentActor, DynamicsFixture
 
 from runtime.memory_patch.contracts.serialization import canonical_json_bytes
+from runtime.core_admission import Capability
+from runtime.memory_patch.retrieval.contracts import HybridRetrievalRequest
 
 
 def execute(
@@ -48,6 +50,15 @@ def execute(
             fx.change_evidence_version()
         before = len(fx.learning.records("DELTA"))
         state = fx.changed("demo-run-" + str(number))
+        if number == 1:
+            reader = fx.core.local_operator(Capability.READ)
+            request = HybridRetrievalRequest.admitted(fx.core, reader, hat_id=fx.hat_id, query='reviewed policy')
+            retrieval = fx.runtime._lite_memory.service.retrieval
+            # This existing learning demo has no native owner-memory slot.
+            # Canonical-only intake is explicit; personal capsules have their
+            # own native owner-lifecycle coverage, never an optional fallback.
+            lanes = retrieval.retrieve(reader, request, include_personal=False)
+            capsule = retrieval.context_capsule(reader, request, lanes)
         after = fx.learning.records("DELTA")
         rows = lambda kind: [
             json.loads(canonical_json_bytes(r.payload))
@@ -97,9 +108,21 @@ def execute(
             assert value["new_delta_count"] == 0 and value["obligations"], value
             assert value["reuse_status"] == ["REVALIDATION_REQUIRED"], value
             assert value["injected_delta_refs"] == [], value
-        return value
     finally:
         fx.close()
+    if number == 1:
+        restarted = DynamicsFixture(root, mode=dynamics_mode, factory_builder=factory_builder,
+                                    backend_id=backend_id, scope=scope)
+        try:
+            replay_reader = restarted.core.local_operator(Capability.READ)
+            replay_capsule = restarted.runtime._lite_memory.service.retrieval.context_capsule(replay_reader, request, lanes)
+            if capsule != replay_capsule:
+                raise RuntimeError('CONTEXT_CAPSULE_REPLAY_MISMATCH')
+            value['context_capsule'] = capsule.as_dict()
+            value['context_capsule_replay_stable'] = True
+        finally:
+            restarted.close()
+    return value
 
 
 if __name__ == "__main__":
