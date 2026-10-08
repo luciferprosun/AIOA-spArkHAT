@@ -26,3 +26,5 @@ Block 08 sealed local checkpoint: `0f8fdf6`. Block 09 candidate: see SHADOW_DELT
 Block 09 sealed local fixture checkpoint: `6338c6c`. Blocks 10/11 offline candidate: OFFLINE_ADVISORY_JOBS.md; cloud S1/S2 remain gated.
 
 Block12: restricted explicit checker/fault local PASS; historical endurance integrity BLOCKED_EVIDENCE.
+
+Block13: opt-in native operator READ console PASS; model availability/current production authority not claimed.

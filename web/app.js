@@ -159,7 +159,16 @@ async function refreshStatus() {
   hydrateModelSelect(payload.available_models, payload.model);
 }
 
+function renderNativeConsole(payload) {
+  const node = document.querySelector('#native-console-metadata');
+  if (!node) return;
+  node.textContent = payload
+    ? JSON.stringify(payload, null, 2)
+    : 'Native evidence: UNBOUND';
+}
+
 function renderAuthorityTimeline(payload) {
+  renderNativeConsole(payload.native_console);
   elements.authorityEffectBadge.textContent = payload.effect_authority || "UNAVAILABLE";
   elements.authorityTimelineSummary.textContent = payload.timeline_is_read_only_projection
     ? "Read-only projection: model, CPL, memory and DVM can advise; only Core/human-bound gates may authorize effects."
@@ -183,7 +192,15 @@ function renderAuthorityTimeline(payload) {
 }
 
 async function refreshAuthorityTimeline() {
-  renderAuthorityTimeline(await jsonFetch("/api/authority-timeline"));
+  try {
+    renderAuthorityTimeline(await jsonFetch("/api/authority-timeline"));
+  } catch (error) {
+    renderNativeConsole({status: "UNKNOWN", read_only: true, authority: "NONE"});
+    elements.authorityEffectBadge.textContent = "UNAVAILABLE";
+    elements.authorityTimelineSummary.textContent = "READ failed; prior evidence is unavailable.";
+    elements.authorityTimeline.replaceChildren();
+    throw error;
+  }
 }
 
 function renderCompetitionEvaluation(payload) {

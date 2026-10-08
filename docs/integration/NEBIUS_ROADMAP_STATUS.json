@@ -1,8 +1,8 @@
 {
   "schema": "aioa.nebius-roadmap-status.v1",
   "scope": "LOCAL_INTEGRATION_CANDIDATE_ONLY",
-  "basis_sha": "f4373bdeec292417f9ec974e7f8370f589767b32",
-  "selected_block": "12-LOCAL",
+  "basis_sha": "f459da5c24e2f12f5bb72ccc8951d048c1d31c6b",
+  "selected_block": "13-LOCAL",
   "claims_live_provider_or_effect": false,
   "blocks": [
     {
@@ -150,13 +150,13 @@
     {
       "block": "13",
       "capability": "Operator Evidence Console",
-      "status": "PARTIAL",
+      "status": "PASS_LOCAL_READ_ONLY",
       "source_files": [
-        "runtime/competition_view.py",
-        "runtime/competition_evaluation.py",
-        "runtime/authority_timeline.py"
+        "runtime/native_console.py",
+        "runtime/webapp.py",
+        "web/app.js"
       ],
-      "scope_and_open_items": "Read-only local evidence projection exists; full integrated causal/time console is incomplete. Only existing reviewer slice will surface selected 05 metadata."
+      "scope_and_open_items": "Opt-in same-Core bounded operator metadata in existing token-protected panel. Historical approval is not current authority; no LIVE proof."
     },
     {
       "block": "14",

@@ -84,13 +84,13 @@ class LocalTarget:
 
 class GuardFixture:
     def __init__(self, root, client, *, operation_id="operation-a", actor=None,
-                 scope=None, factory=None, clock=None, extra_hat_ids=()):
+                 scope=None, factory=None, clock=None, extra_hat_ids=(), model_id=MODEL):
         self.root, self.client, self.operation_id = Path(root), client, operation_id
         self.scope = scope or client.scope
         self.clock_value = int(time.time())
         self.clock = clock or (lambda: self.clock_value)
         self.core = CoreAdmission(LocalOwnerAssignment(self.scope, frozenset(Capability),
-            frozenset({"disposable-service",*extra_hat_ids}), frozenset({MODEL}), operator_approved=True),
+            frozenset({"disposable-service",*extra_hat_ids}), frozenset({model_id}), operator_approved=True),
             clock=lambda: datetime.fromtimestamp(self.clock(), timezone.utc))
         self.factory = factory or DurableFactory(self.root / "native-fixture.json")
         self.runner = TransactionRunner(self.core, self.factory)

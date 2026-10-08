@@ -48,13 +48,34 @@ class WebRuntimeService:
 
     def __init__(self, *, cpl_fixture=False, cpl_cost_policy=None, runtime=None,
                  personal_ai=None, personal_ai_catalog=None,
-                 personal_ai_cost_quote=None) -> None:
+                 personal_ai_cost_quote=None, native_console=None) -> None:
         self.runtime = runtime or create_runtime(cpl_fixture=cpl_fixture, cpl_cost_policy=cpl_cost_policy)
         self.personal_ai = personal_ai
         self.personal_ai_catalog = personal_ai_catalog
         self.personal_ai_cost_quote = personal_ai_cost_quote
+        if native_console is not None:
+            from runtime.native_console import NativeConsoleBinding
+            if type(native_console) is not NativeConsoleBinding:raise ValueError("NATIVE_CONSOLE_BINDING")
+            if type(self.runtime) is not AgentRuntime:raise ValueError("NATIVE_CONSOLE_RUNTIME_CORE")
+            from runtime.mission.lite_runtime import LiteScheduler
+            from runtime.service_guard.service import GuardLoopBinding
+            scheduler=getattr(self.runtime,'_lite_scheduler',None)
+            if type(scheduler) is not LiteScheduler or type(scheduler.bindings.service_guard) is not GuardLoopBinding:
+                raise ValueError("NATIVE_CONSOLE_RUNTIME_CORE")
+            guard=getattr(getattr(getattr(scheduler,'bindings',None),'service_guard',None),'guard',None)
+            if native_console.guard is None or guard is not native_console.guard:
+                raise ValueError("NATIVE_CONSOLE_RUNTIME_CORE")
+        self.native_console = native_console
         self.lock = Lock()
         self.csrf_token = secrets.token_urlsafe(32)
+
+    def authority_payload(self):
+        from authority_timeline import build_authority_timeline
+        value=build_authority_timeline(self.runtime)
+        if self.native_console is not None:
+            from runtime.core_admission import Capability
+            value['native_console']=self.native_console.read(self.native_console.governor.core.local_operator(Capability.READ))
+        return value
 
     def close(self):
         self.runtime.close()
@@ -236,7 +257,7 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
                 return
             from authority_timeline import build_authority_timeline
             self._write_json(
-                HTTPStatus.OK, build_authority_timeline(self._service().runtime)
+                HTTPStatus.OK, self._service().authority_payload()
             )
             return
         if parsed.path == '/api/competition-demo':
