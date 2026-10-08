@@ -1,8 +1,8 @@
 {
   "schema": "aioa.nebius-roadmap-status.v1",
   "scope": "LOCAL_INTEGRATION_CANDIDATE_ONLY",
-  "basis_sha": "8c59464f37a9e409a8a1f28094ccf40203e6a1d4",
-  "selected_block": "08",
+  "basis_sha": "0f8fdf690fa1441d3db8e772f666fff565d49580",
+  "selected_block": "09",
   "claims_live_provider_or_effect": false,
   "blocks": [
     {
@@ -90,7 +90,7 @@
     {
       "block": "08",
       "capability": "Commit-Select-Reveal / covariance verification",
-      "status": "LOCAL_CANDIDATE",
+      "status": "PASS_LOCAL_SEALED",
       "source_files": [
         "runtime/mission/verification.py",
         "tests/test_commit_select_reveal.py",
@@ -98,17 +98,19 @@
         "tests/test_verifier_canary.py",
         "docs/integration/COMMIT_SELECT_REVEAL.md"
       ],
-      "scope_and_open_items": "Native Core/transaction commit-before-host-selection, exact artifact reveal, mandatory mechanical check plus minimized advisory review, durable START owner and causal replay validation. Seeded synthetic joint misses/covariance; no statistical/model independence claim. Host opaque callback code/config versioning assumed. Existing reviewer wiring belongs to the later unified candidate; no live default import."
+      "scope_and_open_items": "Native commit-select-reveal and seeded covariance fixture accepted at 0f8fdf6; metadata/advisory only, no independent live-model verification claim."
     },
     {
       "block": "09",
       "capability": "Shadow Delta fixture",
-      "status": "SHADOW",
+      "status": "LOCAL_CANDIDATE",
       "source_files": [
-        "runtime/memory_patch/learning/index.py",
-        "docs/NV05_DYNAMICS.md"
+        "runtime/service_guard/shadow_delta.py",
+        "runtime/service_guard/service.py",
+        "runtime/memory_patch/retrieval/dependencies.py",
+        "tests/test_shadow_delta.py"
       ],
-      "scope_and_open_items": "DVM/pheromone/epistemic stigmergy remain SHADOW; no promotion evidence or permission."
+      "scope_and_open_items": "Selected canonical comparison plus independent literal readback on one existing reversible target; FIXTURE only; production warrant/cloud binding OPEN. External checkpoint is acceptance authority for local gates."
     },
     {
       "block": "10",

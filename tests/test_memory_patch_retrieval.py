@@ -117,8 +117,8 @@ class FakeAuthorizedSources:
 
 
 class RetrievalFixture:
-    def __init__(self):
-        self.core = make_admission()
+    def __init__(self, *, core=None):
+        self.core = core if core is not None else make_admission()
         self.reader = self.core.local_operator(Capability.READ)
         self.capture_actor = self.core.local_operator(Capability.EVIDENCE_CAPTURE)
         self.catalog = FakeCoreEvidenceCatalog()

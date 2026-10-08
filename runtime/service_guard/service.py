@@ -35,7 +35,8 @@ def plain(value):
 
 class CoreServiceGuard:
     """Admitted domain service; does not create a Core, credential source or loop."""
-    def __init__(self, core, runner, policy, target, *, clock=time.time, governor_binding=None):
+    def __init__(self, core, runner, policy, target, *, clock=time.time, governor_binding=None,
+                 decision_context_reader=None):
         target_port = (
             type(getattr(target, "scope", None)) is type(policy.scope)
             and type(getattr(target, "target_id", None)) is str
@@ -57,6 +58,23 @@ class CoreServiceGuard:
                     or governor_binding.governor.policy.scope != policy.scope):
                 raise GuardError('INVALID_GOVERNOR_BINDINGS')
         self._governor_binding=governor_binding
+        if decision_context_reader is not None:
+            from runtime.memory_patch.retrieval.dependencies import CoreSelectedContextReader
+            from runtime.service_guard.target import LoopbackTargetClient
+            if (type(decision_context_reader) is not CoreSelectedContextReader
+                    or decision_context_reader.core is not core
+                    or decision_context_reader.request.scope != policy.scope
+                    or type(target) is not LoopbackTargetClient):
+                raise GuardError('INVALID_FIXTURE_DECISION_CONTEXT_BINDINGS')
+        self._decision_context_reader=decision_context_reader
+
+    def _decision_context(self):
+        if self._decision_context_reader is None:
+            raise GuardError('DECISION_CONTEXT_RESOLVER_REQUIRED')
+        try:
+            return self._decision_context_reader.current(self.core.local_operator(Capability.READ))
+        except Exception:
+            raise GuardError('DECISION_CONTEXT_ADMISSION_FAILED') from None
 
     def _now(self):
         value = self.clock()
@@ -149,6 +167,8 @@ class CoreServiceGuard:
                         "policy_digest": self.policy.digest, "policy_decision": "ALLOW",
                         "consent_id": uuid.uuid4().hex, "approved_at": now,
                         "expires_at": now + validity_seconds}
+            if self._decision_context_reader is not None:
+                approval['decision_context_root']=self._decision_context().dependency_digest
             self._put(principal, Capability.OWNER_APPROVAL, operation_id, "approval", approval)
             return approval
 
@@ -190,6 +210,53 @@ class CoreServiceGuard:
 
         return self.runner.run(TransactionContext(principal, Capability.READ), project)
 
+    def shadow_delta(self,principal,operation_id):
+        """Existing fixture READ path; no target effect or authority issued."""
+        from runtime.service_guard.target import LoopbackTargetClient
+        from runtime.service_guard.receipt_graph import PHASES
+        from runtime.service_guard.shadow_delta import project_shadow_delta
+        from runtime.memory_patch.audit import domain_chain,decode_audit
+        self._require(principal,Capability.READ)
+        if type(self.target) is not LoopbackTargetClient:
+            raise GuardError('SHADOW_DELTA_REQUIRES_EXISTING_FIXTURE_TARGET')
+        logical_id(operation_id)
+        try:observed=self.target.read()
+        except Exception:observed=None
+        try:context=self._decision_context();context_error=False
+        except GuardError:context=None;context_error=True
+        def project(tx):
+            records,audits={},{}
+            try:
+                domain_chain(tx)
+                for phase in PHASES:
+                    key=self._key(operation_id,phase)
+                    record=tx.get(RecordKind.OPERATION,key);audit=tx.get(RecordKind.AUDIT,'nv09-'+key)
+                    if record is not None:
+                        if (set(record.payload)!={'operation_kind','payload_digest','outcome'}
+                                or record.payload['operation_kind']!='nv09-'+phase
+                                or record.payload['payload_digest']!=canonical_sha256(record.payload['outcome'])):
+                            raise GuardError('MALFORMED_NATIVE_CAUSAL_OPERATION')
+                        if audit is None:raise GuardError('MISSING_NATIVE_CAUSAL_AUDIT')
+                        event=decode_audit(audit)
+                        outbox=tx.get(RecordKind.OUTBOX,'nv09-outbox-'+key)
+                        binding=OperationBinding(key,'nv09-'+phase,record.payload['payload_digest'])
+                        if (outbox is None or set(outbox.payload)!={'state','event_id','event_digest',
+                                'operation_digest','proof_id','core_entry_hash'}
+                                or outbox.payload['state'] not in ('PENDING','PUBLISHED')
+                                or outbox.payload['event_id']!='nv09-'+key
+                                or outbox.payload['proof_id']!='nv09-outbox-'+key
+                                or outbox.payload['event_digest']!=event.event_hash
+                                or outbox.payload['operation_digest']!=canonical_sha256(
+                                    {'scope':principal.scope.binding(),'operation':binding})):
+                            raise GuardError('MISSING_NATIVE_CAUSAL_OUTBOX')
+                        records[phase]=record
+                    if audit is not None:audits[phase]=audit
+            except (MemoryPatchError,ValueError,TypeError,KeyError):
+                records,audits={},{}
+            return project_shadow_delta(records,audits,policy=self.policy,operation_id=operation_id,
+                readback=observed,current_dependency=context,context_error=context_error)
+        return self.runner.run(TransactionContext(principal,Capability.READ),project)
+
     def _expired_approval(self, operation_id):
         # An observed expiry/policy denial is terminal for this immutable
         # approval, including before intent creation and after clock rollback.
@@ -203,6 +270,9 @@ class CoreServiceGuard:
             raise GuardError("CONSENT_REQUIRED")
         if self._get(operation_id, "revocation") is not None:
             raise GuardError("CONSENT_REVOKED")
+        if self._decision_context_reader is not None or 'decision_context_root' in approval:
+            if approval.get('decision_context_root') != self._decision_context().dependency_digest:
+                raise GuardError('STALE_DECISION_CONTEXT')
         if (approval["scope"] != list(self.policy.scope.binding())
                 or approval["target_id"] != self.policy.target_id
                 or approval["policy_digest"] != self.policy.digest

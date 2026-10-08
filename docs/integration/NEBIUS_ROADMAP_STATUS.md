@@ -20,3 +20,5 @@ Scope: existing unified integration candidate. These labels describe the stated 
 | 14 | Final demo / Devpost / release hardening | PARTIAL | Deterministic local rehearsal exists; submission/release/attestation/main integration are separate human gates and remain unperformed. |
 
 Block06 acceptance is preserved. Block07 is accepted at local checkpoint `8c59464f`; the SOL61 ULTRA program continues with a bounded Block08 candidate using existing native contracts; see [governor scope and migration limits](DUAL_GOVERNOR.md). Current external checkpoint evidence determines acceptance. See [commit/select/reveal scope](COMMIT_SELECT_REVEAL.md). Subsequent convergence and unified reviewer gates remain separate. Main remains NO-GO; provider/cloud calls, keys and releases need separate operator gates. MCP remains external; no SmartRouter integration.
+
+Block 08 sealed local checkpoint: `0f8fdf6`. Block 09 candidate: see SHADOW_DELTA.md; native fixture only, authority NONE. External convergence checkpoint supplies exact tests/review.
