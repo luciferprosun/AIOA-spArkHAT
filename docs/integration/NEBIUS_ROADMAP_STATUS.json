@@ -1,8 +1,8 @@
 {
   "schema": "aioa.nebius-roadmap-status.v1",
   "scope": "LOCAL_INTEGRATION_CANDIDATE_ONLY",
-  "basis_sha": "3ed32e0f6d14bac5827d60243bdafe26dbfb2583",
-  "selected_block": "07",
+  "basis_sha": "8c59464f37a9e409a8a1f28094ccf40203e6a1d4",
+  "selected_block": "08",
   "claims_live_provider_or_effect": false,
   "blocks": [
     {
@@ -77,7 +77,7 @@
     {
       "block": "07",
       "capability": "Dual Cost/Risk Governor / Hysteresis",
-      "status": "LOCAL_CANDIDATE",
+      "status": "PASS_LOCAL_FIXTURE",
       "source_files": [
         "runtime/mission/governor.py",
         "runtime/providers/nebius_routing.py",
@@ -85,17 +85,20 @@
         "runtime/memory_patch/audit.py",
         "docs/integration/DUAL_GOVERNOR.md"
       ],
-      "scope_and_open_items": "Native integer money/risk paired reservations, conservative UNKNOWN, current epoch/kill dispatch marker and provider circuits; explicit opt-in single-owner Core composition only. Legacy unbound paths retain old behavior; raw-audit namespace governor adoption, hosted global accounting and deployment certification remain OPEN."
+      "scope_and_open_items": "Native integer money/risk paired reservations, conservative UNKNOWN, current epoch/kill dispatch marker and provider circuits; explicit opt-in single-owner Core composition only. Legacy unbound paths retain old behavior; raw-audit namespace governor adoption, hosted global accounting and deployment certification remain OPEN. Accepted local checkpoint 8c59464f; sealed external phase07 evidence. No production/global/distributed certification."
     },
     {
       "block": "08",
       "capability": "Commit-Select-Reveal / covariance verification",
-      "status": "OPEN",
+      "status": "LOCAL_CANDIDATE",
       "source_files": [
-        "runtime/critical_loop/evidence.py",
-        "runtime/service_guard/service.py"
+        "runtime/mission/verification.py",
+        "tests/test_commit_select_reveal.py",
+        "tests/nv08_canary.py",
+        "tests/test_verifier_canary.py",
+        "docs/integration/COMMIT_SELECT_REVEAL.md"
       ],
-      "scope_and_open_items": "Independent target readback exists; CPL critic agreement is not independent authority. Dedicated commit/select/reveal and covariance protocol absent; wait for coherent 05-07."
+      "scope_and_open_items": "Native Core/transaction commit-before-host-selection, exact artifact reveal, mandatory mechanical check plus minimized advisory review, durable START owner and causal replay validation. Seeded synthetic joint misses/covariance; no statistical/model independence claim. Host opaque callback code/config versioning assumed. Existing reviewer wiring belongs to the later unified candidate; no live default import."
     },
     {
       "block": "09",
@@ -161,7 +164,7 @@
       "scope_and_open_items": "Deterministic local rehearsal exists; submission/release/attestation/main integration are separate human gates and remain unperformed."
     }
   ],
-  "validation": "Block06 sealed evidence preserved. Block07 candidate has targeted governor/provider/ServiceGuard/audit tests; acceptance requires focused, static/import, secret/diff, fresh review and external sealed checkpoint. One full suite is reserved for the converged final local candidate. Main integration remains NO.",
+  "validation": "Block05/06 seals preserved. Block07 accepted LOCAL_FIXTURE checkpoint 8c59464f. Block08 targeted/focused/static/secret/diff/fresh review and external seal required. Full suite reserved for final convergence candidate; main integration NO.",
   "execution_program": "SOL61_ULTRA_LOCAL_CONVERGENCE",
   "acceptance_record": "External current sealed phase checkpoint; candidate presence does not imply whole-system acceptance."
 }
