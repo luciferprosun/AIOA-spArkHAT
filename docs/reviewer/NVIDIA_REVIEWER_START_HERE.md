@@ -64,6 +64,10 @@ reviewer preflight plus the pinned local NVIDIA ATIF-v1.7 validation. The Gold
    - optional final Gold 24h continuity design:
      `docs/NVIDIA_GOLD24H_CONTEXT_CONTINUITY.md`
 
+## Causal receipt projection
+
+The same local preflight now includes the block 05 [causal receipt graph](CAUSAL_RECEIPT_GRAPH.md): native digest dependencies, separate event/journal times and stable restart/replay evidence. It is a READ-only metadata projection with authority NONE. See the [canonical blocks 01–14 reconciliation](../integration/NEBIUS_ROADMAP_STATUS.md) for remaining scope.
+
 ## Competition vertical slice
 
 The competition trajectory is deliberately one runtime and one authority path:

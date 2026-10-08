@@ -78,6 +78,11 @@ def run_preflight(workspace: Path) -> dict:
         "dynamics_shadow_only": view.get("memory", {}).get("dvm_pheromone_mode") == "SHADOW",
         "authority_human_bound": view.get("safety", {}).get("human_bound_effect_authority") is True,
         "provider_has_no_authority": view.get("safety", {}).get("provider_output_authority") is False,
+        "receipt_graph_replay_stable": demo.get("safety", {}).get("receipt_graph_replay_stable") is True,
+        "receipt_graph_has_no_authority": (
+            demo.get("receipt_graph", {}).get("authority") == "NONE"
+            and demo.get("receipt_graph", {}).get("verification") == "PROVENANCE_ONLY"
+        ),
         "single_effect_replay_safe": (
             evaluation.get("tool_usage", {}).get("verified_effects") == 1
             and evaluation.get("tool_usage", {}).get("duplicate_effects") == 0

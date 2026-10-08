@@ -21,6 +21,7 @@ for value in (REPO, REPO / "runtime", TESTS):
 
 from nv05_demo import execute as memory_episode  # noqa: E402
 from nv09_support import GuardFixture, LocalTarget  # noqa: E402
+from runtime.core_admission import Capability  # noqa: E402
 
 
 def _require_fresh(root: Path) -> None:
@@ -96,6 +97,7 @@ def run_demo(
             effect = first.tick()
             measured = target.client.read()
             effect_evidence = first.inspect()
+            receipt_graph = first.guard.receipt_graph(first.core.local_operator(Capability.READ), first.operation_id)
         finally:
             first.close()
         restarted = GuardFixture(effect_root, target.client, operation_id="competition-effect")
@@ -103,6 +105,7 @@ def run_demo(
             replay = restarted.tick()
             after_replay = target.client.read()
             replay_evidence = restarted.inspect()
+            replay_graph = restarted.guard.receipt_graph(restarted.core.local_operator(Capability.READ), restarted.operation_id)
         finally:
             restarted.close()
     finally:
@@ -130,6 +133,9 @@ def run_demo(
         and effect_evidence["verified"]["measurement"]["mode"] == "MAINTENANCE"
         and effect_evidence["verified"]["measurement"]["effect_count"] == 1
         and replay_evidence["verified"] == effect_evidence["verified"]
+        and receipt_graph == replay_graph
+        and receipt_graph["projection_status"] == "COMPLETE"
+        and receipt_graph["authority"] == "NONE"
     ):
         raise RuntimeError("COMPETITION_VERTICAL_SLICE_CONTRACT_FAILED")
 
@@ -170,6 +176,7 @@ def run_demo(
         "task_success_rate": 1.0,
         "scenario_count": len(events),
         "events": events,
+        "receipt_graph": receipt_graph,
         "mission": {
             "snapshot_state": "COMPLETE",
             "heartbeat_state": "COMPLETED_EVIDENCE_SNAPSHOT",
@@ -210,6 +217,7 @@ def run_demo(
             "duplicate_effects": after_replay["effect_count"] - 1,
             "hidden_chain_of_thought_recorded": False,
             "human_bound_effect_authority": True,
+            "receipt_graph_replay_stable": receipt_graph == replay_graph,
         },
     }
 

@@ -1,0 +1,162 @@
+{
+  "schema": "aioa.nebius-roadmap-status.v1",
+  "scope": "LOCAL_INTEGRATION_CANDIDATE_ONLY",
+  "basis_sha": "c91fa13a530017a2fe1d876ad70f9b2cb4219103",
+  "selected_block": "05",
+  "exactly_one_block_implemented": true,
+  "claims_live_provider_or_effect": false,
+  "blocks": [
+    {
+      "block": "01",
+      "capability": "Provider Foundation + Provenance Port",
+      "status": "PASS_IMPLEMENTED",
+      "source_files": [
+        "runtime/providers/nebius.py",
+        "runtime/providers/nebius_routing.py",
+        "runtime/providers/exact.py"
+      ],
+      "scope_and_open_items": "Exact-model native contract/cost/provenance implemented. Historical single G1 transport proof retained; incomplete advisory content remains REJECTED, not accepted architecture."
+    },
+    {
+      "block": "02",
+      "capability": "Typed Outcome + Liability Core",
+      "status": "PARTIAL",
+      "source_files": [
+        "lab/archaioa/outcome.py",
+        "lab/archaioa/liability.py",
+        "runtime/service_guard/service.py"
+      ],
+      "scope_and_open_items": "Typed lab values and native ServiceGuard states exist; general liability product integration remains open. No second outcome/authority core."
+    },
+    {
+      "block": "03",
+      "capability": "Linear Effect Warrant + DecisionDependencyRoot",
+      "status": "PARTIAL",
+      "source_files": [
+        "lab/archaioa/warrant.py",
+        "lab/archaioa/decision_root.py",
+        "runtime/service_guard/target.py"
+      ],
+      "scope_and_open_items": "Lab proof + native host-only effect handle exist; external accepted MCP N5 fixture authority retained outside AIOA. Production signer/custody remains OPEN."
+    },
+    {
+      "block": "04",
+      "capability": "Intent Journal / Outbox / Epoch Fencing",
+      "status": "PARTIAL",
+      "source_files": [
+        "runtime/mission/lite_journal.py",
+        "runtime/service_guard/service.py",
+        "runtime/memory_patch/persistence/ports.py"
+      ],
+      "scope_and_open_items": "Durable local intent/reconciliation/restart and coordinator epoch implemented. Distributed outbox/lease/target fencing is not inferred from S0."
+    },
+    {
+      "block": "05",
+      "capability": "Causal Receipt Graph + Bi-temporal Evidence",
+      "status": "PASS_IMPLEMENTED",
+      "source_files": [
+        "runtime/service_guard/receipt_graph.py",
+        "runtime/service_guard/service.py",
+        "scripts/nvidia_competition_demo.py",
+        "scripts/nvidia_reviewer_preflight.py"
+      ],
+      "scope_and_open_items": "Implemented bounded local causal graph over native OPERATION/AUDIT records; valid time and local journal record time separated, legacy missing timestamps UNKNOWN. Metadata/provenance only; no authority, new storage or distributed DB-commit guarantee."
+    },
+    {
+      "block": "06",
+      "capability": "Context Capsules / HAT Minimization",
+      "status": "PARTIAL",
+      "source_files": [
+        "runtime/memory_patch/lite.py",
+        "runtime/memory_patch/personal/retrieval.py",
+        "runtime/memory_patch/learning/index.py"
+      ],
+      "scope_and_open_items": "Bounded owner-scoped HAT/retrieval and source lineage exist. Explicit least-context capsule/decision-root minimization product proof remains incomplete. Not selected."
+    },
+    {
+      "block": "07",
+      "capability": "Dual Cost/Risk Governor / Hysteresis",
+      "status": "PARTIAL",
+      "source_files": [
+        "runtime/providers/nebius_routing.py",
+        "runtime/mission/lite_journal.py",
+        "runtime/service_guard/contracts.py"
+      ],
+      "scope_and_open_items": "Mechanical cost budget and bounded ServicePolicy exist; a combined risk governor with hysteresis is not proven. No risk-side implementation in this task."
+    },
+    {
+      "block": "08",
+      "capability": "Commit-Select-Reveal / covariance verification",
+      "status": "OPEN",
+      "source_files": [
+        "runtime/critical_loop/evidence.py",
+        "runtime/service_guard/service.py"
+      ],
+      "scope_and_open_items": "Independent target readback exists; CPL critic agreement is not independent authority. Dedicated commit/select/reveal and covariance protocol absent; wait for coherent 05-07."
+    },
+    {
+      "block": "09",
+      "capability": "Shadow Delta fixture",
+      "status": "SHADOW",
+      "source_files": [
+        "runtime/memory_patch/learning/index.py",
+        "docs/NV05_DYNAMICS.md"
+      ],
+      "scope_and_open_items": "DVM/pheromone/epistemic stigmergy remain SHADOW; no promotion evidence or permission."
+    },
+    {
+      "block": "10",
+      "capability": "Nebius Cloud Worker S1",
+      "status": "BLOCKED_EXTERNAL",
+      "source_files": [
+        "runtime/service_guard/serverless_worker.py",
+        "docs/NEBIUS_SCALE_ROADMAP.md"
+      ],
+      "scope_and_open_items": "Local typed adapter/store interfaces exist; real cloud worker/deployment/credits/auth/authority gates not authorized. No cloud probe/execution."
+    },
+    {
+      "block": "11",
+      "capability": "Multi-worker S2 fencing",
+      "status": "SPEC_ONLY",
+      "source_files": [
+        "docs/NEBIUS_SCALE_ROADMAP.md",
+        "runtime/mission/lite_journal.py"
+      ],
+      "scope_and_open_items": "Design and local epoch primitives are not distributed multi-worker certification. Requires separately verified S1."
+    },
+    {
+      "block": "12",
+      "capability": "Formal/Fault/Endurance",
+      "status": "PARTIAL",
+      "source_files": [
+        "lab/archaioa/faults.py",
+        "docs/NVIDIA_FINAL_WEEK_PROGRESS.md",
+        "docs/NVIDIA_GOLD24H_CONTEXT_CONTINUITY.md"
+      ],
+      "scope_and_open_items": "Local fault/replay tests and historical segmented endurance exist; integrated current-HEAD formal/continuous endurance is not claimed."
+    },
+    {
+      "block": "13",
+      "capability": "Operator Evidence Console",
+      "status": "PARTIAL",
+      "source_files": [
+        "runtime/competition_view.py",
+        "runtime/competition_evaluation.py",
+        "runtime/authority_timeline.py"
+      ],
+      "scope_and_open_items": "Read-only local evidence projection exists; full integrated causal/time console is incomplete. Only existing reviewer slice will surface selected 05 metadata."
+    },
+    {
+      "block": "14",
+      "capability": "Final demo / Devpost / release hardening",
+      "status": "PARTIAL",
+      "source_files": [
+        "scripts/nvidia_competition_demo.py",
+        "scripts/nvidia_reviewer_preflight.py",
+        "docs/nebius_devpost_submission_draft.md"
+      ],
+      "scope_and_open_items": "Deterministic local rehearsal exists; submission/release/attestation/main integration are separate human gates and remain unperformed."
+    }
+  ],
+  "validation": "Targeted graph/demo/preflight tests passed 25/25, including eight rehashed-measurement regressions; corrected whole-source regression required before local checkpoint. External evidence remains separate; rerun native reviewer/full gates for this checkout."
+}

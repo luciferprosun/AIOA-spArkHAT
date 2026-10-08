@@ -1,0 +1,22 @@
+# Nebius canonical blocks 01–14 — local reconciliation
+
+Scope: existing unified integration candidate. These labels describe the stated local scope, not production certification. Models, providers, transport, memory and graph metadata never grant consequential authority.
+
+| Block | Capability | Status | Scope / open items |
+|---|---|---|---|
+| 01 | Provider Foundation + Provenance Port | PASS_IMPLEMENTED | Exact-model native contract/cost/provenance implemented. Historical single G1 transport proof retained; incomplete advisory content remains REJECTED, not accepted architecture. |
+| 02 | Typed Outcome + Liability Core | PARTIAL | Typed lab values and native ServiceGuard states exist; general liability product integration remains open. No second outcome/authority core. |
+| 03 | Linear Effect Warrant + DecisionDependencyRoot | PARTIAL | Lab proof + native host-only effect handle exist; external accepted MCP N5 fixture authority retained outside AIOA. Production signer/custody remains OPEN. |
+| 04 | Intent Journal / Outbox / Epoch Fencing | PARTIAL | Durable local intent/reconciliation/restart and coordinator epoch implemented. Distributed outbox/lease/target fencing is not inferred from S0. |
+| 05 | Causal Receipt Graph + Bi-temporal Evidence | PASS_IMPLEMENTED | Implemented bounded local causal graph over native OPERATION/AUDIT records; valid time and local journal record time separated, legacy missing timestamps UNKNOWN. Metadata/provenance only; no authority, new storage or distributed DB-commit guarantee. |
+| 06 | Context Capsules / HAT Minimization | PARTIAL | Bounded owner-scoped HAT/retrieval and source lineage exist. Explicit least-context capsule/decision-root minimization product proof remains incomplete. Not selected. |
+| 07 | Dual Cost/Risk Governor / Hysteresis | PARTIAL | Mechanical cost budget and bounded ServicePolicy exist; a combined risk governor with hysteresis is not proven. No risk-side implementation in this task. |
+| 08 | Commit-Select-Reveal / covariance verification | OPEN | Independent target readback exists; CPL critic agreement is not independent authority. Dedicated commit/select/reveal and covariance protocol absent; wait for coherent 05-07. |
+| 09 | Shadow Delta fixture | SHADOW | DVM/pheromone/epistemic stigmergy remain SHADOW; no promotion evidence or permission. |
+| 10 | Nebius Cloud Worker S1 | BLOCKED_EXTERNAL | Local typed adapter/store interfaces exist; real cloud worker/deployment/credits/auth/authority gates not authorized. No cloud probe/execution. |
+| 11 | Multi-worker S2 fencing | SPEC_ONLY | Design and local epoch primitives are not distributed multi-worker certification. Requires separately verified S1. |
+| 12 | Formal/Fault/Endurance | PARTIAL | Local fault/replay tests and historical segmented endurance exist; integrated current-HEAD formal/continuous endurance is not claimed. |
+| 13 | Operator Evidence Console | PARTIAL | Read-only local evidence projection exists; full integrated causal/time console is incomplete. Only existing reviewer slice will surface selected 05 metadata. |
+| 14 | Final demo / Devpost / release hardening | PARTIAL | Deterministic local rehearsal exists; submission/release/attestation/main integration are separate human gates and remain unperformed. |
+
+Block 05 is the only implementation added in this bounded task. Source references are in the companion JSON. Blocks 06–08 are not implemented here. Main integration, provider calls, cloud execution, keys and releases need separate operator authorization. MCP remains the external control plane; no SmartRouter integration.

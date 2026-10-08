@@ -79,12 +79,16 @@ class CoreServiceGuard:
         self._require(principal, purpose)
         key = self._key(operation_id, phase)
         binding = OperationBinding.bind(key, "nv09-" + phase, outcome)
+        # Local journal metadata only. Prepare outside retryable callbacks;
+        # never feed this timestamp back into consent/dispatch authority.
+        recorded_at = int(time.time())
 
         def write(tx):
             def record():
                 tx.insert(StoredRecord(RecordKind.AUDIT, "nv09-" + key,
                           self.policy.scope, 1, {"state": "SERVICE_GUARD",
                           "phase": phase, "operation_id": operation_id,
+                          "recorded_at": recorded_at,
                           "outcome_digest": binding.payload_digest}))
                 return outcome
             return execute_once(tx, binding, record)
@@ -131,6 +135,25 @@ class CoreServiceGuard:
         self._require(principal, Capability.READ)
         return {name: self._get(operation_id, name) for name in
                 ("approval", "revocation", "proposal", "intent", "receipt", "verified", "blocked")}
+
+    def receipt_graph(self, principal, operation_id):
+        """One bounded, Core-scoped READ snapshot; no target call or mutation."""
+        from runtime.service_guard.receipt_graph import PHASES, project_receipt_graph
+        self._require(principal, Capability.READ)
+
+        def project(tx):
+            records, audits = {}, {}
+            for phase in PHASES:
+                key = self._key(operation_id, phase)
+                record = tx.get(RecordKind.OPERATION, key)
+                audit = tx.get(RecordKind.AUDIT, "nv09-" + key)
+                if record is not None:
+                    records[phase] = record
+                if audit is not None:
+                    audits[phase] = audit
+            return project_receipt_graph(records, audits, policy=self.policy, operation_id=operation_id)
+
+        return self.runner.run(TransactionContext(principal, Capability.READ), project)
 
     def _expired_approval(self, operation_id):
         # An observed expiry/policy denial is terminal for this immutable
