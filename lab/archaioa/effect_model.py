@@ -172,6 +172,10 @@ class CheckResult:
 
 
 def check_model(initial=State(), depth_bound=32):
+    return check_state_machine(initial,depth_bound,ACTIONS,transition,invariant_violations,_well_formed)
+
+
+def check_state_machine(initial, depth_bound, actions, step, invariants, valid):
     """Exhaust BFS to a fixed point, or fail if the explicit depth bound cuts it off.
 
     Every action is attempted at every state, including illegal replay/retry.
@@ -192,17 +196,17 @@ def check_model(initial=State(), depth_bound=32):
 
     while queue:
         s, depth = queue.popleft()
-        failures = invariant_violations(s)
-        if not _well_formed(s):
+        failures = invariants(s)
+        if not valid(s):
             failures += ('FiniteStateDomain',)
         if failures:
             raise ModelViolation(format_trace(trace(s), failures))
         max_depth = max(max_depth, depth)
         digest.update(('STATE ' + s.serialize() + '\n').encode())
-        for action in ACTIONS:
+        for action in actions:
             before = s.serialize()
             try:
-                successor = transition(s, action)
+                successor = step(s, action)
             except TransitionRejected:
                 assert before == s.serialize(), 'rejected action mutated input'
                 rejected += 1

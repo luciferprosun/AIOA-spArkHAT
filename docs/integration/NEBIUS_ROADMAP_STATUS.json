@@ -1,8 +1,8 @@
 {
   "schema": "aioa.nebius-roadmap-status.v1",
   "scope": "LOCAL_INTEGRATION_CANDIDATE_ONLY",
-  "basis_sha": "6338c6c68b8400618876c2a4a8fd6a8ab8f41b43",
-  "selected_block": "10-11-OFFLINE",
+  "basis_sha": "f4373bdeec292417f9ec974e7f8370f589767b32",
+  "selected_block": "12-LOCAL",
   "claims_live_provider_or_effect": false,
   "blocks": [
     {
@@ -139,13 +139,13 @@
     {
       "block": "12",
       "capability": "Formal/Fault/Endurance",
-      "status": "PARTIAL",
+      "status": "PASS_LOCAL_RESTRICTED",
       "source_files": [
-        "lab/archaioa/faults.py",
-        "docs/NVIDIA_FINAL_WEEK_PROGRESS.md",
-        "docs/NVIDIA_GOLD24H_CONTEXT_CONTINUITY.md"
+        "lab/archaioa/effect_model.py",
+        "lab/archaioa/governed_model.py",
+        "docs/integration/FORMAL_FAULT_LOCAL.md"
       ],
-      "scope_and_open_items": "Local fault/replay tests and historical segmented endurance exist; integrated current-HEAD formal/continuous endurance is not claimed."
+      "scope_and_open_items": "Finite checker + bounded native fault/endurance evidence; production/refinement and historical endurance integrity remain OPEN."
     },
     {
       "block": "13",

@@ -24,3 +24,5 @@ Block06 acceptance is preserved. Block07 is accepted at local checkpoint `8c5946
 Block 08 sealed local checkpoint: `0f8fdf6`. Block 09 candidate: see SHADOW_DELTA.md; native fixture only, authority NONE. External convergence checkpoint supplies exact tests/review.
 
 Block 09 sealed local fixture checkpoint: `6338c6c`. Blocks 10/11 offline candidate: OFFLINE_ADVISORY_JOBS.md; cloud S1/S2 remain gated.
+
+Block12: restricted explicit checker/fault local PASS; historical endurance integrity BLOCKED_EVIDENCE.
