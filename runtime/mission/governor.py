@@ -296,6 +296,31 @@ commit or refund it. A lost marker ACK never gives send permission on replay.
             return {'kill':active},changed
         return self._change(principal,Capability.MANAGE,change,check_clock=not active)
 
+    def _reserve_state(self,state,request,epoch,now):
+        binding=canonical_sha256(request)
+        self._epoch(state,epoch)
+        existing=state['reservations'].get(request.request_id)
+        if existing is not None:
+            _deny(existing['binding_digest'] == binding,'IDEMPOTENCY_CONFLICT')
+            return existing,False
+        _deny(not state['kill'],'KILL_SWITCH')
+        _deny(len(state['reservations']) < 128,'HISTORY_QUOTA')
+        if request.provider_id not in state['circuits']:
+            _deny(len(state['circuits']) < 32,'HISTORY_QUOTA')
+        circuit=state['circuits'].setdefault(request.provider_id,
+            {'state':'CLOSED','failures':0,'successes':0,'opened_at':0,'probe':None})
+        if circuit['state'] == 'OPEN':
+            _deny(now-circuit['opened_at'] >= self.policy.cooldown_seconds,'CIRCUIT_OPEN')
+            circuit.update(state='HALF_OPEN',probe=None,successes=0)
+        if circuit['state'] == 'HALF_OPEN':
+            _deny(circuit['probe'] is None,'HALF_OPEN_BUSY')
+            circuit['probe']=request.request_id
+        entry={**asdict(request),'binding_digest':binding,'epoch':epoch,'state':'RESERVED',
+               'evidence_digest':None,'no_dispatch_proof':None}
+        state['reservations'][request.request_id]=entry
+        self._budgets(state)
+        return entry,True
+
     def reserve(self, principal, request, epoch):
         self._require(principal,Capability.COMMIT)
         _deny(type(request) is ReservationRequest,'INVALID_RESERVATION_REQUEST')
@@ -304,29 +329,24 @@ commit or refund it. A lost marker ACK never gives send permission on replay.
         _deny(request.model_id in principal.model_binding_ids,'MODEL_BINDING_DENIED')
         now=self._now()
         def change(state):
-            self._epoch(state,epoch)
-            existing=state['reservations'].get(request.request_id)
-            if existing is not None:
-                _deny(existing['binding_digest'] == binding,'IDEMPOTENCY_CONFLICT')
-                return existing,False
-            _deny(not state['kill'],'KILL_SWITCH')
-            _deny(len(state['reservations']) < 128,'HISTORY_QUOTA')
-            if request.provider_id not in state['circuits']:
-                _deny(len(state['circuits']) < 32,'HISTORY_QUOTA')
-            circuit=state['circuits'].setdefault(request.provider_id,
-                {'state':'CLOSED','failures':0,'successes':0,'opened_at':0,'probe':None})
-            if circuit['state'] == 'OPEN':
-                _deny(now-circuit['opened_at'] >= self.policy.cooldown_seconds,'CIRCUIT_OPEN')
-                circuit.update(state='HALF_OPEN',probe=None,successes=0)
-            if circuit['state'] == 'HALF_OPEN':
-                _deny(circuit['probe'] is None,'HALF_OPEN_BUSY')
-                circuit['probe']=request.request_id
-            entry={**asdict(request),'binding_digest':binding,'epoch':epoch,'state':'RESERVED',
-                   'evidence_digest':None,'no_dispatch_proof':None}
-            state['reservations'][request.request_id]=entry
-            self._budgets(state)
-            return entry,True
+            return self._reserve_state(state,request,epoch,now)
         return self._change(principal,Capability.COMMIT,change)
+    def _dispatch_state(self,state,request_id,epoch,now):
+        self._epoch(state,epoch)
+        entry=state['reservations'].get(request_id)
+        _deny(entry is not None,'RESERVATION_REQUIRED')
+        if entry['state'] != 'RESERVED':
+            return {'dispatch_now':False,'reservation':entry,'reconcile_only':True},False
+        _deny(entry['epoch'] == epoch,'STALE_RESERVATION_EPOCH')
+        _deny(not state['kill'],'KILL_SWITCH')
+        circuit=state['circuits'][entry['provider_id']]
+        _deny(circuit['state'] == 'CLOSED' or
+              (circuit['state'] == 'HALF_OPEN' and circuit['probe'] == request_id),'CIRCUIT_OPEN')
+        self._clock(state,now)
+        self._budgets(state)
+        entry['state']='DISPATCHED'
+        return {'dispatch_now':True,'reservation':entry,'reconcile_only':False},True
+
     def dispatch_commit(self, principal, request_id, epoch):
         """Final current-state CAS. Only a newly ACKed marker permits one send.
 
@@ -336,20 +356,7 @@ and human-authority checks must still pass. Do not send after an exception.
         _identity(request_id)
         now=self._now()
         def change(state):
-            self._epoch(state,epoch)
-            entry=state['reservations'].get(request_id)
-            _deny(entry is not None,'RESERVATION_REQUIRED')
-            if entry['state'] != 'RESERVED':
-                return {'dispatch_now':False,'reservation':entry,'reconcile_only':True},False
-            _deny(entry['epoch'] == epoch,'STALE_RESERVATION_EPOCH')
-            _deny(not state['kill'],'KILL_SWITCH')
-            circuit=state['circuits'][entry['provider_id']]
-            _deny(circuit['state'] == 'CLOSED' or
-                  (circuit['state'] == 'HALF_OPEN' and circuit['probe'] == request_id),'CIRCUIT_OPEN')
-            self._clock(state,now)
-            self._budgets(state)
-            entry['state']='DISPATCHED'
-            return {'dispatch_now':True,'reservation':entry,'reconcile_only':False},True
+            return self._dispatch_state(state,request_id,epoch,now)
         return self._change(principal,Capability.COMMIT,change)
 
     def release_not_dispatched(self, principal, request_id, epoch):
@@ -369,25 +376,47 @@ and human-authority checks must still pass. Do not send after an exception.
             return entry,True
         return self._change(principal,Capability.COMMIT,change)
 
+    def _unknown_state(self,state,request_id,epoch,evidence_digest,now):
+        self._epoch(state,epoch)
+        entry=state['reservations'].get(request_id)
+        _deny(entry is not None,'RESERVATION_REQUIRED')
+        if entry['state'] == 'UNKNOWN':
+            _deny(entry['evidence_digest'] == evidence_digest,'IDEMPOTENCY_CONFLICT')
+            return entry,False
+        _deny(entry['state'] == 'DISPATCHED','DISPATCH_MARKER_REQUIRED')
+        entry.update(state='UNKNOWN',evidence_digest=evidence_digest)
+        circuit=state['circuits'][entry['provider_id']]
+        circuit['failures']=_amount(circuit['failures']+1)
+        circuit['successes']=0
+        if circuit['state'] == 'HALF_OPEN' or circuit['failures'] >= self.policy.failure_threshold:
+            circuit.update(state='OPEN',opened_at=now,probe=None)
+        return entry,True
+
     def mark_unknown(self, principal, request_id, epoch, evidence_digest):
         _identity(request_id);_digest(evidence_digest)
         now=self._now()
         def change(state):
-            self._epoch(state,epoch)
-            entry=state['reservations'].get(request_id)
-            _deny(entry is not None,'RESERVATION_REQUIRED')
-            if entry['state'] == 'UNKNOWN':
-                _deny(entry['evidence_digest'] == evidence_digest,'IDEMPOTENCY_CONFLICT')
-                return entry,False
-            _deny(entry['state'] == 'DISPATCHED','DISPATCH_MARKER_REQUIRED')
-            entry.update(state='UNKNOWN',evidence_digest=evidence_digest)
-            circuit=state['circuits'][entry['provider_id']]
-            circuit['failures']=_amount(circuit['failures']+1)
-            circuit['successes']=0
-            if circuit['state'] == 'HALF_OPEN' or circuit['failures'] >= self.policy.failure_threshold:
-                circuit.update(state='OPEN',opened_at=now,probe=None)
-            return entry,True
+            return self._unknown_state(state,request_id,epoch,evidence_digest,now)
         return self._change(principal,Capability.COMMIT,change)
+
+    def _settle_state(self,state,request_id,epoch,evidence_digest):
+        self._epoch(state,epoch)
+        entry=state['reservations'].get(request_id)
+        _deny(entry is not None,'RESERVATION_REQUIRED')
+        if entry['state'] == 'COMMITTED':
+            _deny(entry['evidence_digest'] == evidence_digest,'IDEMPOTENCY_CONFLICT')
+            return entry,False
+        _deny(entry['state'] in {'DISPATCHED','UNKNOWN'},'DISPATCH_MARKER_REQUIRED')
+        was_unknown=entry['state'] == 'UNKNOWN'
+        entry.update(state='COMMITTED',evidence_digest=evidence_digest)
+        circuit=state['circuits'][entry['provider_id']]
+        if not was_unknown and circuit['state'] == 'HALF_OPEN' and circuit['probe'] == request_id:
+            circuit['probe']=None;circuit['successes']+=1
+            if circuit['successes'] >= self.policy.recovery_successes:
+                circuit.update(state='CLOSED',failures=0,successes=0)
+        elif not was_unknown and circuit['state'] == 'CLOSED':
+            circuit['failures']=0
+        return entry,True
 
     def settle(self, principal, request_id, epoch, evidence_digest):
         """Evidence-referenced pessimistic charge of the entire reserved bound.
@@ -397,24 +426,36 @@ retry. Circuit recovery from UNKNOWN is deliberately not treated as success.
 """
         _identity(request_id);_digest(evidence_digest)
         def change(state):
-            self._epoch(state,epoch)
-            entry=state['reservations'].get(request_id)
-            _deny(entry is not None,'RESERVATION_REQUIRED')
-            if entry['state'] == 'COMMITTED':
-                _deny(entry['evidence_digest'] == evidence_digest,'IDEMPOTENCY_CONFLICT')
-                return entry,False
-            _deny(entry['state'] in {'DISPATCHED','UNKNOWN'},'DISPATCH_MARKER_REQUIRED')
-            was_unknown=entry['state'] == 'UNKNOWN'
-            entry.update(state='COMMITTED',evidence_digest=evidence_digest)
-            circuit=state['circuits'][entry['provider_id']]
-            if not was_unknown and circuit['state'] == 'HALF_OPEN' and circuit['probe'] == request_id:
-                circuit['probe']=None;circuit['successes']+=1
-                if circuit['successes'] >= self.policy.recovery_successes:
-                    circuit.update(state='CLOSED',failures=0,successes=0)
-            elif not was_unknown and circuit['state'] == 'CLOSED':
-                circuit['failures']=0
-            return entry,True
+            return self._settle_state(state,request_id,epoch,evidence_digest)
         return self._change(principal,Capability.COMMIT,change)
+
+    def submit_job(self,principal,envelope):
+        from runtime.mission.jobs import change_job
+        return change_job(self,principal,'submit',envelope=envelope)
+
+    def claim_job(self,principal,task_id,worker_id,epoch,*,lease_seconds):
+        from runtime.mission.jobs import change_job
+        return change_job(self,principal,'claim',task_id=task_id,worker_id=worker_id,epoch=epoch,lease_seconds=lease_seconds)
+
+    def takeover_job(self,principal,task_id,worker_id,epoch,*,lease_seconds):
+        from runtime.mission.jobs import change_job
+        return change_job(self,principal,'takeover',task_id=task_id,worker_id=worker_id,epoch=epoch,lease_seconds=lease_seconds)
+
+    def renew_job(self,principal,claim,*,lease_seconds):
+        from runtime.mission.jobs import change_job
+        return change_job(self,principal,'renew',claim=claim,lease_seconds=lease_seconds)
+
+    def begin_job(self,principal,claim):
+        from runtime.mission.jobs import change_job
+        return change_job(self,principal,'begin',claim=claim)
+
+    def finish_job(self,principal,claim,response):
+        from runtime.mission.jobs import change_job
+        return change_job(self,principal,'finish',claim=claim,response=response)
+
+    def inspect_job(self,principal,task_id):
+        from runtime.mission.jobs import change_job
+        return change_job(self,principal,'inspect',task_id=task_id)
 
 
 @dataclass(frozen=True, slots=True, repr=False)

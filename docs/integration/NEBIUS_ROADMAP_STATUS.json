@@ -1,8 +1,8 @@
 {
   "schema": "aioa.nebius-roadmap-status.v1",
   "scope": "LOCAL_INTEGRATION_CANDIDATE_ONLY",
-  "basis_sha": "0f8fdf690fa1441d3db8e772f666fff565d49580",
-  "selected_block": "09",
+  "basis_sha": "6338c6c68b8400618876c2a4a8fd6a8ab8f41b43",
+  "selected_block": "10-11-OFFLINE",
   "claims_live_provider_or_effect": false,
   "blocks": [
     {
@@ -103,7 +103,7 @@
     {
       "block": "09",
       "capability": "Shadow Delta fixture",
-      "status": "LOCAL_CANDIDATE",
+      "status": "PASS_LOCAL_SEALED",
       "source_files": [
         "runtime/service_guard/shadow_delta.py",
         "runtime/service_guard/service.py",
@@ -115,22 +115,26 @@
     {
       "block": "10",
       "capability": "Nebius Cloud Worker S1",
-      "status": "BLOCKED_EXTERNAL",
+      "status": "LOCAL_OFFLINE_CANDIDATE",
       "source_files": [
-        "runtime/service_guard/serverless_worker.py",
-        "docs/NEBIUS_SCALE_ROADMAP.md"
+        "runtime/mission/governor.py",
+        "runtime/mission/job_contracts.py",
+        "runtime/mission/jobs.py",
+        "tests/test_advisory_jobs.py"
       ],
-      "scope_and_open_items": "Local typed adapter/store interfaces exist; real cloud worker/deployment/credits/auth/authority gates not authorized. No cloud probe/execution."
+      "scope_and_open_items": "Single existing Core governor owns native job envelope/lease/fence and synthetic S1/S2. Cloud S1 BLOCKED_APPROVAL, S2 NOT_RUN_DEPENDS_S1; no actual provider dispatcher or target-native distributed fencing claim."
     },
     {
       "block": "11",
       "capability": "Multi-worker S2 fencing",
-      "status": "SPEC_ONLY",
+      "status": "LOCAL_OFFLINE_CANDIDATE",
       "source_files": [
-        "docs/NEBIUS_SCALE_ROADMAP.md",
-        "runtime/mission/lite_journal.py"
+        "runtime/mission/governor.py",
+        "runtime/mission/job_contracts.py",
+        "runtime/mission/jobs.py",
+        "tests/test_advisory_jobs.py"
       ],
-      "scope_and_open_items": "Design and local epoch primitives are not distributed multi-worker certification. Requires separately verified S1."
+      "scope_and_open_items": "Single existing Core governor owns native job envelope/lease/fence and synthetic S1/S2. Cloud S1 BLOCKED_APPROVAL, S2 NOT_RUN_DEPENDS_S1; no actual provider dispatcher or target-native distributed fencing claim."
     },
     {
       "block": "12",
