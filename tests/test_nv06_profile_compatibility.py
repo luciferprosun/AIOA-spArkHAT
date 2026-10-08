@@ -30,6 +30,8 @@ def historical_payload(profile):
     excluded = ("digest",) + tuple(
         name for name in OPTIONAL_BINDINGS if getattr(profile, name) is None
     )
+    if profile.provider_id == "nvidia":
+        excluded += ("route_role", "escalation_condition")
     return to_canonical_data(profile, exclude_fields=frozenset(excluded))
 
 
@@ -80,6 +82,32 @@ class NV06ProfileCompatibilityTests(unittest.TestCase):
                 hashlib.sha256(canonical_json_bytes(historical_payload(profile))).hexdigest(),
                 profile.digest,
             )
+
+    def test_nebius_routing_fields_remain_in_identity(self):
+        observed = set()
+        for role, condition in (
+            ("FAST", None), ("BALANCED", None),
+            ("ULTRA", "OPERATOR_REQUEST"), ("ULTRA", "CPL_CONFLICT"),
+        ):
+            with self.subTest(role=role, condition=condition):
+                profile = replace(
+                    self.profile, provider_id="nebius",
+                    model_id="nvidia/Nemotron-3_5-Lightning",
+                    route_role=role, escalation_condition=condition,
+                )
+                expected = {
+                    **self.golden, "provider_id": "nebius",
+                    "model_id": "nvidia/Nemotron-3_5-Lightning",
+                    "route_role": role, "escalation_condition": condition,
+                }
+                self.assertEqual(expected, historical_payload(profile))
+                encoded = json.dumps(
+                    expected, sort_keys=True, separators=(",", ":"),
+                    ensure_ascii=False, allow_nan=False,
+                ).encode("utf-8")
+                self.assertEqual(hashlib.sha256(encoded).hexdigest(), profile.digest)
+                observed.add(profile.digest)
+        self.assertEqual(4, len(observed))
 
     def test_personal_binding_requires_valid_digest_and_active_composition(self):
         for value in ("", "bad", "A" * 64, 42):

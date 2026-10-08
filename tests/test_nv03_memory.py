@@ -62,8 +62,15 @@ class NV03Tests(unittest.TestCase):
         )
         for name in unset_bindings:
             self.assertIsNone(getattr(fx.profile, name), name)
+        # The native NVIDIA profile has no Nebius routing binding. Those two
+        # explicit compatibility fields are absent from the original NV02 wire
+        # identity; an unrelated future null field must still remain protected.
+        self.assertEqual("nvidia", fx.profile.provider_id)
+        self.assertIsNone(fx.profile.route_role)
+        self.assertIsNone(fx.profile.escalation_condition)
         expected = canonical_sha256(
-            fx.profile, exclude_fields=("digest", *unset_bindings)
+            fx.profile,
+            exclude_fields=("digest", *unset_bindings, "route_role", "escalation_condition"),
         )
         self.assertEqual(expected, fx.profile.digest)
         with self.assertRaisesRegex(MissionError, "MEMORY_NOT_COMPOSED"):

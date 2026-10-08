@@ -344,6 +344,8 @@ class PersonalContractTests(unittest.TestCase):
                     "cpl_profile_digest",
                     "dynamics_profile_digest",
                     "personal_profile_digest",
+                    "route_role",
+                    "escalation_condition",
                 ),
             ),
         )
