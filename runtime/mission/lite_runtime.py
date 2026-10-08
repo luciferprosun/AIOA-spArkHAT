@@ -276,7 +276,8 @@ class LiteScheduler:
         except ProviderError as error:
             status = "UNKNOWN" if error.outcome_unknown else "RELEASED"
             self.journal.settle(reservation_id, status, reason=error.code)
-            if error.code not in {"MISSING_API_KEY", "INVALID_API_KEY_CONFIGURATION", "MODEL_NOT_FOUND", "INVALID_PROVIDER_REQUEST", "INPUT_TOO_LARGE"}:
+            if (error.transport_attempted is not False
+                    and error.code not in {"MISSING_API_KEY", "INVALID_API_KEY_CONFIGURATION", "MODEL_NOT_FOUND", "INVALID_PROVIDER_REQUEST", "INPUT_TOO_LARGE"}):
                 state["model_calls"] += 1
             retry = error.retryable and not error.outcome_unknown and item["attempts"] <= self.profile.budget.max_retry
             if retry:

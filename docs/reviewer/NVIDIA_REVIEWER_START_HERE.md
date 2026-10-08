@@ -254,3 +254,7 @@ For a deeper review:
 # Context capsule snapshot
 
 The same reviewer path now includes the bounded [block 06 context capsule](CONTEXT_CAPSULE.md), with native owner/HAT/source validation and restart-stable metadata only. It grants no authority and exports no raw context.
+
+## Local convergence candidate after Block06
+
+The [native dual governor](../integration/DUAL_GOVERNOR.md) adds opt-in money/risk bookkeeping to the same Core, provider and ServiceGuard. Its local tests use offline provider and disposable target fixtures. The existing competition preflight still proves its stated historical slice; it does not yet claim the later unified Nebius/governor verification path. Current acceptance, exact SHA and remaining gates are recorded in external convergence evidence. No LIVE capability, production signer custody or main integration follows from these local checks.

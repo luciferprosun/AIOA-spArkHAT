@@ -6,12 +6,14 @@ later delivery takes the read-only target reconciliation route.
 """
 
 from dataclasses import dataclass
+from datetime import datetime, timezone
 import json
 import threading
 import time
 import uuid
 
 from runtime.core_admission import Capability, CoreAdmission
+from runtime.memory_patch.audit import append_domain_event
 from runtime.memory_patch.contracts.serialization import canonical_json_bytes, canonical_sha256
 from runtime.memory_patch.errors import CommitOutcomeUnknown, MemoryPatchError
 from runtime.memory_patch.persistence.idempotency import OperationBinding, execute_once
@@ -33,7 +35,7 @@ def plain(value):
 
 class CoreServiceGuard:
     """Admitted domain service; does not create a Core, credential source or loop."""
-    def __init__(self, core, runner, policy, target, *, clock=time.time):
+    def __init__(self, core, runner, policy, target, *, clock=time.time, governor_binding=None):
         target_port = (
             type(getattr(target, "scope", None)) is type(policy.scope)
             and type(getattr(target, "target_id", None)) is str
@@ -47,6 +49,14 @@ class CoreServiceGuard:
         self.core, self.runner, self.policy, self.target = core, runner, policy, target
         self.clock = clock
         self._effect_lock = threading.RLock()
+        if governor_binding is not None:
+            from runtime.mission.governor import GovernorBinding
+            if (type(governor_binding) is not GovernorBinding
+                    or governor_binding.governor.core is not core
+                    or governor_binding.governor.runner is not runner
+                    or governor_binding.governor.policy.scope != policy.scope):
+                raise GuardError('INVALID_GOVERNOR_BINDINGS')
+        self._governor_binding=governor_binding
 
     def _now(self):
         value = self.clock()
@@ -81,15 +91,40 @@ class CoreServiceGuard:
         binding = OperationBinding.bind(key, "nv09-" + phase, outcome)
         # Local journal metadata only. Prepare outside retryable callbacks;
         # never feed this timestamp back into consent/dispatch authority.
-        recorded_at = int(time.time())
+        recorded_at = datetime.now(timezone.utc)
 
         def write(tx):
             def record():
-                tx.insert(StoredRecord(RecordKind.AUDIT, "nv09-" + key,
-                          self.policy.scope, 1, {"state": "SERVICE_GUARD",
-                          "phase": phase, "operation_id": operation_id,
-                          "recorded_at": recorded_at,
-                          "outcome_digest": binding.payload_digest}))
+                audits=tx.scan(RecordKind.AUDIT,limit=1024)
+                if len(audits) >= 1024:
+                    raise GuardError('GUARD_AUDIT_QUOTA')
+                legacy=any(row.payload.get('state') == 'SERVICE_GUARD' for row in audits)
+                if legacy:
+                    # Continue an existing legacy namespace exactly; never
+                    # rewrite/adopt these rows as a native memory audit chain.
+                    # Governor adoption of this namespace remains fail closed.
+                    for row in audits:
+                        a=row.payload
+                        fields={'state','phase','operation_id','outcome_digest'}
+                        if (set(a) not in (fields,fields|{'recorded_at'})
+                                or a['state'] != 'SERVICE_GUARD'
+                                or a['phase'] not in ('approval','revocation','proposal','intent','receipt','verified','blocked')
+                                or row.record_id != 'nv09-'+self._key(a['operation_id'],a['phase'])):
+                            raise GuardError('LEGACY_GUARD_AUDIT_INTEGRITY')
+                        original=tx.get(RecordKind.OPERATION,row.record_id[5:])
+                        if (original is None or original.payload.get('operation_kind') != 'nv09-'+a['phase']
+                                or canonical_sha256(original.payload.get('outcome')) != a['outcome_digest']
+                                or original.payload.get('payload_digest') != a['outcome_digest']
+                                or ('recorded_at' in a and (type(a['recorded_at']) is not int or not 0 <= a['recorded_at'] <= 2**53))):
+                            raise GuardError('LEGACY_GUARD_AUDIT_INTEGRITY')
+                    tx.insert(StoredRecord(RecordKind.AUDIT,'nv09-'+key,self.policy.scope,1,
+                        {'state':'SERVICE_GUARD','phase':phase,'operation_id':operation_id,
+                         'outcome_digest':binding.payload_digest,'recorded_at':int(recorded_at.timestamp())}))
+                else:
+                    append_domain_event(tx, binding, event_id="nv09-" + key,
+                        proof_id="nv09-outbox-" + key, resource_id=key,
+                        before=None, after=phase, content_digest=binding.payload_digest,
+                        at=recorded_at)
                 return outcome
             return execute_once(tx, binding, record)
 
@@ -216,6 +251,32 @@ class CoreServiceGuard:
         self._require(principal, Capability.COMMIT)
         if self._now() >= approval["expires_at"]:
             self._expired_approval(operation_id)
+        if self._governor_binding is not None:
+            from runtime.mission.governor import GovernorError
+            binding=self._governor_binding
+            try:
+                marker=binding.governor.dispatch_commit(principal,self._key(operation_id,'effect-risk'),binding.epoch)
+            except GovernorError as error:
+                raise GuardError(error.reason.value) from None
+            if not marker['dispatch_now']:
+                raise GuardError('GOVERNOR_EFFECT_RECONCILE_REQUIRED')
+
+    def _reserve_effect_risk(self, principal, operation_id, command, model_id):
+        if self._governor_binding is None:return
+        from runtime.mission.governor import GovernorError,ReservationRequest
+        binding=self._governor_binding
+        try:
+            binding.governor.reserve(principal,ReservationRequest(self._key(operation_id,'effect-risk'),
+                binding.task_id,'service-target',model_id,canonical_sha256(command),0,
+                binding.advisory_risk_units),binding.epoch)
+        except GovernorError as error:
+            raise GuardError(error.reason.value) from None
+
+    def _settle_effect_risk(self, principal, operation_id, event):
+        if self._governor_binding is not None:
+            binding=self._governor_binding
+            binding.governor.settle(principal,self._key(operation_id,'effect-risk'),binding.epoch,
+                canonical_sha256(event))
 
     def _proposal(self, scheduler, operation_id, observation, advisory_context=None):
         old = self._get(operation_id, "proposal")
@@ -301,6 +362,7 @@ class CoreServiceGuard:
                  "receipt_digest": canonical_sha256(durable_receipt), "measurement": measured,
                  "measurement_digest": canonical_sha256(measured), "verified_effect": True}
         self._put(principal, Capability.COMMIT, operation_id, "verified", event)
+        self._settle_effect_risk(principal,operation_id,event)
         return {"status": "VERIFIED", "verified_effect": True, "event": event,
                 "dispatch_attempted": False, "reconciled": True}
 
@@ -315,6 +377,10 @@ class CoreServiceGuard:
         try:
             verified = self._get(operation_id, "verified")
             if verified is not None:
+                # The durable verification can precede a lost settlement ACK.
+                # Replay reconciles accounting only, never the target effect.
+                intent_seen = True
+                self._settle_effect_risk(principal,operation_id,verified)
                 return {"status": "REPLAY", "reason": "DURABLE_VERIFIED_EFFECT", "event": verified,
                         "verified_effect": True, "dispatch_attempted": False}
             blocked = self._get(operation_id, "blocked")
@@ -328,6 +394,7 @@ class CoreServiceGuard:
             proposal = self._proposal(scheduler, operation_id, observed, advisory_context)
             approval = self._allowed(operation_id, proposal, self.target.read())
             command = self._command(operation_id, approval, proposal)
+            self._reserve_effect_risk(principal,operation_id,command,scheduler.profile.model_id)
             ownership = self._put(principal, Capability.COMMIT, operation_id, "intent", command)
             intent_seen = True
             if ownership.replayed:
@@ -339,9 +406,16 @@ class CoreServiceGuard:
                 attempted = True
                 self.target.dispatch(command, authorization)
             except TargetUnknown:
+                if self._governor_binding is not None:
+                    binding=self._governor_binding
+                    binding.governor.mark_unknown(principal,self._key(operation_id,'effect-risk'),binding.epoch,
+                        canonical_sha256(('target-outcome-unknown',command['request_digest'])))
                 return {"status": "UNKNOWN", "reason": "TARGET_OUTCOME_UNKNOWN",
                         "verified_effect": False, "dispatch_attempted": True}
             except GuardError as error:
+                if self._governor_binding is not None:
+                    binding=self._governor_binding
+                    binding.governor.release_not_dispatched(principal,self._key(operation_id,'effect-risk'),binding.epoch)
                 self._put(principal, Capability.COMMIT, operation_id, "blocked", {"reason": error.code})
                 return {"status": "BLOCKED", "reason": error.code,
                         "verified_effect": False, "dispatch_attempted": False}

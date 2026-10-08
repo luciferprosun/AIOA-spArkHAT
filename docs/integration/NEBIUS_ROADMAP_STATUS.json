@@ -1,9 +1,8 @@
 {
   "schema": "aioa.nebius-roadmap-status.v1",
   "scope": "LOCAL_INTEGRATION_CANDIDATE_ONLY",
-  "basis_sha": "35a9d520cf4ccb6416b0d929910d026213922087",
-  "selected_block": "06",
-  "exactly_one_block_implemented": true,
+  "basis_sha": "3ed32e0f6d14bac5827d60243bdafe26dbfb2583",
+  "selected_block": "07",
   "claims_live_provider_or_effect": false,
   "blocks": [
     {
@@ -78,13 +77,15 @@
     {
       "block": "07",
       "capability": "Dual Cost/Risk Governor / Hysteresis",
-      "status": "PARTIAL",
+      "status": "LOCAL_CANDIDATE",
       "source_files": [
+        "runtime/mission/governor.py",
         "runtime/providers/nebius_routing.py",
-        "runtime/mission/lite_journal.py",
-        "runtime/service_guard/contracts.py"
+        "runtime/service_guard/service.py",
+        "runtime/memory_patch/audit.py",
+        "docs/integration/DUAL_GOVERNOR.md"
       ],
-      "scope_and_open_items": "Mechanical cost budget and bounded ServicePolicy exist; a combined risk governor with hysteresis is not proven. No risk-side implementation in this task."
+      "scope_and_open_items": "Native integer money/risk paired reservations, conservative UNKNOWN, current epoch/kill dispatch marker and provider circuits; explicit opt-in single-owner Core composition only. Legacy unbound paths retain old behavior; raw-audit namespace governor adoption, hosted global accounting and deployment certification remain OPEN."
     },
     {
       "block": "08",
@@ -160,5 +161,7 @@
       "scope_and_open_items": "Deterministic local rehearsal exists; submission/release/attestation/main integration are separate human gates and remain unperformed."
     }
   ],
-  "validation": "Block06 repaired targeted capsule/demo/preflight 44/44 PASS, including 17 fresh-review regressions; focused/current native whole-source/static/secret/import/reviewer gates required before local checkpoint. Existing block05 acceptance/evidence preserved. Main integration remains NO-GO; blocks07/08 unchanged."
+  "validation": "Block06 sealed evidence preserved. Block07 candidate has targeted governor/provider/ServiceGuard/audit tests; acceptance requires focused, static/import, secret/diff, fresh review and external sealed checkpoint. One full suite is reserved for the converged final local candidate. Main integration remains NO.",
+  "execution_program": "SOL61_ULTRA_LOCAL_CONVERGENCE",
+  "acceptance_record": "External current sealed phase checkpoint; candidate presence does not imply whole-system acceptance."
 }

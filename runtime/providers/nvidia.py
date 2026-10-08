@@ -40,7 +40,7 @@ SYSTEM = ('Return only a JSON object with exactly two fields: "summary" (a strin
 class ProviderError(Exception):
     def __init__(self, code, *, retryable=False, outcome_unknown=False, http_status=None,
                  gate_reason=None, technical_cause=None, failure_class=None,
-                 safe_metadata=None, unknown_id=None, retry_after_seconds=None):
+                 safe_metadata=None, unknown_id=None, retry_after_seconds=None, transport_attempted=None):
         super().__init__(code)
         self.code = code
         self.retryable = retryable
@@ -55,6 +55,9 @@ class ProviderError(Exception):
         self.safe_metadata = safe_metadata
         self.unknown_id = unknown_id
         self.retry_after_seconds = retry_after_seconds
+        # None retains legacy counter semantics. Only a mechanically known
+        # pre-transport denial supplies False; this is metadata, not authority.
+        self.transport_attempted = transport_attempted if type(transport_attempted) is bool else None
 
 
 @dataclass(frozen=True, slots=True, repr=False)

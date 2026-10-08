@@ -25,6 +25,7 @@ from runtime.memory_patch.contracts.records import (
 )
 from runtime.memory_patch.contracts.serialization import (
     canonical_sha256,
+    ensure_utc,
     to_canonical_data,
 )
 from runtime.memory_patch.errors import ErrorCode, MemoryPatchError
@@ -134,7 +135,17 @@ def append_domain_event(
     content_digest: str,
     at: datetime,
 ) -> StoredRecord:
+    """Append with a nondecreasing journal ordering timestamp.
+
+``created_at`` is the prepared journal clock clamped to the previous record,
+not a database commit timestamp or an authority/event-validity clock. Native
+domain event times remain in their bound operation payloads. Validate the new
+chain before insertion so reordered preparations cannot durably poison it.
+"""
     events = domain_chain(transaction)
+    ordered_at = ensure_utc(at)
+    if events:
+        ordered_at = max(ordered_at, events[-1].created_at)
     principal = transaction.context.principal
     actor = {
         CoreActor.OWNER_HUMAN: ActorType.USER,
@@ -160,9 +171,10 @@ def append_domain_event(
             "content": content_digest,
             "operation": operation.payload_digest,
         },
-        created_at=at,
+        created_at=ordered_at,
         personal_memory_space_id=principal.scope.space_id,
     )
+    verify_audit_chain((*events,event))
     transaction.insert(
         StoredRecord(
             RecordKind.AUDIT, event_id, principal.scope, 1, to_canonical_data(event)

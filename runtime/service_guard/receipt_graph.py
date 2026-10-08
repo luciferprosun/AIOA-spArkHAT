@@ -8,6 +8,8 @@ authority, transport, clock, provider or effect executor.
 from collections.abc import Mapping
 import json
 
+from runtime.memory_patch.audit import decode_audit
+from runtime.memory_patch.errors import MemoryPatchError
 from runtime.memory_patch.contracts.serialization import canonical_json_bytes, canonical_sha256
 from runtime.memory_patch.persistence.ports import RecordKind, StoredRecord
 from runtime.mission.contracts import logical_id
@@ -57,18 +59,31 @@ consistent hash is data, not a signature, human approval or effect permission.
         _require(digest == payload['payload_digest'])
         a = audit.payload
         required = {'state', 'phase', 'operation_id', 'outcome_digest'}
-        _require(set(a) in (required, required | {'recorded_at'}))
-        _require(a['state'] == 'SERVICE_GUARD' and a['phase'] == phase
-                 and a['operation_id'] == operation_id and a['outcome_digest'] == digest)
+        if set(a) in (required, required | {'recorded_at'}):
+            # Historical receipts remain readable. No legacy row is rewritten
+            # or silently adopted into a shared native domain audit chain.
+            _require(a['state'] == 'SERVICE_GUARD' and a['phase'] == phase
+                     and a['operation_id'] == operation_id and a['outcome_digest'] == digest)
+            transaction_time = _timestamp(a['recorded_at']) if 'recorded_at' in a else None
+        else:
+            try:
+                event = decode_audit(audit)
+            except (ValueError, TypeError, MemoryPatchError) as error:
+                raise GuardError('RECEIPT_GRAPH_INTEGRITY') from error
+            _require(event.event_type == 'nv09-'+phase and event.resource_id == key
+                     and event.state_after == phase
+                     and event.content_hashes.get('content') == digest
+                     and event.content_hashes.get('operation') == payload['payload_digest'])
+            transaction_time = _timestamp(int(event.created_at.timestamp()))
         event_field = EVENT_TIMES.get(phase)
         event_time = _timestamp(outcome.get(event_field)) if event_field else None
-        transaction_time = _timestamp(a['recorded_at']) if 'recorded_at' in a else None
         outcomes[phase] = outcome
         nodes.append({'id': phase, 'content_digest': digest, 'record_digest': record.payload_digest,
             'audit_digest': audit.payload_digest, 'source': 'NATIVE_SERVICE_GUARD_RECORD',
             'valid_time': event_time, 'valid_time_source': event_field,
             'transaction_time': transaction_time,
-            'transaction_time_status': 'RECORDED' if transaction_time is not None else 'UNKNOWN_LEGACY'})
+            'transaction_time_status': 'RECORDED' if transaction_time is not None else 'UNKNOWN_LEGACY',
+            'transaction_time_source': 'LEGACY_RECORDED_AT' if set(a) <= required | {'recorded_at'} else 'NATIVE_AUDIT_ORDERING_TIMESTAMP'})
 
     def bind(parent, child, field, relation):
         _require(parent in outcomes and child in outcomes)

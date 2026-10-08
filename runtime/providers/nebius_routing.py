@@ -19,8 +19,10 @@ import stat
 import time
 from typing import Callable
 
+from runtime.core_admission import AdmissionError
 from runtime.memory_patch.contract import parse_request
-from runtime.memory_patch.contracts.serialization import freeze_json
+from runtime.memory_patch.contracts.serialization import canonical_sha256, freeze_json
+from runtime.memory_patch.errors import CommitOutcomeUnknown, MemoryPatchError
 from runtime.mission.lite_contracts import LiteBudget
 from runtime.memory_patch.learning.nachwg_contract import NACHWG_OUTPUT_SCHEMA
 from runtime.providers.exact import CancellationToken, ExactCallError, ExactRequest
@@ -337,6 +339,29 @@ class NebiusCompetitionPolicy:
         return route
 
 
+def _bounded_cost_ratio(value):
+    # Bound the integer expansion before as_integer_ratio(), without rounding
+    # or normalizing under the caller's mutable Decimal precision context.
+    if (type(value) is not Decimal or not value.is_finite() or not 0 <= value <= 100
+            or len(value.as_tuple().digits) > 32
+            or not -18 <= value.as_tuple().exponent <= 18):
+        raise ProviderError('UNVERIFIED_COST_BOUND')
+    return value.as_integer_ratio()
+
+
+def conservative_nano_usd(input_bound, output_bound, input_price, output_price):
+    """Exact rational arithmetic, rounded upward; independent of Decimal context."""
+    if any(type(v) is not int or not 0 <= v <= 2**63-1 for v in (input_bound, output_bound)):
+        raise ProviderError('INVALID_COST_BOUND')
+    a,b=_bounded_cost_ratio(input_price);c,d=_bounded_cost_ratio(output_price)
+    numerator=1000*(input_bound*a*d + output_bound*c*b)
+    denominator=b*d
+    bound=(numerator+denominator-1)//denominator
+    if bound > 2**63-1:
+        raise ProviderError('INVALID_COST_BOUND')
+    return bound
+
+
 class NebiusProviderPort:
     """ProviderPort adapter pinned to one catalog-verified Nebius model."""
 
@@ -345,7 +370,7 @@ class NebiusProviderPort:
     def __init__(self, route: ModelRoute, budget: LiteBudget, quote: dict, *,
                  secret_supplier: Callable[[], str] = _environment_key,
                  provider_factory=NebiusProvider, clock=time.time,
-                 policy_clock=lambda: datetime.now(timezone.utc), transport_scope="LIVE"):
+                 policy_clock=lambda: datetime.now(timezone.utc), transport_scope="LIVE", governor_binding=None):
         if (type(route) is not ModelRoute or route.provider_id != self.provider_id
                 or route.authority != "ADVISORY_ONLY" or type(budget) is not LiteBudget
                 or not callable(secret_supplier) or not callable(provider_factory)
@@ -365,6 +390,11 @@ class NebiusProviderPort:
         self._quote = dict(quote)
         self.route, self.model_id, self.budget = route, route.model_id, budget
         self._secret_supplier, self._provider_factory, self._clock = secret_supplier, provider_factory, clock
+        if governor_binding is not None:
+            from runtime.mission.governor import GovernorBinding
+            if type(governor_binding) is not GovernorBinding:
+                raise ProviderError('INVALID_GOVERNOR_BINDINGS')
+        self._governor_binding=governor_binding
 
     def key_present(self) -> bool:
         try:
@@ -440,7 +470,79 @@ class NebiusProviderPort:
             raise ProviderError("BUDGET_EXCEEDED")
         return input_bound + request.max_output_tokens
 
+    def estimated_money_nano(self, request: ProviderRequest) -> int:
+        self.estimated_units(request)
+        exact=self._exact_request(request)
+        amount=conservative_nano_usd(exact.input_bound(),request.max_output_tokens,self.input_price,self.output_price)
+        numerator,denominator=_bounded_cost_ratio(Decimal(self.route.budget.usd_ceiling))
+        if amount*denominator > numerator*1_000_000_000:
+            raise ProviderError('BUDGET_EXCEEDED')
+        return amount
+
     def request(self, request: ProviderRequest) -> ProviderResponse:
+        """Optional explicit Core governor; legacy ports retain their own guard.
+
+No governor or epoch is inferred from task text/environment. New composed
+governed paths must supply a Core binding; they never adopt legacy accounting.
+"""
+        binding=self._governor_binding
+        if binding is None:
+            return self._request_admitted(request)
+        from runtime.mission.governor import GovernorError, ReservationRequest
+        governor=binding.governor
+        money=self.estimated_money_nano(request)
+        try:
+            reservation=governor.reserve(binding.principal,ReservationRequest(request.request_id,binding.task_id,
+                self.provider_id,self.model_id,canonical_sha256(request),money,binding.advisory_risk_units),binding.epoch)
+        except GovernorError as error:
+            raise ProviderError(error.reason.value,transport_attempted=False) from None
+        except CommitOutcomeUnknown:
+            raise ProviderError('GOVERNOR_COMMIT_UNKNOWN',outcome_unknown=True,transport_attempted=False) from None
+        except (AdmissionError,MemoryPatchError):
+            # Cannot establish current accounting through a denied principal
+            # or unavailable native store; no provider transport has started.
+            raise ProviderError('GOVERNOR_RESERVATION_UNVERIFIED',outcome_unknown=True,
+                                transport_attempted=False) from None
+        if reservation['state'] != 'RESERVED':
+            raise ProviderError('GOVERNOR_RECONCILE_READONLY_REQUIRED',outcome_unknown=True,transport_attempted=False)
+        dispatched=False
+        def boundary():
+            nonlocal dispatched
+            marker=governor.dispatch_commit(binding.principal,request.request_id,binding.epoch)
+            if not marker['dispatch_now']:
+                raise ProviderError('GOVERNOR_RECONCILE_READONLY_REQUIRED',outcome_unknown=True)
+            dispatched=True
+        try:
+            response=self._request_admitted(request,before_transport=boundary)
+        except Exception as error:
+            # A failed marker ACK is ambiguous; release_not_dispatched itself
+            # rejects DISPATCHED and never manufactures a refund.
+            if isinstance(error,CommitOutcomeUnknown):
+                raise ProviderError('GOVERNOR_COMMIT_UNKNOWN',outcome_unknown=True,transport_attempted=False) from None
+            try:
+                if dispatched:
+                    governor.mark_unknown(binding.principal,request.request_id,binding.epoch,
+                        canonical_sha256(('provider-outcome-unknown',request.request_id)))
+                else:
+                    governor.release_not_dispatched(binding.principal,request.request_id,binding.epoch)
+            except (AdmissionError,MemoryPatchError):
+                # Epoch takeover, unsafe clock or an ambiguous cleanup ACK
+                # leaves the conservative native exposure held. Preserve the
+                # caller's typed UNKNOWN contract without inventing a send.
+                raise ProviderError('GOVERNOR_ACCOUNTING_UNKNOWN',outcome_unknown=True,
+                                    transport_attempted=dispatched) from None
+            if isinstance(error,GovernorError):
+                raise ProviderError(error.reason.value,outcome_unknown=dispatched,
+                                    transport_attempted=dispatched) from None
+            if isinstance(error,ProviderError):raise
+            raise ProviderError('PROVIDER_OUTCOME_UNKNOWN',outcome_unknown=dispatched) from None
+        try:
+            governor.settle(binding.principal,request.request_id,binding.epoch,canonical_sha256(response))
+        except (AdmissionError,MemoryPatchError):
+            raise ProviderError('GOVERNOR_SETTLEMENT_UNKNOWN',outcome_unknown=True,transport_attempted=True) from None
+        return response
+
+    def _request_admitted(self, request: ProviderRequest, *, before_transport=None) -> ProviderResponse:
         # The existing LiteScheduler reserves these units durably before it
         # calls request(); repeat admission here to defend direct callers.
         self.estimated_units(request)
@@ -453,8 +555,12 @@ class NebiusProviderPort:
         exact = self._exact_request(request)
         try:
             provider = self._provider_factory(api_key=key, model=self.model_id)
+            if before_transport is not None:
+                before_transport()
             result = provider.generate_exact(
                 exact, CancellationToken(), time.monotonic() + request.request_timeout)
+        except (ProviderError,MemoryPatchError):
+            raise
         except ExactCallError as error:
             known_pre_transport = {
                 "CONNECTION_BINDING_MISMATCH", "EXACT_MODEL_REQUIRED", "INPUT_LIMIT_EXCEEDED",
