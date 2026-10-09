@@ -8,7 +8,7 @@
     "bundled PDF/media redistribution rights",
     "model/service terms and eligibility/IP attestations",
     "30 historical fixture observations without independent synthetic provenance",
-    "10 historical binary blobs not text-scanned"
+    "10 historical binary objects path/type identified; embedded-content and redistribution-rights review remains human-gated"
   ],
   "history_secret_classification": {
     "raw_tracked_hits": 8,
@@ -22,5 +22,30 @@
   "scanner_weakened": false,
   "history_rewritten": false,
   "blanket_clearance_claimed": false,
-  "status": "PARTIAL_WITH_DOCUMENTED_HUMAN_GATES"
+  "status": "PARTIAL_WITH_DOCUMENTED_HUMAN_GATES",
+  "prepared_at_head": "88f659a3197a3a49ac94881eff173e0cae0c58bc",
+  "direct_dependencies": {
+    "build_system": [
+      "setuptools>=65",
+      "wheel"
+    ],
+    "core": [],
+    "optional_nonzero": [
+      "pydantic==2.13.4",
+      "uuid6==2025.0.1"
+    ],
+    "optional_cockroach": [
+      "psycopg[binary]==3.3.5"
+    ],
+    "runtime_requirements": [
+      "google-genai>=1.0.0",
+      "playwright>=1.59.0",
+      "beautifulsoup4>=4.12.0",
+      "rich>=13.7.0",
+      "textual>=0.86.0"
+    ]
+  },
+  "binary_inventory": "docs/security/HISTORICAL_BINARY_BLOB_INVENTORY.json",
+  "binary_objects_path_type_identified": 10,
+  "binary_objects_content_rights_cleared": 0
 }

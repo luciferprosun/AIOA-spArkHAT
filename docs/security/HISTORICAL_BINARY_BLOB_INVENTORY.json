@@ -1,0 +1,70 @@
+{
+  "schema": "aioa.historical-binary-inventory.v1",
+  "prepared_at_head": "88f659a3197a3a49ac94881eff173e0cae0c58bc",
+  "count": 10,
+  "secret_text_scan_performed": false,
+  "classification_basis": "Git object/path/type inventory only; no claim of embedded-content or redistribution-rights clearance",
+  "items": [
+    {
+      "git_oid": "517b8e17d5a0eadb0f5c48f13493cbf76c23d4db",
+      "path": "archive/forensic_exports/reports_forensic_export/architecture_and_runtime.pdf",
+      "size": 305586,
+      "classification": "KNOWN_BINARY_DOCUMENT_REVIEW_REQUIRED"
+    },
+    {
+      "git_oid": "6efdedda1eebcd7f322cfcba05d4c00db739aa8f",
+      "path": "archive/forensic_exports/reports_forensic_export/forensic_full_snapshot.pdf",
+      "size": 115341,
+      "classification": "KNOWN_BINARY_DOCUMENT_REVIEW_REQUIRED"
+    },
+    {
+      "git_oid": "fa28470545d790d7cd57fdde77075448e06d1e2e",
+      "path": "archive/forensic_exports/reports_forensic_export/memory_and_provenance.pdf",
+      "size": 264150,
+      "classification": "KNOWN_BINARY_DOCUMENT_REVIEW_REQUIRED"
+    },
+    {
+      "git_oid": "05c293ed637afcaeae8a2ee275547a41b6049561",
+      "path": "archive/forensic_exports/reports_forensic_export/retrieval_and_knowledge_layer.pdf",
+      "size": 718748,
+      "classification": "KNOWN_BINARY_DOCUMENT_REVIEW_REQUIRED"
+    },
+    {
+      "git_oid": "a2d92651d66d60baa2809526a2a00f1bfb6d0caa",
+      "path": "docs/reports/AOIA_RESTART_PRODUCTION_REPORT.pdf",
+      "size": 134337,
+      "classification": "KNOWN_BINARY_DOCUMENT_REVIEW_REQUIRED"
+    },
+    {
+      "git_oid": "9dea6f16ea428dd6a8493e8692e481344a72d628",
+      "path": "evidence/personal_ai_vertical_slice/demo_panel_20261003T131600Z.png",
+      "size": 174955,
+      "classification": "KNOWN_IMAGE_ARTIFACT_REVIEW_REQUIRED"
+    },
+    {
+      "git_oid": "84c81e9fbd45ebe079881a729dfa0249231efc21",
+      "path": "runtime/knowledge/source/linux_master_library_v1.pdf",
+      "size": 1144661,
+      "classification": "KNOWN_BINARY_DOCUMENT_REVIEW_REQUIRED"
+    },
+    {
+      "git_oid": "77198d71937bac8a24050bff84cd1880e5997f72",
+      "path": "runtime/nonzero_cloudops/baseline/docs/assets/judge-ux-desktop-denied.png",
+      "size": 475776,
+      "classification": "KNOWN_IMAGE_ARTIFACT_REVIEW_REQUIRED"
+    },
+    {
+      "git_oid": "b1976e555f95dbabd5ab0169eff6d81d9059f1fd",
+      "path": "runtime/nonzero_cloudops/baseline/docs/assets/judge-ux-desktop-success.png",
+      "size": 532303,
+      "classification": "KNOWN_IMAGE_ARTIFACT_REVIEW_REQUIRED"
+    },
+    {
+      "git_oid": "e2cdd0b3e6be13f8ad3049ec190056b1d88cd7e1",
+      "path": "runtime/nonzero_cloudops/baseline/docs/assets/judge-ux-mobile-success.png",
+      "size": 318344,
+      "classification": "KNOWN_IMAGE_ARTIFACT_REVIEW_REQUIRED"
+    }
+  ],
+  "remaining_human_gate": "Review embedded metadata/content if required plus redistribution/IP rights before external release"
+}

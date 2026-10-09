@@ -13,6 +13,14 @@ Human gates still open:
 - bundled PDF/media redistribution rights;
 - model/service terms, eligibility and IP attestations;
 - 30 historical fixture observations without independently established synthetic provenance;
-- 10 historical binary blobs not text-scanned.
+- 10 historical binary objects are now path/type inventoried; embedded-content and redistribution-rights review remains human-gated.
 
 Status: PARTIAL_WITH_DOCUMENTED_HUMAN_GATES.
+
+## Direct dependency declarations
+- Build: setuptools>=65, wheel
+- Optional Non-Zero: pydantic==2.13.4, uuid6==2025.0.1
+- Optional Cockroach: psycopg[binary]==3.3.5
+- Runtime requirements: google-genai>=1.0.0, playwright>=1.59.0, beautifulsoup4>=4.12.0, rich>=13.7.0, textual>=0.86.0
+
+See HISTORICAL_BINARY_BLOB_INVENTORY.md for the ten historical binary objects.
