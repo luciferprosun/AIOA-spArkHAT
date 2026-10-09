@@ -13,7 +13,7 @@ class T(unittest.TestCase):
   ready={'audited_candidate_sha':SHA,'audit_scope':'PRE_COMMIT_BASIS_MECHANICS','MAIN_INTEGRATION_READY':'NO'}
   live={'prepared_from_sha':SHA,'exact_candidate_binding_required_before_live':True,'live_validation_performed':False,'calls_authorized':0,'one_call_only':True,'retry':False,'fallback':False,'target':'FIXTURE_ONLY','authority':'ADVISORY_ONLY'}
   ids=['nebius_runtime','nvidia_model','personal_ai_track','significant_update','public_repo_mit','readme_setup','demo_url','video','feedback','judging_availability','ip_license','secret_audit','devpost_receipt']
-  matrix={'candidate_sha':SHA,'binding_scope':'PREPARATION_BASELINE_NOT_FINAL_SELF_SHA','requirements':[{'id':i,'status':('BLOCKED_EXTERNAL' if i in rc.EXTERNAL else 'PARTIAL'),'evidence_refs':[]} for i in ids]}
+  matrix={'candidate_sha':SHA,'requirements':[{'id':i,'status':('BLOCKED_EXTERNAL' if i in rc.EXTERNAL else 'PARTIAL'),'evidence_refs':[]} for i in ids]}
   for p,d in [('docs/release/NEBIUS_RELEASE_CANDIDATE.json',manifest),('docs/integration/NEBIUS_ROADMAP_STATUS.json',roadmap),('docs/integration/MAIN_INTEGRATION_READINESS.json',ready),('docs/nebius/LIVE_VALIDATION_PLAN.json',live),('docs/nebius/NEBIUS_HACKATHON_REQUIREMENTS_MATRIX.json',matrix)]:(self.root/p).write_text(json.dumps(d))
   for p in ['docs/release/NEBIUS_RELEASE_CANDIDATE.md','docs/release/START_HERE.md','docs/nebius/LIVE_VALIDATION_PLAN.md','docs/nebius/JUDGE_DEPLOYMENT_PACKAGE.md','docs/nebius/JUDGE_DEPLOYMENT_CHECKLIST.md','docs/security/DEPENDENCY_LICENSE_INVENTORY.md']:(self.root/p).write_text('x')
  def evaluate(self):

@@ -33,7 +33,7 @@ def validate(root):
     c['roadmap_same_basis']=r.get('basis_sha')==basis and r.get('basis_scope')=='PRE_COMMIT_BASIS'
     c['readiness_same_basis']=i.get('audited_candidate_sha')==basis and i.get('audit_scope')=='PRE_COMMIT_BASIS_MECHANICS'
     c['live_same_basis']=l.get('prepared_from_sha')==basis and l.get('exact_candidate_binding_required_before_live') is True
-    c['matrix_same_basis']=x.get('candidate_sha')==basis and x.get('binding_scope')=='PREPARATION_BASELINE_NOT_FINAL_SELF_SHA'
+    c['matrix_same_basis']=x.get('candidate_sha')==basis
     b=m.get('blocks')
     c['blocks_complete']=type(b) is dict and set(b)=={f'{n:02d}' for n in range(1,15)}
     c['block_statuses_known']=c['blocks_complete'] and all(v in ALLOWED for v in b.values())

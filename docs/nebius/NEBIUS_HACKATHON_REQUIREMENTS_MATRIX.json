@@ -67,6 +67,5 @@
       "status": "BLOCKED_EXTERNAL",
       "evidence_refs": []
     }
-  ],
-  "binding_scope": "PREPARATION_BASELINE_NOT_FINAL_SELF_SHA"
+  ]
 }
