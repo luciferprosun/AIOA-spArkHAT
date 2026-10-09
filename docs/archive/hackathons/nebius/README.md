@@ -1,6 +1,6 @@
 # Historical Nebius x NVIDIA hackathon materials
 
-Nebius is an **optional provider and historical competition integration** within AIOA SparkHub; it is not an independent product repository.
+Nebius is an **optional provider and historical competition integration** within AIOA spArkHAT; it is not an independent product repository.
 
 The original README is preserved verbatim in [README_ORIGINAL_SPARKHAT_20261009.md](README_ORIGINAL_SPARKHAT_20261009.md).
 

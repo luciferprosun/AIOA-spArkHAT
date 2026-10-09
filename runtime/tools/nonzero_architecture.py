@@ -10,7 +10,7 @@ import tomllib
 import zipfile
 from pathlib import Path
 
-CORE_DISTRIBUTION = 'aioa-sparkhub'
+CORE_DISTRIBUTION = 'aioa-sparkhat'
 JUDGE = '4fafed8b1a877e55d96ddd9baea0a737fbeeaa4a'
 SOURCE_TREE = 'a6587b72b4f7d1365ef7de7cab107ea6578f4567'
 PHASE3 = '6563f93e2b895d494063161b438d05209e2655ca'

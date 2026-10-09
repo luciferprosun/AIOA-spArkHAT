@@ -1,6 +1,6 @@
-# AIOA SparkHub
+# AIOA spArkHAT
 
-**One canonical AIOA codebase.** SparkHub is the unified, human-governed AI runtime and the public entry point for the AIOA project (previously AIOA spArkHAT). Nebius/NVIDIA, CockroachDB memory, Critical Prompt Loop (CPL), Verified Delta and the native Non-Zero safety module are capabilities within AIOA, **not separate products**.
+**One canonical AIOA codebase.** AIOA spArkHAT is the unified, human-governed AI runtime and the public entry point for the project. Nebius/NVIDIA, CockroachDB memory, Critical Prompt Loop (CPL), Verified Delta and the native Non-Zero safety module are capabilities within AIOA, **not separate products**.
 
 > **Status:** local, reproducible fixture demonstrations are implemented. Do not confuse an offline test result with live provider certification, cloud deployment, validated legal rights or a hackathon submission.
 

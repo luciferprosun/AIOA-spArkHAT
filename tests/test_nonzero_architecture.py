@@ -63,7 +63,7 @@ class NativeOneSystemArchitectureTests(unittest.TestCase):
 
 
 class CanonicalDistributionGateTests(unittest.TestCase):
-    def test_current_sparkhub_project_passes_the_complete_architecture_gate(self):
+    def test_current_sparkhat_project_passes_the_complete_architecture_gate(self):
         output = io.StringIO()
         with contextlib.redirect_stdout(output):
             code = main(['--project-root', str(Path(__file__).resolve().parents[1])])
@@ -76,10 +76,10 @@ class CanonicalDistributionGateTests(unittest.TestCase):
         required = ('runtime/nonzero_cloudops/service.py', 'runtime/nonzero_cloudops/LICENSE-NONZERO.txt',
                     'runtime/main.py', 'runtime/critical_loop/service.py', 'runtime/evidence_review/engine.py')
         for distribution, extra_metadata, expected in (
-            ('aioa-sparkhub', False, 'PASS'),
-            ('aioa-sparkhat', False, 'FAIL'),
+            ('aioa-sparkhat', False, 'PASS'),
+            ('aioa-sparkhub', False, 'FAIL'),
             ('second-core', False, 'FAIL'),
-            ('aioa-sparkhub', True, 'FAIL'),
+            ('aioa-sparkhat', True, 'FAIL'),
         ):
             with (
                 self.subTest(distribution=distribution, extra_metadata=extra_metadata),
