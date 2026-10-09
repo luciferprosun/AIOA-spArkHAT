@@ -111,6 +111,14 @@ def validate_read_payload(operation: str, payload: dict[str, Any]) -> None:
     if type(payload) is not dict:
         raise ContractError("READ payload must be a plain JSON object")
 
+    if operation == "approval.status":
+        # The worker input schema is known, but its output is a full approval
+        # record. A READ classification does not permit private data exposure.
+        raise ContractError(
+            "approval.status BLOCKED_PRIVACY_PROJECTION; safe remote READ "
+            "schema is not verified; do not emit this task"
+        )
+
     if operation in UNVERIFIED_READ_OPERATIONS:
         raise ContractError(
             f"{operation} READ schema is not verified; do not emit this task"
@@ -201,10 +209,12 @@ def validate_read_payload(operation: str, payload: dict[str, Any]) -> None:
         _exact_keys(
             operation,
             payload,
-            allowed=frozenset({"artifact_id", "max_bytes", "max_lines"}),
+            allowed=frozenset({"artifact_id", "offset", "max_bytes", "max_lines"}),
             required=frozenset({"artifact_id"}),
         )
         _artifact_id(operation, payload["artifact_id"])
+        if "offset" in payload:
+            _bounded_int(operation, "offset", payload["offset"], minimum=0, maximum=1048576)
         if "max_bytes" in payload:
             _bounded_int(operation, "max_bytes", payload["max_bytes"], minimum=1, maximum=400)
         if "max_lines" in payload:
