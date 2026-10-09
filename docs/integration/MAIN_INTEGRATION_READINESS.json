@@ -1,0 +1,930 @@
+{
+  "schema": "aioa.main-readiness.v1",
+  "candidate_sha": "3b57c314ab2cd3cdb0015ffe2f2f837e082b02e1",
+  "main_sha": "d26266e54ee940d7ada30aa02783dc697618a72c",
+  "origin_main_sha": "d26266e54ee940d7ada30aa02783dc697618a72c",
+  "remote_state": "LOCAL_CACHED_REFS_ONLY_NO_FETCH",
+  "ancestor": true,
+  "commit_delta": 51,
+  "changed_file_count": 246,
+  "changed_files": [
+    "A\t.env.example",
+    "M\t.gitignore",
+    "M\tREADME.md",
+    "A\tdeploy/nebius_serverless/README.md",
+    "A\tdeploy/nebius_serverless/deployment.json",
+    "A\tdocs/NEBIUS_CLOUD_AGENT_LAYER_V1_SPEC.md",
+    "A\tdocs/NEBIUS_SCALE_ROADMAP.md",
+    "M\tdocs/NVIDIA_DEMO_RUNBOOK.md",
+    "M\tdocs/NVIDIA_FINAL_WEEK_PROGRESS.md",
+    "M\tdocs/NVIDIA_SUBMISSION_CHECKLIST.md",
+    "A\tdocs/OCT6_CONFLICT_FORECAST.md",
+    "A\tdocs/OCT6_INTEGRATION_ORDER.md",
+    "A\tdocs/OCT6_NEBIUS_INTEGRATION_MATRIX.md",
+    "A\tdocs/OCT6_POST_UNLOCK_TEST_PLAN.md",
+    "A\tdocs/OCT6_UNLOCK_AND_INTEGRATION_RUNBOOK.md",
+    "A\tdocs/PRE_OCT6_READINESS_REPORT.md",
+    "D\tdocs/REVIEWER_CLEANUP_20260922.md",
+    "M\tdocs/governance/GENAI_TRANSPARENCY.md",
+    "A\tdocs/integration/COMMIT_SELECT_REVEAL.md",
+    "A\tdocs/integration/DUAL_GOVERNOR.md",
+    "A\tdocs/integration/FORMAL_FAULT_LOCAL.md",
+    "A\tdocs/integration/NEBIUS_ROADMAP_STATUS.json",
+    "A\tdocs/integration/NEBIUS_ROADMAP_STATUS.md",
+    "A\tdocs/integration/OFFLINE_ADVISORY_JOBS.md",
+    "A\tdocs/integration/ONE_REPO_CONVERGENCE_PLAN.md",
+    "A\tdocs/integration/ONE_SYSTEM_VERTICAL_SLICE.md",
+    "A\tdocs/integration/OPERATOR_NATIVE_CONSOLE.md",
+    "A\tdocs/integration/SHADOW_DELTA.md",
+    "A\tdocs/nebius/CG4_RIGHTS_INVENTORY.md",
+    "A\tdocs/nebius/DEVPOST_SUBMISSION_DRAFT_EN.md",
+    "A\tdocs/nebius/JUDGE_MODE_RUNBOOK.md",
+    "A\tdocs/nebius/JUDGING_UPTIME_PLAN.md",
+    "A\tdocs/nebius/NEBIUS_HACKATHON_REQUIREMENTS_MATRIX.json",
+    "A\tdocs/nebius/NEBIUS_HACKATHON_REQUIREMENTS_MATRIX.md",
+    "A\tdocs/nebius/NEBIUS_NVIDIA_FEEDBACK_DRAFT_EN.md",
+    "A\tdocs/nebius/SIGNIFICANT_UPDATE_SINCE_2026-08-26.md",
+    "A\tdocs/nebius/VIDEO_SCRIPT_MAX_180S_EN.md",
+    "A\tdocs/nebius_devpost_submission_draft.md",
+    "A\tdocs/nebius_final_architecture.md",
+    "A\tdocs/nebius_lightning_incomplete_completion_analysis.md",
+    "A\tdocs/nebius_personal_ai_demo_runbook.md",
+    "A\tdocs/nebius_personal_ai_video_script_180s.md",
+    "M\tdocs/nms/FAILURE_MODES.md",
+    "D\tdocs/nms/NLNET_UPDATE_SUMMARY.md",
+    "M\tdocs/nms/README.md",
+    "M\tdocs/nms/ROADMAP_4_MONTHS.md",
+    "M\tdocs/provenance/GENAI_LOG.md",
+    "A\tdocs/reviewer/CAUSAL_RECEIPT_GRAPH.md",
+    "A\tdocs/reviewer/CONTEXT_CAPSULE.md",
+    "D\tdocs/reviewer/NLNET_REVIEWER_START_HERE.md",
+    "M\tdocs/reviewer/NVIDIA_REVIEWER_START_HERE.md",
+    "D\tdocs/reviewer/QUICK_START_FOR_GRANT_REVIEWERS.md",
+    "D\tdocs/reviewer/REPOSITORY_CLEANUP_AUDIT_20260922.md",
+    "D\tdocs/reviewer/REPOSITORY_FILE_CLASSIFICATION_20260922.csv",
+    "A\tdocs/superpowers/plans/2026-10-03-nebius-personal-ai-vertical-slice.md",
+    "A\tdocs/superpowers/plans/2026-10-03-nebius-prompt03-execution.md",
+    "A\tevidence/cloud_activation/catalog_20261003T061407Z.json",
+    "A\tevidence/cloud_activation/live_smoke_20261003T061504Z.json",
+    "A\tevidence/cloud_activation/live_smoke_20261003T092018Z.json",
+    "A\tevidence/cloud_activation/live_smoke_20261003T130702Z.json",
+    "A\tevidence/cloud_activation/price_quote_20261003T130309Z.json",
+    "A\tevidence/personal_ai_vertical_slice/browser_demo_20261003T131600Z.json",
+    "A\tevidence/personal_ai_vertical_slice/demo_panel_20261003T131600Z.png",
+    "A\tevidence/personal_ai_vertical_slice/fixture_demo_20261003T132724Z.json",
+    "A\tevidence/personal_ai_vertical_slice/fixture_marker_debug_20261003T133500Z.json",
+    "A\tevidence/personal_ai_vertical_slice/interrupted_run_20261003T132055Z.json",
+    "A\tevidence/personal_ai_vertical_slice/manifest_20261003T092636Z.json",
+    "A\tevidence/personal_ai_vertical_slice/manifest_final_20261003T135440Z.json",
+    "A\tevidence/personal_ai_vertical_slice/prompt03_regression_20261003T125634Z.json",
+    "A\tevidence/personal_ai_vertical_slice/prompt03_regression_20261003T125634Z_cpl.log",
+    "A\tevidence/personal_ai_vertical_slice/prompt03_regression_20261003T125634Z_lite_serviceguard_https.log",
+    "A\tevidence/personal_ai_vertical_slice/prompt03_regression_20261003T125634Z_nebius.log",
+    "A\tevidence/personal_ai_vertical_slice/prompt03_regression_20261003T125634Z_nv10_recovery.log",
+    "A\tevidence/personal_ai_vertical_slice/prompt03_regression_20261003T125634Z_private_memory_competition_web.log",
+    "A\tevidence/personal_ai_vertical_slice/prompt03_regression_20261003T125634Z_secret_scanner.log",
+    "A\tevidence/personal_ai_vertical_slice/prompt03_regression_20261003T131046Z.json",
+    "A\tevidence/personal_ai_vertical_slice/prompt03_regression_20261003T131046Z_live_diagnostics.log",
+    "A\tevidence/personal_ai_vertical_slice/prompt03_regression_20261003T131046Z_secret_scanner.log",
+    "A\tevidence/personal_ai_vertical_slice/prompt03_regression_20261003T131617Z.json",
+    "A\tevidence/personal_ai_vertical_slice/prompt03_regression_20261003T131617Z_cpl.log",
+    "A\tevidence/personal_ai_vertical_slice/prompt03_regression_20261003T131617Z_demo_launcher.log",
+    "A\tevidence/personal_ai_vertical_slice/prompt03_regression_20261003T131617Z_lite_serviceguard_https.log",
+    "A\tevidence/personal_ai_vertical_slice/prompt03_regression_20261003T131617Z_live_diagnostics.log",
+    "A\tevidence/personal_ai_vertical_slice/prompt03_regression_20261003T131617Z_nebius.log",
+    "A\tevidence/personal_ai_vertical_slice/prompt03_regression_20261003T131617Z_nv10_recovery.log",
+    "A\tevidence/personal_ai_vertical_slice/prompt03_regression_20261003T131617Z_private_memory_competition_web.log",
+    "A\tevidence/personal_ai_vertical_slice/prompt03_regression_20261003T131617Z_secret_scanner.log",
+    "A\tevidence/personal_ai_vertical_slice/prompt03_regression_20261003T132055Z_cpl.log",
+    "A\tevidence/personal_ai_vertical_slice/prompt03_regression_20261003T132055Z_lite_serviceguard_https.log",
+    "A\tevidence/personal_ai_vertical_slice/prompt03_regression_20261003T132055Z_live_diagnostics.log",
+    "A\tevidence/personal_ai_vertical_slice/prompt03_regression_20261003T132055Z_nebius.log",
+    "A\tevidence/personal_ai_vertical_slice/prompt03_regression_20261003T132742Z.json",
+    "A\tevidence/personal_ai_vertical_slice/prompt03_regression_20261003T132742Z_cpl.log",
+    "A\tevidence/personal_ai_vertical_slice/prompt03_regression_20261003T132742Z_demo_launcher.log",
+    "A\tevidence/personal_ai_vertical_slice/prompt03_regression_20261003T132742Z_lite_serviceguard_https.log",
+    "A\tevidence/personal_ai_vertical_slice/prompt03_regression_20261003T132742Z_live_diagnostics.log",
+    "A\tevidence/personal_ai_vertical_slice/prompt03_regression_20261003T132742Z_nebius.log",
+    "A\tevidence/personal_ai_vertical_slice/prompt03_regression_20261003T132742Z_nv10_recovery.log",
+    "A\tevidence/personal_ai_vertical_slice/prompt03_regression_20261003T132742Z_private_memory_competition_web.log",
+    "A\tevidence/personal_ai_vertical_slice/prompt03_regression_20261003T132742Z_secret_scanner.log",
+    "A\tevidence/personal_ai_vertical_slice/prompt03_regression_20261003T133729Z.json",
+    "A\tevidence/personal_ai_vertical_slice/prompt03_regression_20261003T133729Z_cpl.log",
+    "A\tevidence/personal_ai_vertical_slice/prompt03_regression_20261003T133729Z_demo_launcher.log",
+    "A\tevidence/personal_ai_vertical_slice/prompt03_regression_20261003T133729Z_lite_serviceguard_https.log",
+    "A\tevidence/personal_ai_vertical_slice/prompt03_regression_20261003T133729Z_live_diagnostics.log",
+    "A\tevidence/personal_ai_vertical_slice/prompt03_regression_20261003T133729Z_nebius.log",
+    "A\tevidence/personal_ai_vertical_slice/prompt03_regression_20261003T133729Z_nv10_recovery.log",
+    "A\tevidence/personal_ai_vertical_slice/prompt03_regression_20261003T133729Z_private_memory_competition_web.log",
+    "A\tevidence/personal_ai_vertical_slice/prompt03_regression_20261003T133729Z_secret_scanner.log",
+    "A\tevidence/personal_ai_vertical_slice/prompt03_regression_20261003T134707Z.json",
+    "A\tevidence/personal_ai_vertical_slice/prompt03_regression_20261003T134707Z_demo_launcher.log",
+    "A\tevidence/personal_ai_vertical_slice/prompt03_regression_20261003T134707Z_demo_ui.log",
+    "A\tevidence/personal_ai_vertical_slice/prompt03_regression_20261003T134707Z_live_diagnostics.log",
+    "A\tevidence/personal_ai_vertical_slice/prompt03_regression_20261003T134707Z_private_memory_competition_web.log",
+    "A\tevidence/personal_ai_vertical_slice/prompt03_static_20261003T132535Z.json",
+    "A\tevidence/personal_ai_vertical_slice/prompt03_static_20261003T133231Z.json",
+    "A\tevidence/personal_ai_vertical_slice/prompt03_static_20261003T134319Z.json",
+    "A\tevidence/personal_ai_vertical_slice/prompt03_static_20261003T135129Z.json",
+    "A\tevidence/personal_ai_vertical_slice/prompt03_static_20261003T135444Z.json",
+    "A\tlab/archaioa/PRE02.md",
+    "A\tlab/archaioa/PRE03.md",
+    "A\tlab/archaioa/PRE04.md",
+    "A\tlab/archaioa/README.md",
+    "A\tlab/archaioa/__init__.py",
+    "A\tlab/archaioa/attenuation.py",
+    "A\tlab/archaioa/authority.py",
+    "A\tlab/archaioa/canonical.py",
+    "A\tlab/archaioa/contracts.py",
+    "A\tlab/archaioa/decision_binding.py",
+    "A\tlab/archaioa/decision_root.py",
+    "A\tlab/archaioa/effect_model.py",
+    "A\tlab/archaioa/evidence.py",
+    "A\tlab/archaioa/faults.py",
+    "A\tlab/archaioa/fixtures.py",
+    "A\tlab/archaioa/formal/ArchAIOAEffect.tla",
+    "A\tlab/archaioa/formal/README.md",
+    "A\tlab/archaioa/governed_model.py",
+    "A\tlab/archaioa/liability.py",
+    "A\tlab/archaioa/outcome.py",
+    "A\tlab/archaioa/pre02_fixtures.py",
+    "A\tlab/archaioa/taint.py",
+    "A\tlab/archaioa/task_semantics.py",
+    "A\tlab/archaioa/warrant.py",
+    "A\treports/cloud_activation_2026-10-03.md",
+    "A\treports/personal_ai_vertical_slice_2026-10-03.md",
+    "M\truntime/authority_timeline.py",
+    "M\truntime/competition_view.py",
+    "M\truntime/critical_loop/service.py",
+    "M\truntime/memory_patch/audit.py",
+    "A\truntime/memory_patch/retrieval/capsule.py",
+    "A\truntime/memory_patch/retrieval/dependencies.py",
+    "M\truntime/memory_patch/retrieval/service.py",
+    "A\truntime/mission/governor.py",
+    "A\truntime/mission/job_contracts.py",
+    "A\truntime/mission/jobs.py",
+    "M\truntime/mission/lite_chat.py",
+    "M\truntime/mission/lite_cli.py",
+    "M\truntime/mission/lite_contracts.py",
+    "M\truntime/mission/lite_runtime.py",
+    "A\truntime/mission/verification.py",
+    "A\truntime/native_console.py",
+    "A\truntime/personal_ai_demo.py",
+    "A\truntime/personal_ai_demo_launcher.py",
+    "A\truntime/personal_ai_fixture.py",
+    "M\truntime/providers/__init__.py",
+    "M\truntime/providers/config.py",
+    "M\truntime/providers/exact.py",
+    "A\truntime/providers/nebius.py",
+    "A\truntime/providers/nebius_routing.py",
+    "M\truntime/providers/nvidia.py",
+    "M\truntime/service_guard/__init__.py",
+    "A\truntime/service_guard/https_transport.py",
+    "A\truntime/service_guard/receipt_graph.py",
+    "A\truntime/service_guard/serverless_worker.py",
+    "M\truntime/service_guard/service.py",
+    "A\truntime/service_guard/shadow_delta.py",
+    "M\truntime/service_guard/target.py",
+    "M\truntime/webapp.py",
+    "A\tscripts/check_changed_secrets.py",
+    "A\tscripts/check_prompt03_static.py",
+    "A\tscripts/nebius_live_probe.py",
+    "A\tscripts/nebius_submission_preflight.py",
+    "M\tscripts/nvidia_competition_demo.py",
+    "M\tscripts/nvidia_reviewer_preflight.py",
+    "A\tscripts/oct6_integration_preflight.py",
+    "A\tscripts/run_prompt03_regressions.py",
+    "A\tscripts/start_nebius_personal_ai_demo.sh",
+    "A\ttests/lab_archaioa/__init__.py",
+    "A\ttests/lab_archaioa/test_attenuation.py",
+    "A\ttests/lab_archaioa/test_authority.py",
+    "A\ttests/lab_archaioa/test_canonical.py",
+    "A\ttests/lab_archaioa/test_contracts.py",
+    "A\ttests/lab_archaioa/test_decision_binding.py",
+    "A\ttests/lab_archaioa/test_decision_root.py",
+    "A\ttests/lab_archaioa/test_effect_model.py",
+    "A\ttests/lab_archaioa/test_faults.py",
+    "A\ttests/lab_archaioa/test_governed_effect_model.py",
+    "A\ttests/lab_archaioa/test_liability.py",
+    "A\ttests/lab_archaioa/test_outcome.py",
+    "A\ttests/lab_archaioa/test_taint.py",
+    "A\ttests/lab_archaioa/test_task_semantics.py",
+    "A\ttests/lab_archaioa/test_warrant.py",
+    "A\ttests/lab_archaioa/vectors.json",
+    "M\ttests/nv05_demo.py",
+    "A\ttests/nv08_canary.py",
+    "M\ttests/nv09_support.py",
+    "A\ttests/nv13_unified.py",
+    "A\ttests/test_advisory_jobs.py",
+    "A\ttests/test_changed_secrets.py",
+    "A\ttests/test_commit_select_reveal.py",
+    "M\ttests/test_competition_view.py",
+    "A\ttests/test_context_capsule.py",
+    "A\ttests/test_dual_governor.py",
+    "A\ttests/test_governed_nebius.py",
+    "A\ttests/test_governed_service_guard.py",
+    "A\ttests/test_governor_audit_compatibility.py",
+    "M\ttests/test_memory_patch_retrieval.py",
+    "A\ttests/test_native_console.py",
+    "A\ttests/test_nebius_cpl.py",
+    "A\ttests/test_nebius_https_transport.py",
+    "A\ttests/test_nebius_judge_mode.py",
+    "A\ttests/test_nebius_live_probe.py",
+    "A\ttests/test_nebius_personal_ai.py",
+    "A\ttests/test_nebius_provider.py",
+    "A\ttests/test_nebius_routing.py",
+    "A\ttests/test_nebius_safe_diagnostics.py",
+    "A\ttests/test_nebius_submission_preflight.py",
+    "M\ttests/test_nv03_memory.py",
+    "M\ttests/test_nv06_personal.py",
+    "M\ttests/test_nv06_profile_compatibility.py",
+    "M\ttests/test_nv07_chat.py",
+    "M\ttests/test_nvidia_competition_demo.py",
+    "M\ttests/test_nvidia_reviewer_preflight.py",
+    "A\ttests/test_oct6_integration_preflight.py",
+    "A\ttests/test_personal_ai_demo_launcher.py",
+    "A\ttests/test_personal_ai_demo_ui.py",
+    "A\ttests/test_serverless_effect_transport.py",
+    "A\ttests/test_service_receipt_graph.py",
+    "A\ttests/test_shadow_delta.py",
+    "A\ttests/test_shadow_delta_corruption.py",
+    "A\ttests/test_unified_nebius_slice.py",
+    "A\ttests/test_verifier_canary.py",
+    "A\ttests/test_webapp.py",
+    "M\tweb/app.js",
+    "M\tweb/index.html",
+    "M\tweb/styles.css"
+  ],
+  "blocks": [
+    {
+      "block": "01",
+      "classification": "ACCEPTED_LOCAL",
+      "scope": "Exact-model native contract/cost/provenance implemented. Historical single G1 transport proof retained; incomplete advisory content remains REJECTED, not accepted architecture.",
+      "source_files": [
+        "runtime/providers/nebius.py",
+        "runtime/providers/nebius_routing.py",
+        "runtime/providers/exact.py"
+      ]
+    },
+    {
+      "block": "02",
+      "classification": "PARTIAL_BY_DESIGN",
+      "scope": "Typed lab values and native ServiceGuard states exist; general liability product integration remains open. No second outcome/authority core.",
+      "source_files": [
+        "lab/archaioa/outcome.py",
+        "lab/archaioa/liability.py",
+        "runtime/service_guard/service.py"
+      ]
+    },
+    {
+      "block": "03",
+      "classification": "PARTIAL_BY_DESIGN",
+      "scope": "Lab proof + native host-only effect handle exist; external accepted MCP N5 fixture authority retained outside AIOA. Production signer/custody remains OPEN.",
+      "source_files": [
+        "lab/archaioa/warrant.py",
+        "lab/archaioa/decision_root.py",
+        "runtime/service_guard/target.py"
+      ]
+    },
+    {
+      "block": "04",
+      "classification": "PARTIAL_BY_DESIGN",
+      "scope": "Durable local intent/reconciliation/restart and coordinator epoch implemented. Distributed outbox/lease/target fencing is not inferred from S0.",
+      "source_files": [
+        "runtime/mission/lite_journal.py",
+        "runtime/service_guard/service.py",
+        "runtime/memory_patch/persistence/ports.py"
+      ]
+    },
+    {
+      "block": "05",
+      "classification": "ACCEPTED_LOCAL",
+      "scope": "Implemented bounded local causal graph over native OPERATION/AUDIT records; valid time and local journal record time separated, legacy missing timestamps UNKNOWN. Metadata/provenance only; no authority, new storage or distributed DB-commit guarantee.",
+      "source_files": [
+        "runtime/service_guard/receipt_graph.py",
+        "runtime/service_guard/service.py",
+        "scripts/nvidia_competition_demo.py",
+        "scripts/nvidia_reviewer_preflight.py"
+      ]
+    },
+    {
+      "block": "06",
+      "classification": "ACCEPTED_LOCAL",
+      "scope": "Bounded CURRENT metadata-only immutable capsule over native admitted lanes; exact request/bundle hashes, Core owner/HAT/source checks, separate native personal lane, explicit subset and hard serialized byte budget. No payload export, new engine/store/authority or LITE prompt change; AS_OF/FUTURE capsules remain open.",
+      "source_files": [
+        "runtime/memory_patch/retrieval/capsule.py",
+        "runtime/memory_patch/retrieval/service.py",
+        "runtime/memory_patch/personal/retrieval.py",
+        "runtime/memory_patch/retrieval/temporal.py",
+        "tests/nv05_demo.py"
+      ]
+    },
+    {
+      "block": "07",
+      "classification": "ACCEPTED_LOCAL",
+      "scope": "Native integer money/risk paired reservations, conservative UNKNOWN, current epoch/kill dispatch marker and provider circuits; explicit opt-in single-owner Core composition only. Legacy unbound paths retain old behavior; raw-audit namespace governor adoption, hosted global accounting and deployment certification remain OPEN. Accepted local checkpoint 8c59464f; sealed external phase07 evidence. No production/global/distributed certification.",
+      "source_files": [
+        "runtime/mission/governor.py",
+        "runtime/providers/nebius_routing.py",
+        "runtime/service_guard/service.py",
+        "runtime/memory_patch/audit.py",
+        "docs/integration/DUAL_GOVERNOR.md"
+      ]
+    },
+    {
+      "block": "08",
+      "classification": "ACCEPTED_LOCAL",
+      "scope": "Native commit-select-reveal and seeded covariance fixture accepted at 0f8fdf6; metadata/advisory only, no independent live-model verification claim.",
+      "source_files": [
+        "runtime/mission/verification.py",
+        "tests/test_commit_select_reveal.py",
+        "tests/nv08_canary.py",
+        "tests/test_verifier_canary.py",
+        "docs/integration/COMMIT_SELECT_REVEAL.md"
+      ]
+    },
+    {
+      "block": "09",
+      "classification": "ACCEPTED_LOCAL",
+      "scope": "Selected canonical comparison plus independent literal readback on one existing reversible target; FIXTURE only; production warrant/cloud binding OPEN. External checkpoint is acceptance authority for local gates.",
+      "source_files": [
+        "runtime/service_guard/shadow_delta.py",
+        "runtime/service_guard/service.py",
+        "runtime/memory_patch/retrieval/dependencies.py",
+        "tests/test_shadow_delta.py"
+      ]
+    },
+    {
+      "block": "10",
+      "classification": "BLOCKED_EXTERNAL",
+      "scope": "Single existing Core governor owns native job envelope/lease/fence and synthetic S1/S2. Cloud S1 BLOCKED_APPROVAL, S2 NOT_RUN_DEPENDS_S1; no actual provider dispatcher or target-native distributed fencing claim.",
+      "source_files": [
+        "runtime/mission/governor.py",
+        "runtime/mission/job_contracts.py",
+        "runtime/mission/jobs.py",
+        "tests/test_advisory_jobs.py"
+      ]
+    },
+    {
+      "block": "11",
+      "classification": "BLOCKED_EXTERNAL",
+      "scope": "Single existing Core governor owns native job envelope/lease/fence and synthetic S1/S2. Cloud S1 BLOCKED_APPROVAL, S2 NOT_RUN_DEPENDS_S1; no actual provider dispatcher or target-native distributed fencing claim.",
+      "source_files": [
+        "runtime/mission/governor.py",
+        "runtime/mission/job_contracts.py",
+        "runtime/mission/jobs.py",
+        "tests/test_advisory_jobs.py"
+      ]
+    },
+    {
+      "block": "12",
+      "classification": "ACCEPTED_LOCAL",
+      "scope": "Finite checker + bounded native fault/endurance evidence; production/refinement and historical endurance integrity remain OPEN.",
+      "source_files": [
+        "lab/archaioa/effect_model.py",
+        "lab/archaioa/governed_model.py",
+        "docs/integration/FORMAL_FAULT_LOCAL.md"
+      ]
+    },
+    {
+      "block": "13",
+      "classification": "ACCEPTED_LOCAL",
+      "scope": "Opt-in same-Core bounded operator metadata in existing token-protected panel. Historical approval is not current authority; no LIVE proof.",
+      "source_files": [
+        "runtime/native_console.py",
+        "runtime/webapp.py",
+        "web/app.js"
+      ]
+    },
+    {
+      "block": "14",
+      "classification": "BLOCKED_EXTERNAL",
+      "scope": "Mandatory fail-closed submission evidence, bounded judge readiness, optional unsent native LIVE policy admission and Nebius-first docs. Publication/LIVE/legal/Devpost gates remain separate and unperformed.",
+      "source_files": [
+        "scripts/nvidia_competition_demo.py",
+        "scripts/nvidia_reviewer_preflight.py",
+        "docs/nebius_devpost_submission_draft.md"
+      ]
+    }
+  ],
+  "rehearsal": {
+    "scope": "DISPOSABLE_LOCAL_CLONE_DETACHED_HEAD",
+    "result": "FAST_FORWARD_NO_CONFLICT",
+    "candidate_sha": "3b57c314ab2cd3cdb0015ffe2f2f837e082b02e1",
+    "source_refs_moved": false
+  },
+  "canonical_class_inventory": [
+    {
+      "class": "CoreAdmission",
+      "path": "runtime/core_admission.py",
+      "line": 131
+    },
+    {
+      "class": "TransactionRunner",
+      "path": "runtime/memory_patch/persistence/ports.py",
+      "line": 233
+    },
+    {
+      "class": "CoreDualGovernor",
+      "path": "runtime/mission/governor.py",
+      "line": 149
+    },
+    {
+      "class": "LiteScheduler",
+      "path": "runtime/mission/lite_runtime.py",
+      "line": 56
+    },
+    {
+      "class": "CoreCommitSelectReveal",
+      "path": "runtime/mission/verification.py",
+      "line": 62
+    },
+    {
+      "class": "NativeConsoleBinding",
+      "path": "runtime/native_console.py",
+      "line": 33
+    },
+    {
+      "class": "ProviderManager",
+      "path": "runtime/providers/config.py",
+      "line": 94
+    },
+    {
+      "class": "NebiusProviderPort",
+      "path": "runtime/providers/nebius_routing.py",
+      "line": 365
+    },
+    {
+      "class": "CoreServiceGuard",
+      "path": "runtime/service_guard/service.py",
+      "line": 36
+    }
+  ],
+  "import_boundaries": {
+    "runtime_to_lab_or_MCP_or_test_fixture_edges": [],
+    "native_selected_edges": [
+      {
+        "path": "runtime/mission/verification.py",
+        "module": "dataclasses"
+      },
+      {
+        "path": "runtime/mission/verification.py",
+        "module": "datetime"
+      },
+      {
+        "path": "runtime/mission/verification.py",
+        "module": "json"
+      },
+      {
+        "path": "runtime/mission/verification.py",
+        "module": "random"
+      },
+      {
+        "path": "runtime/mission/verification.py",
+        "module": "runtime.core_admission"
+      },
+      {
+        "path": "runtime/mission/verification.py",
+        "module": "runtime.memory_patch.audit"
+      },
+      {
+        "path": "runtime/mission/verification.py",
+        "module": "runtime.memory_patch.contracts.serialization"
+      },
+      {
+        "path": "runtime/mission/verification.py",
+        "module": "runtime.memory_patch.errors"
+      },
+      {
+        "path": "runtime/mission/verification.py",
+        "module": "runtime.memory_patch.learning.contracts"
+      },
+      {
+        "path": "runtime/mission/verification.py",
+        "module": "runtime.memory_patch.persistence.idempotency"
+      },
+      {
+        "path": "runtime/mission/verification.py",
+        "module": "runtime.memory_patch.persistence.ports"
+      },
+      {
+        "path": "runtime/mission/verification.py",
+        "module": "runtime.mission.contracts"
+      },
+      {
+        "path": "runtime/mission/verification.py",
+        "module": "runtime.providers.nvidia"
+      },
+      {
+        "path": "runtime/mission/verification.py",
+        "module": "runtime.service_guard.contracts"
+      },
+      {
+        "path": "runtime/native_console.py",
+        "module": "dataclasses"
+      },
+      {
+        "path": "runtime/native_console.py",
+        "module": "runtime.core_admission"
+      },
+      {
+        "path": "runtime/native_console.py",
+        "module": "runtime.memory_patch.contracts.serialization"
+      },
+      {
+        "path": "runtime/native_console.py",
+        "module": "runtime.mission.governor"
+      },
+      {
+        "path": "runtime/native_console.py",
+        "module": "runtime.mission.verification"
+      },
+      {
+        "path": "runtime/native_console.py",
+        "module": "runtime.mission.contracts"
+      },
+      {
+        "path": "runtime/native_console.py",
+        "module": "runtime.service_guard.service"
+      },
+      {
+        "path": "runtime/personal_ai_demo_launcher.py",
+        "module": "__future__"
+      },
+      {
+        "path": "runtime/personal_ai_demo_launcher.py",
+        "module": "argparse"
+      },
+      {
+        "path": "runtime/personal_ai_demo_launcher.py",
+        "module": "dataclasses"
+      },
+      {
+        "path": "runtime/personal_ai_demo_launcher.py",
+        "module": "datetime"
+      },
+      {
+        "path": "runtime/personal_ai_demo_launcher.py",
+        "module": "json"
+      },
+      {
+        "path": "runtime/personal_ai_demo_launcher.py",
+        "module": "os"
+      },
+      {
+        "path": "runtime/personal_ai_demo_launcher.py",
+        "module": "pathlib"
+      },
+      {
+        "path": "runtime/personal_ai_demo_launcher.py",
+        "module": "stat"
+      },
+      {
+        "path": "runtime/personal_ai_demo_launcher.py",
+        "module": "sys"
+      },
+      {
+        "path": "runtime/personal_ai_demo_launcher.py",
+        "module": "time"
+      },
+      {
+        "path": "runtime/personal_ai_demo_launcher.py",
+        "module": "main"
+      },
+      {
+        "path": "runtime/personal_ai_demo_launcher.py",
+        "module": "providers.config"
+      },
+      {
+        "path": "runtime/personal_ai_demo_launcher.py",
+        "module": "critical_loop.fixture"
+      },
+      {
+        "path": "runtime/personal_ai_demo_launcher.py",
+        "module": "critical_loop.service"
+      },
+      {
+        "path": "runtime/personal_ai_demo_launcher.py",
+        "module": "runtime.core_admission"
+      },
+      {
+        "path": "runtime/personal_ai_demo_launcher.py",
+        "module": "runtime.memory_patch.persistence.ports"
+      },
+      {
+        "path": "runtime/personal_ai_demo_launcher.py",
+        "module": "runtime.mission.contracts"
+      },
+      {
+        "path": "runtime/personal_ai_demo_launcher.py",
+        "module": "runtime.mission.governor"
+      },
+      {
+        "path": "runtime/personal_ai_demo_launcher.py",
+        "module": "runtime.memory_patch.retrieval.service"
+      },
+      {
+        "path": "runtime/personal_ai_demo_launcher.py",
+        "module": "runtime.memory_patch.retrieval.contracts"
+      },
+      {
+        "path": "runtime/personal_ai_demo_launcher.py",
+        "module": "runtime.mission.lite_contracts"
+      },
+      {
+        "path": "runtime/personal_ai_demo_launcher.py",
+        "module": "runtime.mission.lite_runtime"
+      },
+      {
+        "path": "runtime/personal_ai_demo_launcher.py",
+        "module": "runtime.personal_ai_demo"
+      },
+      {
+        "path": "runtime/personal_ai_demo_launcher.py",
+        "module": "runtime.personal_ai_fixture"
+      },
+      {
+        "path": "runtime/personal_ai_demo_launcher.py",
+        "module": "runtime.providers.exact"
+      },
+      {
+        "path": "runtime/personal_ai_demo_launcher.py",
+        "module": "runtime.providers.nvidia"
+      },
+      {
+        "path": "runtime/personal_ai_demo_launcher.py",
+        "module": "runtime.providers.nebius_routing"
+      },
+      {
+        "path": "runtime/personal_ai_demo_launcher.py",
+        "module": "runtime.service_guard.contracts"
+      },
+      {
+        "path": "runtime/personal_ai_demo_launcher.py",
+        "module": "runtime.service_guard.service"
+      },
+      {
+        "path": "runtime/personal_ai_demo_launcher.py",
+        "module": "runtime.service_guard.target"
+      },
+      {
+        "path": "runtime/personal_ai_demo_launcher.py",
+        "module": "runtime.service_guard.serverless_worker"
+      },
+      {
+        "path": "runtime/personal_ai_demo_launcher.py",
+        "module": "runtime.webapp"
+      },
+      {
+        "path": "runtime/personal_ai_demo_launcher.py",
+        "module": "subprocess"
+      },
+      {
+        "path": "runtime/personal_ai_demo_launcher.py",
+        "module": "runtime.providers.nebius_routing"
+      },
+      {
+        "path": "runtime/providers/nebius_routing.py",
+        "module": "__future__"
+      },
+      {
+        "path": "runtime/providers/nebius_routing.py",
+        "module": "dataclasses"
+      },
+      {
+        "path": "runtime/providers/nebius_routing.py",
+        "module": "datetime"
+      },
+      {
+        "path": "runtime/providers/nebius_routing.py",
+        "module": "decimal"
+      },
+      {
+        "path": "runtime/providers/nebius_routing.py",
+        "module": "enum"
+      },
+      {
+        "path": "runtime/providers/nebius_routing.py",
+        "module": "json"
+      },
+      {
+        "path": "runtime/providers/nebius_routing.py",
+        "module": "os"
+      },
+      {
+        "path": "runtime/providers/nebius_routing.py",
+        "module": "pathlib"
+      },
+      {
+        "path": "runtime/providers/nebius_routing.py",
+        "module": "re"
+      },
+      {
+        "path": "runtime/providers/nebius_routing.py",
+        "module": "stat"
+      },
+      {
+        "path": "runtime/providers/nebius_routing.py",
+        "module": "time"
+      },
+      {
+        "path": "runtime/providers/nebius_routing.py",
+        "module": "typing"
+      },
+      {
+        "path": "runtime/providers/nebius_routing.py",
+        "module": "runtime.core_admission"
+      },
+      {
+        "path": "runtime/providers/nebius_routing.py",
+        "module": "runtime.memory_patch.contract"
+      },
+      {
+        "path": "runtime/providers/nebius_routing.py",
+        "module": "runtime.memory_patch.contracts.serialization"
+      },
+      {
+        "path": "runtime/providers/nebius_routing.py",
+        "module": "runtime.memory_patch.errors"
+      },
+      {
+        "path": "runtime/providers/nebius_routing.py",
+        "module": "runtime.mission.lite_contracts"
+      },
+      {
+        "path": "runtime/providers/nebius_routing.py",
+        "module": "runtime.memory_patch.learning.nachwg_contract"
+      },
+      {
+        "path": "runtime/providers/nebius_routing.py",
+        "module": "runtime.providers.exact"
+      },
+      {
+        "path": "runtime/providers/nebius_routing.py",
+        "module": "runtime.providers.messages"
+      },
+      {
+        "path": "runtime/providers/nebius_routing.py",
+        "module": "runtime.providers.nebius"
+      },
+      {
+        "path": "runtime/providers/nebius_routing.py",
+        "module": "runtime.providers.nvidia"
+      },
+      {
+        "path": "runtime/providers/nebius_routing.py",
+        "module": "runtime.mission.governor"
+      },
+      {
+        "path": "runtime/providers/nebius_routing.py",
+        "module": "runtime.mission.governor"
+      },
+      {
+        "path": "runtime/providers/nebius_routing.py",
+        "module": "runtime.service_guard.contracts"
+      },
+      {
+        "path": "runtime/providers/nebius_routing.py",
+        "module": "runtime.memory_patch.learning.nachwg_contract"
+      },
+      {
+        "path": "runtime/service_guard/service.py",
+        "module": "dataclasses"
+      },
+      {
+        "path": "runtime/service_guard/service.py",
+        "module": "datetime"
+      },
+      {
+        "path": "runtime/service_guard/service.py",
+        "module": "json"
+      },
+      {
+        "path": "runtime/service_guard/service.py",
+        "module": "threading"
+      },
+      {
+        "path": "runtime/service_guard/service.py",
+        "module": "time"
+      },
+      {
+        "path": "runtime/service_guard/service.py",
+        "module": "uuid"
+      },
+      {
+        "path": "runtime/service_guard/service.py",
+        "module": "runtime.core_admission"
+      },
+      {
+        "path": "runtime/service_guard/service.py",
+        "module": "runtime.memory_patch.audit"
+      },
+      {
+        "path": "runtime/service_guard/service.py",
+        "module": "runtime.memory_patch.contracts.serialization"
+      },
+      {
+        "path": "runtime/service_guard/service.py",
+        "module": "runtime.memory_patch.errors"
+      },
+      {
+        "path": "runtime/service_guard/service.py",
+        "module": "runtime.memory_patch.persistence.idempotency"
+      },
+      {
+        "path": "runtime/service_guard/service.py",
+        "module": "runtime.memory_patch.persistence.ports"
+      },
+      {
+        "path": "runtime/service_guard/service.py",
+        "module": "runtime.mission.contracts"
+      },
+      {
+        "path": "runtime/service_guard/service.py",
+        "module": "runtime.providers.nvidia"
+      },
+      {
+        "path": "runtime/service_guard/service.py",
+        "module": "runtime.service_guard.contracts"
+      },
+      {
+        "path": "runtime/service_guard/service.py",
+        "module": "runtime.service_guard.target"
+      },
+      {
+        "path": "runtime/service_guard/service.py",
+        "module": "runtime.service_guard.receipt_graph"
+      },
+      {
+        "path": "runtime/service_guard/service.py",
+        "module": "runtime.service_guard.target"
+      },
+      {
+        "path": "runtime/service_guard/service.py",
+        "module": "runtime.service_guard.receipt_graph"
+      },
+      {
+        "path": "runtime/service_guard/service.py",
+        "module": "runtime.service_guard.shadow_delta"
+      },
+      {
+        "path": "runtime/service_guard/service.py",
+        "module": "runtime.memory_patch.audit"
+      },
+      {
+        "path": "runtime/service_guard/service.py",
+        "module": "runtime.mission.governor"
+      },
+      {
+        "path": "runtime/service_guard/service.py",
+        "module": "runtime.mission.governor"
+      },
+      {
+        "path": "runtime/service_guard/service.py",
+        "module": "runtime.memory_patch.retrieval.dependencies"
+      },
+      {
+        "path": "runtime/service_guard/service.py",
+        "module": "runtime.service_guard.target"
+      },
+      {
+        "path": "runtime/service_guard/service.py",
+        "module": "runtime.mission.governor"
+      },
+      {
+        "path": "runtime/service_guard/service.py",
+        "module": "runtime.memory_patch.lite"
+      }
+    ]
+  },
+  "one_system_proof": "Existing UnifiedFixture shares identical Core/runner with governor, CSR, guard and native retrieval; native scheduler/journal model binding and single-effect/replay tests. Legacy modules remain separate preserved capabilities, not duplicate native authority.",
+  "protected_boundaries": [
+    "main/origin-main unchanged",
+    "MCP external READ_ONLY",
+    "AIOA source reference read-only",
+    "No production authority/provider/cloud execution",
+    "NLnet removals preserved"
+  ],
+  "rollback_sha": "3b57c314ab2cd3cdb0015ffe2f2f837e082b02e1",
+  "MAIN_INTEGRATION_CANDIDATE": "YES_MECHANICS_ONLY",
+  "MAIN_INTEGRATION_READY": "NO",
+  "human_command_plan": [
+    "Reverify clean candidate/main SHAs and all external/security/IP gates",
+    "Obtain explicit architect/operator main integration authorization",
+    "Only after separate authorization: git switch main; git merge --ff-only <accepted-final-candidate>",
+    "No push or publication without separate authorization"
+  ],
+  "open_items": [
+    "Current integrated LIVE provider proof",
+    "Public judge/source/video and uptime",
+    "Rights/security history human review",
+    "Production signer custody",
+    "Distributed effects/exactly-once not proven",
+    "Devpost attestations/Submitted receipt"
+  ],
+  "not_performed": [
+    "main merge",
+    "remote fetch/push",
+    "cloud/provider call"
+  ]
+}
