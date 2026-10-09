@@ -140,6 +140,8 @@ def run_unified(root):
     fx=UnifiedFixture(root)
     try:
         before=fx.prepare();no_authority_count=fx.target.client.read()['effect_count']
+        try:csr_before=fx.protocol.inspect(fx.reader,fx.operation_id)
+        except Exception:csr_before={'status':'UNKNOWN'}
         fx.approve();result=fx.execute()
         shadow=fx.guard.shadow_delta(fx.reader,fx.operation_id).as_dict();digest=shadow['certificate_digest']
         fx.reopen();replay=fx.execute();after=fx.target.client.read()
@@ -147,6 +149,8 @@ def run_unified(root):
         from webapp import WebRuntimeService
         ui=WebRuntimeService(runtime=fx.fx.runtime,native_console=fx.console).authority_payload()
         console=ui['native_console'];scheduler=fx.fx.runtime._lite_scheduler
+        csr_after=console['verification']
+        csr_fields=('status','commit_digest','selection_present','receipt_present')
         checks={'no_effect_without_human':not before['dispatch_attempted'] and no_authority_count==0,
             'native_effect_verified':result['status']=='VERIFIED' and result['verified_effect'] is True,
             'replay_one_effect':replay['status']=='REPLAY' and after['effect_count']==1,
@@ -157,6 +161,11 @@ def run_unified(root):
             'native_profile_bound':scheduler.profile==scheduler.journal.profile and scheduler.profile.digest==scheduler.journal.state['manifest_digest'],
             'journal_model_bound':all(r['provider_id']=='nebius' and r['model_id']==MODEL for r in scheduler.journal.reservations()),
             'advisory_supported_not_authority':fx.verdict['status']=='SUPPORTED' and fx.verdict['authority']=='NONE' and not fx.verdict['execution_authority'],
+            'csr_metadata_complete':csr_before.get('authority')=='NONE' and all(
+                row.get('status')=='COMMITTED' and row.get('selection_present') is True
+                and row.get('receipt_present') is True and row.get('commit_digest')==fx.verdict['commit_digest']
+                for row in (csr_before,csr_after)),
+            'csr_metadata_replay_stable':all(csr_before.get(k)==csr_after.get(k) for k in csr_fields),
             'console_governor_available':console['governor']['status']=='AVAILABLE' and console['governor']['open_liabilities']==0,
             'console_context_current':console['context']['status']=='CURRENT_READ',
             'console_receipt_complete':console['receipt_chain'].get('projection_status')=='COMPLETE',
@@ -167,6 +176,7 @@ def run_unified(root):
             'effect_count':after['effect_count'],'duplicate_effects':max(0,after['effect_count']-1),
             'live_provider_calls':0,'offline_provider_calls':len(fx.provider_calls),'native_port':'NebiusProviderPort',
             'capsule_digest':fx.capsule.capsule_hash,'verifier_status':fx.verdict['status'],
+            'verification_metadata':csr_after,
             'shadow_delta_digest':digest,'replay_status':replay['status'],'console':console,'ui_path':'EXISTING_AUTHORITY_TIMELINE',
             'backend':'EXPLICIT_NATIVE_JSON_TEST_PORT','source_admission':'SYNTHETIC_NATIVE_CATALOG',
             'restart_scope':'NATIVE_PORT_REOPEN_SAME_OWNER_CORE','cpl_nonzero':'EXISTING_MODULE_COMPATIBILITY_GATES_SEPARATE; NOT NEW EFFECT EXECUTOR'}

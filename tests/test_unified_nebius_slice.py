@@ -7,6 +7,69 @@ class UnifiedPresenceTests(unittest.TestCase):
     def test_existing_reviewer_can_run_one_core_nebius_fixture(self):
         self.assertIsNotNone(importlib.util.find_spec('nv13_unified'))
 
+class UnifiedMetadataGateTests(unittest.TestCase):
+    """A missing/stale CSR receipt must fail the reviewer, never certify it."""
+    def run_review(self, replacement=None):
+        from unittest.mock import patch
+        from nv13_unified import run_unified
+        from runtime.mission.verification import CoreCommitSelectReveal
+        with tempfile.TemporaryDirectory() as temp:
+            if replacement is None:
+                return run_unified(Path(temp))
+            with patch.object(CoreCommitSelectReveal, 'inspect', replacement):
+                return run_unified(Path(temp))
+
+    def test_unknown_csr_metadata_cannot_pass_unified_reviewer(self):
+        result = self.run_review(lambda *args: {'status': 'UNKNOWN', 'authority': 'NONE'})
+        self.assertEqual('FAIL', result['status'])
+
+    def test_missing_or_non_boolean_presence_cannot_pass_unified_reviewer(self):
+        from runtime.mission.verification import CoreCommitSelectReveal
+        original = CoreCommitSelectReveal.inspect
+        for field in ('selection_present', 'receipt_present'):
+            for value in (False, 1):
+                with self.subTest(field=field, value=value):
+                    def incomplete(service, principal, task, field=field, value=value):
+                        row = original(service, principal, task)
+                        row[field] = value
+                        return row
+                    self.assertEqual('FAIL', self.run_review(incomplete)['status'])
+
+    def test_commit_metadata_must_bind_the_existing_advisory_receipt(self):
+        from runtime.mission.verification import CoreCommitSelectReveal
+        original = CoreCommitSelectReveal.inspect
+        def mismatched(service, principal, task):
+            row = original(service, principal, task)
+            row['commit_digest'] = '0' * 64
+            return row
+        self.assertEqual('FAIL', self.run_review(mismatched)['status'])
+
+    def test_restart_metadata_change_cannot_pass_unified_reviewer(self):
+        from runtime.mission.verification import CoreCommitSelectReveal
+        original = CoreCommitSelectReveal.inspect
+        reads = []
+        def changed(service, principal, task):
+            row = original(service, principal, task)
+            reads.append(row)
+            if len(reads) > 1:
+                row['commit_digest'] = '0' * 64
+            return row
+        self.assertEqual('FAIL', self.run_review(changed)['status'])
+
+    def test_reviewer_exports_only_bounded_non_authorizing_csr_metadata(self):
+        result = self.run_review()
+        self.assertEqual('PASS', result['status'])
+        self.assertIn('verification_metadata', result)
+        row = result['verification_metadata']
+        self.assertEqual('COMMITTED', row['status'])
+        self.assertIs(True, row['selection_present'])
+        self.assertIs(True, row['receipt_present'])
+        self.assertLessEqual(len(json.dumps(row).encode()), 1024)
+        self.assertEqual('NONE', result['authority'])
+        self.assertNotIn('The reviewed policy', json.dumps(row))
+        self.assertNotIn('approval', row)
+        self.assertIs(True, result['checks']['csr_metadata_replay_stable'])
+
 class UnifiedSliceTests(unittest.TestCase):
     def setUp(self):
         from nv13_unified import UnifiedFixture
