@@ -148,6 +148,8 @@ class AdvisoryJobTests(unittest.TestCase):
         from dataclasses import asdict
         claim=self.claim();self.start(claim)
         code='''import json,sys
+from pathlib import Path
+sys.path.insert(0, str(Path.cwd() / 'tests'))
 from runtime.core_admission import Capability
 from runtime.mission.governor import CoreDualGovernor
 from runtime.mission.job_contracts import JobClaim

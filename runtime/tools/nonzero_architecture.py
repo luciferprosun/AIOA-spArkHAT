@@ -10,6 +10,7 @@ import tomllib
 import zipfile
 from pathlib import Path
 
+CORE_DISTRIBUTION = 'aioa-sparkhub'
 JUDGE = '4fafed8b1a877e55d96ddd9baea0a737fbeeaa4a'
 SOURCE_TREE = 'a6587b72b4f7d1365ef7de7cab107ea6578f4567'
 PHASE3 = '6563f93e2b895d494063161b438d05209e2655ca'
@@ -159,7 +160,7 @@ def verify_wheel(wheel: Path) -> dict:
         metadata = [name for name in names if name.endswith('.dist-info/METADATA')]
         if len(metadata) != 1:
             forbidden.append('SECOND_DISTRIBUTION_METADATA')
-        elif 'Name: aioa-sparkhat\n' not in archive.read(metadata[0]).decode():
+        elif f'Name: {CORE_DISTRIBUTION}\n' not in archive.read(metadata[0]).decode():
             forbidden.append('WRONG_CORE_DISTRIBUTION')
         for required in ('runtime/nonzero_cloudops/service.py', 'runtime/nonzero_cloudops/LICENSE-NONZERO.txt',
                          'runtime/main.py', 'runtime/critical_loop/service.py', 'runtime/evidence_review/engine.py'):
@@ -179,7 +180,7 @@ def main(argv=None):
     ownership = verify_ownership(project/'runtime')
     provenance = verify_provenance(project)
     packaging = tomllib.loads((project/'pyproject.toml').read_text())
-    packaging_ok = (packaging['project']['name'] == 'aioa-sparkhat'
+    packaging_ok = (packaging['project']['name'] == CORE_DISTRIBUTION
         and packaging['project']['requires-python'] == '>=3.11'
         and packaging['project']['optional-dependencies']['nonzero'] == ['pydantic==2.13.4', 'uuid6==2025.0.1'])
     for entries in packaging['tool']['setuptools'].get('package-data', {}).values():

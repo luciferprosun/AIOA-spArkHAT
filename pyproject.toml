@@ -3,9 +3,9 @@ requires = ["setuptools>=65", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "aioa-sparkhat"
-version = "0.1.0"
-description = "AIOA spArkHAT: the AOIA-Core runtime with an advisory Critical Prompt Loop"
+name = "aioa-sparkhub"
+version = "0.2.0"
+description = "AIOA SparkHub: unified, human-governed AI runtime with advisory multi-model providers"
 readme = "README.md"
 requires-python = ">=3.11"
 license = {file = "LICENSE"}
@@ -17,6 +17,8 @@ nonzero = ["pydantic==2.13.4", "uuid6==2025.0.1"]
 cockroach = ["psycopg[binary]==3.3.5"]
 
 [project.scripts]
+aioa-sparkhub = "runtime.cli:main"
+aioa-sparkhub-web = "runtime.web_cli:main"
 aioa-sparkhat = "runtime.cli:main"
 aioa-sparkhat-web = "runtime.web_cli:main"
 
@@ -31,4 +33,9 @@ runtime = ["prompts/*.txt", "adaptive_routing/*.json", "adaptive_routing/environ
 "runtime.memory_patch" = ["LICENSE-MEMORY-PATCH.txt", "sql/*.sql", "sql/manifest.json", "sql/manifest-learning-v1.json"]
 
 [tool.setuptools.data-files]
+"share/aioa-sparkhub/web" = ["web/index.html", "web/app.js", "web/styles.css"]
 "share/aioa-sparkhat/web" = ["web/index.html", "web/app.js", "web/styles.css"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+norecursedirs = ["archive", "*.egg-info", "build", "dist", "node_modules"]

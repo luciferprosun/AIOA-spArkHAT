@@ -75,6 +75,23 @@ class UnifiedSliceTests(unittest.TestCase):
         from nv13_unified import UnifiedFixture
         self.temp=tempfile.TemporaryDirectory();self.addCleanup(self.temp.cleanup)
         self.fx=UnifiedFixture(Path(self.temp.name));self.addCleanup(self.fx.close)
+    def test_repeated_approval_wait_preserves_target_receipt_chronology(self):
+        # Fast polling must not move approval into the target process's future.
+        # The target independently timestamps receipts with real wall time.
+        for _ in range(12):
+            result = self.fx.prepare()
+            self.assertEqual('BLOCKED', result['status'])
+            self.assertFalse(result['dispatch_attempted'])
+        self.assertEqual(0, self.fx.target.client.read()['effect_count'])
+        self.fx.approve()
+        self.assertEqual('VERIFIED', self.fx.execute()['status'])
+        certificate = self.fx.guard.shadow_delta(self.fx.reader, self.fx.operation_id).as_dict()
+        self.assertEqual('VERIFIED_FIXTURE_DELTA', certificate['status'])
+        self.assertFalse(certificate['dependent_completion_blocked'])
+        self.fx.reopen()
+        self.assertEqual('REPLAY', self.fx.execute()['status'])
+        self.assertEqual(1, self.fx.target.client.read()['effect_count'])
+        self.assertEqual(1, len(self.fx.provider_calls))
     def test_one_core_native_exact_provider_binds_bounded_capsule_before_human_gate(self):
         result=self.fx.prepare()
         self.assertEqual('BLOCKED',result['status']);self.assertEqual(0,self.fx.target.client.read()['effect_count'])

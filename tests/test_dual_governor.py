@@ -313,6 +313,7 @@ class DualGovernorTests(unittest.TestCase):
         self.gov.mark_unknown(self.principal(),'r1',self.epoch,canonical_sha256('lost'))
         code='''from pathlib import Path
 import sys,json
+sys.path.insert(0, str(Path.cwd() / 'tests'))
 from test_dual_governor import core,SCOPE
 from nv03_support import DurableFactory
 from runtime.core_admission import Capability

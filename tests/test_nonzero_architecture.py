@@ -1,10 +1,20 @@
 """Installed-compatible, baseline-free one-system architecture regression."""
+import contextlib
+import io
+import json
 import tempfile
 import unittest
+import zipfile
 from pathlib import Path
 
 import nonzero_cloudops
-from tools.nonzero_architecture import inspect_module, inspect_python, verify_ownership
+from tools.nonzero_architecture import (
+    inspect_module,
+    inspect_python,
+    main,
+    verify_ownership,
+    verify_wheel,
+)
 
 
 class NativeOneSystemArchitectureTests(unittest.TestCase):
@@ -50,3 +60,36 @@ class NativeOneSystemArchitectureTests(unittest.TestCase):
 
     def test_static_gate_accepts_plain_native_domain_imports(self):
         self.assertEqual(inspect_python('from ..models import Run\nfrom tools.provenance import AppendOnlyProvenanceStore\n'), [])
+
+
+class CanonicalDistributionGateTests(unittest.TestCase):
+    def test_current_sparkhub_project_passes_the_complete_architecture_gate(self):
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            code = main(['--project-root', str(Path(__file__).resolve().parents[1])])
+        result = json.loads(output.getvalue())
+        self.assertEqual(0, code, result)
+        self.assertEqual('PASS', result['PACKAGING'])
+        self.assertEqual('PASS', result['ONE_SYSTEM_STATIC_GATE'])
+
+    def test_wheel_identity_requires_exactly_one_canonical_distribution(self):
+        required = ('runtime/nonzero_cloudops/service.py', 'runtime/nonzero_cloudops/LICENSE-NONZERO.txt',
+                    'runtime/main.py', 'runtime/critical_loop/service.py', 'runtime/evidence_review/engine.py')
+        for distribution, extra_metadata, expected in (
+            ('aioa-sparkhub', False, 'PASS'),
+            ('aioa-sparkhat', False, 'FAIL'),
+            ('second-core', False, 'FAIL'),
+            ('aioa-sparkhub', True, 'FAIL'),
+        ):
+            with (
+                self.subTest(distribution=distribution, extra_metadata=extra_metadata),
+                tempfile.TemporaryDirectory() as directory,
+            ):
+                wheel = Path(directory) / 'candidate.whl'
+                with zipfile.ZipFile(wheel, 'w') as archive:
+                    for path in required:
+                        archive.writestr(path, '')
+                    archive.writestr('core.dist-info/METADATA', f'Name: {distribution}\n')
+                    if extra_metadata:
+                        archive.writestr('other.dist-info/METADATA', 'Name: second-core\n')
+                self.assertEqual(expected, verify_wheel(wheel)['status'])
