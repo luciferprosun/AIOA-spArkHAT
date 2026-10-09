@@ -56,3 +56,9 @@ The tracked/history audit is a completed local classification, not a blanket sec
 The checked-in requirements matrix records the preparation baseline, not a self-referential future commit SHA. A submission attempt requires a new reviewed matrix and receipts bound to the exact accepted candidate. The offline preflight remains BLOCKED and grants no execution authority. The immutable external compliance checkpoint records the accepted local SHA, parent, changed files and evidence manifest.
 
 STOP after the local compliance checkpoint. MAIN_INTEGRATION_READY=NO. LIVE_PROVIDER_VALIDATION_REQUIRED=YES; PUBLIC_JUDGE_DEPLOY_REQUIRED=YES; DEVPOST_FINAL_SUBMISSION_REQUIRED=YES. No next roadmap block, main integration, external action or provider call is authorized by this acceptance.
+
+## Authorized local day shift — 2026-10-09
+
+The subsequent operator docs-only cleanup `3b57c314ab2cd3cdb0015ffe2f2f837e082b02e1` remains preserved; deleted NLnet reviewer materials are not restored. D1 audits that exact candidate against unchanged local main/origin-main `d26266e54ee940d7ada30aa02783dc697618a72c`: 51 commits, 246 changed paths, detached throwaway-clone fast-forward with no conflicts. This proves mechanics only; MAIN_INTEGRATION_READY remains NO.
+
+D2 closes one genuinely missing local reviewer gate in Block08: existing CSR commit/select/receipt metadata must be complete, match the existing advisory receipt digest and remain stable after native-port reopen. Five new RED-first tests are included in the 60-test focused native acceptance. No CSR protocol, Core, provider, scheduler, executor, memory or authority system is added. D3/D4 only improve product explanation and candidate-bound external evidence packaging. D5 and the final native regression remain recorded in the external day-shift handoff; no future PASS is inferred here.

@@ -2,6 +2,8 @@
 
 Scope: same-repository local candidate, no publication authority. Machine-readable companion: `NEBIUS_HACKATHON_REQUIREMENTS_MATRIX.json`. Its baseline SHA is preparation provenance, not a future accepted submission SHA. Mandatory evidence references remain empty until externally reviewed, candidate-bound receipts exist. Refresh an external matrix against the exact accepted SHA before submission.
 
+Day-shift refresh: the checked-in matrix binds code checkpoint `dceafec638b36417cb99c56f810d84e3555a7c61` (bounded CSR reviewer acceptance). Subsequent documentation commits do not claim self-referential SHA binding. The day-shift external final package supplies a matrix bound to its exact final HEAD and records BLOCKED on all 13 missing mandatory receipts. No status is promoted because local tests passed.
+
 [Official rules](https://nebiusglobalaihackathon.devpost.com/rules) require a working Nebius-powered application, an NVIDIA open model, public source/license/setup, track fit, working demo, public video, feedback, significant-update disclosure when applicable, and judge access. [FAQ](https://nebiusglobalaihackathon.devpost.com/details/faqs) confirms Token Factory usage can satisfy hosting; frontend Nebius hosting is not mandatory. [Organizer guidance](https://nebiusglobalaihackathon.devpost.com/updates/46205-how-to-build-a-winning-project) asks for concrete tool feedback and explicit Nebius/NVIDIA presentation. Retrieved 2026-10-08. These references are not eligibility/legal attestation.
 
 | Requirement | Status | Evidence scope / missing proof |

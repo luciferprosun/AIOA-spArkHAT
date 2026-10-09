@@ -8,6 +8,10 @@ For this Nebius hackathon, the optional specialist is **Nebius Token Factory + N
 python3 -I -B scripts/nvidia_reviewer_preflight.py --unified
 ```
 
+The local review shows the user journey before the architecture: admitted owner-scoped context supports advice; money/risk limits bound that advice; an exact human decision precedes one disposable maintenance effect; durable receipt/readback and reopen/replay show that it is not performed twice. The review uses synthetic context and simulated human approval, never your private HAT plaintext or a live model. Persistent personal context remains in the existing owner-scoped Personal AI lane.
+
+Read `proof.checks` for the observed safety results and `proof.verification_metadata` for bounded commit/select/receipt presence. UNKNOWN, missing receipt or a changed commit digest cannot produce reviewer PASS. These metadata certify neither current effect authority nor independent live-model correctness. See the [claim-to-evidence index](docs/nebius/SUBMISSION_EVIDENCE_INDEX.md) and [operator actions still required](docs/nebius/OPERATOR_ACTIONS_REQUIRED.md).
+
 For the existing local Personal AI UI, run `./scripts/start_nebius_personal_ai_demo.sh --fixture` from the approved integration branch. Provider **FIXTURE**, Target **FIXTURE_ONLY**. Human approval, receipt/readback, restart and replay are separate visible steps. `--live-provider` remains **NOT_LIVE / BLOCKED_PROVIDER** pending separate authorization; no silent fallback. Native model, cost, stop-completion and aggregate governor guards stay active.
 
 See [judge mode](docs/nebius/JUDGE_MODE_RUNBOOK.md), [mandatory compliance matrix](docs/nebius/NEBIUS_HACKATHON_REQUIREMENTS_MATRIX.md), [significant updates](docs/nebius/SIGNIFICANT_UPDATE_SINCE_2026-08-26.md), [submission draft](docs/nebius/DEVPOST_SUBMISSION_DRAFT_EN.md), and [rights inventory](docs/nebius/CG4_RIGHTS_INVENTORY.md). Offline submission preflight currently returns BLOCKED: live integrated evidence, public candidate/demo/video, judge availability, rights review and Submitted receipt remain human/external gates. No submission or deployment is performed by these commands.

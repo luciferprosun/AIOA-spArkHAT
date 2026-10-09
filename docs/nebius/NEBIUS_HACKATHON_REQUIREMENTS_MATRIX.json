@@ -1,6 +1,6 @@
 {
   "schema": "aioa.nebius-requirements.v1",
-  "candidate_sha": "3453f2fa22829a63b7a0f5f5b6a156380f939530",
+  "candidate_sha": "dceafec638b36417cb99c56f810d84e3555a7c61",
   "requirements": [
     {
       "id": "nebius_runtime",

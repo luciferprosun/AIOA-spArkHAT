@@ -1,8 +1,8 @@
 {
   "schema": "aioa.nebius-roadmap-status.v1",
   "scope": "LOCAL_INTEGRATION_CANDIDATE_ONLY",
-  "basis_sha": "3453f2fa22829a63b7a0f5f5b6a156380f939530",
-  "selected_block": "CG0-CG4-LOCAL",
+  "basis_sha": "dceafec638b36417cb99c56f810d84e3555a7c61",
+  "selected_block": "DAY_D2_BLOCK08_REVIEWER_METADATA_ONLY",
   "claims_live_provider_or_effect": false,
   "blocks": [
     {
@@ -98,7 +98,7 @@
         "tests/test_verifier_canary.py",
         "docs/integration/COMMIT_SELECT_REVEAL.md"
       ],
-      "scope_and_open_items": "Native commit-select-reveal and seeded covariance fixture accepted at 0f8fdf6; metadata/advisory only, no independent live-model verification claim."
+      "scope_and_open_items": "Native commit-select-reveal and seeded covariance fixture accepted at 0f8fdf6; metadata/advisory only, no independent live-model verification claim. Day-shift checkpoint dceafec: existing unified reviewer requires complete, receipt-bound CSR metadata stable after reopen;60 focused PASS including5 RED-first tests. This is artifact-presence/advisory fixture proof, never human authority or live independent-model verification."
     },
     {
       "block": "09",
@@ -172,5 +172,6 @@
   ],
   "validation": "CG0-CG4 LOCAL PASS: 28 targeted, 81 focused (before final review repairs), 5 HTTP compatibility; final revised native suite 1544 PASS / 4 exact optional Playwright/Textual skips / 0 FAIL / 0 ERROR / 0 TIMEOUT, 1548 unique tests. Pinned NVIDIA ATIF validation active. Static/import, changed-file secret scan, diff and final unified reviewer PASS; independent final review Critical=0 Important=0 Minor=0. Tracked/history secret findings classified with limitations; IP/media/dependency rights and external security release remain human gates. LIVE/public demo/publication/Devpost and main integration remain unperformed and blocked.",
   "execution_program": "SOL61_ULTRA_LOCAL_CONVERGENCE",
-  "acceptance_record": "External current sealed phase checkpoint; candidate presence does not imply whole-system acceptance."
+  "acceptance_record": "External current sealed phase checkpoint; candidate presence does not imply whole-system acceptance.",
+  "day_shift_validation": "D1 baseline55PASS/static/import/secret/diff/reviewC0I0M0; D2 focused60PASS/static/import/secret/diff/reviewC0I0M0. Final full day regression and isolated fresh checkout are separate external gates; no result inferred."
 }
