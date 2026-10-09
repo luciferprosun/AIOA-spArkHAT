@@ -13,3 +13,6 @@ Owner-scoped private context -> bounded Context Capsule -> Nebius/NVIDIA advisor
 
 ## Current external gates
 Live provider validation, public Judge Mode, rights/security/legal review, video, Devpost and main integration remain unperformed.
+
+## Final local freeze
+Read [FINAL_LOCAL_CANDIDATE.md](FINAL_LOCAL_CANDIDATE.md) and its external exact post-commit receipt for the final SHA and observed validation results. Preparation docs retain their historical basis. MAIN_INTEGRATION_READY remains NO.
