@@ -1,0 +1,71 @@
+{
+  "schema": "aioa.nebius-requirements.v1",
+  "candidate_sha": "3453f2fa22829a63b7a0f5f5b6a156380f939530",
+  "requirements": [
+    {
+      "id": "nebius_runtime",
+      "status": "PARTIAL",
+      "evidence_refs": []
+    },
+    {
+      "id": "nvidia_model",
+      "status": "PARTIAL",
+      "evidence_refs": []
+    },
+    {
+      "id": "personal_ai_track",
+      "status": "PARTIAL",
+      "evidence_refs": []
+    },
+    {
+      "id": "significant_update",
+      "status": "PARTIAL",
+      "evidence_refs": []
+    },
+    {
+      "id": "public_repo_mit",
+      "status": "BLOCKED_EXTERNAL",
+      "evidence_refs": []
+    },
+    {
+      "id": "readme_setup",
+      "status": "PARTIAL",
+      "evidence_refs": []
+    },
+    {
+      "id": "demo_url",
+      "status": "BLOCKED_EXTERNAL",
+      "evidence_refs": []
+    },
+    {
+      "id": "video",
+      "status": "BLOCKED_EXTERNAL",
+      "evidence_refs": []
+    },
+    {
+      "id": "feedback",
+      "status": "PARTIAL",
+      "evidence_refs": []
+    },
+    {
+      "id": "judging_availability",
+      "status": "UNKNOWN",
+      "evidence_refs": []
+    },
+    {
+      "id": "ip_license",
+      "status": "UNKNOWN",
+      "evidence_refs": []
+    },
+    {
+      "id": "secret_audit",
+      "status": "PARTIAL",
+      "evidence_refs": []
+    },
+    {
+      "id": "devpost_receipt",
+      "status": "UNKNOWN",
+      "evidence_refs": []
+    }
+  ]
+}

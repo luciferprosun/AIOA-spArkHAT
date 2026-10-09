@@ -1,4 +1,18 @@
-# AIOA spArkHAT
+# AIOA Arch spArk / spArkHAT
+
+A Personal AI maintenance assistant that remembers owner constraints, proposes bounded advice, and lets the human approve an exact action with restart-safe receipts and readback.
+
+For this Nebius hackathon, the optional specialist is **Nebius Token Factory + NVIDIA Nemotron**, exact API model `nvidia/Nemotron-3_5-Lightning`. ChatGPT/AIOA remains planner/reviewer; MCP Commander remains an external controlled module. Model authority is NONE/ADVISORY_ONLY. Historical Token Factory smoke is preserved separately; the current integrated reviewer is credential-free **FIXTURE**, not LIVE validation or public deployment.
+
+```bash
+python3 -I -B scripts/nvidia_reviewer_preflight.py --unified
+```
+
+For the existing local Personal AI UI, run `./scripts/start_nebius_personal_ai_demo.sh --fixture` from the approved integration branch. Provider **FIXTURE**, Target **FIXTURE_ONLY**. Human approval, receipt/readback, restart and replay are separate visible steps. `--live-provider` remains **NOT_LIVE / BLOCKED_PROVIDER** pending separate authorization; no silent fallback. Native model, cost, stop-completion and aggregate governor guards stay active.
+
+See [judge mode](docs/nebius/JUDGE_MODE_RUNBOOK.md), [mandatory compliance matrix](docs/nebius/NEBIUS_HACKATHON_REQUIREMENTS_MATRIX.md), [significant updates](docs/nebius/SIGNIFICANT_UPDATE_SINCE_2026-08-26.md), [submission draft](docs/nebius/DEVPOST_SUBMISSION_DRAFT_EN.md), and [rights inventory](docs/nebius/CG4_RIGHTS_INVENTORY.md). Offline submission preflight currently returns BLOCKED: live integrated evidence, public candidate/demo/video, judge availability, rights review and Submitted receipt remain human/external gates. No submission or deployment is performed by these commands.
+
+The sections below preserve the wider AIOA, NVIDIA, NLnet and project history.
 
 [![Core and native NonZero](https://github.com/luciferprosun/AIOA-spArkHAT/actions/workflows/nonzero-pr.yml/badge.svg?branch=main)](https://github.com/luciferprosun/AIOA-spArkHAT/actions/workflows/nonzero-pr.yml)
 

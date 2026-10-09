@@ -6,6 +6,7 @@ until a new, independently reviewed spend authorization is implemented.
 from __future__ import annotations
 
 import argparse
+from dataclasses import replace
 from datetime import datetime, timezone
 import json
 import os
@@ -25,6 +26,9 @@ from critical_loop.service import CriticalPromptLoopService
 from runtime.core_admission import Capability
 from runtime.memory_patch.persistence.ports import TransactionRunner
 from runtime.mission.contracts import MissionContext
+from runtime.mission.governor import CoreDualGovernor, GovernorPolicy, GovernorBinding, Limits
+from runtime.memory_patch.retrieval.service import NativeRetrieval
+from runtime.memory_patch.retrieval.contracts import HybridRetrievalRequest
 from runtime.mission.lite_contracts import LiteBudget, LiteCadence, LiteProfile
 from runtime.mission.lite_runtime import LiteBindings, FileObservationProbe
 from runtime.personal_ai_demo import PersonalAIDemoBindings, PersonalAIDemoService, PersonalAIDemoError
@@ -66,7 +70,7 @@ class _FixtureExact:
             "expected_target_revision": observed["revision"], "proposed_effect": EFFECT,
             "reason_summary": "Transient deterministic fixture advisory.", "needs_attention": True})
         return ProviderResult(content, "nebius", MODEL, MODEL, "EXACT_MATCH", "fixture-demo-request",
-                              {"prompt_tokens": 20, "completion_tokens": 40, "total_tokens": 60}, "stop", "TEST", 0)
+                              {"prompt_tokens": 20, "completion_tokens": 40, "total_tokens": 60}, getattr(self.owner, "fixture_finish_reason", "stop"), "TEST", 0)
 
 
 class _FixtureTargetTransport:
@@ -96,7 +100,7 @@ class DemoComposition:
     operation_id = "personal-ai-operation"
     target_id = "nebius-disposable-target"
 
-    def __init__(self, state_root, *, mode="FIXTURE"):
+    def __init__(self, state_root, *, mode="FIXTURE", live_provider_policy=None):
         if mode not in {"FIXTURE", "LIVE"}:
             raise ValueError("INVALID_DEMO_MODE")
         self.root = Path(state_root).absolute()
@@ -106,6 +110,11 @@ class DemoComposition:
         info = self.root.stat()
         if info.st_uid != os.getuid() or not stat.S_ISDIR(info.st_mode) or info.st_mode & 0o077:
             raise ValueError("UNSAFE_DEMO_STATE")
+        if live_provider_policy is not None and (mode != "LIVE" or type(live_provider_policy) is not dict
+            or set(live_provider_policy) != {"catalog_receipt", "cost_quote"}):
+            raise ValueError("INVALID_OFFLINE_LIVE_POLICY")
+        self.live_provider_policy = live_provider_policy
+        self.live_candidate = None
         self.mode, self.fixture_calls = mode, 0
         self.cpl_fixture = None
         # A persistent manifest prevents changing labels on an existing session.
@@ -135,21 +144,41 @@ class DemoComposition:
         # They share one Core; the effect store is not a second memory engine.
         self.effect_factory = DurableFactory(self.root / "service-guard.json")
         self.runner = TransactionRunner(memory.core, self.effect_factory)
+        policy = GovernorPolicy(memory.scope, "personal-ai-judge", Limits(1000000, 10), Limits(1000000, 15), Limits(1000000, 20))
+        self.governor = CoreDualGovernor(memory.core, self.runner, policy, clock=time.time)
+        management = memory.core.local_operator(Capability.MANAGE)
+        self.epoch = self.governor.inspect(memory.core.local_operator(Capability.READ))["epoch"]
+        if self.epoch == 0:
+            self.epoch = self.governor.start_epoch(management)
         self.guard = CoreServiceGuard(memory.core, self.runner, ServicePolicy(memory.scope, self.target_id),
-                                      self.target, clock=time.time)
+                                      self.target, clock=time.time,
+            governor_binding=GovernorBinding(self.governor, memory.core.local_operator(Capability.COMMIT), self.epoch, self.operation_id, 3))
         now = datetime.now(timezone.utc).isoformat()
         # Synthetic routing inputs are always labelled FIXTURE, never live evidence.
         self.catalog = {"schema": "aioa.nebius-fixture-catalog.v1", "provider": "nebius", "status": "FIXTURE",
             "created_utc": now, "catalog_model_count": 1, "catalog_nemotron_ids": [MODEL],
             "live_catalog_validated": False, "authority": "ADVISORY_ONLY", "fallback": False,
             "response_content_persisted": False, "transport_scope": "TEST"}
-        self.quote = {"model_id": MODEL, "currency": "USD", "input_usd_per_million": "0",
-            "output_usd_per_million": "0", "quoted_utc": now, "input_bound_policy": "utf8-bytes-plus-framing-v1"}
-        budget = LiteBudget(max_requests_per_hour=8, max_retry=0, max_output_tokens=128, request_timeout_seconds=20)
-        route = ModelRoute(ModelRole.FAST, "nebius", MODEL, RouteBudget(8192, 128, 20, "0.01"), now)
+        self.quote = {"model_id": MODEL, "currency": "USD", "input_usd_per_million": "0.06",
+            "output_usd_per_million": "0.24", "quoted_utc": now, "input_bound_policy": "utf8-bytes-plus-framing-v1"}
+        budget = LiteBudget(max_requests_per_hour=8, max_retry=0, max_input_bytes=4096, max_response_bytes=16384, max_output_tokens=128, request_timeout_seconds=20)
+        route = ModelRoute(ModelRole.FAST, "nebius", MODEL, RouteBudget(8192, 128, 20, "0.001"), now)
         provider = NebiusProviderPort(route, budget, self.quote, secret_supplier=lambda: "explicit-fixture-handle",
-                        provider_factory=lambda **kwargs: _FixtureExact(self, **kwargs), clock=time.time, transport_scope="TEST")
+                        provider_factory=lambda **kwargs: _FixtureExact(self, **kwargs), clock=time.time, transport_scope="TEST",
+                        governor_binding=GovernorBinding(self.governor, memory.core.local_operator(Capability.COMMIT), self.epoch, self.operation_id, 1))
         if self.mode == "LIVE":
+            if self.live_provider_policy is not None:
+                from runtime.providers.nebius_routing import validate_competition_model
+                catalog = self.live_provider_policy["catalog_receipt"]
+                quote = self.live_provider_policy["cost_quote"]
+                validate_competition_model(MODEL, catalog, quote)
+                route = ModelRoute(ModelRole.FAST, "nebius", MODEL, RouteBudget(8192, 128, 20, "0.001"), catalog["created_utc"])
+                def blocked_secret():
+                    raise ProviderError("BLOCKED_BY_ADDITIONAL_COST_AUTHORIZATION")
+                self.live_candidate = NebiusProviderPort(route, budget, quote, secret_supplier=blocked_secret,
+                    transport_scope="LIVE", governor_binding=GovernorBinding(self.governor,
+                    memory.core.local_operator(Capability.COMMIT), self.epoch, self.operation_id, 1))
+            # A valid quote/catalog is input readiness, never permission to call.
             provider = _BlockedLiveProvider(budget)
         profile = LiteProfile(memory.scope, "personal-ai-watch", "service-target", enabled=True,
             provider_id="nebius", model_id=MODEL, route_role="FAST", memory_mode="ACTIVE",
@@ -185,6 +214,50 @@ class DemoComposition:
         if result.get("generation_requests") != 5:
             raise PersonalAIDemoError("FIXTURE_CPL_SEQUENCE_FAILED")
         return "COMPLETED_ADVISORY"
+
+    def context_capsule(self):
+        reader = self.memory.core.local_operator(Capability.READ)
+        request = HybridRetrievalRequest.admitted(self.memory.core, reader, hat_id=self.memory.hat_id,
+            query="reviewed policy", context_budget_bytes=2048, limit=4)
+        retrieval = NativeRetrieval(self.memory.core, self.memory.evidence, self.memory.sources,
+            freshness=self.memory.freshness, clock=lambda: self.memory.now)
+        lanes = retrieval.retrieve(reader, request, include_personal=False)
+        return retrieval.context_capsule(reader, request, lanes)
+
+    def validate_judge_request(self, request):
+        if request != {"operation_id": self.operation_id, "target_id": self.target_id,
+                       "memory_query": "maintenance approved window"}:
+            raise PersonalAIDemoError("JUDGE_SCENARIO_ONLY")
+
+    def offline_live_admission(self, request):
+        if self.live_candidate is None:
+            raise PersonalAIDemoError("BLOCKED_PROVIDER")
+        data = json.loads(request.input_text)
+        if type(data) is not dict:
+            raise PersonalAIDemoError("INVALID_OFFLINE_REQUEST")
+        data["context_capsule"] = self.context_capsule().as_dict()
+        request = replace(request, input_text=json.dumps(data, sort_keys=True, separators=(",", ":")))
+        # Existing native exact request/cost policy only. Never request/reserve.
+        units = self.live_candidate.estimated_units(request)
+        money = self.live_candidate.estimated_money_nano(request)
+        return {"state": "UNSENT_OFFLINE_ADMISSION", "estimated_units": units, "money_nano_usd": money,
+            "authority": "NONE", "advisory_authority": "ADVISORY_ONLY", "verification": "UNVERIFIED",
+            "live_calls": 0, "operator_authorization_required": True}
+
+    def readiness(self):
+        # READ only: no key/environment lookup, network probe or live claim.
+        capsule = self.context_capsule()
+        return {"status": "ok", "state": "LOCAL_FIXTURE_READY" if self.mode == "FIXTURE" else "BLOCKED_PROVIDER",
+            "provider_badge": "FIXTURE" if self.mode == "FIXTURE" else "LIVE_NEBIUS_TOKEN_FACTORY",
+            "provider_state": "FIXTURE" if self.mode == "FIXTURE" else "NOT_LIVE",
+            "provider_kind_badge": "FIXTURE_PROVIDER" if self.mode == "FIXTURE" else "LIVE_PROVIDER",
+            "target_kind_badge": "FIXTURE_TARGET",
+            "target_badge": "FIXTURE_ONLY", "model": MODEL, "authority": "NONE", "model_authority": "ADVISORY_ONLY",
+            "live_validated": False, "fallback": False, "credentials": "NOT_INSPECTED", "provider_calls_on_read": 0,
+            "context_capsule_digest": capsule.capsule_hash, "context_purpose": capsule.purpose,
+            "caps": {"max_requests_per_hour": 8, "max_calls_per_prepare": 1, "retry": 0, "max_input_bytes": 4096,
+                     "max_output_tokens": 128, "max_response_bytes": 16384, "request_timeout_seconds": 20, "usd_ceiling": "0.001"},
+            "blocked_reason": "BLOCKED_BY_ADDITIONAL_COST_AUTHORIZATION" if self.mode == "LIVE" else None}
 
     def prepare(self):
         return self.personal_ai.prepare({"operation_id": self.operation_id, "target_id": self.target_id,
@@ -267,8 +340,8 @@ def main():
     args = parser.parse_args()
     import subprocess
     branch = subprocess.check_output(["git", "branch", "--show-current"], cwd=ROOT, text=True).strip()
-    if branch != "nebius-personal-ai":
-        parser.error("STOP: demo requires branch nebius-personal-ai")
+    if branch not in {"nebius-personal-ai", "integration/nebius-unified-prototype-20261008"}:
+        parser.error("STOP: demo requires an explicitly approved Nebius branch")
     if args.self_test:
         if args.live_provider:
             parser.error("self-test requires fixture mode")

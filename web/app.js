@@ -278,8 +278,8 @@ function renderPersonalAI(payload) {
   const mode = payload.provider?.mode || payload.provider?.execution_mode || "UNKNOWN";
   const provider = payload.provider?.provider_id || "UNKNOWN";
   const model = payload.provider?.model_id || "UNKNOWN";
-  elements.personalAIProvider.textContent = `${provider} · ${model} · ${mode}`;
-  elements.personalAITargetMode.textContent = payload.target?.mode || "UNKNOWN";
+  elements.personalAIProvider.textContent = `${payload.judge?.provider_kind_badge || ""} · ${payload.judge?.provider_badge || provider} · ${model} · ${payload.judge?.provider_state || mode}`;
+  elements.personalAITargetMode.textContent = payload.judge?.target_kind_badge || payload.judge?.target_badge || payload.target?.mode || "UNKNOWN";
   const pending = payload.service_guard?.reconciliation_pending === true;
   const applyCount = !pending && Number.isInteger(payload.effects?.apply_count) ? payload.effects.apply_count : "UNKNOWN";
   const duplicateCount = !pending && Number.isInteger(payload.effects?.duplicate_count) ? payload.effects.duplicate_count : "UNKNOWN";

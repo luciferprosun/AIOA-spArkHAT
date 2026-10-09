@@ -3,8 +3,9 @@ set -euo pipefail
 umask 077
 repository_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 cd -- "$repository_root"
-if [[ "$(git branch --show-current)" != "nebius-personal-ai" ]]; then
-  echo "STOP: demo requires branch nebius-personal-ai" >&2
+demo_branch="$(git branch --show-current)"
+if [[ "$demo_branch" != "nebius-personal-ai" && "$demo_branch" != "integration/nebius-unified-prototype-20261008" ]]; then
+  echo "STOP: demo requires an explicitly approved Nebius branch" >&2
   exit 1
 fi
 if [[ -x "$repository_root/.venv/bin/python" ]]; then

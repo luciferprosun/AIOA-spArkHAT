@@ -1,8 +1,8 @@
 {
   "schema": "aioa.nebius-roadmap-status.v1",
   "scope": "LOCAL_INTEGRATION_CANDIDATE_ONLY",
-  "basis_sha": "c3bea200e69783f204eda481aeff3bef64ff8242",
-  "selected_block": "H-UNIFIED",
+  "basis_sha": "3453f2fa22829a63b7a0f5f5b6a156380f939530",
+  "selected_block": "CG0-CG4-LOCAL",
   "claims_live_provider_or_effect": false,
   "blocks": [
     {
@@ -167,10 +167,10 @@
         "scripts/nvidia_reviewer_preflight.py",
         "docs/nebius_devpost_submission_draft.md"
       ],
-      "scope_and_open_items": "Same-Core deterministic unified local slice; mandatory CG0-CG4 compliance precedes main integration. Public judging, runtime LIVE validation and submission are separate human/external gates."
+      "scope_and_open_items": "Mandatory fail-closed submission evidence, bounded judge readiness, optional unsent native LIVE policy admission and Nebius-first docs. Publication/LIVE/legal/Devpost gates remain separate and unperformed."
     }
   ],
-  "validation": "H unified fixture: 13 targeted / 123 focused PASS; unified reviewer PASS. Final full regression deferred to compliance candidate; no LIVE claim.",
+  "validation": "CG0-CG4 LOCAL PASS: 28 targeted, 81 focused (before final review repairs), 5 HTTP compatibility; final revised native suite 1544 PASS / 4 exact optional Playwright/Textual skips / 0 FAIL / 0 ERROR / 0 TIMEOUT, 1548 unique tests. Pinned NVIDIA ATIF validation active. Static/import, changed-file secret scan, diff and final unified reviewer PASS; independent final review Critical=0 Important=0 Minor=0. Tracked/history secret findings classified with limitations; IP/media/dependency rights and external security release remain human gates. LIVE/public demo/publication/Devpost and main integration remain unperformed and blocked.",
   "execution_program": "SOL61_ULTRA_LOCAL_CONVERGENCE",
   "acceptance_record": "External current sealed phase checkpoint; candidate presence does not imply whole-system acceptance."
 }

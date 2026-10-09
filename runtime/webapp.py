@@ -131,13 +131,17 @@ class WebRuntimeService:
         ):
             raise RuntimeError("PERSONAL_AI_NOT_CONFIGURED")
         scheduler = self.personal_ai.bindings.scheduler
-        return project_nebius_personal_ai(
+        value = project_nebius_personal_ai(
             status,
             scheduler.journal.reservations(),
             catalog=self.personal_ai_catalog,
             cost_quote=self.personal_ai_cost_quote,
             expected_execution_mode=self.personal_ai.bindings.execution_mode,
         )
+        owner = getattr(self, "personal_ai_demo_owner", None)
+        if owner is not None:
+            value["judge"] = owner.readiness()
+        return value
 
     def personal_ai_status(self):
         if self.personal_ai is None:
@@ -153,13 +157,16 @@ class WebRuntimeService:
             return {'status': 'READY', 'state': 'NOT_PREPARED', 'configured': True,
                 'provider': {'provider_id': 'nebius', 'model_id': owner.runtime._lite_scheduler.profile.model_id,
                     'mode': owner.mode, 'execution_mode': owner.mode, 'authority': 'ADVISORY_ONLY', 'fallback': False},
-                'target': {'mode': 'FIXTURE'}, 'service_guard': {'state': 'NOT_PREPARED'},
+                'target': {'mode': 'FIXTURE'}, 'judge': owner.readiness(), 'service_guard': {'state': 'NOT_PREPARED'},
                 'blocked_reason': 'BLOCKED_BY_ADDITIONAL_COST_AUTHORIZATION' if owner.mode == 'LIVE' else None}
 
     def personal_ai_prepare(self, payload):
         if self.personal_ai is None:
             raise RuntimeError("PERSONAL_AI_NOT_CONFIGURED")
         with self.lock:
+            owner = getattr(self, "personal_ai_demo_owner", None)
+            if owner is not None:
+                owner.validate_judge_request(payload)
             return self._personal_ai_projection(self.personal_ai.prepare(payload))
 
     def personal_ai_approve(self, proposal_id):
@@ -330,6 +337,10 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
                 self._write_cpl_error(error)
             return
         if parsed.path == "/api/health":
+            owner = getattr(self._service(), "personal_ai_demo_owner", None)
+            if owner is not None:
+                self._write_json(HTTPStatus.OK, owner.readiness())
+                return
             self._write_json(
                 HTTPStatus.OK,
                 {
