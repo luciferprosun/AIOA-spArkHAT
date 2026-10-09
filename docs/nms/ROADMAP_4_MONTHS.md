@@ -7,7 +7,7 @@ Focus:
 - establish `docs/nms/` as a grant-facing documentation layer
 - align AOIA/NMS, MHLM/MDLH, and LSC boundaries
 - cross-reference existing stress-test documents
-- prepare NLnet-facing status material
+- prepare review-facing status material
 - keep validation commands reproducible
 
 Expected outputs:
@@ -17,7 +17,6 @@ Expected outputs:
 - failure-mode registry
 - LSC case-study protocol
 - model audit matrix
-- NLnet update summary
 
 ## Month 2: Stress-Test Harness and Reproducible Audit Protocol
 
@@ -75,7 +74,7 @@ Expected outputs:
 - stress-test protocol and failure-mode registry
 - LSC epistemic-audit case-study protocol
 - model audit matrix
-- roadmap and NLnet update summary
+- roadmap and review summary
 - later harness design material, if approved
 
 ## Out of Scope

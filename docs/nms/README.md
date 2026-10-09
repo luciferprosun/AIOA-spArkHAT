@@ -31,7 +31,6 @@ The first difficult demonstration case is the LSC neutrino research archive. The
 - LSC_NEUTRINO_CASE_STUDY_PROTOCOL.md
 - MODEL_AUDIT_MATRIX.md
 - ROADMAP_4_MONTHS.md
-- NLNET_UPDATE_SUMMARY.md
 
 ## Related existing documents
 

@@ -78,4 +78,4 @@ Show a revoked/stale approval being refused using the existing NV09 tests. Do no
 - [Gold 24h context-continuity plan](NVIDIA_GOLD24H_CONTEXT_CONTINUITY.md)
 - [Codex handoff](CODEX_HANDOFF_20260924.md)
 
-NLnet/grant history and frozen hackathon repositories remain preserved. No EU proposal content is changed by this sprint.
+Frozen hackathon repositories remain preserved. No unrelated proposal content is changed by this sprint.

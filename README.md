@@ -12,13 +12,12 @@ For the existing local Personal AI UI, run `./scripts/start_nebius_personal_ai_d
 
 See [judge mode](docs/nebius/JUDGE_MODE_RUNBOOK.md), [mandatory compliance matrix](docs/nebius/NEBIUS_HACKATHON_REQUIREMENTS_MATRIX.md), [significant updates](docs/nebius/SIGNIFICANT_UPDATE_SINCE_2026-08-26.md), [submission draft](docs/nebius/DEVPOST_SUBMISSION_DRAFT_EN.md), and [rights inventory](docs/nebius/CG4_RIGHTS_INVENTORY.md). Offline submission preflight currently returns BLOCKED: live integrated evidence, public candidate/demo/video, judge availability, rights review and Submitted receipt remain human/external gates. No submission or deployment is performed by these commands.
 
-The sections below preserve the wider AIOA, NVIDIA, NLnet and project history.
+The sections below preserve the wider AIOA, NVIDIA and project history.
 
 [![Core and native NonZero](https://github.com/luciferprosun/AIOA-spArkHAT/actions/workflows/nonzero-pr.yml/badge.svg?branch=main)](https://github.com/luciferprosun/AIOA-spArkHAT/actions/workflows/nonzero-pr.yml)
 
 > **NVIDIA reviewers:** start with [NVIDIA Reviewer — Start Here](docs/reviewer/NVIDIA_REVIEWER_START_HERE.md) for the competition vertical slice, demo path, authority model, memory/CPL/Non-Zero integration, and validation evidence. The rest of this README documents the wider AIOA spArkHAT runtime and project history.
 
-> **NLnet / grant reviewers:** start with [NLnet Reviewer — Project Context and Repository Guide](docs/reviewer/NLNET_REVIEWER_START_HERE.md). It explains the multi-hackathon convergence, current-vs-historical boundaries, reproducibility status, 3×8 endurance qualification, and [GenAI transparency](docs/governance/GENAI_TRANSPARENCY.md). Historical grant/audit material is intentionally preserved during active review.
 
 AIOA spArkHAT (formerly AOIA-Core) is one local-first runtime for AI-assisted engineering and evidence-aware review. It keeps model output, tool results, evidence, provenance, contradictions, runtime state, and human authority separate instead of treating them as interchangeable forms of truth. This is the same repository and runtime, not a fork. The original hackathon repositories remain frozen; the optional native NonZero module preserves their domain semantics. The imported second project is retired from the active tree, with attribution, source hashes and its complete imported history preserved.
 
@@ -271,7 +270,6 @@ The suite covers routing determinism, execution containment, evidence/provenance
 - [NVIDIA reviewer start here](docs/reviewer/NVIDIA_REVIEWER_START_HERE.md)
 - [NVIDIA / Nemotron alignment audit](docs/NVIDIA_NEMOTRON_OFFICIAL_AUDIT_20260923.md)
 - [Gold 24h context-continuity plan](docs/NVIDIA_GOLD24H_CONTEXT_CONTINUITY.md)
-- [NLnet reviewer start here](docs/reviewer/NLNET_REVIEWER_START_HERE.md)
 - [Reviewer quickstart](docs/REVIEWER_QUICKSTART.md)
 - [Reproducibility report](docs/REPRODUCIBILITY_REPORT.md)
 - [Troubleshooting](docs/TROUBLESHOOTING.md)

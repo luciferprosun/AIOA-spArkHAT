@@ -45,4 +45,4 @@ Adapt the draft to the actual recorded deployment before submitting. Never repla
 3. Record the useful end-to-end result using [the demo runbook](NVIDIA_DEMO_RUNBOOK.md) and [submission pack](NVIDIA_SUBMISSION_PACK.md); keep live/fixture and human-approval labels visible.
 4. Complete and verify the official project form before the operational cutoff. No submission is made by this checklist.
 
-OpenRouter can be configured later. Additional grant drafting is not a prerequisite. The optional Gold24h is reserved for the **final frozen candidate after ordinary release gates**, using the [context-continuity plan](NVIDIA_GOLD24H_CONTEXT_CONTINUITY.md); it must not consume the recording/submission safety buffer. Existing frozen hackathon repositories and NLnet history remain preserved.
+OpenRouter can be configured later. Additional grant drafting is not a prerequisite. The optional Gold24h is reserved for the **final frozen candidate after ordinary release gates**, using the [context-continuity plan](NVIDIA_GOLD24H_CONTEXT_CONTINUITY.md); it must not consume the recording/submission safety buffer. Existing frozen hackathon repositories remain preserved.

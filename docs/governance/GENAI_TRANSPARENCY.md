@@ -107,7 +107,7 @@ The log should contain:
 - validation evidence;
 - output/result summary.
 
-Full raw private conversations are not automatically published. If NLnet requires a specific prompt-log format for a milestone, provide the requested material through the appropriate review channel after redaction of secrets/personal data.
+Full raw private conversations are not automatically published. Any externally shared prompt-log material should be redacted for secrets and personal data.
 
 ## Historical limitation
 
@@ -138,11 +138,5 @@ In the current competition architecture:
 - explicit human approval remains the consequential boundary;
 - Service Guard is the bounded competition effect executor;
 - replay/idempotency checks remain independent of model opinion.
-
-## NLnet policy reference
-
-Current public NLnet GenAI policy:
-
-https://nlnet.nl/foundation/policies/generativeAI/
 
 This project disclosure is intended to make substantive use visible without overstating historical logging precision.

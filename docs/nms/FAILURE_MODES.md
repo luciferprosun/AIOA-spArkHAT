@@ -132,4 +132,4 @@ Core mitigations across all failure modes:
 - conservative claim classification
 - human reviewer escalation
 - documentation-only scope for this step
-- no runtime, provider, memory, provenance, or registry changes in GT-NLNET-1
+- no runtime, provider, memory, provenance, or registry changes in this documentation-only step
