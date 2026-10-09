@@ -1,8 +1,8 @@
 {
   "schema": "aioa.nebius-roadmap-status.v1",
   "scope": "LOCAL_INTEGRATION_CANDIDATE_ONLY",
-  "basis_sha": "dceafec638b36417cb99c56f810d84e3555a7c61",
-  "selected_block": "DAY_D2_BLOCK08_REVIEWER_METADATA_ONLY",
+  "basis_sha": "e7a0a747e2e9fea8f75416ec6d6d3a35a5152ae0",
+  "selected_block": "POST_DAYSHIFT_CANONICAL_RECONCILIATION",
   "claims_live_provider_or_effect": false,
   "blocks": [
     {
@@ -19,7 +19,7 @@
     {
       "block": "02",
       "capability": "Typed Outcome + Liability Core",
-      "status": "PARTIAL",
+      "status": "PARTIAL_BY_DESIGN",
       "source_files": [
         "lab/archaioa/outcome.py",
         "lab/archaioa/liability.py",
@@ -30,7 +30,7 @@
     {
       "block": "03",
       "capability": "Linear Effect Warrant + DecisionDependencyRoot",
-      "status": "PARTIAL",
+      "status": "PARTIAL_BY_DESIGN",
       "source_files": [
         "lab/archaioa/warrant.py",
         "lab/archaioa/decision_root.py",
@@ -41,7 +41,7 @@
     {
       "block": "04",
       "capability": "Intent Journal / Outbox / Epoch Fencing",
-      "status": "PARTIAL",
+      "status": "PARTIAL_BY_DESIGN",
       "source_files": [
         "runtime/mission/lite_journal.py",
         "runtime/service_guard/service.py",
@@ -98,7 +98,7 @@
         "tests/test_verifier_canary.py",
         "docs/integration/COMMIT_SELECT_REVEAL.md"
       ],
-      "scope_and_open_items": "Native commit-select-reveal and seeded covariance fixture accepted at 0f8fdf6; metadata/advisory only, no independent live-model verification claim. Day-shift checkpoint dceafec: existing unified reviewer requires complete, receipt-bound CSR metadata stable after reopen;60 focused PASS including5 RED-first tests. This is artifact-presence/advisory fixture proof, never human authority or live independent-model verification."
+      "scope_and_open_items": "Sealed local CSR fixture plus unified reviewer hardening at dceafec; complete receipt-bound metadata is required and stable after reopen. No live independent-model verification or execution authority claim."
     },
     {
       "block": "09",
@@ -115,7 +115,7 @@
     {
       "block": "10",
       "capability": "Nebius Cloud Worker S1",
-      "status": "LOCAL_OFFLINE_CANDIDATE",
+      "status": "BLOCKED_EXTERNAL",
       "source_files": [
         "runtime/mission/governor.py",
         "runtime/mission/job_contracts.py",
@@ -127,7 +127,7 @@
     {
       "block": "11",
       "capability": "Multi-worker S2 fencing",
-      "status": "LOCAL_OFFLINE_CANDIDATE",
+      "status": "BLOCKED_EXTERNAL",
       "source_files": [
         "runtime/mission/governor.py",
         "runtime/mission/job_contracts.py",
@@ -139,7 +139,7 @@
     {
       "block": "12",
       "capability": "Formal/Fault/Endurance",
-      "status": "PASS_LOCAL_RESTRICTED",
+      "status": "PASS_LOCAL",
       "source_files": [
         "lab/archaioa/effect_model.py",
         "lab/archaioa/governed_model.py",
@@ -150,28 +150,40 @@
     {
       "block": "13",
       "capability": "Operator Evidence Console",
-      "status": "PASS_LOCAL_READ_ONLY",
+      "status": "PASS_LOCAL",
       "source_files": [
         "runtime/native_console.py",
         "runtime/webapp.py",
         "web/app.js"
       ],
-      "scope_and_open_items": "Opt-in same-Core bounded operator metadata in existing token-protected panel. Historical approval is not current authority; no LIVE proof."
+      "scope_and_open_items": "PASS_LOCAL read-only bounded operator evidence projection over the existing same-Core records. No mutation, provider authority or current production-authority claim."
     },
     {
       "block": "14",
       "capability": "Final demo / Devpost / release hardening",
-      "status": "PARTIAL",
+      "status": "PARTIAL_BY_DESIGN",
       "source_files": [
         "scripts/nvidia_competition_demo.py",
         "scripts/nvidia_reviewer_preflight.py",
         "docs/nebius_devpost_submission_draft.md"
       ],
-      "scope_and_open_items": "Mandatory fail-closed submission evidence, bounded judge readiness, optional unsent native LIVE policy admission and Nebius-first docs. Publication/LIVE/legal/Devpost gates remain separate and unperformed."
+      "scope_and_open_items": "Local release/reviewer/submission preparation is implemented and tested; current live validation, public judge hosting/video/uptime, rights/legal attestations, Devpost receipt and main integration remain external/human gates."
     }
   ],
-  "validation": "CG0-CG4 LOCAL PASS: 28 targeted, 81 focused (before final review repairs), 5 HTTP compatibility; final revised native suite 1544 PASS / 4 exact optional Playwright/Textual skips / 0 FAIL / 0 ERROR / 0 TIMEOUT, 1548 unique tests. Pinned NVIDIA ATIF validation active. Static/import, changed-file secret scan, diff and final unified reviewer PASS; independent final review Critical=0 Important=0 Minor=0. Tracked/history secret findings classified with limitations; IP/media/dependency rights and external security release remain human gates. LIVE/public demo/publication/Devpost and main integration remain unperformed and blocked.",
+  "validation": "Day-shift final candidate e7a0a747: D1 baseline55/55 PASS; D2 focused60/60 PASS; D3/D4 compatibility30/30 PASS; final native1553 run/unique,1549 PASS,4 exact approved optional Playwright/Textual skips,0 FAIL/ERROR/TIMEOUT/unexpected skips. Static/import/changed-secret/diff and fresh review C0/I0/M0 PASS. No live provider call, deploy, publication, Devpost submission or main mutation.",
   "execution_program": "SOL61_ULTRA_LOCAL_CONVERGENCE",
   "acceptance_record": "External current sealed phase checkpoint; candidate presence does not imply whole-system acceptance.",
-  "day_shift_validation": "D1 baseline55PASS/static/import/secret/diff/reviewC0I0M0; D2 focused60PASS/static/import/secret/diff/reviewC0I0M0. Final full day regression and isolated fresh checkout are separate external gates; no result inferred."
+  "day_shift_validation": "D1 baseline55PASS/static/import/secret/diff/reviewC0I0M0; D2 focused60PASS/static/import/secret/diff/reviewC0I0M0. Final full day regression and isolated fresh checkout are separate external gates; no result inferred.",
+  "canonical_status_taxonomy": [
+    "PASS_IMPLEMENTED",
+    "PASS_LOCAL",
+    "PASS_LOCAL_FIXTURE",
+    "PASS_LOCAL_SEALED",
+    "PARTIAL_BY_DESIGN",
+    "BLOCKED_EXTERNAL",
+    "DEFERRED_POST_SUBMISSION",
+    "SHADOW",
+    "SPEC_ONLY"
+  ],
+  "basis_scope": "PRE_COMMIT_BASIS"
 }

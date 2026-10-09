@@ -1,0 +1,106 @@
+{
+  "schema": "aioa.nebius-release-candidate.v1",
+  "parent_sha": "dceafec638b36417cb99c56f810d84e3555a7c61",
+  "rollback_sha": "dceafec638b36417cb99c56f810d84e3555a7c61",
+  "main_sha": "d26266e54ee940d7ada30aa02783dc697618a72c",
+  "branch": "integration/nebius-unified-prototype-20261008",
+  "commit_delta": 54,
+  "changed_file_count": 250,
+  "key_commits": [
+    {
+      "sha": "e7a0a747e2e9fea8f75416ec6d6d3a35a5152ae0",
+      "subject": "docs: map local reviewer proof to submission and operator gates"
+    },
+    {
+      "sha": "dceafec638b36417cb99c56f810d84e3555a7c61",
+      "subject": "reviewer: require complete replay-stable advisory verification metadata"
+    },
+    {
+      "sha": "52b22826393783b4d2852aef8c9397f07220b253",
+      "subject": "audit: record local main integration mechanics without authorization"
+    },
+    {
+      "sha": "3b57c314ab2cd3cdb0015ffe2f2f837e082b02e1",
+      "subject": "docs: remove obsolete NLnet reviewer materials"
+    },
+    {
+      "sha": "5354947b817a1b5b129b8858ecf18e99c4fe5747",
+      "subject": "compliance: prepare bounded Nebius judge and submission evidence"
+    },
+    {
+      "sha": "3453f2fa22829a63b7a0f5f5b6a156380f939530",
+      "subject": "integration: compose one Core Nebius reviewer vertical slice"
+    },
+    {
+      "sha": "c3bea200e69783f204eda481aeff3bef64ff8242",
+      "subject": "feat: expose native bounded operator read metadata"
+    },
+    {
+      "sha": "f459da5c24e2f12f5bb72ccc8951d048c1d31c6b",
+      "subject": "test: prove restricted governed effect and fault recovery"
+    },
+    {
+      "sha": "f4373bdeec292417f9ec974e7f8370f589767b32",
+      "subject": "feat: add governor owned offline advisory job fences"
+    },
+    {
+      "sha": "6338c6c68b8400618876c2a4a8fd6a8ab8f41b43",
+      "subject": "feat: bind fixture shadow delta to selected native evidence"
+    },
+    {
+      "sha": "0f8fdf690fa1441d3db8e772f666fff565d49580",
+      "subject": "feat: add native commit select reveal verification"
+    },
+    {
+      "sha": "8c59464f37a9e409a8a1f28094ccf40203e6a1d4",
+      "subject": "feat: add native dual cost risk governor"
+    }
+  ],
+  "blocks": {
+    "01": "PASS_IMPLEMENTED",
+    "02": "PARTIAL_BY_DESIGN",
+    "03": "PARTIAL_BY_DESIGN",
+    "04": "PARTIAL_BY_DESIGN",
+    "05": "PASS_IMPLEMENTED",
+    "06": "PASS_IMPLEMENTED",
+    "07": "PASS_LOCAL_FIXTURE",
+    "08": "PASS_LOCAL_SEALED",
+    "09": "PASS_LOCAL_SEALED",
+    "10": "BLOCKED_EXTERNAL",
+    "11": "BLOCKED_EXTERNAL",
+    "12": "PASS_LOCAL",
+    "13": "PASS_LOCAL",
+    "14": "PARTIAL_BY_DESIGN"
+  },
+  "compliance": "CG0-CG4_PASS_LOCAL",
+  "verification": {
+    "D1_baseline": "55/55 PASS",
+    "D2_focused": "60/60 PASS",
+    "D3_D4_compatibility": "30/30 PASS",
+    "final_native": "1553 run/unique; 1549 PASS; 4 approved optional skips; 0 FAIL/ERROR/TIMEOUT",
+    "static_import_diff_changed_secret": "PASS",
+    "fresh_review": "Critical0 Important0 Minor0"
+  },
+  "provider_state": "NO_CURRENT_LIVE_VALIDATION",
+  "target_state": "FIXTURE_ONLY",
+  "model_authority": "ADVISORY_ONLY",
+  "effect_authority": "HUMAN_BOUND_SERVICEGUARD_ONLY",
+  "main_integration_candidate": "YES",
+  "main_integration_ready": "NO",
+  "live_provider_validation": "REQUIRED",
+  "public_judge_deploy": "REQUIRED",
+  "devpost_submission": "REQUIRED",
+  "evidence_root": "/media/l/LSC_DATA1/MCP_Commander/data/artifacts/nebius-full-day-sprint/20261008T034855Z/convergence-to-main/20261008T162045Z/day-shift/20261009T045004Z",
+  "does_not_claim": [
+    "production certification",
+    "distributed exactly-once",
+    "production signer custody",
+    "current public judge uptime",
+    "completed current live provider proof",
+    "completed Devpost submission",
+    "blanket legal/IP clearance"
+  ],
+  "prepared_from_sha": "e7a0a747e2e9fea8f75416ec6d6d3a35a5152ae0",
+  "binding_scope": "PRE_COMMIT_BASIS",
+  "exact_post_commit_candidate_receipt": "REQUIRED_EXTERNAL"
+}

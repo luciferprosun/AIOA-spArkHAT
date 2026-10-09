@@ -1,12 +1,11 @@
 {
   "schema": "aioa.main-readiness.v1",
-  "candidate_sha": "3b57c314ab2cd3cdb0015ffe2f2f837e082b02e1",
   "main_sha": "d26266e54ee940d7ada30aa02783dc697618a72c",
   "origin_main_sha": "d26266e54ee940d7ada30aa02783dc697618a72c",
   "remote_state": "LOCAL_CACHED_REFS_ONLY_NO_FETCH",
   "ancestor": true,
-  "commit_delta": 51,
-  "changed_file_count": 246,
+  "commit_delta": 54,
+  "changed_file_count": 250,
   "changed_files": [
     "A\t.env.example",
     "M\t.gitignore",
@@ -29,6 +28,8 @@
     "A\tdocs/integration/COMMIT_SELECT_REVEAL.md",
     "A\tdocs/integration/DUAL_GOVERNOR.md",
     "A\tdocs/integration/FORMAL_FAULT_LOCAL.md",
+    "A\tdocs/integration/MAIN_INTEGRATION_READINESS.json",
+    "A\tdocs/integration/MAIN_INTEGRATION_READINESS.md",
     "A\tdocs/integration/NEBIUS_ROADMAP_STATUS.json",
     "A\tdocs/integration/NEBIUS_ROADMAP_STATUS.md",
     "A\tdocs/integration/OFFLINE_ADVISORY_JOBS.md",
@@ -43,7 +44,9 @@
     "A\tdocs/nebius/NEBIUS_HACKATHON_REQUIREMENTS_MATRIX.json",
     "A\tdocs/nebius/NEBIUS_HACKATHON_REQUIREMENTS_MATRIX.md",
     "A\tdocs/nebius/NEBIUS_NVIDIA_FEEDBACK_DRAFT_EN.md",
+    "A\tdocs/nebius/OPERATOR_ACTIONS_REQUIRED.md",
     "A\tdocs/nebius/SIGNIFICANT_UPDATE_SINCE_2026-08-26.md",
+    "A\tdocs/nebius/SUBMISSION_EVIDENCE_INDEX.md",
     "A\tdocs/nebius/VIDEO_SCRIPT_MAX_180S_EN.md",
     "A\tdocs/nebius_devpost_submission_draft.md",
     "A\tdocs/nebius_final_architecture.md",
@@ -905,8 +908,8 @@
     "No production authority/provider/cloud execution",
     "NLnet removals preserved"
   ],
-  "rollback_sha": "3b57c314ab2cd3cdb0015ffe2f2f837e082b02e1",
-  "MAIN_INTEGRATION_CANDIDATE": "YES_MECHANICS_ONLY",
+  "rollback_sha": "dceafec638b36417cb99c56f810d84e3555a7c61",
+  "MAIN_INTEGRATION_CANDIDATE": "YES",
   "MAIN_INTEGRATION_READY": "NO",
   "human_command_plan": [
     "Reverify clean candidate/main SHAs and all external/security/IP gates",
@@ -926,5 +929,10 @@
     "main merge",
     "remote fetch/push",
     "cloud/provider call"
-  ]
+  ],
+  "rehearsal_status": "PASS_FAST_FORWARD_NO_CONFLICT_DETACHED_DISPOSABLE_CLONE_ONLY",
+  "original_main_mutated": false,
+  "authoritative_note": "Mechanics only. Exact main integration requires separate operator authorization after external/live/rights gates.",
+  "audited_candidate_sha": "e7a0a747e2e9fea8f75416ec6d6d3a35a5152ae0",
+  "audit_scope": "PRE_COMMIT_BASIS_MECHANICS"
 }

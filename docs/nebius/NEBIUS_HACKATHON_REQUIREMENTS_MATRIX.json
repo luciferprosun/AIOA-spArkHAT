@@ -1,6 +1,6 @@
 {
   "schema": "aioa.nebius-requirements.v1",
-  "candidate_sha": "dceafec638b36417cb99c56f810d84e3555a7c61",
+  "candidate_sha": "e7a0a747e2e9fea8f75416ec6d6d3a35a5152ae0",
   "requirements": [
     {
       "id": "nebius_runtime",
@@ -49,12 +49,12 @@
     },
     {
       "id": "judging_availability",
-      "status": "UNKNOWN",
+      "status": "BLOCKED_EXTERNAL",
       "evidence_refs": []
     },
     {
       "id": "ip_license",
-      "status": "UNKNOWN",
+      "status": "BLOCKED_EXTERNAL",
       "evidence_refs": []
     },
     {
@@ -64,8 +64,9 @@
     },
     {
       "id": "devpost_receipt",
-      "status": "UNKNOWN",
+      "status": "BLOCKED_EXTERNAL",
       "evidence_refs": []
     }
-  ]
+  ],
+  "binding_scope": "PREPARATION_BASELINE_NOT_FINAL_SELF_SHA"
 }

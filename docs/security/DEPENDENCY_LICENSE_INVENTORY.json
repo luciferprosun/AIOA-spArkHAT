@@ -1,0 +1,26 @@
+{
+  "schema": "aioa.local-dependency-rights.v1",
+  "candidate_sha": "e7a0a747e2e9fea8f75416ec6d6d3a35a5152ae0",
+  "scope": "LOCAL_METADATA_ONLY_NO_NETWORK_INSTALL",
+  "known_open_items": [
+    "transitive license/notices completeness",
+    "clean pinned-install proof",
+    "bundled PDF/media redistribution rights",
+    "model/service terms and eligibility/IP attestations",
+    "30 historical fixture observations without independent synthetic provenance",
+    "10 historical binary blobs not text-scanned"
+  ],
+  "history_secret_classification": {
+    "raw_tracked_hits": 8,
+    "historical_observations": 106,
+    "FIXTURE": 75,
+    "EXAMPLE_PLACEHOLDER": 5,
+    "NON_CREDENTIAL_IDENTIFIER": 26,
+    "synthetic_provenance_unconfirmed_fixture_observations": 30,
+    "binary_blobs_not_text_scanned": 10
+  },
+  "scanner_weakened": false,
+  "history_rewritten": false,
+  "blanket_clearance_claimed": false,
+  "status": "PARTIAL_WITH_DOCUMENTED_HUMAN_GATES"
+}

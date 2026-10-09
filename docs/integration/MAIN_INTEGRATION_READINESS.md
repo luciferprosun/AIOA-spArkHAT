@@ -1,28 +1,16 @@
-# Main integration readiness — audit only
+# Main integration readiness — exact-head audit only
 
-Candidate `3b57c314ab2cd3cdb0015ffe2f2f837e082b02e1`; main and cached origin/main `d26266e54ee940d7ada30aa02783dc697618a72c`. No fetch; no current-remote claim. Main is an ancestor; 51 commits and 246 changed paths. The machine-readable companion contains exact inventory, classifications and native import/class inventory.
+Audited preparation basis: e7a0a747e2e9fea8f75416ec6d6d3a35a5152ae0
+Parent/rollback: dceafec638b36417cb99c56f810d84e3555a7c61
+Main and cached origin/main: d26266e54ee940d7ada30aa02783dc697618a72c
+Delta: 54 commits / 250 changed paths.
 
-Disposable local clone, detached main SHA, `merge --ff-only 3b57c314ab2cd3cdb0015ffe2f2f837e082b02e1`: PASS, no conflict. Original main/origin-main/tags/remotes unchanged. MAIN_INTEGRATION_CANDIDATE=YES (mechanics only); MAIN_INTEGRATION_READY=NO. Rollback=3b57c314ab2cd3cdb0015ffe2f2f837e082b02e1.
+Disposable detached local rehearsal: PASS_FAST_FORWARD_NO_CONFLICT.
+Original main, origin/main, tags and remotes were not changed.
 
-| Block | Classification |
-|---|---|
-| 01 | ACCEPTED_LOCAL |
-| 02 | PARTIAL_BY_DESIGN |
-| 03 | PARTIAL_BY_DESIGN |
-| 04 | PARTIAL_BY_DESIGN |
-| 05 | ACCEPTED_LOCAL |
-| 06 | ACCEPTED_LOCAL |
-| 07 | ACCEPTED_LOCAL |
-| 08 | ACCEPTED_LOCAL |
-| 09 | ACCEPTED_LOCAL |
-| 10 | BLOCKED_EXTERNAL |
-| 11 | BLOCKED_EXTERNAL |
-| 12 | ACCEPTED_LOCAL |
-| 13 | ACCEPTED_LOCAL |
-| 14 | BLOCKED_EXTERNAL |
+MAIN_INTEGRATION_CANDIDATE=YES — mechanics only.
+MAIN_INTEGRATION_READY=NO — operator/live/rights/publication gates remain open.
 
-Native reviewer uses the existing single Core/runner, retrieval/capsule, Nebius port, scheduler/journal, governor, CSR and ServiceGuard. Existing compatibility/domain modules are not a new native authority system. Static import inventory finds no runtime import of lab, MCP or reviewer fixtures. Live boundary/runtime wiring and distributed guarantees remain unclaimed.
+Open human/external gates: fresh bounded live Nebius/NVIDIA validation; public Judge Mode; rights/security review; video and judge availability; Devpost attestations/receipt; explicit exact-SHA main authorization.
 
-Human plan only: reverify candidate/main and all tests/security/rights; obtain explicit main authorization; only then switch main and fast-forward the reviewed final SHA. Push/publication needs separate authorization. No command in this plan was run on original main.
-
-Current LIVE validation, public judge deployment/source/video/uptime, historical security and PDF/media/model/transitive rights, eligibility/terms and Devpost receipt remain external/human gates. Production signer and distributed leases/authority are deferred beyond this local prototype. Removed NLnet reviewer materials remain removed.
+Removed NLnet reviewer material remains removed. SmartRouter remains excluded.

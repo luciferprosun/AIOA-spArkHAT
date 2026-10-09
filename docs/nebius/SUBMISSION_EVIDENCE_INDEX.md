@@ -1,6 +1,6 @@
 # Submission evidence index — local candidate only
 
-No row below grants authority or asserts that a public submission exists. Runtime code checkpoint: `dceafec638b36417cb99c56f810d84e3555a7c61`; preparation/cleanup: `3b57c314ab2cd3cdb0015ffe2f2f837e082b02e1`; sealed compliance: `5354947b817a1b5b129b8858ecf18e99c4fe5747`. The external final day package binds all new references and a BLOCKED requirements matrix to its exact final HEAD. Checked-in preparation matrices cannot contain their own future commit SHA.
+No row below grants authority or asserts that a public submission exists. Exact current local candidate: e7a0a747e2e9fea8f75416ec6d6d3a35a5152ae0. Runtime code checkpoint: `dceafec638b36417cb99c56f810d84e3555a7c61`; preparation/cleanup: `3b57c314ab2cd3cdb0015ffe2f2f837e082b02e1`; sealed compliance: `5354947b817a1b5b129b8858ecf18e99c4fe5747`. The external final day package binds all new references and a BLOCKED requirements matrix to its exact final HEAD. Checked-in preparation matrices cannot contain their own future commit SHA.
 
 | Claim | Exact local evidence / code | Classification / limitation |
 |---|---|---|
@@ -10,7 +10,7 @@ No row below grants authority or asserts that a public submission exists. Runtim
 | Money/risk governor and exact human fixture approval | runtime/mission/governor.py; runtime/service_guard/service.py | Existing same Core; human simulated in demo, production signer OPEN |
 | CSR metadata cannot certify UNKNOWN/missing/stale receipt | D2 checkpoint dceafec; five UnifiedMetadataGateTests; D2_CSR_RED.log / D2_CSR_GREEN_GATE.json | RED-first;60 focused PASS; artifact presence, not execution authority |
 | One fixture effect, readback and reopen/replay | scripts/nvidia_reviewer_preflight.py --unified; proof.checks and proof.console | Disposable target/native port reopen; not a cloud or distributed exactly-once claim |
-| Main mechanics | docs/integration/MAIN_INTEGRATION_READINESS.json/.md; D1_ff_rehearsal_GATE.json | Exact3b57c31 detached clone; no main change; readinessNO |
+| Main mechanics | docs/integration/MAIN_INTEGRATION_READINESS.json/.md; D1_ff_rehearsal_GATE.json | Exact-head detached clone rehearsal; no main change; readinessNO |
 | Bounded Judge Mode / safe no-key behavior | docs/nebius/JUDGE_MODE_RUNBOOK.md; tests/test_nebius_judge_mode.py | FIXTURE_TARGET; LIVE remains blocked |
 | Nebius-first setup / feedback / update / video | README.md; existing six docs/nebius drafts/runbooks | Local drafts; video target165s, no uploaded URL or rights attestation |
 | Mandatory receipt validation | scripts/nebius_submission_preflight.py; NEBIUS_HACKATHON_REQUIREMENTS_MATRIX.json | FAIL-CLOSED;13 mandatory requirements not VERIFIED |

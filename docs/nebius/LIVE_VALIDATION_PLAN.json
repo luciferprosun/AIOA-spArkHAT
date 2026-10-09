@@ -1,0 +1,30 @@
+{
+  "schema": "aioa.nebius-live-validation-plan.v1",
+  "provider": "Nebius Token Factory",
+  "provider_port": "runtime/providers/nebius.py",
+  "model_selection": "EXISTING_NATIVE_EXACT_MODEL_POLICY",
+  "calls_authorized": 0,
+  "one_call_only": true,
+  "retry": false,
+  "fallback": false,
+  "max_input_bytes": 4096,
+  "max_output_tokens": 128,
+  "max_response_bytes": 16384,
+  "timeout_seconds": 20,
+  "cost_ceiling_usd": "0.001 conservative per-call ceiling plus same-Core aggregate governor",
+  "target": "FIXTURE_ONLY",
+  "authority": "ADVISORY_ONLY",
+  "requirements": [
+    "current catalog/model availability checked immediately before call",
+    "current quote/cost admission",
+    "finish_reason=stop",
+    "receipt metadata captured",
+    "incomplete completion rejected",
+    "no fixture fallback presented as live"
+  ],
+  "on_failure": "STOP; preserve REJECTED/UNKNOWN; no retry or redispatch",
+  "dry_run": "PREPARED_ONLY",
+  "live_validation_performed": false,
+  "prepared_from_sha": "e7a0a747e2e9fea8f75416ec6d6d3a35a5152ae0",
+  "exact_candidate_binding_required_before_live": true
+}
