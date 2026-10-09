@@ -33,7 +33,7 @@ python3 -I -B scripts/nvidia_reviewer_preflight.py --unified
 ./runtime/run_web.sh
 ```
 
-Web console is loopback-only by default. For the personal-AI fixture demo, use `./scripts/start_nebius_personal_ai_demo.sh --fixture`. This filename is a historical launch interface; the implementation belongs to the unified AIOA runtime. Do not use `--live-provider` without separately completing the live authorization gates.
+Web console is loopback-only by default. The historical `start_nebius_personal_ai_demo.sh` launcher still requires its explicitly approved Nebius branch names; it is not a canonical-main startup command. Use the offline reviewer above to inspect the integrated fixture from main. LIVE provider use requires separate authorization gates.
 
 ## Canonical repository layout
 
@@ -63,7 +63,7 @@ Details: [unification record](docs/architecture/UNIFICATION_2026-10-09.md), [Coc
 
 ## Verification and security
 
-Use `python3 -I -B scripts/nvidia_reviewer_preflight.py --unified` for the supported offline reviewer path and the scoped MCP tests described in `docs/architecture/UNIFICATION_2026-10-09.md`. The broader test tree includes archival tests with incompatible standalone import assumptions; running arbitrary `pytest` over the entire repository is not a supported single acceptance command.
+Use `python3 -I -B scripts/nvidia_reviewer_preflight.py --unified` for the supported offline reviewer path and the scoped MCP tests described in `docs/architecture/UNIFICATION_2026-10-09.md`. The `certify` CI jobs run the active unittest suite and native authority regressions on Python 3.11 and 3.12. Optional database integration tests require their own CockroachDB setup; arbitrary recursive collection of archival tests is not a universal acceptance command. See the [CI clock correction](docs/architecture/CI_CERTIFICATION_2026-10-09.md).
 
 Real rights/provenance review, binary-content inspection, current model/provider cost confirmation, live inference, public Judge Mode, and Devpost receipts remain **separate external gates**. Historical documents record exact results as observed; this README does not promote their claims to verified current production behavior.
 

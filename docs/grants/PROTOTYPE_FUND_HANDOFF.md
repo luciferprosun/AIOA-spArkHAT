@@ -2,6 +2,8 @@
 
 **Status: NOT SUBMITTED.** This is a planning handoff, not a grant application and not permission to send one.
 
+The [English/German project working draft](PROTOTYPE_FUND_WORKING_DRAFT.md) separates current local capabilities from proposed work and human completion gates. It contains no verified eligibility, budget or submission claim.
+
 ## Final source project
 
 - Canonical public repo: AIOA SparkHub.
