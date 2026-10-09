@@ -19,7 +19,7 @@ ROOT = Path(__file__).resolve().parent.parent
 class NativePackageTests(unittest.TestCase):
     def test_single_distribution_exact_nonzero_extra_and_existing_entry_points(self):
         project = tomllib.loads((ROOT / "pyproject.toml").read_text())
-        self.assertEqual("aioa-sparkhat", project["project"]["name"])
+        self.assertEqual("aioa-sparkhub", project["project"]["name"])
         self.assertEqual([], project["project"]["dependencies"])
         self.assertEqual(
             ["pydantic==2.13.4", "uuid6==2025.0.1"],
@@ -29,6 +29,8 @@ class NativePackageTests(unittest.TestCase):
             {
                 "aioa-sparkhat": "runtime.cli:main",
                 "aioa-sparkhat-web": "runtime.web_cli:main",
+                "aioa-sparkhub": "runtime.cli:main",
+                "aioa-sparkhub-web": "runtime.web_cli:main",
             },
             project["project"]["scripts"],
         )
