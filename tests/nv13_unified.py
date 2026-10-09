@@ -6,6 +6,7 @@ Canonical source publication is synthetic; durable native JSON port is a fixture
 from dataclasses import dataclass,replace
 from datetime import datetime,timezone
 import json
+import time
 from pathlib import Path
 from nv09_support import GuardFixture,LocalTarget,proposal
 import test_memory_patch_retrieval as retrieval_fixtures
@@ -60,7 +61,7 @@ class UnifiedFixture:
         self.claim='The reviewed policy permits requesting human review of maintenance.';self.fixture_claim=self.claim
         self.target=LocalTarget(self.root/'target',drop_ack=drop_ack)
         self.fx=GuardFixture(self.root/'runtime',self.target.client,operation_id=self.operation_id,
-            extra_hat_ids=('test-hat',),model_id=MODEL)
+            extra_hat_ids=('test-hat',),model_id=MODEL,clock=time.time)
         self.core,self.runner=self.fx.core,self.fx.runner;self.path=self.fx.root/'native-fixture.json'
         self.memory=retrieval_fixtures.RetrievalFixture(core=self.core)
         self.source=self.memory.candidate(source_id='unified-source',content=self.claim)
@@ -124,7 +125,7 @@ class UnifiedFixture:
     def prepare(self):return self.execute()
     def approve(self):return self.fx.approve()
     def execute(self):
-        self.fx.clock_value+=1
+        # Match the independent target's receipt clock; polling is not elapsed time.
         return self.guard.cycle(self.fx.runtime._lite_scheduler,self.operation_id)
     def change_source(self):
         self.source=self.memory.candidate(source_id='unified-source',version='new-revision',content='Changed reviewed rule')
