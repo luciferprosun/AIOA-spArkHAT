@@ -1,3 +1,5 @@
+**Naming correction (2026-10-09):** The temporary distribution name `aioa-sparkhub` was an error in project identity, not an authorized rename. The canonical project and distribution remain **AIOA spArkHAT** / `aioa-sparkhat`. The account repo remains `luciferprosun/AIOA-spArkHAT`. The record below describes the historical CI failure/fix sequence and must not be read as current naming policy.
+
 # Unified reviewer clock contract
 
 The certification run for PR #16 at `1ddf676` failed three unified-reviewer tests on Python 3.11 and 3.12. The same tests could pass in isolation on a slower machine. The failing assertions required verified independent readback, not merely a successful target response.

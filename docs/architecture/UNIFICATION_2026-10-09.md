@@ -1,8 +1,8 @@
-# AIOA SparkHub - one-system unification record (2026-10-09)
+# AIOA spArkHAT - one-system unification record (2026-10-09)
 
 ## Objective and scope
 
-Make **AIOA SparkHub** the canonical public product repository and integrate the entire *unique* functionality of the Nebius Personal AI development branch without replacing current AIOA modules. Nebius Token Factory / NVIDIA Nemotron remain optional model providers inside AIOA, not a separate deployed application or brand. Maintain **one product architecture**, one default branch, source provenance and explicit human authority.
+Keep **AIOA spArkHAT** as the canonical public product repository and integrate the entire *unique* functionality of the Nebius Personal AI development branch without replacing current AIOA modules. Nebius Token Factory / NVIDIA Nemotron remain optional model providers inside AIOA, not a separate deployed application or brand. Maintain **one product architecture**, one default branch, source provenance and explicit human authority.
 
 This record is a *technical integration record*, not an assertion of current live/provider/submission/rights compliance. All statuses require exact evidence and current SHA checks.
 
@@ -10,7 +10,7 @@ This record is a *technical integration record*, not an assertion of current liv
 
 | Repository | Intended status | Rule |
 | --- | --- | --- |
-| AIOA SparkHub (formerly `AIOA-spArkHAT`) | One canonical public product | Main must include all accepted Nebius + MCP modules; no force pushes |
+| AIOA spArkHAT | One canonical public product | Main must include all accepted Nebius + MCP modules; no force pushes |
 | `AIOA-NonZero-CloudOps-Agent` | Standalone frozen competition submission | **DO NOT MODIFY**, rename, archive, delete, or rebase during judging |
 | `Memory-Patch-for-AIOA-Hackathon-CockroachDB` | Frozen provenance / historical source | Native AIOA migration is selective; do not delete until separate exact-source archive + restore evidence |
 | `projects-for-future` | Private archive for unrelated future/paused projects | Never make private projects public by default |

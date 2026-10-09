@@ -4,13 +4,13 @@
 
 ## Short description — English
 
-AIOA SparkHub is an open-source, human-governed AI runtime. It keeps owner-scoped context, model advice, evidence and permission to act separate. Optional providers can propose bounded actions, while an exact human decision, a cost/risk governor and ServiceGuard control effects. Durable receipts, independent readback and replay checks make uncertainty visible rather than treating a model response as successful execution.
+AIOA spArkHAT is an open-source, human-governed AI runtime. It keeps owner-scoped context, model advice, evidence and permission to act separate. Optional providers can propose bounded actions, while an exact human decision, a cost/risk governor and ServiceGuard control effects. Durable receipts, independent readback and replay checks make uncertainty visible rather than treating a model response as successful execution.
 
 The project will investigate how these boundaries can remain understandable and testable as optional memory and MCP transport capabilities are integrated into one canonical system. Existing local fixtures provide a reproducible starting point. They do not establish production deployment, independent live-model correctness or legal clearance.
 
 ## Kurzbeschreibung — Deutsch
 
-AIOA SparkHub ist eine quelloffene, durch Menschen gesteuerte KI-Laufzeitumgebung. Sie trennt privaten, eigentümergebundenen Kontext, Modellvorschläge, Nachweise und Handlungsbefugnis. Optionale Modelle schlagen begrenzte Aktionen vor. Eine konkrete menschliche Freigabe, Kosten- und Risikogrenzen sowie ServiceGuard kontrollieren deren Ausführung. Dauerhafte Belege, unabhängiges Auslesen des Zielzustands und Wiederholungsschutz machen Unsicherheit sichtbar.
+AIOA spArkHAT ist eine quelloffene, durch Menschen gesteuerte KI-Laufzeitumgebung. Sie trennt privaten, eigentümergebundenen Kontext, Modellvorschläge, Nachweise und Handlungsbefugnis. Optionale Modelle schlagen begrenzte Aktionen vor. Eine konkrete menschliche Freigabe, Kosten- und Risikogrenzen sowie ServiceGuard kontrollieren deren Ausführung. Dauerhafte Belege, unabhängiges Auslesen des Zielzustands und Wiederholungsschutz machen Unsicherheit sichtbar.
 
 Das Vorhaben untersucht, wie diese Grenzen bei der Integration optionaler Speicherfunktionen und eines MCP-Transports in einem gemeinsamen System verständlich und prüfbar bleiben. Reproduzierbare lokale Tests bilden die Ausgangsbasis; sie sind kein Nachweis einer produktiven Bereitstellung oder rechtlichen Freigabe.
 

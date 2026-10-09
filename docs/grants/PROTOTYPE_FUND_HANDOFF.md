@@ -6,7 +6,7 @@ The [English/German project working draft](PROTOTYPE_FUND_WORKING_DRAFT.md) sepa
 
 ## Final source project
 
-- Canonical public repo: AIOA SparkHub.
+- Canonical public repo: AIOA spArkHAT.
 - Project: human-governed, auditable personal AI/agent runtime with optional multi-model providers and native memory.
 - Preserve measurable evidence: deterministic reviewer outputs, MCP READ-only test suite, checksums, security review queue, user-centred example.
 - Source/release should not depend on paid Nebius inference to reproduce fixture demonstrations.

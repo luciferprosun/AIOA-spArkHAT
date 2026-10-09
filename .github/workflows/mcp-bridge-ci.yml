@@ -2,7 +2,7 @@ name: AIOA MCP Bridge
 
 on:
   push:
-    branches: [main, unification/sparkhub-20261009]
+    branches: [main]
     paths:
       - 'runtime/mcp_bridge/**'
       - 'MCP_Server/**'
