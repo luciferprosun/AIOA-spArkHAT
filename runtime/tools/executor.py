@@ -31,6 +31,7 @@ from .filesystem_tools import (
     write_file,
 )
 from .memory import MemoryStore
+from .admission import PublicFileReads, ReadDenied
 from .project_scanner import scan_project
 from .shell_tools import shell_execute
 from .validator import classify_shell_command, validate_shell_command
@@ -51,7 +52,9 @@ class ToolSpec:
 class ExecutionEngine:
     """Dispatch structured tool actions to shell, filesystem, or browser."""
 
-    def __init__(self, project_dir: Path, memory_store: MemoryStore) -> None:
+    def __init__(self, project_dir: Path, memory_store: MemoryStore, *, readable_files=None) -> None:
+        self.public_reads = PublicFileReads(project_dir, readable_files)
+        self.last_result = None
         self.project_dir = project_dir
         self.memory_store = memory_store
         self.cwd = Path(memory_store.memory.cwd)
@@ -73,24 +76,23 @@ class ExecutionEngine:
         if tool is None:
             raise ValueError(f"Unhandled action: {name}")
 
-        needs_approval = bool(action.get("requires_confirmation", False))
-        if name == "shell_execute":
-            needs_approval = needs_approval or classify_shell_command(action.get("command", "")).requires_confirmation
-
-        if require_approval and name != "respond" and needs_approval:
-            approved = self._request_approval(action)
-            if not approved:
-                result = {
-                    "success": False,
-                    "cancelled": True,
-                    "message": "Action rejected by user.",
-                    "action": name,
-                }
-                self._record_execution(action, result)
-                return result
-
-        result = tool.handler(action)
-        self._record_execution(action, result)
+        # A legacy prompt/confirmation flag cannot mint native Core effect authority.
+        # Host tools remain unsupported until a reviewed contained target adapter exists.
+        if name in {'read_file', 'search_in_project'}:
+            try:
+                result = self.public_reads.execute(action)
+            except ReadDenied as error:
+                result = {'success': False, 'cancelled': True, 'error': str(error),
+                          'effect_status': 'DENIED', 'message': str(error)}
+        elif name == 'respond':
+            result = tool.handler(action)
+        else:
+            result = {'success': False, 'cancelled': True, 'error': 'UNSUPPORTED_EFFECT_ROUTE',
+                      'effect_status': 'UNSUPPORTED',
+                      'message': 'UNSUPPORTED_EFFECT_ROUTE: native authority and containment required.'}
+        self.last_result = result
+        # Denied arguments may contain private text; do not persist them in a legacy log.
+        self._record_execution(action if result.get('success') else {'action': name}, result)
         return result
 
     def _build_tool_registry(self) -> dict[str, ToolSpec]:

@@ -100,6 +100,10 @@ class CoreIntentJournal:
                 'authority': 'NONE', 'grants_replay': False}
 
     def start(self, principal, warrant, operation, reservation):
+        return self._run(principal, Capability.COMMIT,
+                         lambda tx: self.start_in_transaction(tx, warrant, operation, reservation))
+
+    def start_in_transaction(self, tx, warrant, operation, reservation):
         """One fixture step marker, never authority to WRITE_LOCAL/EXEC_LOCAL.
 
         This initial adapter supports a single paired money/risk reservation ID.
@@ -108,6 +112,9 @@ class CoreIntentJournal:
         the trusted host's calibrated policy. This is not a live risk adapter.
         The trusted host supplies freshly verified target revision/fingerprint/DDR.
         """
+        principal = tx.context.principal
+        require(tx.context.purpose is Capability.COMMIT, 'INVALID_INTENT_CONTEXT')
+        self.ledger.core.require(principal, Capability.COMMIT, scope=self.ledger.scope)
         require(type(warrant) is EffectWarrant, 'INVALID_INTENT_WARRANT')
         require(type(operation) is dict and len(canonical_json_bytes(operation)) <= 4096,
                 'INVALID_INTENT')
@@ -129,46 +136,44 @@ class CoreIntentJournal:
         gov._require(principal, Capability.COMMIT)
         require(reservation.model_id in principal.model_binding_ids, 'MODEL_BINDING_DENIED')
         now = gov._now()
-        def change(tx):
-            before = gov._load(tx)
-            gov._epoch(before, warrant.lease_epoch)
-            row, existing = self._load(tx, warrant)
-            if row is not None:
-                require(existing['operation'] == operation
-                        and existing['reservation'] == canonical_sha256(reservation), 'INTENT_BINDING')
-                return {'fixture_step_now': False, **self._public(existing)}
-            self.ledger._check(warrant)
-            # Conservative owner-wide barrier: revised intent/nonce cannot bypass
-            # an unresolved send. A new effect requires independent resolution.
-            # UNKNOWN budget holds remain authoritative even if an older intent's
-            # resolution marker is malformed. No new START until reconciliation.
-            require(not any(entry['state'] == 'UNKNOWN'
-                            for entry in before['reservations'].values()), 'UNRESOLVED_INTENT')
-            rows = tx.scan(RecordKind.OPERATION, limit=1024)
-            require(len(rows) < 1024, 'INTENT_HISTORY_QUOTA')
-            require(not any(r.payload.get('schema') == KIND and r.payload.get('resolution') is None
-                            for r in rows), 'UNRESOLVED_INTENT')
-            stored, approval, active = self.ledger._load(tx, warrant)
-            require(active == warrant and approval['consumption'] is None, 'WARRANT_INACTIVE')
-            state = json.loads(canonical_json_bytes(before))
-            gov._clock(state, now)
-            entry, _ = gov._reserve_state(state, reservation, warrant.lease_epoch, now)
-            require(entry['state'] == 'RESERVED', 'RESERVATION_INACTIVE')
-            marker, _ = gov._dispatch_state(state, reservation.request_id, warrant.lease_epoch, now)
-            require(marker['dispatch_now'], 'RESERVATION_INACTIVE')
-            liability_id = 'intent-' + self._key(warrant)
-            gov._unknown_state(state, reservation.request_id, warrant.lease_epoch,
-                               canonical_sha256(liability_id), now)
-            approval['consumption'] = self.ledger._receipt(warrant)
-            self.ledger._save(tx, warrant, approval, stored)
-            intent = {'schema': KIND, 'warrant_digest': warrant.digest(), 'operation': operation,
-                      'reservation': canonical_sha256(reservation), 'epoch': warrant.lease_epoch,
-                      'outcome': Unknown(liability_id).to_dict(), 'liability_id': liability_id,
-                      'resolution': None}
-            self._save(tx, warrant, intent)
-            gov._write(tx, before, state, now)
-            return {'fixture_step_now': True, **self._public(intent)}
-        return self._run(principal, Capability.COMMIT, change)
+        before = gov._load(tx)
+        gov._epoch(before, warrant.lease_epoch)
+        row, existing = self._load(tx, warrant)
+        if row is not None:
+            require(existing['operation'] == operation
+                    and existing['reservation'] == canonical_sha256(reservation), 'INTENT_BINDING')
+            return {'fixture_step_now': False, **self._public(existing)}
+        self.ledger._check(warrant)
+        # Conservative owner-wide barrier: revised intent/nonce cannot bypass
+        # an unresolved send. A new effect requires independent resolution.
+        # UNKNOWN budget holds remain authoritative even if an older intent's
+        # resolution marker is malformed. No new START until reconciliation.
+        require(not any(entry['state'] == 'UNKNOWN'
+                        for entry in before['reservations'].values()), 'UNRESOLVED_INTENT')
+        rows = tx.scan(RecordKind.OPERATION, limit=1024)
+        require(len(rows) < 1024, 'INTENT_HISTORY_QUOTA')
+        require(not any(r.payload.get('schema') == KIND and r.payload.get('resolution') is None
+                        for r in rows), 'UNRESOLVED_INTENT')
+        stored, approval, active = self.ledger._load(tx, warrant)
+        require(active == warrant and approval['consumption'] is None, 'WARRANT_INACTIVE')
+        state = json.loads(canonical_json_bytes(before))
+        gov._clock(state, now)
+        entry, _ = gov._reserve_state(state, reservation, warrant.lease_epoch, now)
+        require(entry['state'] == 'RESERVED', 'RESERVATION_INACTIVE')
+        marker, _ = gov._dispatch_state(state, reservation.request_id, warrant.lease_epoch, now)
+        require(marker['dispatch_now'], 'RESERVATION_INACTIVE')
+        liability_id = 'intent-' + self._key(warrant)
+        gov._unknown_state(state, reservation.request_id, warrant.lease_epoch,
+                           canonical_sha256(liability_id), now)
+        approval['consumption'] = self.ledger._receipt(warrant)
+        self.ledger._save(tx, warrant, approval, stored)
+        intent = {'schema': KIND, 'warrant_digest': warrant.digest(), 'operation': operation,
+                  'reservation': canonical_sha256(reservation), 'epoch': warrant.lease_epoch,
+                  'outcome': Unknown(liability_id).to_dict(), 'liability_id': liability_id,
+                  'resolution': None}
+        self._save(tx, warrant, intent)
+        gov._write(tx, before, state, now)
+        return {'fixture_step_now': True, **self._public(intent)}
 
     def inspect(self, principal, warrant):
         def read(tx):
@@ -194,20 +199,27 @@ class CoreIntentJournal:
         resolution = self.verifier(operation)
         require(type(resolution) is Reconciliation
                 and resolution.operation_digest == warrant.operation_hash, 'UNRESOLVED_READBACK')
+        return self._run(principal, Capability.COMMIT,
+                         lambda tx: self.apply_resolution_in_transaction(tx, warrant, epoch, resolution))
+
+    def apply_resolution_in_transaction(self, tx, warrant, epoch, resolution):
+        """Apply independently verified truth inside the caller's existing tx."""
+        require(tx.context.purpose is Capability.COMMIT, 'INVALID_INTENT_CONTEXT')
+        self.ledger.core.require(tx.context.principal, Capability.COMMIT, scope=self.ledger.scope)
+        require(type(resolution) is Reconciliation
+                and resolution.operation_digest == warrant.operation_hash, 'UNRESOLVED_READBACK')
         gov = self.governor
         now = gov._now()
-        def change(tx):
-            before = gov._load(tx); gov._epoch(before, epoch)
-            row, intent = self._load(tx, warrant)
-            if intent['resolution'] is not None:
-                require(intent['resolution'] == resolution.to_dict(), 'RESOLUTION_CONFLICT')
-                return self._public(intent)
-            state = json.loads(canonical_json_bytes(before)); gov._clock(state, now)
-            gov._settle_state(state, warrant.money_reservation_id, epoch, canonical_sha256(resolution))
-            intent.update(outcome=resolution.outcome.to_dict(), resolution=resolution.to_dict())
-            self._save(tx, warrant, intent, row); gov._write(tx, before, state, now)
+        before = gov._load(tx); gov._epoch(before, epoch)
+        row, intent = self._load(tx, warrant)
+        if intent['resolution'] is not None:
+            require(intent['resolution'] == resolution.to_dict(), 'RESOLUTION_CONFLICT')
             return self._public(intent)
-        return self._run(principal, Capability.COMMIT, change)
+        state = json.loads(canonical_json_bytes(before)); gov._clock(state, now)
+        gov._settle_state(state, warrant.money_reservation_id, epoch, canonical_sha256(resolution))
+        intent.update(outcome=resolution.outcome.to_dict(), resolution=resolution.to_dict())
+        self._save(tx, warrant, intent, row); gov._write(tx, before, state, now)
+        return self._public(intent)
 
     def delivery(self, principal, warrant):
         """Read-only minimal publication projection. Retry delivery, never effect."""

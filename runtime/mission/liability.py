@@ -163,6 +163,13 @@ class CoreLiabilityLedger:
         return self._run(principal, Capability.COMMIT, mutation)
 
     def record_unknown(self, principal, trace, graph, opened_at, *, dependency_refs=()):
+        return self._run(principal, Capability.COMMIT, lambda tx:
+            self.record_unknown_in_transaction(tx, trace, graph, opened_at,
+                                               dependency_refs=dependency_refs))
+
+    def record_unknown_in_transaction(self, tx, trace, graph, opened_at, *, dependency_refs=()):
+        self.core.require(tx.context.principal, Capability.COMMIT, scope=self.scope)
+        require(tx.context.purpose is Capability.COMMIT, 'INVALID_LIABILITY_CONTEXT')
         require(type(trace) is FaultTrace and type(graph) is DependencyGraph
                 and trace.task_id == graph.task_id and len(graph.nodes) <= MAX_NODES,
                 'INVALID_UNKNOWN_BINDING')
@@ -170,23 +177,21 @@ class CoreLiabilityLedger:
         outcome = classify_fault(trace)
         require(any(outcome.liability_id in node.liability_ids for node in graph.nodes),
                 'LIABILITY_DEPENDENCY_REQUIRED')
-        def mutation(tx):
-            stored, state = self._load(tx, trace.task_id, optional=True)
-            if state is None:
-                state = {'schema': KIND, 'graph': graph.to_dict(), 'entries': {}}
-            require(state['graph'] == graph.to_dict(), 'DEPENDENCY_GRAPH_CONFLICT')
-            existing = state['entries'].get(outcome.liability_id)
-            if existing is not None:
-                require(existing['record']['status'] != 'CLOSED', 'CLOSED_UNKNOWN_CONFLICT')
-                # Same operation's different ambiguous observations do not reset
-                # escalation, time, dependency references or the nonce barrier.
-                return outcome
-            require(len(state['entries']) < MAX_LIABILITIES, 'LIABILITY_QUOTA')
-            state['entries'][outcome.liability_id] = {'trace': trace.to_dict(),
-                'record': record.to_dict(), 'resolution': None}
-            self._save(tx, trace.task_id, stored, state)
+        stored, state = self._load(tx, trace.task_id, optional=True)
+        if state is None:
+            state = {'schema': KIND, 'graph': graph.to_dict(), 'entries': {}}
+        require(state['graph'] == graph.to_dict(), 'DEPENDENCY_GRAPH_CONFLICT')
+        existing = state['entries'].get(outcome.liability_id)
+        if existing is not None:
+            require(existing['record']['status'] != 'CLOSED', 'CLOSED_UNKNOWN_CONFLICT')
+            # Same operation's different ambiguous observations do not reset
+            # escalation, time, dependency references or the nonce barrier.
             return outcome
-        return self._run(principal, Capability.COMMIT, mutation)
+        require(len(state['entries']) < MAX_LIABILITIES, 'LIABILITY_QUOTA')
+        state['entries'][outcome.liability_id] = {'trace': trace.to_dict(),
+            'record': record.to_dict(), 'resolution': None}
+        self._save(tx, trace.task_id, stored, state)
+        return outcome
 
     def inspect(self, principal, task_id):
         def read(tx):
@@ -276,18 +281,28 @@ class CoreLiabilityLedger:
             raise LiabilityError('INDEPENDENT_READBACK_UNAVAILABLE') from None
         require(type(resolution) is Reconciliation, 'INDEPENDENT_EVIDENCE_REQUIRED')
         require(resolution.operation_digest == trace.operation_digest, 'RECONCILIATION_BINDING')
-        def mutation(tx):
-            stored, state = self._load(tx, task_id)
-            current = state['entries'][liability_id]
-            if current['resolution'] is not None:
-                prior = Reconciliation.from_dict(current['resolution'])
-                require(prior == resolution, 'RECONCILIATION_CONFLICT')
-                return prior.outcome
-            require(current == entry, 'STALE_RECONCILIATION')
-            resolved = resolve_liability(replace(record, evidence_refs=record.evidence_refs + (resolution.receipt,)),
-                                         resolution.readback, closed_at)
-            current['record'] = resolved.to_dict()
-            current['resolution'] = resolution.to_dict()
-            self._save(tx, task_id, stored, state)
-            return resolution.outcome
-        return self._run(principal, Capability.COMMIT, mutation)
+        return self._run(principal, Capability.COMMIT, lambda tx:
+            self.apply_resolution_in_transaction(tx, task_id, liability_id, closed_at, resolution, entry))
+
+    def apply_resolution_in_transaction(self, tx, task_id, liability_id, closed_at, resolution, entry):
+        """No verifier or nested runner: apply an exact independently verified snapshot."""
+        self.core.require(tx.context.principal, Capability.COMMIT, scope=self.scope)
+        require(tx.context.purpose is Capability.COMMIT, 'INVALID_LIABILITY_CONTEXT')
+        require(type(resolution) is Reconciliation
+                and resolution.operation_digest == FaultTrace.from_dict(entry['trace']).operation_digest,
+                'RECONCILIATION_BINDING')
+        stored, state = self._load(tx, task_id)
+        current = state['entries'][liability_id]
+        if current['resolution'] is not None:
+            prior = Reconciliation.from_dict(current['resolution'])
+            require(prior == resolution, 'RECONCILIATION_CONFLICT')
+            return prior.outcome
+        require(current == entry, 'STALE_RECONCILIATION')
+        record = LiabilityRecord.from_dict(entry['record'])
+        resolved = resolve_liability(replace(record, evidence_refs=record.evidence_refs + (resolution.receipt,)),
+                                     resolution.readback, closed_at)
+        current['record'] = resolved.to_dict()
+        current['resolution'] = resolution.to_dict()
+        self._save(tx, task_id, stored, state)
+        return resolution.outcome
+

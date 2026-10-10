@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any, Callable
+from runtime.tools.admission import legacy_command_allowed
 
 
 @dataclass
@@ -36,4 +37,13 @@ class CommandRegistry:
         handler = self._handlers.get(name)
         if handler is None:
             return CommandResult(True, f"Unknown command: /{name}. Use /help.")
+        if not legacy_command_allowed(name, args):
+            if name == 'memory-patch':
+                import json
+                from runtime.memory_patch.errors import ErrorCode, MemoryPatchError
+                from runtime.memory_patch.views import error_response
+                _, view = error_response('invalid', MemoryPatchError(ErrorCode.ADMISSION_DENIED))
+                view['error']['safe_message'] = 'UNSUPPORTED_EFFECT_ROUTE: native authority and containment required.'
+                return CommandResult(True, json.dumps(view), 1)
+            return CommandResult(True, 'UNSUPPORTED_EFFECT_ROUTE: native authority and containment required.', 1)
         return handler(args.strip(), runtime)

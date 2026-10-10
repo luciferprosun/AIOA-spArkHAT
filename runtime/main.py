@@ -529,20 +529,18 @@ class AgentRuntime:
                 "prefer_unknown": self.safeguards.prefer_unknown,
             },
             "local_fast_routes": [
-                "slash commands",
+                "approved read-only slash commands",
                 "date/status",
-                "pwd/ls/curl version",
-                "simple desktop folder creation",
-                "URL browser bootstrap",
             ],
+            "effect_routes": "UNSUPPORTED until native authority and containment are connected",
         }
         request_payload = {
             "user_request": user_input,
             "request_trace": request_trace,
             "instruction": (
                 "Return exactly one JSON object and no markdown. "
-                "Choose the next proposed action. The runtime will ask the human "
-                "for ENTER approval before executing any non-respond action. "
+                "Choose the next proposed action. Effects are unsupported on this legacy route. "
+                "Only respond and host-allowlisted public reads are admitted. "
                 "Include confidence as high, medium, low, or unknown. "
                 'If you do not have enough evidence, respond with "I DO NOT KNOW".'
             ),
@@ -670,6 +668,8 @@ class AgentRuntime:
             return
 
         request_trace = self.bootstrap_local_context(user_input)
+        if request_trace and not request_trace[-1]['result'].get('success'):
+            return
 
         planned_actions = self.create_plan(user_input, request_trace)
         if planned_actions:
@@ -795,18 +795,20 @@ class AgentRuntime:
                     {
                         "user_request": user_input,
                         "routing_boundary": "no_rhcsa_local_knowledge",
-                        "browser_handled": True,
-                        "opened_url": normalized_url,
+                        "browser_handled": bool(open_result.get('success')),
+                        **({'opened_url': normalized_url} if open_result.get('success') else
+                           {'effect_status': open_result.get('effect_status', 'UNSUPPORTED')}),
                     },
                 )
                 return True
-            except Exception as error:
+            except Exception:
+                self._request_denial={'success':False,'error':'UNSUPPORTED_EFFECT_ROUTE','effect_status':'UNSUPPORTED'}
                 self.log_error(
                     {
                         "user_request": user_input,
                         "route": route,
-                        "error": str(error),
-                        "traceback": traceback.format_exc(),
+                        "error": "UNSUPPORTED_EFFECT_ROUTE",
+                        "effect_status": "UNSUPPORTED",
                     }
                 )
                 self.log_session_event(
@@ -815,18 +817,14 @@ class AgentRuntime:
                         "user_request": user_input,
                         "routing_boundary": "no_rhcsa_local_knowledge",
                         "browser_handled": False,
-                        "opened_url": normalized_url,
-                        "error": str(error),
+                        "error": "UNSUPPORTED_EFFECT_ROUTE",
                     },
                 )
-                print("\nAgent> External URL detected. Browser inspection path available but browser handoff failed.")
+                print("\nAgent> UNSUPPORTED_EFFECT_ROUTE: browser effect route is unavailable.")
                 return True
 
-        message = (
-            "External repository inspection path detected. Browser inspection path available."
-            if route == "external_repository_review"
-            else "External URL detected. Browser inspection path available."
-        )
+        self._request_denial={'success':False,'error':'UNSUPPORTED_EFFECT_ROUTE','effect_status':'UNSUPPORTED'}
+        message = "UNSUPPORTED_EFFECT_ROUTE: browser effects require native authority and containment."
         self.log_session_event(
             route,
             {
@@ -1081,6 +1079,8 @@ class AgentRuntime:
         """Execute one text request and capture the textual transcript."""
         self._require_operational_runtime()
         transcript_buffer = io.StringIO()
+        self.executor.last_result = None
+        self._request_denial = None
         with redirect_stdout(transcript_buffer):
             command_result = self.command_registry.execute(user_input, self)
             if command_result.handled:
@@ -1089,10 +1089,14 @@ class AgentRuntime:
             else:
                 self.handle_user_request(user_input)
         transcript = transcript_buffer.getvalue().strip()
-        return {
-            "transcript": transcript,
-            "status": self.snapshot_status(),
-        }
+        last = self._request_denial or self.executor.last_result
+        denied = (command_result.handled and command_result.exit_code != 0) or (
+            last is not None and last.get('success') is False)
+        result = {'ok': not denied, 'transcript': transcript, 'status': self.snapshot_status()}
+        if denied:
+            result.update(error=(last or {}).get('error', 'UNSUPPORTED_EFFECT_ROUTE'),
+                          effect_status=(last or {}).get('effect_status', 'DENIED'))
+        return result
 
     def handle_local_route(self, user_input: str) -> bool:
         """Execute obvious local tasks before calling the model."""
@@ -1121,7 +1125,11 @@ class AgentRuntime:
                     "result": self.result_for_model(result),
                 },
             )
+            if not result.get('success') or result.get('cancelled'):
+                return True
 
+        if last_result and not last_result.get('success'):
+            return True
         if route.final_message:
             print(f"\nAgent> {route.final_message}")
         elif last_result and last_result.get("message"):
@@ -1271,6 +1279,8 @@ class AgentRuntime:
                 "result": self.result_for_model(start_result),
             }
         )
+        if not start_result.get('success'):
+            return request_trace
 
         open_action = {
             "action": "browser_open",
@@ -1286,6 +1296,8 @@ class AgentRuntime:
                 "result": self.result_for_model(open_result),
             }
         )
+        if not open_result.get('success'):
+            return request_trace
 
         lowered = user_input.lower()
         if any(token in lowered for token in ("analiz", "analy", "paper", "praca", "read", "przeczy")):

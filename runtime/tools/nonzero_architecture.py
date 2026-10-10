@@ -100,7 +100,7 @@ def verify_ownership(runtime: Path) -> list[dict]:
         'main.py': ('class AgentRuntime', 'def nonzero_cloudops', 'NonZeroCloudOpsService(',
                     'self.safeguards.kill_switch', 'self.nonzero_config', 'native-v1', 'NONZERO_REQUIRES_OPERATOR_ENDPOINTS'),
         'commands/local_commands.py': ('def cmd_nonzero', 'runtime.nonzero_cloudops'),
-        'webapp.py': ('class WebRuntimeService', 'def _handle_nonzero', 'self._service().runtime.nonzero_cloudops',
+        'webapp.py': ('class WebRuntimeService', 'def _handle_nonzero', 'self._service().runtime.nonzero_status()',
                       'nonzero-operator-v1', 'X-AIOA-Session-Token'),
         'nonzero_cloudops/provenance.py': ('from tools.provenance import AppendOnlyProvenanceStore, verify_provenance_chain',),
         'nonzero_cloudops/service.py': ('CoreEvidenceLink(', 'BoundExecutionWorkflow(', 'InvestigationWorkflow(',
@@ -115,6 +115,29 @@ def verify_ownership(runtime: Path) -> list[dict]:
         for token in tokens:
             if token not in source:
                 errors.append({'path': relative, 'code': 'CORE_OWNERSHIP_OR_SAFETY_SEAM_MISSING', 'required': token})
+    # U05 preserves Core ownership while disabling noncomposed public effects.
+    # Inspect actual handler AST: restoring a dispatcher must fail this gate,
+    # rather than satisfy an obsolete string requiring active Web execution.
+    try:
+        tree=ast.parse((runtime/'webapp.py').read_text())
+        handlers=[n for n in ast.walk(tree) if isinstance(n,ast.FunctionDef) and n.name=='_handle_nonzero']
+        if len(handlers)!=1:raise ValueError('handler')
+        calls=[n for n in ast.walk(handlers[0]) if isinstance(n,ast.Call)]
+        allowed={'NonZeroError','self._write_json','self._service','self._service().runtime.nonzero_status'}
+        if any(ast.unparse(n.func) not in allowed for n in calls):
+            errors.append({'path':'webapp.py','code':'NONZERO_PUBLIC_DISPATCH_NOT_DISABLED'})
+        denied=False
+        for node in calls:
+            if ast.unparse(node.func)!='self._write_json' or len(node.args)!=2:continue
+            if ast.unparse(node.args[0])!='HTTPStatus.FORBIDDEN' or not isinstance(node.args[1],ast.Dict):continue
+            payload={k.value:v.value for k,v in zip(node.args[1].keys,node.args[1].values)
+                     if isinstance(k,ast.Constant) and isinstance(v,ast.Constant)}
+            denied |= (payload.get('ok') is False and payload.get('error')=='UNSUPPORTED_EFFECT_ROUTE'
+                       and payload.get('effect_status')=='UNSUPPORTED')
+        if not denied:
+            errors.append({'path':'webapp.py','code':'NONZERO_PUBLIC_DENIAL_MISSING'})
+    except (OSError,SyntaxError,ValueError):
+        errors.append({'path':'webapp.py','code':'NONZERO_PUBLIC_BOUNDARY_UNVERIFIABLE'})
     return errors
 
 
