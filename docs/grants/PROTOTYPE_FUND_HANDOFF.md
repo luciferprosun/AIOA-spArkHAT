@@ -2,7 +2,7 @@
 
 **Status: NOT SUBMITTED.** This is a planning handoff, not a grant application and not permission to send one.
 
-The [English/German project working draft](PROTOTYPE_FUND_WORKING_DRAFT.md) separates current local capabilities from proposed work and human completion gates. It contains no verified eligibility, budget or submission claim.
+The [English/German project working draft](PROTOTYPE_FUND_WORKING_DRAFT.md) separates current local capabilities from proposed work and human completion gates. It now includes a SHA-bound evidence map, research hypotheses, five work packages with provisional person-week estimates, a budget worksheet and an applicant/team-consent checklist. Human review is PENDING; eligibility, official call requirements and monetary amounts remain unverified.
 
 ## Final source project
 
@@ -17,7 +17,7 @@ The [English/German project working draft](PROTOTYPE_FUND_WORKING_DRAFT.md) sepa
 1. Eligibility, current Prototype Fund call requirements and 2026 application window need **fresh official confirmation** before completing an application.
 2. Applicants: agree who applies individually and who contributes as collaborators. Do not assert anyone's employment, availability or consent.
 3. German/English short abstract, problem, research question, innovation compared with existing agent frameworks.
-4. Work packages: secure human authorization, auditable model comparison, portable memory, safe MCP executor, usability and documentation.
+4. Work packages: secure human authorization, auditable model comparison, portable memory, privacy-preserving MCP READ adapter; any executor remains a separate human-gated integration, usability and documentation.
 5. FOSS public deliverables: testable release, reproducible fixtures, clear license and contribution policy.
 6. Security/IP: finish 30 synthetic fixture provenance checks, 10 binary embedded-content rights reviews, transitive dependency notices, historical secrets inventory.
 7. Scope/budget: base costs on confirmed call rules and realistic developer effort; never guess eligibility, salary or grant approval.
