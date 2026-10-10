@@ -71,6 +71,12 @@ if filesystem_isolated:
     assert not source.exists(), 'checkout is accessible'
     assert not staging.exists(), 'build source is accessible'
     assert not (venv.parent / 'sdist-source').exists(), 'sdist source is accessible'
+# Queue contracts must remain usable when the source checkout is hidden.
+import runtime.mission.liability
+import runtime.mission.warrant
+import runtime.mission.intent
+import lab.archaioa.contracts
+assert pathlib.Path(lab.archaioa.contracts.__file__).resolve().is_relative_to(venv)
 from tui import assistant
 assert callable(assistant.operator_request)
 assert pathlib.Path(assistant.__file__).resolve().is_relative_to(venv)
