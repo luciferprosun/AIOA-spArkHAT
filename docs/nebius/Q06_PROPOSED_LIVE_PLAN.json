@@ -1,0 +1,40 @@
+{
+  "task_id": "Q06",
+  "status": "PROPOSED_ONLY_DISABLED",
+  "source_sha": "8f455ae2183883f15ba578de196e6955cd2eb2e3",
+  "source_sha_role": "Current HEAD; implementation remains uncommitted. Approval must pin final reviewed commit.",
+  "uncommitted_files_sha256": {
+    "runtime/mission/architecture_advisory.py": "061be8160c43b9ed677db2976ec14382d04c691163aa5d17982f8da8f7b4e21a",
+    "tests/test_nebius_architecture_advisory.py": "50ae0d1e43fba6c56f8f85d36a72018afc6857f829261eb255f00cdaa93fe635"
+  },
+  "provider": "nebius",
+  "model": "nvidia/nemotron-3-super-120b-a12b",
+  "max_calls": 1,
+  "proposed_budget": {
+    "currency": "USD",
+    "maximum_total": "0.10",
+    "approved": false,
+    "pricing_verified": false
+  },
+  "max_output_tokens": 256,
+  "timeout_seconds": 10,
+  "task": "One metadata-only architecture proposal from operator-reviewed synthetic context; no independent live critic.",
+  "preconditions": [
+    "Final exact implementation commit reviewed and pinned by operator.",
+    "Q04 typed privacy-safe binding and required offline reviewer accepted.",
+    "Exact model availability, current price and conservative input/output reservation verified separately.",
+    "New explicit operator approval of SHA/model/task/budget/max_calls; synthetic input only."
+  ],
+  "effects_allowed_after_approval": [
+    "One bounded provider inference only"
+  ],
+  "effects_disabled": [
+    "GitHub publication",
+    "WRITE_LOCAL",
+    "EXEC_LOCAL",
+    "signing",
+    "deployment",
+    "approval.status"
+  ],
+  "execution_path_available": false
+}
