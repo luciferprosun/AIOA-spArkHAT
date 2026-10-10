@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -54,7 +55,7 @@ def import_check(venv, source, staging, *, isolate_filesystem, log):
         if shutil.which('bwrap') is None:
             raise RuntimeError('bubblewrap is required for filesystem isolation')
         command = [
-            'bwrap', '--die-with-parent', '--new-session', '--unshare-net',
+            'bwrap', '--die-with-parent', '--new-session', '--unshare-net', '--unshare-pid',
             '--ro-bind', '/', '/', '--tmpfs', '/home', '--tmpfs', '/media',
             '--tmpfs', '/run', '--tmpfs', '/tmp', '--dev', '/dev', '--proc', '/proc',
             '--ro-bind', str(Path(sys.base_prefix).resolve()), str(Path(sys.base_prefix).resolve()),
@@ -68,6 +69,7 @@ assert 'PYTHONPATH' not in os.environ
 assert importlib.util.find_spec('textual') is None
 assert not any(pathlib.Path(p).resolve().is_relative_to(source) for p in sys.path if p)
 if filesystem_isolated:
+    assert os.readlink('/proc/self/ns/pid') != sys.argv[5], 'host PID namespace is accessible'
     assert not source.exists(), 'checkout is accessible'
     assert not staging.exists(), 'build source is accessible'
     assert not (venv.parent / 'sdist-source').exists(), 'sdist source is accessible'
@@ -85,10 +87,12 @@ assert not any(name == 'textual' or name.startswith('textual.') for name in sys.
 print(json.dumps({'STATUS': 'PASS', 'python': sys.version.split()[0],
     'adapter': assistant.__file__, 'Textual_installed': False,
     'PYTHONPATH_present': False, 'source_on_import_path': False,
+    'PID_namespace_isolated': filesystem_isolated,
     'source_checkout_hidden': filesystem_isolated}))
 '''
     command += [venv / 'bin/python', '-I', '-B', '-c', code, venv, source,
-                staging, 'yes' if isolate_filesystem else 'no']
+                staging, 'yes' if isolate_filesystem else 'no',
+                os.readlink('/proc/self/ns/pid') if isolate_filesystem else 'NOT_REQUIRED']
     return json.loads(execute(command, cwd=venv, log=log))
 
 
