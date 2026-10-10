@@ -7,6 +7,7 @@ from lab.archaioa.taint import DependencyGraph, DependencyNode, NodeKind
 from runtime.core_admission import Capability, CoreAdmission, LocalOwnerAssignment, OwnerScope
 from runtime.memory_patch.contracts.serialization import canonical_json_bytes
 from runtime.memory_patch.persistence.ports import RecordKind, StoredRecord, TransactionContext
+from runtime.mission.liability import CoreLiabilityLedger
 from mission_completion_support import MissionCompletionFixture
 import test_dual_governor as native
 
@@ -126,6 +127,22 @@ class MissionCompletionLiabilityTests(MissionCompletionFixture):
         self.addCleanup(other.close)
         with self.assertRaises(ValueError):
             self.gov.finish_job(other.local_operator(Capability.COMMIT), task.claim, task.response)
+        graph, trace, identity = self.effect_graph('foreign-reconcile')
+        unknown = self.task(graph.task_id, graph=graph)
+        self.open_unknown(unknown, trace)
+        calls = []
+        verifying = CoreLiabilityLedger(self.core, self.runner, native.SCOPE,
+            verifier=lambda *_: calls.append(1) or self.resolution(trace))
+        before = self.fx.path.read_bytes()
+        with self.assertRaisesRegex(ValueError, 'CORE_ADMISSION_DENIED'):
+            verifying.reconcile(other.local_operator(Capability.COMMIT), unknown.task_id,
+                                identity, __import__('mission_completion_support').NOW)
+        with self.assertRaisesRegex(ValueError, 'LIABILITY_REFERENCE_REQUIRED'):
+            verifying.reconcile(self.p, task.task_id, identity,
+                                __import__('mission_completion_support').NOW)
+        self.assertEqual([], calls)
+        self.assertEqual(before, self.fx.path.read_bytes())
+        self.assertEqual('OPEN', self.ledger.inspect(self.read, unknown.task_id)[0].status.value)
         with self.assertRaises(ValueError):
             self.gov.submit_job(self.host, replace(task.envelope, task_id='different-task'),
                                 completion=task.binding)
@@ -152,3 +169,7 @@ class MissionCompletionLiabilityTests(MissionCompletionFixture):
             self.ledger.record_unknown(self.p, trace, graph, __import__('mission_completion_support').NOW)
         self.assertEqual(before, self.fx.path.read_bytes())
         self.assertEqual(result, self.inspect_task(task))
+        self.assertFalse(self.gov.begin_job(self.p, task.claim)['fixture_step_now'])
+        print(json.dumps({'conflict_task':task.task_id, 'observation':trace.to_dict(),
+                          'conflicting_graph':graph.to_dict(), 'reason':'DEPENDENCY_GRAPH_CONFLICT',
+                          'disposition':'HUMAN_REVIEW_REQUIRED'}))

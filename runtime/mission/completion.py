@@ -127,6 +127,11 @@ def validate_completion_proof(value, binding):
                     and evidence['graph_digest'] == binding.graph_digest
                     and evidence['candidate_id'] == binding.candidate_id, 'COMPLETION_PROOF_INTEGRITY')
     require(binding.task_id in seen and nodes <= MAX_NODES, 'COMPLETION_PROOF_INTEGRITY')
+    by_task = {evidence['task_id']: evidence for evidence in value['tasks']}
+    for ref in binding.dependencies:
+        evidence = by_task.get(ref.task_id)
+        require(evidence is not None and evidence['graph_digest'] == ref.graph_digest
+                and evidence['candidate_id'] == ref.candidate_id, 'COMPLETION_PROOF_INTEGRITY')
     return value
 
 
@@ -135,10 +140,41 @@ def require_task_completion(gov, tx, job):
     binding = TaskCompletionBinding.parse(job['completion_binding'])
     require(binding.scope == gov.policy.scope and binding.task_id == job['envelope']['task_id'],
             'INVALID_COMPLETION_BINDING')
-    require(not binding.dependencies, 'TASK_DEPENDENCY_NOT_INTEGRATED')
+    # Import locally: job history uses these contracts during its strict load.
+    from runtime.mission.jobs import load_job
     ledger = CoreLiabilityLedger(gov.core, gov.runner, gov.policy.scope)
-    evidence = ledger.require_completion_in_transaction(
-        tx, binding.task_id, binding.candidate_id, binding.graph_digest)
-    evidence['binding_digest'] = binding.digest
+    visited, active, evidence_by_task = {}, set(), {}
+    total_nodes = 0
+
+    def visit(current):
+        nonlocal total_nodes
+        require(current.scope == binding.scope, 'FOREIGN_TASK_REFERENCE')
+        require(current.task_id not in active, 'TASK_DEPENDENCY_CYCLE')
+        if current.task_id in visited:
+            require(visited[current.task_id] == current.digest, 'TASK_DEPENDENCY_CONFLICT')
+            return
+        require(len(visited) + len(active) < MAX_REQUIRED_TASKS, 'COMPLETION_QUOTA')
+        active.add(current.task_id)
+        for ref in current.dependencies:
+            child = load_job(gov, tx, ref.task_id)
+            require(child is not None, 'REQUIRED_TASK_MISSING')
+            require('completion_binding' in child, 'REQUIRED_TASK_BINDING_REQUIRED')
+            child_binding = TaskCompletionBinding.parse(child['completion_binding'])
+            require(child_binding.scope == ref.scope and child_binding.task_id == ref.task_id
+                    and child_binding.graph_digest == ref.graph_digest
+                    and child_binding.candidate_id == ref.candidate_id, 'TASK_DEPENDENCY_CONFLICT')
+            visit(child_binding)
+            require(child['state'] == 'DONE' and child['completion_proof'] is not None,
+                    'REQUIRED_TASK_NOT_COMPLETED')
+        evidence = ledger.require_completion_in_transaction(
+            tx, current.task_id, current.candidate_id, current.graph_digest)
+        evidence['binding_digest'] = current.digest
+        total_nodes += evidence['node_count']
+        require(total_nodes <= MAX_NODES, 'COMPLETION_QUOTA')
+        evidence_by_task[current.task_id] = evidence
+        active.remove(current.task_id)
+        visited[current.task_id] = current.digest
+
+    visit(binding)
     return validate_completion_proof({'schema': PROOF_SCHEMA, 'binding_digest': binding.digest,
-                                      'tasks': [evidence]}, binding)
+                                      'tasks': [evidence_by_task[task] for task in sorted(evidence_by_task)]}, binding)

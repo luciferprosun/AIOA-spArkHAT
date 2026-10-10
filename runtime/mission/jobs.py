@@ -72,6 +72,8 @@ def load_job(gov,tx,task):
         _deny(o['job']['version']==(1 if current is None else current['version']+1)
             and o['prior_digest']==canonical_sha256(current),'GOVERNOR_INTEGRITY')
         if current is not None:
+            if 'completion_binding' in current:
+                _deny(current['state']!='DONE','GOVERNOR_INTEGRITY')
             _deny(canonical_sha256(o['job']['envelope'])==canonical_sha256(current['envelope'])
                 and canonical_sha256(o['job'].get('completion_binding'))==canonical_sha256(current.get('completion_binding'))
                 and o['job']['last_now']>=current['last_now'],'GOVERNOR_INTEGRITY')
