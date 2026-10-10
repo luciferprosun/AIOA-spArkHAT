@@ -131,12 +131,35 @@ consistent hash is data, not a signature, human approval or effect permission.
             {'source': 'measurement', 'target': 'verified', 'relation': 'MEASUREMENT_BINDING', 'binding_digest': digest},
         ])
     complete = {'approval', 'proposal', 'intent', 'receipt', 'verified'} <= set(outcomes)
+    # Assess recorded event times only. Journal timestamps may arrive late or
+    # reflect another clock; sorting them cannot establish causal order. Keep
+    # every conflicting node/digest rather than selecting a later row as truth.
+    conflicts = []
+    if 'approval' in outcomes:
+        approved_at = _timestamp(outcomes['approval']['approved_at'])
+        expires_at = _timestamp(outcomes['approval'].get('expires_at'))
+        if expires_at <= approved_at:
+            conflicts.append('INVALID_APPROVAL_VALIDITY_INTERVAL')
+        if 'receipt' in outcomes:
+            dispatched_at = _timestamp(outcomes['receipt']['dispatched_at'])
+            if dispatched_at < approved_at:
+                conflicts.append('DISPATCH_BEFORE_APPROVAL')
+            if dispatched_at >= expires_at:
+                conflicts.append('DISPATCH_AT_OR_AFTER_EXPIRY')
+    if {'blocked', 'verified'} <= set(outcomes):
+        conflicts.append('BLOCKED_AND_VERIFIED')
+    temporal_status = ('CONFLICT' if conflicts else
+        'CONSISTENT_RECORDED_TIMES' if complete and all(
+            node['transaction_time'] is not None for node in nodes) else 'UNKNOWN')
+    verified_record = 'verified' in outcomes and temporal_status == 'CONSISTENT_RECORDED_TIMES'
     result = {'schema': 'aioa.service-receipt-graph.v1', 'authority': 'NONE', 'verification': 'PROVENANCE_ONLY',
         'read_only_projection': True, 'scope_ref': canonical_sha256(policy.scope),
         'operation_ref': canonical_sha256((policy.scope, operation_id)),
         'projection_status': 'COMPLETE' if complete else 'PARTIAL',
-        'outcome_status': 'VERIFIED_RECORD_PRESENT' if 'verified' in outcomes else 'UNKNOWN' if 'intent' in outcomes else 'NO_EFFECT_EVIDENCE',
-        'next_action': 'INSPECT_EXISTING_EVIDENCE' if 'verified' in outcomes else 'RECONCILE_READ_ONLY' if 'intent' in outcomes else 'AWAIT_EXISTING_HUMAN_GATED_PATH',
+        'outcome_status': 'VERIFIED_RECORD_PRESENT' if verified_record else 'UNKNOWN' if 'intent' in outcomes or conflicts else 'NO_EFFECT_EVIDENCE',
+        'next_action': 'INSPECT_EXISTING_EVIDENCE' if verified_record else 'RECONCILE_READ_ONLY' if 'intent' in outcomes or conflicts else 'AWAIT_EXISTING_HUMAN_GATED_PATH',
+        'temporal_status': temporal_status, 'conflicts': sorted(conflicts),
+        'timestamp_assurance': 'RECORDED_NOT_INDEPENDENTLY_VERIFIED',
         'transaction_time_semantics': 'LOCAL_JOURNAL_RECORD_TIMESTAMP_NOT_DB_COMMIT_TIME',
         'nodes': sorted(nodes, key=lambda n: n['id']),
         'edges': sorted(edges, key=lambda e: (e['source'], e['target'], e['relation']))}
