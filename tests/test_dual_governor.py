@@ -185,6 +185,51 @@ class DualGovernorTests(unittest.TestCase):
             self.dispatch()
         self.assertEqual('RESERVED', self.inspect()['reservations']['r1']['state'])
 
+    def test_killed_reconciliation_after_long_pause_preserves_exposure_and_denies_work(self):
+        self.reserve(); self.dispatch()
+        self.reserve(self.request('pending', money=10, risk=1))
+        self.gov.set_kill(self.principal(Capability.MANAGE), True)
+        self.now += 3600
+        self.gov.mark_unknown(self.principal(), 'r1', self.epoch, canonical_sha256('late-timeout'))
+        self.assertEqual(60, self.inspect()['exposure']['global']['money_nano'])
+        self.gov.settle(self.principal(), 'r1', self.epoch, canonical_sha256('late-readback'))
+        self.gov.release_not_dispatched(self.principal(), 'pending', self.epoch)
+        self.assertEqual({'money_nano': 50, 'risk_units': 5}, self.inspect()['exposure']['global'])
+        self.assertTrue(self.inspect()['kill'])
+        with self.assertRaisesRegex(ValueError, 'KILL_SWITCH'):
+            self.reserve(self.request('new'))
+        self.assertFalse(self.dispatch()['dispatch_now'])
+
+    def test_killed_settlement_directly_after_long_pause_is_idempotent(self):
+        self.reserve(); self.dispatch()
+        self.gov.set_kill(self.principal(Capability.MANAGE), True)
+        self.now += 3600
+        digest = canonical_sha256('late-receipt')
+        self.gov.settle(self.principal(), 'r1', self.epoch, digest)
+        self.gov.settle(self.principal(), 'r1', self.epoch, digest)
+        self.assertEqual('COMMITTED', self.inspect()['reservations']['r1']['state'])
+        self.assertEqual(50, self.inspect()['exposure']['global']['money_nano'])
+
+    def test_killed_no_dispatch_release_directly_after_long_pause(self):
+        self.reserve()
+        self.gov.set_kill(self.principal(Capability.MANAGE), True)
+        self.now += 3600
+        self.gov.release_not_dispatched(self.principal(), 'r1', self.epoch)
+        self.assertEqual(0, self.inspect()['exposure']['global']['money_nano'])
+        self.assertFalse(self.dispatch()['dispatch_now'])
+
+    def test_killed_reconciliation_still_denies_clock_rollback_and_stale_epoch(self):
+        self.reserve(); self.dispatch()
+        self.gov.set_kill(self.principal(Capability.MANAGE), True)
+        self.now = 99
+        with self.assertRaisesRegex(ValueError, 'CLOCK_UNSAFE'):
+            self.gov.settle(self.principal(), 'r1', self.epoch, canonical_sha256('readback'))
+        self.now = 3700
+        with self.assertRaisesRegex(ValueError, 'STALE_EPOCH'):
+            self.gov.settle(self.principal(), 'r1', self.epoch + 1, canonical_sha256('readback'))
+        self.assertEqual('DISPATCHED', self.inspect()['reservations']['r1']['state'])
+        self.assertEqual(50, self.inspect()['exposure']['global']['money_nano'])
+
     def test_epoch_takeover_fences_prior_reservation_and_old_writer(self):
         self.reserve()
         new_epoch = self.gov.start_epoch(self.principal(Capability.MANAGE))
