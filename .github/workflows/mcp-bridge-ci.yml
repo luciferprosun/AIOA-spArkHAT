@@ -39,6 +39,6 @@ jobs:
       - name: Install pinned offline Ed25519 test dependency
         run: python -m pip install cryptography==41.0.7
       - name: Compile bridge
-        run: python -m compileall -q runtime/mcp_bridge tests/test_mcp_bridge_contract.py tests/test_mcp_read_payloads.py tests/test_mcp_approval.py
-      - name: Run MCP bridge contract tests
-        run: python -m unittest tests.test_mcp_bridge_contract tests.test_mcp_task_bus tests.test_mcp_authority_projection tests.test_mcp_github_issue_transport tests.test_mcp_transport_claim tests.test_mcp_read_payloads tests.test_mcp_approval -v
+        run: python -m compileall -q runtime/mcp_bridge tests/test_mcp_*.py
+      - name: Run all MCP contract and synthetic authority tests
+        run: python -m unittest discover -s tests -p 'test_mcp_*.py' -v
