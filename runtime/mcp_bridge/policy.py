@@ -5,7 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 
-from .contracts import RiskClass, TaskEnvelope
+from .contracts import ContractError, RiskClass, TaskEnvelope
+from .read_ops import validate_read_payload
 
 
 class PolicyEffect(str, Enum):
@@ -70,6 +71,17 @@ def evaluate_task(task: TaskEnvelope) -> PolicyDecision:
         )
 
     if expected is RiskClass.READ:
+        # Inbound transport and directly constructed envelopes bypass build_task.
+        # Recheck at admission, including the approval privacy projection gate.
+        try:
+            validate_read_payload(task.operation, task.payload)
+        except ContractError:
+            return PolicyDecision(
+                PolicyEffect.DENY,
+                "READ payload invalid or remote projection not verified",
+                task.operation,
+                task.risk,
+            )
         return PolicyDecision(
             PolicyEffect.ALLOW,
             "registered bounded read operation",
