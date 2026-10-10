@@ -4,11 +4,13 @@ import json
 import os
 from pathlib import Path
 import tempfile
+import time
 import unittest
 import urllib.request
 from unittest.mock import patch
 
 from providers.config import NEBIUS_COMPETITION_PROFILE, ProviderManager
+from providers.exact import ExactCallError, decode_response
 from providers.nebius import (
     DEFAULT_NEBIUS_BASE_URL,
     DEFAULT_NEBIUS_MODEL,
@@ -19,6 +21,75 @@ from providers.nebius import (
 
 
 class NebiusProviderTests(unittest.TestCase):
+    def setUp(self):
+        # Offline tests must not discover credentials from the operator's home.
+        loader = patch("providers.config.load_api_environment")
+        loader.start()
+        self.addCleanup(loader.stop)
+
+    def test_generate_uses_bounded_exact_transport(self):
+        provider = NebiusProvider("fixture-key")
+
+        def transport(adapter, request, cancel, deadline, **kwargs):
+            self.assertIs(adapter, provider)
+            request.validate()
+            self.assertEqual(request.requested_model, DEFAULT_NEBIUS_MODEL)
+            self.assertEqual(request.provider_connection_id, "nebius")
+            self.assertEqual(request.max_output_tokens, 1200)
+            self.assertTrue(request.bound_reasoning_tokens)
+            self.assertLessEqual(deadline - time.monotonic(), 20)
+            return decode_response(json.dumps({
+                "model": request.requested_model,
+                "choices": [{"finish_reason": "stop", "message": {"content": "Advice"}}],
+            }).encode(), request)
+
+        with patch.dict(os.environ, {}, clear=True), patch(
+                "providers.exact.generate_http_exact", side_effect=transport) as strict, patch(
+                "urllib.request.urlopen", side_effect=AssertionError("legacy transport disabled")):
+            self.assertEqual(provider.generate("Harmless fixture"), "Advice")
+            self.assertEqual(strict.call_count, 1)
+
+    def test_generate_rejects_identity_stop_json_and_usage_failures(self):
+        provider = NebiusProvider("fixture-key")
+        valid = {"model": DEFAULT_NEBIUS_MODEL,
+                 "choices": [{"finish_reason": "stop", "message": {"content": "Advice"}}]}
+        cases = [
+            (b"invalid-json", "INVALID_PROVIDER_RESPONSE"),
+            (json.dumps(dict(valid, model="nvidia/other")).encode(), "MODEL_IDENTITY_MISMATCH"),
+            (json.dumps(dict(valid, choices=[{"finish_reason": "length",
+                                            "message": {"content": "Advice"}}])).encode(),
+             "INCOMPLETE_COMPLETION"),
+            (json.dumps(dict(valid, usage={"completion_tokens": 1201})).encode(), "USAGE_LIMIT_EXCEEDED"),
+        ]
+        for raw, code in cases:
+            with self.subTest(code=code), patch.dict(os.environ, {}, clear=True), patch(
+                    "providers.exact.generate_http_exact",
+                    side_effect=lambda adapter, request, *args, **kwargs: decode_response(raw, request)) as strict, patch(
+                    "urllib.request.urlopen", side_effect=AssertionError("legacy transport disabled")):
+                with self.assertRaisesRegex(ExactCallError, code):
+                    provider.generate("Harmless fixture")
+                self.assertEqual(strict.call_count, 1)
+
+    def test_generate_timeout_and_http_errors_are_not_retried(self):
+        provider = NebiusProvider("fixture-key")
+        for code in ("TRANSPORT_TIMEOUT", "PROVIDER_HTTP_401"):
+            with self.subTest(code=code), patch.dict(os.environ, {}, clear=True), patch(
+                    "providers.exact.generate_http_exact", side_effect=ExactCallError(code)) as strict, patch(
+                    "urllib.request.urlopen", side_effect=AssertionError("legacy transport disabled")):
+                with self.assertRaisesRegex(ExactCallError, code):
+                    provider.generate("Harmless fixture")
+                self.assertEqual(strict.call_count, 1)
+
+    def test_generate_invalid_token_limit_is_rejected_before_transport(self):
+        for value in ("0", "4097", "invalid"):
+            with self.subTest(value=value), patch.dict(os.environ, {
+                    "OPENAI_COMPATIBLE_MAX_TOKENS": value}, clear=True), patch(
+                    "providers.exact.generate_http_exact") as strict, patch(
+                    "urllib.request.urlopen", side_effect=AssertionError("legacy transport disabled")):
+                with self.assertRaisesRegex(ExactCallError, "INVALID_REQUEST_LIMIT"):
+                    NebiusProvider("fixture-key").generate("Harmless fixture")
+                strict.assert_not_called()
+
     def test_authenticated_catalog_never_follows_redirects_or_environment_proxies(self):
         opener = catalog_opener()
         redirects = [h for h in opener.handlers if isinstance(h, urllib.request.HTTPRedirectHandler)]

@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import json
 import os
+import time
 import urllib.error
 import urllib.request
 from urllib.parse import urlparse
 
 from .openai_compatible import OpenAICompatibleProvider
-from .exact import sanitize_diagnostics
+from .exact import CancellationToken, ExactCallError, ExactRequest, sanitize_diagnostics
+from .messages import ChatMessage
 
 
 DEFAULT_NEBIUS_BASE_URL = "https://api.tokenfactory.nebius.com/v1"
@@ -84,6 +86,25 @@ class NebiusProvider(OpenAICompatibleProvider):
                 base_url if base_url is not None else os.getenv("NEBIUS_BASE_URL")
             ),
         )
+
+    def generate(self, prompt: str) -> str:
+        """Keep the text interface on the same one-attempt exact transport.
+
+        This returns advisory text only; callers needing cost admission must
+        use the existing budgeted ProviderPort or CPL policy.
+        """
+        try:
+            max_tokens = int(os.getenv("OPENAI_COMPATIBLE_MAX_TOKENS", "1200"))
+        except ValueError:
+            raise ExactCallError("INVALID_REQUEST_LIMIT") from None
+        request = ExactRequest(
+            "nebius", self.model, (ChatMessage("user", prompt),), max_tokens,
+            timeout_seconds=20.0, bound_reasoning_tokens=True,
+        )
+        request.validate()
+        return self.generate_exact(
+            request, CancellationToken(), time.monotonic() + request.timeout_seconds,
+        ).content
 
     def discover_models(self, *, timeout_seconds: float = 20.0, opener=None) -> tuple[str, ...]:
         """Return exact model IDs advertised by Token Factory.
