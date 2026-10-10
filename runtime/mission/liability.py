@@ -14,7 +14,7 @@ from lab.archaioa.faults import FaultTrace, classify_fault, open_liability, reso
 from lab.archaioa.liability import LiabilityRecord, LiabilityStatus
 from lab.archaioa.outcome import Applied, NotApplied, Unknown
 from lab.archaioa.taint import DependencyGraph, propagate_taint
-from lab.archaioa.task_semantics import check_completion
+from lab.archaioa.task_semantics import CompletionState, check_completion
 from runtime.core_admission import Capability, CoreAdmission, OwnerScope
 from runtime.memory_patch.contracts.serialization import canonical_json_bytes, canonical_sha256
 from runtime.memory_patch.errors import ErrorCode, MemoryPatchError
@@ -145,6 +145,23 @@ class CoreLiabilityLedger:
         else:
             tx.replace(record, expected_revision=stored.revision)
 
+    def initialize(self, principal, graph):
+        """Explicit immutable graph initialization; absent state never means clean.
+
+        Planned effects need predeclared references. Missing referenced records
+        still deny completion; this method does not fabricate Applied results.
+        """
+        require(type(graph) is DependencyGraph and len(graph.nodes) <= MAX_NODES,
+                'INVALID_UNKNOWN_BINDING')
+        def mutation(tx):
+            stored, state = self._load(tx, graph.task_id, optional=True)
+            if state is None:
+                self._save(tx, graph.task_id, stored,
+                           {'schema': KIND, 'graph': graph.to_dict(), 'entries': {}})
+            else:
+                require(state['graph'] == graph.to_dict(), 'DEPENDENCY_GRAPH_CONFLICT')
+        return self._run(principal, Capability.COMMIT, mutation)
+
     def record_unknown(self, principal, trace, graph, opened_at, *, dependency_refs=()):
         require(type(trace) is FaultTrace and type(graph) is DependencyGraph
                 and trace.task_id == graph.task_id and len(graph.nodes) <= MAX_NODES,
@@ -193,6 +210,40 @@ class CoreLiabilityLedger:
             _, state = self._load(tx, task_id)
             return check_completion(DependencyGraph.from_dict(state['graph']), candidate_id, self._records(state))
         return self._run(principal, Capability.READ, read)
+
+    def require_completion_in_transaction(self, tx, task_id, candidate_id, graph_digest):
+        """Evaluate required goal evidence within the caller's native transaction.
+
+        The caller must commit its terminal write in this same serializable
+        transaction. This helper opens no runner and grants no effect authority.
+        Legacy `completion` remains a read-only uncertainty decision.
+        """
+        self.core.require(tx.context.principal, tx.context.purpose, scope=self.scope)
+        require(tx.context.purpose in (Capability.READ, Capability.COMMIT), 'INVALID_COMPLETION_BINDING')
+        stored, state = self._load(tx, task_id)
+        require(canonical_sha256(state['graph']) == graph_digest, 'DEPENDENCY_GRAPH_CONFLICT')
+        try:
+            graph = DependencyGraph.from_dict(state['graph'])
+            decision = check_completion(graph, candidate_id, self._records(state))
+            require(decision.state is CompletionState.COMPLETED, 'REQUIRED_LIABILITY_OPEN')
+            by_id = {node.node_id: node for node in graph.nodes}
+            ancestors, pending = set(), [candidate_id]
+            while pending:
+                node_id = pending.pop()
+                if node_id in ancestors:
+                    continue
+                ancestors.add(node_id)
+                pending.extend(by_id[node_id].required_dependencies)
+            required_ids = sorted({identity for node_id in ancestors
+                                   for identity in by_id[node_id].liability_ids})
+            for identity in required_ids:
+                resolution = Reconciliation.from_dict(state['entries'][identity]['resolution'])
+                require(type(resolution.outcome) is Applied, 'REQUIRED_GOAL_NOT_APPLIED')
+            return {'task_id': task_id, 'graph_digest': graph_digest, 'candidate_id': candidate_id,
+                    'ledger_revision': stored.revision, 'node_count': len(graph.nodes),
+                    'applied_liability_ids': required_ids}
+        except ContractValidationError:
+            raise LiabilityError('LIABILITY_CONTRACT_INVALID') from None
 
     def escalate(self, principal, task_id, liability_id):
         def mutation(tx):

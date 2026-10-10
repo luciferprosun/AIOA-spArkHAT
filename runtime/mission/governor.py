@@ -436,9 +436,9 @@ retry. Circuit recovery from UNKNOWN is deliberately not treated as success.
             return self._settle_state(state,request_id,epoch,evidence_digest)
         return self._change(principal,Capability.COMMIT,change,reconciliation=True)
 
-    def submit_job(self,principal,envelope):
+    def submit_job(self,principal,envelope,*,completion=None):
         from runtime.mission.jobs import change_job
-        return change_job(self,principal,'submit',envelope=envelope)
+        return change_job(self,principal,'submit',envelope=envelope,completion=completion)
 
     def claim_job(self,principal,task_id,worker_id,epoch,*,lease_seconds):
         from runtime.mission.jobs import change_job
