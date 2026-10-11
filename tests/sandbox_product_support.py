@@ -13,9 +13,14 @@ from runtime.mission.governor import ReservationRequest
 from runtime.providers.nvidia import ProviderRequest,ProviderResponse
 from runtime.mission.job_contracts import JobEnvelope
 
-def core_case(config,identity):
+def core_case(config,identity,*,project_plan=None):
     fixture=base.CoreToolCompositionTests('test_real_synthetic_attempt_opens_required_g2_and_holds_exposure')
     fixture.setUp();fx=fixture.fx;broker=LinuxSandboxBroker(config)
+    if project_plan is not None:
+        from runtime.mission.project_recipe import PythonProjectPlan
+        assert type(project_plan) is PythonProjectPlan
+        fixture.current=replace(fixture.current,fingerprint=project_plan.target_fingerprint,
+            revision='project-r'+str(project_plan.expected_revision))
     route=CoreToolRoute(fx.journal,fixture.liability,workspace='workspace-1',policy_revision=2,
         variant='sandbox',sandbox_registry=config.registry,probe=lambda:fixture.current,
         executor=broker,target_guard=lambda:fixture.lifecycle,verifier=broker.verify,clock=lambda:fixture.now)
