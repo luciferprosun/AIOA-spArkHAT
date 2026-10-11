@@ -154,9 +154,20 @@ class AgentRuntime:
         inspection_only: bool = False,
         mission_context=None,
         mission_bindings=None,
+        agent_bindings=None,
     ) -> None:
         if type(inspection_only) is not bool:
             raise ValueError('INVALID_INSPECTION_MODE')
+        if agent_bindings is not None:
+            from runtime.mission.agent import CoreAgentBindings
+            if (type(agent_bindings) is not CoreAgentBindings or inspection_only or provider_manager is not None
+                    or nonzero_config is not None or memory_patch_config is not None
+                    or memory_patch_dependencies is not None or mission_context is not None
+                    or mission_bindings is not None):
+                raise ValueError('INVALID_AGENT_BINDINGS')
+            agent_bindings.validate()
+        self._agent_bindings = agent_bindings
+        self._agent_closed = False
         self._inspection_only = inspection_only
         self._mission_context = mission_context
         self._mission_bindings = mission_bindings
@@ -170,7 +181,7 @@ class AgentRuntime:
         self.debug_raw = debug_raw
         self.max_steps = max_steps
         self.safeguards = load_epistemic_safeguards()
-        if inspection_only:
+        if inspection_only or agent_bindings is not None:
             # Same composition root, but no mutable legacy state or executor.
             self.provider_manager = None
             self.memory_store = self.hat_store = self.worker_memory = None
@@ -207,12 +218,25 @@ class AgentRuntime:
         self._memory_patch_init_lock = threading.RLock()
         self.cpl_cost_policy = None
         self._owned_cpl_fixture = None
-        self.session_log = None if inspection_only else (
+        self.session_log = None if inspection_only or agent_bindings is not None else (
             self.memory_store.paths.session_logs_dir
             / f"session_{self.memory_store.memory.session_id}.jsonl"
         )
 
+    def agent_step(self, value):
+        if self._agent_closed or self._agent_bindings is None:
+            return {'status':'POLICY_BLOCKED','reason':'AGENT_BINDINGS_REQUIRED'}
+        return self._agent_bindings.step(value)
+
+    def agent_run(self):
+        if self._agent_closed or self._agent_bindings is None:
+            return {'status':'PROVIDER_UNAVAILABLE'}
+        return self._agent_bindings.run()
+
     def _require_operational_runtime(self):
+        if self._agent_bindings is not None:
+            from runtime.mission.contracts import MissionError
+            raise MissionError('NATIVE_AGENT_BOUND_ONLY', status='POLICY_BLOCKED', exit_code=4)
         if self._inspection_only:
             from runtime.mission.contracts import MissionError
             raise MissionError('INSPECTION_ONLY', status='POLICY_BLOCKED', exit_code=4)
@@ -305,6 +329,7 @@ class AgentRuntime:
         return self.critical_loop.wait(plan['run_id'])
 
     def close(self):
+        self._agent_closed = True
         if self._lite_scheduler is not None:
             self._lite_scheduler.close()
         if self._lite_memory is not None:
@@ -467,7 +492,7 @@ class AgentRuntime:
             with self._memory_patch_init_lock:
                 if operation == "status" and type(payload) is dict and not payload:
                     return 200, envelope(operation, result=self.memory_patch_status())
-                if self._inspection_only:
+                if self._inspection_only or self._agent_bindings is not None:
                     raise MemoryPatchError(ErrorCode.ADMISSION_DENIED)
                 if self._memory_patch_closed:
                     raise MemoryPatchError(ErrorCode.MODULE_CLOSED)
@@ -1437,9 +1462,18 @@ def print_banner(runtime: AgentRuntime) -> None:
 def create_runtime(*, cpl_fixture=False, cpl_cost_policy=None, nonzero_config=None,
                    memory_patch_config=None, memory_patch_dependencies=None,
                    inspection_only=False, mission_context=None, mission_bindings=None,
-                   lite_profile=None, lite_bindings=None):
+                   lite_profile=None, lite_bindings=None, agent_bindings=None):
     if type(inspection_only) is not bool:
         raise ValueError('INVALID_INSPECTION_MODE')
+    if agent_bindings is not None:
+        from runtime.mission.agent import CoreAgentBindings
+        if (type(agent_bindings) is not CoreAgentBindings or inspection_only or cpl_fixture
+                or cpl_cost_policy is not None or nonzero_config is not None
+                or memory_patch_config is not None or memory_patch_dependencies is not None
+                or mission_context is not None or mission_bindings is not None
+                or lite_profile is not None or lite_bindings is not None):
+            raise ValueError('INVALID_AGENT_BINDINGS')
+        return AgentRuntime(None, '', PROJECT_DIR, agent_bindings=agent_bindings)
     if lite_profile is not None or lite_bindings is not None:
         from runtime.mission.contracts import MissionError
         from runtime.mission.lite_contracts import LiteProfile
