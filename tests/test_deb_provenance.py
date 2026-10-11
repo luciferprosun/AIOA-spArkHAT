@@ -74,6 +74,21 @@ class ProvenanceTests(unittest.TestCase):
         self.assertEqual(self.files, contents["files"])
         self.assertFalse(any(self.root.iterdir()))
 
+    def test_staging_root_and_children_have_fixed_modes_with_private_umask(self):
+        old = os.umask(0o077)
+        try:
+            stage = self.root / "stage"
+            stage.mkdir(mode=0o755)
+            builder.payload_file(stage, "usr/bin/aioa-sparkhat", b"#!/bin/sh\nexit 4\n", 0o755)
+            self.assertEqual(0o700, stage.stat().st_mode & 0o777)
+            builder.normalize_stage(stage, 1)
+        finally:
+            os.umask(old)
+        for path in (stage, *stage.rglob("*")):
+            if path.is_dir():
+                self.assertEqual(0o755, path.stat().st_mode & 0o777)
+            self.assertEqual(1, int(path.stat().st_mtime))
+
     def test_exact_payload_modes_owners_and_epoch_accepted(self):
         contents = self.read(deb_bytes(self.files))
         self.e.verify_contents(contents, self.files, contents["control"], 1)
@@ -159,6 +174,29 @@ class ProvenanceTests(unittest.TestCase):
         for data in (raw + b"private".ljust(512, b"\0"), bytes(bad_padding)):
             with self.assertRaisesRegex(ValueError, "ARCHIVE_INVALID"):
                 self.e.read_tar(lzma.compress(data))
+
+    def test_standard_gnu_long_name_is_bounded_and_checked(self):
+        name = "./usr/lib/aioa-sparkhat/0.2.0~u13.1/app/runtime/" + "owned_source/" * 6 + "module.py"
+        stream = io.BytesIO()
+        with tarfile.open(fileobj=stream, mode="w", format=tarfile.GNU_FORMAT) as tar:
+            item = tarfile.TarInfo(name)
+            item.size = 1
+            item.mode = 0o644
+            item.uname = item.gname = "root"
+            tar.addfile(item, io.BytesIO(b"a"))
+        files, _, _ = self.e.read_tar(lzma.compress(stream.getvalue()))
+        self.assertEqual({name[2:]: (b"a", 0o644)}, files)
+
+    def test_gnu_long_name_cannot_hide_outside_path(self):
+        stream = io.BytesIO()
+        with tarfile.open(fileobj=stream, mode="w", format=tarfile.GNU_FORMAT) as tar:
+            item = tarfile.TarInfo("./../" + "outside/" * 15 + "private")
+            item.size = 1
+            item.mode = 0o644
+            item.uname = item.gname = "root"
+            tar.addfile(item, io.BytesIO(b"a"))
+        with self.assertRaisesRegex(ValueError, "ARCHIVE_PATH_DENIED"):
+            self.e.read_tar(lzma.compress(stream.getvalue()))
 
     def test_maintainer_script_rejected(self):
         contents = self.read(deb_bytes(self.files))

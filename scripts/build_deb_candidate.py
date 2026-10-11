@@ -224,6 +224,14 @@ exec /usr/bin/python3.12 -I -S -B "$package_root/launch.py" "$@"
     control='Package: aioa-sparkhat\nVersion: '+VERSION+'\nArchitecture: amd64\nMaintainer: AIOA spArkHAT local candidate <noreply@example.invalid>\nSection: devel\nPriority: optional\nDepends: '+', '.join(p['name']+' (= '+p['version']+')' for p in lock)+'\nDescription: AIOA spArkHAT local diagnostic candidate\n Unsigned limited offline diagnostic payload. Full desktop workflow not accepted.\n'
     return files,control.encode()
 
+def normalize_stage(stage,epoch):
+    for path in stage.rglob('*'):
+        if path.is_dir():path.chmod(0o755)
+        os.utime(path,(epoch,epoch),follow_symlinks=False)
+    # mkdir's requested mode is masked by the owner's umask, including stage itself.
+    stage.chmod(0o755)
+    os.utime(stage,(epoch,epoch))
+
 def build(root,output,*,expected_commit=None,expected_tree=None):
     context=prepare_context(root,expected_commit,expected_tree)
     root=Path(root).absolute();source=context['source'];epoch=source['epoch']
@@ -234,10 +242,7 @@ def build(root,output,*,expected_commit=None,expected_tree=None):
     stage=output/'stage';stage.mkdir(mode=0o755)
     for name,(raw,mode) in files.items():payload_file(stage,name,raw,mode)
     payload_file(stage,'DEBIAN/control',control)
-    for directory in stage.rglob('*'):
-        if directory.is_dir():directory.chmod(0o755)
-        os.utime(directory,(epoch,epoch),follow_symlinks=False)
-    os.utime(stage,(epoch,epoch))
+    normalize_stage(stage,epoch)
     artifact=output/('aioa-sparkhat_'+VERSION+'_amd64.deb')
     subprocess.run(['/usr/bin/dpkg-deb','--build','--root-owner-group','--uniform-compression','--threads-max=1','-Zxz','-z6',stage,artifact],
         check=True,env={'PATH':'/usr/bin:/bin','LANG':'C.UTF-8','SOURCE_DATE_EPOCH':str(epoch)},timeout=120)

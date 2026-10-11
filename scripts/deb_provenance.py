@@ -187,19 +187,35 @@ def read_tar(compressed):
         need(len(raw) <= MAX_TAR_BYTES and decoder.eof and not decoder.unused_data, "ARCHIVE_SIZE_DENIED")
         # tarfile accepts extensions and ignores bytes after the end marker.
         # Reject both before interpreting entries, including hidden extra data.
-        offset = 0
+        offset, pending_long_name, header_count = 0, None, 0
         need(len(raw) % 512 == 0, "ARCHIVE_INVALID")
         while offset + 512 <= len(raw) and any(raw[offset:offset + 512]):
             header = raw[offset:offset + 512]
-            need(header[156:157] in (b"\0", b"0", b"5"), "ARCHIVE_TYPE_DENIED")
+            kind = header[156:157]
+            header_count += 1
+            need(header_count <= MAX_MEMBERS * 2, "ARCHIVE_SIZE_DENIED")
+            need(kind in (b"\0", b"0", b"5", b"L"), "ARCHIVE_TYPE_DENIED")
             size_text = header[124:136].strip(b"\0 ")
             need(re.fullmatch(rb"[0-7]{1,12}", size_text), "ARCHIVE_INVALID")
             size = int(size_text, 8)
             need(size <= MAX_FILE_BYTES, "ARCHIVE_SIZE_DENIED")
+            if kind == b"L":
+                # dpkg-deb uses GNU's long-name record for names >100 bytes.
+                # It is metadata, never a payload file or a link target.
+                need(pending_long_name is None and header[:100].rstrip(b"\0") == b"././@LongLink"
+                     and 101 < size <= 421, "ARCHIVE_TYPE_DENIED")
+                data = raw[offset + 512:offset + 512 + size]
+                need(len(data) == size and data.endswith(b"\0") and data.count(b"\0") == 1
+                     and all(v < 128 for v in data), "ARCHIVE_PATH_DENIED")
+                pending_long_name = data[:-1]
+                archive_path(pending_long_name.decode("ascii"))
+            elif pending_long_name is not None:
+                need(header[:100].rstrip(b"\0") == pending_long_name[:100], "ARCHIVE_PATH_DENIED")
+                pending_long_name = None
             next_offset = offset + 512 + ((size + 511) // 512) * 512
             need(not any(raw[offset + 512 + size:next_offset]), "ARCHIVE_INVALID")
             offset = next_offset
-        need(offset + 1024 <= len(raw) and not any(raw[offset:]), "ARCHIVE_INVALID")
+        need(pending_long_name is None and offset + 1024 <= len(raw) and not any(raw[offset:]), "ARCHIVE_INVALID")
         files, directories, entries = {}, {}, {}
         with tarfile.open(fileobj=io.BytesIO(raw), mode="r:") as tar:
             for item in tar:

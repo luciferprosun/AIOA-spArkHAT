@@ -14,6 +14,8 @@ The embedded `SOURCE_PROVENANCE.json` binds source inputs, ABI and toolchain. Ex
 
 `scripts/verify_deb_candidate.py` requires the expected commit, tree and artifact SHA256 from the caller's trusted evidence. It reads bounded regular inputs, checks ar/xz/tar without extraction, rejects special files, links, private/traversal paths, duplicates, hidden trailing data, unexpected ownership/modes/epochs and maintainer scripts, and compares every payload byte and directory to a reconstruction from the pinned source. SPDX and provenance must equal canonical reconstruction. Names, dependency versions, ABI and licenses cannot be changed by editing sidecars. Verification uses the original build host's dependency/tool identities; it is not a portable clean-host certificate.
 
+The parser supports bounded GNU long-name metadata emitted by dpkg-deb: one canonical ASCII name of at most 420 bytes, immediately followed by its matching regular-file/directory header. GNU link-name, PAX and other extensions are denied. Long names pass the same path/allowlist checks; all archive padding and trailing bytes must be zero.
+
 Example for an already reviewed clean local commit (all paths are placeholders):
 
 ```text
