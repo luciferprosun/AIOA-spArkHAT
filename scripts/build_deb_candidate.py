@@ -10,6 +10,8 @@ EXCLUDED_PARTS=frozenset({'.git','.env','.venv','venv','__pycache__','baseline',
     'knowledge','reports','logs','state','screenshots','obsidian_vault','evidence','node_modules','tests'})
 LICENSES=('LICENSE','runtime/nonzero_cloudops/LICENSE-NONZERO.txt',
           'runtime/memory_patch/LICENSE-MEMORY-PATCH.txt')
+CORE_STATE_SOURCES=frozenset({'runtime/nonzero_cloudops/state/__init__.py',
+    'runtime/nonzero_cloudops/state/files.py'})
 OS_PACKAGES=('python3.12','python3.12-minimal','libpython3.12-stdlib','libpython3.12-minimal',
     'libc6','libexpat1','libbz2-1.0','libffi8','liblzma5','libsqlite3-0',
     'libssl3t64','zlib1g','libuuid1','libreadline8t64','libncursesw6','libtinfo6','dash','coreutils')
@@ -25,7 +27,9 @@ def regular_bytes(root,relative):
          'PACKAGE_PATH_DENIED')
     p=PurePosixPath(relative)
     need(not p.is_absolute() and '..' not in p.parts and str(p)==relative
-        and not any(part in EXCLUDED_PARTS or part.startswith('.') for part in p.parts),
+        and not any((part in EXCLUDED_PARTS and not
+                     (part=='state' and relative in CORE_STATE_SOURCES))
+                    or part.startswith('.') for part in p.parts),
         'PACKAGE_PATH_DENIED')
     path=root/relative
     need(path.resolve()==root.resolve()/relative,'PACKAGE_SYMLINK_DENIED')
@@ -79,7 +83,8 @@ def source_inventory(root,names):
         need(notice.startswith(b'MIT License') and b'Permission is hereby granted' in notice
              and b'Copyright' in notice,'LICENSE_CLOSURE_REQUIRED')
     need('runtime/main.py' in names and 'runtime/mission/operator_console.py' in names
-         and 'lab/archaioa/contracts.py' in names,'CORE_CLOSURE_REQUIRED')
+         and 'lab/archaioa/contracts.py' in names and CORE_STATE_SOURCES<=set(names),
+         'CORE_CLOSURE_REQUIRED')
     return records
 
 def os_lock():

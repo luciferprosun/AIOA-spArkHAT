@@ -11,7 +11,9 @@ class DebContentTests(unittest.TestCase):
         self.root=Path(self.tmp.name)
         for name in (*builder.LICENSES,'scripts/check_changed_secrets.py'):
             path=self.root/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes((ROOT/name).read_bytes())
-        self.names=sorted([*builder.LICENSES,'runtime/main.py','runtime/mission/operator_console.py','lab/archaioa/contracts.py'])
+        self.names=sorted([*builder.LICENSES,*builder.CORE_STATE_SOURCES,
+                          'runtime/main.py','runtime/mission/operator_console.py',
+                          'lab/archaioa/contracts.py'])
         for name in self.names:
             path=self.root/name;path.parent.mkdir(parents=True,exist_ok=True)
             if name not in builder.LICENSES:path.write_bytes(b'# MIT owned fixture source\nvalue=5\n')
@@ -42,7 +44,8 @@ class DebContentTests(unittest.TestCase):
 
     def test_developer_venv_and_user_state_denied(self):
         for name in ('runtime/.venv/bin/python','runtime/venv/config.py','runtime/state/user.py',
-                     'runtime/logs/user.py','runtime/screenshots/user.py'):
+                     'runtime/logs/user.py','runtime/screenshots/user.py',
+                     'runtime/nonzero_cloudops/state/user.py'):
             with self.subTest(name=name),self.assertRaises(ValueError):builder.regular_bytes(self.root,name)
 
     def test_archives_knowledge_media_and_tests_cannot_enter_payload(self):
@@ -99,8 +102,9 @@ class DebContentTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'LICENSE_CLOSURE_REQUIRED'):self.inventory()
 
     def test_core_module_missing_blocks_closure(self):
-        self.names.remove('lab/archaioa/contracts.py')
-        with self.assertRaisesRegex(ValueError,'CORE_CLOSURE_REQUIRED'):self.inventory()
+        for name in ('lab/archaioa/contracts.py',*sorted(builder.CORE_STATE_SOURCES)):
+            with self.subTest(name=name),self.assertRaisesRegex(ValueError,'CORE_CLOSURE_REQUIRED'):
+                builder.source_inventory(self.root,[n for n in self.names if n!=name])
 
     def test_duplicate_and_unsorted_allowlists_denied(self):
         for names in (self.names+['LICENSE'],list(reversed(self.names))):

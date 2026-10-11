@@ -211,6 +211,8 @@ runtime/nonzero_cloudops/planning.py
 runtime/nonzero_cloudops/policy.py
 runtime/nonzero_cloudops/provenance.py
 runtime/nonzero_cloudops/service.py
+runtime/nonzero_cloudops/state/__init__.py
+runtime/nonzero_cloudops/state/files.py
 runtime/nonzero_cloudops/verification.py
 runtime/nonzero_cloudops/views.py
 runtime/nvidia_trajectory.py
