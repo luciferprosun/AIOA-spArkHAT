@@ -250,6 +250,14 @@ class CoreToolRoute:
                 'content':payload['content']},snapshot),'STALE_TOOL_BINDING')
 
     @staticmethod
+    def _snapshot_operation(operation):
+        # Caller-owned nested dictionaries must not cross trusted callback boundaries.
+        require(type(operation) is dict and type(operation.get('payload')) is dict,'INVALID_TOOL_OPERATION')
+        encoded=canonical_json_bytes(operation)
+        require(len(encoded)<=4096,'TOOL_INPUT_LIMIT')
+        return json.loads(encoded)
+
+    @staticmethod
     def _ddr(snapshot,completion,grant,reservation):
         # Goal graph includes operation liability; keep goal binding in DDR to avoid a hash cycle.
         return DecisionDependencyRoot(snapshot.ddr.evidence_refs+(EvidenceRef('required-completion',
@@ -310,6 +318,7 @@ class CoreToolRoute:
 
     def authorize(self,principal,session_id,operation,completion,graph,trace,*,nonce,model_id,money_nano,risk_units):
         self.core.require(principal,Capability.COMMIT,scope=self.scope)
+        operation=self._snapshot_operation(operation)
         require(type(completion) is TaskCompletionBinding and type(graph) is DependencyGraph
                 and type(trace) is FaultTrace,'INVALID_TOOL_BINDING')
         opaque_id(nonce,'nonce')
@@ -391,6 +400,7 @@ class CoreToolRoute:
 
     def dispatch(self,principal,*,session_id,warrant,operation,reservation,completion):
         self.core.require(principal,Capability.COMMIT,scope=self.scope)
+        operation=self._snapshot_operation(operation)
         # Guard before DB/CAS locks. Acquisition failure is a denial, never fallback.
         # It covers the synchronous attempt, not only the last authority check.
         with self.target_guard():
@@ -453,7 +463,7 @@ class CoreToolRoute:
             grant,_,_,_=self._run(principal,Capability.COMMIT,lambda tx:
                 self._check(tx,session_id,warrant,operation,completion,fresh))
             limits=ToolDispatchLimits(grant.deadline_seconds,grant.output_bytes,grant.egress)
-            try:self.executor(operation,warrant,limits)
+            try:self.executor(self._snapshot_operation(operation),warrant,limits)
             except Exception:
                 # An adapter exception cannot prove NotApplied; both ledgers/exposure stay UNKNOWN.
                 pass

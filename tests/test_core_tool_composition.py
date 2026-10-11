@@ -87,6 +87,67 @@ class CoreToolCompositionTests(unittest.TestCase):
                   reservation=self.request,completion=self.binding);args.update(overrides)
         return self.route.dispatch(self.fx.p(),**args)
 
+    def assert_original_effect_and_journal(self, warrant=None):
+        warrant=warrant or self.warrant
+        self.assertEqual('print(1)\n',self.effects[warrant.operation_hash])
+        intent=self.fx.runner.run(TransactionContext(self.fx.p(Capability.READ),Capability.READ),
+            lambda tx:self.fx.journal._load(tx,warrant)[1])
+        self.assertEqual('print(1)\n',intent['operation']['payload']['content'])
+
+    def test_authorize_snapshots_operation_before_target_probe(self):
+        import copy
+        original=copy.deepcopy(self.operation)
+        def probe():
+            self.operation['payload']['content']='print(999)\n'
+            return self.current
+        self.route.probe=probe
+        try:warrant,request=self.authorize('copy-authorize')
+        except ValueError as error:self.fail(f'Caller mutation changed authorization input: {error}')
+        self.assertEqual(self.trace.operation_digest,warrant.operation_hash)
+        request=replace(request,request_digest=self.trace.operation_digest.removeprefix('sha256:'))
+        self.dispatch(warrant=warrant,reservation=request,operation=original)
+        self.assert_original_effect_and_journal(warrant)
+
+    def guard_mutation_preserves_operation(self, when):
+        from contextlib import contextmanager
+        def mutate():self.operation['payload']['content']='print(999)\n'
+        @contextmanager
+        def guarded():
+            if when=='enter':mutate()
+            with self.lifecycle:yield
+        def factory():
+            if when=='factory':mutate()
+            return guarded()
+        self.route.target_guard=factory
+        try:self.dispatch()
+        except ValueError as error:self.fail(f'Caller mutation changed dispatch input: {error}')
+        self.assert_original_effect_and_journal()
+
+    def test_dispatch_snapshots_operation_before_guard_factory(self):
+        self.guard_mutation_preserves_operation('factory')
+
+    def test_dispatch_snapshots_operation_before_guard_entry(self):
+        self.guard_mutation_preserves_operation('enter')
+
+    def test_post_start_probe_cannot_change_authorized_effect(self):
+        probes=[]
+        def probe():
+            probes.append(1)
+            if len(probes)==2:self.operation['payload']['content']='print(999)\n'
+            return self.current
+        self.route.probe=probe
+        self.dispatch()
+        self.assert_original_effect_and_journal()
+
+    def test_executor_cannot_mutate_caller_operation(self):
+        def execute(operation,warrant,limits):
+            self.execute(operation,warrant,limits)
+            operation['payload']['content']='print(999)\n'
+        self.route.executor=execute
+        self.dispatch()
+        self.assertEqual('print(1)\n',self.operation['payload']['content'])
+        self.assert_original_effect_and_journal()
+
     def test_real_synthetic_attempt_opens_required_g2_and_holds_exposure(self):
         result=self.dispatch();self.assertEqual('SYNTHETIC_ONLY',result['mode'])
         self.assertEqual('Unknown',result['outcome']['contract_type']);self.assertEqual(1,len(self.calls))
