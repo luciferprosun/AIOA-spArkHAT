@@ -184,7 +184,7 @@ exec /usr/bin/python3.12 -I -S -B "$package_root/launch.py" "$@"
         os.utime(directory,(epoch,epoch),follow_symlinks=False)
     os.utime(stage,(epoch,epoch))
     artifact=output/('aioa-sparkhat_'+VERSION+'_amd64.deb')
-    subprocess.run(['/usr/bin/dpkg-deb','--build','--root-owner-group','--uniform-compression','--compression-level=6',stage,artifact],
+    subprocess.run(['/usr/bin/dpkg-deb','--build','--root-owner-group','--uniform-compression','-z6',stage,artifact],
         check=True,env={'PATH':'/usr/bin:/bin','LANG':'C.UTF-8','SOURCE_DATE_EPOCH':str(epoch)},timeout=120)
     files={str(p.relative_to(stage)):sha(p.read_bytes()) for p in sorted(stage.rglob('*')) if p.is_file()}
     result={'schema':'aioa.deb-build.v1','status':'BUILT_UNSIGNED_CANDIDATE','source_commit':head,'source_tree':tree,
