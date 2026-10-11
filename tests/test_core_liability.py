@@ -3,7 +3,6 @@ from dataclasses import replace
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 import subprocess
-import sys
 import tempfile
 import unittest
 
@@ -16,6 +15,7 @@ from lab.archaioa.task_semantics import CompletionState
 from runtime.core_admission import Capability
 from runtime.memory_patch.errors import CommitOutcomeUnknown
 from runtime.memory_patch.persistence.ports import TransactionRunner
+from native_subprocess_support import native_command
 from nv03_support import DurableFactory, DurableTransaction
 from test_dual_governor import core, SCOPE
 
@@ -265,14 +265,14 @@ print('FRESH_PROCESS_G2_BLOCKED')
 r.close()
 c.close()
 '''
-        result = subprocess.run([sys.executable, '-B', '-c', code, str(self.path)], capture_output=True, text=True, timeout=20)
+        result = subprocess.run(native_command(__file__, code, self.path), capture_output=True, text=True, timeout=20)
         self.assertEqual(0, result.returncode, result.stderr)
         self.assertIn('FRESH_PROCESS_G2_BLOCKED', result.stdout)
         print(result.stdout.strip())
         self.verified_ledger(lambda trace, record: self.resolution()).reconcile(self.principal(), 'task1', self.identity, NOW)
         closed_code = code.replace("== 'BLOCKED'", "== 'COMPLETED'").replace(
             "== 'TAINTED_BY_LIABILITY'", "== 'CLEAR'").replace('FRESH_PROCESS_G2_BLOCKED', 'FRESH_PROCESS_G2_CLOSED_CLEAR')
-        result = subprocess.run([sys.executable, '-B', '-c', closed_code, str(self.path)],
+        result = subprocess.run(native_command(__file__, closed_code, self.path),
                                 capture_output=True, text=True, timeout=20)
         self.assertEqual(0, result.returncode, result.stderr)
         self.assertIn('FRESH_PROCESS_G2_CLOSED_CLEAR', result.stdout)

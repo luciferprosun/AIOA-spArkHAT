@@ -9,7 +9,6 @@ from datetime import timedelta
 import json
 from pathlib import Path
 import subprocess
-import sys
 import threading
 from unittest.mock import patch
 
@@ -23,6 +22,7 @@ from runtime.mission.completion import TaskCompletionBinding, TaskDependency
 from runtime.mission.governor import CoreDualGovernor
 from runtime.mission import jobs
 from mission_completion_support import MissionCompletionFixture, NOW
+from native_subprocess_support import native_command
 from nv03_support import DurableFactory, DurableTransaction
 from test_memory_patch_persistence_ports import StructuredFailure
 import test_dual_governor as native
@@ -89,7 +89,7 @@ class MissionDependencyRecoveryTests(MissionCompletionFixture):
         data = dict(path=str(self.fx.path), mode=mode, claim=asdict(task.claim),
                     response=asdict(task.response), envelope=task.envelope.as_dict(),
                     binding=task.binding.to_dict(), **extra)
-        result = subprocess.run([sys.executable, '-B', '-c', RESTART_PROBE, json.dumps(data)],
+        result = subprocess.run(native_command(__file__, RESTART_PROBE, json.dumps(data)),
                                 capture_output=True, text=True, timeout=20)
         self.assertEqual(0, result.returncode, result.stdout + result.stderr)
         return json.loads(result.stdout)

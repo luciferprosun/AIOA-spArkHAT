@@ -1,5 +1,5 @@
 """Positive payload inventory and real-filesystem exclusion/security checks."""
-import importlib.util,os,subprocess,tempfile,unittest
+import importlib.util,os,subprocess,sys,tempfile,unittest
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 spec=importlib.util.spec_from_file_location('deb_builder',ROOT/'scripts/build_deb_candidate.py')
@@ -118,8 +118,15 @@ class DebContentTests(unittest.TestCase):
         subprocess.run(['/usr/bin/git','init','--quiet',self.root],check=True,capture_output=True,
                        env={'PATH':'/usr/bin:/bin','GIT_CONFIG_GLOBAL':'/dev/null','GIT_CONFIG_NOSYSTEM':'1'})
         output=self.root.parent/(self.root.name+'-output')
-        with self.assertRaisesRegex(ValueError,'CLEAN_SOURCE_REQUIRED'):builder.build(self.root,output)
+        denial='CLEAN_SOURCE_REQUIRED' if sys.version_info[:2]==(3,12) else 'CANDIDATE_ABI_REQUIRED'
+        with self.assertRaisesRegex(ValueError,denial):builder.build(self.root,output)
         self.assertFalse(output.exists())
+
+    def test_dirty_source_validation_is_independent_of_candidate_abi(self):
+        subprocess.run(['/usr/bin/git','init','--quiet',self.root],check=True,capture_output=True,
+                       env={'PATH':'/usr/bin:/bin','GIT_CONFIG_GLOBAL':'/dev/null','GIT_CONFIG_NOSYSTEM':'1'})
+        with self.assertRaisesRegex(ValueError,'CLEAN_SOURCE_REQUIRED'):
+            builder.evidence.pin_source(self.root,'a'*40,'b'*40,self.names,builder.regular_bytes)
 
     def test_actual_os_runtime_dependency_closure_is_version_pinned(self):
         records=builder.os_lock();names={p['name'] for p in records}
