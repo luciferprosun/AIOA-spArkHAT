@@ -305,4 +305,3 @@ class CoreLiabilityLedger:
         current['resolution'] = resolution.to_dict()
         self._save(tx, task_id, stored, state)
         return resolution.outcome
-

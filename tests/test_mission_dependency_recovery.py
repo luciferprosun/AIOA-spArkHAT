@@ -418,4 +418,3 @@ class MissionDependencyRecoveryTests(MissionCompletionFixture):
             with self.assertRaisesRegex(ValueError, 'LIABILITY_INTEGRITY'): self.finish(task)
             self.assertEqual(before, self.fx.path.read_bytes())
             self.assert_not_done(task)
-
