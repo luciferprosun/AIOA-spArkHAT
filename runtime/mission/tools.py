@@ -21,7 +21,7 @@ from lab.archaioa.contracts import digest_id, identifier
 from lab.archaioa.decision_root import DecisionDependencyRoot
 from lab.archaioa.evidence import EvidenceRef
 from lab.archaioa.faults import FaultTrace, classify_fault, opaque_id
-from lab.archaioa.taint import DependencyGraph
+from lab.archaioa.taint import DependencyGraph, NodeKind
 from lab.archaioa.warrant import EffectWarrant, RevisionPolicy
 from runtime.core_admission import Capability, OwnerScope
 from runtime.memory_patch.contracts.serialization import canonical_json_bytes, canonical_sha256
@@ -31,6 +31,10 @@ from runtime.mission.intent import CoreIntentJournal, KIND as INTENT_KIND
 from runtime.mission.governor import ReservationRequest
 from runtime.mission.liability import CoreLiabilityLedger, Reconciliation
 from runtime.mission.warrant import approval_digest, require
+from runtime.mission.sandbox_contracts import (
+    SandboxDispatchRequest, SandboxOperation, SandboxRegistry,
+    SYNTHETIC, SANDBOX, TOOL_POLICY_VERSIONS, tool_variant,
+)
 
 SESSION = 'aioa-local-synthetic-session-v1'
 CONTEXT = 'aioa-local-synthetic-effect-context-v1'
@@ -53,7 +57,8 @@ TOOL_CAPABILITIES = MappingProxyType({
     'create_file': ToolCapability.PROJECT_WRITE, 'create_folder': ToolCapability.PROJECT_WRITE,
     'move_file': ToolCapability.PROJECT_WRITE, 'delete_file': ToolCapability.PROJECT_WRITE,
     'scan_project': ToolCapability.PROJECT_WRITE, 'change_directory': ToolCapability.PROJECT_WRITE,
-    'shell_execute': ToolCapability.SANDBOX_EXEC, 'dependency_install': ToolCapability.DEPENDENCY_INSTALL,
+    'shell_execute': ToolCapability.SANDBOX_EXEC, 'run_recipe': ToolCapability.SANDBOX_EXEC,
+    'dependency_install': ToolCapability.DEPENDENCY_INSTALL,
     'git_push': ToolCapability.GITHUB_REMOTE_WRITE, 'system_install': ToolCapability.SYSTEM_INSTALL,
 })
 
@@ -160,14 +165,22 @@ class SessionGrant:
 
 
 class CoreToolRoute:
-    """Fixed synthetic-only adapter; no model/client callback or default backend."""
-    def __init__(self,journal,liability,*,workspace,policy_revision,probe,executor,target_guard=None,verifier=None,clock=None):
+    """Common Core adapter with explicit trusted variants; no default backend."""
+    def __init__(self,journal,liability,*,workspace,policy_revision,probe,executor,target_guard=None,verifier=None,clock=None,
+                 variant='synthetic',sandbox_registry=None):
         require(type(journal) is CoreIntentJournal and type(liability) is CoreLiabilityLedger
                 and journal.ledger.core is liability.core and journal.ledger.runner is liability.runner
                 and journal.ledger.scope==liability.scope and callable(probe) and callable(executor)
                 and callable(target_guard) and (verifier is None or callable(verifier)), 'INVALID_TOOL_ROUTE')
         opaque_id(workspace,'workspace')
-        require(type(policy_revision) is int and policy_revision>0, 'INVALID_TOOL_ROUTE')
+        require(type(policy_revision) is int and policy_revision in TOOL_POLICY_VERSIONS
+                and type(variant) is str and variant in ('synthetic','sandbox'), 'INVALID_TOOL_ROUTE')
+        self.bound_variant=tool_variant(policy_revision,
+            'SANDBOX_EXEC' if variant=='sandbox' else 'PROJECT_WRITE')
+        require((variant=='synthetic' and sandbox_registry is None)
+                or (variant=='sandbox' and type(sandbox_registry) is SandboxRegistry
+                    and sandbox_registry.workspace==workspace), 'INVALID_TOOL_ROUTE')
+        self.sandbox_registry=sandbox_registry
         self.journal,self.liability=journal,liability
         self.core,self.runner,self.scope=liability.core,liability.runner,liability.scope
         self.workspace,self.policy_revision=workspace,policy_revision
@@ -192,6 +205,7 @@ class CoreToolRoute:
                 'SESSION_INTEGRITY')
         grant=SessionGrant.parse(state['grant'])
         require(grant.session_id==session_id and grant.scope==self.scope and grant.workspace==self.workspace
+                and grant.policy_revision in TOOL_POLICY_VERSIONS
                 and state['assignment_revision']>=1,'SESSION_BINDING')
         if active:
             require(not state['revoked'] and grant.issued_at<=self.clock()<grant.expires_at
@@ -230,6 +244,15 @@ class CoreToolRoute:
         return self._run(principal,Capability.MANAGE,change)
 
     def operation(self,proposal,snapshot):
+        if self.bound_variant is SANDBOX:
+            require(type(snapshot) is TargetSnapshot,'INVALID_TARGET_SNAPSHOT')
+            result={'operation_class':'SANDBOX_EXEC','target_fingerprint':snapshot.fingerprint,
+                    'expected_target_revision':snapshot.revision,
+                    'payload':self.sandbox_registry.payload(proposal)}
+            return self.sandbox_registry.validate(result).to_dict()
+        return self._synthetic_operation(proposal,snapshot)
+
+    def _synthetic_operation(self,proposal,snapshot):
         require(type(proposal) is dict and set(proposal)=={'action','path','content'}
                 and proposal['action']=='write_file' and type(proposal['content']) is str
                 and type(snapshot) is TargetSnapshot,'UNSUPPORTED_TOOL')
@@ -241,12 +264,21 @@ class CoreToolRoute:
         require(len(canonical_json_bytes(result))<=4096,'TOOL_INPUT_LIMIT')
         return result
 
-    def _operation(self,operation,snapshot):
+    def _operation(self,operation,snapshot,*,variant=None,historical=False):
+        variant=variant or self.bound_variant
         require(type(operation) is dict and type(operation.get('payload')) is dict,'INVALID_TOOL_OPERATION')
+        require(operation.get('operation_class')==variant.operation_class,'INVALID_TOOL_OPERATION')
+        if variant is SANDBOX:
+            parsed=SandboxOperation.parse(operation)
+            require(operation['payload']['workspace']==self.workspace
+                    and operation['target_fingerprint']==snapshot.fingerprint
+                    and operation['expected_target_revision']==snapshot.revision,'STALE_TOOL_BINDING')
+            if not historical:self.sandbox_registry.validate(parsed.to_dict())
+            return
         payload=operation['payload']
         require(set(payload)=={'tool','workspace','path','content'} and payload['workspace']==self.workspace,
                 'INVALID_TOOL_OPERATION')
-        require(operation==self.operation({'action':payload['tool'],'path':payload['path'],
+        require(operation==self._synthetic_operation({'action':payload['tool'],'path':payload['path'],
                 'content':payload['content']},snapshot),'STALE_TOOL_BINDING')
 
     @staticmethod
@@ -281,12 +313,13 @@ class CoreToolRoute:
                 and canonical_sha256(graph.to_dict())==binding.graph_digest
                 and trace.operation_digest==warrant.operation_hash,'TOOL_CONTEXT_INTEGRITY')
         _,_,grant=self._session(tx,context['session_id'],active=False)
+        variant=tool_variant(grant.policy_revision,warrant.operation_class)
         request=ReservationRequest(**context['reservation'])
         snapshot=TargetSnapshot(warrant.target_fingerprint,warrant.expected_target_revision,
                                 DecisionDependencyRoot.from_dict(context['target_ddr']))
         require(context['grant_digest']==grant.digest and grant.completion_digest==binding.digest
                 and request.request_id==warrant.money_reservation_id==warrant.risk_reservation_id
-                and request.task_id==warrant.task_id and request.provider_id=='synthetic'
+                and request.task_id==warrant.task_id and request.provider_id==variant.provider_id
                 and request.request_digest==warrant.operation_hash.removeprefix('sha256:')
                 and request.risk_units>=5 and request.money_nano>0
                 and self._ddr(snapshot,binding,grant,request)==warrant.decision_dependency_root,
@@ -295,10 +328,45 @@ class CoreToolRoute:
         require(stored_graph['graph']==graph.to_dict(),'DEPENDENCY_GRAPH_CONFLICT')
         prior,intent=self.journal._load(tx,warrant)
         if prior is not None:
+            self._operation(intent['operation'],snapshot,variant=variant,historical=True)
+            if variant is SANDBOX:self._sandbox_scope(intent['operation'],binding,graph,trace,grant)
             entry=stored_graph['entries'].get(classify_fault(trace).liability_id)
             require(entry is not None and intent['reservation']==canonical_sha256(request)
                     and intent['resolution']==entry['resolution'],'TOOL_RECONCILIATION_INTEGRITY')
         return context,binding,graph,trace
+
+    def _mode(self,tx,warrant):
+        context,_,_,_=self._context(tx,warrant)
+        _,_,grant=self._session(tx,context['session_id'],active=False)
+        return tool_variant(grant.policy_revision,warrant.operation_class).mode
+
+    @staticmethod
+    def _sandbox_scope(operation,completion,graph,trace,grant):
+        payload=operation['payload']
+        require(payload['task_id']==completion.task_id==graph.task_id==trace.task_id,
+                'SANDBOX_TASK_BINDING')
+        by_id={n.node_id:n for n in graph.nodes};seen=set();pending=[completion.candidate_id]
+        while pending:
+            node=pending.pop();require(node in by_id,'INVALID_TOOL_BINDING')
+            if node not in seen:seen.add(node);pending.extend(by_id[node].required_dependencies)
+        step=by_id.get(payload['step_id'])
+        require(step is not None and step.node_id in seen and step.kind is NodeKind.OPERATION
+                and classify_fault(trace).liability_id in step.liability_ids,'SANDBOX_STEP_BINDING')
+        require(payload['timeout_ms']<=grant.deadline_seconds*1000
+                and payload['max_output_bytes']<=grant.output_bytes,'SESSION_SCOPE_DENIED')
+
+    def _sandbox_request(self,tx,grant,context,warrant):
+        # Only called by the current synchronous live-ACK branch, never by replay.
+        _,intent=self.journal._load(tx,warrant)
+        require(intent is not None and intent['resolution'] is None
+                and intent['outcome']['contract_type']=='Unknown','SANDBOX_START_BINDING')
+        operation=self.sandbox_registry.validate(intent['operation'])
+        payload=operation.to_dict()['payload']
+        return SandboxDispatchRequest(operation.operation_bytes,warrant.operation_hash,
+            payload['task_id'],payload['step_id'],context['session_id'],grant.digest,grant.epoch,
+            warrant.digest(),warrant.decision_dependency_root.root_digest,
+            canonical_sha256(ReservationRequest(**context['reservation'])),
+            TaskCompletionBinding.parse(context['completion']).digest,warrant.nonce)
 
     def _native_job(self,tx,completion,*,dispatch=False):
         from runtime.mission.jobs import load_job
@@ -327,6 +395,7 @@ class CoreToolRoute:
         def change(tx):
             _,_,grant=self._session(tx,session_id)
             self._native_job(tx,completion)
+            if self.bound_variant is SANDBOX:self._sandbox_scope(operation,completion,graph,trace,grant)
             require(completion.scope==self.scope and completion.digest==grant.completion_digest
                     and completion.task_id==graph.task_id==trace.task_id
                     and completion.graph_digest==canonical_sha256(graph.to_dict())
@@ -342,8 +411,8 @@ class CoreToolRoute:
                 if node not in seen:seen.add(node);pending.extend(by_id[node].required_dependencies)
             require(any(classify_fault(trace).liability_id in by_id[n].liability_ids for n in seen),
                     'LIABILITY_DEPENDENCY_REQUIRED')
-            reservation_id=canonical_sha256(('synthetic-tool-reservation',self.scope,nonce))
-            reservation=ReservationRequest(reservation_id,completion.task_id,'synthetic',model_id,
+            reservation_id=canonical_sha256((self.bound_variant.reservation_domain,self.scope,nonce))
+            reservation=ReservationRequest(reservation_id,completion.task_id,self.bound_variant.provider_id,model_id,
                                            canonical_sha256(operation),money_nano,risk_units)
             start=datetime.fromtimestamp(self.clock(),timezone.utc)
             end=datetime.fromtimestamp(grant.expires_at,timezone.utc)
@@ -379,6 +448,7 @@ class CoreToolRoute:
                 and operation['operation_class'] in grant.capabilities
                 and self._ddr(snapshot,completion,grant,ReservationRequest(**context['reservation']))==warrant.decision_dependency_root,'STALE_TOOL_BINDING')
         self._operation(operation,snapshot)
+        if self.bound_variant is SANDBOX:self._sandbox_scope(operation,completion,graph,trace,grant)
         require(warrant.target_fingerprint==snapshot.fingerprint
                 and warrant.expected_target_revision==snapshot.revision,'STALE_TOOL_BINDING')
         _,stored=self.liability._load(tx,warrant.task_id)
@@ -389,14 +459,16 @@ class CoreToolRoute:
         context,binding,_,_=self._context(tx,warrant)
         snapshot=TargetSnapshot(warrant.target_fingerprint,warrant.expected_target_revision,
                                 DecisionDependencyRoot.from_dict(context['target_ddr']))
-        self._operation(operation,snapshot)
+        _,_,grant=self._session(tx,context['session_id'],active=False)
+        variant=tool_variant(grant.policy_revision,warrant.operation_class)
+        self._operation(operation,snapshot,variant=variant,historical=True)
         require(session_id==context['session_id'] and binding==completion
                 and type(reservation) is ReservationRequest
                 and asdict(reservation)==context['reservation']
                 and 'sha256:'+canonical_sha256(operation)==warrant.operation_hash,
                 'TOOL_CONTEXT_INTEGRITY')
         row,intent=self.journal._load(tx,warrant)
-        return None if row is None else {'mode':'SYNTHETIC_ONLY',**self.journal._public(intent)}
+        return None if row is None else {'mode':variant.mode,**self.journal._public(intent)}
 
     def dispatch(self,principal,*,session_id,warrant,operation,reservation,completion):
         self.core.require(principal,Capability.COMMIT,scope=self.scope)
@@ -442,10 +514,10 @@ class CoreToolRoute:
             # Reverse joins detect deleted/renamed context after START; no clean-by-absence accounting.
             for row in rows:
                 c=json.loads(canonical_json_bytes(row.payload))
-                if c.get('schema')==INTENT_KIND and c.get('operation',{}).get('payload',{}).get('tool')=='write_file':
+                if c.get('schema')==INTENT_KIND and c.get('operation',{}).get('payload',{}).get('tool') in {'write_file','run_recipe'}:
                     require(c['warrant_digest'] in known_intents,'TOOL_CONTEXT_REQUIRED')
             for request_id,entry in state['reservations'].items():
-                if entry['provider_id']=='synthetic':
+                if entry['provider_id'] in {'synthetic','sandbox-exec'}:
                     require(request_id in known_reservations,'TOOL_CONTEXT_REQUIRED')
             prior,_=self.journal._load(tx,warrant)
             if prior is None:
@@ -460,24 +532,40 @@ class CoreToolRoute:
         if result['fixture_step_now']:
             # Only this ACK grants the one attempt. Never recover an attempt from durable START.
             fresh=self.probe()
-            grant,_,_,_=self._run(principal,Capability.COMMIT,lambda tx:
-                self._check(tx,session_id,warrant,operation,completion,fresh))
-            limits=ToolDispatchLimits(grant.deadline_seconds,grant.output_bytes,grant.egress)
-            try:self.executor(self._snapshot_operation(operation),warrant,limits)
+            def prepare(tx):
+                grant,context,_,_=self._check(tx,session_id,warrant,operation,completion,fresh)
+                if self.bound_variant is SANDBOX:
+                    return self._sandbox_request(tx,grant,context,warrant)
+                return ToolDispatchLimits(grant.deadline_seconds,grant.output_bytes,grant.egress)
+            prepared=self._run(principal,Capability.COMMIT,prepare)
+            try:
+                if self.bound_variant is SANDBOX:
+                    from runtime.mission.sandbox_linux import LinuxSandboxBroker
+                    if type(self.executor) is LinuxSandboxBroker:
+                        def release_check():
+                            snapshot=self.probe()
+                            def check(tx):
+                                grant,context,_,_=self._check(tx,session_id,warrant,operation,completion,snapshot)
+                                current=self._sandbox_request(tx,grant,context,warrant)
+                                require(current==prepared,'SANDBOX_REQUEST_BINDING')
+                            return self._run(principal,Capability.COMMIT,check)
+                        self.executor.dispatch(prepared,release_check)
+                    else:self.executor(prepared)
+                else:self.executor(self._snapshot_operation(operation),warrant,prepared)
             except Exception:
                 # An adapter exception cannot prove NotApplied; both ledgers/exposure stay UNKNOWN.
                 pass
         def readback(tx):
             _, state = self.journal._load(tx, warrant)
             require(state is not None, 'INTENT_REQUIRED')
-            return {'mode': 'SYNTHETIC_ONLY', **self.journal._public(state)}
+            return {'mode': self._mode(tx,warrant), **self.journal._public(state)}
         return self._run(principal, Capability.COMMIT, readback)
 
     def inspect(self,principal,warrant):
         def read(tx):
             self._context(tx,warrant)
             _,state=self.journal._load(tx,warrant);require(state is not None,'INTENT_REQUIRED')
-            return {'mode':'SYNTHETIC_ONLY',**self.journal._public(state)}
+            return {'mode':self._mode(tx,warrant),**self.journal._public(state)}
         return self._run(principal,Capability.READ,read)
 
     def reconcile(self,principal,warrant,epoch):
@@ -495,7 +583,8 @@ class CoreToolRoute:
             require(intent['resolution']==entry['resolution'],'TOOL_RECONCILIATION_INTEGRITY')
             return intent,entry,trace
         intent,entry,trace=self._run(principal,Capability.COMMIT,read)
-        if intent['resolution'] is not None:return {'mode':'SYNTHETIC_ONLY',**self.journal._public(intent)}
+        mode=self._run(principal,Capability.COMMIT,lambda tx:self._mode(tx,warrant))
+        if intent['resolution'] is not None:return {'mode':mode,**self.journal._public(intent)}
         require(self.verifier is not None,'INDEPENDENT_READBACK_REQUIRED')
         try:resolution=self.verifier(intent['operation'],warrant)
         except Exception:require(False,'INDEPENDENT_READBACK_UNAVAILABLE')
@@ -506,4 +595,4 @@ class CoreToolRoute:
                 classify_fault(trace).liability_id,datetime.fromtimestamp(self.clock(),timezone.utc),resolution,entry)
             return self.journal.apply_resolution_in_transaction(tx,warrant,epoch,resolution)
         result=self._run(principal,Capability.COMMIT,change)
-        return {'mode':'SYNTHETIC_ONLY',**result}
+        return {'mode':mode,**result}

@@ -28,6 +28,7 @@ namespaces = true
 [tool.setuptools.package-data]
 runtime = ["prompts/*.txt", "adaptive_routing/*.json", "adaptive_routing/environment/*.json", "knowledge/**/*.json", "knowledge/**/*.md", "knowledge/**/*.yaml", "knowledge/**/*.pdf", "knowledge/**/*.txt", "knowledge/*.json"]
 "runtime.nonzero_cloudops" = ["LICENSE-NONZERO.txt"]
+"runtime.mission" = ["native/*.c"]
 "runtime.memory_patch" = ["LICENSE-MEMORY-PATCH.txt", "sql/*.sql", "sql/manifest.json", "sql/manifest-learning-v1.json"]
 
 [tool.setuptools.data-files]
