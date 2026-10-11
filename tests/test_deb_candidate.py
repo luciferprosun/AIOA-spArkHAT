@@ -32,6 +32,9 @@ class DebContentTests(unittest.TestCase):
         self.assertGreater(len(inventory),200)
         self.assertEqual(len(names),len(inventory))
         self.assertTrue(all(i['license']=='MIT' for i in inventory))
+        self.assertTrue(all(b'/home/l/' not in (ROOT/i['path']).read_bytes()
+                            and str(ROOT).encode() not in (ROOT/i['path']).read_bytes()
+                            for i in inventory))
 
     def test_env_and_git_internals_denied(self):
         for name in ('.env','.git/config','runtime/.env'):
@@ -48,7 +51,8 @@ class DebContentTests(unittest.TestCase):
                 builder.source_inventory(self.root,sorted([*self.names,name]))
 
     def test_fixture_tokens_and_undeclared_optional_reader_excluded(self):
-        for name in ('runtime/critical_loop/fixture.py','runtime/tools/web_reader.py'):
+        for name in ('runtime/critical_loop/fixture.py','runtime/tools/web_reader.py',
+                     'runtime/tools/build_rhcsa_library.py'):
             with self.subTest(name=name),self.assertRaisesRegex(ValueError,'SOURCE_NOT_IN_POLICY'):
                 builder.source_inventory(self.root,sorted([*self.names,name]))
 

@@ -260,7 +260,6 @@ runtime/service_guard/target.py
 runtime/tools/__init__.py
 runtime/tools/admission.py
 runtime/tools/browser_tools.py
-runtime/tools/build_rhcsa_library.py
 runtime/tools/check_no_direct_retrieval_imports.py
 runtime/tools/epistemic_registry.py
 runtime/tools/executor.py

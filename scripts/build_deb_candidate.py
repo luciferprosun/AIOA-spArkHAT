@@ -62,7 +62,8 @@ def source_inventory(root,names):
     for name in names:
         need(name in LICENSES or name=='packaging/deb_launch.py' or
              (name.startswith(('runtime/','lab/archaioa/')) and name.endswith('.py')
-               and not name.endswith('/fixture.py') and name!='runtime/tools/web_reader.py')
+               and not name.endswith('/fixture.py') and name not in
+                   ('runtime/tools/web_reader.py','runtime/tools/build_rhcsa_library.py'))
               or name in ('runtime/prompts/system_prompt.txt','runtime/adaptive_routing/routing_modes.json','runtime/adaptive_routing/aoia_config.json','runtime/adaptive_routing/environment/traffic_profiles.json')
               or (name.startswith('runtime/mission/native/') and name.endswith('.c'))
               or (name.startswith('runtime/memory_patch/sql/') and name.endswith(('.sql','.json'))),
