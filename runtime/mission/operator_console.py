@@ -15,7 +15,7 @@ from runtime.mission.warrant import require
 from runtime.native_console import project_governor
 
 LIMITATIONS = (
-    'U08: fresh owned arithmetic Python fixture only; no arbitrary code or dependencies',
+    'U08/DEV-E2E01: fresh owned arithmetic or reviewed task-list CLI template; no arbitrary code or dependencies',
     'U09: fresh synthetic local Git only; remote writes disabled',
     'D3/D4/D8 unified installed user workflow NOT_ACCEPTED',
     'Managed browser unavailable; no network or browser fallback',

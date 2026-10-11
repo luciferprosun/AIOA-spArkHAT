@@ -18,7 +18,8 @@ def core_case(config,identity,*,project_plan=None):
     fixture.setUp();fx=fixture.fx;broker=LinuxSandboxBroker(config)
     if project_plan is not None:
         from runtime.mission.project_recipe import PythonProjectPlan
-        assert type(project_plan) is PythonProjectPlan
+        from runtime.mission.tasklist_recipe import TaskListPlan
+        assert type(project_plan) in (PythonProjectPlan, TaskListPlan)
         fixture.current=replace(fixture.current,fingerprint=project_plan.target_fingerprint,
             revision='project-r'+str(project_plan.expected_revision))
     route=CoreToolRoute(fx.journal,fixture.liability,workspace='workspace-1',policy_revision=2,
