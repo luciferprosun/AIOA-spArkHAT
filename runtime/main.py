@@ -233,6 +233,29 @@ class AgentRuntime:
             return {'status':'PROVIDER_UNAVAILABLE'}
         return self._agent_bindings.run()
 
+    def _operator_console(self):
+        if self._agent_closed or self._agent_bindings is None:
+            return None
+        from runtime.mission.operator_console import CoreOperatorConsole
+        return CoreOperatorConsole(self._agent_bindings)
+
+    def operator_status(self, principal=None):
+        from runtime.mission.operator_console import unavailable_status
+        console = self._operator_console()
+        return unavailable_status() if console is None else console.read(principal)
+
+    def operator_stop(self, principal=None):
+        console = self._operator_console()
+        if console is None:
+            return {'status': 'POLICY_BLOCKED', 'reason': 'EXISTING_CORE_AGENT_BINDING_REQUIRED'}
+        return console.stop(principal)
+
+    def operator_reconcile(self, principal=None):
+        console = self._operator_console()
+        if console is None:
+            return {'status': 'POLICY_BLOCKED', 'reason': 'EXISTING_CORE_AGENT_BINDING_REQUIRED'}
+        return console.reconcile(principal)
+
     def _require_operational_runtime(self):
         if self._agent_bindings is not None:
             from runtime.mission.contracts import MissionError
@@ -1554,6 +1577,11 @@ def create_runtime(*, cpl_fixture=False, cpl_cost_policy=None, nonzero_config=No
 def main() -> None:
     import argparse
     import sys
+
+    if len(sys.argv) > 1 and sys.argv[1] == 'console':
+        from runtime.mission.operator_console import run_console_cli
+        raise SystemExit(run_console_cli(sys.argv[2:],
+            runtime_factory=lambda: create_runtime(inspection_only=True)))
 
     if len(sys.argv) > 1 and sys.argv[1] == 'lite':
         from runtime.mission.lite_cli import run_lite_cli
