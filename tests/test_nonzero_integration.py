@@ -267,9 +267,11 @@ class NonZeroWebTests(unittest.TestCase):
         self.assertEqual([],runtime._owned_cpl_fixture.requests)
 
     def test_historical_native_approval_and_receipt_cannot_unlock_public_effect_after_restart(self):
-        from main import create_runtime
         from uuid import UUID
+
+        from main import create_runtime
         from test_nonzero_public_privacy import assert_public_privacy
+
         runtime=self.service.runtime;native=runtime.nonzero_cloudops
         code,body=native.request('POST','/api/runs',TARGET,operator=True)
         self.assertEqual(201,code);run=body['result']['run_id'];path='/api/runs/'+run

@@ -4,7 +4,6 @@ Historical deep privacy scenarios run through explicit trusted native fixtures.
 Actual public HTTP/registry denial and privacy are tested independently in U05.
 """
 import hashlib
-import http.client
 import json
 import unittest
 from unittest.mock import patch
