@@ -1,4 +1,16 @@
-# AIOA spArkHAT
+# AIOA spArkHAT 🐾
+### Long-Running Agent | NVIDIA Claw Challenge Berlin 2026
+
+![GOLD24](https://img.shields.io/badge/GOLD24-PASSED-00FF00)
+![Uptime](https://img.shields.io/badge/Uptime-86%2C426s-blue)
+![Checkpoints](https://img.shields.io/badge/Checkpoints-722-orange)
+![Replay](https://img.shields.io/badge/Replay-0-red)
+
+**GOLD24 evidence scope:** A **local, historical endurance-run report** from **September 28–29, 2026** records `GOLD24_PASS`, 86,426 **reported active seconds**, 722 hash-linked checkpoints, and zero observed duplicate effects/redispatches. The subsequent evidence review independently checked all **722 checkpoint digests** and **721 predecessor links**. **Replay attempts were zero**, so this is *not* evidence of a replay-attack stress test. NVIDIA LIVE was unavailable. The tested candidate SHA is **not currently in this public repository**, and the raw evidence bundle has not been released; the result is *not independent certification of current main or a hosted service*. Read the [full local GOLD24 evidence review](docs/launch/GOLD24_LOCAL_EVIDENCE_REVIEW_20261013.md).
+
+**Separate historical test:** [3×8-hour segmented endurance PASS](reports/SEGMENTED_ENDURANCE_3X8_MANIFEST.json) relates to an earlier candidate and **must not be confused** with the later local GOLD24 run.
+
+[Product overview](https://sparkhat.eu/aioa/) · [Demo video](https://youtu.be/ABJijoNKmYM) · [Product Hunt launch kit](docs/launch/PRODUCT_HUNT_LAUNCH_PACK.md) · [Support the research](https://sparkhat.eu/sponsorship/)
 
 **One canonical AIOA codebase.** AIOA spArkHAT is the unified, human-governed AI runtime and the public entry point for the project. Nebius/NVIDIA, CockroachDB memory, Critical Prompt Loop (CPL), Verified Delta and the native Non-Zero safety module are capabilities within AIOA, **not separate products**.
 
