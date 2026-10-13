@@ -53,11 +53,21 @@ We enumerated all checkpoint JSON files; required contiguous numbers 0–721; in
 6. The previous public [segmented 3×8-hour manifest](../../reports/SEGMENTED_ENDURANCE_3X8_MANIFEST.json) belongs to a **different historical frozen candidate** and properly states `contiguous_24h_pass_closed: false`. Do not rewrite that immutable record. This GOLD24 local report is a **later, separate run**.
 7. The local raw artifacts are not uploaded to the public repo because a separate privacy, credential and provenance review is required; this public inventory alone is not sufficient for third-party independent reproduction.
 
+## Run the read-only evidence checker
+
+After the operator privately reviews and makes the raw run bundle available for audit:
+
+```bash
+python3 scripts/verify_gold24_chain.py /path/to/gold24-20260928T041316Z
+```
+
+The checker was independently executed against the retained local run on 2026-10-13 and reproduced the 722 digest checks, 721 hash-chain links, 86,426 active seconds **as reported**, and checkpoint file-set root SHA-256 listed above. It does **not** authenticate the original hardware clock or source commit, and does not substitute for a third-party rerun.
+
 ## Remaining proof gates
 
 - Recover/identify a public, rights-reviewed immutable source archive for candidate SHA and link an exact tag, release, or archival digest.
 - Export the raw checkpoint set and harness to a reviewed evidence bundle; verify no credentials, private data or proprietary material.
-- Publish a reviewer script and captured checksum report for that exact bundle.
+- Publish the privacy-reviewed raw bundle and a captured output of the already-prepared [read-only chain validator](../../scripts/verify_gold24_chain.py) for the exact files.
 - Re-run fault-injection/replay-attempt scenarios, independent CockroachDB tests and bounded live provider probes separately, recording failures honestly.
 - Only then make unqualified third-party-reproducible or provider-certified claims.
 
