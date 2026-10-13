@@ -1,4 +1,13 @@
-# AIOA spArkHAT
+# AIOA spArkHAT 🐾
+### Long-Running Agent | NVIDIA Claw Challenge Berlin 2026
+
+![Segmented endurance](https://img.shields.io/badge/Segmented%203x8h-PASS-2ea44f)
+![GOLD24](https://img.shields.io/badge/GOLD24-EVIDENCE%20PENDING-yellow)
+![Authority](https://img.shields.io/badge/Actions-Human%20approved-blue)
+
+**Evidence scope:** [3×8-hour segmented endurance closure](reports/SEGMENTED_ENDURANCE_3X8_MANIFEST.json) is recorded as `SEGMENTED_ENDURANCE_PASS`, with `contiguous_24h_pass_closed: false`. The [GOLD24 plan](docs/NVIDIA_GOLD24H_CONTEXT_CONTINUITY.md) is **not** a GOLD24 PASS receipt. Proposed GOLD24 metrics (86,426 seconds, 722 checkpoints, zero replays) are **not yet validated** against a SHA-bound immutable 24-hour report, so PASS badges are withheld. Offline/fixture evidence is not live service certification.
+
+[Product overview](https://sparkhat.eu/aioa/) · [Demo video](https://youtu.be/ABJijoNKmYM) · [Launch kit](docs/launch/PRODUCT_HUNT_LAUNCH_PACK.md)
 
 **One canonical AIOA codebase.** AIOA spArkHAT is the unified, human-governed AI runtime and the public entry point for the project. Nebius/NVIDIA, CockroachDB memory, Critical Prompt Loop (CPL), Verified Delta and the native Non-Zero safety module are capabilities within AIOA, **not separate products**.
 
