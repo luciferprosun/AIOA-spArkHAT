@@ -84,15 +84,9 @@ class PersonalAIWebTests(unittest.TestCase):
             "memory_query": "maintenance approved window",
         }
 
-    def prepare(self):
-        status, payload = self.request(
-            "POST",
-            "/api/personal-ai/prepare",
-            self.prepare_payload(),
-            intent=PERSONAL_AI_OPERATOR_INTENT,
-        )
-        self.assertEqual(200, status, payload)
-        return payload
+    def prepare_native(self):
+        # Explicit trusted test fixture, never public HTTP authority.
+        return self.service.personal_ai_prepare(self.prepare_payload())
 
     def test_all_personal_ai_routes_require_the_session_token(self):
         cases = (
@@ -110,7 +104,7 @@ class PersonalAIWebTests(unittest.TestCase):
                 self.assertEqual("session_token_required", result["error"])
         self.assertEqual(0, self.guard.store.apply_count)
 
-    def test_prepare_requires_operator_intent_strict_fields_and_stops_for_approval(self):
+    def test_prepare_keeps_operator_intent_and_explicitly_denies_public_effects(self):
         status, result = self.request(
             "POST", "/api/personal-ai/prepare", self.prepare_payload()
         )
@@ -122,10 +116,10 @@ class PersonalAIWebTests(unittest.TestCase):
             "POST", "/api/personal-ai/prepare", bad,
             intent=PERSONAL_AI_OPERATOR_INTENT,
         )
-        self.assertEqual(400, status)
-        self.assertEqual("INVALID_PREPARE_REQUEST", result["error"])
+        self.assertEqual(403, status)
+        self.assertEqual("UNSUPPORTED_EFFECT_ROUTE", result["error"])
 
-        prepared = self.prepare()
+        prepared = self.prepare_native()
         self.assertEqual("APPROVAL_REQUIRED", prepared["service_guard"]["state"])
         self.assertEqual("ADVISORY_ONLY", prepared["provider"]["authority"])
         self.assertEqual("FIXTURE", prepared["provider"]["execution_mode"])
@@ -133,52 +127,37 @@ class PersonalAIWebTests(unittest.TestCase):
         self.assertNotIn("private", json.dumps(prepared).lower())
         self.assertNotIn("model reason", json.dumps(prepared).lower())
 
-    def test_exact_approval_and_separate_resume_intent_gate_the_only_effect(self):
-        prepared = self.prepare()
-        wrong = dict(proposal_id="f" * 64)
-        status, result = self.request(
-            "POST", "/api/personal-ai/approve", wrong,
-            intent=PERSONAL_AI_APPROVAL_INTENT,
-        )
-        self.assertEqual(409, status)
-        self.assertEqual("PROPOSAL_BINDING_MISMATCH", result["error"])
-        self.assertEqual(0, self.guard.store.apply_count)
-
-        status, result = self.request(
-            "POST", "/api/personal-ai/approve",
-            {"proposal_id": prepared["proposal_id"]},
-        )
-        self.assertEqual(403, status)
-        self.assertEqual("PERSONAL_AI_APPROVAL_INTENT_REQUIRED", result["error"])
-
-        status, approved = self.request(
-            "POST", "/api/personal-ai/approve",
-            {"proposal_id": prepared["proposal_id"]},
-            intent=PERSONAL_AI_APPROVAL_INTENT,
-        )
-        self.assertEqual(200, status, approved)
-        self.assertEqual("APPROVED", approved["approval"]["status"])
-        self.assertEqual(0, self.guard.store.apply_count)
-
-        resume_body = {"operation_id": self.guard.operation_id}
-        status, result = self.request(
-            "POST", "/api/personal-ai/resume", resume_body,
-            intent=PERSONAL_AI_OPERATOR_INTENT,
-        )
-        self.assertEqual(403, status)
-        self.assertEqual("PERSONAL_AI_RESUME_INTENT_REQUIRED", result["error"])
-        self.assertEqual(0, self.guard.store.apply_count)
-
-        status, completed = self.request(
-            "POST", "/api/personal-ai/resume", resume_body,
-            intent=PERSONAL_AI_RESUME_INTENT,
-        )
-        self.assertEqual(200, status, completed)
-        self.assertEqual("EXECUTED", completed["service_guard"]["state"])
-        self.assertEqual(1, self.guard.store.apply_count)
+    def test_native_approval_cannot_unlock_the_disabled_public_resume(self):
+        from runtime.personal_ai_demo import PersonalAIDemoError
+        prepared=self.prepare_native()
+        with self.assertRaises(PersonalAIDemoError) as denied:
+            self.service.personal_ai_approve('f'*64)
+        self.assertEqual('PROPOSAL_BINDING_MISMATCH',denied.exception.code)
+        status,result=self.request('POST','/api/personal-ai/approve',
+            {'proposal_id':prepared['proposal_id']})
+        self.assertEqual(403,status);self.assertEqual('PERSONAL_AI_APPROVAL_INTENT_REQUIRED',result['error'])
+        status,result=self.request('POST','/api/personal-ai/approve',
+            {'proposal_id':prepared['proposal_id']},intent=PERSONAL_AI_APPROVAL_INTENT)
+        self.assertEqual(403,status);self.assertEqual('UNSUPPORTED_EFFECT_ROUTE',result['error'])
+        approved=self.service.personal_ai_approve(prepared['proposal_id'])
+        self.assertEqual('APPROVED',approved['approval']['status'])
+        self.assertEqual(0,self.guard.store.apply_count)
+        payload={'operation_id':self.guard.operation_id}
+        status,result=self.request('POST','/api/personal-ai/resume',payload,intent=PERSONAL_AI_OPERATOR_INTENT)
+        self.assertEqual(403,status);self.assertEqual('PERSONAL_AI_RESUME_INTENT_REQUIRED',result['error'])
+        for _ in range(2):
+            status,result=self.request('POST','/api/personal-ai/resume',payload,intent=PERSONAL_AI_RESUME_INTENT)
+            self.assertEqual(403,status);self.assertEqual('UNSUPPORTED_EFFECT_ROUTE',result['error'])
+            self.assertEqual(0,self.guard.store.apply_count)
+        # Deep native ServiceGuard invariant remains checked through its real port.
+        completed=self.service.personal_ai_resume(self.guard.operation_id)
+        self.assertEqual('EXECUTED',completed['service_guard']['state'])
+        status,result=self.request('POST','/api/personal-ai/resume',payload,intent=PERSONAL_AI_RESUME_INTENT)
+        self.assertEqual(403,status);self.assertEqual('UNSUPPORTED_EFFECT_ROUTE',result['error'])
+        self.assertEqual(1,self.guard.store.apply_count)
 
     def test_status_is_token_protected_read_only_and_sanitized(self):
-        self.prepare()
+        self.prepare_native()
         status, result = self.request("GET", "/api/personal-ai/status")
         self.assertEqual(200, status, result)
         self.assertTrue(result["read_only"])

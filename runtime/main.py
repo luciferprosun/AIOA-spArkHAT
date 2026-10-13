@@ -154,9 +154,20 @@ class AgentRuntime:
         inspection_only: bool = False,
         mission_context=None,
         mission_bindings=None,
+        agent_bindings=None,
     ) -> None:
         if type(inspection_only) is not bool:
             raise ValueError('INVALID_INSPECTION_MODE')
+        if agent_bindings is not None:
+            from runtime.mission.agent import CoreAgentBindings
+            if (type(agent_bindings) is not CoreAgentBindings or inspection_only or provider_manager is not None
+                    or nonzero_config is not None or memory_patch_config is not None
+                    or memory_patch_dependencies is not None or mission_context is not None
+                    or mission_bindings is not None):
+                raise ValueError('INVALID_AGENT_BINDINGS')
+            agent_bindings.validate()
+        self._agent_bindings = agent_bindings
+        self._agent_closed = False
         self._inspection_only = inspection_only
         self._mission_context = mission_context
         self._mission_bindings = mission_bindings
@@ -170,7 +181,7 @@ class AgentRuntime:
         self.debug_raw = debug_raw
         self.max_steps = max_steps
         self.safeguards = load_epistemic_safeguards()
-        if inspection_only:
+        if inspection_only or agent_bindings is not None:
             # Same composition root, but no mutable legacy state or executor.
             self.provider_manager = None
             self.memory_store = self.hat_store = self.worker_memory = None
@@ -207,12 +218,48 @@ class AgentRuntime:
         self._memory_patch_init_lock = threading.RLock()
         self.cpl_cost_policy = None
         self._owned_cpl_fixture = None
-        self.session_log = None if inspection_only else (
+        self.session_log = None if inspection_only or agent_bindings is not None else (
             self.memory_store.paths.session_logs_dir
             / f"session_{self.memory_store.memory.session_id}.jsonl"
         )
 
+    def agent_step(self, value):
+        if self._agent_closed or self._agent_bindings is None:
+            return {'status':'POLICY_BLOCKED','reason':'AGENT_BINDINGS_REQUIRED'}
+        return self._agent_bindings.step(value)
+
+    def agent_run(self):
+        if self._agent_closed or self._agent_bindings is None:
+            return {'status':'PROVIDER_UNAVAILABLE'}
+        return self._agent_bindings.run()
+
+    def _operator_console(self):
+        if self._agent_closed or self._agent_bindings is None:
+            return None
+        from runtime.mission.operator_console import CoreOperatorConsole
+        return CoreOperatorConsole(self._agent_bindings)
+
+    def operator_status(self, principal=None):
+        from runtime.mission.operator_console import unavailable_status
+        console = self._operator_console()
+        return unavailable_status() if console is None else console.read(principal)
+
+    def operator_stop(self, principal=None):
+        console = self._operator_console()
+        if console is None:
+            return {'status': 'POLICY_BLOCKED', 'reason': 'EXISTING_CORE_AGENT_BINDING_REQUIRED'}
+        return console.stop(principal)
+
+    def operator_reconcile(self, principal=None):
+        console = self._operator_console()
+        if console is None:
+            return {'status': 'POLICY_BLOCKED', 'reason': 'EXISTING_CORE_AGENT_BINDING_REQUIRED'}
+        return console.reconcile(principal)
+
     def _require_operational_runtime(self):
+        if self._agent_bindings is not None:
+            from runtime.mission.contracts import MissionError
+            raise MissionError('NATIVE_AGENT_BOUND_ONLY', status='POLICY_BLOCKED', exit_code=4)
         if self._inspection_only:
             from runtime.mission.contracts import MissionError
             raise MissionError('INSPECTION_ONLY', status='POLICY_BLOCKED', exit_code=4)
@@ -305,6 +352,7 @@ class AgentRuntime:
         return self.critical_loop.wait(plan['run_id'])
 
     def close(self):
+        self._agent_closed = True
         if self._lite_scheduler is not None:
             self._lite_scheduler.close()
         if self._lite_memory is not None:
@@ -467,7 +515,7 @@ class AgentRuntime:
             with self._memory_patch_init_lock:
                 if operation == "status" and type(payload) is dict and not payload:
                     return 200, envelope(operation, result=self.memory_patch_status())
-                if self._inspection_only:
+                if self._inspection_only or self._agent_bindings is not None:
                     raise MemoryPatchError(ErrorCode.ADMISSION_DENIED)
                 if self._memory_patch_closed:
                     raise MemoryPatchError(ErrorCode.MODULE_CLOSED)
@@ -529,20 +577,18 @@ class AgentRuntime:
                 "prefer_unknown": self.safeguards.prefer_unknown,
             },
             "local_fast_routes": [
-                "slash commands",
+                "approved read-only slash commands",
                 "date/status",
-                "pwd/ls/curl version",
-                "simple desktop folder creation",
-                "URL browser bootstrap",
             ],
+            "effect_routes": "UNSUPPORTED until native authority and containment are connected",
         }
         request_payload = {
             "user_request": user_input,
             "request_trace": request_trace,
             "instruction": (
                 "Return exactly one JSON object and no markdown. "
-                "Choose the next proposed action. The runtime will ask the human "
-                "for ENTER approval before executing any non-respond action. "
+                "Choose the next proposed action. Effects are unsupported on this legacy route. "
+                "Only respond and host-allowlisted public reads are admitted. "
                 "Include confidence as high, medium, low, or unknown. "
                 'If you do not have enough evidence, respond with "I DO NOT KNOW".'
             ),
@@ -670,6 +716,8 @@ class AgentRuntime:
             return
 
         request_trace = self.bootstrap_local_context(user_input)
+        if request_trace and not request_trace[-1]['result'].get('success'):
+            return
 
         planned_actions = self.create_plan(user_input, request_trace)
         if planned_actions:
@@ -795,18 +843,20 @@ class AgentRuntime:
                     {
                         "user_request": user_input,
                         "routing_boundary": "no_rhcsa_local_knowledge",
-                        "browser_handled": True,
-                        "opened_url": normalized_url,
+                        "browser_handled": bool(open_result.get('success')),
+                        **({'opened_url': normalized_url} if open_result.get('success') else
+                           {'effect_status': open_result.get('effect_status', 'UNSUPPORTED')}),
                     },
                 )
                 return True
-            except Exception as error:
+            except Exception:
+                self._request_denial={'success':False,'error':'UNSUPPORTED_EFFECT_ROUTE','effect_status':'UNSUPPORTED'}
                 self.log_error(
                     {
                         "user_request": user_input,
                         "route": route,
-                        "error": str(error),
-                        "traceback": traceback.format_exc(),
+                        "error": "UNSUPPORTED_EFFECT_ROUTE",
+                        "effect_status": "UNSUPPORTED",
                     }
                 )
                 self.log_session_event(
@@ -815,18 +865,14 @@ class AgentRuntime:
                         "user_request": user_input,
                         "routing_boundary": "no_rhcsa_local_knowledge",
                         "browser_handled": False,
-                        "opened_url": normalized_url,
-                        "error": str(error),
+                        "error": "UNSUPPORTED_EFFECT_ROUTE",
                     },
                 )
-                print("\nAgent> External URL detected. Browser inspection path available but browser handoff failed.")
+                print("\nAgent> UNSUPPORTED_EFFECT_ROUTE: browser effect route is unavailable.")
                 return True
 
-        message = (
-            "External repository inspection path detected. Browser inspection path available."
-            if route == "external_repository_review"
-            else "External URL detected. Browser inspection path available."
-        )
+        self._request_denial={'success':False,'error':'UNSUPPORTED_EFFECT_ROUTE','effect_status':'UNSUPPORTED'}
+        message = "UNSUPPORTED_EFFECT_ROUTE: browser effects require native authority and containment."
         self.log_session_event(
             route,
             {
@@ -1081,6 +1127,8 @@ class AgentRuntime:
         """Execute one text request and capture the textual transcript."""
         self._require_operational_runtime()
         transcript_buffer = io.StringIO()
+        self.executor.last_result = None
+        self._request_denial = None
         with redirect_stdout(transcript_buffer):
             command_result = self.command_registry.execute(user_input, self)
             if command_result.handled:
@@ -1089,10 +1137,14 @@ class AgentRuntime:
             else:
                 self.handle_user_request(user_input)
         transcript = transcript_buffer.getvalue().strip()
-        return {
-            "transcript": transcript,
-            "status": self.snapshot_status(),
-        }
+        last = self._request_denial or self.executor.last_result
+        denied = (command_result.handled and command_result.exit_code != 0) or (
+            last is not None and last.get('success') is False)
+        result = {'ok': not denied, 'transcript': transcript, 'status': self.snapshot_status()}
+        if denied:
+            result.update(error=(last or {}).get('error', 'UNSUPPORTED_EFFECT_ROUTE'),
+                          effect_status=(last or {}).get('effect_status', 'DENIED'))
+        return result
 
     def handle_local_route(self, user_input: str) -> bool:
         """Execute obvious local tasks before calling the model."""
@@ -1121,7 +1173,11 @@ class AgentRuntime:
                     "result": self.result_for_model(result),
                 },
             )
+            if not result.get('success') or result.get('cancelled'):
+                return True
 
+        if last_result and not last_result.get('success'):
+            return True
         if route.final_message:
             print(f"\nAgent> {route.final_message}")
         elif last_result and last_result.get("message"):
@@ -1271,6 +1327,8 @@ class AgentRuntime:
                 "result": self.result_for_model(start_result),
             }
         )
+        if not start_result.get('success'):
+            return request_trace
 
         open_action = {
             "action": "browser_open",
@@ -1286,6 +1344,8 @@ class AgentRuntime:
                 "result": self.result_for_model(open_result),
             }
         )
+        if not open_result.get('success'):
+            return request_trace
 
         lowered = user_input.lower()
         if any(token in lowered for token in ("analiz", "analy", "paper", "praca", "read", "przeczy")):
@@ -1425,9 +1485,18 @@ def print_banner(runtime: AgentRuntime) -> None:
 def create_runtime(*, cpl_fixture=False, cpl_cost_policy=None, nonzero_config=None,
                    memory_patch_config=None, memory_patch_dependencies=None,
                    inspection_only=False, mission_context=None, mission_bindings=None,
-                   lite_profile=None, lite_bindings=None):
+                   lite_profile=None, lite_bindings=None, agent_bindings=None):
     if type(inspection_only) is not bool:
         raise ValueError('INVALID_INSPECTION_MODE')
+    if agent_bindings is not None:
+        from runtime.mission.agent import CoreAgentBindings
+        if (type(agent_bindings) is not CoreAgentBindings or inspection_only or cpl_fixture
+                or cpl_cost_policy is not None or nonzero_config is not None
+                or memory_patch_config is not None or memory_patch_dependencies is not None
+                or mission_context is not None or mission_bindings is not None
+                or lite_profile is not None or lite_bindings is not None):
+            raise ValueError('INVALID_AGENT_BINDINGS')
+        return AgentRuntime(None, '', PROJECT_DIR, agent_bindings=agent_bindings)
     if lite_profile is not None or lite_bindings is not None:
         from runtime.mission.contracts import MissionError
         from runtime.mission.lite_contracts import LiteProfile
@@ -1508,6 +1577,11 @@ def create_runtime(*, cpl_fixture=False, cpl_cost_policy=None, nonzero_config=No
 def main() -> None:
     import argparse
     import sys
+
+    if len(sys.argv) > 1 and sys.argv[1] == 'console':
+        from runtime.mission.operator_console import run_console_cli
+        raise SystemExit(run_console_cli(sys.argv[2:],
+            runtime_factory=lambda: create_runtime(inspection_only=True)))
 
     if len(sys.argv) > 1 and sys.argv[1] == 'lite':
         from runtime.mission.lite_cli import run_lite_cli

@@ -29,6 +29,28 @@ class NativeOneSystemArchitectureTests(unittest.TestCase):
     def test_existing_core_owns_module_authority_and_lifecycle(self):
         self.assertEqual(verify_ownership(Path(nonzero_cloudops.__file__).parent.parent), [])
 
+    def test_ownership_gate_rejects_public_nonzero_dispatch_and_missing_denial(self):
+        import shutil
+        source=Path(nonzero_cloudops.__file__).parent.parent
+        files=('main.py','commands/local_commands.py','webapp.py','nonzero_cloudops/provenance.py',
+               'nonzero_cloudops/service.py','nonzero_cloudops/execution.py')
+        for mutation in ('dispatch','missing-denial'):
+            with self.subTest(mutation=mutation),tempfile.TemporaryDirectory() as directory:
+                root=Path(directory)
+                for name in files:
+                    target=root/name;target.parent.mkdir(parents=True,exist_ok=True)
+                    shutil.copyfile(source/name,target)
+                web=root/'webapp.py';text=web.read_text()
+                if mutation=='dispatch':
+                    text=text.replace('    def _handle_nonzero(self, method, parsed, payload):',
+                        '    def _handle_nonzero(self, method, parsed, payload):\n'
+                        '        self._service().runtime.nonzero_cloudops.request(method, parsed.path, payload, operator=True)')
+                else:
+                    start=text.index('    def _handle_nonzero(');end=text.index('    def _handle_personal_ai(',start)
+                    text=text[:start]+text[start:end].replace('UNSUPPORTED_EFFECT_ROUTE','WRONG_STATE')+text[end:]
+                web.write_text(text)
+                self.assertTrue(verify_ownership(root))
+
     def test_static_gate_rejects_old_imports_launchers_network_and_path_hacks(self):
         candidates = ('import aioa_cloudops_agent', 'import subprocess', 'import boto3',
             'import http.server', 'import socket', 'import sys\nsys.path.append("other")',

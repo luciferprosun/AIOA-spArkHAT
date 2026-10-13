@@ -85,7 +85,7 @@ class RuntimeArchitectureTests(unittest.TestCase):
         self.assertTrue(decision.requires_confirmation)
         self.assertTrue(decision.interactive)
 
-    def test_executor_creates_folder_on_desktop(self) -> None:
+    def test_legacy_executor_denies_desktop_folder_without_native_authority(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             project_dir = Path(tmp) / "project"
             desktop_dir = Path(tmp) / "Desktop"
@@ -100,10 +100,11 @@ class RuntimeArchitectureTests(unittest.TestCase):
                     "reason": "Create desktop folder.",
                 }
             )
-            self.assertTrue(result["success"])
-            self.assertTrue((desktop_dir / "AI_TEST").is_dir())
+            self.assertFalse(result["success"])
+            self.assertFalse((desktop_dir / "AI_TEST").exists())
+            self.assertEqual('UNSUPPORTED_EFFECT_ROUTE',result['error'])
 
-    def test_executor_creates_and_writes_text_file(self) -> None:
+    def test_legacy_executor_denies_folder_and_text_write(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             project_dir = Path(tmp) / "project"
             desktop_dir = Path(tmp) / "Desktop"
@@ -127,8 +128,9 @@ class RuntimeArchitectureTests(unittest.TestCase):
                     "reason": "Write file.",
                 }
             )
-            self.assertTrue(result["success"])
-            self.assertEqual(target_file.read_text(encoding="utf-8"), "hello from agent\n")
+            self.assertFalse(result["success"])
+            self.assertEqual('UNSUPPORTED_EFFECT_ROUTE',result['error'])
+            self.assertFalse(target_file.exists())
 
     def test_runtime_cancels_install_when_user_declines(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -147,13 +149,13 @@ class RuntimeArchitectureTests(unittest.TestCase):
                 ]
             )
             runtime = main.AgentRuntime(provider, PROMPT_TEMPLATE, project_dir)
-            with patch("builtins.input", return_value="n"):
+            with patch("builtins.input", side_effect=AssertionError('prompt cannot grant authority')):
                 runtime.handle_user_request("zainstaluj curl")
             self.assertEqual(provider.calls, 1)
             self.assertTrue(runtime.memory_store.memory.recent_outputs)
             self.assertFalse(runtime.memory_store.memory.recent_outputs[-1]["success"])
 
-    def test_runtime_handles_model_503_after_successful_first_step(self) -> None:
+    def test_runtime_handles_model_503_after_approved_public_read(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             project_dir = Path(tmp) / "project"
             desktop_dir = Path(tmp) / "Desktop"
@@ -163,9 +165,9 @@ class RuntimeArchitectureTests(unittest.TestCase):
                 [
                     json_text(
                         {
-                            "action": "create_folder",
-                            "path": str(desktop_dir / "xxxxxxxxxxxx"),
-                            "reason": "Create requested desktop folder.",
+                            "action": "read_file",
+                            "path": "public.txt",
+                            "reason": "Read exact approved public fixture.",
                         }
                     ),
                     RuntimeError("503 UNAVAILABLE"),
@@ -174,9 +176,14 @@ class RuntimeArchitectureTests(unittest.TestCase):
                 ]
             )
             runtime = main.AgentRuntime(provider, PROMPT_TEMPLATE, project_dir)
+            from tools.admission import PublicFileReads
+            import hashlib
+            public=project_dir/'public.txt';public.write_text('public fixture')
+            runtime.executor.public_reads=PublicFileReads(project_dir,
+                {'public.txt':hashlib.sha256(public.read_bytes()).hexdigest()})
             with patch("sys.stdout", new_callable=StringIO) as fake_stdout:
-                runtime.handle_user_request("zrob folder i plik")
-            self.assertTrue((desktop_dir / "xxxxxxxxxxxx").is_dir())
+                runtime.handle_user_request("read approved public input and summarize")
+            self.assertFalse((desktop_dir / "xxxxxxxxxxxx").exists())
             self.assertIn("Część operacji została już wykonana poprawnie", fake_stdout.getvalue())
 
     @unittest.skipUnless(PLAYWRIGHT_AVAILABLE, "Playwright is not installed")
@@ -194,9 +201,9 @@ class RuntimeArchitectureTests(unittest.TestCase):
                 trace = runtime.bootstrap_local_context(f"przeanalizuj te prace {local_url}")
 
             self.assertEqual(provider.calls, 0)
-            self.assertGreaterEqual(len(trace), 2)
-            self.assertEqual(trace[1]["action"]["action"], "browser_open")
-            self.assertIn("index.html", trace[1]["result"]["current_url"])
+            self.assertEqual(len(trace), 1)
+            self.assertEqual(trace[0]["action"]["action"], "browser_start")
+            self.assertEqual('UNSUPPORTED_EFFECT_ROUTE', trace[0]['result']['error'])
             browser_close()
 
     def test_slash_status_uses_no_model(self) -> None:
@@ -222,7 +229,7 @@ class RuntimeArchitectureTests(unittest.TestCase):
             runtime.local_router.desktop_dir = desktop_dir
             with patch("sys.stdout", new_callable=StringIO):
                 runtime.handle_user_request("stworz folder AI_TEST na pulpicie")
-            self.assertTrue((desktop_dir / "AI_TEST").is_dir())
+            self.assertFalse((desktop_dir / "AI_TEST").exists())
             self.assertEqual(provider.calls, 0)
 
     def test_plain_help_uses_no_model(self) -> None:
@@ -388,7 +395,7 @@ class RuntimeArchitectureTests(unittest.TestCase):
             self.assertIn("Second Page", text_result["text"])
             browser_close()
 
-    def test_shell_execute_runs_curl_version(self) -> None:
+    def test_shell_execute_denied_even_for_curl_version(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             project_dir = Path(tmp) / "project"
             project_dir.mkdir()
@@ -402,8 +409,9 @@ class RuntimeArchitectureTests(unittest.TestCase):
                     "requires_confirmation": False,
                 }
             )
-            self.assertTrue(result["success"])
-            self.assertIn("curl", result["stdout"].lower())
+            self.assertFalse(result["success"])
+            self.assertEqual('UNSUPPORTED_EFFECT_ROUTE',result['error'])
+            self.assertNotIn('stdout',result)
 
     @staticmethod
     def _write_local_site(root: Path) -> None:

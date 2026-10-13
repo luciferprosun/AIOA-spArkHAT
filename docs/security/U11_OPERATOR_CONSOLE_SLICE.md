@@ -1,0 +1,11 @@
+# U11 / PC-08 operator console — local limited slice
+
+One existing AgentRuntime/CoreAgentBindings, Core admission, journal, warrant, governor and liability remain the source of truth. `CoreOperatorConsole` introduces no state store, signer, planner, provider or dispatcher. Its status is a bounded metadata projection from one READ transaction. It exposes hashed task/session references, progress, pending grant names only, STOP state, retained outcome and distinct receipt/readback digests. Raw approval.status, grants, approval secrets, provider/model text, private HAT and error payloads are omitted.
+
+`AgentRuntime.operator_status`, `operator_stop` and `operator_reconcile` require an explicitly supplied Core principal: READ, MANAGE and COMMIT respectively. STOP only sets the existing owner Core kill flag. It cannot resume or approve. Lost STOP ACK is UNKNOWN; explicit status can read retained Core state. Reconciliation invokes existing independent readback and never dispatches or asserts job DONE. The existing agent finishes a job only after validated Core completion proof.
+
+`aioa-sparkhat console status --json` is the minimal public CLI. An unconfigured installed runtime reports UNAVAILABLE, exit 3; STOP/reconcile are blocked. It does not create an owner, backend, fixture signer or grant. A trusted existing host may inject its bound runtime/principals into the same CLI adapter. No new HTTP listener was added; CLI emits JSON data with no hostile task text, so this slice has no CSRF/DNS-rebinding surface. Existing Web loopback/Host/Origin/token protections remain unchanged.
+
+Tests distinguish synthetic broker unit fixtures from separately measured actual U06 worker execution. Console evidence level CORE_VALIDATED_RECEIPT means an existing Core-validated receipt, not a real browser, clean OS or LIVE provider test. Provider availability is NOT_CHECKED_BY_READ.
+
+Claims boundary: U08 remains fresh owned bounded arithmetic Python only, no arbitrary projects/dependency installation. U09 remains fresh synthetic local Git, no actual GitHub/CI/remote effects. D3/D4/D8 full installed unified user workflow stays NOT_ACCEPTED; D4 is BLOCKED_ENVIRONMENT in this run. This console is a safely tested local slice, not full PC-08 acceptance or a production onboarding/backend.

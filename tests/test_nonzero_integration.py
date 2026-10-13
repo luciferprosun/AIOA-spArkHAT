@@ -242,21 +242,68 @@ class NonZeroWebTests(unittest.TestCase):
         self.assertTrue(self.request('GET', '/api/nonzero/status')[1]['registered'])
         self.assertIsNone(self.service.runtime._nonzero_service)
 
-    def test_cli_and_api_share_runtime_and_complete_approved_flow(self):
-        runtime = self.service.runtime
-        result = runtime.command_registry.execute('/nonzero start-json ' + json.dumps(TARGET), runtime)
-        self.assertEqual(result.exit_code, 0, result.message)
-        run = json.loads(result.message)['result']['run_id']
-        path = '/api/nonzero/runs/' + run
-        self.assertEqual(self.request('GET', path)[0], 200)
-        challenge = self.request('POST', path + '/approval-request', {})[1]['result']
-        self.assertEqual(self.request('POST', path + '/decision', decision(challenge))[0], 200)
-        result = self.request('POST', path + '/resume', {'confirm_execution': True})
-        self.assertEqual(result[0], 200, result)
-        self.assertEqual(result[1]['result']['final_state'], 'SUCCESS_WITH_EVIDENCE')
-        self.assertIs(runtime.nonzero_cloudops, runtime._nonzero_service)
-        self.assertTrue(self.request('GET', '/api/nonzero/trace')[1]['ok'])
-        self.assertEqual(runtime._owned_cpl_fixture.requests, [])
+    def test_cli_and_http_effects_are_unsupported_before_service_initialization(self):
+        from test_nonzero_public_privacy import assert_public_privacy
+        runtime=self.service.runtime
+        for command in ('ready','start-json '+json.dumps(TARGET),'approval synthetic',
+                        'decision-json {\"secret\":\"PRIVATE_BODY_SENTINEL\"}','resume synthetic CONFIRM','trace','run synthetic'):
+            result=runtime.command_registry.execute('/nonzero '+command,runtime)
+            self.assertEqual(1,result.exit_code)
+            self.assertIn('UNSUPPORTED_EFFECT_ROUTE',result.message)
+            self.assertNotIn('PRIVATE_BODY_SENTINEL',result.message)
+            self.assertIsNone(runtime._nonzero_service)
+        for method,path,payload in (
+            ('POST','/api/nonzero/runs',TARGET),
+            ('POST','/api/nonzero/runs/synthetic/approval-request',{}),
+            ('POST','/api/nonzero/runs/synthetic/decision',{'approved':True}),
+            ('POST','/api/nonzero/runs/synthetic/resume',{'confirm_execution':True}),
+            ('GET','/api/nonzero/ready',None),('GET','/api/nonzero/trace',None)):
+            code,body=self.request(method,path,payload)
+            self.assertEqual(403,code,body);self.assertFalse(body['ok'])
+            self.assertEqual('UNSUPPORTED_EFFECT_ROUTE',body['error'])
+            self.assertEqual({'ok','error','effect_status'},set(body))
+            assert_public_privacy(self,body,private_values=(self.service.csrf_token,'PRIVATE_BODY_SENTINEL'))
+            self.assertIsNone(runtime._nonzero_service)
+        self.assertEqual([],runtime._owned_cpl_fixture.requests)
+
+    def test_historical_native_approval_and_receipt_cannot_unlock_public_effect_after_restart(self):
+        from uuid import UUID
+
+        from main import create_runtime
+        from test_nonzero_public_privacy import assert_public_privacy
+
+        runtime=self.service.runtime;native=runtime.nonzero_cloudops
+        code,body=native.request('POST','/api/runs',TARGET,operator=True)
+        self.assertEqual(201,code);run=body['result']['run_id'];path='/api/runs/'+run
+        code,body=native.request('POST',path+'/approval-request',{},operator=True)
+        self.assertEqual(200,code)
+        private_nonce=body['result']['decision_nonce']
+        choice=decision(body['result'])
+        self.assertEqual(200,native.request('POST',path+'/decision',choice,operator=True)[0])
+        before=native.components.repository.get_checkpoint(UUID(run))
+        code,body=self.request('POST','/api/nonzero/runs/'+run+'/resume',{'confirm_execution':True,
+            'decision_nonce':private_nonce,'note':'PRIVATE_BODY_SENTINEL'})
+        self.assertEqual(403,code);self.assertEqual('UNSUPPORTED_EFFECT_ROUTE',body['error'])
+        self.assertEqual({'ok','error','effect_status'},set(body))
+        assert_public_privacy(self,body,private_values=(self.service.csrf_token,private_nonce,'PRIVATE_BODY_SENTINEL'))
+        self.assertEqual(before,native.components.repository.get_checkpoint(UUID(run)))
+        self.assertEqual(0,native.components.executor.mutation_calls)
+        self.assertEqual(200,native.request('POST',path+'/resume',{'confirm_execution':True},operator=True)[0])
+        self.assertEqual(1,native.components.executor.mutation_calls)
+        runtime.close();self.service.runtime=create_runtime(cpl_fixture=True)
+        root=Path(self.temporary.name)
+        saved={str(p.relative_to(root)):p.read_bytes() for p in root.rglob('*')
+               if p.is_file() and 'native-v1' in p.parts}
+        self.assertTrue(saved)
+        code,body=self.request('POST','/api/nonzero/runs/'+run+'/resume',{'confirm_execution':True,
+            'decision_nonce':private_nonce,'note':'PRIVATE_BODY_SENTINEL'})
+        self.assertEqual(403,code);self.assertEqual('UNSUPPORTED_EFFECT_ROUTE',body['error'])
+        self.assertEqual({'ok','error','effect_status'},set(body))
+        assert_public_privacy(self,body,private_values=(self.service.csrf_token,private_nonce,'PRIVATE_BODY_SENTINEL'))
+        self.assertIsNone(self.service.runtime._nonzero_service)
+        self.assertEqual(saved,{str(p.relative_to(root)):p.read_bytes() for p in root.rglob('*')
+                               if p.is_file() and 'native-v1' in p.parts})
+        self.assertEqual(1,native.components.executor.mutation_calls)
 
     def test_chat_and_unknown_fields_cannot_assert_operator_authority(self):
         for mode in ['plain', 'cpl']:
@@ -264,7 +311,7 @@ class NonZeroWebTests(unittest.TestCase):
             self.assertEqual(response[0], 400)
             self.assertEqual(response[1]['error'], 'NONZERO_REQUIRES_OPERATOR_ENDPOINTS')
         self.assertIsNone(self.service.runtime._nonzero_service)
-        self.assertEqual(self.request('POST', '/api/nonzero/runs', {**TARGET, 'operator': True})[0], 400)
+        self.assertEqual(self.request('POST', '/api/nonzero/runs', {**TARGET, 'operator': True})[0], 403)
         self.assertEqual(self.request('GET', '/api/nonzero/ready?token=ignored')[0], 400)
 
     def test_core_safeguard_reaches_module_and_normal_core_status_remains(self):
@@ -276,7 +323,7 @@ class NonZeroWebTests(unittest.TestCase):
         self.assertIn('critical_loop', payload)
         self.assertIn('evidence_review', payload)
         self.assertIn('nonzero_cloudops', payload)
-        self.assertEqual(self.request('GET', '/api/nonzero/ready')[0], 200)
+        self.assertEqual(self.request('GET', '/api/nonzero/ready')[0], 403)
 
     def test_disabled_module_keeps_core_and_discovery_healthy(self):
         from main import create_runtime
@@ -290,7 +337,7 @@ class NonZeroWebTests(unittest.TestCase):
         self.assertFalse(status['available'])
         cli = runtime.command_registry.execute('/nonzero status', runtime)
         self.assertEqual(json.loads(cli.message)['availability_code'], 'NONZERO_DISABLED')
-        self.assertEqual(self.request('GET', '/api/nonzero/ready')[0], 503)
+        self.assertEqual(self.request('GET', '/api/nonzero/ready')[0], 403)
         self.assertIsNone(runtime._nonzero_service)
         code, core = self.request('GET', '/api/status')
         self.assertEqual(code, 200)

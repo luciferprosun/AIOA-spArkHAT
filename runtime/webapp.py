@@ -453,7 +453,9 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
                 options = {key: value for key, value in payload.items() if key not in {'prompt', 'mode'}}
                 result = self._service().run_prompt(payload.get('prompt'),
                     mode=payload.get('mode', 'cpl'), plan_options=options)
-                self._write_json(HTTPStatus.CREATED if result['mode'] == 'cpl' else HTTPStatus.OK, result)
+                status = HTTPStatus.FORBIDDEN if result.get('ok') is False else (
+                    HTTPStatus.CREATED if result['mode'] == 'cpl' else HTTPStatus.OK)
+                self._write_json(status, result)
                 return
 
             if parsed.path == "/api/model":
@@ -498,13 +500,8 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
             if method == 'GET' and parsed.path == '/api/nonzero/status':
                 self._write_json(HTTPStatus.OK, self._service().runtime.nonzero_status())
                 return
-            service = self._service().runtime.nonzero_cloudops
-            if method == 'GET' and parsed.path == '/api/nonzero/trace':
-                self._write_json(HTTPStatus.OK, service.trace(operator=True))
-                return
-            path = '/ready' if parsed.path == '/api/nonzero/ready' else parsed.path.replace('/api/nonzero/', '/api/', 1)
-            status, result = service.request(method, path, payload, operator=True)
-            self._write_json(status, result)
+            self._write_json(HTTPStatus.FORBIDDEN, {'ok': False, 'error': 'UNSUPPORTED_EFFECT_ROUTE',
+                                                       'effect_status': 'UNSUPPORTED'})
         except NonZeroError as error:
             self._write_json(error.status, {'ok': False, 'error': error.code})
         except Exception:
@@ -513,31 +510,13 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
     def _handle_personal_ai(self, action, payload):
         from runtime.personal_ai_demo import PersonalAIDemoError
 
-        expected_fields = {
-            'prepare': {'operation_id', 'target_id', 'memory_query'},
-            'approve': {'proposal_id'},
-            'resume': {'operation_id'},
-            'restart': {'operation_id'},
-            'replay': {'operation_id'},
-        }
+        if action != 'status':
+            self._write_json(HTTPStatus.FORBIDDEN, {'ok': False, 'error': 'UNSUPPORTED_EFFECT_ROUTE',
+                                                   'effect_status': 'UNSUPPORTED'})
+            return
+
         try:
-            if action == 'status':
-                result = self._service().personal_ai_status()
-            else:
-                if type(payload) is not dict or set(payload) != expected_fields[action]:
-                    code = ('INVALID_PREPARE_REQUEST' if action == 'prepare'
-                            else 'INVALID_PERSONAL_AI_REQUEST')
-                    raise PersonalAIDemoError(code)
-                if action == 'prepare':
-                    result = self._service().personal_ai_prepare(payload)
-                elif action == 'approve':
-                    result = self._service().personal_ai_approve(payload['proposal_id'])
-                elif action == 'restart':
-                    result = self._service().personal_ai_restart(payload['operation_id'])
-                elif action == 'replay':
-                    result = self._service().personal_ai_replay(payload['operation_id'])
-                else:
-                    result = self._service().personal_ai_resume(payload['operation_id'])
+            result = self._service().personal_ai_status()
             if result.get('status') != 'READY':
                 self._write_json(HTTPStatus.SERVICE_UNAVAILABLE,
                                  {'ok': False, 'error': 'PERSONAL_AI_PROJECTION_INVALID'})
@@ -586,6 +565,11 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
                 raise MemoryPatchError(ErrorCode.INVALID_REQUEST)
             if method == "GET" and operation not in {"status", "list", "review-queue"}:
                 raise MemoryPatchError(ErrorCode.INVALID_REQUEST)
+            if operation != 'status':
+                status, result = error_response(operation, MemoryPatchError(ErrorCode.ADMISSION_DENIED))
+                result['error']['safe_message'] = 'UNSUPPORTED_EFFECT_ROUTE: native authority and containment required.'
+                self._write_json(status, result)
+                return
             status, result = self._service().runtime.memory_patch_operator_request(
                 operation, payload
             )

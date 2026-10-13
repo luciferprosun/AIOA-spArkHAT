@@ -76,6 +76,64 @@ class ReceiptGraphTests(unittest.TestCase):
         self.assertEqual(203, node['transaction_time'])
         self.assertEqual('dispatched_at', node['valid_time_source'])
 
+    def _retime_receipt(self, dispatched_at):
+        receipt = {**self.outcomes['receipt'], 'dispatched_at': dispatched_at}
+        self._store('receipt', receipt, 203)
+        self._store('verified', {**self.outcomes['verified'],
+            'receipt_digest': canonical_sha256(receipt)}, 204)
+
+    def test_impossible_event_chronology_preserves_conflicting_records(self):
+        for timestamp, code in [(99, 'DISPATCH_BEFORE_APPROVAL'),
+                                (400, 'DISPATCH_AT_OR_AFTER_EXPIRY')]:
+            with self.subTest(timestamp=timestamp):
+                self._retime_receipt(timestamp)
+                before = dict(self.records), dict(self.audits)
+                graph = self.project()
+                self.assertEqual('CONFLICT', graph['temporal_status'])
+                self.assertEqual([code], graph['conflicts'])
+                self.assertEqual('UNKNOWN', graph['outcome_status'])
+                self.assertEqual('RECONCILE_READ_ONLY', graph['next_action'])
+                self.assertEqual(before, (self.records, self.audits))
+                self.assertEqual(set(self.records) | {'measurement'},
+                                 {node['id'] for node in graph['nodes']})
+
+    def test_missing_journal_time_cannot_complete_temporal_evidence(self):
+        self._store('receipt', self.outcomes['receipt'], None)
+        graph = self.project()
+        self.assertEqual('UNKNOWN', graph['temporal_status'])
+        self.assertEqual('UNKNOWN', graph['outcome_status'])
+        self.assertEqual([], graph['conflicts'])
+
+    def test_blocked_and_verified_records_are_retained_as_conflict(self):
+        self._store('blocked', {'reason': 'CONSENT_EXPIRED_OR_POLICY_CHANGED'}, 205)
+        graph = self.project()
+        self.assertEqual(['BLOCKED_AND_VERIFIED'], graph['conflicts'])
+        self.assertEqual('UNKNOWN', graph['outcome_status'])
+        self.assertIn('blocked', {node['id'] for node in graph['nodes']})
+        self.assertIn('verified', {node['id'] for node in graph['nodes']})
+
+    def test_receipt_without_independent_measurement_stays_unknown(self):
+        self.records.pop('verified'); self.audits.pop('verified')
+        graph = self.project()
+        self.assertEqual('UNKNOWN', graph['outcome_status'])
+        self.assertEqual('RECONCILE_READ_ONLY', graph['next_action'])
+
+    def test_orphan_receipt_fails_closed(self):
+        self.records.pop('intent'); self.audits.pop('intent')
+        with self.assertRaisesRegex(GuardError, 'RECEIPT_GRAPH_INTEGRITY'):
+            self.project()
+
+    def test_conflicts_reconstruct_from_serialized_records(self):
+        self._retime_receipt(99)
+        graph = self.project()
+        # Rebuild immutable rows from JSON, without a target, process-local cache,
+        # transport or effect. The native restart integration test remains separate.
+        for rows in (self.records, self.audits):
+            for phase, row in list(rows.items()):
+                rows[phase] = StoredRecord(row.kind, row.record_id, row.scope,
+                    row.revision, json.loads(json.dumps(dict(row.payload), default=dict)))
+        self.assertEqual(graph, self.project())
+
     def test_clock_skew_is_not_used_to_invent_causal_order(self):
         self._store('receipt', self.outcomes['receipt'], 90)
         node = next(n for n in self.project()['nodes'] if n['id'] == 'receipt')

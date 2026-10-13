@@ -34,7 +34,8 @@ def load_job(gov,tx,task):
         _deny(set(p)=={'operation_kind','payload_digest','outcome'} and p['payload_digest']==canonical_sha256(p['outcome']),'GOVERNOR_INTEGRITY')
         o=p['outcome'];_deny(set(o)=={'job','prior_digest'},'GOVERNOR_INTEGRITY');j=o['job']
         envelope=JobEnvelope.parse(j['envelope'])
-        _deny(set(j)=={'version','envelope','state','claim','result_digest','reservation_id','last_now'}
+        base_keys={'version','envelope','state','claim','result_digest','reservation_id','last_now'}
+        _deny(set(j) in (base_keys,base_keys|{'completion_binding','completion_proof'})
             and j['state'] in STATES and type(j['version']) is int and 1<=j['version']<=128
             and type(j['last_now']) is int and 0<=j['last_now']<=2**53
             and envelope.scope==gov.policy.scope and row.record_id==key(gov,envelope.task_id,j['version'])
@@ -47,6 +48,12 @@ def load_job(gov,tx,task):
         if j['result_digest'] is not None:
             from runtime.mission.governor import _digest
             _digest(j['result_digest'])
+        if 'completion_binding' in j:
+            from runtime.mission.completion import TaskCompletionBinding,validate_completion_proof
+            binding=TaskCompletionBinding.parse(j['completion_binding'])
+            _deny(binding.scope==gov.policy.scope and binding.task_id==envelope.task_id,'GOVERNOR_INTEGRITY')
+            _deny((j['completion_proof'] is not None)==(j['state']=='DONE'),'GOVERNOR_INTEGRITY')
+            if j['completion_proof'] is not None:validate_completion_proof(j['completion_proof'],binding)
         event_row=tx.get(RecordKind.AUDIT,'job-'+row.record_id)
         _deny(event_row is not None,'GOVERNOR_INTEGRITY');event=decode_audit(event_row)
         operation=OperationBinding(row.record_id,KIND,p['payload_digest'])
@@ -65,7 +72,11 @@ def load_job(gov,tx,task):
         _deny(o['job']['version']==(1 if current is None else current['version']+1)
             and o['prior_digest']==canonical_sha256(current),'GOVERNOR_INTEGRITY')
         if current is not None:
-            _deny(canonical_sha256(o['job']['envelope'])==canonical_sha256(current['envelope']) and o['job']['last_now']>=current['last_now'],'GOVERNOR_INTEGRITY')
+            if 'completion_binding' in current:
+                _deny(current['state']!='DONE','GOVERNOR_INTEGRITY')
+            _deny(canonical_sha256(o['job']['envelope'])==canonical_sha256(current['envelope'])
+                and canonical_sha256(o['job'].get('completion_binding'))==canonical_sha256(current.get('completion_binding'))
+                and o['job']['last_now']>=current['last_now'],'GOVERNOR_INTEGRITY')
         current=_plain(o['job'])
     return current
 
@@ -87,18 +98,29 @@ def write_job(gov,tx,before,job,now):
 
 def public(job):
     if job is None:return {'state':'NOT_FOUND','authority':'NONE','auto_retry':False}
-    return {**_plain(job),'authority':'NONE','verification':'UNVERIFIED','transport_scope':'OFFLINE',
+    result={**_plain(job),'authority':'NONE','verification':'UNVERIFIED','transport_scope':'OFFLINE',
         'auto_retry':False,'reconcile_only':job['state'] in ('STARTED','UNKNOWN'),
         'execution_authority':False}
+    if 'completion_binding' in job:
+        result.update(task_completion='COMPLETED' if job['state']=='DONE' else 'NOT_COMPLETED',
+                      completion_scope='LOCAL_NATIVE_REQUIRED_JOB')
+    return result
 
 
-def change_job(gov,principal,action,*,task_id=None,envelope=None,worker_id=None,epoch=None,lease_seconds=None,claim=None,response=None):
+def change_job(gov,principal,action,*,task_id=None,envelope=None,worker_id=None,epoch=None,lease_seconds=None,claim=None,response=None,completion=None):
     purpose=Capability.READ if action=='inspect' else Capability.MANAGE if action in ('submit','takeover') else Capability.COMMIT
     gov._require(principal,purpose);now=None if action=='inspect' else gov._now()
     if envelope is not None:
         _deny(type(envelope) is JobEnvelope,'INVALID_RESERVATION_REQUEST')
         envelope=JobEnvelope.parse(envelope.as_dict());task_id=envelope.task_id
         _deny(envelope.scope==gov.policy.scope,'INVALID_RESERVATION_REQUEST')
+    completion_value=None
+    if completion is not None:
+        from runtime.mission.completion import TaskCompletionBinding
+        _deny(action=='submit' and type(completion) is TaskCompletionBinding,'INVALID_RESERVATION_REQUEST')
+        completion=TaskCompletionBinding.parse(completion.to_dict())
+        _deny(completion.scope==gov.policy.scope and completion.task_id==task_id,'INVALID_RESERVATION_REQUEST')
+        completion_value=completion.to_dict()
     if claim is not None:
         _deny(type(claim) is JobClaim,'INVALID_RESERVATION_REQUEST')
         claim=JobClaim(**asdict(claim));task_id=claim.task_id;epoch=claim.governor_epoch
@@ -125,10 +147,12 @@ def change_job(gov,principal,action,*,task_id=None,envelope=None,worker_id=None,
         if action=='submit':
             _deny(envelope.model_id in principal.model_binding_ids,'MODEL_BINDING_DENIED')
             if job is not None:
-                _deny(job['envelope']==envelope.as_dict(),'IDEMPOTENCY_CONFLICT');return public(job)
+                _deny(job['envelope']==envelope.as_dict() and job.get('completion_binding')==completion_value,
+                      'IDEMPOTENCY_CONFLICT');return public(job)
             _deny(now<envelope.deadline_at,'INVALID_RESERVATION_REQUEST')
             job={'version':0,'envelope':envelope.as_dict(),'state':'QUEUED','claim':None,'result_digest':None,
                 'reservation_id':reservation_id(gov,task_id),'last_now':now};changed=True
+            if completion_value is not None:job.update(completion_binding=completion_value,completion_proof=None)
         else:
             _deny(job is not None,'RESERVATION_REQUIRED');env=JobEnvelope.parse(job['envelope'])
             gov._epoch(state,epoch)
@@ -181,6 +205,10 @@ def change_job(gov,principal,action,*,task_id=None,envelope=None,worker_id=None,
                             and type(payload['summary']) is str and 1<=len(payload['summary'])<=800
                             and type(payload['needs_attention']) is bool,'INVALID_RESERVATION_REQUEST')
                     else:parse_proposal(payload)
+                    if 'completion_binding' in job:
+                        from runtime.mission.completion import require_task_completion
+                        _deny(not state['kill'],'KILL_SWITCH')
+                        job['completion_proof']=require_task_completion(gov,tx,job)
                     _,gov_changed=gov._settle_state(state,job['reservation_id'],epoch,result_digest)
                     job.update(state='DONE',result_digest=result_digest);changed=True
                 else:_deny(False,'INVALID_RESERVATION_REQUEST')

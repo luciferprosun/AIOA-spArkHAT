@@ -259,11 +259,18 @@ commit or refund it. A lost marker ACK never gives send permission on replay.
             return outcome
         execute_once(tx,binding,append)
 
-    def _change(self, principal, purpose, change, *, check_clock=True):
+    def _change(self, principal, purpose, change, *, check_clock=True, reconciliation=False):
         self._require(principal,purpose);now=self._now()
         def apply(tx):
             before=self._load(tx);state=_plain(before)
-            if check_clock:self._clock(state,now)
+            if check_clock:
+                if reconciliation and state['kill']:
+                    # A stopped Core must still account for delayed receipts.
+                    # Permit a forward pause only on reconciliation paths;
+                    # admission, dispatch and operator unkill retain _clock.
+                    _deny(state['last_now'] is None or now >= state['last_now'], 'CLOCK_UNSAFE')
+                else:
+                    self._clock(state,now)
             result,changed=change(state)
             if changed:self._write(tx,before,state,max(now,state['last_now'] or 0))
             return _plain(result)
@@ -374,7 +381,7 @@ and human-authority checks must still pass. Do not send after an exception.
             circuit=state['circuits'][entry['provider_id']]
             if circuit['probe'] == request_id:circuit['probe']=None
             return entry,True
-        return self._change(principal,Capability.COMMIT,change)
+        return self._change(principal,Capability.COMMIT,change,reconciliation=True)
 
     def _unknown_state(self,state,request_id,epoch,evidence_digest,now):
         self._epoch(state,epoch)
@@ -397,7 +404,7 @@ and human-authority checks must still pass. Do not send after an exception.
         now=self._now()
         def change(state):
             return self._unknown_state(state,request_id,epoch,evidence_digest,now)
-        return self._change(principal,Capability.COMMIT,change)
+        return self._change(principal,Capability.COMMIT,change,reconciliation=True)
 
     def _settle_state(self,state,request_id,epoch,evidence_digest):
         self._epoch(state,epoch)
@@ -427,11 +434,11 @@ retry. Circuit recovery from UNKNOWN is deliberately not treated as success.
         _identity(request_id);_digest(evidence_digest)
         def change(state):
             return self._settle_state(state,request_id,epoch,evidence_digest)
-        return self._change(principal,Capability.COMMIT,change)
+        return self._change(principal,Capability.COMMIT,change,reconciliation=True)
 
-    def submit_job(self,principal,envelope):
+    def submit_job(self,principal,envelope,*,completion=None):
         from runtime.mission.jobs import change_job
-        return change_job(self,principal,'submit',envelope=envelope)
+        return change_job(self,principal,'submit',envelope=envelope,completion=completion)
 
     def claim_job(self,principal,task_id,worker_id,epoch,*,lease_seconds):
         from runtime.mission.jobs import change_job

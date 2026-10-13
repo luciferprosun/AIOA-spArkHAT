@@ -21,13 +21,14 @@ aioa-sparkhat = "runtime.cli:main"
 aioa-sparkhat-web = "runtime.web_cli:main"
 
 [tool.setuptools.packages.find]
-include = ["runtime", "runtime.*", "tui", "tui.*"]
+include = ["runtime", "runtime.*", "tui", "tui.*", "lab.archaioa", "lab.archaioa.*"]
 exclude = ["runtime.reports", "runtime.logs", "runtime.state", "runtime.screenshots", "runtime.obsidian_vault", "runtime.nonzero_cloudops.baseline*"]
 namespaces = true
 
 [tool.setuptools.package-data]
 runtime = ["prompts/*.txt", "adaptive_routing/*.json", "adaptive_routing/environment/*.json", "knowledge/**/*.json", "knowledge/**/*.md", "knowledge/**/*.yaml", "knowledge/**/*.pdf", "knowledge/**/*.txt", "knowledge/*.json"]
 "runtime.nonzero_cloudops" = ["LICENSE-NONZERO.txt"]
+"runtime.mission" = ["native/*.c"]
 "runtime.memory_patch" = ["LICENSE-MEMORY-PATCH.txt", "sql/*.sql", "sql/manifest.json", "sql/manifest-learning-v1.json"]
 
 [tool.setuptools.data-files]

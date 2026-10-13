@@ -20,6 +20,19 @@ replace local Policy Gateway validation.
 - `artifact.list`: `{}`
 - `artifact.get`: `artifact_id`; live-verified maximum `max_bytes=400`, `max_lines=12`
 
+### Q01 local source-contract extension (2026-10-10)
+
+The operator supplied a sanitized source-contract snapshot for MCP Commander
+commit `9e03d52f9a115026427daec478c17ac0dfd87e0e`. It documents
+`artifact.get.offset` as an optional integer from 0 through 1048576, default 0.
+The planner accepts this field while retaining the 400-byte / 12-line limits.
+Booleans, real numbers, unknown fields and out-of-range offsets are rejected.
+The worker's optional `bytes` field remains outside the planner allowlist.
+
+This extension is tested offline only; it is not new LIVE transport evidence.
+Use the worker's returned `next_offset` for subsequent requests. Result framing
+can reduce the effective byte count; do not assume exactly 400 bytes per page.
+
 Paths are planner-restricted to project-relative values without `..`.
 
 ## Unverified READ schemas
@@ -31,6 +44,16 @@ observed or documented:
 - `patch.propose`
 - `provider.status`
 - `provider.models`
+
+### Approval privacy gate: BLOCKED_PRIVACY_PROJECTION
+
+The same snapshot documents a strict worker input `{approval_id: UUID}` for
+`approval.status`. Its handler currently returns a full approval record with
+sensitive approval details. The planner therefore blocks this operation for
+every payload, including a valid UUID. READ policy classification and input
+schema compatibility do not authorize disclosure. Remote use requires a
+separately audited minimal worker output projection and human review; no
+worker changes or approval data transport are authorized by Q01.
 
 On 2026-10-06, a live `approval.status` task with payload `{}` correctly
 failed with `INVALID_ARGUMENTS`. The failure was treated as evidence that the

@@ -46,7 +46,7 @@ class DemoLauncherTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("CONTROLLED_FAILURE", result.stderr)
 
-    def test_http_flow_requires_distinct_intents_and_restarts_whole_runtime(self):
+    def test_http_effects_remain_disabled_with_metadata_and_distinct_intents(self):
         with tempfile.TemporaryDirectory() as directory:
             demo = DemoComposition(Path(directory) / "demo")
             web = demo.web
@@ -83,27 +83,19 @@ class DemoLauncherTests(unittest.TestCase):
                 self.assertIsNone(demo.cpl_fixture)
                 for route in ("/api/chat", "/api/model", "/api/cpl/plan"):
                     self.assertEqual(request("POST", route, {})[0], 403)
-                payload = {"operation_id": demo.operation_id, "target_id": demo.target_id, "memory_query": "maintenance approved window"}
-                code, prepared = request("POST", "/api/personal-ai/prepare", payload, "personal-ai-prepare-v1")
-                self.assertEqual(code, 200, prepared)
-                self.assertEqual(prepared["service_guard"]["state"], "APPROVAL_REQUIRED")
-                self.assertEqual(prepared["verification"]["delta"], "ZERO_WRITE")
-                for action in ("resume", "restart", "replay"):
-                    code, result = request("POST", "/api/personal-ai/" + action,
-                        {"operation_id": demo.operation_id}, "personal-ai-" + action + "-v1")
-                    self.assertIn(code, (400, 409))
-                    self.assertEqual(demo.target.read()["effect_count"], 0)
-                code, approved = request("POST", "/api/personal-ai/approve", {"proposal_id": prepared["proposal_id"]}, "personal-ai-approve-exact-v1")
-                self.assertEqual(code, 200, approved)
-                self.assertEqual(demo.target.read()["effect_count"], 0)
-                for action, expected in (("resume", "EXECUTED"), ("restart", "RECONCILED"), ("replay", "REPLAY_BLOCKED")):
-                    code, result = request("POST", "/api/personal-ai/" + action,
-                        {"operation_id": demo.operation_id}, "personal-ai-" + action + "-v1")
-                    self.assertEqual(code, 200, result)
-                    self.assertEqual(result["service_guard"]["state"], expected)
-                    self.assertEqual(result["effects"]["apply_count"], 1)
-                    self.assertEqual(result["effects"]["duplicate_count"], 0)
-                self.assertIsNot(web.runtime, demo.runtime)
+                for action,intent,payload in (
+                    ('prepare','personal-ai-prepare-v1',{'operation_id':demo.operation_id,
+                        'target_id':demo.target_id,'memory_query':'maintenance approved window'}),
+                    ('approve','personal-ai-approve-exact-v1',{'proposal_id':'a'*64}),
+                    *((action,'personal-ai-'+action+'-v1',{'operation_id':demo.operation_id})
+                      for action in ('resume','restart','replay'))):
+                    code,result=request('POST','/api/personal-ai/'+action,payload,intent)
+                    self.assertEqual(403,code,result)
+                    self.assertEqual('UNSUPPORTED_EFFECT_ROUTE',result['error'])
+                    self.assertFalse(result['ok'])
+                    self.assertEqual(0,demo.target.read()['effect_count'])
+                    self.assertEqual(0,demo.fixture_calls)
+                self.assertIs(web.runtime,demo.runtime)
             finally:
                 server.shutdown()
                 server.server_close()

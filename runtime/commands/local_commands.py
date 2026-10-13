@@ -208,7 +208,7 @@ def cmd_status(_args: str, runtime) -> CommandResult:
                 f"  active_hat: {_active_hat_name(runtime)}",
                 f"  browser_active: {memory.browser_active}",
                 f"  current_url: {memory.current_browser_page or '(none)'}",
-                "  local URL bootstrap: enabled",
+                "  host effects / URL bootstrap: UNSUPPORTED_EFFECT_ROUTE",
                 "  dated evidence review: enabled (deterministic, no provider call)",
             ]
         ),

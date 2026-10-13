@@ -765,17 +765,23 @@ class ExistingCoreHttpTests(unittest.TestCase):
             self.assertFalse(result["ok"])
             self.assertIsNone(self.tf.runtime._memory_patch_service)
 
-    def test_valid_status_stays_inert_and_owner_read_matches_cli(self):
+    def test_valid_status_stays_inert_and_private_read_is_explicitly_unsupported(self):
         self.assertEqual(200, self.http("/api/memory-patch/status")[0])
         self.assertIsNone(self.tf.runtime._memory_patch_service)
         patch_id = self.tf.fx.activate()
         body = {"patch_id": patch_id}
         status, read = self.http("/api/memory-patch/read", body)
-        self.assertEqual(200, status, read["error"])
+        self.assertEqual(403, status, read["error"])
+        self.assertEqual("ADMISSION_DENIED",read["error"]["code"])
+        self.assertIsNone(read["result"])
         cli = self.tf.runtime.command_registry.execute(
             "/memory-patch read " + json.dumps(body), self.tf.runtime
         )
-        self.assertEqual(read, json.loads(cli.message))
+        self.assertEqual(1,cli.exit_code)
+        denied=json.loads(cli.message)
+        self.assertFalse(denied["ok"])
+        self.assertIn("UNSUPPORTED_EFFECT_ROUTE",denied["error"]["safe_message"])
+        assert_private(self,denied,self.tf.secrets())
 
     def test_malformed_paths_body_and_identity_fields_are_denied(self):
         for path in (
@@ -796,7 +802,7 @@ class ExistingCoreHttpTests(unittest.TestCase):
             "/api/memory-patch/slot-create",
             {"operation_key": "never", "operator": True},
         )
-        self.assertEqual(400, status)
+        self.assertEqual(403, status)
         self.assertIsNone(self.tf.runtime._memory_patch_service)
 
     def test_chat_cannot_obtain_memory_operator_authority(self):

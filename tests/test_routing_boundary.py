@@ -131,13 +131,19 @@ class RoutingBoundaryTests(unittest.TestCase):
             runtime = main.AgentRuntime(FakeProvider(), PROMPT_TEMPLATE, project_dir)
             runtime.aoia_kernel = RaisingKernel()
 
-            with patch("sys.stdout", new_callable=StringIO) as fake_stdout:
-                runtime.handle_user_request("can you check github repository")
+            with patch.object(runtime.executor, "execute", wraps=runtime.executor.execute) as execute, \
+                    patch.object(runtime.provider_manager, "generate", wraps=runtime.provider_manager.generate) as generate:
+                result = runtime.run_text_request("can you check github repository")
 
-            transcript = fake_stdout.getvalue()
-            self.assertIn("External repository inspection path detected", transcript)
-            self.assertIn("Browser inspection path available", transcript)
+            transcript = result["transcript"]
+            self.assertFalse(result["ok"])
+            self.assertEqual("UNSUPPORTED_EFFECT_ROUTE", result["error"])
+            self.assertEqual("UNSUPPORTED", result["effect_status"])
+            self.assertIn("UNSUPPORTED_EFFECT_ROUTE", transcript)
+            self.assertNotIn("Browser inspection path available", transcript)
             self.assertNotIn("AOIA deterministic epistemic kernel hit", transcript)
+            execute.assert_not_called()
+            generate.assert_not_called()
 
     def test_repository_inspection_intent_does_not_trigger_rhcsa_kernel(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -146,13 +152,19 @@ class RoutingBoundaryTests(unittest.TestCase):
             runtime = main.AgentRuntime(FakeProvider(), PROMPT_TEMPLATE, project_dir)
             runtime.aoia_kernel = RaisingKernel()
 
-            with patch("sys.stdout", new_callable=StringIO) as fake_stdout:
-                runtime.handle_user_request("can you inspect github repository")
+            with patch.object(runtime.executor, "execute", wraps=runtime.executor.execute) as execute, \
+                    patch.object(runtime.provider_manager, "generate", wraps=runtime.provider_manager.generate) as generate:
+                result = runtime.run_text_request("can you inspect github repository")
 
-            transcript = fake_stdout.getvalue()
-            self.assertIn("External repository inspection path detected", transcript)
-            self.assertIn("Browser inspection path available", transcript)
+            transcript = result["transcript"]
+            self.assertFalse(result["ok"])
+            self.assertEqual("UNSUPPORTED_EFFECT_ROUTE", result["error"])
+            self.assertEqual("UNSUPPORTED", result["effect_status"])
+            self.assertIn("UNSUPPORTED_EFFECT_ROUTE", transcript)
+            self.assertNotIn("Browser inspection path available", transcript)
             self.assertNotIn("AOIA deterministic epistemic kernel hit", transcript)
+            execute.assert_not_called()
+            generate.assert_not_called()
 
     def test_linux_request_still_uses_rhcsa_kernel(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

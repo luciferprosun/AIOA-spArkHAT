@@ -26,8 +26,9 @@ class ExecutorContainmentTests(unittest.TestCase):
                 require_approval=False,
             )
 
-            self.assertTrue(result["success"])
-            self.assertTrue((desktop_dir / "AI_TEST").is_dir())
+            self.assertFalse(result["success"])
+            self.assertEqual('UNSUPPORTED_EFFECT_ROUTE',result['error'])
+            self.assertFalse((desktop_dir / "AI_TEST").exists())
             self.assertTrue(memory.memory.recent_outputs)
             self.assertEqual(len(list(memory.paths.command_logs_dir.glob("*.json"))), 1)
             self.assertFalse(memory.evidence_file.exists())
