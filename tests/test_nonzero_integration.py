@@ -270,7 +270,6 @@ class NonZeroWebTests(unittest.TestCase):
         from uuid import UUID
 
         from main import create_runtime
-
         from test_nonzero_public_privacy import assert_public_privacy
 
         runtime=self.service.runtime;native=runtime.nonzero_cloudops
