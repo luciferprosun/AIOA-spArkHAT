@@ -8,6 +8,8 @@
 
 **GOLD24 evidence scope:** A **local, historical endurance-run report** from **September 28–29, 2026** records `GOLD24_PASS`, 86,426 **reported active seconds**, 722 hash-linked checkpoints, and zero observed duplicate effects/redispatches. The subsequent evidence review independently checked all **722 checkpoint digests** and **721 predecessor links**. **Replay attempts were zero**, so this is *not* evidence of a replay-attack stress test. NVIDIA LIVE was unavailable. The tested candidate SHA is **not currently in this public repository**, and the raw evidence bundle has not been released; the result is *not independent certification of current main or a hosted service*. Read the [full local GOLD24 evidence review](docs/launch/GOLD24_LOCAL_EVIDENCE_REVIEW_20261013.md).
 
+**New engineering write-up (14 October 2026):** [GOLD24 — 24-hour endurance, 722 checkpoint records and next validation gates](docs/announcements/GOLD24_24H_ENDURANCE_2026-10-14.md) · [Community technical review and hardware-collaboration thread (#20)](https://github.com/luciferprosun/AIOA-spArkHAT/issues/20). The summary explicitly distinguishes reported active time, verified checkpoint-file integrity, and outstanding replay/live-provider validation.
+
 **Separate historical test:** [3×8-hour segmented endurance PASS](reports/SEGMENTED_ENDURANCE_3X8_MANIFEST.json) relates to an earlier candidate and **must not be confused** with the later local GOLD24 run.
 
 [Product overview](https://sparkhat.eu/aioa/) · [Demo video](https://youtu.be/ABJijoNKmYM) · [Product Hunt launch kit](docs/launch/PRODUCT_HUNT_LAUNCH_PACK.md) · [Support the research](https://sparkhat.eu/sponsorship/)
