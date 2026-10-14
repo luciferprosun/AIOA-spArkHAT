@@ -1,5 +1,7 @@
 # AIOA spArkHAT — Product Hunt professional launch kit
-Last verified: 2026-10-13. **Prepared in GitHub only. NOT submitted, NOT scheduled, NO Product Hunt profile was modified.** The maker must review and connect their personal Product Hunt session.
+Last updated: 2026-10-14. **Product Hunt launch is scheduled by the maker**, according to their Pre-Launch Dashboard seen on 2026-10-14: **November 13, 2026 at 00:01 PST** (shown by Product Hunt; recheck the site's displayed timezone and any changes before launch). The announcement/report here is live on GitHub, but does **not** itself publish Product Hunt early.
+
+**Current public announcement:** [GOLD24 — engineering update](../announcements/GOLD24_24H_ENDURANCE_2026-10-14.md) · [Community feedback and hardware collaboration issue #20](https://github.com/luciferprosun/AIOA-spArkHAT/issues/20).
 
 ## Positioning
 
@@ -41,7 +43,7 @@ AIOA spArkHAT is a local-first, open-source runtime for human-governed AI agents
 **Main product URL:** https://sparkhat.eu/aioa/
 **Code / GitHub:** https://github.com/luciferprosun/AIOA-spArkHAT
 **Demo video:** https://youtu.be/ABJijoNKmYM
-**Evidence:** https://github.com/luciferprosun/AIOA-spArkHAT/blob/launch/product-hunt-evidence-gates-20261013/docs/launch/GOLD24_LOCAL_EVIDENCE_REVIEW_20261013.md (replace with main-branch URL once reviewed and merged)
+**Evidence:** https://github.com/luciferprosun/AIOA-spArkHAT/blob/main/docs/launch/GOLD24_LOCAL_EVIDENCE_REVIEW_20261013.md
 **Hardware and collaboration support:** https://sparkhat.eu/sponsorship/
 **Suggested topics:** AI Agents, Open Source, Developer Tools (verify actual options and select up to three in the live form).
 
@@ -123,10 +125,21 @@ GitBook and Hugging Face were discussed previously but **no verified direct publ
 
 **Why here:** Product Hunt is a maker community, not a grants portal. Keep the product/problem/demo the focus; support is a natural, secondary invitation. Do not fabricate sponsor logos, hackathon rankings, grants, partnerships or awards.
 
+## Pending launch-specific finishing tasks (as seen in the maker's Pre-Launch Dashboard)
+
+- Confirm name and full description are correct after the maker's latest edits.
+- Add/select *Product categories* as allowed by the live Product Hunt form.
+- Review and, if needed, complete the *Video / Loom* section using the verified NVIDIA demo: https://www.youtube.com/watch?v=ABJijoNKmYM.
+- Check thumbnail, gallery visuals, GitHub/source links and release status.
+- The maker's first comment and additional-maker completion were marked complete on the screenshot; verify they remain correct.
+- Check the sponsorship CTA does not displace the actual product/value proposition.
+- Ensure public website URL points to the canonical repo and scope-qualified GOLD24 evidence page; the home.pl HTML patch was staged but not independently verified as deployed.
+- Keep the scheduled date unless the owner specifically directs a change; do not start unauthorized marketing or artificial engagement.
+
 ## Remaining release and account actions
 
-- [ ] Confirm Product Hunt personal maker account can launch (brand-new accounts may have a mandatory waiting period).
-- [ ] Sign in through authorized browser interaction; *do not bypass login, system screen lock, browser debugging consent, or OTP*.
+- [x] Maker logged in and launch has been scheduled in Product Hunt; check account eligibility and the dashboard again before the date.
+- [x] Maker signed in to Product Hunt; no credentials or authentication bypasses used.
 - [ ] Save a **draft**, check actual public identity, name, URLs, thumbnails and category choices.
 - [ ] Review user-facing AIOA site, especially historical `AOIA-Core` links.
 - [ ] Complete current-source and raw GOLD24 evidence/provenance publishing gates before claiming independently reproducible proof.
