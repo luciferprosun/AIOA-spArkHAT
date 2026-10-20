@@ -1,3 +1,9 @@
+# Gmail Gateway — G4 update (2026-10-20)
+
+Latest offline checkpoint: **88/88 PASS on Python 3.12** (64 prior + 24 new OAuth). See [G4 OAuth offline report](GMAIL_G4_OAUTH_OFFLINE_2026-10-20.md). This tests no real Gmail, owner warrants, OAuth token exchange, keyring or production network calls; independent C1 and full repo regression remain pending. The remaining original history follows without rewriting.
+
+---
+
 # Gmail Gateway — Android-first implementation status
 
 2026-10-20. Branch: `feature/aioa-gmail-gateway`. No main merge.
