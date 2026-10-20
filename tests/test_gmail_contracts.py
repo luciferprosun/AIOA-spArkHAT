@@ -39,7 +39,7 @@ class MailContractsTests(unittest.TestCase):
         msg = BytesParser(policy=policy.SMTP).parsebytes(prepare_mime(proposal()).raw_mime)
         self.assertEqual(msg["To"], "owner@example.org")
         self.assertEqual(msg["From"], "test@example.org")
-        self.assertTrue(msg["Message-ID"].startswith("<aioa-"))
+        self.assertTrue(str(msg["Message-ID"]).lstrip().startswith("<aioa-"))
         self.assertEqual(msg.get_content().replace("\r\n", "\n"), proposal().body_text)
 
     def test_content_scope_and_nonce_are_bound(self):

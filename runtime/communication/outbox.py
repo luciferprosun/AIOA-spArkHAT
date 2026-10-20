@@ -85,7 +85,7 @@ class OutboxLedger:
     """
 
     def __init__(self, path: Path):
-        _require(type(path) is Path and path.name.endswith(".sqlite3"),
+        _require(isinstance(path, Path) and path.name.endswith(".sqlite3"),
                  "MAIL_LEDGER_LOCATION_DENIED")
         parent = path.parent
         _require(parent.is_dir() and not parent.is_symlink()
