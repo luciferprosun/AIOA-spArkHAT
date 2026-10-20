@@ -1,5 +1,6 @@
 """Hermetic fake Gmail, replay and persistence tests. No credentials/network."""
 
+from contextlib import closing
 from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -23,7 +24,7 @@ class GmailOutboxTests(unittest.TestCase):
         self.addCleanup(self.tmp.cleanup)
         self.path = Path(self.tmp.name) / "mail.sqlite3"
         self.ledger = OutboxLedger(self.path)
-        self.addCleanup(self.ledger.close)
+        self.addCleanup(lambda: self.ledger.close())
         self.p = proposal()
 
     def approval(self, p=None):
@@ -139,7 +140,7 @@ class GmailOutboxTests(unittest.TestCase):
 
     def test_record_corruption_detected(self):
         self.run_fake()
-        with sqlite3.connect(self.path) as connection:
+        with closing(sqlite3.connect(self.path)) as connection, connection:
             connection.execute("UPDATE gmail_outbox_v1 SET state='PREPARED'")
         with self.assertRaisesRegex(MailLedgerError, "MAIL_LEDGER_RECORD_CHANGED"):
             self.ledger.read(self.p.proposal_id)

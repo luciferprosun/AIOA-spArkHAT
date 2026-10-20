@@ -38,3 +38,19 @@ def prepare_mime(proposal: MailProposalV1) -> PreparedMimeV1:
         raw_mime=raw,
         correlation_id=correlation_id,
     )
+
+
+def verify_prepared_mime(proposal: MailProposalV1, prepared: PreparedMimeV1) -> None:
+    """Bind exact bytes to the proposal; a caller-recomputed hash is insufficient.
+
+    This is structural validation, NOT an owner signature or send permission.
+    """
+    if type(prepared) is not PreparedMimeV1:
+        raise MailContractError("MAIL_MIME_BINDING_MISMATCH")
+    prepared.__post_init__()
+    expected = prepare_mime(proposal)
+    if (prepared.proposal_fingerprint != expected.proposal_fingerprint
+            or prepared.mime_sha256 != expected.mime_sha256
+            or prepared.raw_mime != expected.raw_mime
+            or prepared.correlation_id != expected.correlation_id):
+        raise MailContractError("MAIL_MIME_BINDING_MISMATCH")

@@ -37,7 +37,13 @@ def _identifier(value: object) -> str:
 
 
 def _bounded_text(value: object, *, max_bytes: int, multiline: bool = False) -> str:
-    _ensure(type(value) is str and value and len(value.encode("utf-8")) <= max_bytes)
+    _ensure(type(value) is str and bool(value))
+    # Inspect categories BEFORE UTF-8 encoding: lone surrogates must produce
+    # the same fixed denial, never a raw exception retaining private text.
+    allowed_controls = {"\n", "\t"} if multiline else set()
+    _ensure(not any(unicodedata.category(c) in {"Cc", "Cf", "Cs", "Zl", "Zp"}
+                    and c not in allowed_controls for c in value))
+    _ensure(len(value.encode("utf-8")) <= max_bytes)
     _ensure(unicodedata.normalize("NFC", value) == value)
     _ensure(not any(c in _BIDI_CONTROL or ord(c) == 127 for c in value))
     if multiline:

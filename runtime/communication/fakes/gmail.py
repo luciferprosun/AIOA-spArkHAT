@@ -4,9 +4,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
-import hashlib
 
-from runtime.communication.contracts import MailProposalV1, PreparedMimeV1
+from runtime.communication.contracts import (
+    MailContractError, MailProposalV1, PreparedMimeV1, _digest, _timestamp,
+)
 from runtime.communication.canonical_mime import prepare_mime
 from runtime.communication.outbox import MailLedgerError, OutboxLedger, OutboxReceipt
 
@@ -29,9 +30,14 @@ class OfflineFixtureAdmission:
     grants_effect_authority: bool = False
 
     def __post_init__(self):
-        if (type(self.proposal_fingerprint) is not str or len(self.proposal_fingerprint) != 64
-                or type(self.mime_sha256) is not str or len(self.mime_sha256) != 64
-                or self.grants_effect_authority is not False):
+        # Even a synthetic fixture must not quietly become authority-shaped.
+        try:
+            _digest(self.proposal_fingerprint)
+            _digest(self.mime_sha256)
+            _timestamp(self.expires_at)
+        except MailContractError:
+            raise MailLedgerError("MAIL_FIXTURE_ADMISSION_DENIED") from None
+        if self.grants_effect_authority is not False:
             raise MailLedgerError("MAIL_FIXTURE_ADMISSION_DENIED")
 
 
@@ -72,21 +78,21 @@ def simulate_once(proposal: MailProposalV1, approval: OfflineFixtureAdmission,
         raise MailLedgerError("MAIL_OFFLINE_TYPES_DENIED")
     if stop_requested is not False:
         raise MailLedgerError("MAIL_OFFLINE_STOPPED")
+    approval.__post_init__()
     mime = prepare_mime(proposal)
-    expiry = datetime.strptime(approval.expires_at, "%Y-%m-%dT%H:%M:%SZ").replace(
-        tzinfo=timezone.utc
-    )
+    expiry = _timestamp(approval.expires_at)
+    not_before = _timestamp(proposal.created_at)
     if (approval.proposal_fingerprint != proposal.fingerprint
             or approval.mime_sha256 != mime.mime_sha256
             or expiry != datetime.strptime(
                 proposal.expires_at, "%Y-%m-%dT%H:%M:%SZ"
             ).replace(tzinfo=timezone.utc)
-            or not now.astimezone(timezone.utc) < expiry):
+            or not not_before <= now.astimezone(timezone.utc) < expiry):
         raise MailLedgerError("MAIL_FIXTURE_BINDING_DENIED")
     ledger.prepare(proposal, mime)
     ledger.begin_attempt(proposal.proposal_id)
     try:
         message_id, thread_id = fake.send_raw(mime)
-    except (FakeLostAcknowledgement, FakeDeniedBeforeAcceptance):
+    except (FakeLostAcknowledgement, FakeDeniedBeforeAcceptance, OSError):
         return ledger.mark_unknown(proposal.proposal_id)
     return ledger.provider_accepted(proposal.proposal_id, message_id, thread_id)

@@ -26,6 +26,15 @@ class GmailAccepted:
     accepted_by_api: bool = True
     delivered_to_recipient: bool = False
 
+    def __post_init__(self) -> None:
+        if (type(self.provider_message_id) is not str
+                or _ID.fullmatch(self.provider_message_id) is None
+                or type(self.provider_thread_id) is not str
+                or _ID.fullmatch(self.provider_thread_id) is None
+                or self.accepted_by_api is not True
+                or self.delivered_to_recipient is not False):
+            raise MailContractError("MAIL_GMAIL_ACK_INVALID")
+
 
 def encode_send_request(prepared: PreparedMimeV1) -> bytes:
     """Return strictly encoded JSON body. Callers must separately obtain Core authority."""
@@ -55,11 +64,15 @@ def parse_send_ack(http_status: int, data: bytes) -> GmailAccepted:
             result[key] = value
         return result
 
+    def no_nonfinite_constant(_value):
+        raise MailContractError("MAIL_GMAIL_ACK_INVALID")
+
     try:
-        value = json.loads(data.decode("utf-8"), object_pairs_hook=no_duplicate_keys)
+        value = json.loads(data.decode("utf-8"), object_pairs_hook=no_duplicate_keys,
+                           parse_constant=no_nonfinite_constant)
     except (UnicodeError, ValueError, RecursionError) as exc:
         raise MailContractError("MAIL_GMAIL_ACK_INVALID") from exc
-    if type(value) is not dict:
+    if type(value) is not dict or "error" in value:
         raise MailContractError("MAIL_GMAIL_ACK_INVALID")
     message_id, thread_id = value.get("id"), value.get("threadId")
     if (type(message_id) is not str or _ID.fullmatch(message_id) is None
