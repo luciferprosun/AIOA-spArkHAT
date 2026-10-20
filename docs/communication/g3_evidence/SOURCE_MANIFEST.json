@@ -1,0 +1,21 @@
+{
+  "base_commit": "d53e96f4e124ccafa79d3e64996c163730be55e2",
+  "scope": "verified_source_slice_only",
+  "python": "3.13.5",
+  "source_files": [
+    {"path":"runtime/__init__.py","git_blob":"ba3f77fa3b48436ef6a0d2bde70f2d8b3c15107e","sha256":"797520182922b1309dd26bc2afcb0c958a3aa547f7c557f651eba3e19158e79c","bytes":480},
+    {"path":"runtime/communication/__init__.py","git_blob":"8f83aff54fbad0d4b7993f88d5208c0292a8767c","sha256":"aa614d00559a728fad7def32d6449110da5f43c0b2ad5e7e9336f75d859b5286","bytes":286},
+    {"path":"runtime/communication/canonical_mime.py","git_blob":"05e953fbaf81ad84465e89717738e70429e5a126","sha256":"61ec2464f359658e775f55eab8572342f65793762babc6cb6a07ffc20c35c6ef","bytes":2440},
+    {"path":"runtime/communication/contracts.py","git_blob":"230600e8fde2f781a36602402db75875926fb36e","sha256":"0b1d84c8faebec9bd8044279cf22b5992c7d18c633f0ca5f7c26d31d991630b1","bytes":7373},
+    {"path":"runtime/communication/fakes/__init__.py","git_blob":"353033ca948136963df569f1e302f86c43750412","sha256":"da9d842973500ed95996abb1f842318531e3424f2867c8cf07a785c239603e7a","bytes":79},
+    {"path":"runtime/communication/fakes/gmail.py","git_blob":"75ab75ff20472124be3209a2108a4d55db95c2ea","sha256":"784094b776d6de0dc435fde5f78fef61bb7ae7075aea854deb5abfbdba80298d","bytes":4020},
+    {"path":"runtime/communication/gmail/__init__.py","git_blob":"2230139bcce790af487713380cfd41bf68b782d9","sha256":"02703b58c10e133f79c92817e6d94e509851142f51e90c1dafb344d08e039e1e","bytes":82},
+    {"path":"runtime/communication/gmail/wire.py","git_blob":"569c85c5e549b3bf085a3ebdcb169555f4a63d5a","sha256":"4f512e0c9b1a37694214d890f902c048e4af681187b75780d464c5eabf05c96d","bytes":3422},
+    {"path":"runtime/communication/outbox.py","git_blob":"99d3fddad0b558bc5ac83fe2806d3de52f20d48e","sha256":"ffda824d19cc302d943f96f203eec513d649cf9d9bd82e76748e7ba24c6c3288","bytes":16550},
+    {"path":"runtime/communication/ports.py","git_blob":"449f09a4f2caffec098f5f843d666176d3d35fa3","sha256":"1393b412163beb65c55c37f94750d36ae18fc3975a8b1f4e2296851228cf7dba","bytes":1035},
+    {"path":"tests/test_gmail_contracts.py","git_blob":"3e1e05ce5677dbc3c4f15b15207752494a966e83","sha256":"f69f477b3dda4a12eb1cb24a12ba4371a700815348da5e56b5a59ec05ced16b4","bytes":3844},
+    {"path":"tests/test_gmail_g3_security.py","git_blob":"8cfba86b960a14789f0c84777726017231c2f4e9","sha256":"6469b02b18caf5d88524483f488b83ccd11e72faa995c69e7a446e1a0cb63c3b","bytes":15438},
+    {"path":"tests/test_gmail_outbox.py","git_blob":"fca5e0c76c8204ddf1c9926d5d20736273242755","sha256":"2d0bb20fd6605a45b7f8b871a89111c72e21da8074f8c0a148fc6c390d814a58","bytes":7145},
+    {"path":"tests/test_gmail_wire.py","git_blob":"045b58dfae48e5c67a0616e589dbe0e9eee9d098","sha256":"0953014ae715549a3234ea5d9d9290cf673717e084fb0e8cbaceb9efbfe6255a","bytes":3962}
+  ]
+}

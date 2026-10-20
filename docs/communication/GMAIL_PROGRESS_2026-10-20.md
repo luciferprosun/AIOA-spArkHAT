@@ -1,25 +1,49 @@
-# Gmail Gateway — Android-first Implementation Status
+# Gmail Gateway — Android-first implementation status
 
-Last updated: 2026-10-20.
-GitHub branch: feature/aioa-gmail-gateway, based on public main 81656e6ccbb0c02307d049e865b6df3225ddb578.
+2026-10-20. Branch: `feature/aioa-gmail-gateway`. No main merge.
 
-## Committed deliverables
-- G0 foundation: [ADR-001-GMAIL-FOUNDATION.md](ADR-001-GMAIL-FOUNDATION.md) and [GMAIL_INTEGRATION_MAP.md](GMAIL_INTEGRATION_MAP.md).
-- G1 contracts: runtime/communication/contracts.py, ports.py and canonical_mime.py.
-- G2 offline simulator: metadata-only OutboxLedger in runtime/communication/outbox.py and FakeGmail in runtime/communication/fakes/gmail.py.
-- G4 transport scaffold (partial, offline): runtime/communication/gmail/wire.py encodes users.messages.send request body and verifies an HTTP-success ACK. No HTTP sender exists.
+## Latest verified batch
 
-## Proof and status
-- 2026-10-20: **36/36 focused offline tests PASS**, 0 FAIL, 0 ERROR; source commit 9b40682a5bb66e4ef9d0b315b9d32150c0abe550.
-- First RED preserved: initial 1 FAIL / 16 ERROR, then fix, 25 PASS, then 36 PASS after wire codec.
-- [Exact current-source test receipt](GMAIL_TEST_RECEIPT_2026-10-20.md).
-- Three existing Gmail unit-test files under tests/: test_gmail_contracts.py, test_gmail_outbox.py, test_gmail_wire.py.
-- Source was checked on a separate temporary test copy at low process priority and without engaging Codex or the running Linux S34 qualification.
+**G3 offline security hardening: 64 unique module tests PASS (36 inherited + 28 new).**
+Code commit: `cfb4551b67757aaf1ff80840ddc74da9cc57c987`.
+Fresh source-slice restore: 14 Python files verified, unittest 64 PASS, pytest
+64 PASS plus 49 separately counted subtests. Python 3.13.5/Linux in ChatGPT's
+execution container. No Codex or owner-PC process used in this batch.
 
-## Not authorized / not yet implemented
-- Google OAuth, Linux credential broker, actual Gmail REST network client, human-backed consent gate, reading mailbox, any real external email, and production LIVE enablement.
-- Real-owner M12/backend and future Chromium integration remain independent gates.
-- No main merge, production deployment, cloud payments, account linking, SDK installation or Gmail data egress.
+[Detailed G3 report](GMAIL_G3_SECURITY_2026-10-20.md) ·
+[Roadmap T01–T24 evidence matrix](GMAIL_G3_MATRIX.md) ·
+[Independent C1 reviewer brief](GMAIL_G3_REVIEW_REQUEST.md) ·
+[Verification receipt](g3_evidence/TEST_RECEIPT.json) ·
+[Source manifest](g3_evidence/SOURCE_MANIFEST.json).
 
-## Next step G3
-Expand the explicit 24-case negative matrix; independently inspect action binding, potential path races, malformed MIME and receipt ambiguity. Then review current AIOA native warrant/STOP integration against separately sealed Linux Sprint34, without writing to that sprint. A real provider transport remains disabled until a separately authorized owner-supported G5/G6 pilot.
+## Implemented offline
+
+G0/G1: inert interfaces, strict proposals, deterministic plaintext MIME.
+G2: metadata-only durable attempt ledger and synthetic Gmail loss/replay tests.
+G3 batch: exact MIME/intent binding, logical-task replay barrier, stricter
+storage paths and history validation, fixture validity, honest ACK parsing.
+G4 scaffold only: pure request/ACK codec; NO HTTP sender.
+
+The earlier 25/36-test history remains in
+[GMAIL_TEST_RECEIPT_2026-10-20.md](GMAIL_TEST_RECEIPT_2026-10-20.md).
+New failing regressions and author fixes remain documented in the G3 report.
+
+## Acceptance still pending
+
+Full G3 external review, full AIOA regression, and supported Python 3.12
+execution are NOT completed. The local test material is a verified source
+slice, not a full repository checkout. The 28 new tests do not prove all 24
+production roadmap threats; absent capabilities are explicit in the matrix.
+
+Real Core owner/warrant/STOP binding, OAuth credential broker, Gmail network
+transport, selected reply reading and privacy/egress policy still need their
+own implementations, tests and owner gates. There is no live Gmail connection.
+No Chromium work, real mail, account linking, dependencies installed or paid
+model calls were performed. GOLD72 and Linux worktrees remain untouched.
+
+## Next safe step
+
+Independent read-only C1 review on the pinned source, followed by fixing any
+findings. Do not invoke Codex automatically; the owner is supervising its
+separate work. The existing grant, signer and keyring must never be imitated
+by a synthetic fixture. No LIVE or merge approval follows from module PASS.
