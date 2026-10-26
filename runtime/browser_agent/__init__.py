@@ -1,5 +1,6 @@
 """META-P1-02 offline browser agent package (stdlib only, no live browser)."""
 
+from .offline_state import OfflineState, OfflineTaskState  # noqa: F401
 from .offline_adapter import (
     FIXTURE_CAPTURED_AT_UTC,
     FIXTURE_ORIGIN,
