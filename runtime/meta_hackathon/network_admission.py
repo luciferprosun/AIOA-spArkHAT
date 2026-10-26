@@ -72,6 +72,8 @@ def _public_ips(resolved_ips: object) -> bool:
             ip = ipaddress.ip_address(value)
         except ValueError:
             return False
+        if ip.is_multicast or ip.is_unspecified or ip.is_loopback or ip.is_link_local:
+            return False
         if not ip.is_global or (
             isinstance(ip, ipaddress.IPv6Address) and ip.ipv4_mapped is not None
         ):
