@@ -1,15 +1,19 @@
 # AIOA spArkHAT 🐾 — META 2026 START LINE
 ### Meta Global AI Developer Hackathon · Muse × Chromium × MCP × Human-Governed Agents
 
-> **STATUS: PARTICIPATION APPROVED · DESIGN-ONLY · NO HACKATHON IMPLEMENTATION STARTED**
+> **STATUS: PARTICIPATION APPROVED · IMPLEMENTATION ACTIVE (G1 DONE, G2 PREP) · LIVE META/CHROMIUM NOT YET VERIFIED**
 >
 > **Prepared:** 20 October 2026 · **Working branch:** `meta` · **Build window:** 26 October–4 November 2026 · **Final submission deadline:** 4 November, **9:00 PM ET** (subject to the organizer's current rules).
 >
-> This is a **pre-kickoff engineering charter**, not a claim that a Meta-powered browser agent is already implemented. No new code, browser automation, Muse installation, OAuth connection, external effects, or paid API calls are authorized by this document. Development begins only after the official kickoff/rules and an **explicit owner GO**.
+> This charter was prepared **before kickoff**. The owner authorized isolated offline development on 26 October. G1 contracts and G2 network admission screening have now been added, but **no real Meta-model invocation or Chromium computer-use session has been verified**. Live effects, browser installation, credentials, and API spending require independent gates.
 
 **The idea:** *One governed AI agent, many models, real computer work — with the human retaining authority.*
 
 **Project:** [AIOA spArkHAT](https://sparkhat.eu/aioa/) · **Canonical repository:** [luciferprosun/AIOA-spArkHAT](https://github.com/luciferprosun/AIOA-spArkHAT) · **Meta branch:** [`meta`](https://github.com/luciferprosun/AIOA-spArkHAT/tree/meta) · **Event:** [Meta Global AI Developer Hackathon](https://cerebralvalley.ai/e/meta-ai-developer-hackathon)
+
+---
+
+**Implementation checkpoint (26 October):** G1 offline contracts plus G2 preliminary network admission checks; **38/38 hermetic unit tests PASS** on an isolated Linux checkout. See [`docs/meta/META_G0_G1_KICKOFF.md`](docs/meta/META_G0_G1_KICKOFF.md) and [`docs/meta/META_G2_NETWORK_PREVIEW.md`](docs/meta/META_G2_NETWORK_PREVIEW.md). G2 real Chromium and G3 real Meta are still pending. The original date-by-date roadmap below remains the plan, not evidence of completed gates.
 
 ---
 
@@ -136,7 +140,7 @@ flowchart TD
 
 ---
 
-## 5. Ten-day execution map — planned, not authorized yet
+## 5. Ten-day execution map — working schedule, status updated 26 October
 
 | Day | Date (2026) | Focus / reviewable output | Exit gate |
 | --- | --- | --- | --- |
@@ -249,6 +253,6 @@ Each feature report should say **IMPLEMENTED / OFFLINE-TESTED / LIVE-VERIFIED / 
 
 > ## STOP LINE
 >
-> **READY FOR KICKOFF REVIEW — NOT READY TO CLAIM WORKING META INTEGRATION.**
+> **OFFLINE DEVELOPMENT STARTED — NOT READY TO CLAIM WORKING META/CHROMIUM INTEGRATION.**
 >
-> The only change allowed before 26 October under this task is this Markdown planning document. The owner will choose the exact implementation start after checking official rules, available access and competition scope. Until then, preserve `main`, Gmail, Codex and GOLD72 work unchanged.
+> The pre-kickoff restriction ended on 26 October. The `meta` branch now contains contract code and offline tests. Preserve `main`, Gmail, Codex, and GOLD72 work unchanged; no unreviewed merge, unattended effect, API spending, or browser escalation.
