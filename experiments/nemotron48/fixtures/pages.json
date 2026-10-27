@@ -1,0 +1,12 @@
+{
+  "https://developer.mozilla.org/en-US/docs/Web/HTML": "<html><title>Synthetic HTML fixture</title><main>HTML describes content structure and accessibility. CSS styles pages. This is a locally manufactured fixture, not actual MDN content.</main><a href='/en-US/docs/Web/CSS'>CSS</a><a href='http://127.0.0.1/admin'>BLOCK</a></html>",
+  "https://developer.mozilla.org/en-US/docs/Web/CSS": "<html><title>CSS offline fixture</title><main>CSS handles responsive layouts, media queries, accessibility and performance. Only synthetic test data are included here.</main></html>",
+  "https://developer.mozilla.org/en-US/docs/Web/JavaScript": "<html><title>JavaScript offline fixture</title><main>JavaScript uses browser APIs for event handling, applications, and frontend programs. This is synthetic test data.</main></html>",
+  "https://www.w3.org/WAI/standards-guidelines/wcag/": "<html><title>WCAG offline fixture</title><main>Web accessibility and WCAG are important for keyboard navigation, interface contrast and inclusive software design. Offline test only.</main></html>",
+  "https://web.dev/learn/html": "<html><title>Web design fixture</title><main>Web design involves HTML, CSS, performance, security and evidence-based user interface evaluation. Synthetic offline content.</main></html>",
+  "https://react.dev/learn": "<html><title>React offline fixture</title><main>React is a component-based JavaScript UI library. This sample represents fabricated fixture text and is not copied from documentation.</main></html>",
+  "https://www.typescriptlang.org/docs/": "<html><title>TypeScript offline fixture</title><main>TypeScript checks types for JavaScript applications and improves maintenance of API contracts and user interfaces. Synthetic fixture only.</main></html>",
+  "https://docs.flutter.dev/get-started/fundamentals/widgets": "<html><title>Flutter offline fixture</title><main>Flutter renders cross-platform interfaces with widgets and supports mobile applications. This is a local synthetic fixture, not actual official documentation.</main></html>",
+  "https://docs.python.org/3/library/html.parser.html": "<html><title>Python fixture</title><main>Python html.parser analyzes HTML element tokens without executing Javascript. This is invented educational test data.</main></html>",
+  "https://docs.nebius.com/": "<html><title>Nebius fixture</title><main>Nebius AI endpoints can provide model inference after explicit budget authorization, exact model verification and controlled network access. This page is a synthetic fixture.</main></html>"
+}
