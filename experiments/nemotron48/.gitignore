@@ -1,0 +1,9 @@
+# Explicitly never version runtime state or credentials.
+state/
+private/
+*.sqlite3
+*.sqlite3-*
+*.jsonl
+*.log
+.env
+.env.*
