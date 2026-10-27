@@ -10,13 +10,16 @@ from .mission import ResearchMission
 from .model import ExactModel,ModelPolicy
 from .policy import AdmissionError,canonical_url
 from .storage import Store
+from .supervisor import supervise, SupervisorLimits
+from .audit import inspect_evidence
+from .alerts import alert_config_status
 
 HOME=Path(__file__).parent
 
 def build_parser():
     p=argparse.ArgumentParser(prog="python -m experiments.nemotron48",
         description="Isolated 48h research. Default synthetic fixtures. No Core execution authority.")
-    p.add_argument("command",choices=["init","run","status","verify","export","stop"])
+    p.add_argument("command",choices=["init","run","supervise","audit","alert-status","status","verify","export","stop"])
     p.add_argument("--state-dir",required=True,
         help="private absolute /var/tmp or /tmp subdir; external USB/LSC blocked")
     p.add_argument("--owner-scope",default="")
@@ -39,6 +42,8 @@ def build_parser():
     p.add_argument("--output-usd-per-million",default="")
     p.add_argument("--budget-usd",default="")
     p.add_argument("--max-model-calls",type=int,default=100)
+    p.add_argument("--max-wall-seconds",type=int,default=48*3600)
+    p.add_argument("--max-segments",type=int,default=1000)
     return p
 
 def main(argv=None):
@@ -54,7 +59,7 @@ def main(argv=None):
             out=store.initialize(owner=args.owner_scope,urls=urls,hours=args.hours,
                 max_docs=args.max_docs,max_bytes=args.max_total_bytes,max_depth=args.max_depth)
             print(json.dumps({"created":True,"mission":out},indent=2,ensure_ascii=False))
-        elif args.command=="run":
+        elif args.command in {"run","supervise"}:
             if args.authorize_paid and not args.enable_live_model:
                 raise AdmissionError("invalid paid-consent flags")
             if args.enable_live_model and not (args.authorize_paid and
@@ -71,10 +76,20 @@ def main(argv=None):
                 except ValueError as e:
                     raise AdmissionError("invalid model pricing/budget") from e
                 adapter=ExactModel(pol,store,authorized=True)
-            result=ResearchMission(store).run(
-                live_network=args.live_network,authorized_network=args.authorize_network,
-                model=adapter,resume=args.resume,max_items=args.max_items)
+            if args.command=="supervise":
+                result=supervise(store,limits=SupervisorLimits(
+                    max_wall_seconds=args.max_wall_seconds,max_segments=args.max_segments,
+                    items_per_segment=args.max_items),live_network=args.live_network,
+                    authorized_network=args.authorize_network,model=adapter)
+            else:
+                result=ResearchMission(store).run(
+                    live_network=args.live_network,authorized_network=args.authorize_network,
+                    model=adapter,resume=args.resume,max_items=args.max_items)
             print(json.dumps(result,indent=2,ensure_ascii=False))
+        elif args.command=="audit":
+            print(json.dumps(inspect_evidence(store),indent=2,ensure_ascii=False))
+        elif args.command=="alert-status":
+            print(json.dumps(alert_config_status(),ensure_ascii=False))
         elif args.command=="status":
             print(json.dumps(store.report(),indent=2,ensure_ascii=False))
         elif args.command=="verify":

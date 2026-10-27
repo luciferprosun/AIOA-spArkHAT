@@ -1,0 +1,82 @@
+name: NEMOTRON48 - isolated offline gate
+run-name: NEMOTRON48 fixtures only
+on:
+  push:
+    branches:
+      - experiment/nemotron48-data-sniffer-20261027
+    paths:
+      - "experiments/nemotron48/**"
+      - ".github/workflows/nemotron48-offline-ci.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: "nemotron48-fixture-${{ github.ref }}"
+  cancel-in-progress: true
+
+jobs:
+  static-and-fixture:
+    name: Offline safety tests (NO LIVE / NO API COST)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 7
+    env:
+      PYTHONDONTWRITEBYTECODE: "1"
+    steps:
+      - name: Fetch exact experimental branch
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Python standard library tests
+        run: python3 -B -m unittest discover -s experiments/nemotron48/tests -v
+
+      - name: Strictly local synthetic mission
+        shell: bash
+        run: |
+          set -euo pipefail
+          unset NEMOTRON48_API_KEY || true
+          STATE="$(mktemp -d /tmp/n48-ci-fixture.XXXXXXXX)"
+          chmod 700 "$STATE"
+          python3 -B -m experiments.nemotron48 init \
+            --state-dir "$STATE" --owner-scope ci_test_owner \
+            --hours 48 --max-docs 50 --max-depth 1 > /dev/null
+          python3 -B -m experiments.nemotron48 supervise \
+            --state-dir "$STATE" --max-items 2 \
+            --max-segments 50 --max-wall-seconds 120 \
+            > "$RUNNER_TEMP/n48-fixture-supervisor.json"
+          python3 -B -m experiments.nemotron48 audit \
+            --state-dir "$STATE" > "$RUNNER_TEMP/n48-fixture-audit.json"
+          python3 -B -m experiments.nemotron48 verify \
+            --state-dir "$STATE" > "$RUNNER_TEMP/n48-fixture-chain.json"
+          python3 -B - "$RUNNER_TEMP/n48-fixture-audit.json" <<'PY'
+          import json,sys
+          with open(sys.argv[1],encoding="utf-8") as f: data=json.load(f)
+          assert data["verdict"]=="NOT_PROVEN_48H",data
+          assert data["source_mode"]=="FIXTURE",data
+          assert data["model_calls"]==0,data
+          assert data["independent_certification"] is False,data
+          assert data["documents"]>0,data
+          print("PASS: bounded fixtures, no Nebius calls, no false 48H certification")
+          PY
+          {
+            echo "## NEMOTRON48 — OFFLINE safety gate"
+            echo ""
+            echo "PASS on exact commit: \`$GITHUB_SHA\`"
+            echo ""
+            echo "21+ Python unit tests; bounded synthetic-source mission; no external model requests."
+            echo ""
+            echo "This job is **not** the live 48-hour Nemotron experiment."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Retain only synthetic, sanitized CI reports (3 days)
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: nemotron48-FIXTURE-ONLY-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/n48-fixture-supervisor.json
+            ${{ runner.temp }}/n48-fixture-audit.json
+            ${{ runner.temp }}/n48-fixture-chain.json
+          retention-days: 3
+          if-no-files-found: error

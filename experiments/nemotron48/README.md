@@ -56,3 +56,9 @@ STOP marker is checked between bounded work units; failure, ambiguous paid model
 ## Evidence status
 
 Implementation source is present on the isolated branch. OFFLINE tests must be run on the exact branch SHA before certification. The branch is **not** evidence of 48-hour LIVE Nemotron work, new training weights, validated source originality, trusted knowledge promotion or production readiness.
+
+## New supervised mode and GitHub Actions
+
+The optional `supervise` CLI runs bounded segments on a single authorized host, validates the journal between segments and always leaves certification to the independent `audit` command. It refuses LIVE when the emergency email gate is not configured. `alert-status` reads its configuration status without sending a message. Each critical SMTP alert is one-use and requires Natalia's separately confirmed consent; actual SMTP server acceptance is not proof of receipt. No recipient address is stored in this public repository.
+
+A push-triggered **OFFLINE-only** GitHub Actions workflow lives at `.github/workflows/nemotron48-offline-ci.yml`. The workflow runs synthetic fixtures and exports sanitized synthetic evidence. See `OPERATIONS_RUNBOOK_PL.md` for required LIVE gates, architecture and why the standard GitHub-hosted runner cannot provide a genuine uninterrupted 48-hour test by itself.
