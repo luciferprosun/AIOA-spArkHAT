@@ -1,6 +1,10 @@
 """Process/namespace constraints, no website or actual Chrome in unit tests."""
 import importlib
 import importlib.util
+import os
+import signal
+import subprocess
+import time
 from pathlib import Path
 import tempfile
 import threading
@@ -73,6 +77,48 @@ class ChromeProcessTests(unittest.TestCase):
             return value+b'\n# simulated drift\n' if str(p).endswith('/providers/meta_receipts.py') else value
         with patch.object(Path,'read_bytes',changed):after=current_source()[1]
         self.assertNotEqual(before,after,'new receipt verifier is outside source capsule')
+
+    def test_review_r5_spend_stop_and_warrant_dependencies_are_in_capsule(self):
+        from runtime.meta_hackathon.runtime_adapter import current_source
+        before=current_source()[1];original=Path.read_bytes
+        for suffix in ('/mission/governor.py','/providers/exact.py','/archaioa/warrant.py',
+                       '/memory_patch/persistence/ports.py'):
+            def changed(p):
+                value=original(p)
+                return value+b'\n# simulated authority drift\n' if str(p).endswith(suffix) else value
+            with self.subTest(suffix=suffix),patch.object(Path,'read_bytes',changed):
+                self.assertNotEqual(before,current_source()[1])
+
+    def test_review_r4_stop_after_pipe_eof_is_prompt(self):
+        cancel=CancellationToken();timer=threading.Timer(.07,cancel.cancel);timer.start();self.addCleanup(timer.cancel)
+        started=time.monotonic()
+        with self.assertRaisesRegex(ValueError,'STOPPED'):
+            self.api.run_bounded(['/usr/bin/python3','-c','import os,time;os.close(1);os.close(2);time.sleep(2)'],cancel,1)
+        self.assertLess(time.monotonic()-started,.5)
+
+    def test_review_r4_exited_leader_does_not_leave_pipe_holding_child(self):
+        pid_file=Path(self.tmp.name)/'child.pid';owned=[];original=subprocess.Popen
+        def track(*args,**kwargs):
+            child=original(*args,**kwargs);owned.append(child);return child
+        def cleanup():
+            if not pid_file.exists():return
+            pid=int(pid_file.read_text())
+            try:
+                if owned and os.getpgid(pid)==owned[0].pid:os.killpg(owned[0].pid,signal.SIGKILL)
+            except ProcessLookupError:pass
+        self.addCleanup(cleanup)
+        script='import os,time,pathlib;pid=os.fork();\nif pid:os._exit(0)\npathlib.Path('+repr(str(pid_file))+').write_text(str(os.getpid()));time.sleep(3)'
+        cancel=CancellationToken();timer=threading.Timer(.15,cancel.cancel);timer.start();self.addCleanup(timer.cancel)
+        with patch.object(self.api.subprocess,'Popen',side_effect=track):
+            with self.assertRaisesRegex(ValueError,'STOPPED'):
+                self.api.run_bounded(['/usr/bin/python3','-c',script],cancel,1)
+        self.assertTrue(pid_file.exists())
+        pid=int(pid_file.read_text())
+        for _ in range(50):
+            p=Path('/proc')/str(pid)/'stat'
+            if not p.exists() or p.read_text().split()[2]=='Z':break
+            time.sleep(.01)
+        else:self.fail('owned descendant remains running after STOP')
 
 
 if __name__=='__main__':unittest.main()

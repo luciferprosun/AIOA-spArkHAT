@@ -966,6 +966,8 @@ cplElement('verify').addEventListener('click', async () => {
 const metaNode = id => document.querySelector(`#meta-${id}`);
 function showMetaError(message) { metaNode('message').textContent = String(message); }
 function renderMetaMission(value) {
+  const text=AIOAMetaMissions.missionText(value);
+  metaNode('boundary').textContent=text.boundary;
   metaNode('provider').textContent = AIOAMetaMissions.providerLabel(value);
   metaNode('state').textContent = value.state;
   metaNode('task').textContent = value.task_id;
@@ -973,7 +975,7 @@ function renderMetaMission(value) {
   metaNode('budget').textContent = value.mode === 'LIVE'
     ? `Core bound: ${value.budget_usd} USD · actual settlement unverified`
     : `0 USD / ${value.budget_usd} USD · fixture; no actual model charges`;
-  metaNode('approval').textContent = value.native_spend_binding || (value.warrant_digest ? 'fixture warrant consumed' : 'exact fixture approval required');
+  metaNode('approval').textContent = text.approval;
   metaNode('correlation').textContent = value.correlation_id || 'none';
   metaNode('origin').textContent = (value.allowed_origins || []).join(', ');
   metaNode('evidence-digest').textContent = value.result?.evidence_digest || 'none';
@@ -983,17 +985,18 @@ function renderMetaMission(value) {
   metaNode('stop').disabled = !['PREVIEWED','RUNNING','LIVE_PENDING_AUTHORIZATION'].includes(value.state);
   metaNode('preview').disabled = ['PREVIEWED','RUNNING','LIVE_PENDING_AUTHORIZATION'].includes(value.state);
   for (const id of ['instruction','mode']) metaNode(id).disabled = ['PREVIEWED','RUNNING','LIVE_PENDING_AUTHORIZATION'].includes(value.state);
-  metaNode('message').textContent = value.state === 'PREVIEWED'
-    ? 'Review this exact task, scope and digest. Run approves only the displayed offline READ.'
-    : value.state === 'RUNNING' ? 'Core accepted. Reading the bounded fixture. STOP remains available.'
-    : value.error || `${value.state} · fixture evidence does not certify LIVE operation.`;
+  metaNode('message').textContent = text.progress;
 }
 const metaClient = AIOAMetaMissions.createMissionClient({fetchJSON:jsonFetch,render:renderMetaMission,error:showMetaError});
 async function refreshMetaStatus({adopt = true} = {}) {
   try {
     const value = await jsonFetch('/api/meta/status');
     const provider = value.provider;
-    if (adopt && !value.missions.length) metaNode('provider').textContent = 'Muse Spark · OFFLINE FIXTURE';
+    if (adopt && !value.missions.length) {
+      const profile={mode:value.mode,state:value.mode==='OFFLINE_FIXTURE'?'OFFLINE_FIXTURE':'LIVE_PENDING_AUTHORIZATION'};
+      metaNode('provider').textContent=AIOAMetaMissions.providerLabel(profile);
+      metaNode('boundary').textContent=AIOAMetaMissions.missionText(profile).boundary;
+    }
     metaNode('key').textContent = provider.key_configured ? 'yes · metadata only' : 'no';
     metaNode('transport').textContent = provider.transport;
     metaNode('credit').textContent = provider.credit_balance;

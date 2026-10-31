@@ -13,6 +13,23 @@
     return value && (value.state === 'PREVIEWED' || value.state === 'LIVE_PENDING_AUTHORIZATION'
       && value.mode === 'LIVE' && value.native_spend_binding === 'BOUND');
   }
+  function missionText(value) {
+    const live=value.mode==='LIVE';
+    const boundary=live
+      ? 'Native Meta model request governed by Core. Charges require exact owner approval; browser READ requires separate authority and containment.'
+      : 'OFFLINE FIXTURE: synthetic Meta response and browser driver, real Core gates. No paid calls or real public Chromium READ.';
+    const approval=live ? value.native_spend_binding || 'native authority NOT_BOUND'
+      : value.result?.core_warrant_consumed===true ? 'fixture warrant consumed'
+      : value.warrant_digest ? 'fixture approval recorded; consumption unverified' : 'exact fixture approval required';
+    const progress=value.error || (value.state==='PREVIEWED'
+      ? 'Review this exact task, scope and digest. Run approves only the displayed offline READ.'
+      : value.state==='RUNNING' ? live
+        ? 'Core-bound model request in flight. STOP cannot undo an already sent request; uncertain spend stays UNKNOWN.'
+        : 'Core accepted. Reading the bounded fixture. STOP remains available.'
+      : live ? `${value.state} · model receipt and browser verification are separate.`
+      : `${value.state} · fixture evidence does not certify LIVE operation.`);
+    return {boundary,approval,progress};
+  }
   function createMissionClient({fetchJSON, render, error, delay = ms => new Promise(resolve => setTimeout(resolve, ms))}) {
     let current = null, attempted = false, invalid = false, generation = 0;
     const publish = value => { current = value; render(value); return value; };
@@ -63,7 +80,7 @@
       async refresh() { return current ? readback(generation) : null; },
     };
   }
-  const api = {createMissionClient, providerLabel};
+  const api = {createMissionClient, providerLabel, missionText};
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.AIOAMetaMissions = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

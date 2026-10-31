@@ -2,22 +2,28 @@
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 const node = id => document.querySelector(`#meta-${id}`);
 async function until(predicate) {
-  for(let n=0;n<180;n++){if(predicate())return;await sleep(20);}
+  for(let n=0;n<180;n++){
+    if(predicate())return;
+    // Only the isolated test worker exposes this wall-clock barrier. Keep
+    // Chrome virtual time from racing the real cancellable fixture worker.
+    await fetch('/p03-local-clock',{cache:'no-store'});await sleep(20);
+  }
   throw new Error('LOCAL_UI_CONDITION_TIMEOUT');
 }
 const resultNode=document.createElement('pre');resultNode.id='p03-ui-proof';
 resultNode.hidden=true;document.body.append(resultNode);
+let stage='bootstrap';
 try {
   await until(()=>node('transport').textContent==='mock'&&!document.querySelector('#meta-view').hidden);
   if(node('call-state').textContent!=='NOT_ATTEMPTED'||node('live-receipt').textContent!=='none')throw Error('FALSE_ACTUAL_RECEIPT');
-  node('form').requestSubmit();await until(()=>node('state').textContent==='PREVIEWED');
+  stage='preview';node('form').requestSubmit();await until(()=>node('state').textContent==='PREVIEWED');
   const task=node('task').textContent;
-  node('run').click();await until(()=>node('state').textContent==='OFFLINE_FIXTURE');
+  stage='fixture-run';node('run').click();await until(()=>node('state').textContent==='OFFLINE_FIXTURE');
   const evidence=JSON.parse(node('evidence').textContent);
   if(evidence.live_verified!==false || !evidence.result.core_warrant_consumed)throw Error('FALSE_LIVE_OR_MISSING_CORE');
-  node('form').requestSubmit();await until(()=>node('state').textContent==='PREVIEWED'&&node('task').textContent!==task);
-  node('run').click();await until(()=>node('state').textContent==='RUNNING');
-  node('stop').click();await until(()=>node('state').textContent==='STOPPED');
+  stage='second-preview';node('form').requestSubmit();await until(()=>node('state').textContent==='PREVIEWED'&&node('task').textContent!==task);
+  stage='second-run';node('run').click();await until(()=>node('state').textContent==='RUNNING');
+  stage='stop';node('stop').click();await until(()=>node('state').textContent==='STOPPED');
   window.scrollTo(0,document.scrollingElement.scrollHeight);
   const viewport={width:innerWidth,height:innerHeight,scrollTop:document.scrollingElement.scrollTop,
     scrollHeight:document.scrollingElement.scrollHeight,clientHeight:document.scrollingElement.clientHeight,
@@ -32,4 +38,5 @@ try {
     source_sha:evidence.source_sha,capsule_digest:evidence.capsule_digest,
     correlation_id:evidence.correlation_id,evidence_digest:evidence.result.evidence_digest,
     tool_call_id:evidence.provider_receipt.tool_call_id,viewport,visible_text_sha256:hash});
-} catch(error) {resultNode.textContent=JSON.stringify({passed:false,error:String(error.message)});}
+} catch(error) {resultNode.textContent=JSON.stringify({passed:false,error:String(error.message),stage,
+  state:node('state')?.textContent,transport:node('transport')?.textContent,message:node('message')?.textContent});}

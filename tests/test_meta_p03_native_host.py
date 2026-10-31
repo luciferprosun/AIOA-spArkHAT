@@ -40,12 +40,13 @@ class NativeHostTests(unittest.TestCase):
         task = BrowserTaskV1.parse(self.preview['task'])
         request = request or MetaPlanRequest(task, self.instruction, self.preview['correlation_id'],
                                             '.05', capsule_digest=self.preview['capsule_digest'])
-        operation = {'operation_class':'META_MODEL_PLAN_V1',
+        operation = {'operation_class':'META_MODEL_PLAN_V2',
             'target_fingerprint':'sha256:'+canonical_sha256(self.api.ENDPOINT),
             'expected_target_revision':request.task.source_sha,
             'payload':{'request_digest':request.digest,'task_digest':request.task.digest,
                 'owner_scope_digest':request.task.owner_scope_digest,'model_id':self.api.MODEL,
-                'provider_id':self.api.PROVIDER,'endpoint':self.api.ENDPOINT,'max_attempts':1}}
+                'provider_id':self.api.PROVIDER,'endpoint':self.api.ENDPOINT,'max_attempts':1,
+                'public_binding_digest':canonical_sha256(request.public_binding())}}
         b=self.initial
         reservation=replace(b.reservation,request_id='p03-spend',task_id=task.task_id,
                             request_digest=canonical_sha256(operation))

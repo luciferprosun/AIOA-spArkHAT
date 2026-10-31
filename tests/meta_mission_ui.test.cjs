@@ -81,3 +81,15 @@ test('unbound LIVE and uncertain states are never labelled fixture or allowed to
   client.adopt({...preview,state:'LIVE_PENDING_AUTHORIZATION',mode:'LIVE'});
   await assert.rejects(()=>client.run());
 });
+
+test('native texts do not promise free fixture execution or premature consumption', () => {
+  const {missionText}=api();assert.equal(typeof missionText,'function');
+  const native=missionText({mode:'LIVE',state:'RUNNING',native_spend_binding:'CONSUMING'});
+  assert.match(native.progress,/model request/i);
+  assert.doesNotMatch(native.boundary,/synthetic|no paid calls|no actual model charges/i);
+  const approved=missionText({mode:'OFFLINE_FIXTURE',state:'RUNNING',warrant_digest:'sha256:fixture'});
+  assert.doesNotMatch(approved.approval,/consumed/i);
+  const observed=missionText({mode:'OFFLINE_FIXTURE',state:'OFFLINE_FIXTURE',
+    warrant_digest:'sha256:fixture',result:{core_warrant_consumed:true}});
+  assert.match(observed.approval,/consumed/i);
+});

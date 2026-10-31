@@ -38,29 +38,37 @@ def run_bounded(argv, cancel, timeout, *, max_bytes=2097152):
     process = subprocess.Popen(argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
         stdin=subprocess.DEVNULL, close_fds=True, start_new_session=True,
         env={'PATH':'/usr/bin:/bin', 'LANG':'C.UTF-8', 'PYTHONDONTWRITEBYTECODE':'1'})
-    selector=selectors.DefaultSelector(); buffers=[bytearray(),bytearray()]
-    for number,pipe in enumerate((process.stdout,process.stderr)):
-        selector.register(pipe,selectors.EVENT_READ,number)
+    selector=None; buffers=[bytearray(),bytearray()]
     deadline=time.monotonic()+timeout
     try:
-        while selector.get_map():
+        selector=selectors.DefaultSelector()
+        for number,pipe in enumerate((process.stdout,process.stderr)):
+            selector.register(pipe,selectors.EVENT_READ,number)
+        while True:
             require(not cancel.cancelled,'BROWSER_STOPPED')
             require(time.monotonic()<deadline,'BROWSER_TIMEOUT_UNKNOWN')
-            for key,_ in selector.select(.02):
+            # WNOWAIT pins the leader PID until group cleanup, including after
+            # its exit. EOF does not imply process completion or cancel ACK.
+            exited=os.waitid(os.P_PID,process.pid,os.WEXITED|os.WNOHANG|os.WNOWAIT)
+            if not selector.get_map() and exited is not None:break
+            ready=selector.select(.02) if selector.get_map() else ()
+            if not selector.get_map():time.sleep(.01)
+            for key,_ in ready:
                 data=os.read(key.fileobj.fileno(),16384)
                 if not data:selector.unregister(key.fileobj);continue
                 buffers[key.data].extend(data)
                 require(sum(map(len,buffers))<=max_bytes,'BROWSER_OUTPUT_LIMIT_UNKNOWN')
-        return process.wait(timeout=max(.01,deadline-time.monotonic())),bytes(buffers[0]),bytes(buffers[1])
     finally:
-        if process.poll() is None:
-            # This process is the session leader created above, never an attached
-            # Chrome or a PID supplied by a caller. Reap only this owned group.
-            os.killpg(process.pid,signal.SIGTERM)
-            try:process.wait(timeout=1)
-            except subprocess.TimeoutExpired:
-                os.killpg(process.pid,signal.SIGKILL);process.wait(timeout=1)
-        selector.close();process.stdout.close();process.stderr.close()
+        # Clean descendants even if the leader has exited. It is not reaped
+        # until after signalling, so this PGID cannot be reused in the meantime.
+        for sig in (signal.SIGTERM,signal.SIGKILL):
+            try:os.killpg(process.pid,sig)
+            except ProcessLookupError:pass
+            if sig==signal.SIGTERM:time.sleep(.02)
+        process.wait(timeout=1)
+        if selector is not None:selector.close()
+        process.stdout.close();process.stderr.close()
+    return process.returncode,bytes(buffers[0]),bytes(buffers[1])
 
 
 def sandbox_command(output, width, height, source_sha):
@@ -133,6 +141,14 @@ def _worker(width,height):
     service=WebRuntimeService(runtime=host.runtime,meta_missions=host.missions,meta_owner=host)
     class Handler(AOIAWebHandler):
         def do_GET(self):
+            if self.path=='/p03-local-clock':
+                if not self._check_local_request():return
+                # The test browser advances virtual timers faster than the Core
+                # fixture's wall-clock cancellation delay. Synchronize the test
+                # actor over this namespace-local endpoint, not production API.
+                time.sleep(.03)
+                self.send_response(204);self.send_header('Content-Length','0');self.end_headers()
+                return
             if self.path in ('/','/p03-local-probe.js'):
                 if not self._check_local_request():return
                 body=(ROOT/'web/index.html').read_bytes().replace(b'</body>',

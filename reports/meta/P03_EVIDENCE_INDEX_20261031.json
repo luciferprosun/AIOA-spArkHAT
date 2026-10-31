@@ -1,0 +1,679 @@
+{
+  "schema": "aioa.meta.p03.evidence-index.v1",
+  "created_at_utc": "2026-10-31T17:43:20.076464+00:00",
+  "product": "AIOA spArkHAT",
+  "module": "METAGuardiansSPARK",
+  "status": "OFFLINE_INTEGRATED",
+  "one_core_one_ui": "PASS",
+  "meta_mock": "PASS",
+  "meta_actual_model": "BLOCKED_EXTERNAL",
+  "public_chrome_read": "BLOCKED_EXTERNAL",
+  "local_ui_chrome": "LOCAL_UI_BROWSER_TESTED",
+  "android_e2e": "DEFERRED",
+  "nebius": "OPTIONAL_PROVIDER_REUSED_NO_FALLBACK",
+  "actual_meta_calls": 0,
+  "actual_paid_inference_calls": 0,
+  "actual_model_spend_usd": "0",
+  "balance_and_credits": "UNVERIFIED",
+  "actual_owner_admission_available": false,
+  "actual_last_meta_receipt": null,
+  "secret_check": {
+    "configured_metadata_only": true,
+    "real_key_contents_read": false,
+    "real_key_length_or_fingerprint_read": false,
+    "actual_secret_value_comparison": false,
+    "pattern_scan_findings": 0,
+    "explicit_changed_paths_scanned": 22
+  },
+  "git": {
+    "target": "/home/l/projects/AIOA-spArkHAT-META",
+    "branch": "AIOA-METAGuardiansSPARK",
+    "start_head": "44bf1628b92a2e6e424135fcdf8076ba635054e9",
+    "code_checkpoint_1": "937bf0b151394b4fbc4d9b24260703f3a4bd7dcf",
+    "code_checkpoint_2": "6b7551826aebe805558b4a10e61b717e36196e20",
+    "final_checkpoint": "containing commit; git log -1 --format=%H -- reports/meta/P03_EVIDENCE_INDEX_20261031.json",
+    "proof_source_head": "6b7551826aebe805558b4a10e61b717e36196e20",
+    "proof_note": "Proof after review fixes at this HEAD plus exact dirty working-tree code seals/capsule below. Final commit records the same tested code bytes. A separate private after-commit HTTP proof and FINAL_VERIFICATION bind the eventual End HEAD. No self-referential commit SHA is invented.",
+    "push_executed": false
+  },
+  "authority_operation": "META_MODEL_PLAN_V2",
+  "historical_v1_authority_auto_upgraded": false,
+  "capsule_digest": "9c9828c98f6cf1a61bdc3775da21ea2fc59cb9105f4b382b25557ac28782a063",
+  "capsule_file_count": 27,
+  "capsule_files": [
+    {
+      "path": "runtime/meta_hackathon/runtime_adapter.py",
+      "sha256": "96d29d3c07640ee06e7754db9e7578996422169ae798cc7a632418a052b15c05"
+    },
+    {
+      "path": "runtime/meta_hackathon/mission_service.py",
+      "sha256": "bc984450dca4163be5ba52143673f3258ea9b331e009f81d54e7125023cb266c"
+    },
+    {
+      "path": "runtime/meta_hackathon/mission_read_offline.py",
+      "sha256": "ff2a7cd02b459cf951919416f48610a8d9480bbd611c9fd4589cbc25f17faaf2"
+    },
+    {
+      "path": "runtime/providers/meta_model_api.py",
+      "sha256": "96a6da963474d8b5c80c33f486f5d3be0a0c89819b0b47f6cfd43930607374eb"
+    },
+    {
+      "path": "runtime/browser_agent/chrome_read_adapter.py",
+      "sha256": "0abdac5572f6bd4befafd34afa4c0b9afe541d31a09b431abed6d5a4cc283165"
+    },
+    {
+      "path": "runtime/core_admission.py",
+      "sha256": "46061f1311c575aadc3c6cce7b3ff64b65ab81942ef42abe6de7227b06458a1d"
+    },
+    {
+      "path": "runtime/providers/config.py",
+      "sha256": "74e1725f55587f2b01711a795e665e1d7102c4fed0b13fb32fcdeabbca3eac10"
+    },
+    {
+      "path": "runtime/mission/warrant.py",
+      "sha256": "2382d8309c394834d1bdd05460e8eaf2816947509874a51ac691dfddd8230df7"
+    },
+    {
+      "path": "runtime/webapp.py",
+      "sha256": "ff29a539289dbc438afff71e51b76edb6de856a1a763e29917b8a4ffb1d5c2f7"
+    },
+    {
+      "path": "web/app.js",
+      "sha256": "908aabe24b3656d198836bb81eeebceadcf1d01bc4657a1bfab12ef5a0c63eea"
+    },
+    {
+      "path": "web/meta_mission.js",
+      "sha256": "25fa1d13d54ebb938901cb7c4c5416eed0023ef740f7ced0216d51e45d921826"
+    },
+    {
+      "path": "web/index.html",
+      "sha256": "2a0067930b00f008e755ea035b417cb75bbeaedae257140a7c5d6e67eaae74c0"
+    },
+    {
+      "path": "web/styles.css",
+      "sha256": "5d166f411c9e773524df53ac8de6fd4aa1abd256a13195e1aa8e42ef8b9d17da"
+    },
+    {
+      "path": "runtime/providers/meta_receipts.py",
+      "sha256": "97aca77b013067c6494afdc48778349f114eba8e1b7fb6f2397fe02f3f88be83"
+    },
+    {
+      "path": "runtime/browser_agent/chrome_process_read.py",
+      "sha256": "3acdd0913ba6c6c0e5e0cca4944bcd5ff32070f6d61bb21f96578dfaaa543322"
+    },
+    {
+      "path": "runtime/mission/governor.py",
+      "sha256": "a31fa91a44751f744985985e9c0143ed6c9c74f3ed422047c5f0afe9165007b4"
+    },
+    {
+      "path": "runtime/providers/exact.py",
+      "sha256": "ef72966c6e15f3fbbfd5f68c581b9e1d9738572ab903afe978501c9ee6ebd8f6"
+    },
+    {
+      "path": "runtime/providers/tool_calling.py",
+      "sha256": "0f2290f58c28d1c25be5671d498085f4ad55b0d36bebbe977dc2f85d037c0d6d"
+    },
+    {
+      "path": "runtime/memory_patch/persistence/ports.py",
+      "sha256": "0bfbca2e9b219b1e9ec76d6481fb4161b717753168b8879f87644332cfe95f66"
+    },
+    {
+      "path": "runtime/memory_patch/contracts/serialization.py",
+      "sha256": "60b025204f6897c88bfb48345f9a49760587961562f3cf27576482780ad69057"
+    },
+    {
+      "path": "runtime/meta_hackathon/contracts.py",
+      "sha256": "b05ae36c04f042b7e33f233fe7dee378f9ab8c44db8aa66981a3002c01649fb9"
+    },
+    {
+      "path": "runtime/meta_hackathon/muse_plan.py",
+      "sha256": "7eb99db5d77c2c22002050d7bff2df64cfa8ac83d880f294e9575c952d36c86b"
+    },
+    {
+      "path": "runtime/meta_hackathon/network_admission.py",
+      "sha256": "f45fef1cd53819903f23981b9ba1ee0a811c0e7446f25506fc6434a81c9a0a0e"
+    },
+    {
+      "path": "runtime/browser_agent/offline_adapter.py",
+      "sha256": "6828ac314d5a6e9f75edc7017e7c3b3b76a17f18697e6588c6e03d505559dc26"
+    },
+    {
+      "path": "lab/archaioa/warrant.py",
+      "sha256": "0715939f8e78fa3ff31d7e9fc968f47a8a8ced7565a74650b56f3114de4132fa"
+    },
+    {
+      "path": "lab/archaioa/authority.py",
+      "sha256": "9d2b0a3c0dde0ac76862e1d0bca34cc9b2480bddb0651605a8a82df5a149830b"
+    },
+    {
+      "path": "lab/archaioa/decision_root.py",
+      "sha256": "25c2a727734971ab7945db6cbb6f8293299a77df5343ebdc4f812b01787f60b3"
+    }
+  ],
+  "code_seals": [
+    {
+      "path": "runtime/browser_agent/chrome_process_read.py",
+      "sha256": "3acdd0913ba6c6c0e5e0cca4944bcd5ff32070f6d61bb21f96578dfaaa543322"
+    },
+    {
+      "path": "runtime/meta_hackathon/mission_service.py",
+      "sha256": "bc984450dca4163be5ba52143673f3258ea9b331e009f81d54e7125023cb266c"
+    },
+    {
+      "path": "runtime/meta_hackathon/runtime_adapter.py",
+      "sha256": "96d29d3c07640ee06e7754db9e7578996422169ae798cc7a632418a052b15c05"
+    },
+    {
+      "path": "runtime/providers/meta_model_api.py",
+      "sha256": "96a6da963474d8b5c80c33f486f5d3be0a0c89819b0b47f6cfd43930607374eb"
+    },
+    {
+      "path": "runtime/providers/meta_receipts.py",
+      "sha256": "97aca77b013067c6494afdc48778349f114eba8e1b7fb6f2397fe02f3f88be83"
+    },
+    {
+      "path": "runtime/webapp.py",
+      "sha256": "ff29a539289dbc438afff71e51b76edb6de856a1a763e29917b8a4ffb1d5c2f7"
+    },
+    {
+      "path": "tests/fixtures/meta_p03_ui_probe.js",
+      "sha256": "97852be09fcfa395d14436402cce72bec7752ba9a50f72c81460168180083b89"
+    },
+    {
+      "path": "tests/meta_mission_ui.test.cjs",
+      "sha256": "74d5937d4c5a5ebe3cca4ae25c5ae11b3efdf816f738b2bd17105fd820330030"
+    },
+    {
+      "path": "tests/test_meta_model_api.py",
+      "sha256": "a19acf6e2766a309f67a274aedd823d99ea67acc6ec6d6eedd97f893d1b66923"
+    },
+    {
+      "path": "tests/test_meta_p03_chrome_process.py",
+      "sha256": "b7606aef597bdaf93385bc38f4add534f169afb86296b881c60ea9d7ec1ac22c"
+    },
+    {
+      "path": "tests/test_meta_p03_native_host.py",
+      "sha256": "0a276957fd2008cdac1de843d762fd7b8a9610ec3fac9a23d3c9c4e4fcbfbc40"
+    },
+    {
+      "path": "tests/test_meta_p03_receipts.py",
+      "sha256": "4922a305cbc4f75f84f1c754ab0bc53a3a206712f4e7ff39166d121dca419afd"
+    },
+    {
+      "path": "tests/test_meta_p03_web.py",
+      "sha256": "78a8bc26f5b33b8df7d35e0b025f5e7544a3fb8eae4c97d836a5d635748274b3"
+    },
+    {
+      "path": "web/app.js",
+      "sha256": "908aabe24b3656d198836bb81eeebceadcf1d01bc4657a1bfab12ef5a0c63eea"
+    },
+    {
+      "path": "web/index.html",
+      "sha256": "2a0067930b00f008e755ea035b417cb75bbeaedae257140a7c5d6e67eaae74c0"
+    },
+    {
+      "path": "web/meta_mission.js",
+      "sha256": "25fa1d13d54ebb938901cb7c4c5416eed0023ef740f7ced0216d51e45d921826"
+    }
+  ],
+  "source_preservation": {
+    "repositories": [
+      {
+        "repository": "/home/l/AIOA_LOCAL_WORKTREES/nebius-nemotron-integration-20261028",
+        "branch": "feature/nebius-nemotron-integration-20261028",
+        "head": "6e9dd8ebc1dcb2c03345d9dc7d30895013751cd5",
+        "branch_head_status_unchanged": true
+      },
+      {
+        "repository": "/home/l/projects/AIOA-spArkHAT-Companion",
+        "branch": "codex/final-connect-20261023",
+        "head": "9cf6c567b40bc87385fb90e9143b0fb170889b2a",
+        "branch_head_status_unchanged": true
+      }
+    ],
+    "source_seals_checked": 54,
+    "all_source_seals_match": true,
+    "protected_p01_files": [
+      {
+        "path": "runtime/meta_hackathon/mission_runner_offline.py",
+        "sha256": "1e7dd58ebcf22cbe0e84f2b467e43492cea2cb8952de917c94f45320fdfc363a",
+        "unchanged": true
+      },
+      {
+        "path": "tests/test_meta_mvp_runner.py",
+        "sha256": "765d1639d57d48fd5cbf8c28b30ac15382b8858d71732c462f2915fcb88da66f",
+        "unchanged": true
+      }
+    ]
+  },
+  "tests": {
+    "baseline_meta": 228,
+    "final_meta": 265,
+    "meta_delta": 37,
+    "node": 7,
+    "node_baseline": 4,
+    "core": 13,
+    "mcp": 99,
+    "fail": 0,
+    "error": 0,
+    "skip": 0,
+    "legacy_web": 7,
+    "routing_boundary": 6,
+    "nebius_provider": 15,
+    "full_project_suite_run": false
+  },
+  "review": {
+    "review_base": "44bf1628b92a2e6e424135fcdf8076ba635054e9",
+    "review_head": "6b7551826aebe805558b4a10e61b717e36196e20",
+    "initial_critical": 0,
+    "initial_important": 5,
+    "initial_minor": 2,
+    "regraded_important": [
+      "M1",
+      "M2"
+    ],
+    "fixed_red_green": [
+      "R1",
+      "R2",
+      "R3",
+      "R4",
+      "R5",
+      "M1",
+      "M2"
+    ],
+    "deferred_minors": [],
+    "independent_rereview": false,
+    "verification": "Parent one TDD fix pass, sealed full regressions + actual HTTP and networkless Chrome",
+    "final_meta": 265,
+    "final_node": 7,
+    "core": 13,
+    "mcp": 99,
+    "source_head": "6b7551826aebe805558b4a10e61b717e36196e20",
+    "capsule_digest": "9c9828c98f6cf1a61bdc3775da21ea2fc59cb9105f4b382b25557ac28782a063"
+  },
+  "actual_http_proof": {
+    "scope": "OFFLINE_TESTED",
+    "mission": {
+      "task_id": "meta-415b8c65c22e49138505239dcbcb0e09",
+      "state": "OFFLINE_FIXTURE",
+      "mode": "OFFLINE_FIXTURE",
+      "task_digest": "8592a4a3cdc048a78faa9456f2fed1c40c1904e8b09c594520eac3eec7a4d121",
+      "owner_scope_digest": "13d25f1368e9e7215a6e46bcd3341c1f00cfec2b97f42e60285ce1e97dc781da",
+      "source_sha": "6b7551826aebe805558b4a10e61b717e36196e20",
+      "capsule_digest": "9c9828c98f6cf1a61bdc3775da21ea2fc59cb9105f4b382b25557ac28782a063",
+      "provider_id": "meta_model_api",
+      "model_id": "muse-spark-1.3",
+      "deadline": "2026-10-31T17:37:48.167618Z",
+      "budget_usd": "0",
+      "allowed_origins": [
+        "https://docs.example.org"
+      ],
+      "correlation_id": "meta-corr-2d4ee6a1bbd54940a7e003e49ab6cce5",
+      "stopped": false,
+      "live_verified": false,
+      "verified": false,
+      "dispatch_allowed": false,
+      "preview_digest": "47094e27014781ad9b3523b35d255a9b412fcf777b3a62fc7a8fd76de8da036a",
+      "warrant_digest": "sha256:11aa6fbd71a87325ba8a03ab50a248c67186f35c2c9b2f09b09515ee722b08a5",
+      "provider_receipt": {
+        "authority": "ADVISORY_ONLY",
+        "binding": {
+          "allowed_origins": [
+            "https://docs.example.org"
+          ],
+          "budget_usd": "0",
+          "capsule_digest": "9c9828c98f6cf1a61bdc3775da21ea2fc59cb9105f4b382b25557ac28782a063",
+          "correlation_id": "meta-corr-2d4ee6a1bbd54940a7e003e49ab6cce5",
+          "deadline": "2026-10-31T17:37:48.167618Z",
+          "input_token_bound": 1746,
+          "max_attempts": 1,
+          "max_output_tokens": 512,
+          "model_id": "muse-spark-1.3",
+          "owner_scope_digest": "13d25f1368e9e7215a6e46bcd3341c1f00cfec2b97f42e60285ce1e97dc781da",
+          "provider_id": "meta_model_api",
+          "source_sha": "6b7551826aebe805558b4a10e61b717e36196e20",
+          "stopped": false,
+          "task_digest": "8592a4a3cdc048a78faa9456f2fed1c40c1904e8b09c594520eac3eec7a4d121",
+          "task_id": "meta-415b8c65c22e49138505239dcbcb0e09",
+          "timeout_seconds": 8
+        },
+        "cost_estimate_usd": "0",
+        "cost_kind": "ESTIMATE_NOT_INVOICE",
+        "environment": "META_API_MOCK",
+        "fallback": false,
+        "live_verified": false,
+        "model_id": "muse-spark-1.3",
+        "provider_id": "meta_model_api",
+        "request_digest": "f7a1aa7a0db1c252ed175f83678dba941b3007b00ec30783b88e21838b7d6a75",
+        "schema": "aioa.meta.api-receipt.v1",
+        "tool_call_id": "call_meta-415b8c65c22e49138505239dcbcb0e09",
+        "usage": {
+          "completion_tokens": 30,
+          "prompt_tokens": 50,
+          "total_tokens": 80
+        }
+      },
+      "browser_receipt": {
+        "allowed_origins": [
+          "https://docs.example.org"
+        ],
+        "budget_usd": "0",
+        "capsule_digest": "9c9828c98f6cf1a61bdc3775da21ea2fc59cb9105f4b382b25557ac28782a063",
+        "captured_at_utc": "2026-10-31T17:35:49.059479Z",
+        "content_sha256": "135332222afecf8400385eb7642d67bdeb1a249c28860aed754c1231d42d5e87",
+        "correlation_id": "meta-corr-2d4ee6a1bbd54940a7e003e49ab6cce5",
+        "deadline": "2026-10-31T17:37:48.167618Z",
+        "environment": "OFFLINE_FIXTURE",
+        "live_verified": false,
+        "model_id": "muse-spark-1.3",
+        "observed_url": "https://docs.example.org/offline-fixture",
+        "owner_scope_digest": "13d25f1368e9e7215a6e46bcd3341c1f00cfec2b97f42e60285ce1e97dc781da",
+        "profile_sha256": "2a11ea991fffa5903c08e8f2d390f6405ae4ea6d9766239e8435db865e727e30",
+        "provider_id": "meta_model_api",
+        "screenshot_sha256": "802a61f70b816c9dc1d9ad6394f059cdf7c764000d30de0fd4058f09b3575779",
+        "source_sha": "6b7551826aebe805558b4a10e61b717e36196e20",
+        "stopped": false,
+        "task_digest": "8592a4a3cdc048a78faa9456f2fed1c40c1904e8b09c594520eac3eec7a4d121"
+      },
+      "result": {
+        "status": "OFFLINE_LINKED_UNVERIFIED",
+        "terminal_state": "OBSERVED",
+        "core_warrant_consumed": true,
+        "environment": "OFFLINE_FIXTURE",
+        "verified": false,
+        "dispatch_allowed": false,
+        "evidence_digest": "2783ded1881161e16ad92e6f772a282e4368084807624fac8bf39ef0cf98e2b8"
+      },
+      "tool_result_call_id": "call_meta-415b8c65c22e49138505239dcbcb0e09"
+    },
+    "stop": {
+      "task_id": "meta-5f223a9491d0493384cd622589da7085",
+      "state": "STOPPED"
+    },
+    "restart": {
+      "task_id": "meta-11d7421c4e5740409f5d0bfaae675367",
+      "state": "UNKNOWN",
+      "replay_http_status": 409,
+      "old_session_rejected": true
+    },
+    "completed_replay_http_status": 409,
+    "diagnostics": {
+      "authority": "ADVISORY_ONLY",
+      "billing_status": "UNVERIFIED",
+      "blocked_reason": "META_API_LIVE_BLOCKED_OWNER_GO",
+      "budget_ledger_state": null,
+      "call_state": "NOT_ATTEMPTED",
+      "cost_estimate": null,
+      "credit_balance": "unverified",
+      "credits_confirmed": false,
+      "fallback": false,
+      "key_configured": true,
+      "last_api_receipt": null,
+      "last_attempt": null,
+      "last_live_receipt": null,
+      "model_id": "muse-spark-1.3",
+      "provider_id": "meta_model_api",
+      "settled_cost": null,
+      "spend_permission": "not granted",
+      "status": "LIVE_PENDING_AUTHORIZATION",
+      "transport": "mock"
+    },
+    "child_exit_codes": [
+      0,
+      0
+    ]
+  },
+  "local_chrome_proofs": [
+    {
+      "label": "CHROME_NARROW_SEALED",
+      "scope": "LOCAL_UI_BROWSER_TESTED",
+      "source_sha": "6b7551826aebe805558b4a10e61b717e36196e20",
+      "capsule_digest": "9c9828c98f6cf1a61bdc3775da21ea2fc59cb9105f4b382b25557ac28782a063",
+      "captured_at_utc": "2026-10-31T17:35:57.432118+00:00",
+      "networkless_kernel_verified": true,
+      "external_network": false,
+      "personal_home_mounted": false,
+      "no_sandbox_flag_used": false,
+      "profile_mode": "0o700",
+      "final_url": "http://127.0.0.1:<ephemeral>/ (owned namespace fixture)",
+      "screenshot_sha256": "fb32313e11bc8ffbd5310a1660e630b64cedb4622f8462a5eae2d5464ac8279e",
+      "screenshot_dimensions": [
+        390,
+        844
+      ],
+      "visible_text_sha256": "cbd1e3580bd55b8dfa06d5494f8207fc986f8aa0b787c431427f140b82055a8a",
+      "ui": {
+        "passed": true,
+        "environment": "OFFLINE_FIXTURE",
+        "model_label": "Muse Spark · OFFLINE FIXTURE",
+        "task_id": "meta-fc9757de158c44988c12dfa71c2f3a0b",
+        "core_warrant_consumed": true,
+        "live_verified": false,
+        "stop_state": "STOPPED",
+        "source_sha": "6b7551826aebe805558b4a10e61b717e36196e20",
+        "capsule_digest": "9c9828c98f6cf1a61bdc3775da21ea2fc59cb9105f4b382b25557ac28782a063",
+        "correlation_id": "meta-corr-d68400a181a24b79bf591f8856d735f5",
+        "evidence_digest": "e475e2f0e3c729a2b12cd48f9d7a71cfb5d05f557d2b8fa73f10fc404ba4323c",
+        "tool_call_id": "call_meta-fc9757de158c44988c12dfa71c2f3a0b",
+        "viewport": {
+          "width": 500,
+          "height": 757,
+          "scrollTop": 3008,
+          "scrollHeight": 3765,
+          "clientHeight": 757,
+          "horizontalOverflow": false
+        },
+        "visible_text_sha256": "cbd1e3580bd55b8dfa06d5494f8207fc986f8aa0b787c431427f140b82055a8a"
+      }
+    },
+    {
+      "label": "CHROME_WIDE_SEALED",
+      "scope": "LOCAL_UI_BROWSER_TESTED",
+      "source_sha": "6b7551826aebe805558b4a10e61b717e36196e20",
+      "capsule_digest": "9c9828c98f6cf1a61bdc3775da21ea2fc59cb9105f4b382b25557ac28782a063",
+      "captured_at_utc": "2026-10-31T17:36:07.701708+00:00",
+      "networkless_kernel_verified": true,
+      "external_network": false,
+      "personal_home_mounted": false,
+      "no_sandbox_flag_used": false,
+      "profile_mode": "0o700",
+      "final_url": "http://127.0.0.1:<ephemeral>/ (owned namespace fixture)",
+      "screenshot_sha256": "57f45d88e654eeca054ff1cc37c39a437cb6e4b6ea2a6f59cf08a6228670107a",
+      "screenshot_dimensions": [
+        1280,
+        900
+      ],
+      "visible_text_sha256": "0f325de3070a06343781187a80686451263220c80c662d1ee950604bf2ef77a1",
+      "ui": {
+        "passed": true,
+        "environment": "OFFLINE_FIXTURE",
+        "model_label": "Muse Spark · OFFLINE FIXTURE",
+        "task_id": "meta-f793e19843b54e1c9c63efae5864ef37",
+        "core_warrant_consumed": true,
+        "live_verified": false,
+        "stop_state": "STOPPED",
+        "source_sha": "6b7551826aebe805558b4a10e61b717e36196e20",
+        "capsule_digest": "9c9828c98f6cf1a61bdc3775da21ea2fc59cb9105f4b382b25557ac28782a063",
+        "correlation_id": "meta-corr-03bc4768fed842bf803364ddd42ec50b",
+        "evidence_digest": "e7ef07c78280071edbbb5d2ccb44f2f611b54ebdeb3c74e08025353752bb8019",
+        "tool_call_id": "call_meta-f793e19843b54e1c9c63efae5864ef37",
+        "viewport": {
+          "width": 1280,
+          "height": 813,
+          "scrollTop": 993,
+          "scrollHeight": 1806,
+          "clientHeight": 813,
+          "horizontalOverflow": false
+        },
+        "visible_text_sha256": "0f325de3070a06343781187a80686451263220c80c662d1ee950604bf2ef77a1"
+      }
+    }
+  ],
+  "fixture_screenshot_note": "Mission browser_receipt hashes the synthetic one-pixel fixture PNG. Separate LOCAL_UI_BROWSER_TESTED screenshot hashes identify actual rendered Chrome UI, not public research pages.",
+  "private_artifacts": [
+    {
+      "private_path": "/home/l/projects/META_INTEGRATION_PRIVATE_20261031/P03_20261031T163047Z/BASELINE_META.log",
+      "sha256": "f775504aec7da881bd11f33659d23fc4ad24834242951824c6f4a0ec06455eb3"
+    },
+    {
+      "private_path": "/home/l/projects/META_INTEGRATION_PRIVATE_20261031/P03_20261031T163047Z/G1_RED.log",
+      "sha256": "d56d06c26ed7f4cf124f2a0ddc5519093fe61361cc630380f7f44fa8d3820fb1"
+    },
+    {
+      "private_path": "/home/l/projects/META_INTEGRATION_PRIVATE_20261031/P03_20261031T163047Z/G1_GREEN.log",
+      "sha256": "71d15827b580b8816052f8c7b842a17a2b65320135cab78045b13d7afceddf0f"
+    },
+    {
+      "private_path": "/home/l/projects/META_INTEGRATION_PRIVATE_20261031/P03_20261031T163047Z/G1_INTEGRITY_RED.log",
+      "sha256": "d41a29a42a77eb4dca2ba85dc69955e22cc030351bf73a0834f50e2935004e60"
+    },
+    {
+      "private_path": "/home/l/projects/META_INTEGRATION_PRIVATE_20261031/P03_20261031T163047Z/G1_INTEGRITY_GREEN.log",
+      "sha256": "3f1189e878a1f60444aa6841b4063715004c8e847758afd8148f32ecb8bc32ce"
+    },
+    {
+      "private_path": "/home/l/projects/META_INTEGRATION_PRIVATE_20261031/P03_20261031T163047Z/G2_RED.log",
+      "sha256": "ed1c748c46315e59e91e3d6a2439118a6a6764c3a06c6f4b965fdea896b52f5c"
+    },
+    {
+      "private_path": "/home/l/projects/META_INTEGRATION_PRIVATE_20261031/P03_20261031T163047Z/G2_GREEN.log",
+      "sha256": "eb18d0a093b633051d89e39304a14e1aa7c2d99febcc24e7147deaaaa6c52eb5"
+    },
+    {
+      "private_path": "/home/l/projects/META_INTEGRATION_PRIVATE_20261031/P03_20261031T163047Z/G3_RED.log",
+      "sha256": "7bc0cd13026b93aac9fec9462fe17a6ce8a96b48353bddfaa05f54f17c0775b8"
+    },
+    {
+      "private_path": "/home/l/projects/META_INTEGRATION_PRIVATE_20261031/P03_20261031T163047Z/G3_GREEN.log",
+      "sha256": "f620e5b4957098d8683bfa12ef11ed7f07ff5287114ec84623989f90a74fdac9"
+    },
+    {
+      "private_path": "/home/l/projects/META_INTEGRATION_PRIVATE_20261031/P03_20261031T163047Z/G4_NODE_RED.log",
+      "sha256": "2fe7c7844d653b5382ac4e5c59b026f5468d7490e0d5aacfb858e2f7dd0c7e88"
+    },
+    {
+      "private_path": "/home/l/projects/META_INTEGRATION_PRIVATE_20261031/P03_20261031T163047Z/G4_NODE_GREEN.log",
+      "sha256": "771a27a2b39ad558f20cc85e285c459dceade6570b717484fb429d6e1b5cf692"
+    },
+    {
+      "private_path": "/home/l/projects/META_INTEGRATION_PRIVATE_20261031/P03_20261031T163047Z/G4_WEB_RED.log",
+      "sha256": "243f00ef8cbe6d85351ce73666737e020c5f94f304d25b02c8728b5dda333749"
+    },
+    {
+      "private_path": "/home/l/projects/META_INTEGRATION_PRIVATE_20261031/P03_20261031T163047Z/G4_WEB_GREEN.log",
+      "sha256": "da11f56e4b69e5a78dbafdc4c283613ff57e586e894348a1342de7857610912c"
+    },
+    {
+      "private_path": "/home/l/projects/META_INTEGRATION_PRIVATE_20261031/P03_20261031T163047Z/REVIEW_RECEIPT_RED.log",
+      "sha256": "51cc0cf27a80b5fb39fff8c4535ecaa1b4093e0d4153b9ee5682dfc6b9916ff1"
+    },
+    {
+      "private_path": "/home/l/projects/META_INTEGRATION_PRIVATE_20261031/P03_20261031T163047Z/REVIEW_R3_PRECONDITION_RED.log",
+      "sha256": "0f1b10b516b29f3fd6b3347385f91df5c692c7f78d7139d1cc444a232d3bfdfb"
+    },
+    {
+      "private_path": "/home/l/projects/META_INTEGRATION_PRIVATE_20261031/P03_20261031T163047Z/REVIEW_RECEIPT_GREEN_FINAL.log",
+      "sha256": "90218a49388decbb9cbdc8e42e0afdea9d901bfb927d3cb7301613558959bda0"
+    },
+    {
+      "private_path": "/home/l/projects/META_INTEGRATION_PRIVATE_20261031/P03_20261031T163047Z/REVIEW_PROCESS_RED.log",
+      "sha256": "b3ac46559a8d6ac7d4ea07eaed836291ea9d9b93c498024a5a3902c9e7b16953"
+    },
+    {
+      "private_path": "/home/l/projects/META_INTEGRATION_PRIVATE_20261031/P03_20261031T163047Z/REVIEW_PROCESS_GREEN.log",
+      "sha256": "3b67ba631909235954c294a8798da9d9b8a02f9b12a9e85dedd21938850337a0"
+    },
+    {
+      "private_path": "/home/l/projects/META_INTEGRATION_PRIVATE_20261031/P03_20261031T163047Z/REVIEW_UI_RED.log",
+      "sha256": "3ea1d23e511752f9fa16f3b44c234ce45db45938a8314209f7ea71ee12d4469f"
+    },
+    {
+      "private_path": "/home/l/projects/META_INTEGRATION_PRIVATE_20261031/P03_20261031T163047Z/REVIEW_UI_GREEN.log",
+      "sha256": "43d6e8fb97b0cd378e25953c9b078fc0e10ff5771a23129762485dfab24672f2"
+    },
+    {
+      "private_path": "/home/l/projects/META_INTEGRATION_PRIVATE_20261031/P03_20261031T163047Z/META_SEALED.log",
+      "sha256": "b7925d60bcc27f8dd2bcd095ba28cec57d81790c38c2c046f0881618263e2a6b"
+    },
+    {
+      "private_path": "/home/l/projects/META_INTEGRATION_PRIVATE_20261031/P03_20261031T163047Z/NODE_SEALED.log",
+      "sha256": "01d9afb26a3410ca6e64a79a25efa036d086c5c99a7413cb790911c1a7c6e3aa"
+    },
+    {
+      "private_path": "/home/l/projects/META_INTEGRATION_PRIVATE_20261031/P03_20261031T163047Z/CORE_SEALED.log",
+      "sha256": "e82e61e04b8801aeb1a6798cf72eb9525e0861f8fb9cd170a8f111f71d6e3e9f"
+    },
+    {
+      "private_path": "/home/l/projects/META_INTEGRATION_PRIVATE_20261031/P03_20261031T163047Z/MCP_SEALED.log",
+      "sha256": "d1bb8bb576314e10257392016c297ccf9c79860524b8a96e8ae54ac62d31be3b"
+    },
+    {
+      "private_path": "/home/l/projects/META_INTEGRATION_PRIVATE_20261031/P03_20261031T163047Z/JS_SEALED.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "private_path": "/home/l/projects/META_INTEGRATION_PRIVATE_20261031/P03_20261031T163047Z/DIFF_SEALED.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "private_path": "/home/l/projects/META_INTEGRATION_PRIVATE_20261031/P03_20261031T163047Z/SEALED_QA.json",
+      "sha256": "0ae48f81d214e0b7a4f7f5590302848214daaaaf6efe7d553af522f05ebc0f43"
+    },
+    {
+      "private_path": "/home/l/projects/META_INTEGRATION_PRIVATE_20261031/P03_20261031T163047Z/LEGACY_QA.json",
+      "sha256": "3dcd2309b6af92c497bc84ba3b0cfd01b665c29891a62771b21cbc38fd8e867d"
+    },
+    {
+      "private_path": "/home/l/projects/META_INTEGRATION_PRIVATE_20261031/P03_20261031T163047Z/INDEPENDENT_REVIEW.md",
+      "sha256": "80bdb842e88964fb0abe22559bf082c2dfd9ae85b7c8a3de7982669746000fdc"
+    },
+    {
+      "private_path": "/home/l/projects/META_INTEGRATION_PRIVATE_20261031/P03_20261031T163047Z/REVIEW_CLOSURE.json",
+      "sha256": "ec7c4333ddca5de7b7698b9b720eb39243bf056c496181c65a358526d3338b59"
+    },
+    {
+      "private_path": "/home/l/projects/META_INTEGRATION_PRIVATE_20261031/P03_20261031T163047Z/PRESERVATION_FINAL.json",
+      "sha256": "17ae7ee702f0a417ee4a4407af4099b02a8a941cb7b36576d509cd928e0307e3"
+    },
+    {
+      "private_path": "/home/l/projects/META_INTEGRATION_PRIVATE_20261031/P03_20261031T163047Z/CODE_SEALS_FINAL.json",
+      "sha256": "d39f974a7820d120bdcd46746396d15a816900acda2baed978411aef7ab2b104"
+    },
+    {
+      "private_path": "/home/l/projects/META_INTEGRATION_PRIVATE_20261031/P03_20261031T163047Z/SOURCE_MAP_SEALS.json",
+      "sha256": "5e2dbd0852a3433f61a7b9a561cc48d3d16abca3144828ca7daa5d7081543213"
+    },
+    {
+      "private_path": "/home/l/projects/META_INTEGRATION_PRIVATE_20261031/P03_20261031T163047Z/HTTP_SEALED/HTTP_E2E_PROOF.json",
+      "sha256": "ba84851af77e829335009b6d9222429a693222cfed972e9018e511c96b3b22b1"
+    },
+    {
+      "private_path": "/home/l/projects/META_INTEGRATION_PRIVATE_20261031/P03_20261031T163047Z/CHROME_NARROW_SEALED/CHROME_UI_PROOF.json",
+      "sha256": "4f84b17b584a1133e035b1745d2f8470911488b36866250a39cddaf829f3142e"
+    },
+    {
+      "private_path": "/home/l/projects/META_INTEGRATION_PRIVATE_20261031/P03_20261031T163047Z/CHROME_NARROW_SEALED/ui.png",
+      "sha256": "fb32313e11bc8ffbd5310a1660e630b64cedb4622f8462a5eae2d5464ac8279e"
+    },
+    {
+      "private_path": "/home/l/projects/META_INTEGRATION_PRIVATE_20261031/P03_20261031T163047Z/CHROME_WIDE_SEALED/CHROME_UI_PROOF.json",
+      "sha256": "d4891aa6aaf864857e7327e81809824d032b5e4b98d5c0040524e61369f67533"
+    },
+    {
+      "private_path": "/home/l/projects/META_INTEGRATION_PRIVATE_20261031/P03_20261031T163047Z/CHROME_WIDE_SEALED/ui.png",
+      "sha256": "57f45d88e654eeca054ff1cc37c39a437cb6e4b6ea2a6f59cf08a6228670107a"
+    }
+  ],
+  "limitations": [
+    "No actual Meta API/Billing response or production owner source verified",
+    "No authorized public browser egress or exact-origin approval",
+    "Observed narrow CSS width500 is not390CSS or a physical Android test",
+    "No independent re-review of final fix-pass bytes",
+    "No film, APK, push, deployment or submission"
+  ],
+  "official_references": [
+    "https://dev.meta.ai/docs/protocols/chat-completions",
+    "https://dev.meta.ai/docs/pricing-rate-limits",
+    "https://developer.chrome.com/docs/automation-and-testing/headless"
+  ]
+}

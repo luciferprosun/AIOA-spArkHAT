@@ -187,5 +187,90 @@ class MetaReceiptTests(unittest.TestCase):
         self.assertEqual(request.digest,after['last_live_receipt']['request_digest'])
         self.assertEqual('not granted',after['spend_permission'])
 
+    def corrupt(self,binding,kind,identity,change):
+        from runtime.memory_patch.persistence.ports import StoredRecord
+        factory=binding.ledger.runner._factory
+        key=(binding.ledger.scope.binding(),kind,identity);row=factory.state[key]
+        data=json.loads(canonical_json_bytes(row.payload));change(data)
+        factory.state[key]=StoredRecord(kind,identity,row.scope,row.revision,data)
+
+    def test_review_r1_unknown_receipt_fields_and_invalid_cost_never_escape(self):
+        from runtime.memory_patch.persistence.ports import RecordKind
+        for mutation in ('extra_receipt','invalid_cost'):
+            with self.subTest(mutation=mutation):
+                request,binding,provider,raw=self.live();self.invoke(request,binding,provider,raw=raw)
+                if mutation=='extra_receipt':
+                    self.corrupt(binding,RecordKind.RECEIPT,'meta-api-'+request.digest,
+                                 lambda value:value.update(Authorization='LEAK_MARKER_PRIVATE'))
+                else:
+                    self.corrupt(binding,RecordKind.OPERATION,'meta-api-attempt-'+request.digest,
+                                 lambda value:value.update(cost_estimate='LEAK_MARKER_PRIVATE'))
+                projected=provider.diagnostics()
+                self.assertNotIn('LEAK_MARKER_PRIVATE',json.dumps(projected))
+                self.assertEqual('UNKNOWN',projected['call_state'])
+                self.assertIsNone(projected['last_live_receipt'])
+
+    def test_review_r2_coordinated_public_binding_substitution_is_not_approved(self):
+        from runtime.memory_patch.persistence.ports import RecordKind
+        request,binding,provider,raw=self.live();self.invoke(request,binding,provider,raw=raw)
+        def mutate(data):
+            data['binding']['correlation_id']='another-correlation'
+            data['binding']['allowed_origins']=['https://evil.example']
+        self.corrupt(binding,RecordKind.OPERATION,'meta-api-attempt-'+request.digest,mutate)
+        self.corrupt(binding,RecordKind.RECEIPT,'meta-api-'+request.digest,mutate)
+        value=provider.diagnostics()
+        self.assertEqual('UNKNOWN',value['call_state'])
+        self.assertIsNone(value['last_live_receipt'])
+
+    def test_review_r3_last_receipt_survives_new_failed_attempt_and_restart(self):
+        from runtime.memory_patch.contracts.serialization import canonical_sha256
+        from runtime.mission.warrant import approval_digest
+        for failure in (401,'timeout'):
+            with self.subTest(failure=failure):
+                first,binding,provider,raw=self.live();self.invoke(first,binding,provider,raw=raw)
+                second=replace(first,task=replace(first.task,task_id='meta-second'),correlation_id='second-correlation')
+                operation={'operation_class':binding.warrant.operation_class,
+                    'target_fingerprint':'sha256:'+canonical_sha256(self.api.ENDPOINT),
+                    'expected_target_revision':second.task.source_sha,
+                    'payload':{'request_digest':second.digest,'task_digest':second.task.digest,
+                        'owner_scope_digest':second.task.owner_scope_digest,'model_id':self.api.MODEL,
+                        'provider_id':self.api.PROVIDER,'endpoint':self.api.ENDPOINT,'max_attempts':1}}
+                if binding.warrant.operation_class=='META_MODEL_PLAN_V2':
+                    operation['payload']['public_binding_digest']=canonical_sha256(second.public_binding())
+                reservation=replace(binding.reservation,request_id='second-spend',task_id='meta-second',
+                                    request_digest=canonical_sha256(operation))
+                binding.governor.reserve(binding.principal,reservation,binding.warrant.lease_epoch)
+                warrant=replace(binding.warrant,warrant_id='second-warrant',task_id='meta-second',nonce='second-nonce',
+                    operation_class=operation['operation_class'],operation_hash='sha256:'+canonical_sha256(operation),
+                    authority_scope=replace(binding.warrant.authority_scope,operation_classes=(operation['operation_class'],),task_scope='meta-second'),
+                    money_reservation_id=reservation.request_id,risk_reservation_id=reservation.request_id)
+                warrant=replace(warrant,approval_digest=approval_digest(warrant))
+                binding.ledger.approve(binding.ledger.core.local_operator(Capability.OWNER_APPROVAL),warrant)
+                next_binding=replace(binding,warrant=warrant,reservation=reservation)
+                with self.assertRaises(Exception):
+                    self.invoke(second,next_binding,provider,status=401 if failure==401 else 200,
+                                error=TimeoutError() if failure=='timeout' else None)
+                restarted=self.api.MetaModelProvider(receipt_view=provider.receipt_view)
+                projected=restarted.diagnostics()
+                self.assertEqual('FAILED' if failure==401 else 'UNKNOWN',projected['call_state'])
+                self.assertEqual(second.digest,projected['last_attempt']['request_digest'])
+                self.assertIsNotNone(projected['last_live_receipt'])
+                self.assertEqual(first.digest,projected['last_live_receipt']['request_digest'])
+                self.assertEqual('not granted',projected['spend_permission'])
+
+    def test_review_m2_non_usd_warrant_is_rejected_before_credentials(self):
+        from lab.archaioa.authority import Money
+        from decimal import Decimal
+        from runtime.mission.warrant import approval_digest
+        request,binding,provider,raw=self.live()
+        warrant=replace(binding.warrant,warrant_id='euro-warrant',nonce='euro-nonce',
+            authority_scope=replace(binding.warrant.authority_scope,monetary_ceiling=Money(Decimal('.05'),'EUR')))
+        warrant=replace(warrant,approval_digest=approval_digest(warrant))
+        binding.ledger.approve(binding.ledger.core.local_operator(Capability.OWNER_APPROVAL),warrant)
+        with patch.object(self.api,'load_private_key') as key,patch.object(self.api,'_https_once') as http:
+            with self.assertRaisesRegex(self.api.MetaAPIError,'CURRENCY'):
+                provider.plan(request,CancellationToken(),live_binding=replace(binding,warrant=warrant))
+        self.assertEqual(0,key.call_count);self.assertEqual(0,http.call_count)
+
 
 if __name__ == '__main__': unittest.main()

@@ -33,7 +33,13 @@ def current_source():
         'runtime/browser_agent/chrome_read_adapter.py', 'runtime/core_admission.py',
         'runtime/providers/config.py', 'runtime/mission/warrant.py', 'runtime/webapp.py',
         'web/app.js', 'web/meta_mission.js', 'web/index.html', 'web/styles.css',
-        'runtime/providers/meta_receipts.py', 'runtime/browser_agent/chrome_process_read.py')
+        'runtime/providers/meta_receipts.py', 'runtime/browser_agent/chrome_process_read.py',
+        'runtime/mission/governor.py', 'runtime/providers/exact.py',
+        'runtime/providers/tool_calling.py', 'runtime/memory_patch/persistence/ports.py',
+        'runtime/memory_patch/contracts/serialization.py', 'runtime/meta_hackathon/contracts.py',
+        'runtime/meta_hackathon/muse_plan.py', 'runtime/meta_hackathon/network_admission.py',
+        'runtime/browser_agent/offline_adapter.py', 'lab/archaioa/warrant.py',
+        'lab/archaioa/authority.py', 'lab/archaioa/decision_root.py')
     capsule = canonical_sha256({p: hashlib.sha256((ROOT/p).read_bytes()).hexdigest() for p in files})
     return sha if len(sha) == 40 else capsule[:40], capsule
 

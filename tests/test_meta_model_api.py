@@ -161,21 +161,22 @@ class MetaModelAPITests(unittest.TestCase):
         epoch = gov.start_epoch(core.local_operator(Capability.MANAGE))
         request = replace(self.request,task=replace(self.request.task,owner_scope_digest=canonical_sha256(scope)))
         if deadline is not None: request=replace(request,task=replace(request.task,deadline_utc=deadline))
-        operation = {'operation_class':'META_MODEL_PLAN_V1',
+        operation = {'operation_class':'META_MODEL_PLAN_V2',
             'target_fingerprint':'sha256:'+canonical_sha256('https://api.meta.ai/v1/chat/completions'),
             'expected_target_revision':request.task.source_sha,
             'payload':{'request_digest':request.digest,'task_digest':request.task.digest,
                 'owner_scope_digest':request.task.owner_scope_digest,'model_id':'muse-spark-1.3',
-                'provider_id':'meta_model_api','endpoint':'https://api.meta.ai/v1/chat/completions','max_attempts':1}}
+                'provider_id':'meta_model_api','endpoint':'https://api.meta.ai/v1/chat/completions','max_attempts':1,
+                'public_binding_digest':canonical_sha256(request.public_binding())}}
         reservation = ReservationRequest('meta-spend',request.task.task_id,'meta_model_api','muse-spark-1.3',
             canonical_sha256(operation),50000000,1)
         commit = core.local_operator(Capability.COMMIT)
         gov.reserve(commit,reservation,epoch)
-        authority = AuthorityScope(operation_classes=('META_MODEL_PLAN_V1',),target_scope=operation['target_fingerprint'],
+        authority = AuthorityScope(operation_classes=('META_MODEL_PLAN_V2',),target_scope=operation['target_fingerprint'],
             risk_ceiling=RiskLevel.MODERATE,monetary_ceiling=Money(Decimal('.05'),'USD'),
             not_before=now,expires_at=now+timedelta(minutes=1),owner_scope=request.task.owner_scope_digest,task_scope=request.task.task_id)
         warrant = EffectWarrant(warrant_id='meta-warrant',task_id=request.task.task_id,
-            owner_scope=request.task.owner_scope_digest,operation_class='META_MODEL_PLAN_V1',
+            owner_scope=request.task.owner_scope_digest,operation_class='META_MODEL_PLAN_V2',
             operation_hash='sha256:'+canonical_sha256(operation),target_fingerprint=operation['target_fingerprint'],
             expected_target_revision=request.task.source_sha,revision_policy=RevisionPolicy.REQUIRE,
             decision_dependency_root=DecisionDependencyRoot((EvidenceRef('task','task','sha256:'+request.task.digest,'v1'),)),

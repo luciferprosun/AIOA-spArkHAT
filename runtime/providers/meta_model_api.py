@@ -33,6 +33,21 @@ KEY_FILE = Path('/home/l/.config/aioa/secrets/meta_api_key')
 MAX_BODY = 65536
 INPUT_PRICE = Decimal('1.25')
 OUTPUT_PRICE = Decimal('4.25')
+SPEND_OPERATION = 'META_MODEL_PLAN_V2'
+
+
+def spend_operation(request_digest, binding):
+    """V2 seals the redacted readback as well as the private request digest.
+
+    V1 warrants fail closed; never reinterpret a historical approval as V2.
+    """
+    return {'operation_class': SPEND_OPERATION,
+        'target_fingerprint': 'sha256:'+canonical_sha256(ENDPOINT),
+        'expected_target_revision': binding['source_sha'],
+        'payload': {'request_digest':request_digest, 'task_digest':binding['task_digest'],
+            'owner_scope_digest':binding['owner_scope_digest'], 'model_id':MODEL,
+            'provider_id':PROVIDER, 'endpoint':ENDPOINT, 'max_attempts':1,
+            'public_binding_digest':canonical_sha256(binding)}}
 
 
 class MetaAPIError(ValueError):
@@ -103,7 +118,9 @@ class MetaPlanRequest:
             'owner_scope_digest': self.task.owner_scope_digest, 'source_sha': self.task.source_sha,
             'provider_id': PROVIDER, 'model_id': MODEL, 'deadline': self.task.deadline_utc,
             'budget_usd': self.budget_usd, 'allowed_origins': list(self.task.allowed_origins),
-            'correlation_id': self.correlation_id, 'capsule_digest': self.capsule_digest, 'stopped': False}
+            'correlation_id': self.correlation_id, 'capsule_digest': self.capsule_digest, 'stopped': False,
+            'max_output_tokens': self.max_output_tokens, 'timeout_seconds': self.timeout_seconds,
+            'input_token_bound': len(canonical_json_bytes(self.payload()))+512, 'max_attempts': 1}
 
     def payload(self):
         require(type(self.task) is BrowserTaskV1 and type(self.instruction) is str
@@ -190,13 +207,9 @@ class MetaLiveBinding:
         require(MODEL in self.principal.model_binding_ids, 'META_MODEL_NOT_ADMITTED')
         require(self.governor.core is core and self.governor.runner is self.ledger.runner
                 and self.governor.policy.scope == self.ledger.scope, 'META_NATIVE_AUTHORITY_NOT_BOUND')
-        operation = {'operation_class': 'META_MODEL_PLAN_V1',
-            'target_fingerprint': 'sha256:'+canonical_sha256(ENDPOINT),
-            'expected_target_revision': request.task.source_sha,
-            'payload': {'request_digest': request.digest, 'task_digest': request.task.digest,
-                'owner_scope_digest': request.task.owner_scope_digest, 'model_id': MODEL,
-                'provider_id': PROVIDER, 'endpoint': ENDPOINT, 'max_attempts': 1}}
+        operation = spend_operation(request.digest, request.public_binding())
         w, r = self.warrant, self.reservation
+        require(w.authority_scope.monetary_ceiling.currency == 'USD', 'META_SPEND_CURRENCY_MISMATCH')
         require(w.task_id == request.task.task_id and w.operation_class == operation['operation_class']
             and w.operation_hash == 'sha256:'+canonical_sha256(operation)
             and w.target_fingerprint == operation['target_fingerprint']
