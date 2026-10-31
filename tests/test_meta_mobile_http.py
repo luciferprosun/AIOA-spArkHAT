@@ -76,6 +76,13 @@ class MobileHTTPTests(unittest.TestCase):
         args=self.signed('POST','/stop',{'task_id':next_task['task_id']})
         self.assertEqual('STOPPED',self.request(*args)[1]['data']['state'])
         self.assertEqual(409,self.request(*args)[0]);self.assertEqual(1,self.composition.driver.read_count)
+        self.evidence_summary={'schema':'aioa.mobile.fixture-demo.v1','status':'HOST_GATEWAY_MOBILE_FIXTURE_PASS',
+            'task_id':task['task_id'],'task_digest':task['task_digest'],'source_sha':task['source_sha'],
+            'capsule_digest':task['capsule_digest'],'owner_scope_digest':task['owner_scope_digest'],
+            'model_id':result['model_id'],'provider_id':result['provider_id'],'receipt':result['receipt'],
+            'core_warrant_consumed':True,'fixture_reads':1,'signature_verification':'PASS',
+            'second_task_stop':'STOPPED','replay_http_status':409,'verified':False,'live_verified':False,
+            'phone_paired':False,'paid_calls':0,'public_browser_calls':0,'listener':'LOOPBACK_DYNAMIC_TEST_ONLY'}
 
     def test_http_csrf_cors_wrong_host_duplicate_header_and_loopback_token_are_denied(self):
         for headers in ({'Origin':'https://evil.invalid'},{'Sec-Fetch-Site':'cross-site'}, {'Host':'evil.invalid'}):
@@ -144,6 +151,18 @@ class MobileHTTPTests(unittest.TestCase):
         self.gateway=self.make_gateway()
         self.service.mobile_gateway=self.gateway;self.service.meta_missions=self.composition.missions
         self.assertEqual(409,self.request(*args)[0]);self.assertEqual(200,self.call('GET','/status')[0])
+
+    def test_crash_after_host_approval_before_worker_dispatch_stays_unknown(self):
+        task,_=self.preview();raw=self.composition.missions.evidence(task['task_id'],self.reader)
+        with patch('runtime.meta_hackathon.mission_service.threading.Thread'):
+            run=self.composition.missions.run(task['task_id'],raw['preview_digest'],self.owner)
+            self.assertEqual('RUNNING',run['state']);self.composition.missions.close()
+        module=importlib.import_module('runtime.meta_hackathon.mission_service')
+        self.composition.missions=module.MissionService(self.composition.ledger,self.composition.manager,
+            self.composition.browser,lambda:tuple(self.source))
+        self.gateway=self.make_gateway();self.service.mobile_gateway=self.gateway
+        self.assertEqual('UNKNOWN',self.call('GET','/evidence/'+task['task_id'])[1]['data']['state'])
+        self.assertEqual(0,self.composition.driver.read_count)
 
 
 if __name__=='__main__':unittest.main()

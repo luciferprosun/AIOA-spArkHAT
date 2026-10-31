@@ -1,0 +1,175 @@
+{
+  "apk_built": false,
+  "build_command": [
+    "./gradlew",
+    "--offline",
+    "--no-daemon",
+    "--max-workers=1",
+    "testDebugUnitTest",
+    "lintDebug",
+    "assembleDebug"
+  ],
+  "command_cwd": "clients/android",
+  "files": [
+    {
+      "bytes": 74,
+      "executable": false,
+      "path": "clients/android/.gitignore",
+      "sha256": "82688737f158ce5a96f161d4f63ffac33475ecaa8e800c7fce91b988df0bb90f"
+    },
+    {
+      "bytes": 1209,
+      "executable": false,
+      "path": "clients/android/NOTICE.md",
+      "sha256": "c4e0c0b1d4ebac4be5ff168b9b32ad32d2c9f3b5e44f57c6fed2c437549be6da"
+    },
+    {
+      "bytes": 1946,
+      "executable": false,
+      "path": "clients/android/README.md",
+      "sha256": "8df60fe302565a375b09631fc0d34375e0846e3032a33f66dbfc1e13451430c7"
+    },
+    {
+      "bytes": 1437,
+      "executable": false,
+      "path": "clients/android/app/build.gradle.kts",
+      "sha256": "4470796ebbcd206a138b64271fb791bc84a1724d09bc252ecac93bc99e7e6874"
+    },
+    {
+      "bytes": 882,
+      "executable": false,
+      "path": "clients/android/app/src/main/AndroidManifest.xml",
+      "sha256": "7d9aa3b8434cac4ff632f5157a0584c721fdc013fda7f4fe12904e3856645e0a"
+    },
+    {
+      "bytes": 493,
+      "executable": false,
+      "path": "clients/android/app/src/main/java/eu/sparkhat/aioa/companion/Freshness.kt",
+      "sha256": "234bc1d63fa6987b4fcbf244c27170a387d965618648790cf35cba001d9a67d6"
+    },
+    {
+      "bytes": 5800,
+      "executable": false,
+      "path": "clients/android/app/src/main/java/eu/sparkhat/aioa/companion/MainActivity.kt",
+      "sha256": "bca92c14372435a2f1c5be26ea3499b56090ef799405ddf8dab06d4afc82b7bc"
+    },
+    {
+      "bytes": 5565,
+      "executable": false,
+      "path": "clients/android/app/src/main/java/eu/sparkhat/aioa/companion/MissionViewModel.kt",
+      "sha256": "70443d7fd1f903ab996803c4efc098d07ea375ceac42a90dee1a5e95438989c7"
+    },
+    {
+      "bytes": 10870,
+      "executable": false,
+      "path": "clients/android/app/src/main/java/eu/sparkhat/aioa/companion/MobileClient.kt",
+      "sha256": "0f4a38db2fbf755581638386a8d8c24511f15a253cd792be041e88bc6130dfcd"
+    },
+    {
+      "bytes": 1414,
+      "executable": false,
+      "path": "clients/android/app/src/main/java/eu/sparkhat/aioa/companion/TransportIdentity.kt",
+      "sha256": "35196f93e6220fe1544c05e0b606aead1a5f5030eb32a11c394fab8903cad14f"
+    },
+    {
+      "bytes": 5399,
+      "executable": false,
+      "path": "clients/android/app/src/main/java/eu/sparkhat/aioa/companion/Wire.kt",
+      "sha256": "00d0c2c2504ee62893b4769ea20f683cf4381316d730df975c2ea7507ca6d7d6"
+    },
+    {
+      "bytes": 635,
+      "executable": false,
+      "path": "clients/android/app/src/main/res/xml/data_extraction_rules.xml",
+      "sha256": "aa78fd133cebec0e7fcc8d75a03549f3579e6ba746e5014243e639c3321d9c52"
+    },
+    {
+      "bytes": 232,
+      "executable": false,
+      "path": "clients/android/app/src/main/res/xml/network_security_config.xml",
+      "sha256": "eb5f5c57a88fc656cb97ee142694b996b286064ba973e51e0158bcdff08b34f2"
+    },
+    {
+      "bytes": 2459,
+      "executable": false,
+      "path": "clients/android/app/src/test/java/eu/sparkhat/aioa/companion/WireContractTest.kt",
+      "sha256": "d67440922eef056b4424441aeb04f54c8405c87af9072edbcf7a31b7e64cffaa"
+    },
+    {
+      "bytes": 218,
+      "executable": false,
+      "path": "clients/android/build.gradle.kts",
+      "sha256": "8e4147210ecae92f54658e8124258a535d17037af1572abaeaf7e67fc99ac1f9"
+    },
+    {
+      "bytes": 43705,
+      "executable": false,
+      "path": "clients/android/gradle/wrapper/gradle-wrapper.jar",
+      "sha256": "81a82aaea5abcc8ff68b3dfcb58b3c3c429378efd98e7433460610fecd7ae45f"
+    },
+    {
+      "bytes": 338,
+      "executable": false,
+      "path": "clients/android/gradle/wrapper/gradle-wrapper.properties",
+      "sha256": "3b6b8df392b92f86332d907707f3d952a32c8d6e1fedabafe2b5ec3d933a78c4"
+    },
+    {
+      "bytes": 152,
+      "executable": false,
+      "path": "clients/android/gradle.properties",
+      "sha256": "3eac74024f7dc3d38a9850f0d3e35abde7bba2fa95410a33abb2750f2613fe87"
+    },
+    {
+      "bytes": 377,
+      "executable": true,
+      "path": "clients/android/gradlew",
+      "sha256": "704b2ab90a98363b95a164faa9b3b827caa514943e4e8cbfe313eaca77beba41"
+    },
+    {
+      "bytes": 10174,
+      "executable": false,
+      "path": "clients/android/licenses/gradle-wrapper-LICENSE.txt",
+      "sha256": "0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594"
+    },
+    {
+      "bytes": 282,
+      "executable": false,
+      "path": "clients/android/settings.gradle.kts",
+      "sha256": "a81ae640ac379e50e2f34760db1dfcf5761b6d2a517c9faac97dbe1fde9aed97"
+    }
+  ],
+  "gradle_distribution_sha256": "20f1b1176237254a6fc204d8434196fa11a4cfb387567519c61556e8710aed78",
+  "gradle_wrapper_sha256": "81a82aaea5abcc8ff68b3dfcb58b3c3c429378efd98e7433460610fecd7ae45f",
+  "not_run": [
+    "Gradle",
+    "Kotlin/JVM",
+    "Android lint",
+    "assembleDebug",
+    "apksigner",
+    "physical device"
+  ],
+  "package": "eu.sparkhat.aioa.companion",
+  "phone_installed": false,
+  "preconditions": [
+    "independently verify complete local JDK17/SDK36/build-tools35.0.0",
+    "verify Gradle8.13 cache before wrapper invocation; wrapper may otherwise download",
+    "verify dependency cache, signing continuity and free RAM/disk",
+    "owner decision required for any phone installation; no automatic ADB"
+  ],
+  "required_toolchain": {
+    "android_gradle_plugin": "8.11.1",
+    "build_tools": "35.0.0",
+    "compile_sdk": 36,
+    "gradle": "8.13",
+    "jdk": 17,
+    "kotlin": "2.2.21",
+    "min_sdk": 26,
+    "target_sdk": 36
+  },
+  "schema": "aioa.android.build-inputs.v1",
+  "source_baseline": "7387d823f38d1bc4ca964788ae11441d29b6ae6e",
+  "status": "APK_BUILD_BLOCKED_TOOLCHAIN",
+  "verification_reference": "https://gradle.org/release-checksums/",
+  "version_code": 2,
+  "version_name": "0.2.0-n1"
+}

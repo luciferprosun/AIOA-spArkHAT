@@ -9,7 +9,7 @@ import unittest
 from pathlib import Path
 
 from cryptography.hazmat.primitives.asymmetric import ec
-from runtime.core_admission import Capability
+from runtime.core_admission import AdmissionError, Capability
 from runtime.meta_hackathon.runtime_adapter import OfflineMetaComposition
 from runtime.browser_agent.offline_adapter import FIXTURE_URL
 from runtime.mobile_gateway import wire
@@ -20,7 +20,7 @@ class MobileGatewayTests(unittest.TestCase):
         self.assertIsNotNone(importlib.util.find_spec('runtime.mobile_gateway.service'), 'gateway missing')
         self.Gateway = importlib.import_module('runtime.mobile_gateway.service').MobileGateway
         self.tmp = tempfile.TemporaryDirectory()
-        self.source = ['a'*40, 'b'*64]
+        self.source = list(getattr(self, 'fixture_source', ('a'*40, 'b'*64)))
         self.composition = OfflineMetaComposition(Path(self.tmp.name)/'core', delay_seconds=.15,
                                                  source_probe=lambda: tuple(self.source))
         self.now = [int(time.time())]
@@ -98,7 +98,8 @@ class MobileGatewayTests(unittest.TestCase):
         self.assertFalse(response['capabilities']['run']);self.assertFalse(response['capabilities']['meta_spend'])
 
     def test_only_host_owner_can_issue_prebound_one_time_enrollment(self):
-        with self.assertRaises(Exception):self.gateway.issue_enrollment(self.reader,self.device.spki)
+        for principal in (self.reader,None,object()):
+            with self.assertRaises(AdmissionError):self.gateway.issue_enrollment(principal,self.device.spki)
         code=self.gateway.issue_enrollment(self.owner,self.device.spki,ttl=1)
         self.now[0]+=2
         p=dict(code=code,device_spki=self.device.spki,nonce=secrets.token_hex(16),issued_at=self.now[0],
@@ -173,6 +174,26 @@ class MobileGatewayTests(unittest.TestCase):
         for data in [dict(proposal_id=secrets.token_hex(16),instruction='x',mode='OFFLINE_FIXTURE',target_url='https://evil.invalid'),
                      dict(proposal_id=secrets.token_hex(16),instruction='x',mode='OFFLINE_FIXTURE',target_url=FIXTURE_URL,owner_approved=True)]:
             self.assertIn(self.call('POST','/preview',data)[0],(400,403))
+
+    def test_expired_session_is_denied_even_with_fresh_valid_request_signature(self):
+        self.now[0]+=601
+        self.assertEqual(401,self.call('GET','/status')[0])
+
+    def test_stolen_code_cannot_be_rebound_to_another_signing_key(self):
+        code=self.gateway.issue_enrollment(self.owner,self.device.spki)
+        other=wire.Identity(ec.generate_private_key(ec.SECP256R1()))
+        data=dict(code=code,device_spki=other.spki,nonce=secrets.token_hex(16),issued_at=self.now[0],
+            audience=self.host.audience,source_sha=self.source[0],capsule_digest=self.source[1])
+        data['signature']=other.sign(self.gateway.enrollment_proof(data))
+        self.assertEqual(401,self.gateway.handle('POST',wire.BASE+'/enrollment/redeem',{},wire.canonical(data))[0])
+
+    def test_core_records_do_not_store_code_token_or_instruction(self):
+        code=self.gateway.issue_enrollment(self.owner,self.device.spki)
+        text='N1_PRIVATE_FIXTURE_INSTRUCTION_NOT_IN_AUDIT'
+        self.assertEqual(200,self.call('POST','/preview',dict(proposal_id=secrets.token_hex(16),instruction=text,
+            mode='OFFLINE_FIXTURE',target_url=FIXTURE_URL))[0])
+        state=(self.composition.root/'core-records.json').read_text()
+        for secret in (code,self.token,text):self.assertNotIn(secret,state)
 
 
 if __name__=='__main__':unittest.main()
