@@ -269,16 +269,27 @@ def _https_once(payload, key, cancel, timeout):
 
 
 class MetaModelProvider:
-    def __init__(self, *, mode='DISABLED', transport=None, key_path=KEY_FILE):
+    def __init__(self, *, mode='DISABLED', transport=None, key_path=KEY_FILE, receipt_view=None):
         require(mode in ('DISABLED', 'MOCK', 'LIVE'))
         require(mode != 'MOCK' or callable(transport))
         require(mode != 'LIVE' or transport is None)
+        from .meta_receipts import MetaReceiptView
+        require(receipt_view is None or type(receipt_view) is MetaReceiptView)
         self.mode, self.transport, self.key_path = mode, transport, Path(key_path)
+        self.receipt_view, self._active_attempt_id = receipt_view, None
 
-    def diagnostics(self):
+    def diagnostics(self, *, receipt_view=None):
+        from .meta_receipts import MetaReceiptView
+        view = receipt_view if receipt_view is not None else self.receipt_view
+        require(view is None or type(view) is MetaReceiptView)
+        observation = view.snapshot(active_attempt_id=self._active_attempt_id) if view is not None else {
+            'call_state': 'NOT_ATTEMPTED', 'last_live_receipt': None, 'last_attempt': None,
+            'billing_status': 'UNVERIFIED', 'credits_confirmed': False, 'cost_estimate': None,
+            'settled_cost': None, 'budget_ledger_state': None}
         return {'provider_id': PROVIDER, 'model_id': MODEL, 'authority': 'ADVISORY_ONLY',
             'key_configured': key_metadata(self.key_path)['configured'], 'transport': self.mode.lower(),
-            'credit_balance': 'unverified', 'spend_permission': 'not granted', 'last_api_receipt': None,
+            'credit_balance': 'unverified', 'spend_permission': 'not granted',
+            'last_api_receipt': observation['last_live_receipt'], **observation,
             'status': 'LIVE_PENDING_AUTHORIZATION', 'blocked_reason': 'META_API_LIVE_BLOCKED_OWNER_GO',
             'fallback': False}
 
@@ -291,16 +302,27 @@ class MetaModelProvider:
         except (InvalidOperation, ValueError): raise MetaAPIError('META_BUDGET_DENIED') from None
         require(budget.is_finite() and 0 <= budget <= Decimal('0.05'), 'META_BUDGET_DENIED')
         require((self.mode == 'MOCK' and budget == 0) or request.estimate() <= budget, 'META_BUDGET_DENIED')
-        key = None
+        key, records, status = None, None, None
         if self.mode == 'LIVE':
             require(type(live_binding) is MetaLiveBinding, 'META_API_LIVE_BLOCKED_OWNER_GO')
             live_binding.check(request)
-            key = load_private_key(self.key_path)
-            require(key not in canonical_json_bytes(payload).decode(), 'META_CREDENTIAL_IN_PAYLOAD')
-            live_binding.release_once(request)
+            from .meta_receipts import MetaCallRecords, MetaReceiptView
+            self.receipt_view = MetaReceiptView(live_binding.ledger, governor=live_binding.governor,
+                                               source_reader=live_binding.source_reader)
+            records = MetaCallRecords(live_binding)
+            try: self._active_attempt_id = records.admit(request)
+            except Exception: raise MetaAPIError('META_ADMISSION_ACK_UNKNOWN') from None
         try:
+            if self.mode == 'LIVE':
+                key = load_private_key(self.key_path)
+                require(key not in canonical_json_bytes(payload).decode(), 'META_CREDENTIAL_IN_PAYLOAD')
+                require(not cancel.cancelled, 'META_STOPPED')
+                live_binding.release_once(request)
+                records.change(request, 'IN_FLIGHT')
+            started = time.monotonic()
             if self.mode == 'MOCK': status, raw = self.transport(payload, cancel, request.timeout_seconds)
             else: status, raw = _https_once(payload, key, cancel, request.timeout_seconds)
+            require(time.monotonic()-started < request.timeout_seconds, 'META_TIMEOUT_UNKNOWN')
             require(not cancel.cancelled, 'META_STOPPED')
             errors = {401: 'META_AUTH_DENIED', 403: 'META_AUTH_DENIED', 402: 'META_BILLING_UNAVAILABLE',
                       429: 'META_RATE_LIMITED'}
@@ -336,10 +358,17 @@ class MetaModelProvider:
                 'META_API_LIVE_VERIFIED' if self.mode == 'LIVE' else 'META_API_MOCK',
                 str(cost) if self.mode == 'LIVE' else '0', live_verified=self.mode == 'LIVE',
                 binding=request.public_binding())
-            if self.mode == 'LIVE': live_binding.save_receipt(result)
+            if self.mode == 'LIVE': records.change(request, 'COMPLETED', result=result, http_status=status)
             return result
-        except MetaAPIError: raise
-        except TimeoutError: raise MetaAPIError('META_TIMEOUT_UNKNOWN') from None
-        except OSError:
-            raise MetaAPIError('META_STOPPED' if cancel.cancelled else 'META_NETWORK_UNKNOWN') from None
-        except Exception: raise MetaAPIError('META_RESPONSE_INVALID_UNKNOWN') from None
+        except Exception as error:
+            code = (error.code if type(error) is MetaAPIError else
+                    'META_TIMEOUT_UNKNOWN' if isinstance(error, TimeoutError) else
+                    'META_STOPPED' if cancel.cancelled else
+                    'META_NETWORK_UNKNOWN' if isinstance(error, OSError) else 'META_RESPONSE_INVALID_UNKNOWN')
+            if records is not None:
+                state = 'STOPPED' if code == 'META_STOPPED' else 'FAILED' if status in (401,402,403,429) or type(status) is int and status >= 500 else 'UNKNOWN'
+                try: records.change(request, state, http_status=status, error_code=code)
+                except Exception: pass  # Durable pending record projects UNKNOWN; never resend.
+            raise MetaAPIError(code) from None
+        finally:
+            self._active_attempt_id = None

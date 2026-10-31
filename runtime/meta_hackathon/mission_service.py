@@ -23,7 +23,8 @@ from runtime.memory_patch.contracts.serialization import canonical_json_bytes, c
 from runtime.memory_patch.persistence.ports import RecordKind, StoredRecord, TransactionContext
 from runtime.mission.warrant import CoreWarrantLedger, approval_digest
 from runtime.providers.exact import CancellationToken
-from runtime.providers.meta_model_api import MetaPlanRequest, MODEL, PROVIDER, MetaAPIError
+from runtime.providers.meta_model_api import MetaPlanRequest, MetaLiveBinding, MODEL, PROVIDER, MetaAPIError
+from runtime.providers.meta_receipts import MetaReceiptView
 from runtime.providers.tool_calling import ToolCall
 from .contracts import BrowserTaskV1
 from .mission_read_offline import read_operation, run_read_once
@@ -31,7 +32,7 @@ from .offline_receipts import BudgetReservation, MOCK_RESPONSE_SCHEMA, OfflineRe
 from .provider_offline import build_offline_envelope
 
 KIND = 'aioa.meta.mission.v1'
-ACTIVE = frozenset({'PREVIEWED', 'RUNNING'})
+ACTIVE = frozenset({'PREVIEWED', 'RUNNING', 'LIVE_PENDING_AUTHORIZATION'})
 
 
 class MissionState(str, Enum):
@@ -43,11 +44,12 @@ class MissionState(str, Enum):
     UNKNOWN = 'UNKNOWN'
     DENIED = 'DENIED'
     STOPPED = 'STOPPED'
+    BLOCKED = 'BLOCKED'
 
 
 TRANSITIONS = {'PREVIEWED': {'RUNNING', 'UNKNOWN', 'DENIED', 'STOPPED'},
-               'RUNNING': {'OFFLINE_FIXTURE', 'UNKNOWN', 'STOPPED'},
-               'LIVE_PENDING_AUTHORIZATION': {'STOPPED'}}
+               'RUNNING': {'OFFLINE_FIXTURE', 'UNKNOWN', 'STOPPED', 'BLOCKED'},
+               'LIVE_PENDING_AUTHORIZATION': {'RUNNING', 'UNKNOWN', 'DENIED', 'STOPPED'}}
 
 
 class MissionError(ValueError):
@@ -98,6 +100,7 @@ class MissionService:
         self.manager, self.browser, self.source_probe = manager, browser, source_probe
         self._lock = threading.RLock()
         self._workers, self._cancels = {}, {}
+        self._live_bindings = {}
         self._closed = False
         # Pending work is never resumed on restart; old ACKs cannot grant dispatch.
         for row in self._rows():
@@ -173,6 +176,37 @@ class MissionService:
                                 identity, self.scope, 1, record)))
             return plain(record)
 
+    def bind_live_request(self, identity, request, binding):
+        """Native host-only port; no HTTP route mints admission or approvals.
+
+        The host brings an exact, already-approved Core operation. This binds
+        transport data, never creates authority, a reservation or a warrant.
+        """
+        require(type(request) is MetaPlanRequest and type(binding) is MetaLiveBinding,
+                'META_NATIVE_AUTHORITY_NOT_BOUND')
+        require(binding.ledger is self.ledger and self.manager._meta_provider.mode == 'LIVE',
+                'META_NATIVE_AUTHORITY_NOT_BOUND')
+        with self._lock:
+            row = self._get(identity); data = plain(row.payload)
+            require(data['state'] == 'LIVE_PENDING_AUTHORIZATION' and identity not in self._live_bindings)
+            require(request.task.to_dict() == data['task']
+                and request.correlation_id == data['correlation_id']
+                and request.capsule_digest == data['capsule_digest']
+                and hashlib.sha256(request.instruction.encode()).hexdigest() == data['instruction_sha256'],
+                'META_NATIVE_REQUEST_MISMATCH')
+            request.payload()
+            require(Decimal(0) < Decimal(request.budget_usd) <= Decimal('.05'), 'META_BUDGET_DENIED')
+            binding.check(request)  # Stored human approval, epoch, source, exact cost.
+            data.update(native_spend_binding='BOUND', budget_usd=request.budget_usd,
+                        provider_request_digest=request.digest, error=None)
+            data['preview_digest'] = canonical_sha256(data)
+            def write(tx):
+                tx.replace(StoredRecord(RecordKind.OPERATION, identity, self.scope, row.revision+1, data),
+                           expected_revision=row.revision)
+            self._run(Capability.COMMIT, write)
+            self._live_bindings[identity] = (request, binding)
+            return plain(data)
+
     def _warrant(self, record, operation, now):
         expires = min(now+timedelta(seconds=60), __import__('datetime').datetime.fromisoformat(record['deadline'].replace('Z', '+00:00')))
         scope = AuthorityScope(operation_classes=(operation['operation_class'],),
@@ -195,7 +229,18 @@ class MissionService:
         self.core.require(owner_principal, Capability.OWNER_APPROVAL, scope=self.scope)
         with self._lock:
             record = plain(self._get(identity).payload)
-            require(record['state'] != 'LIVE_PENDING_AUTHORIZATION', 'META_API_LIVE_BLOCKED_OWNER_GO')
+            if record['state'] == 'LIVE_PENDING_AUTHORIZATION':
+                require(identity in self._live_bindings, 'META_API_LIVE_BLOCKED_OWNER_GO')
+                require(record['preview_digest'] == preview_digest, 'META_MISSION_NOT_PREVIEWED')
+                request, binding = self._live_bindings[identity]
+                binding.check(request)
+                self._change(identity, {'LIVE_PENDING_AUTHORIZATION'}, 'RUNNING',
+                             {'native_spend_binding':'CONSUMING'})
+                del self._live_bindings[identity]
+                cancel = CancellationToken(); self._cancels[identity] = cancel
+                thread = threading.Thread(target=self._execute_live, args=(record, request, binding, cancel), daemon=True)
+                self._workers[identity] = thread; thread.start()
+                return self.evidence(identity, self.core.local_operator(Capability.READ))
             require(record['state'] == 'PREVIEWED' and record['preview_digest'] == preview_digest,
                     'META_MISSION_NOT_PREVIEWED')
             if self.source_probe() != (record['source_sha'], record['capsule_digest']):
@@ -215,6 +260,24 @@ class MissionService:
             thread = threading.Thread(target=self._execute, args=(record, task, call, warrant, cancel, now), daemon=True)
             self._workers[identity] = thread; thread.start()
             return self.evidence(identity, self.core.local_operator(Capability.READ))
+
+    def _execute_live(self, record, request, binding, cancel):
+        identity = record['task_id']
+        try:
+            plan = self.manager.generate_meta_plan(request, cancel, live_binding=binding)
+            diagnostics = self.manager._meta_provider.diagnostics()
+            receipt = diagnostics['last_live_receipt']
+            require(receipt is not None and receipt['request_digest'] == request.digest,
+                    'META_RECEIPT_READBACK_UNKNOWN')
+            # A paid plan never authorizes browser dispatch. No fixture result is
+            # substituted for LIVE; containment and exact READ authority are separate.
+            self._change(identity, {'RUNNING'}, 'STOPPED' if cancel.cancelled else 'BLOCKED',
+                {'provider_receipt':receipt, 'proposal':plan.call.to_wire(), 'stopped':cancel.cancelled,
+                 'native_spend_binding':'CONSUMED', 'error':'CHROME_LIVE_BLOCKED_CONTAINMENT'})
+        except Exception:
+            self._change(identity, {'RUNNING'}, 'STOPPED' if cancel.cancelled else 'UNKNOWN',
+                {'stopped':cancel.cancelled, 'native_spend_binding':'NOT_REUSABLE',
+                 'error':'META_PROVIDER_READBACK_UNKNOWN'})
 
     def _execute(self, record, task, call, warrant, cancel, initial):
         identity = record['task_id']
@@ -246,6 +309,7 @@ class MissionService:
     def stop(self, identity, principal):
         self.core.require(principal, Capability.READ, scope=self.scope)
         with self._lock:
+            self._live_bindings.pop(identity, None)
             cancel = self._cancels.get(identity)
             if cancel is not None: cancel.cancel()
             self._get(identity)
@@ -255,8 +319,12 @@ class MissionService:
     def status(self, principal):
         self.core.require(principal, Capability.READ, scope=self.scope)
         rows = sorted(self._rows(), key=lambda row: row.payload.get('created_order', 0))
+        provider = self.manager._meta_provider
+        view = provider.receipt_view
+        require(view is None or view.ledger is self.ledger, 'META_RECEIPT_SCOPE_MISMATCH')
+        view = view or MetaReceiptView(self.ledger, source_reader=self.source_probe)
         return {'schema': 'aioa.meta.mission-status.v1', 'mode': 'OFFLINE_FIXTURE',
-            'provider': self.manager._meta_provider.diagnostics(),
+            'provider': provider.diagnostics(receipt_view=view),
             'chrome_live': 'BLOCKED_CONTAINMENT_AND_OWNER_GO', 'active_task_id': next((r.record_id for r in rows if r.payload['state'] in ACTIVE), None),
             'missions': [{'task_id': r.record_id, 'state': r.payload['state'],
                           'created_at': r.payload.get('created_at')} for r in rows],
