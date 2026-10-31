@@ -79,7 +79,7 @@ def _summary(task, status, *, terminal_state=None, consumed=False):
 
 def run_read_once(*, ledger, read_principal, commit_principal, task, call, warrant,
                   current_source_sha, expected_content_sha256, initial_utc,
-                  provider_receipt, fixture_text=FIXTURE_TEXT, cancel=None):
+                  provider_receipt, fixture_text=FIXTURE_TEXT, cancel=None, fixture_reader=None):
     """One fixture step over the admitted host's existing one-use Core ledger.
 
 No retry after uncertain consumption or readback. The fixture outcome and mock
@@ -88,6 +88,11 @@ provider receipt are labelled offline, even when every Core gate passes.
     _require(type(ledger) is CoreWarrantLedger and type(task) is BrowserTaskV1)
     _require(cancel is None or type(cancel) is CancellationToken)
     _require(provider_receipt is None or type(provider_receipt) is ProviderReceipt)
+    reader = read_fixture
+    if fixture_reader is not None:
+        from runtime.browser_agent.chrome_read_adapter import OfflineFixtureRead
+        _require(type(fixture_reader) is OfflineFixtureRead)
+        reader = fixture_reader
     core, scope = ledger.core, ledger.scope
     core.require(read_principal, Capability.READ, scope=scope)
     core.require(commit_principal, Capability.COMMIT, scope=scope)
@@ -118,7 +123,7 @@ provider receipt are labelled offline, even when every Core gate passes.
         core.require(read_principal, Capability.READ, scope=scope)
         if stopped():
             return _summary(task, 'STOPPED', consumed=True)
-        observation = read_fixture(task, admission=core, principal=read_principal, scope=scope,
+        observation = reader(task, admission=core, principal=read_principal, scope=scope,
             core_owner_scope_digest=canonical_sha256(scope), core_source_sha=current_source_sha,
             stopped=stopped(), now=ledger.clock(), fixture_text=fixture_text,
             expected_content_sha256=expected_content_sha256)
