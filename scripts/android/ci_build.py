@@ -66,6 +66,7 @@ def acquire(artifact,root):
     installer.private_write(unpacked/installer.COMPONENT,{'schema':'aioa.android.component.v1',
         'id':artifact['id'],'version':artifact['version'],'archive_sha256':artifact['sha256'],
         'files':installer.tree_manifest(unpacked)})
+    installer.component_check(artifact,root,directory=unpacked)
     destination.parent.mkdir(mode=0o700,parents=True,exist_ok=True)
     lib.promote(unpacked,destination)
     return installer.component_check(artifact,root)
@@ -75,13 +76,19 @@ def environment(root,jdk,sdk):
     return {'PATH':str(jdk/'bin')+':/usr/bin:/bin','LANG':'C.UTF-8','JAVA_HOME':str(jdk),
         'ANDROID_HOME':str(sdk),'ANDROID_SDK_ROOT':str(sdk),'ANDROID_USER_HOME':str(root/'android-user'),
         'GRADLE_USER_HOME':str(root/'gradle-cache'),'TMPDIR':str(root/'tmp'),
-        'JAVA_OPTS':'-Xmx128m -Duser.home='+str(root/'java-user')}
+        'JDK_JAVA_OPTIONS':'-Xmx128m -Duser.home='+str(root/'java-user')+' -Djava.io.tmpdir='+str(root/'tmp')}
 
 
 def command(cache,init):
     result=[part for part in build_apk.command(cache,init) if part!='--offline']
     return result[:1]+['-Pandroid.builder.sdkDownload=false',
         '-Dorg.gradle.java.installations.auto-download=false']+result[1:]
+
+
+def check_sdkmanager_version(text,options):
+    notice='NOTE: Picked up JDK_JAVA_OPTIONS: '+options
+    lines=[line.strip() for line in text.splitlines() if line.strip() and line.strip()!=notice]
+    lib.require(lines==['22.0'],'BLOCKED_CI_SDKMANAGER_VERSION')
 
 
 def execute(env,source_sha,image):
@@ -112,19 +119,27 @@ def execute(env,source_sha,image):
     tools=acquire(manager,root)
     status=build_apk.run_logged([str(tools/'bin/sdkmanager'),'--version'],cwd=root,
         environment=scoped,log=root/'sdkmanager-version.log',timeout=30)
-    lib.require(status==0 and (root/'sdkmanager-version.log').read_text().strip()=='22.0',
-        'BLOCKED_CI_SDKMANAGER_VERSION')
+    lib.require(status==0,'BLOCKED_CI_SDKMANAGER_VERSION')
+    check_sdkmanager_version((root/'sdkmanager-version.log').read_text(),scoped['JDK_JAVA_OPTIONS'])
     init=root/'redirect.gradle';init.write_text(build_apk.init_script(root));init.chmod(0o600)
+    argv=command(root/'gradle-cache',init)
+    installer.private_write(root/'BUILD_INVOCATION.json',{'schema':'aioa.android.controlled-build.v1',
+        'source_sha':source_sha,'command':argv,'init_sha256':lib.sha(init),'started_at':lib.utc(),
+        'profile':'GITHUB_HOSTED_MANUAL_V1'})
+    lib.gradle_configuration_check(root/'gradle-cache')
     status=build_apk.run_logged(['./gradlew','--no-daemon','--offline','--version'],
         cwd=lib.REPO/'clients/android',environment=scoped,log=root/'gradle-version.log',timeout=60)
     lib.require(status==0 and 'Gradle 8.13' in (root/'gradle-version.log').read_text(),'BLOCKED_CI_GRADLE_VERSION')
-    status=build_apk.run_logged(command(root/'gradle-cache',init),cwd=lib.REPO/'clients/android',
+    lib.gradle_configuration_check(root/'gradle-cache')
+    status=build_apk.run_logged(argv,cwd=lib.REPO/'clients/android',
         environment=scoped,log=root/'build.log',timeout=1800)
     lib.require(status==0,'BLOCKED_CI_BUILD_FAILED_LOG_PRESERVED')
     lib.source_check(source_sha)
+    lib.gradle_configuration_check(root/'gradle-cache')
     lib.require(before==sdk_inventory(sdk),'BLOCKED_CI_SDK_CHANGED')
     apk=root/'builds/_app/outputs/apk/debug/app-debug.apk'
     evidence=verify_apk.verify(apk,root,sdk=sdk,jdk=jdk,source_sha=source_sha,environment=scoped)
+    evidence=build_apk._bind_controlled_build(evidence,source_sha,root,argv)
     evidence.update(ci_profile='GITHUB_HOSTED_MANUAL_V1',runner_image=image,
         sdk=before,versions=lock['versions'],dependency_resolution='ONLINE_VENDOR_REPOSITORIES_NOT_FULLY_HASH_LOCKED',
         model_calls=0,workflow_run_id=env['GITHUB_RUN_ID'],workflow_run_attempt=env['GITHUB_RUN_ATTEMPT'])

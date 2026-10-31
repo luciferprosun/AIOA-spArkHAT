@@ -19,6 +19,7 @@ else:
 
 LOCKFILE=Path(__file__).with_name('toolchain.lock.json')
 COMPONENT='.aioa-component.json'
+COMPONENT_LIMIT=16*1024*1024
 
 
 def wrapper_relative_home():
@@ -87,21 +88,26 @@ def tree_manifest(directory):
     return rows
 
 
-def component_check(artifact,root=lib.ROOT):
+def component_check(artifact,root=lib.ROOT,*,directory=None):
     lib.validate_artifact(artifact)
-    destination=lib.safe_path(root/artifact['destination'])
+    destination=lib.safe_path(directory if directory is not None else root/artifact['destination'])
+    lib.require(destination.is_relative_to(root),'BLOCKED_COMPONENT_PATH')
     lib.require(destination.is_dir(),'BLOCKED_MISSING_COMPONENT')
-    value=lib.private_json(destination/COMPONENT)
+    value=lib.private_json(destination/COMPONENT,max_bytes=COMPONENT_LIMIT)
+    witness=lib.archive_inventory(root/'downloads'/artifact['filename'],
+        expected_sha256=artifact['sha256'],expected_size=artifact['size'])
     lib.require(value['id']==artifact['id'] and value['version']==artifact['version']
-        and value['archive_sha256']==artifact['sha256'] and value['files']==tree_manifest(destination),'BLOCKED_COMPONENT_DRIFT')
+        and value['archive_sha256']==artifact['sha256'] and value['files']==witness
+        and witness==tree_manifest(destination),'BLOCKED_COMPONENT_DRIFT')
     return destination
 
 
 def private_write(path,value):
     path=lib.safe_path(path)
+    raw=(json.dumps(value,sort_keys=True,indent=2)+'\n').encode()
+    lib.require(len(raw)<=COMPONENT_LIMIT,'BLOCKED_COMPONENT_MANIFEST_SIZE')
     fd=os.open(path,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)
     try:
-        raw=(json.dumps(value,sort_keys=True,indent=2)+'\n').encode()
         with os.fdopen(fd,'wb',closefd=False) as out:out.write(raw);out.flush();os.fsync(fd)
     finally:os.close(fd)
 
@@ -152,6 +158,7 @@ def install_component(artifact,root):
         'version':artifact['version'],'archive_sha256':artifact['sha256'],'source_url':artifact['url'],
         'license':artifact['license'],'acquired_at':lib.utc(),'files':tree_manifest(extracted),
         'archive_transform':'internal TAR file aliases materialized; no symlinks'})
+    component_check(artifact,root,directory=extracted)
     destination.parent.mkdir(mode=0o700,parents=True,exist_ok=True)
     lib.assert_admitted();lib.promote(extracted,destination)
     # Staging is deliberately retained on failure; never remove unknown trees.
@@ -162,7 +169,9 @@ def scoped_environment(root=lib.ROOT):
     return {'PATH':str(root/'jdk-17/bin')+':/usr/bin:/bin','LANG':'C.UTF-8',
         'JAVA_HOME':str(root/'jdk-17'),'ANDROID_HOME':str(root/'sdk'),'ANDROID_SDK_ROOT':str(root/'sdk'),
         'ANDROID_USER_HOME':str(root/'sdk/.user'),'GRADLE_USER_HOME':str(root/'gradle-cache'),
-        'TMPDIR':str(root/'downloads/.tmp')}
+        'TMPDIR':str(root/'downloads/.tmp'),
+        'JDK_JAVA_OPTIONS':'-Xmx128m -Duser.home='+str(root/'reports/java-user')
+            +' -Djava.io.tmpdir='+str(root/'downloads/.tmp')}
 
 
 def verify_versions(root=lib.ROOT):

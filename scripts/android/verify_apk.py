@@ -70,10 +70,13 @@ def verify(apk,build_root,*,sdk,jdk,source_sha,environment):
     metadata=parse_badging(call('aapt',['dump','badging',str(apk)]))
     lib.require(metadata['debuggable'],'BLOCKED_NOT_DEBUG_APK')
     signature=parse_signature(call('apksigner',['verify','--verbose','--print-certs',str(apk)]))
-    reports=test_evidence(list((build_root/'builds/_app/test-results/testDebugUnitTest').glob('TEST-*.xml')),
-        build_root/'builds/_app/reports/lint-results-debug.xml')
-    return {'schema':'aioa.android.apk-evidence.v1','status':'DEBUG_APK_VERIFIED_HOST_ONLY',
-        'source_sha':source_sha,'apk_sha256':lib.sha(apk),'bytes':apk.stat().st_size,
+    junit=list((build_root/'builds/_app/test-results/testDebugUnitTest').glob('TEST-*.xml'))
+    lint=build_root/'builds/_app/reports/lint-results-debug.xml'
+    reports=test_evidence(junit,lint)
+    report_digests=[{'path':p.relative_to(build_root).as_posix(),'sha256':lib.sha(p)} for p in sorted([*junit,lint])]
+    return {'schema':'aioa.android.apk-evidence.v1','status':'DEBUG_APK_VALID_SOURCE_UNBOUND',
+        'source_sha':None,'inspected_checkout_sha':source_sha,'source_binding':'UNKNOWN',
+        'report_digests':report_digests,'apk_sha256':lib.sha(apk),'bytes':apk.stat().st_size,
         **metadata,**signature,**reports,'android_e2e_verified':False,'meta_live_verified':False}
 
 

@@ -40,22 +40,43 @@ TAR są materializowane, z uwzględnieniem ich rozmiaru w budżecie.
 Gradle trafia do cache własnego wrappera według upstream URL layout, bez globalnego
 Gradle. MD5/base36 służy **tylko nazwie katalogu zgodnej z PathAssembler**, nigdy
 bezpieczeństwu; integralność to publisher SHA256 plus hashe zainstalowanych plików.
+Przy każdym ponownym użyciu oczekiwane hashe są wyprowadzane z zachowanego
+archiwum cache o zgodnej opublikowanej SHA256. Sąsiedni manifest nie jest
+źródłem zaufania; podmiana binarium wraz z manifestem jest odrzucana. Brak lub
+uszkodzenie archiwum blokuje weryfikację bez automatycznego pobrania. Osobny
+limit manifestu komponentu wynosi16MiB; piny/raporty authority nadal64KiB.
 Wrapper nie startuje przy brakującym/drift cache. Budowanie kieruje cache,
 intermediates, temporary files, debug key i raporty pod zakwalifikowany root,
 uruchamia jeden worker/no-daemon, kompilator Kotlin in-process, bez device install.
 Gradle może użyć własnego jednorazowego procesu, który nie jest trwałym daemonem.
 RAM preflight wymaga co najmniej1.5GiB dostępne; obecny host tego nie potwierdził.
+Ignorowane pliki pod `clients/android`, w tym `local.properties`, blokują build;
+nie kasujemy ich. Tak samo nieprzejrzane `gradle.properties`, `init.gradle[.kts]`
+i zawartość `init.d/` we własnym Gradle user home. Zachować je i przenieść lub
+odebrać osobno przed następną próbą. SIGTERM/SIGINT uruchamiają cleanup tylko
+własnej grupy procesu, z przywróceniem handlerów. Launcher JVM korzysta z
+`JDK_JAVA_OPTIONS`, obsługiwanego przez [Java17](https://docs.oracle.com/en/java/javase/17/docs/specs/man/java.html#using-the-jdk_java_options-launcher-environment-variable),
+bez zmiany istniejącego launchera N1; nie polega na jego obsłudze JAVA_OPTS.
 
 Verifier wymaga poprawnych rzeczywistych JUnit testcase,0fail/error/skip i lint,
 package/version/SDK/permissions/debuggable, ważnej DEBUG signature i SHA APK.
 Nie oznacza RELEASE, PHONE_TESTED ani zgodności podpisu aktualizacji starego APK.
 Raw local logs zostają prywatnie w katalogu własnego buildu, bez publikacji.
+Samodzielne `verify_apk.py` potwierdza metadane/podpis/hashe, lecz zwraca
+`DEBUG_APK_VALID_SOURCE_UNBOUND`, `source_sha:null`, `source_binding:UNKNOWN`
+i exit2. Aktualny checkout jest opisany osobno jako `inspected_checkout_sha`.
+Ścieżka zawierająca SHA nie dowodzi pochodzenia APK. Wyłącznie zaufany proces
+kontrolowanego buildu po sukcesie dopina `CONTROLLED_BUILD_PROCESS`, source SHA,
+hash komendy/invocation, logu i raportów; nie jest to zewnętrzna atestacja SLSA.
 
 ```sh
 python3 -B -m unittest discover -s tests -p 'test_android_*.py' -q
 ```
 
-Testy używają małych własnych fixture/temporary dirs i blokad; nie są testem
+Testy używają własnych fixture/temporary dirs, w tym450 plików inventory,
+fałszywego Java do przechwycenia wywołania launchera i osobnego procesu STOP.
+Nie wykonują rzeczywistego JDK/Gradle. Kontrakt YAML wymaga istniejącego PyYAML;
+niczego nie instalowano. Testy nie są testem
 fizycznego HDD, JDK, Gradle czy telefonu. `bash -n` uruchomiono; ShellCheck brak,
 nie zainstalowano go i nie ogłoszono jego wyniku PASS.
 

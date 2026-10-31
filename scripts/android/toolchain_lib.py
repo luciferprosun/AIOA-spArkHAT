@@ -4,6 +4,7 @@ The qualification publisher is external to these tools. Nothing here creates a
 PASS report, a trust pin, a license acceptance or an AIOA owner credential.
 """
 from datetime import datetime, timezone
+from contextlib import contextmanager
 import ctypes
 import errno
 import hashlib
@@ -59,17 +60,18 @@ def safe_path(path):
     return path
 
 
-def private_bytes(path):
+def private_bytes(path,*,max_bytes=65536):
+    require(type(max_bytes) is int and 0<max_bytes<=16*1024*1024,'BLOCKED_EVIDENCE_LIMIT')
     path=safe_path(path);info=path.lstat()
     require(stat.S_ISREG(info.st_mode) and info.st_uid==os.getuid() and info.st_nlink==1
-            and not info.st_mode & 0o077 and info.st_size<=65536,'BLOCKED_PRIVATE_EVIDENCE')
+            and not info.st_mode & 0o077 and info.st_size<=max_bytes,'BLOCKED_PRIVATE_EVIDENCE')
     fd=os.open(path,os.O_RDONLY|os.O_NOFOLLOW|os.O_CLOEXEC)
     try:
         actual=os.fstat(fd)
         require((actual.st_dev,actual.st_ino,actual.st_size)==(info.st_dev,info.st_ino,info.st_size),'BLOCKED_EVIDENCE_RACE')
-        with os.fdopen(fd,'rb',closefd=False) as stream:raw=stream.read(65537)
+        with os.fdopen(fd,'rb',closefd=False) as stream:raw=stream.read(max_bytes+1)
         after=os.fstat(fd)
-        require(len(raw)<=65536 and (after.st_size,after.st_mtime_ns)==(actual.st_size,actual.st_mtime_ns),'BLOCKED_EVIDENCE_RACE')
+        require(len(raw)<=max_bytes and (after.st_size,after.st_mtime_ns)==(actual.st_size,actual.st_mtime_ns),'BLOCKED_EVIDENCE_RACE')
         return raw
     finally:os.close(fd)
 
@@ -86,7 +88,7 @@ def strict_json(raw):
     except (ValueError,UnicodeError):raise Blocked('BLOCKED_JSON') from None
 
 
-def private_json(path):return strict_json(private_bytes(path))
+def private_json(path,*,max_bytes=65536):return strict_json(private_bytes(path,max_bytes=max_bytes))
 
 
 def git(*args):
@@ -99,6 +101,8 @@ def source_check(expected):
     require(type(expected) is str and re.fullmatch(r'[0-9a-f]{40}',expected),'BLOCKED_SOURCE_SHA')
     require(git('rev-parse','HEAD')==expected,'BLOCKED_SOURCE_SHA')
     require(not git('status','--porcelain','-uall'),'BLOCKED_DIRTY_SOURCE')
+    require(not git('ls-files','--others','--ignored','--exclude-standard','--','clients/android'),
+            'BLOCKED_IGNORED_ANDROID_INPUT')
     path=REPO/'clients/android/ANDROID_BUILD_INPUT_MANIFEST.json'
     value=json.loads(path.read_text())
     for row in value['files']:
@@ -108,6 +112,14 @@ def source_check(expected):
         require(sha(p)==row['sha256'] and p.stat().st_size==row['bytes']
                 and bool(p.stat().st_mode & 0o111)==row['executable'],'BLOCKED_INPUT_DRIFT')
     return value
+
+
+def gradle_configuration_check(home):
+    home=safe_path(home)
+    for name in ('gradle.properties','init.gradle','init.gradle.kts'):
+        require(not safe_path(home/name).exists(),'BLOCKED_GRADLE_OVERRIDE')
+    init=safe_path(home/'init.d')
+    require(not init.exists() or (init.is_dir() and not any(init.iterdir())),'BLOCKED_GRADLE_OVERRIDE')
 
 
 def storage_decision(facts, qualification, *, now=None):
@@ -273,61 +285,88 @@ def _member(name):
     return p
 
 
-def extract(archive,stage,*,max_bytes=4*GIB):
-    """Single-root archives; no external links/devices/traversal or overwrites.
+@contextmanager
+def _archive(archive,max_bytes):
+    """One shared validation/materialization plan for extraction and inventory."""
+    zipped=zipfile.is_zipfile(archive)
+    if hasattr(archive,'seek'):archive.seek(0)
+    stream=zipfile.ZipFile(archive) if zipped else tarfile.open(
+        fileobj=archive if hasattr(archive,'read') else None,
+        name=None if hasattr(archive,'read') else archive,mode='r:*')
+    with stream:
+        members=stream.infolist() if zipped else stream.getmembers()
+        paths=[_member(m.filename if zipped else m.name) for m in members]
+        require(len(members)<=50000,'BLOCKED_ARCHIVE_SIZE')
+        require(len({p.parts[0] for p in paths})==1,'BLOCKED_ARCHIVE_ROOT')
+        require(len(set(str(p) for p in paths))==len(paths),'BLOCKED_ARCHIVE_DUPLICATE')
+        by_name={str(p):m for p,m in zip(paths,members)};files=[];directories=[]
+        for member,path in zip(members,paths):
+            source=member
+            if zipped:
+                require(stat.S_IFMT(member.external_attr>>16) in (0,stat.S_IFREG,stat.S_IFDIR),'BLOCKED_ARCHIVE_LINK')
+                directory=member.is_dir();size=member.file_size;mode=member.external_attr>>16
+            else:
+                require(member.isfile() or member.isdir() or member.issym() or member.islnk(),'BLOCKED_ARCHIVE_TYPE')
+                directory=member.isdir()
+                if member.issym() or member.islnk():
+                    target=_member(posixpath.normpath(posixpath.join(posixpath.dirname(str(path)),member.linkname)
+                        if member.issym() else member.linkname))
+                    require(target.parts[0]==path.parts[0] and str(target) in by_name
+                        and by_name[str(target)].isfile(),'BLOCKED_ARCHIVE_LINK')
+                    require(not any(str(q).startswith(str(path)+'/') for q in paths),'BLOCKED_ARCHIVE_LINK_PARENT')
+                    source=by_name[str(target)]
+                size=source.size;mode=source.mode
+            if directory:directories.append(path)
+            else:
+                require(len(path.parts)>1 and size>=0,'BLOCKED_ARCHIVE_ROOT')
+                files.append((path,source,size,bool(mode&0o111)))
+        require(sum(row[2] for row in files)<=max_bytes,'BLOCKED_ARCHIVE_SIZE')
+        yield stream,zipped,files,directories
 
-TAR internal file aliases are materialized as regular files after full validation.
-No archive symlink is followed; unknown/link-chain/directory aliases are denied.
-"""
+
+def extract(archive,stage,*,max_bytes=4*GIB):
+    """No links/devices/traversal; internal TAR file aliases become plain files."""
     archive=safe_path(archive);stage=safe_path(stage)
     require(not stage.exists(),'BLOCKED_STAGE_EXISTS')
-    if zipfile.is_zipfile(archive):
-        with zipfile.ZipFile(archive) as stream:
-            members=stream.infolist();paths=[_member(m.filename) for m in members]
-            require(len(members)<=50000 and sum(m.file_size for m in members)<=max_bytes,'BLOCKED_ARCHIVE_SIZE')
-            require(len({p.parts[0] for p in paths})==1,'BLOCKED_ARCHIVE_ROOT')
-            require(len(set(str(p) for p in paths))==len(paths),'BLOCKED_ARCHIVE_DUPLICATE')
-            for m in members:
-                kind=stat.S_IFMT(m.external_attr>>16)
-                require(kind in (0,stat.S_IFREG,stat.S_IFDIR),'BLOCKED_ARCHIVE_LINK')
-            stage.mkdir(mode=0o700)
-            for m,p in zip(members,paths):
-                target=stage/str(p)
-                if m.is_dir():target.mkdir(parents=True,exist_ok=True);continue
-                target.parent.mkdir(parents=True,exist_ok=True)
-                with stream.open(m) as source,open(target,'xb') as dest:shutil.copyfileobj(source,dest,1024*1024)
-                target.chmod(0o755 if (m.external_attr>>16)&0o111 else 0o644)
-    else:
-        with tarfile.open(archive,'r:*') as stream:
-            members=stream.getmembers();paths=[_member(m.name) for m in members]
-            require(len(members)<=50000 and sum(m.size for m in members)<=max_bytes,'BLOCKED_ARCHIVE_SIZE')
-            require(len({p.parts[0] for p in paths})==1,'BLOCKED_ARCHIVE_ROOT')
-            require(len(set(str(p) for p in paths))==len(paths),'BLOCKED_ARCHIVE_DUPLICATE')
-            by_name={str(p):m for p,m in zip(paths,members)};links=[]
-            for m,p in zip(members,paths):
-                require(m.isfile() or m.isdir() or m.issym() or m.islnk(),'BLOCKED_ARCHIVE_TYPE')
-                if m.issym() or m.islnk():
-                    target=_member(posixpath.normpath(posixpath.join(posixpath.dirname(str(p)),m.linkname) if m.issym() else m.linkname))
-                    require(target.parts[0]==p.parts[0] and str(target) in by_name and by_name[str(target)].isfile(),'BLOCKED_ARCHIVE_LINK')
-                    require(not any(str(q).startswith(str(p)+'/') for q in paths),'BLOCKED_ARCHIVE_LINK_PARENT')
-                    links.append((p,target))
-            require(sum(m.size for m in members)+sum(by_name[str(target)].size for _,target in links)<=max_bytes,
-                    'BLOCKED_ARCHIVE_SIZE')
-            stage.mkdir(mode=0o700)
-            for m,p in zip(members,paths):
-                target=stage/str(p)
-                if m.isdir():target.mkdir(parents=True,exist_ok=True)
-                elif m.isfile():
-                    target.parent.mkdir(parents=True,exist_ok=True)
-                    with stream.extractfile(m) as source,open(target,'xb') as dest:shutil.copyfileobj(source,dest,1024*1024)
-                    target.chmod(0o755 if m.mode&0o111 else 0o644)
-            for p,target in links:
-                destination=stage/str(p);destination.parent.mkdir(parents=True,exist_ok=True)
-                shutil.copyfile(stage/str(target),destination)
-                destination.chmod((stage/str(target)).stat().st_mode & 0o777)
-    children=list(stage.iterdir())
-    require(len(children)==1 and children[0].is_dir(),'BLOCKED_ARCHIVE_ROOT')
+    with _archive(archive,max_bytes) as (stream,zipped,files,directories):
+        stage.mkdir(mode=0o700)
+        for path in directories:(stage/str(path)).mkdir(parents=True,exist_ok=True)
+        for path,member,size,executable in files:
+            target=stage/str(path);target.parent.mkdir(parents=True,exist_ok=True)
+            with (stream.open(member) if zipped else stream.extractfile(member)) as source,open(target,'xb') as dest:
+                shutil.copyfileobj(source,dest,1024*1024)
+            require(target.stat().st_size==size,'BLOCKED_ARCHIVE_TRUNCATED')
+            target.chmod(0o755 if executable else 0o644)
+    children=list(stage.iterdir());require(len(children)==1 and children[0].is_dir(),'BLOCKED_ARCHIVE_ROOT')
     return children[0]
+
+
+def archive_inventory(archive,*,expected_sha256=None,expected_size=None):
+    archive=safe_path(archive)
+    require(archive.is_file(),'BLOCKED_ARCHIVE_WITNESS_MISSING')
+    fd=os.open(archive,os.O_RDONLY|os.O_NOFOLLOW|os.O_CLOEXEC)
+    with os.fdopen(fd,'rb') as raw:
+        before=os.fstat(raw.fileno())
+        require(stat.S_ISREG(before.st_mode) and before.st_nlink==1,'BLOCKED_ARCHIVE_WITNESS')
+        if expected_size is not None:require(before.st_size==expected_size,'BLOCKED_ARCHIVE_WITNESS')
+        def verify_digest():
+            raw.seek(0);digest=hashlib.sha256()
+            for data in iter(lambda:raw.read(1024*1024),b''):digest.update(data)
+            if expected_sha256 is not None:require(digest.hexdigest()==expected_sha256,'BLOCKED_ARCHIVE_WITNESS')
+            raw.seek(0)
+        verify_digest();rows=[]
+        with _archive(raw,4*GIB) as (stream,zipped,files,_):
+            for path,member,size,executable in files:
+                digest=hashlib.sha256();count=0
+                with (stream.open(member) if zipped else stream.extractfile(member)) as source:
+                    for data in iter(lambda:source.read(1024*1024),b''):digest.update(data);count+=len(data)
+                require(count==size,'BLOCKED_ARCHIVE_TRUNCATED')
+                rows.append({'path':PurePosixPath(*path.parts[1:]).as_posix(),'sha256':digest.hexdigest(),
+                    'bytes':count,'executable':executable})
+        verify_digest();after=os.fstat(raw.fileno())
+        require((before.st_size,before.st_mtime_ns,before.st_ctime_ns)==
+            (after.st_size,after.st_mtime_ns,after.st_ctime_ns),'BLOCKED_ARCHIVE_WITNESS_CHANGED')
+        return sorted(rows,key=lambda row:row['path'])
 
 
 def promote(stage,destination):
