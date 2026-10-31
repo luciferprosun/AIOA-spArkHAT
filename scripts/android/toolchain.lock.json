@@ -1,0 +1,81 @@
+{
+  "schema": "aioa.android.toolchain-lock.v1",
+  "versions": {
+    "jdk_major": 17,
+    "jdk": "17.0.21+9",
+    "gradle": "8.13",
+    "agp": "8.11.1",
+    "kotlin": "2.2.21",
+    "compile_sdk": 36,
+    "build_tools": "35.0.0",
+    "cmdline_tools": "22.0"
+  },
+  "metadata_acquired_at": "2026-10-31T23:01:14.258173+00:00",
+  "platform": "linux-x64",
+  "wrapper_sha256": "81a82aaea5abcc8ff68b3dfcb58b3c3c429378efd98e7433460610fecd7ae45f",
+  "artifacts": [
+    {
+      "id": "jdk",
+      "version": "17.0.21+9",
+      "filename": "OpenJDK17U-jdk_x64_linux_hotspot_17.0.21_9.tar.gz",
+      "url": "https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.21%2B9/OpenJDK17U-jdk_x64_linux_hotspot_17.0.21_9.tar.gz",
+      "sha256": "8b9b611d917e3dfd8419d3566b5949226f69b052fed7e109c1368add1dfe8711",
+      "size": 193594705,
+      "destination": "jdk-17",
+      "license": "GPL-2.0-with-classpath-exception",
+      "checksum_source": "https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.21%2B9/OpenJDK17U-jdk_x64_linux_hotspot_17.0.21_9.tar.gz.sha256.txt"
+    },
+    {
+      "id": "gradle",
+      "version": "8.13",
+      "filename": "gradle-8.13-bin.zip",
+      "url": "https://services.gradle.org/distributions/gradle-8.13-bin.zip",
+      "sha256": "20f1b1176237254a6fc204d8434196fa11a4cfb387567519c61556e8710aed78",
+      "size": 136983045,
+      "destination": "gradle-cache/wrapper/dists/gradle-8.13-bin/5xuhj0ry160q40clulazy9h7d/gradle-8.13",
+      "license": "Apache-2.0",
+      "checksum_source": "https://gradle.org/release-checksums/",
+      "size_source": "HTTPS HEAD Content-Length from downloads.gradle.org; full SHA256 from Gradle publisher"
+    },
+    {
+      "id": "cmdline-tools",
+      "version": "22.0",
+      "filename": "commandlinetools-linux-15859902_latest.zip",
+      "url": "https://dl.google.com/android/repository/commandlinetools-linux-15859902_latest.zip",
+      "sha256": "4e4c464f145a7512b57d088ac6c278c03c9eea610886b35a5e0804e74eedf583",
+      "size": 181833628,
+      "destination": "sdk/cmdline-tools/22.0",
+      "license": "Android SDK License Agreement",
+      "checksum_source": "https://developer.android.com/studio#command-tools"
+    },
+    {
+      "id": "platform",
+      "version": "36-r02",
+      "filename": "platform-36_r02.zip",
+      "url": "https://dl.google.com/android/repository/platform-36_r02.zip",
+      "sha256": null,
+      "vendor_sha1": "2c1a80dd4d9f7d0e6dd336ec603d9b5c55a6f576",
+      "size": 65878410,
+      "destination": "sdk/platforms/android-36",
+      "license": "Android SDK License Agreement",
+      "checksum_source": "https://dl.google.com/android/repository/repository2-3.xml"
+    },
+    {
+      "id": "build-tools",
+      "version": "35.0.0",
+      "filename": "build-tools_r35_linux.zip",
+      "url": "https://dl.google.com/android/repository/build-tools_r35_linux.zip",
+      "sha256": null,
+      "vendor_sha1": "2cfaa0bbb2336e9ec18ed3ecea84fa2e2af607bc",
+      "size": 61958799,
+      "destination": "sdk/build-tools/35.0.0",
+      "license": "Android SDK License Agreement",
+      "checksum_source": "https://dl.google.com/android/repository/repository2-3.xml"
+    }
+  ],
+  "notes": [
+    "Only official metadata was fetched. No archive acquired/installed.",
+    "Google XML latest is23.0; command-line22.0 is deliberately pinned by exact filename and SHA256 from official download page.",
+    "API36 and build-tools35 publish SHA1 in inspected XML. Null SHA256 is an explicit hard block for local acquisition; never substitute calculated/vendor SHA1 as independently published SHA256."
+  ]
+}
