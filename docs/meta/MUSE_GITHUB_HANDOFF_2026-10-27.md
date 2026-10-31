@@ -1,3 +1,9 @@
+# AIOA METAGuardiansSPARK — current branch notice (31 October 2026)
+
+Current canonical branch: `AIOA-METAGuardiansSPARK`. This 27 October handoff is historical; references to the legacy `meta` branch below remain untouched for provenance.
+
+---
+
 # AIOA spArkHAT META — handoff GitHub → Muse Code, 27 października 2026
 
 STATUS: PREPARED_ONLY. To jest dokumentacja przygotowana przez ChatGPT w GitHubie, NIE implementacja ani raport wykonania Muse.

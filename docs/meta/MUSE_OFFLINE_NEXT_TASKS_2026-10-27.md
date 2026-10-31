@@ -1,10 +1,16 @@
+# AIOA METAGuardiansSPARK — current branch notice (31 October 2026)
+
+Current branch: `AIOA-METAGuardiansSPARK`. This 27 October task package has historical SHA pins and cannot authorize any new execution by itself.
+
+---
+
 # Muse Code — zadania przygotowane na GitHubie (27.10.2026)
 
 STATUS: PREPARED_NOT_EXECUTED. Autor dokumentacji: ChatGPT (koordynacja); autor przyszłego kodu: Muse Code. Dokładne prompty wykonawcze do użycia po odzyskaniu Linuxa i sprawdzeniu lokalnego P2-02. Punktem odniesienia PRZED tym dokumentacyjnym commitem był kodowy SHA b6df01ded1cc68b860913d4760abeabb48fa2c6b; przed każdą sesją host musi sprawdzić NOWY aktualny source_sha.
 
 ## Globalne instrukcje Muse — obowiązują każdą sesję
 
-Jesteś Muse Code, jedynym wykonawcą kodu. Jedyny workspace to $HOME/projects/AIOA-spArkHAT-META, branch dokładnie meta, origin https://github.com/luciferprosun/AIOA-spArkHAT.git. Host weryfikuje aktualne SHA i dozwolone niezatwierdzone zmiany przed uruchomieniem. Nie czytaj ani nie zmieniaj main, Nebius, Codex Companion, Gmail, innych repozytoriów, domowych sekretów, .env czy osobistych browser profiles. Zakaz git checkout/merge/rebase/reset/push/commit przez model, LIVE Chromium, sieci w testach, instalacji pakietów, podagentów, automatycznego zatwierdzania, dowolnego WRITE/EXEC, Gmail/OAuth, realnych operacji zewnętrznych. Uruchom jeden prompt w ograniczonej sesji z aktywnym sandboxem; po wykonaniu STOP. Nie udawaj, że OFFLINE równa się LIVE. ChatGPT ocenia kod i testy; właściciel zatwierdza wydatki i efekty.
+Jesteś Muse Code, jedynym wykonawcą kodu. Jedyny workspace to $HOME/projects/AIOA-spArkHAT-META, branch dokładnie AIOA-METAGuardiansSPARK, origin https://github.com/luciferprosun/AIOA-spArkHAT.git. Host weryfikuje aktualne SHA i dozwolone niezatwierdzone zmiany przed uruchomieniem. Nie czytaj ani nie zmieniaj main, Nebius, Codex Companion, Gmail, innych repozytoriów, domowych sekretów, .env czy osobistych browser profiles. Zakaz git checkout/merge/rebase/reset/push/commit przez model, LIVE Chromium, sieci w testach, instalacji pakietów, podagentów, automatycznego zatwierdzania, dowolnego WRITE/EXEC, Gmail/OAuth, realnych operacji zewnętrznych. Uruchom jeden prompt w ograniczonej sesji z aktywnym sandboxem; po wykonaniu STOP. Nie udawaj, że OFFLINE równa się LIVE. ChatGPT ocenia kod i testy; właściciel zatwierdza wydatki i efekty.
 
 ## RECOVERY-GATE — zanim Muse zacznie P2-02
 
@@ -59,7 +65,7 @@ P2-03 wymagania: wyraźna zgoda właściciela na płatny minimalny probe rzeczyw
 ## Wymagany raport po KAŻDYM prompcie
 
 - task_id; phase_status PASS / PARTIAL / FAIL / BLOCKED
-- branch meta i source_sha (40 znaków) z niezależnego host check
+- branch AIOA-METAGuardiansSPARK i source_sha (40 znaków) z niezależnego host check
 - dokładna lista changed_files, pominięte prace, zablokowane operacje
 - polecenia wszystkich testów oznaczone OFFLINE/LIVE oraz PASS/FAIL/SKIP
 - otwarte ryzyka, STOP i denial cases, zanonimizowany hash dowodów

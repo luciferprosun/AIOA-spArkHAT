@@ -13,6 +13,8 @@ from pathlib import Path
 import re
 import subprocess
 
+META_PROJECT_DISPLAY_NAME = "AIOA METAGuardiansSPARK"
+META_PROJECT_BRANCH = "AIOA-METAGuardiansSPARK"
 META_CHECKOUT_NAME = "aioa-sparkhat-meta"
 ALLOWED_REMOTES = frozenset({
     "https://github.com/luciferprosun/AIOA-spArkHAT",
@@ -35,7 +37,7 @@ class MetaCheckoutProof:
 
     root: str
     source_sha: str
-    branch: str = "meta"
+    branch: str = META_PROJECT_BRANCH
     evidence_level: str = "LOCAL_GIT_READ_ONLY"
 
     @property
@@ -65,7 +67,7 @@ def inspect_meta_checkout(
     owner_checkout_root: str | Path,
     expected_meta_sha: str,
 ) -> MetaCheckoutProof:
-    """Fail closed unless THIS independent clean checkout is exactly meta.
+    """Fail closed unless THIS independent clean checkout is exactly the canonical Meta project branch.
 
     Must be called by a trusted host using an owner-managed directory and
     GitHub-pinned expected_meta_sha. The model cannot choose these values.
@@ -92,7 +94,7 @@ def inspect_meta_checkout(
 
     if _git(root, "rev-parse", "--show-toplevel") != str(root):
         raise MetaIsolationError()
-    if _git(root, "symbolic-ref", "--quiet", "--short", "HEAD") != "meta":
+    if _git(root, "symbolic-ref", "--quiet", "--short", "HEAD") != META_PROJECT_BRANCH:
         raise MetaIsolationError()
     if _git(root, "remote", "get-url", "origin") not in ALLOWED_REMOTES:
         raise MetaIsolationError()

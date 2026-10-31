@@ -123,7 +123,7 @@ function addMessage(role, body) {
   if (role === "You") {
     node.classList.add("message-user");
   }
-  if (role.startsWith('AIOA spArkHAT')) node.classList.add('message-product');
+  if (role.startsWith('AIOA spArkHAT') || role.startsWith('AIOA METAGuardiansSPARK')) node.classList.add('message-product');
   elements.chatLog.appendChild(node);
   elements.chatLog.scrollTop = elements.chatLog.scrollHeight;
   return node;
@@ -458,7 +458,7 @@ async function sendPrompt(prompt) {
   });
   // A command or explicit bypass must never be labeled as a CPL final.
   if (payload.mode === 'cpl') throw new Error('Unexpected plan response; no unapproved final delivered.');
-  addMessage(payload.mode === 'plain' ? 'AIOA spArkHAT · Plain Chat · NOT CPL reviewed' : 'Core command', payload.transcript);
+  addMessage(payload.mode === 'plain' ? 'AIOA METAGuardiansSPARK · Plain Chat · NOT CPL reviewed' : 'Core command', payload.transcript);
   applyStatus(payload.status);
 }
 
@@ -658,7 +658,7 @@ async function bootstrap() {
   }
   addMessage(
     "System",
-    "AIOA spArkHAT is ready. Assistant, deterministic Evidence Review and Critical Prompt Loop use one local runtime."
+    "AIOA METAGuardiansSPARK: Assistant, deterministic Evidence Review and Critical Prompt Loop share one AIOA runtime. Meta model and Chromium LIVE are not verified."
   );
   const [statusResult, scenarioResult, timelineResult, evaluationResult, providerResult, cplPresetResult, personalAIResult] = await Promise.allSettled([
     refreshStatus(),
@@ -838,7 +838,7 @@ function renderCPL(result) {
   cplElement('draft').textContent = result.draft || 'Not available';
   cplElement('final').textContent = result.execution_status === 'COMPLETED' ? result.final_answer : 'Not delivered';
   if (result.execution_status === 'COMPLETED' && !state.cplDelivered.has(result.run_id)) {
-    const finalNode = addMessage(`AIOA spArkHAT · ${result.plan.scope === 'TEST' ? 'TEST fixture · ' : ''}CPL final · advisory / human review required`, result.final_answer);
+    const finalNode = addMessage(`AIOA METAGuardiansSPARK · ${result.plan.scope === 'TEST' ? 'TEST fixture · ' : ''}CPL final · advisory / human review required`, result.final_answer);
     finalNode.dataset.cplRunId = result.run_id;
     state.cplDelivered.add(result.run_id);
   }

@@ -13,7 +13,7 @@ from runtime.mcp_bridge.adapter import build_task
 from runtime.mcp_bridge.contracts import ContractError, RiskClass
 from runtime.mcp_bridge.policy import PolicyEffect, evaluate_task
 
-from .worktree_guard import MetaCheckoutProof, MetaIsolationError
+from .worktree_guard import META_PROJECT_BRANCH, MetaCheckoutProof, MetaIsolationError
 
 # No paths, network requests, arbitrary tool names, WRITE or EXEC.
 _META_READ_OPERATIONS = frozenset({
@@ -44,7 +44,7 @@ def preview_mcp_read(
 ) -> MetaReadPlan:
     """Construct a bounded task with Core's inherited policy, without sending."""
     if (type(proof) is not MetaCheckoutProof
-        or proof.branch != "meta"
+        or proof.branch != META_PROJECT_BRANCH
         or proof.evidence_level != "LOCAL_GIT_READ_ONLY"
         or proof.dispatch_allowed
         or type(operation) is not str

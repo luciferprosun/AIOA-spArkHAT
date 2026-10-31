@@ -1,6 +1,7 @@
-# MUSE Master Execution Plan — META Hackathon 2026
+# AIOA METAGuardiansSPARK — Muse Master Execution Plan 2026
 
-**Branch:** `meta` only · **Origin:** https://github.com/luciferprosun/AIOA-spArkHAT.git · **Pinned source SHA:** `c7c73e929d717181a6405936285c5d3e8631ba86`
+**Branch:** `AIOA-METAGuardiansSPARK` only · **Origin:** https://github.com/luciferprosun/AIOA-spArkHAT.git · **Pinned source SHA:** `c7c73e929d717181a6405936285c5d3e8631ba86`
+**Branch identity update:** 31 October 2026; previous branch meta renamed to AIOA-METAGuardiansSPARK. Historical plan SHAs and test evidence are dated; always revalidate current HEAD before execution.
 **Window:** 26 Oct – 4 Nov 2026 · **Deadline:** 4 Nov 21:00 Eastern · **Date of plan:** 26 Oct 2026
 **Roles:** Muse Code = implementer (bounded tasks only). ChatGPT = architecture + QA gatekeeper. Owner = sole authority for spend, data, effects.
 
@@ -121,7 +122,7 @@ Model plans (untrusted) → Core admission → separate Chromium public READ →
 
 ## Global rules
 
-- One Muse Code session per prompt; small bounded tasks; work only on `meta` branch; no Nebius/Main merge; Gmail optional (never MVP-blocking).
+- One Muse Code session per prompt; small bounded tasks; work only on `AIOA-METAGuardiansSPARK` branch; no Nebius/Main merge; Gmail optional (never MVP-blocking).
 - Owner approval required for: paid API probes, personal data, OAuth, external effects, URL allowlist, any live network. 20 EUR is the user's PERSONAL total available, not a spend approval; no unaudited charges.
 - No automatic progression across phases. 'Continue' means: when ChatGPT reviews the previous phase PASS and explicitly starts the next prompt within this conversation — never autonomous background work. No live proof claimed done. Total: 7 phases, 21 prompts. Deadline stays 4 Nov 21:00 ET.
 - Safeguards hold throughout: provider != authority, Non-Zero, STOP, ZERO_WRITE (except explicitly warranted paths post-G5), owner warrants for effects, approval receipts, bounded errors, no replay. Offline results labelled offline, live labelled live with SHA/timestamp/scope.

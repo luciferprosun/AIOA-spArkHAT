@@ -8,6 +8,7 @@ import tempfile
 import unittest
 
 from runtime.meta_hackathon.worktree_guard import (
+    META_PROJECT_BRANCH, META_PROJECT_DISPLAY_NAME,
     MetaCheckoutProof, MetaIsolationError, inspect_meta_checkout,
 )
 from runtime.meta_hackathon.mcp_offline_plan import preview_mcp_read
@@ -26,7 +27,7 @@ class MetaBranchIsolationTests(unittest.TestCase):
         self.addCleanup(self.tmp.cleanup)
         self.root = Path(self.tmp.name) / "AIOA-spArkHAT-META"
         self.root.mkdir()
-        subprocess.run(["git", "-C", str(self.root), "init", "-q", "-b", "meta"], check=True)
+        subprocess.run(["git", "-C", str(self.root), "init", "-q", "-b", META_PROJECT_BRANCH], check=True)
         git(self.root, "config", "user.name", "Meta Test")
         git(self.root, "config", "user.email", "meta-test@example.invalid")
         (self.root / "README.md").write_text("fixture\n")
@@ -45,16 +46,17 @@ class MetaBranchIsolationTests(unittest.TestCase):
     def test_only_clean_pinned_meta_checkout_admitted_as_observation(self):
         result = self.check()
         self.assertEqual(self.sha, result.source_sha)
-        self.assertEqual("meta", result.branch)
+        self.assertEqual(META_PROJECT_BRANCH, result.branch)
+        self.assertEqual("AIOA METAGuardiansSPARK", META_PROJECT_DISPLAY_NAME)
         self.assertFalse(result.dispatch_allowed)
 
     def test_main_and_nebius_branches_denied(self):
-        for branch in ("main", "nebius-personal-ai", "codex/final-connect-20261023"):
+        for branch in ("meta", "main", "nebius-personal-ai", "codex/final-connect-20261023"):
             with self.subTest(branch=branch):
                 git(self.root, "branch", "-m", branch)
                 with self.assertRaises(MetaIsolationError):
                     self.check()
-                git(self.root, "branch", "-m", "meta")
+                git(self.root, "branch", "-m", META_PROJECT_BRANCH)
 
     def test_owner_path_mismatch_denied(self):
         other = Path(self.tmp.name) / "AIOA-spArkHAT-Companion"

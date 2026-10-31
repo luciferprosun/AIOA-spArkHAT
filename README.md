@@ -1,4 +1,7 @@
 # AIOA spArkHAT 🐾
+
+> **Meta Global AI Developer Hackathon project:** [**AIOA METAGuardiansSPARK**](docs/meta/PROJECT_IDENTITY.md) is developed on branch [`AIOA-METAGuardiansSPARK`](https://github.com/luciferprosun/AIOA-spArkHAT/tree/AIOA-METAGuardiansSPARK). This is the same unified AIOA spArkHAT repository; no separate frontend or main rename.
+
 ### Long-Running Agent | NVIDIA Claw Challenge Berlin 2026
 
 ![GOLD24](https://img.shields.io/badge/GOLD24-PASSED-00FF00)

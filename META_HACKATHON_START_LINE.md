@@ -1,15 +1,17 @@
-# AIOA spArkHAT 🐾 — META 2026 START LINE
+# AIOA METAGuardiansSPARK — META 2026 START LINE
+> **Current identity (31 October 2026):** AIOA METAGuardiansSPARK / branch `AIOA-METAGuardiansSPARK`. The former `meta` branch was renamed; its original commit history and historical evidence remain preserved. This work is part of the unified AIOA spArkHAT repository.
+
 ### Meta Global AI Developer Hackathon · Muse × Chromium × MCP × Human-Governed Agents
 
 > **STATUS: PARTICIPATION APPROVED · IMPLEMENTATION ACTIVE (G1 DONE, G2 PREP) · LIVE META/CHROMIUM NOT YET VERIFIED**
 >
-> **Prepared:** 20 October 2026 · **Working branch:** `meta` · **Build window:** 26 October–4 November 2026 · **Final submission deadline:** 4 November, **9:00 PM ET** (subject to the organizer's current rules).
+> **Prepared:** 20 October 2026 · **Working branch:** `AIOA-METAGuardiansSPARK` · **Build window:** 26 October–4 November 2026 · **Final submission deadline:** 4 November, **9:00 PM ET** (subject to the organizer's current rules).
 >
 > This charter was prepared **before kickoff**. The owner authorized isolated offline development on 26 October. G1 contracts and G2 network admission screening have now been added, but **no real Meta-model invocation or Chromium computer-use session has been verified**. Live effects, browser installation, credentials, and API spending require independent gates.
 
 **The idea:** *One governed AI agent, many models, real computer work — with the human retaining authority.*
 
-**Project:** [AIOA spArkHAT](https://sparkhat.eu/aioa/) · **Canonical repository:** [luciferprosun/AIOA-spArkHAT](https://github.com/luciferprosun/AIOA-spArkHAT) · **Meta branch:** [`meta`](https://github.com/luciferprosun/AIOA-spArkHAT/tree/meta) · **Event:** [Meta Global AI Developer Hackathon](https://cerebralvalley.ai/e/meta-ai-developer-hackathon)
+**Project:** [AIOA spArkHAT](https://sparkhat.eu/aioa/) · **Canonical repository:** [luciferprosun/AIOA-spArkHAT](https://github.com/luciferprosun/AIOA-spArkHAT) · **Meta branch:** [`AIOA-METAGuardiansSPARK`](https://github.com/luciferprosun/AIOA-spArkHAT/tree/AIOA-METAGuardiansSPARK) · **Event:** [Meta Global AI Developer Hackathon](https://cerebralvalley.ai/e/meta-ai-developer-hackathon)
 
 ---
 
@@ -21,7 +23,7 @@
 
 Most AI agents can reason about work. Far fewer can **carry work across a remote computer, a real browser, and future business services while preserving auditable human control**. We want to demonstrate a clear alternative to a black-box, unlimited-permission autonomous agent.
 
-**AIOA spArkHAT META** is the planned Meta-model-powered browser/desktop orchestration extension of the existing AIOA system:
+**AIOA METAGuardiansSPARK** is the planned Meta-model-powered browser/desktop orchestration extension of the existing AIOA system:
 
 - **Meta Muse / Meta Model API:** the competition's agentic reasoning and perception layer, tasked with producing bounded plans, tool requests, critiques, and explanations.
 - **Chromium:** an isolated browser environment for controlled inspection, navigation, evidence capture, and (only after the appropriate gate) approved actions.
@@ -59,7 +61,7 @@ Most AI agents can reason about work. Far fewer can **carry work across a remote
 | Gmail API Gateway | Separate branch `feature/aioa-gmail-gateway` and Gmail architecture roadmap | **Parallel independent work**; no assumption of OAuth, live send, or approved merge |
 | GOLD72 / Linux Codex sprint | Separate development and evidence track | **Protected**; no changes or concurrency assumptions made here |
 
-**Start-line base SHA:** `81656e6ccbb0c02307d049e865b6df3225ddb578` (the verified `main` / `meta` common head before this documentation commit). This is a planning reference, **not** a claim that a newer local Sprint 34 state was integrated or that the Meta baseline will never change.
+**Start-line base SHA:** `81656e6ccbb0c02307d049e865b6df3225ddb578` (the verified `main` / `AIOA-METAGuardiansSPARK` common head before this documentation commit). This is a planning reference, **not** a claim that a newer local Sprint 34 state was integrated or that the Meta baseline will never change.
 
 ### Three distinct meanings of “Muse”
 
@@ -130,7 +132,7 @@ flowchart TD
 | Branch / workstream | Ownership and rule |
 | --- | --- |
 | `main` | Canonical protected AIOA. **No hackathon-prep edits here.** |
-| `meta` | **Only this planning document until owner GO and 26 Oct kickoff.** Future competition implementation stays here until reviewed. |
+| `AIOA-METAGuardiansSPARK` | **Only this planning document until owner GO and 26 Oct kickoff.** Future competition implementation stays here until reviewed. |
 | `feature/aioa-gmail-gateway` | Independent Google Gmail API effort. Keep its code, OAuth, token custody, and release gates separate. |
 | Local Codex Sprint 34 / GOLD72 | Do not touch frozen run, evidence, checkout, caches, checkpoints, tests, or resources. No simultaneous heavyweight build on a 4 GB PC. |
 
@@ -195,7 +197,7 @@ The historic GOLD24 record belongs to another evidence scope; it must not be use
 
 **Completed before kickoff:**
 - [x] Meta Global AI Developer Hackathon participation status: **APPROVED**, organizer email dated 20 Oct 2026.
-- [x] Dedicated Git branch: `meta` created from canonical `main`.
+- [x] Dedicated Git branch: `AIOA-METAGuardiansSPARK` created from canonical `main`.
 - [x] Parallel Gmail branch identified: `feature/aioa-gmail-gateway`.
 - [x] Existing MCP READ and authority boundaries inspected from repository documentation.
 - [x] Documentation-only competition charter prepared; **no hackathon code started**.
@@ -203,7 +205,7 @@ The historic GOLD24 record belongs to another evidence scope; it must not be use
 **Pending; no implied consent:**
 - [ ] Organizer publishes final official rules; owner accepts applicable rules, eligibility, reuse/open-source and team terms.
 - [ ] Meta account/API access and credited quota actually appear; confirm allowable models, prices, data-handling mode, and cost ceiling.
-- [ ] Record current `main` / `meta` / Gmail head SHAs; decide whether to reconcile any newer Linux code **without disturbing Sprint 34/GOLD72**.
+- [ ] Record current `main` / `AIOA-METAGuardiansSPARK` / Gmail head SHAs; decide whether to reconcile any newer Linux code **without disturbing Sprint 34/GOLD72**.
 - [ ] Decide whether browser uses Playwright/CDP or an existing permitted Chromium interface after an isolated technical evaluation.
 - [ ] Choose minimal demo domains, synthetic/non-sensitive data, and owner approval UX.
 - [ ] Confirm permitted team/individual category, submission portal, judging criteria, artifact requirements, licensing and deadline.
@@ -255,4 +257,4 @@ Each feature report should say **IMPLEMENTED / OFFLINE-TESTED / LIVE-VERIFIED / 
 >
 > **OFFLINE DEVELOPMENT STARTED — NOT READY TO CLAIM WORKING META/CHROMIUM INTEGRATION.**
 >
-> The pre-kickoff restriction ended on 26 October. The `meta` branch now contains contract code and offline tests. Preserve `main`, Gmail, Codex, and GOLD72 work unchanged; no unreviewed merge, unattended effect, API spending, or browser escalation.
+> The pre-kickoff restriction ended on 26 October. The `AIOA-METAGuardiansSPARK` branch now contains contract code and offline tests. Preserve `main`, Gmail, Codex, and GOLD72 work unchanged; no unreviewed merge, unattended effect, API spending, or browser escalation.

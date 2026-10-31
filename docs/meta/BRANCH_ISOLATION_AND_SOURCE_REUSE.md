@@ -1,3 +1,9 @@
+# AIOA METAGuardiansSPARK — 31 October 2026 migration notice
+
+**Current canonical Git branch:** `AIOA-METAGuardiansSPARK`; old `meta` was renamed. Original 26 October restrictions on Nebius remain below as historical facts. The owner later authorized *reviewed integration* of Nebius and other AIOA features, not blind merge, lost work, credential transfer or unsafe effects.
+
+---
+
 # META 2026 — branch-only coding and inherited source inventory
 
 **Date:** 26 October 2026. **Owner directive:** Nebius work continues for four days; do NOT touch its branch, local active checkout, Git state, processes, caches, or credentials. All new competition changes must land only on the dedicated GitHub branch \`meta\`. No merge to \`main\`.
@@ -32,7 +38,7 @@ No transfer from the ongoing Nebius branch, no merge, and no silent rewrite of t
 Use a **separate clone** (not \`git worktree\` sharing the active repository's .git directory), e.g.:
 
 \`\`\`bash
-git clone --branch meta --single-branch https://github.com/luciferprosun/AIOA-spArkHAT.git \
+git clone --branch AIOA-METAGuardiansSPARK --single-branch https://github.com/luciferprosun/AIOA-spArkHAT.git \
   "$HOME/projects/AIOA-spArkHAT-META"
 \`\`\`
 

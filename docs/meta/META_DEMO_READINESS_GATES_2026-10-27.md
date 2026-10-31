@@ -1,4 +1,10 @@
-# AIOA spArkHAT Meta — status dowodów demo, 27.10.2026
+# AIOA METAGuardiansSPARK — branch migration update, 31 October 2026
+
+Current canonical branch: `AIOA-METAGuardiansSPARK`. OFFLINE/LIVE evidence statements remain unchanged.
+
+---
+
+# AIOA METAGuardiansSPARK — status dowodów demo, 27.10.2026
 
 STATUS: audyt dokumentacyjny GitHub-only wykonany przez ChatGPT. Brak nowego kodu, brak kontaktu z Linuxem, brak wywołań Muse w tej operacji.
 
