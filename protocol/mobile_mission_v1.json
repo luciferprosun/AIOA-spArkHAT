@@ -1,0 +1,256 @@
+{
+  "schema": "aioa.mobile-mission.v1",
+  "base_path": "/api/mobile/v1",
+  "body_limit": 16384,
+  "response_limit": 65536,
+  "timeout_seconds": 8,
+  "clock_skew_seconds": 30,
+  "request_ttl_seconds": 30,
+  "enrollment_ttl_max_seconds": 300,
+  "session_ttl_seconds": 600,
+  "host_proof_ttl_seconds": 30,
+  "algorithm": "ES256-P256-SHA256-DER",
+  "spki": "Base64 DER SubjectPublicKeyInfo",
+  "host_proof_schema": "aioa.mobile.host-proof.v1",
+  "request_proof_schema": "aioa.mobile.request-proof.v1",
+  "enrollment_proof_schema": "aioa.mobile.enrollment-proof.v1",
+  "observation_schema": "aioa.mobile.observation.v1",
+  "request_headers": [
+    "Authorization",
+    "X-AIOA-Nonce",
+    "X-AIOA-Issued-At",
+    "X-AIOA-Audience",
+    "X-AIOA-Source-SHA",
+    "X-AIOA-Capsule",
+    "X-AIOA-Signature"
+  ],
+  "request_proof_fields": [
+    "schema",
+    "audience",
+    "body_sha256",
+    "issued_at",
+    "method",
+    "nonce",
+    "path",
+    "token_sha256",
+    "source_sha",
+    "capsule_digest"
+  ],
+  "routes": {
+    "capabilities": {
+      "method": "GET",
+      "path": "/capabilities",
+      "authentication": "fresh uncredentialed host challenge"
+    },
+    "redeem": {
+      "method": "POST",
+      "path": "/enrollment/redeem",
+      "authentication": "one-time code and prebound P256 key proof"
+    },
+    "status": {
+      "method": "GET",
+      "path": "/status",
+      "authentication": "session+ES256"
+    },
+    "preview": {
+      "method": "POST",
+      "path": "/preview",
+      "authentication": "session+ES256",
+      "fields": [
+        "proposal_id",
+        "instruction",
+        "mode",
+        "target_url"
+      ]
+    },
+    "proposal": {
+      "method": "GET",
+      "path": "/proposals/{proposal_id}",
+      "authentication": "same device/session/source"
+    },
+    "task": {
+      "method": "GET",
+      "path": "/tasks/{task_id}",
+      "authentication": "same device/session/source"
+    },
+    "evidence": {
+      "method": "GET",
+      "path": "/evidence/{task_id}",
+      "authentication": "same device/session/source"
+    },
+    "stop": {
+      "method": "POST",
+      "path": "/stop",
+      "authentication": "same device/session/source",
+      "fields": [
+        "task_id"
+      ]
+    },
+    "revoke": {
+      "method": "POST",
+      "path": "/session/revoke",
+      "authentication": "session+ES256",
+      "fields": []
+    }
+  },
+  "disabled": [
+    "run",
+    "approve",
+    "chat",
+    "meta_spend",
+    "native_execute",
+    "github_write",
+    "owner_pairing_m12"
+  ],
+  "states": [
+    "PREVIEWED",
+    "RUNNING",
+    "OFFLINE_FIXTURE",
+    "LIVE_PENDING_AUTHORIZATION",
+    "LIVE_VERIFIED",
+    "UNKNOWN",
+    "DENIED",
+    "STOPPED",
+    "BLOCKED"
+  ],
+  "errors": {
+    "400": "INVALID_FRAME",
+    "401": "AUTH_DENIED",
+    "403": "SCOPE_DENIED",
+    "409": "REPLAY_OR_READBACK_REQUIRED",
+    "413": "BOUNDS",
+    "429": "RATE_LIMITED",
+    "501": "NOT_IMPLEMENTED",
+    "503": "REMOTE_DEPLOYMENT_BLOCKED_OR_SOURCE_CHANGED_OR_UNKNOWN"
+  },
+  "invariants": {
+    "can_authorize_effects": false,
+    "automatic_post_retry": false,
+    "mobile_owner_warrants": false,
+    "tls_minimum": "TLSv1.3",
+    "production_cleartext_allowed": false,
+    "production_default": "REMOTE_DEPLOYMENT_BLOCKED",
+    "fixture_label": "OFFLINE_FIXTURE"
+  },
+  "response_encoding": "canonical JSON UTF-8; sorted keys; compact; no floats/duplicate keys; depth <=16",
+  "schemas": {
+    "enrollment_request": {
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "device_spki",
+        "nonce",
+        "issued_at",
+        "audience",
+        "source_sha",
+        "capsule_digest",
+        "signature"
+      ],
+      "code": "48 lowercase hex / 192 random bits",
+      "device_spki": "canonical Base64 P-256 SPKI DER",
+      "nonce": "32 lowercase hex",
+      "issued_at": "integer Unix seconds; ±30s",
+      "audience": "64 lowercase hex host SPKI SHA256",
+      "source_sha": "40 lowercase hex",
+      "capsule_digest": "64 lowercase hex",
+      "signature": "canonical Base64 DER ECDSA"
+    },
+    "preview_request": {
+      "additionalProperties": false,
+      "required": [
+        "proposal_id",
+        "instruction",
+        "mode",
+        "target_url"
+      ],
+      "proposal_id": "32 lowercase hex; unique within session; persist before POST",
+      "instruction": "1..2000 UTF-8 bytes",
+      "mode": {
+        "enum": [
+          "OFFLINE_FIXTURE"
+        ]
+      },
+      "target_url": {
+        "const": "https://docs.example.org/offline-fixture"
+      }
+    },
+    "stop_request": {
+      "additionalProperties": false,
+      "required": [
+        "task_id"
+      ],
+      "task_id": "meta- +32 lowercase hex; own exact session/source/scope"
+    },
+    "empty_request": {
+      "additionalProperties": false,
+      "required": []
+    },
+    "observation": {
+      "additionalProperties": false,
+      "required": [
+        "ok",
+        "data",
+        "proof",
+        "signature"
+      ],
+      "ok": true,
+      "proof_required": [
+        "schema",
+        "audience",
+        "device_id",
+        "session_id",
+        "source_sha",
+        "capsule_digest",
+        "owner_scope_digest",
+        "nonce",
+        "method",
+        "path",
+        "issued_at",
+        "expires_at",
+        "data_sha256"
+      ],
+      "signature": "Base64 DER ES256 over canonical proof",
+      "data_sha256": "SHA256 canonical data; must match before display"
+    },
+    "mission_view": {
+      "required": [
+        "schema",
+        "task_id",
+        "task_digest",
+        "source_sha",
+        "capsule_digest",
+        "owner_scope_digest",
+        "provider_id",
+        "model_id",
+        "mode",
+        "state",
+        "stopped",
+        "created_at",
+        "verified",
+        "live_verified",
+        "billing",
+        "owner_authority",
+        "can_run",
+        "receipt",
+        "readback_required"
+      ],
+      "verified": false,
+      "live_verified": false,
+      "billing": "UNVERIFIED",
+      "owner_authority": "NOT_BOUND",
+      "can_run": false,
+      "receipt": "null or {kind:OFFLINE_FIXTURE,content_sha256:64hex,verified:false}; no raw content"
+    },
+    "error": {
+      "additionalProperties": false,
+      "required": [
+        "ok",
+        "error",
+        "automatic_retry"
+      ],
+      "ok": false,
+      "error": "closed errors above",
+      "automatic_retry": false
+    }
+  }
+}

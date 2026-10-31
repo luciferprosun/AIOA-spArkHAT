@@ -25,10 +25,7 @@ from .mission_service import MissionService
 ROOT = Path(__file__).resolve().parents[2]
 
 
-def current_source():
-    sha = subprocess.run(['git', '--no-optional-locks', '-C', str(ROOT), 'rev-parse', 'HEAD'],
-                         capture_output=True, text=True, timeout=3).stdout.strip()
-    files = ('runtime/meta_hackathon/runtime_adapter.py', 'runtime/meta_hackathon/mission_service.py',
+SOURCE_FILES = ('runtime/meta_hackathon/runtime_adapter.py', 'runtime/meta_hackathon/mission_service.py',
         'runtime/meta_hackathon/mission_read_offline.py', 'runtime/providers/meta_model_api.py',
         'runtime/browser_agent/chrome_read_adapter.py', 'runtime/core_admission.py',
         'runtime/providers/config.py', 'runtime/mission/warrant.py', 'runtime/webapp.py',
@@ -39,8 +36,24 @@ def current_source():
         'runtime/memory_patch/contracts/serialization.py', 'runtime/meta_hackathon/contracts.py',
         'runtime/meta_hackathon/muse_plan.py', 'runtime/meta_hackathon/network_admission.py',
         'runtime/browser_agent/offline_adapter.py', 'lab/archaioa/warrant.py',
-        'lab/archaioa/authority.py', 'lab/archaioa/decision_root.py')
-    capsule = canonical_sha256({p: hashlib.sha256((ROOT/p).read_bytes()).hexdigest() for p in files})
+        'lab/archaioa/authority.py', 'lab/archaioa/decision_root.py',
+        'runtime/mobile_gateway/__init__.py', 'runtime/mobile_gateway/wire.py',
+        'runtime/mobile_gateway/service.py', 'protocol/mobile_mission_v1.json',
+        'clients/android/app/src/main/java/eu/sparkhat/aioa/companion/Wire.kt',
+        'clients/android/app/src/main/java/eu/sparkhat/aioa/companion/TransportIdentity.kt',
+        'clients/android/app/src/main/java/eu/sparkhat/aioa/companion/MobileClient.kt',
+        'clients/android/app/src/main/java/eu/sparkhat/aioa/companion/MissionViewModel.kt',
+        'clients/android/app/src/main/java/eu/sparkhat/aioa/companion/Freshness.kt',
+        'clients/android/app/src/main/java/eu/sparkhat/aioa/companion/MainActivity.kt',
+        'clients/android/app/src/main/AndroidManifest.xml',
+        'clients/android/app/src/main/res/xml/network_security_config.xml',
+        'clients/android/app/src/main/res/xml/data_extraction_rules.xml')
+
+
+def current_source():
+    sha = subprocess.run(['git', '--no-optional-locks', '-C', str(ROOT), 'rev-parse', 'HEAD'],
+                         capture_output=True, text=True, timeout=3).stdout.strip()
+    capsule = canonical_sha256({p: hashlib.sha256((ROOT/p).read_bytes()).hexdigest() for p in SOURCE_FILES})
     return sha if len(sha) == 40 else capsule[:40], capsule
 
 

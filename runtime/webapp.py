@@ -49,7 +49,7 @@ class WebRuntimeService:
     def __init__(self, *, cpl_fixture=False, cpl_cost_policy=None, runtime=None,
                  personal_ai=None, personal_ai_catalog=None,
                  personal_ai_cost_quote=None, native_console=None,
-                 meta_missions=None, meta_owner=None) -> None:
+                 meta_missions=None, meta_owner=None, mobile_gateway=None) -> None:
         self.runtime = runtime or create_runtime(cpl_fixture=cpl_fixture, cpl_cost_policy=cpl_cost_policy)
         self.personal_ai = personal_ai
         self.personal_ai_catalog = personal_ai_catalog
@@ -61,6 +61,11 @@ class WebRuntimeService:
                     or getattr(self.runtime, '_memory_patch_admission', None) is not meta_missions.core
                     or getattr(meta_owner, 'runtime', None) is not self.runtime):
                 raise ValueError('META_RUNTIME_CORE_BINDING_REQUIRED')
+        if mobile_gateway is not None:
+            from runtime.mobile_gateway.service import MobileGateway
+            if type(mobile_gateway) is not MobileGateway or mobile_gateway.missions is not meta_missions:
+                raise ValueError('MOBILE_SAME_MISSION_CORE_REQUIRED')
+        self.mobile_gateway = mobile_gateway
         if native_console is not None:
             from runtime.native_console import NativeConsoleBinding
             if type(native_console) is not NativeConsoleBinding:raise ValueError("NATIVE_CONSOLE_BINDING")
@@ -293,6 +298,9 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
         parsed = urlparse(self.path)
         if not self._check_local_request():
             return
+        if parsed.path.startswith('/api/mobile/'):
+            self._handle_mobile('GET')
+            return
         if parsed.path.startswith('/api/meta/'):
             if self._check_token(): self._handle_meta('GET', parsed, None)
             return
@@ -424,6 +432,9 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
     def do_POST(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler API
         parsed = urlparse(self.path)
         if not self._check_local_request():
+            return
+        if parsed.path.startswith('/api/mobile/'):
+            self._handle_mobile('POST')
             return
         if parsed.path.startswith('/api/meta/'):
             if not self._check_token(): return
@@ -661,6 +672,49 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
                 HTTPStatus.CONFLICT if code in ('META_MISSION_ACTIVE', 'META_MISSION_NOT_PREVIEWED') else
                 HTTPStatus.SERVICE_UNAVAILABLE if code == 'META_RUNTIME_NOT_BOUND' else HTTPStatus.BAD_REQUEST)
             self._write_json(status, {'ok': False, 'error': code})
+
+    def _handle_mobile(self, method):
+        """Exact raw-body signature, independent of the loopback UI credential."""
+        from runtime.mobile_gateway import wire
+        self.close_connection = True
+        gateway = getattr(self._service(), 'mobile_gateway', None)
+        try:
+            if gateway is None:
+                raise wire.MobileError(503)
+            critical = ('Authorization', 'X-AIOA-Nonce', 'X-AIOA-Issued-At', 'X-AIOA-Audience',
+                'X-AIOA-Source-SHA', 'X-AIOA-Capsule', 'X-AIOA-Signature', 'X-AIOA-Challenge',
+                'Content-Length', 'Content-Type')
+            if any(len(self.headers.get_all(h, [])) > 1 for h in critical):
+                raise wire.MobileError()
+            if self.headers.get('Transfer-Encoding') or any(self.headers.get(h) for h in
+                    ('Forwarded', 'X-Forwarded-Host', 'X-Forwarded-Proto')):
+                raise wire.MobileError()
+            value = self.headers.get('Content-Length', '0')
+            if not value.isascii() or not value.isdecimal() or len(value) > 6:
+                raise wire.MobileError()
+            length = int(value)
+            if length > wire.BODY_LIMIT:
+                raise wire.MobileError(413)
+            if method == 'GET' and length:
+                raise wire.MobileError()
+            if method == 'POST' and (length == 0 or self.headers.get('Content-Type', '').split(';')[0] != 'application/json'):
+                raise wire.MobileError()
+            self.connection.settimeout(8)
+            raw = self.rfile.read(length) if length else b''
+            if len(raw) != length:
+                raise wire.MobileError()
+            status, payload = gateway.handle(method, self.path,
+                {h:self.headers.get(h, '') for h in critical}, raw)
+        except wire.MobileError as exc:
+            status, payload = exc.status, {'ok':False,'error':exc.code,'automatic_retry':False}
+        except (OSError, TimeoutError):
+            status, payload = 503, {'ok':False,'error':wire.ERRORS[503],'automatic_retry':False}
+        body = wire.canonical(payload)
+        self.send_response(status)
+        self.send_header('Content-Type', 'application/json; charset=utf-8')
+        self.send_header('Content-Length', str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
 
     def _check_local_request(self):
         port = self.server.server_address[1]

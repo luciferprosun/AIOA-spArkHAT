@@ -85,7 +85,7 @@ def sandbox_command(output, width, height, source_sha):
                  '/etc/ld.so.cache','/etc/fonts','/etc/nsswitch.conf','/etc/hosts','/etc/localtime'):
         if Path(name).exists():argv+=['--ro-bind',name,name]
     # Deliberately exclude .git, .local, .env, the home directory and other repos.
-    for name in ('runtime','web','lab'):
+    for name in ('runtime','web','lab','protocol','clients'):
         argv+=['--ro-bind',str(ROOT/name),'/app/'+name]
     argv+=['--ro-bind',str(ROOT/'tests/fixtures/meta_p03_ui_probe.js'),'/app/probe.js',
         '--bind',str(output),'/out','--proc','/proc','--dev','/dev','--tmpfs','/tmp',

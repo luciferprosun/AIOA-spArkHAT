@@ -1,0 +1,6 @@
+#!/bin/sh
+# Neutral launcher. Does not install a toolchain. Wrapper validates distribution SHA.
+set -eu
+cd -- "$(dirname -- "$0")"
+printf '%s  %s\n' '81a82aaea5abcc8ff68b3dfcb58b3c3c429378efd98e7433460610fecd7ae45f' 'gradle/wrapper/gradle-wrapper.jar' | sha256sum -c - >/dev/null
+exec java -classpath gradle/wrapper/gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain "$@"
