@@ -91,7 +91,7 @@ class WebRuntimeService:
         else:
             self.runtime.close()
 
-    def meta_request(self, action, payload=None):
+    def meta_request(self, action, payload=None, *, intent=None):
         from runtime.core_admission import Capability
         from runtime.meta_hackathon.mission_service import MissionError
         if self.meta_missions is None:
@@ -104,19 +104,23 @@ class WebRuntimeService:
         if action == 'stop' and type(payload) is dict and set(payload) == {'task_id'}:
             return service.stop(payload['task_id'], reader)
         if action == 'run' and type(payload) is dict and set(payload) == {'task_id', 'preview_digest'}:
+            record = service.evidence(payload['task_id'], reader)
+            if record.get('native_spend_binding') == 'BOUND' and intent != 'meta-run-approved-v1':
+                raise MissionError('META_NATIVE_OPERATOR_INTENT_REQUIRED')
             return service.run(payload['task_id'], payload['preview_digest'],
                                service.core.local_operator(Capability.OWNER_APPROVAL))
         raise MissionError('META_REQUEST_DENIED')
 
     def status_payload(self) -> dict:
         if self.meta_missions is not None:
+            fixture = self.meta_missions.manager._meta_provider.mode == 'MOCK'
             return {'product_name': 'AIOA spArkHAT', 'subtitle': 'METAGuardiansSPARK',
-                'meta_profile': True, 'demo': True, 'session_id': 'offline-meta-fixture',
-                'cwd': 'Isolated local fixture', 'model': 'meta_model_api/muse-spark-1.3',
+                'meta_profile': True, 'demo': fixture, 'session_id': 'offline-meta-fixture' if fixture else 'native-meta-core',
+                'cwd': 'Isolated local fixture' if fixture else 'Native Core host binding', 'model': 'meta_model_api/muse-spark-1.3',
                 'available_models': ['meta_model_api/muse-spark-1.3'], 'browser_active': False,
                 'current_url': None, 'vault_dir': 'No personal data loaded',
-                'tools': ['bounded offline document read'], 'previous_commands': [], 'recent_outputs': [],
-                'open_tabs': [], 'critical_loop': {'enabled': False, 'mode': 'OFFLINE_FIXTURE',
+                'tools': ['bounded offline document read'] if fixture else ['Core-approved advisory model request; browser blocked'], 'previous_commands': [], 'recent_outputs': [],
+                'open_tabs': [], 'critical_loop': {'enabled': False, 'mode': 'OFFLINE_FIXTURE' if fixture else 'LIVE_PENDING_AUTHORIZATION',
                     'authority': 'ADVISORY_ONLY', 'live_enabled': False, 'run_ids': [], 'session_budget_usd': '0'},
                 'assistant': {'default_mode': 'meta', 'plain_chat': 'DISABLED'}}
         owner = getattr(self, 'personal_ai_demo_owner', None)
@@ -425,7 +429,9 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
             if not self._check_token(): return
             intents = {'/api/meta/preview': 'meta-preview-v1', '/api/meta/run': 'meta-run-fixture-v1',
                        '/api/meta/stop': 'meta-stop-v1'}
-            if self.headers.get_all('X-AIOA-Intent', []) != [intents.get(parsed.path)]:
+            accepted = [intents.get(parsed.path)]
+            if parsed.path == '/api/meta/run': accepted.append('meta-run-approved-v1')
+            if self.headers.get_all('X-AIOA-Intent', []) not in [[value] for value in accepted]:
                 self._write_json(HTTPStatus.FORBIDDEN, {'ok': False, 'error': 'META_OPERATOR_INTENT_REQUIRED'})
                 return
             payload = self._read_json_body()
@@ -646,7 +652,7 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
             elif method == 'POST' and parsed.path in ('/api/meta/preview', '/api/meta/run', '/api/meta/stop'):
                 action = parsed.path.rsplit('/', 1)[-1]
             else: raise MissionError('META_REQUEST_DENIED')
-            result = self._service().meta_request(action, payload)
+            result = self._service().meta_request(action, payload, intent=self.headers.get('X-AIOA-Intent'))
             self._write_json(HTTPStatus.ACCEPTED if action == 'run' else HTTPStatus.OK, result)
         except Exception as error:
             code = getattr(error, 'code', 'META_REQUEST_DENIED')

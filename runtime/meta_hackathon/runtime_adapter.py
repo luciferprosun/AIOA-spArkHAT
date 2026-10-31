@@ -32,7 +32,8 @@ def current_source():
         'runtime/meta_hackathon/mission_read_offline.py', 'runtime/providers/meta_model_api.py',
         'runtime/browser_agent/chrome_read_adapter.py', 'runtime/core_admission.py',
         'runtime/providers/config.py', 'runtime/mission/warrant.py', 'runtime/webapp.py',
-        'web/app.js', 'web/meta_mission.js', 'web/index.html', 'web/styles.css')
+        'web/app.js', 'web/meta_mission.js', 'web/index.html', 'web/styles.css',
+        'runtime/providers/meta_receipts.py', 'runtime/browser_agent/chrome_process_read.py')
     capsule = canonical_sha256({p: hashlib.sha256((ROOT/p).read_bytes()).hexdigest() for p in files})
     return sha if len(sha) == 40 else capsule[:40], capsule
 

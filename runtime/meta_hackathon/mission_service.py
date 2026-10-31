@@ -323,7 +323,8 @@ class MissionService:
         view = provider.receipt_view
         require(view is None or view.ledger is self.ledger, 'META_RECEIPT_SCOPE_MISMATCH')
         view = view or MetaReceiptView(self.ledger, source_reader=self.source_probe)
-        return {'schema': 'aioa.meta.mission-status.v1', 'mode': 'OFFLINE_FIXTURE',
+        return {'schema': 'aioa.meta.mission-status.v1',
+            'mode': 'OFFLINE_FIXTURE' if provider.mode == 'MOCK' else 'LIVE_PENDING_AUTHORIZATION',
             'provider': provider.diagnostics(receipt_view=view),
             'chrome_live': 'BLOCKED_CONTAINMENT_AND_OWNER_GO', 'active_task_id': next((r.record_id for r in rows if r.payload['state'] in ACTIVE), None),
             'missions': [{'task_id': r.record_id, 'state': r.payload['state'],

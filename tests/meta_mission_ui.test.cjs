@@ -60,3 +60,24 @@ test('page reload can adopt server evidence and STOP without re-running', async 
   await assert.rejects(()=>client.run());await client.stop();
   assert.equal(calls.length,1);assert.equal(calls[0][0],'/api/meta/stop');
 });
+
+test('native-bound preview sends one approved intent and never fixture execution', async () => {
+  const {createMissionClient}=api();const calls=[];
+  const bound={...preview,state:'LIVE_PENDING_AUTHORIZATION',mode:'LIVE',native_spend_binding:'BOUND'};
+  const client=createMissionClient({fetchJSON:async(url,options={})=>{
+    calls.push([url,options]);return {...bound,state:'BLOCKED',error:'CHROME_LIVE_BLOCKED_CONTAINMENT'};
+  },render:()=>{},error:()=>{},delay:async()=>{}});
+  client.adopt(bound);await client.run();
+  assert.equal(calls[0][1].headers['X-AIOA-Intent'],'meta-run-approved-v1');
+  assert.deepEqual(JSON.parse(calls[0][1].body),{task_id:bound.task_id,preview_digest:bound.preview_digest});
+  await assert.rejects(()=>client.run());
+});
+
+test('unbound LIVE and uncertain states are never labelled fixture or allowed to run', async () => {
+  const {providerLabel,createMissionClient}=api();
+  assert.equal(providerLabel({state:'UNKNOWN',mode:'LIVE'}),'Muse Spark · UNKNOWN');
+  assert.equal(providerLabel({state:'BLOCKED',mode:'LIVE'}),'Muse Spark · LIVE BLOCKED');
+  const client=createMissionClient({fetchJSON:()=>{throw Error('must not send');},render:()=>{},error:()=>{}});
+  client.adopt({...preview,state:'LIVE_PENDING_AUTHORIZATION',mode:'LIVE'});
+  await assert.rejects(()=>client.run());
+});

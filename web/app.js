@@ -134,7 +134,8 @@ function applyStatus(status) {
   elements.currentModelBadge.textContent = status.model;
   elements.sessionModel.textContent = status.model;
   elements.sessionSummary.textContent = status.meta_profile
-    ? "Meta offline fixture · bounded READ · model and browser LIVE require separate approval."
+    ? status.demo ? "Meta offline fixture · bounded READ · model and browser LIVE require separate approval."
+      : "Meta native Core host · exact spend approval required · browser LIVE blocked."
     : status.demo
     ? "Isolated Personal AI demo · typed fixture target · exact human approval required."
     : status.browser_active
@@ -153,7 +154,7 @@ function applyStatus(status) {
     for (const node of document.querySelectorAll('.quick-action, #switch-model, #model-picker button')) node.disabled = true;
     for (const tab of document.querySelectorAll('.view-tab')) tab.hidden = tab.dataset.view !== 'meta';
   }
-  if (status.demo) {
+  if (status.demo || status.meta_profile) {
     document.querySelector('#assistant-submit').disabled = true;
     document.querySelector('#assistant-mode').disabled = true;
     elements.modelSelect.disabled = true;
@@ -969,12 +970,19 @@ function renderMetaMission(value) {
   metaNode('state').textContent = value.state;
   metaNode('task').textContent = value.task_id;
   metaNode('sha').textContent = value.source_sha;
-  metaNode('budget').textContent = `0 USD / ${value.budget_usd} USD · fixture; no actual model charges`;
+  metaNode('budget').textContent = value.mode === 'LIVE'
+    ? `Core bound: ${value.budget_usd} USD · actual settlement unverified`
+    : `0 USD / ${value.budget_usd} USD · fixture; no actual model charges`;
+  metaNode('approval').textContent = value.native_spend_binding || (value.warrant_digest ? 'fixture warrant consumed' : 'exact fixture approval required');
+  metaNode('correlation').textContent = value.correlation_id || 'none';
+  metaNode('origin').textContent = (value.allowed_origins || []).join(', ');
+  metaNode('evidence-digest').textContent = value.result?.evidence_digest || 'none';
   metaNode('evidence').textContent = JSON.stringify(value, null, 2);
-  metaNode('run').disabled = value.state !== 'PREVIEWED';
+  metaNode('run').disabled = !(value.state === 'PREVIEWED' || value.state === 'LIVE_PENDING_AUTHORIZATION' && value.native_spend_binding === 'BOUND');
+  metaNode('run').textContent = value.mode === 'LIVE' ? 'Run exact Core-approved request' : 'Approve exact fixture READ & run';
   metaNode('stop').disabled = !['PREVIEWED','RUNNING','LIVE_PENDING_AUTHORIZATION'].includes(value.state);
-  metaNode('preview').disabled = ['PREVIEWED','RUNNING'].includes(value.state);
-  for (const id of ['instruction','mode']) metaNode(id).disabled = ['PREVIEWED','RUNNING'].includes(value.state);
+  metaNode('preview').disabled = ['PREVIEWED','RUNNING','LIVE_PENDING_AUTHORIZATION'].includes(value.state);
+  for (const id of ['instruction','mode']) metaNode(id).disabled = ['PREVIEWED','RUNNING','LIVE_PENDING_AUTHORIZATION'].includes(value.state);
   metaNode('message').textContent = value.state === 'PREVIEWED'
     ? 'Review this exact task, scope and digest. Run approves only the displayed offline READ.'
     : value.state === 'RUNNING' ? 'Core accepted. Reading the bounded fixture. STOP remains available.'
@@ -991,6 +999,11 @@ async function refreshMetaStatus({adopt = true} = {}) {
     metaNode('credit').textContent = provider.credit_balance;
     metaNode('spend').textContent = provider.spend_permission;
     metaNode('api-receipt').textContent = provider.last_api_receipt ? 'redacted receipt available' : 'none';
+    metaNode('call-state').textContent = provider.call_state;
+    metaNode('billing').textContent = provider.billing_status;
+    metaNode('attempt').textContent = provider.last_attempt?.attempt_id || 'none';
+    metaNode('settled-cost').textContent = provider.settled_cost === null ? 'unverified' : String(provider.settled_cost);
+    metaNode('live-receipt').textContent = provider.last_live_receipt ? JSON.stringify(provider.last_live_receipt,null,2) : 'none';
     if (adopt && value.missions.length) {
       const latest = value.active_task_id || value.missions[value.missions.length-1].task_id;
       metaClient.adopt(await jsonFetch(`/api/meta/evidence/${encodeURIComponent(latest)}`));
