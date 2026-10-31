@@ -1,0 +1,439 @@
+{
+  "schema": "aioa.meta.p02.evidence-index.v1",
+  "created_at_utc": "2026-10-31T15:35:47.779412Z",
+  "product": "AIOA spArkHAT",
+  "subtitle": "METAGuardiansSPARK",
+  "status": "P02_OFFLINE_PASS",
+  "evidence_level": "OFFLINE_TESTED",
+  "meta_live": "BLOCKED_OWNER_GO_AND_NATIVE_HOST_BINDING",
+  "chrome_live": "BLOCKED_CONTAINMENT_AND_OWNER_GO",
+  "actual_meta_calls": 0,
+  "actual_chrome_launches": 0,
+  "actual_cost_usd": "0",
+  "git": {
+    "target": "/home/l/projects/AIOA-spArkHAT-META",
+    "branch": "AIOA-METAGuardiansSPARK",
+    "origin": "https://github.com/luciferprosun/AIOA-spArkHAT.git",
+    "p01_start_head": "34490b91ecd7f961bc98e088bd1b504e740a510a",
+    "browser_checkpoint": "0c2ada5f554ce4e088c1afa22d4f679026b82511",
+    "provider_mission_checkpoint": "c0d535ac904ffafb3eec5fba9a0ac80bedba3482",
+    "ui_docs_checkpoint": "containing commit; git log -1 --format=%H -- reports/meta/P02_EVIDENCE_INDEX_20261031.json",
+    "push_performed": false,
+    "app_proof_source_head": "34490b91ecd7f961bc98e088bd1b504e740a510a",
+    "app_proof_note": "Probe after final code fixes, before P02 commits. Source HEAD plus capsule and exact 16 changed-file seals identify tested working-tree bytes. The receipt does not claim the final commit SHA."
+  },
+  "source_preservation": {
+    "source_seals_checked": 54,
+    "all_source_seals_match": true,
+    "repositories": [
+      {
+        "path": "/home/l/AIOA_LOCAL_WORKTREES/nebius-nemotron-integration-20261028",
+        "branch": "feature/nebius-nemotron-integration-20261028",
+        "head": "6e9dd8ebc1dcb2c03345d9dc7d30895013751cd5",
+        "head_branch_status_unchanged": true
+      },
+      {
+        "path": "/home/l/projects/AIOA-spArkHAT-Companion",
+        "branch": "codex/final-connect-20261023",
+        "head": "9cf6c567b40bc87385fb90e9143b0fb170889b2a",
+        "head_branch_status_unchanged": true
+      }
+    ],
+    "nebius_status_counts": {
+      "modified": 24,
+      "untracked": 199
+    },
+    "protected_p01_bytes": [
+      {
+        "path": "runtime/meta_hackathon/mission_runner_offline.py",
+        "sha256": "1e7dd58ebcf22cbe0e84f2b467e43492cea2cb8952de917c94f45320fdfc363a",
+        "match_p01": true
+      },
+      {
+        "path": "tests/test_meta_mvp_runner.py",
+        "sha256": "765d1639d57d48fd5cbf8c28b30ac15382b8858d71732c462f2915fcb88da66f",
+        "match_p01": true
+      }
+    ]
+  },
+  "code_seals": [
+    {
+      "path": "runtime/browser_agent/chrome_read_adapter.py",
+      "sha256": "0abdac5572f6bd4befafd34afa4c0b9afe541d31a09b431abed6d5a4cc283165"
+    },
+    {
+      "path": "runtime/meta_hackathon/mission_read_offline.py",
+      "sha256": "ff2a7cd02b459cf951919416f48610a8d9480bbd611c9fd4589cbc25f17faaf2"
+    },
+    {
+      "path": "runtime/meta_hackathon/mission_service.py",
+      "sha256": "0581f23b3859c63bda541827af1ddc1d932f72329743041dece8f1cf500f820e"
+    },
+    {
+      "path": "runtime/meta_hackathon/runtime_adapter.py",
+      "sha256": "f82ec0f756f9aba8c30cc63be375e0b3d2a7c895ce673921e1328bab5125657f"
+    },
+    {
+      "path": "runtime/providers/config.py",
+      "sha256": "74e1725f55587f2b01711a795e665e1d7102c4fed0b13fb32fcdeabbca3eac10"
+    },
+    {
+      "path": "runtime/providers/meta_model_api.py",
+      "sha256": "f902c9f715d93c2dc7d16b4c08e0a532f24d3d3580b25fef80e40b9d11bb2055"
+    },
+    {
+      "path": "runtime/webapp.py",
+      "sha256": "bf39d963e337ac745733bb12c28fd11d20a8b280bc793e2d6ffbe19762d239a5"
+    },
+    {
+      "path": "tests/meta_mission_ui.test.cjs",
+      "sha256": "ab51c70ce0600c646d8fa147829589bdc0c239b1e878d7eb860593c7bbe251cf"
+    },
+    {
+      "path": "tests/test_meta_chrome_read.py",
+      "sha256": "d0e7b665c7bccc34123e3433bf6a54ed36e6a3b94104d859d08f37ec5236e082"
+    },
+    {
+      "path": "tests/test_meta_mission_service.py",
+      "sha256": "b47c01f2965dbde9026c4fa555704db0b6aeb4054c59f38fd824aa151eb34549"
+    },
+    {
+      "path": "tests/test_meta_model_api.py",
+      "sha256": "d07a4572f64d87b50fb7a2afa2b799db1eed1c91a0199619bf5db6ec931953be"
+    },
+    {
+      "path": "tests/test_meta_web.py",
+      "sha256": "8d39d984e6560d1933293b290a18309837a6bd42413f8379b9e64429b3388ab3"
+    },
+    {
+      "path": "web/app.js",
+      "sha256": "23a0239349fba14f19fe842992a038a025082d1603be5e060efd46dccfc9c04f"
+    },
+    {
+      "path": "web/index.html",
+      "sha256": "ce28bad98d9897d5566ca6af158765e3013210c1713ce7162d7836a27dc48e1b"
+    },
+    {
+      "path": "web/meta_mission.js",
+      "sha256": "1d4c8b22b517c7ea6f1fc1b963647b3d71cbe81d6c247719ce35c3035d15712c"
+    },
+    {
+      "path": "web/styles.css",
+      "sha256": "5d166f411c9e773524df53ac8de6fd4aa1abd256a13195e1aa8e42ef8b9d17da"
+    }
+  ],
+  "tests": {
+    "baseline_meta": {
+      "pass": 186,
+      "fail": 0,
+      "skip": 0
+    },
+    "final_meta": {
+      "pass": 228,
+      "fail": 0,
+      "skip": 0
+    },
+    "delta_meta": 42,
+    "node_ui": {
+      "pass": 4,
+      "fail": 0,
+      "skip": 0
+    },
+    "regressions": {
+      "core_warrant": 13,
+      "mcp": 99,
+      "legacy_web_isolated": 7,
+      "routing_boundary_isolated": 14,
+      "nebius_provider_isolated": 15
+    },
+    "regression_fail": 0,
+    "regression_skip": 0,
+    "syntax_exit": 0,
+    "diff_check_exit": 0,
+    "initial_legacy_harness_failures_retained": true,
+    "full_project_suite_run": false
+  },
+  "review": {
+    "scope": "Private 31-file snapshot before final fixes; read only, no TARGET access, no reviewer test execution",
+    "critical": 0,
+    "important": 4,
+    "minor": 2,
+    "parent_regraded_R5_important": true,
+    "fixed_and_parent_red_green_verified": [
+      "R1",
+      "R2",
+      "R3",
+      "R4",
+      "R5"
+    ],
+    "deferred_minor": {
+      "R6": "Before LIVE, project last actual redacted Core API receipt and billing/UNKNOWN into diagnostics; do not grant reusable spend"
+    },
+    "independent_rereview_of_final_bytes": false
+  },
+  "application_proof": {
+    "entrypoint": "python3 -m runtime.webapp --meta-offline",
+    "scope": "OFFLINE_TESTED",
+    "one_existing_backend": true,
+    "html_sha256": "ce28bad98d9897d5566ca6af158765e3013210c1713ce7162d7836a27dc48e1b",
+    "ui_client_sha256": "1d4c8b22b517c7ea6f1fc1b963647b3d71cbe81d6c247719ce35c3035d15712c",
+    "mission": {
+      "task_id": "meta-0bbcb33731024f2ab7b3074abf1f7826",
+      "state": "OFFLINE_FIXTURE",
+      "mode": "OFFLINE_FIXTURE",
+      "task_digest": "ca5dcdca26070f9f7abf742608de9b6c98eb696a287450d97d019f9b334263d5",
+      "owner_scope_digest": "13d25f1368e9e7215a6e46bcd3341c1f00cfec2b97f42e60285ce1e97dc781da",
+      "source_sha": "34490b91ecd7f961bc98e088bd1b504e740a510a",
+      "capsule_digest": "0ea8f0b96d91480eddd0a49d85a1c0d64413351edfc0edf7244147ee63746fbc",
+      "provider_id": "meta_model_api",
+      "model_id": "muse-spark-1.3",
+      "deadline": "2026-10-31T15:28:23.890916Z",
+      "budget_usd": "0",
+      "allowed_origins": [
+        "https://docs.example.org"
+      ],
+      "correlation_id": "meta-corr-f41781138dfd48fab155f39c19bec5de",
+      "stopped": false,
+      "live_verified": false,
+      "verified": false,
+      "dispatch_allowed": false,
+      "preview_digest": "c867d8373de8a62afaf60d508dff9ab614bae1af5ec04a4688468a71f6fc4c24",
+      "warrant_digest": "sha256:4b9d32d348340d01565ec5e2d9a6fb59dc5b163a38129c6e8a64c5d45697b818",
+      "provider_receipt": {
+        "authority": "ADVISORY_ONLY",
+        "binding": {
+          "allowed_origins": [
+            "https://docs.example.org"
+          ],
+          "budget_usd": "0",
+          "capsule_digest": "0ea8f0b96d91480eddd0a49d85a1c0d64413351edfc0edf7244147ee63746fbc",
+          "correlation_id": "meta-corr-f41781138dfd48fab155f39c19bec5de",
+          "deadline": "2026-10-31T15:28:23.890916Z",
+          "model_id": "muse-spark-1.3",
+          "owner_scope_digest": "13d25f1368e9e7215a6e46bcd3341c1f00cfec2b97f42e60285ce1e97dc781da",
+          "provider_id": "meta_model_api",
+          "source_sha": "34490b91ecd7f961bc98e088bd1b504e740a510a",
+          "stopped": false,
+          "task_digest": "ca5dcdca26070f9f7abf742608de9b6c98eb696a287450d97d019f9b334263d5",
+          "task_id": "meta-0bbcb33731024f2ab7b3074abf1f7826"
+        },
+        "cost_estimate_usd": "0",
+        "cost_kind": "ESTIMATE_NOT_INVOICE",
+        "environment": "META_API_MOCK",
+        "fallback": false,
+        "live_verified": false,
+        "model_id": "muse-spark-1.3",
+        "provider_id": "meta_model_api",
+        "request_digest": "97c346340255bb4f24fe99a37720475ebbf20377f1f27501d636059c69ac3596",
+        "schema": "aioa.meta.api-receipt.v1",
+        "tool_call_id": "call_meta-0bbcb33731024f2ab7b3074abf1f7826",
+        "usage": {
+          "completion_tokens": 30,
+          "prompt_tokens": 50,
+          "total_tokens": 80
+        }
+      },
+      "browser_receipt": {
+        "allowed_origins": [
+          "https://docs.example.org"
+        ],
+        "budget_usd": "0",
+        "capsule_digest": "0ea8f0b96d91480eddd0a49d85a1c0d64413351edfc0edf7244147ee63746fbc",
+        "captured_at_utc": "2026-10-31T15:26:24.995385Z",
+        "content_sha256": "135332222afecf8400385eb7642d67bdeb1a249c28860aed754c1231d42d5e87",
+        "correlation_id": "meta-corr-f41781138dfd48fab155f39c19bec5de",
+        "deadline": "2026-10-31T15:28:23.890916Z",
+        "environment": "OFFLINE_FIXTURE",
+        "live_verified": false,
+        "model_id": "muse-spark-1.3",
+        "observed_url": "https://docs.example.org/offline-fixture",
+        "owner_scope_digest": "13d25f1368e9e7215a6e46bcd3341c1f00cfec2b97f42e60285ce1e97dc781da",
+        "profile_sha256": "08b9cff8eaf40a6870dd07d1a931446f39e0a55ff3466a9ea225ba66cebc7b1b",
+        "provider_id": "meta_model_api",
+        "screenshot_sha256": "802a61f70b816c9dc1d9ad6394f059cdf7c764000d30de0fd4058f09b3575779",
+        "source_sha": "34490b91ecd7f961bc98e088bd1b504e740a510a",
+        "stopped": false,
+        "task_digest": "ca5dcdca26070f9f7abf742608de9b6c98eb696a287450d97d019f9b334263d5"
+      },
+      "offline_result": {
+        "status": "OFFLINE_LINKED_UNVERIFIED",
+        "terminal_state": "OBSERVED",
+        "core_warrant_consumed": true,
+        "environment": "OFFLINE_FIXTURE",
+        "verified": false,
+        "dispatch_allowed": false,
+        "evidence_digest": "6395cc86be8d8cfe091342a65502d580f30357b34693a4987ccf53b1160aa9a0"
+      },
+      "tool_result_call_id": "call_meta-0bbcb33731024f2ab7b3074abf1f7826"
+    },
+    "replay_http_status": 409,
+    "stop": {
+      "task_id": "meta-4bbf052a273c4eaebc109772c47923dd",
+      "state": "STOPPED"
+    },
+    "diagnostics": {
+      "authority": "ADVISORY_ONLY",
+      "blocked_reason": "META_API_LIVE_BLOCKED_OWNER_GO",
+      "credit_balance": "unverified",
+      "fallback": false,
+      "key_configured": true,
+      "last_api_receipt": null,
+      "model_id": "muse-spark-1.3",
+      "provider_id": "meta_model_api",
+      "spend_permission": "not granted",
+      "status": "LIVE_PENDING_AUTHORIZATION",
+      "transport": "mock"
+    },
+    "lifecycle": {
+      "returncode": 0,
+      "port_loopback": true
+    },
+    "screenshot_note": "SHA identifies one-pixel synthetic PNG fixture, not a real Chrome screenshot",
+    "fixture_owner_note": "Synthetic local OFFLINE owner assignment; no real owner admission or spend permission"
+  },
+  "secret_check": {
+    "metadata_only": true,
+    "exists_regular_owner_permissions_0600": true,
+    "contents_length_fingerprint_read": false,
+    "code_pattern_scan_findings": 0,
+    "actual_secret_comparison_performed": false
+  },
+  "private_artifacts": [
+    {
+      "private_path": "/home/l/projects/META_INTEGRATION_PRIVATE_20261031/20261031T143446Z/BASELINE_META.log",
+      "sha256": "cfe72c80eade9f53137ceda6573ea6cedd25e3b45d10b13deab1e01be0b62b07"
+    },
+    {
+      "private_path": "/home/l/projects/META_INTEGRATION_PRIVATE_20261031/20261031T143446Z/META_FINAL.log",
+      "sha256": "d8b9d153c1b9358a1f2473060434b779c8ef7cc64d9a8ca1c5eab487ee118fe0"
+    },
+    {
+      "private_path": "/home/l/projects/META_INTEGRATION_PRIVATE_20261031/20261031T143446Z/FINAL_QA.json",
+      "sha256": "1b18430ba03e5e1cac4fe0334a2cb4c9b0e8d22733a94fb323454d87f7704133"
+    },
+    {
+      "private_path": "/home/l/projects/META_INTEGRATION_PRIVATE_20261031/20261031T143446Z/NODE_FINAL.log",
+      "sha256": "1b55c2e6801eb14d2374dd64ef0882734fc86c3a49f2992b0ab3bede169d8980"
+    },
+    {
+      "private_path": "/home/l/projects/META_INTEGRATION_PRIVATE_20261031/20261031T143446Z/CORE_WARRANT.log",
+      "sha256": "6d4c663b47f9ba24262c4d3ca5a282414ca3f60062adde17b723f6ef05ec9d8e"
+    },
+    {
+      "private_path": "/home/l/projects/META_INTEGRATION_PRIVATE_20261031/20261031T143446Z/MCP.log",
+      "sha256": "31be92629377f766a9bfea11307d52a39064db9ff7b7b8458a80b1f80e22becc"
+    },
+    {
+      "private_path": "/home/l/projects/META_INTEGRATION_PRIVATE_20261031/20261031T143446Z/LEGACY_WEB.log",
+      "sha256": "eaf43af3686316f044f71aafc034afd9ed5e0b376b6ce1dd87c0f593e2194058"
+    },
+    {
+      "private_path": "/home/l/projects/META_INTEGRATION_PRIVATE_20261031/20261031T143446Z/ROUTING.log",
+      "sha256": "3bad1011ed561a4c1d148f0fa11a3327255b5636eed3f931370dc8ca0efb508e"
+    },
+    {
+      "private_path": "/home/l/projects/META_INTEGRATION_PRIVATE_20261031/20261031T143446Z/NEBIUS_PROVIDER.log",
+      "sha256": "74b3f267108441d369b9e140dd19840ca171f3351b4fdf8c74a32ad2b9d60ae9"
+    },
+    {
+      "private_path": "/home/l/projects/META_INTEGRATION_PRIVATE_20261031/20261031T143446Z/LEGACY_WEB_ISOLATED.log",
+      "sha256": "c6bd86e84878796753bd414525831aa85e5355febe4a65e2808d1c1e2eb1de75"
+    },
+    {
+      "private_path": "/home/l/projects/META_INTEGRATION_PRIVATE_20261031/20261031T143446Z/ROUTING_ISOLATED.log",
+      "sha256": "591908f8ebbe623a3d3659dcfff3bb80ff781ef8db2ea993f6d24cd4581362b8"
+    },
+    {
+      "private_path": "/home/l/projects/META_INTEGRATION_PRIVATE_20261031/20261031T143446Z/NEBIUS_PROVIDER_ISOLATED.log",
+      "sha256": "0519b9a2c93784bee8cdf83a80fa28df20fd32eec6b4d67b3821d69b987e447b"
+    },
+    {
+      "private_path": "/home/l/projects/META_INTEGRATION_PRIVATE_20261031/20261031T143446Z/PROVIDER_RED.log",
+      "sha256": "f9b1c4c16ce5459b775c3f8110e98968d65e769f72d872b3691ad3f2f30cbdec"
+    },
+    {
+      "private_path": "/home/l/projects/META_INTEGRATION_PRIVATE_20261031/20261031T143446Z/PROVIDER_GREEN.log",
+      "sha256": "17f06dd1a1c540c0b32920b6e70525c1d47059212aa7f4f529456728ce844eaf"
+    },
+    {
+      "private_path": "/home/l/projects/META_INTEGRATION_PRIVATE_20261031/20261031T143446Z/BROWSER_RED.log",
+      "sha256": "4016a88109fd10467cf913c28bc109eb79db04682ae63473cd603ef10f7aebd2"
+    },
+    {
+      "private_path": "/home/l/projects/META_INTEGRATION_PRIVATE_20261031/20261031T143446Z/BROWSER_GREEN.log",
+      "sha256": "9860d32acdc1393a897002eed53521148e68d80c29ce1f1e500def32dbb2e049"
+    },
+    {
+      "private_path": "/home/l/projects/META_INTEGRATION_PRIVATE_20261031/20261031T143446Z/MISSION_RED.log",
+      "sha256": "0ce6812cd87596abab78632a60a7303a127827a61aea19a518dc42324666cab1"
+    },
+    {
+      "private_path": "/home/l/projects/META_INTEGRATION_PRIVATE_20261031/20261031T143446Z/MISSION_GREEN.log",
+      "sha256": "10764f47e098fc33ab5721f8db3ebbce8354a8df25204405e5a385d0e5e1a2a7"
+    },
+    {
+      "private_path": "/home/l/projects/META_INTEGRATION_PRIVATE_20261031/20261031T143446Z/WEB_RED.log",
+      "sha256": "a6d381e592a2bea6e5963c4e396f773407c8f397a15c9fcc6691b487f8f5a925"
+    },
+    {
+      "private_path": "/home/l/projects/META_INTEGRATION_PRIVATE_20261031/20261031T143446Z/WEB_GREEN.log",
+      "sha256": "c152277e4a73cc242a6b2cc63b3d06b7a5107be91cb3e08a29b103177f27718f"
+    },
+    {
+      "private_path": "/home/l/projects/META_INTEGRATION_PRIVATE_20261031/20261031T143446Z/REVIEW_PROVIDER_RED.log",
+      "sha256": "2de55e42574247356d9b4eba63b1e053e4e94614ec1aa2aad63abdd07efb61ce"
+    },
+    {
+      "private_path": "/home/l/projects/META_INTEGRATION_PRIVATE_20261031/20261031T143446Z/REVIEW_PROVIDER_GREEN.log",
+      "sha256": "87e2e66c4bcbba67b612e948de176a18979812765b274df67914a9cee02b5157"
+    },
+    {
+      "private_path": "/home/l/projects/META_INTEGRATION_PRIVATE_20261031/20261031T143446Z/REVIEW_MISSION_RED.log",
+      "sha256": "06501a2cf939790bff820d7b60fc497fbb15999556c8bd45995531faec34f01a"
+    },
+    {
+      "private_path": "/home/l/projects/META_INTEGRATION_PRIVATE_20261031/20261031T143446Z/REVIEW_MISSION_GREEN.log",
+      "sha256": "dc07b1829a7de06b0dbead873543ba4104febb79e7de282084eeadf00cdc03ae"
+    },
+    {
+      "private_path": "/home/l/projects/META_INTEGRATION_PRIVATE_20261031/20261031T143446Z/INDEPENDENT_REVIEW.md",
+      "sha256": "6122f54e4b71c297ff8c319a3c75e599488d20a174f309f6ee3d4dfbe13279ab"
+    },
+    {
+      "private_path": "/home/l/projects/META_INTEGRATION_PRIVATE_20261031/20261031T143446Z/REVIEW_SOURCE_SEALS.json",
+      "sha256": "60d82fdfb353a9067284b9db0abb97260e5fe5e4230080da0aaf49d329d4a7ba"
+    },
+    {
+      "private_path": "/home/l/projects/META_INTEGRATION_PRIVATE_20261031/20261031T143446Z/FINAL_CODE_SEALS.json",
+      "sha256": "94b6c028b561665a7d4232de70b9b4d1cf34ca4c14ff338e84563f376a56cf4c"
+    },
+    {
+      "private_path": "/home/l/projects/META_INTEGRATION_PRIVATE_20261031/20261031T143446Z/APP_PROOF.json",
+      "sha256": "d94da519000eafdf28373e203ae2b690e2b3de3a1d6dbe52071c153868810d78"
+    },
+    {
+      "private_path": "/home/l/projects/META_INTEGRATION_PRIVATE_20261031/20261031T143446Z/APP_LIFECYCLE.json",
+      "sha256": "2cb4d724756d364e048a7835d23cfc4fb5f21cc7f18d0eb853b7c2b3ec422b94"
+    },
+    {
+      "private_path": "/home/l/projects/META_INTEGRATION_PRIVATE_20261031/20261031T143446Z/PRESERVATION_CHECK.json",
+      "sha256": "ecad27e58916e28b966dcd13fb382ddf4e1bd199f0c302bc5c54ed3b3e51f6d4"
+    },
+    {
+      "private_path": "/home/l/projects/META_INTEGRATION_PRIVATE_20261031/20261031T143446Z/SECRET_SCAN_CODE.json",
+      "sha256": "9abc20260b97398a3268936b9b75a5aa10637e0cb0fed8cf872e37970df37c65"
+    }
+  ],
+  "limitations": [
+    "No real Meta API response, usage, balance or credit eligibility verified",
+    "No actual browser, DNS/egress containment, live website or physical Android validation",
+    "META_LIVE_ONE_SHOT CLI only reports blockers; trusted native host spend binding is not supplied",
+    "No full-project/Core M12 certification; no push, deployment, video or submission"
+  ],
+  "official_references": [
+    "https://dev.meta.ai/docs/overview",
+    "https://dev.meta.ai/docs/protocols/chat-completions",
+    "https://dev.meta.ai/docs/tool-calling",
+    "https://dev.meta.ai/docs/pricing-rate-limits"
+  ]
+}

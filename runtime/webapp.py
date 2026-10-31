@@ -48,11 +48,19 @@ class WebRuntimeService:
 
     def __init__(self, *, cpl_fixture=False, cpl_cost_policy=None, runtime=None,
                  personal_ai=None, personal_ai_catalog=None,
-                 personal_ai_cost_quote=None, native_console=None) -> None:
+                 personal_ai_cost_quote=None, native_console=None,
+                 meta_missions=None, meta_owner=None) -> None:
         self.runtime = runtime or create_runtime(cpl_fixture=cpl_fixture, cpl_cost_policy=cpl_cost_policy)
         self.personal_ai = personal_ai
         self.personal_ai_catalog = personal_ai_catalog
         self.personal_ai_cost_quote = personal_ai_cost_quote
+        self.meta_missions, self.meta_owner = meta_missions, meta_owner
+        if meta_missions is not None:
+            from runtime.meta_hackathon.mission_service import MissionService
+            if (type(meta_missions) is not MissionService or meta_owner is None
+                    or getattr(self.runtime, '_memory_patch_admission', None) is not meta_missions.core
+                    or getattr(meta_owner, 'runtime', None) is not self.runtime):
+                raise ValueError('META_RUNTIME_CORE_BINDING_REQUIRED')
         if native_console is not None:
             from runtime.native_console import NativeConsoleBinding
             if type(native_console) is not NativeConsoleBinding:raise ValueError("NATIVE_CONSOLE_BINDING")
@@ -78,9 +86,39 @@ class WebRuntimeService:
         return value
 
     def close(self):
-        self.runtime.close()
+        if self.meta_owner is not None:
+            self.meta_owner.close()
+        else:
+            self.runtime.close()
+
+    def meta_request(self, action, payload=None):
+        from runtime.core_admission import Capability
+        from runtime.meta_hackathon.mission_service import MissionError
+        if self.meta_missions is None:
+            raise MissionError('META_RUNTIME_NOT_BOUND')
+        service = self.meta_missions
+        reader = service.core.local_operator(Capability.READ)
+        if action == 'status': return service.status(reader)
+        if action == 'preview': return service.preview(payload, reader)
+        if action == 'evidence': return service.evidence(payload['task_id'], reader)
+        if action == 'stop' and type(payload) is dict and set(payload) == {'task_id'}:
+            return service.stop(payload['task_id'], reader)
+        if action == 'run' and type(payload) is dict and set(payload) == {'task_id', 'preview_digest'}:
+            return service.run(payload['task_id'], payload['preview_digest'],
+                               service.core.local_operator(Capability.OWNER_APPROVAL))
+        raise MissionError('META_REQUEST_DENIED')
 
     def status_payload(self) -> dict:
+        if self.meta_missions is not None:
+            return {'product_name': 'AIOA spArkHAT', 'subtitle': 'METAGuardiansSPARK',
+                'meta_profile': True, 'demo': True, 'session_id': 'offline-meta-fixture',
+                'cwd': 'Isolated local fixture', 'model': 'meta_model_api/muse-spark-1.3',
+                'available_models': ['meta_model_api/muse-spark-1.3'], 'browser_active': False,
+                'current_url': None, 'vault_dir': 'No personal data loaded',
+                'tools': ['bounded offline document read'], 'previous_commands': [], 'recent_outputs': [],
+                'open_tabs': [], 'critical_loop': {'enabled': False, 'mode': 'OFFLINE_FIXTURE',
+                    'authority': 'ADVISORY_ONLY', 'live_enabled': False, 'run_ids': [], 'session_budget_usd': '0'},
+                'assistant': {'default_mode': 'meta', 'plain_chat': 'DISABLED'}}
         owner = getattr(self, 'personal_ai_demo_owner', None)
         if owner is not None:
             return {'product_name': 'AIOA spArkHAT', 'demo': True, 'session_id': 'isolated-personal-ai-demo',
@@ -251,6 +289,13 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
         parsed = urlparse(self.path)
         if not self._check_local_request():
             return
+        if parsed.path.startswith('/api/meta/'):
+            if self._check_token(): self._handle_meta('GET', parsed, None)
+            return
+        if getattr(self.runtime_service, 'meta_missions', None) is not None and parsed.path.startswith('/api/') and parsed.path not in {
+                '/api/session', '/api/status', '/api/models', '/api/health', '/api/review/scenario'}:
+            self._write_json(HTTPStatus.SERVICE_UNAVAILABLE, {'ok': False, 'error': 'META_PROFILE_ONLY'})
+            return
         if parsed.path.startswith("/api/memory-patch"):
             if self._check_memory_patch_operator():
                 self._handle_memory_patch("GET", parsed, {})
@@ -375,6 +420,19 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
     def do_POST(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler API
         parsed = urlparse(self.path)
         if not self._check_local_request():
+            return
+        if parsed.path.startswith('/api/meta/'):
+            if not self._check_token(): return
+            intents = {'/api/meta/preview': 'meta-preview-v1', '/api/meta/run': 'meta-run-fixture-v1',
+                       '/api/meta/stop': 'meta-stop-v1'}
+            if self.headers.get_all('X-AIOA-Intent', []) != [intents.get(parsed.path)]:
+                self._write_json(HTTPStatus.FORBIDDEN, {'ok': False, 'error': 'META_OPERATOR_INTENT_REQUIRED'})
+                return
+            payload = self._read_json_body()
+            if payload is not None: self._handle_meta('POST', parsed, payload)
+            return
+        if getattr(self.runtime_service, 'meta_missions', None) is not None:
+            self._write_json(HTTPStatus.FORBIDDEN, {'ok': False, 'error': 'META_PROFILE_ONLY'})
             return
         if parsed.path.startswith("/api/memory-patch"):
             if not self._check_memory_patch_operator():
@@ -577,6 +635,27 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
             status, result = error_response(operation, error)
         self._write_json(status, result)
 
+    def _handle_meta(self, method, parsed, payload):
+        from runtime.meta_hackathon.mission_service import MissionError
+        try:
+            if parsed.query or parsed.fragment or parsed.params:
+                raise MissionError('META_REQUEST_DENIED')
+            if method == 'GET' and parsed.path == '/api/meta/status': action = 'status'
+            elif method == 'GET' and parsed.path.startswith('/api/meta/evidence/'):
+                action, payload = 'evidence', {'task_id': parsed.path.removeprefix('/api/meta/evidence/')}
+            elif method == 'POST' and parsed.path in ('/api/meta/preview', '/api/meta/run', '/api/meta/stop'):
+                action = parsed.path.rsplit('/', 1)[-1]
+            else: raise MissionError('META_REQUEST_DENIED')
+            result = self._service().meta_request(action, payload)
+            self._write_json(HTTPStatus.ACCEPTED if action == 'run' else HTTPStatus.OK, result)
+        except Exception as error:
+            code = getattr(error, 'code', 'META_REQUEST_DENIED')
+            if not isinstance(code, str) or not code.startswith(('META_', 'CORE_')): code = 'META_REQUEST_DENIED'
+            status = HTTPStatus.FORBIDDEN if 'OWNER_GO' in code or 'ADMISSION' in code else (
+                HTTPStatus.CONFLICT if code in ('META_MISSION_ACTIVE', 'META_MISSION_NOT_PREVIEWED') else
+                HTTPStatus.SERVICE_UNAVAILABLE if code == 'META_RUNTIME_NOT_BOUND' else HTTPStatus.BAD_REQUEST)
+            self._write_json(status, {'ok': False, 'error': code})
+
     def _check_local_request(self):
         port = self.server.server_address[1]
         allowed_hosts = {f'127.0.0.1:{port}', f'localhost:{port}'}
@@ -695,6 +774,9 @@ def _parser() -> argparse.ArgumentParser:
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument('--cpl-fixture', action='store_true', help='Explicit local synthetic HTTP transport; no model API')
     mode.add_argument('--cpl-live-policy', help='Operator-authored price/budget policy JSON; still requires per-plan approval')
+    mode.add_argument('--meta-offline', action='store_true', help='One existing UI, isolated Meta fixture, zero spend')
+    mode.add_argument('--meta-live-one-shot', action='store_true', help='Inspect the explicit one-shot LIVE gate; never implies owner GO')
+    parser.add_argument('--state-dir', help='Private state directory for the explicit Meta offline profile')
     parser.add_argument("--host", default=HOST)
     parser.add_argument("--port", default=PORT, type=int)
     return parser
@@ -702,9 +784,21 @@ def _parser() -> argparse.ArgumentParser:
 
 def main() -> None:
     args = _parser().parse_args()
+    if args.meta_live_one_shot:
+        from runtime.providers.meta_model_api import MetaModelProvider
+        print(json.dumps({'mode': 'META_LIVE_ONE_SHOT', **MetaModelProvider().diagnostics(),
+            'required': ['trusted Core spend binding', 'exact model/cost/count owner GO',
+                         'key type and billing confirmation'], 'api_calls': 0}))
+        return
     from critical_loop.policy import load_cost_policy
     policy = load_cost_policy(args.cpl_live_policy) if args.cpl_live_policy else None
-    service = WebRuntimeService(cpl_fixture=args.cpl_fixture, cpl_cost_policy=policy)
+    if args.meta_offline:
+        from runtime.meta_hackathon.runtime_adapter import OfflineMetaComposition
+        root = Path(args.state_dir) if args.state_dir else Path.home()/'.local/state/aioa-meta-offline-v1'
+        owner = OfflineMetaComposition(root)
+        service = WebRuntimeService(runtime=owner.runtime, meta_missions=owner.missions, meta_owner=owner)
+    else:
+        service = WebRuntimeService(cpl_fixture=args.cpl_fixture, cpl_cost_policy=policy)
     server = make_server(args.host, args.port, service)
     address, bound_port = server.server_address[:2]
     print(f"AIOA spArkHAT web UI running on http://{address}:{bound_port}")

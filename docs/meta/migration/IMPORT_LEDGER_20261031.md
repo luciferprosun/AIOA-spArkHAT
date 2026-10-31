@@ -76,3 +76,11 @@ Nowy wąski adapter: `runtime/meta_hackathon/mission_read_offline.py`, składani
 - MCP: target `runtime/mcp_bridge/{adapter,policy,contracts,task_bus}.py` i `runtime/meta_hackathon/mcp_offline_plan.py`. READ ALLOW jest kontraktem, nie zgodą na natywne wykonanie. MCP regression99 PASS.
 
 P2: Nemotron CLI, Token Factory, ceny/budżety, Git WRITE/publish, sandbox EXEC, wdrożenia, cloud i GOLD72 pozostają w źródłach. Nie migrowano baz, sekretów, profili przeglądarki, nagrań ani raw prompt histories.
+
+## P02 — rozliczenie adaptacji, 2026-10-31
+
+Historyczne wpisy P01 powyżej pozostają zachowane. P02 nie kopiował kolejnych całych plików ze źródłowego worktree. Istniejący target `ProviderManager` otrzymał dokładny, domyślnie wyłączony adapter Meta; P01 `mission_read_offline.py` — typowany observer fixture po consume warrant. Source UI/server/frontend-v2 pozostają DEFER jako pliki; potrzebne idee preview/STOP/readback zaadaptowano do jedynego `runtime/webapp.py` + `web/`. Nie przenoszono źródłowego native authority/prototype, bazy ani transportu Nebius.
+
+Nowe target ścieżki: `runtime/providers/meta_model_api.py`, `runtime/meta_hackathon/{mission_service,runtime_adapter}.py`, `runtime/browser_agent/chrome_read_adapter.py`, `web/meta_mission.js`; dokładne zmiany, source identity, hashe i testy: [P02_INTEGRATION_REPORT_20261031.md](P02_INTEGRATION_REPORT_20261031.md) oraz `reports/meta/P02_EVIDENCE_INDEX_20261031.json`.
+
+P02: OFFLINE_TESTED, 228 Meta + 4 Node PASS; Core13/MCP99 i izolowane legacy web7/routing14/Nebius15 PASS. Meta LIVE i Chrome LIVE pozostają BLOCKED. Source branch/HEAD/status i 54 source hashes zgodne z P01; aktualny source status to 24 modified + 199 untracked. Nie usuwano ani nie commitowano żadnego z nich.

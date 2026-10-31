@@ -133,7 +133,9 @@ function applyStatus(status) {
   state.currentModel = status.model;
   elements.currentModelBadge.textContent = status.model;
   elements.sessionModel.textContent = status.model;
-  elements.sessionSummary.textContent = status.demo
+  elements.sessionSummary.textContent = status.meta_profile
+    ? "Meta offline fixture · bounded READ · model and browser LIVE require separate approval."
+    : status.demo
     ? "Isolated Personal AI demo · typed fixture target · exact human approval required."
     : status.browser_active
     ? "Browser session is active and ready for operator-approved actions."
@@ -145,7 +147,12 @@ function applyStatus(status) {
   elements.metricTools.textContent = String((status.tools || []).length);
   elements.metricCommands.textContent = String((status.previous_commands || []).length);
   elements.metricOutputs.textContent = String((status.recent_outputs || []).length);
-  if (status.critical_loop) applyCPLStatus(status.critical_loop);
+  if (status.critical_loop && !status.meta_profile) applyCPLStatus(status.critical_loop);
+  state.metaProfile = status.meta_profile === true;
+  if (state.metaProfile) {
+    for (const node of document.querySelectorAll('.quick-action, #switch-model, #model-picker button')) node.disabled = true;
+    for (const tab of document.querySelectorAll('.view-tab')) tab.hidden = tab.dataset.view !== 'meta';
+  }
   if (status.demo) {
     document.querySelector('#assistant-submit').disabled = true;
     document.querySelector('#assistant-mode').disabled = true;
@@ -157,6 +164,7 @@ async function refreshStatus() {
   const payload = await jsonFetch("/api/status");
   applyStatus(payload);
   hydrateModelSelect(payload.available_models, payload.model);
+  return payload;
 }
 
 function renderNativeConsole(payload) {
@@ -470,7 +478,9 @@ function setView(view) {
   }
   document.querySelector("#assistant-view").hidden = view !== "assistant";
   document.querySelector("#review-view").hidden = view !== "review";
-  elements.viewTitle.textContent = view === "review" ? "Dated evidence review" : "Assistant runtime";
+  document.querySelector("#meta-view").hidden = view !== "meta";
+  elements.viewTitle.textContent = view === 'meta' ? 'METAGuardiansSPARK Mission Control'
+    : view === "review" ? "Dated evidence review" : "Assistant runtime";
 }
 
 function renderEvidence(evidence) {
@@ -652,6 +662,12 @@ elements.personalAIReplayButton.addEventListener("click", async () => {
 async function bootstrap() {
   try {
     state.sessionToken = (await jsonFetch('/api/session')).token;
+    const initialStatus = await refreshStatus();
+    if (initialStatus.meta_profile) {
+      setView('meta');
+      await refreshMetaStatus();
+      return;
+    }
   } catch (error) {
     addMessage('System', `Local session setup failed: ${error}`);
     return;
@@ -944,6 +960,61 @@ cplElement('verify').addEventListener('click', async () => {
     cplElement('trace').closest('details').open = true;
     cplElement('inspector').open = true;
   } catch (error) { cplError(error); }
+});
+
+const metaNode = id => document.querySelector(`#meta-${id}`);
+function showMetaError(message) { metaNode('message').textContent = String(message); }
+function renderMetaMission(value) {
+  metaNode('provider').textContent = AIOAMetaMissions.providerLabel(value);
+  metaNode('state').textContent = value.state;
+  metaNode('task').textContent = value.task_id;
+  metaNode('sha').textContent = value.source_sha;
+  metaNode('budget').textContent = `0 USD / ${value.budget_usd} USD · fixture; no actual model charges`;
+  metaNode('evidence').textContent = JSON.stringify(value, null, 2);
+  metaNode('run').disabled = value.state !== 'PREVIEWED';
+  metaNode('stop').disabled = !['PREVIEWED','RUNNING','LIVE_PENDING_AUTHORIZATION'].includes(value.state);
+  metaNode('preview').disabled = ['PREVIEWED','RUNNING'].includes(value.state);
+  for (const id of ['instruction','mode']) metaNode(id).disabled = ['PREVIEWED','RUNNING'].includes(value.state);
+  metaNode('message').textContent = value.state === 'PREVIEWED'
+    ? 'Review this exact task, scope and digest. Run approves only the displayed offline READ.'
+    : value.state === 'RUNNING' ? 'Core accepted. Reading the bounded fixture. STOP remains available.'
+    : value.error || `${value.state} · fixture evidence does not certify LIVE operation.`;
+}
+const metaClient = AIOAMetaMissions.createMissionClient({fetchJSON:jsonFetch,render:renderMetaMission,error:showMetaError});
+async function refreshMetaStatus({adopt = true} = {}) {
+  try {
+    const value = await jsonFetch('/api/meta/status');
+    const provider = value.provider;
+    if (adopt && !value.missions.length) metaNode('provider').textContent = 'Muse Spark · OFFLINE FIXTURE';
+    metaNode('key').textContent = provider.key_configured ? 'yes · metadata only' : 'no';
+    metaNode('transport').textContent = provider.transport;
+    metaNode('credit').textContent = provider.credit_balance;
+    metaNode('spend').textContent = provider.spend_permission;
+    metaNode('api-receipt').textContent = provider.last_api_receipt ? 'redacted receipt available' : 'none';
+    if (adopt && value.missions.length) {
+      const latest = value.active_task_id || value.missions[value.missions.length-1].task_id;
+      metaClient.adopt(await jsonFetch(`/api/meta/evidence/${encodeURIComponent(latest)}`));
+    }
+  } catch (_) { showMetaError('Meta mission runtime not bound. Start the explicit --meta-offline profile.'); }
+}
+metaNode('form').addEventListener('submit', async event => {
+  event.preventDefault();
+  try { await metaClient.preview({instruction:metaNode('instruction').value,mode:metaNode('mode').value,target_url:metaNode('source').value}); }
+  catch (error) { showMetaError(error.message); }
+});
+metaNode('run').addEventListener('click', async () => {
+  metaNode('run').disabled = true;
+  try { await metaClient.run(); } catch(error) { showMetaError(error.message); }
+});
+metaNode('stop').addEventListener('click', async () => {
+  try { await metaClient.stop(); } catch(error) { showMetaError(error.message); }
+});
+metaNode('refresh').addEventListener('click', async () => {
+  const selected = await metaClient.refresh(); await refreshMetaStatus({adopt:selected === null});
+});
+for (const id of ['instruction','mode']) metaNode(id).addEventListener('input', () => {
+  metaClient.invalidate(); metaNode('run').disabled = true;
+  showMetaError('Inputs changed. STOP the previous preview before preparing a new mission.');
 });
 
 setAssistantMode('cpl');
