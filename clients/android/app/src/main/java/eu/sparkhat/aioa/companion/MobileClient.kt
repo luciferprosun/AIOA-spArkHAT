@@ -8,6 +8,9 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
 
 /** Host owns model credentials and Core authority. This client has no Run port. */
+class SessionUnavailable : IllegalStateException("FRESH_ENROLLMENT_REQUIRED")
+data class MobileObservation(val data: JsonObject, val validUntilElapsedMs: Long)
+
 class MobileClient(private val identity: TransportIdentity) {
     private var http: OkHttpClient? = null
     private var endpoint = ""
@@ -40,8 +43,9 @@ class MobileClient(private val identity: TransportIdentity) {
     private fun exchange(request: Request): JsonObject {
         val client = http ?: error("REMOTE_DEPLOYMENT_BLOCKED")
         client.newCall(request).execute().use { response ->
+            if (response.code == 401) { token = null; session = ""; throw SessionUnavailable() }
             if (!response.isSuccessful) error(when(response.code) {
-                401 -> "AUTH_DENIED"; 403 -> "SCOPE_DENIED"; 409 -> "READBACK_REQUIRED"
+                403 -> "SCOPE_DENIED"; 409 -> "READBACK_REQUIRED"
                 501 -> "NOT_IMPLEMENTED"; else -> "UNKNOWN_READBACK_REQUIRED"
             })
             val stream = response.body?.byteStream() ?: error("UNKNOWN_READBACK_REQUIRED")
@@ -77,7 +81,7 @@ class MobileClient(private val identity: TransportIdentity) {
         require(!Wire.flag(caps,"run") && !Wire.flag(caps,"approve") && !Wire.flag(caps,"meta_spend"))
         return caps
     }
-    fun enroll(code: String): JsonObject {
+    fun enroll(code: String): MobileObservation {
         token = null; session = ""
         verifyHostProof() // before code, token or device proof is sent
         require(Regex("[0-9a-f]{48}").matches(code))
@@ -96,14 +100,14 @@ class MobileClient(private val identity: TransportIdentity) {
         val data = response.getValue("data").jsonObject
         val newSession = Wire.text(data,"session_id")
         require(Wire.hex32.matches(newSession))
-        verifyObservation(response,n,"POST",path,newSession)
+        val observation = verifyObservation(response,n,"POST",path,newSession)
         val newToken = Wire.text(data,"token")
         require(Regex("[A-Za-z0-9_-]{43}").matches(newToken) && Wire.text(data,"device_id") == device &&
             Wire.integer(data,"expires_at") in (now()+1)..(now()+630) && Wire.text(data,"owner_authority") == "NOT_BOUND")
         token = newToken; session = newSession; expiresAt = Wire.integer(data,"expires_at")
-        return data
+        return observation
     }
-    private fun verifyObservation(response: JsonObject, n: String, method: String, path: String, expectedSession: String = session): JsonObject {
+    private fun verifyObservation(response: JsonObject, n: String, method: String, path: String, expectedSession: String = session): MobileObservation {
         val proof = response.getValue("proof").jsonObject
         val data = response.getValue("data").jsonObject
         Wire.verify(hostSpki,Wire.text(response,"signature"),proof); Wire.fresh(proof,now())
@@ -113,12 +117,14 @@ class MobileClient(private val identity: TransportIdentity) {
             Wire.text(proof,"source_sha") == source && Wire.text(proof,"capsule_digest") == capsule &&
             Wire.text(proof,"owner_scope_digest") == ownerScope &&
             Wire.text(proof,"data_sha256") == Wire.sha(Wire.canonical(data)))
-        return data
+        val sessionRemaining = if (expiresAt > now()) expiresAt-now() else 30L
+        val safeSeconds = (minOf(30L,Wire.integer(proof,"expires_at")-now(),sessionRemaining)-1).coerceAtLeast(0)
+        return MobileObservation(data,Freshness.elapsedMs()+safeSeconds*1000)
     }
-    private fun request(method: String, suffix: String, payload: JsonObject? = null): JsonObject {
+    private fun request(method: String, suffix: String, payload: JsonObject? = null): MobileObservation {
+        val credential = token ?: throw SessionUnavailable()
+        if (now() >= expiresAt) { token = null; session = ""; throw SessionUnavailable() }
         verifyHostProof() // no credential release to an unproven host
-        val credential = token ?: error("FRESH_ENROLLMENT_REQUIRED")
-        require(now() < expiresAt)
         val path = Wire.BASE+suffix; val n = nonce(); val at = now()
         val body = payload?.let { Wire.canonical(it) } ?: byteArrayOf()
         require(body.size <= 16384)
@@ -132,11 +138,17 @@ class MobileClient(private val identity: TransportIdentity) {
             .header("X-AIOA-Source-SHA",source).header("X-AIOA-Capsule",capsule)
             .header("X-AIOA-Signature",identity.sign(proof))
         if (method == "GET") builder.get() else builder.post(body.toRequestBody("application/json".toMediaType()))
-        val data = verifyObservation(exchange(builder.build()),n,method,path)
+        val observation = verifyObservation(exchange(builder.build()),n,method,path)
+        val data = observation.data
         if (data["task_id"] != null) validateMission(data)
-        if (suffix == "/status") data.getValue("missions").jsonArray.forEach { validateMission(it.jsonObject) }
+        if (suffix == "/status" || suffix.startsWith("/status/pages/")) {
+            val missions = data.getValue("missions").jsonArray
+            require(missions.size <= 16 && Wire.integer(data,"total_missions") in 0L..128L)
+            missions.forEach { validateMission(it.jsonObject) }
+            if (data["next_cursor"] != JsonNull) require(Wire.taskId.matches(Wire.text(data,"next_cursor")))
+        }
         if (suffix == "/session/revoke") { token = null; session = "" }
-        return data
+        return observation
     }
     private fun validateMission(data: JsonObject) {
         require(Wire.taskId.matches(Wire.text(data,"task_id")) && Wire.hex64.matches(Wire.text(data,"task_digest")) &&
@@ -153,20 +165,23 @@ class MobileClient(private val identity: TransportIdentity) {
         }
     }
     fun status() = request("GET","/status")
-    fun preview(proposal: String, instruction: String): JsonObject {
+    fun statusPage(cursor: String): MobileObservation {
+        require(Wire.taskId.matches(cursor)); return request("GET","/status/pages/$cursor")
+    }
+    fun preview(proposal: String, instruction: String): MobileObservation {
         require(Wire.hex32.matches(proposal) && instruction.toByteArray().size in 1..2000)
         return request("POST","/preview",buildJsonObject {
             put("proposal_id",proposal); put("instruction",instruction); put("mode","OFFLINE_FIXTURE")
             put("target_url","https://docs.example.org/offline-fixture")
         })
     }
-    fun readback(proposal: String): JsonObject {
+    fun readback(proposal: String): MobileObservation {
         require(Wire.hex32.matches(proposal)); return request("GET","/proposals/$proposal")
     }
-    fun evidence(task: String): JsonObject {
+    fun evidence(task: String): MobileObservation {
         require(Wire.taskId.matches(task)); return request("GET","/evidence/$task")
     }
-    fun stop(task: String): JsonObject {
+    fun stop(task: String): MobileObservation {
         require(Wire.taskId.matches(task)); return request("POST","/stop",buildJsonObject { put("task_id",task) })
     }
     fun revoke() = request("POST","/session/revoke",buildJsonObject {})

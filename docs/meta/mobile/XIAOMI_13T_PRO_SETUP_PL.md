@@ -44,6 +44,12 @@ nowym plikiem o nieudowodnionym pochodzeniu lub innym podpisie.
    revocation i odmowę starej sesji. Po process death token nie jest odzyskiwany,
    a nierozliczoną propozycję starej sesji obsługuje operator hosta.
 
+Po expiry/odwołaniu sesji dostępny pozostaje jawny nowy enrollment. Znacznik
+starej propozycji można przyciskiem „Zachowaj nierozliczony ID dla operatora”
+przenieść do lokalnej listy ID po przeczytaniu potwierdzenia; nie jest to rozliczenie
+Core, zgoda, STOP ani retry. UNKNOWN na hoście pozostaje UNKNOWN. Status ma jawne
+strony do16 własnych zadań; „Starsze zadania” wykonuje podpisany GET, nie Run.
+
 Nie są wymagane kontakty, SMS, lokalizacja, broad storage ani omijanie PIN.
 Ustawienia oszczędzania baterii zmieniaj tylko po stwierdzonej utracie połączenia;
 nazwy opcji HyperOS mogą się różnić. Nie akceptuj niewłaściwego certyfikatu.

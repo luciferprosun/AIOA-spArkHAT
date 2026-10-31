@@ -52,6 +52,9 @@ class AndroidSourceTests(unittest.TestCase):
         for name in ['host_proof_schema','request_proof_schema','enrollment_proof_schema','observation_schema']:
             self.assertIn(contract[name],source)
         vector=json.loads((ROOT/'tests/fixtures/mobile_wire_vector.json').read_text())
+        resource=ANDROID/'app/src/test/resources/mobile_wire_vector.json'
+        self.assertEqual(vector,json.loads(resource.read_text()))
+        self.assertNotIn('resources.srcDir("../../../tests/fixtures")',(ANDROID/'app/build.gradle.kts').read_text())
         from runtime.mobile_gateway import wire
         wire.verify(vector['spki'],vector['signature'],vector['proof'])
         self.assertEqual(vector['canonical_sha256'],wire.digest(wire.canonical(vector['proof'])))
@@ -70,6 +73,26 @@ class AndroidSourceTests(unittest.TestCase):
         self.assertEqual('81a82aaea5abcc8ff68b3dfcb58b3c3c429378efd98e7433460610fecd7ae45f',hashlib.sha256(p.read_bytes()).hexdigest())
         self.assertIn('Apache License',(ANDROID/'licenses/gradle-wrapper-LICENSE.txt').read_text())
         self.assertIn('neutral',(ANDROID/'NOTICE.md').read_text().lower())
+
+    def test_reenrollment_is_available_and_known_session_loss_is_distinct(self):
+        ui=(SRC/'MainActivity.kt').read_text();vm=(SRC/'MissionViewModel.kt').read_text()
+        self.assertNotIn('!ui.enrolled && code.isNotEmpty()',ui)
+        self.assertIn('SessionUnavailable',vm)
+        self.assertIn('sessionUnavailable()',vm)
+
+    def test_foreground_freshness_has_signed_deadline_and_expiry_invalidation(self):
+        client=(SRC/'MobileClient.kt').read_text();vm=(SRC/'MissionViewModel.kt').read_text()
+        self.assertIn('validUntilElapsedMs',client)
+        self.assertIn('validUntilElapsedMs',vm)
+        self.assertIn('delay(',vm)
+        self.assertIn('isFresh()',vm)
+
+    def test_pending_can_only_be_archived_explicitly_without_faking_core_resolution(self):
+        ui=(SRC/'MainActivity.kt').read_text();vm=(SRC/'MissionViewModel.kt').read_text()
+        self.assertIn('AlertDialog(',ui)
+        self.assertIn('archivePendingHint()',vm)
+        self.assertIn('unresolved_proposals',vm)
+        self.assertIn('UNKNOWN w Core',ui)
 
 
 if __name__=='__main__':unittest.main()

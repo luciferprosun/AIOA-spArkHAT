@@ -39,6 +39,8 @@ SOURCE_FILES = ('runtime/meta_hackathon/runtime_adapter.py', 'runtime/meta_hacka
         'lab/archaioa/authority.py', 'lab/archaioa/decision_root.py',
         'runtime/mobile_gateway/__init__.py', 'runtime/mobile_gateway/wire.py',
         'runtime/mobile_gateway/service.py', 'protocol/mobile_mission_v1.json',
+        'runtime/memory_patch/audit.py', 'runtime/memory_patch/persistence/idempotency.py',
+        'runtime/memory_patch/contracts/records.py', 'runtime/memory_patch/contracts/enums.py',
         'clients/android/app/src/main/java/eu/sparkhat/aioa/companion/Wire.kt',
         'clients/android/app/src/main/java/eu/sparkhat/aioa/companion/TransportIdentity.kt',
         'clients/android/app/src/main/java/eu/sparkhat/aioa/companion/MobileClient.kt',
@@ -50,10 +52,24 @@ SOURCE_FILES = ('runtime/meta_hackathon/runtime_adapter.py', 'runtime/meta_hacka
         'clients/android/app/src/main/res/xml/data_extraction_rules.xml')
 
 
+def sealed_source_path(relative, *, root=None):
+    """Fixed source list only; reject links before any source content read."""
+    base = Path(root or ROOT).absolute()
+    parts = Path(relative).parts
+    if base.is_symlink() or Path(relative).is_absolute() or any(p in ('.','..') for p in parts):
+        raise ValueError('META_SOURCE_PATH_DENIED')
+    path = base
+    for piece in parts:
+        path = path/piece
+        if path.is_symlink():raise ValueError('META_SOURCE_SYMLINK_DENIED')
+    if not stat.S_ISREG(path.lstat().st_mode):raise ValueError('META_SOURCE_TYPE_DENIED')
+    return path
+
+
 def current_source():
     sha = subprocess.run(['git', '--no-optional-locks', '-C', str(ROOT), 'rev-parse', 'HEAD'],
                          capture_output=True, text=True, timeout=3).stdout.strip()
-    capsule = canonical_sha256({p: hashlib.sha256((ROOT/p).read_bytes()).hexdigest() for p in SOURCE_FILES})
+    capsule = canonical_sha256({p: hashlib.sha256(sealed_source_path(p).read_bytes()).hexdigest() for p in SOURCE_FILES})
     return sha if len(sha) == 40 else capsule[:40], capsule
 
 

@@ -37,14 +37,32 @@ class WireContractTest {
         assertThrows(Exception::class.java) { Wire.fresh(p,41) }
     }
     @Test fun backgroundResumeDoesNotAcceptLateSuccess() {
-        val fresh = Freshness(1,"FRESH")
+        val fresh = Freshness(1,"FRESH",2000)
         val stale = fresh.invalidate("STALE")
-        assertEquals("STALE",stale.accept(1).state)
-        assertFalse(stale.canStop("RUNNING"))
-        assertTrue(stale.accept(2).canStop("RUNNING"))
+        assertEquals("STALE",stale.accept(1,3000,1000).state)
+        assertFalse(stale.canStop("RUNNING",1000))
+        assertTrue(stale.accept(2,3000,1000).canStop("RUNNING",1000))
     }
     @Test fun unknownRemainsUnknownAndCannotStop() {
-        assertFalse(Freshness(3,"FRESH").canStop("UNKNOWN"))
-        assertFalse(Freshness(3,"UNKNOWN").canStop("RUNNING"))
+        assertFalse(Freshness(3,"FRESH",2000).canStop("UNKNOWN",1000))
+        assertFalse(Freshness(3,"UNKNOWN",2000).canStop("RUNNING",1000))
+    }
+    @Test fun foregroundProofExpiryDisablesActionsWithoutLifecycleOrRetry() {
+        val fresh = Freshness(1,"FRESH",2000)
+        assertTrue(fresh.isFresh(1999)); assertFalse(fresh.isFresh(2000))
+        assertFalse(fresh.canStop("RUNNING",2000))
+        assertFalse(fresh.accept(1,1000,2000).isFresh(2000))
+    }
+    @Test fun sessionUnavailablePreservesPendingAndEnablesReenrollment() {
+        val pending = "a".repeat(32)
+        val ui = MissionUi(enrolled=true,pending=pending).sessionUnavailable()
+        assertFalse(ui.enrolled); assertEquals(pending,ui.pending)
+    }
+    @Test fun localArchivePreservesUnresolvedIdAndNeverCreatesCoreSuccess() {
+        val pending = "a".repeat(32)
+        val archive = PendingHints.archive(pending,listOf("b".repeat(32)))
+        assertEquals(listOf("b".repeat(32),pending),archive)
+        assertEquals(archive,PendingHints.archive(pending,archive))
+        assertThrows(Exception::class.java) { PendingHints.archive("not-an-id",archive) }
     }
 }

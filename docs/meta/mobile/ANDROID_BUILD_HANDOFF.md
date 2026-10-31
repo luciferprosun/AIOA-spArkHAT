@@ -35,7 +35,7 @@ dotyczy rozwiązywania zależności, wrapper może wcześniej próbować pobrani
 Nic takiego nie uruchomiono w N1. Nie ustawiaj wspólnego HOME ani nie korzystaj z
 niezweryfikowanych binariów innego projektu; stan buildu trzymaj poza Git.
 
-Po sukcesie wymagane rzeczywiste dowody: logi testów JVM (7 przygotowanych przypadków),
+Po sukcesie wymagane rzeczywiste dowody: logi testów JVM (10 przygotowanych przypadków),
 lint i assemble; merged manifest z pakietem/versionCode/min/target i jedynym
 INTERNET; `apksigner verify --verbose --print-certs` dla powstałego APK; SHA256 APK;
 potwierdzenie zgodności podpisu aktualizacji. Nie publikuj pełnych danych certyfikatu

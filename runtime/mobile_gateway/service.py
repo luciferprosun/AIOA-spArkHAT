@@ -8,16 +8,19 @@ import secrets
 import threading
 import time
 from dataclasses import dataclass
+from datetime import datetime, timezone
 
 from runtime.core_admission import Capability
 from runtime.memory_patch.contracts.serialization import canonical_sha256
+from runtime.memory_patch.audit import append_domain_event
+from runtime.memory_patch.persistence.idempotency import OperationBinding
 from runtime.memory_patch.errors import ErrorCode, MemoryPatchError
 from runtime.memory_patch.persistence.ports import RecordKind, StoredRecord, TransactionContext
 from runtime.meta_hackathon.mission_service import MissionError, MissionService, MissionRequest
 from . import wire
 
 SCHEMA = 'aioa.mobile.transport.v1'
-SCOPE_FIELDS = ('device_id', 'session_id', 'source_sha', 'capsule_digest', 'owner_scope_digest')
+SCOPE_FIELDS = ('device_id', 'session_id', 'source_sha', 'capsule_digest', 'owner_scope_digest', 'audience')
 
 
 def require(ok, status=401):
@@ -58,7 +61,8 @@ class MobileGateway:
         self.origin = 'https://fixture.invalid'
 
     def _ready(self):
-        require(self.enabled, 503)
+        require(self.enabled and self.missions.manager._meta_provider.mode == 'MOCK'
+                and self.core.configured and self.runner.configured and not self.missions._closed, 503)
         require(tuple(self.missions.source_probe()) == self.source, 503)
 
     def _run(self, purpose, callback, principal=None):
@@ -72,23 +76,29 @@ class MobileGateway:
                 raise exc.__cause__ from None
             raise
 
-    def _record(self, tx, key, data, prior=None):
+    def _record(self, tx, key, data, prior=None, *, at):
         row = StoredRecord(RecordKind.OPERATION, key, self.scope, prior.revision+1 if prior else 1,
                            dict(schema=SCHEMA, **data))
         if prior is None:
             tx.insert(row)
         else:
             tx.replace(row, expected_revision=prior.revision)
+        # The existing native domain format owns AUDIT, ordering and OUTBOX.
+        # Every transport record revision receives its actual record digest;
+        # no ad hoc audit payload or second publication chain is introduced.
+        identity = wire.digest(wire.canonical([key, row.revision]))
+        operation = OperationBinding.bind('mobile-op-'+identity,'MOBILE_TRANSPORT_RECORD',
+            {'record_digest':row.payload_digest,'source_sha':self.source[0],
+             'capsule_digest':self.source[1],'owner_scope_digest':self.owner_scope_digest,
+             'audience':self.identity.audience})
+        append_domain_event(tx,operation,event_id='mobile-audit-'+identity,
+            proof_id='mobile-outbox-'+identity,resource_id=key,
+            before=prior.payload.get('state') if prior else None,after=data['state'],
+            content_digest=row.payload_digest,at=datetime.fromtimestamp(at,timezone.utc))
+        return row
 
     def _get(self, key):
         return self._run(Capability.READ, lambda tx: tx.get(RecordKind.OPERATION, key))
-
-    def _audit(self, tx, event, identity, at):
-        key = 'mobile-audit-'+wire.digest(wire.canonical([event, identity]))
-        tx.insert(StoredRecord(RecordKind.AUDIT, key, self.scope, 1,
-            {'schema': 'aioa.mobile.audit.v1', 'event': event, 'identity_sha256':wire.digest(identity.encode()),
-             'at': at, 'source_sha':self.source[0], 'capsule_digest':self.source[1],
-             'owner_scope_digest':self.owner_scope_digest, 'grants_authority':False}))
 
     def issue_enrollment(self, principal, device_spki, *, ttl=300):
         """Native host-only, exact prebound transport key; never an HTTP action."""
@@ -105,8 +115,7 @@ class MobileGateway:
                 'owner_scope_digest':self.owner_scope_digest, 'audience':self.identity.audience}
             def save(tx):
                 require(len(tx.scan(RecordKind.OPERATION, limit=128, states=('MOBILE_ENROLLMENT',))) < 128, 429)
-                self._record(tx,key,data)
-                self._audit(tx,'ENROLLMENT_ISSUED',key,now)
+                self._record(tx,key,data,at=now)
             self._run(Capability.OWNER_APPROVAL, save, principal)
             return code
 
@@ -120,6 +129,7 @@ class MobileGateway:
         require(type(issued) is int and int(self.clock())-30 <= issued <= int(self.clock())+30)
 
     def _binding(self, data):
+        require(data.get('audience') == self.identity.audience)
         require(data['source_sha'] == self.source[0] and data['capsule_digest'] == self.source[1]
                 and data['owner_scope_digest'] == self.owner_scope_digest, 503)
 
@@ -148,15 +158,14 @@ class MobileGateway:
             for old in rows:
                 if old.payload['device_id'] == device_id and not old.payload['revoked']:
                     prior=plain(old.payload);prior.pop('schema');prior['revoked']=True
-                    self._record(tx,old.record_id,prior,old)
+                    self._record(tx,old.record_id,prior,old,at=now)
             data.pop('schema');data['used']=True
-            self._record(tx,key,data,row)
+            self._record(tx,key,data,row,at=now)
             session={'state':'MOBILE_SESSION','device_spki':value['device_spki'],
                 'device_id':device_id,'session_id':session_id,'source_sha':self.source[0],
                 'capsule_digest':self.source[1],'owner_scope_digest':self.owner_scope_digest,
-                'expires_at':now+600,'revoked':False,'nonce_count':0}
-            self._record(tx,'mobile-session-'+token_hash,session)
-            self._audit(tx,'SESSION_ENROLLED',session_id,now)
+                'expires_at':now+600,'revoked':False,'nonce_count':0,'audience':self.identity.audience}
+            self._record(tx,'mobile-session-'+token_hash,session,at=now)
             return session
         session=self._run(Capability.COMMIT,redeem)
         request=Session(token_hash,session,value['nonce'],'POST',wire.BASE+'/enrollment/redeem')
@@ -194,10 +203,9 @@ class MobileGateway:
             require(not data['revoked'] and now < data['expires_at'])
             require(tx.get(RecordKind.OPERATION,nonce_key) is None,409)
             require(data['nonce_count']<512,429)
-            self._record(tx,nonce_key,{'state':'MOBILE_NONCE','proof_sha256':wire.digest(wire.canonical(proof))})
+            self._record(tx,nonce_key,{'state':'MOBILE_NONCE','proof_sha256':wire.digest(wire.canonical(proof))},at=now)
             data.pop('schema');data['nonce_count']+=1
-            self._record(tx,key,data,current)
-            self._audit(tx,'REQUEST_ACCEPTED',nonce_key,now)
+            self._record(tx,key,data,current,at=now)
         self._run(Capability.COMMIT,consume)
         return Session(token_hash,session,nonce,method,path)
 
@@ -258,13 +266,14 @@ class MobileGateway:
         except MissionError:
             raise wire.MobileError(400) from None
         key='mobile-proposal-'+wire.digest((session.data['session_id']+proposal_id).encode())
+        started_at=int(self.clock())
         marker={k:session.data[k] for k in SCOPE_FIELDS}
         marker.update(state='MOBILE_PROPOSAL',task_id=None,proposal_id=proposal_id,
                       request_digest=wire.digest(wire.canonical(value)))
         def begin(tx):
             require(tx.get(RecordKind.OPERATION,key) is None,409)
             require(len(tx.scan(RecordKind.OPERATION,limit=128,states=('MOBILE_TASK',)))<128,429)
-            self._record(tx,key,marker)
+            self._record(tx,key,marker,at=started_at)
         self._run(Capability.COMMIT,begin)
         # Separate transaction from Core's proposal: a crash may leave an orphan
         # proposal. Marker readback remains UNKNOWN, and no effect/retry is allowed.
@@ -272,12 +281,14 @@ class MobileGateway:
                                      self.core.local_operator(Capability.READ))
         self._ready()
         require(all(record[k] == session.data[k] for k in ('source_sha','capsule_digest','owner_scope_digest')),503)
+        linked_at=int(self.clock())
         def link(tx):
             row=tx.get(RecordKind.OPERATION,key)
             require(row is not None and row.payload['task_id'] is None,409)
-            self._record(tx,key,dict(marker,task_id=record['task_id']),row)
+            self._record(tx,key,dict(marker,task_id=record['task_id']),row,at=linked_at)
             self._record(tx,'mobile-task-'+record['task_id'],{**marker,'state':'MOBILE_TASK',
-                'task_id':record['task_id'],'task_digest':record['task_digest']})
+                'task_id':record['task_id'],'task_digest':record['task_digest'],
+                'created_order':record['created_order']},at=linked_at)
         self._run(Capability.COMMIT,link)
         return self._project(record)
 
@@ -286,17 +297,32 @@ class MobileGateway:
         if action=='revoke':
             require(value=={},400)
             key='mobile-session-'+session.token_hash
+            revoked_at=int(self.clock())
             def revoke(tx):
                 row=tx.get(RecordKind.OPERATION,key);data=plain(row.payload);data.pop('schema');data['revoked']=True
-                self._record(tx,key,data,row)
-                self._audit(tx,'SESSION_REVOKED',session.data['session_id'],int(self.clock()))
+                self._record(tx,key,data,row,at=revoked_at)
             self._run(Capability.COMMIT,revoke)
             return {'revoked':True,'owner_authority':'NOT_BOUND'}
-        if action=='status':
+        if action in ('status','status_page'):
             rows=self._run(Capability.READ,lambda tx:tx.scan(RecordKind.OPERATION,limit=128,states=('MOBILE_TASK',)))
             mine=[r for r in rows if all(r.payload[k]==session.data[k] for k in SCOPE_FIELDS)]
-            views=[self._project(self._linked(session,r.payload['task_id'])) for r in mine]
+            mine.sort(key=lambda r:(r.payload.get('created_order',0),r.payload['task_id']),reverse=True)
+            start=0
+            if action=='status_page':
+                ids=[r.payload['task_id'] for r in mine]
+                require(identity in ids,403)
+                start=ids.index(identity)+1
+            page=mine[start:start+16]
+            records=self.missions.evidence_many(tuple(r.payload['task_id'] for r in page),
+                        self.core.local_operator(Capability.READ)) if page else ()
+            for row,record in zip(page,records):
+                require(all(row.payload[k]==record[k] for k in ('task_id','task_digest','source_sha',
+                            'capsule_digest','owner_scope_digest')),503)
+            views=[self._project(record) for record in records]
+            more=start+len(page)<len(mine)
             return {'schema':'aioa.mobile.status.v1','mode':'OFFLINE_FIXTURE','missions':views,
+                'total_missions':len(mine),'history_truncated':more,
+                'next_cursor':page[-1].payload['task_id'] if more else None,
                 'owner_authority':'NOT_BOUND','billing':'UNVERIFIED','live_verified':False,
                 'remote_deployment':'REMOTE_DEPLOYMENT_BLOCKED'}
         if action=='proposal':

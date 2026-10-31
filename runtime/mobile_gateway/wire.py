@@ -169,7 +169,8 @@ def route(method, path):
              ('POST', '/stop'): 'stop', ('POST', '/session/revoke'): 'revoke'}
     if (method, path.removeprefix(BASE)) in fixed and path.startswith(BASE + '/'):
         return fixed[(method, path[len(BASE):])], None
-    for prefix, name, pattern in (('/tasks/', 'task', TASK), ('/evidence/', 'evidence', TASK),
+    for prefix, name, pattern in (('/status/pages/', 'status_page', TASK),
+                                  ('/tasks/', 'task', TASK), ('/evidence/', 'evidence', TASK),
                                   ('/proposals/', 'proposal', HEX32)):
         if method == 'GET' and path.startswith(BASE + prefix):
             value = path[len(BASE + prefix):]

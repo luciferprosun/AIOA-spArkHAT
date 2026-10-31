@@ -195,5 +195,92 @@ class MobileGatewayTests(unittest.TestCase):
         state=(self.composition.root/'core-records.json').read_text()
         for secret in (code,self.token,text):self.assertNotIn(secret,state)
 
+    def test_old_enrollment_cannot_cross_host_identity_rotation(self):
+        code=self.gateway.issue_enrollment(self.owner,self.device.spki)
+        self.host=wire.Identity(ec.generate_private_key(ec.SECP256R1()));self.gateway=self.make_gateway()
+        data=dict(code=code,device_spki=self.device.spki,nonce=secrets.token_hex(16),issued_at=self.now[0],
+            audience=self.host.audience,source_sha=self.source[0],capsule_digest=self.source[1])
+        data['signature']=self.device.sign(self.gateway.enrollment_proof(data))
+        self.assertEqual(401,self.gateway.handle('POST',wire.BASE+'/enrollment/redeem',{},wire.canonical(data))[0])
+
+    def test_old_session_cannot_cross_host_identity_rotation(self):
+        self.host=wire.Identity(ec.generate_private_key(ec.SECP256R1()));self.gateway=self.make_gateway()
+        self.assertEqual(401,self.call('GET','/status')[0])
+
+    def test_runtime_provider_drift_cannot_keep_fixture_capabilities_enabled(self):
+        self.composition.manager._meta_provider.mode='LIVE'
+        self.assertEqual(503,self.call('GET','/status')[0])
+
+    def test_native_audit_mobile_records_outbox_and_reopen_share_one_chain(self):
+        from datetime import datetime,timezone
+        from runtime.memory_patch.audit import append_domain_event,domain_chain,require_record_audit
+        from runtime.memory_patch.persistence.idempotency import OperationBinding
+        from runtime.memory_patch.persistence.ports import RecordKind,TransactionContext
+        self.composition.close()
+        self.composition=OfflineMetaComposition(Path(self.tmp.name)/'mixed-audit',source_probe=lambda:tuple(self.source))
+        self.owner=self.composition.core.local_operator(Capability.OWNER_APPROVAL)
+        self.reader=self.composition.core.local_operator(Capability.READ)
+        def native(label):
+            def write(tx):
+                return append_domain_event(tx,OperationBinding.bind(label,'FIXTURE_METADATA_ONLY',{'fixture':label}),
+                    event_id=label,proof_id=label+'-outbox',resource_id=label,before=None,after='RECORDED',
+                    content_digest='e'*64,at=datetime.fromtimestamp(self.now[0],timezone.utc))
+            return self.composition.runner.run(TransactionContext(self.composition.core.local_operator(Capability.COMMIT),Capability.COMMIT),write)
+        native('fixture-native-before')
+        self.gateway=self.make_gateway();self.token,self.session=self.enroll(self.device)
+        self.assertEqual(200,self.call('GET','/status')[0]);self.assertEqual(200,self.call('POST','/session/revoke',{})[0])
+        native('fixture-native-after')
+        def inspect(tx):
+            events=domain_chain(tx)
+            session=tx.get(RecordKind.OPERATION,'mobile-session-'+wire.digest(self.token.encode()))
+            self.assertEqual(session.payload_digest,require_record_audit(tx,session).content_hashes['content'])
+            self.assertEqual(len(events),len(tx.scan(RecordKind.OUTBOX,limit=1024)))
+            return len(events)
+        count=self.composition.runner.run(TransactionContext(self.reader,Capability.READ),inspect)
+        self.assertGreater(count,5)
+        root=self.composition.root;self.composition.close()
+        self.composition=OfflineMetaComposition(root,source_probe=lambda:tuple(self.source))
+        self.reader=self.composition.core.local_operator(Capability.READ)
+        self.assertEqual(count,self.composition.runner.run(TransactionContext(self.reader,Capability.READ),inspect))
+
+    def test_maximum_history_has_bounded_signed_pages_and_no_lost_task(self):
+        from runtime.memory_patch.persistence.ports import RecordKind,StoredRecord,TransactionContext
+        from runtime.meta_hackathon.contracts import BrowserTaskV1
+        from runtime.memory_patch.contracts.serialization import canonical_sha256
+        from runtime.mobile_gateway.service import SCHEMA
+        first,_=self.preview();self.call('POST','/stop',{'task_id':first['task_id']})
+        original=self.composition.missions.evidence(first['task_id'],self.reader)
+        link=self.gateway._get('mobile-task-'+first['task_id'])
+        all_ids={first['task_id']}
+        # Seed admissible Core fixture history in one native transaction, without
+        # model/tool execution. Transport READ still uses real signed requests.
+        def history(tx):
+            for n in range(127):
+                task_id='meta-'+format(n,'032x');all_ids.add(task_id)
+                task_data=dict(original['task'],task_id=task_id)
+                task_data['allowed_origins']=tuple(task_data['allowed_origins'])
+                task=BrowserTaskV1(**task_data)
+                data=dict(original,task_id=task_id,task=task.to_dict(),task_digest=task.digest,state='STOPPED',
+                    created_order=original['created_order']+n+1,provider_receipt=None,
+                    browser_receipt=dict(task_digest=task.digest,source_sha=self.source[0],capsule_digest=self.source[1],
+                        owner_scope_digest=original['owner_scope_digest'],content_sha256='e'*64))
+                tx.insert(StoredRecord(RecordKind.OPERATION,task_id,self.composition.missions.scope,1,data))
+                linked=dict(link.payload,task_id=task_id,task_digest=task.digest,created_order=data['created_order'])
+                tx.insert(StoredRecord(RecordKind.OPERATION,'mobile-task-'+task_id,self.composition.missions.scope,1,linked))
+        self.composition.runner.run(TransactionContext(self.composition.core.local_operator(Capability.COMMIT),Capability.COMMIT),history)
+        found=set();suffix='/status'
+        for _ in range(9):
+            status,response=self.call('GET',suffix)
+            self.assertEqual(200,status,response);self.assertLessEqual(len(wire.canonical(response)),65536)
+            data=response['data'];self.assertLessEqual(len(data['missions']),16)
+            self.assertEqual(128,data['total_missions'])
+            ids={task['task_id'] for task in data['missions']}
+            self.assertFalse(found & ids);found |= ids
+            cursor=data['next_cursor']
+            if cursor is None:break
+            suffix='/status/pages/'+cursor
+        self.assertEqual(all_ids,found)
+        self.assertEqual(403,self.call('GET','/status/pages/meta-'+'f'*32)[0])
+
 
 if __name__=='__main__':unittest.main()

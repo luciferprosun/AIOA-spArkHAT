@@ -91,6 +91,11 @@
       "path": "/session/revoke",
       "authentication": "session+ES256",
       "fields": []
+    },
+    "status_page": {
+      "method": "GET",
+      "path": "/status/pages/{task_id}",
+      "authentication": "same device/session/audience/source; exact previous page cursor"
     }
   },
   "disabled": [
@@ -130,7 +135,9 @@
     "tls_minimum": "TLSv1.3",
     "production_cleartext_allowed": false,
     "production_default": "REMOTE_DEPLOYMENT_BLOCKED",
-    "fixture_label": "OFFLINE_FIXTURE"
+    "fixture_label": "OFFLINE_FIXTURE",
+    "durable_audience_binding": true,
+    "audit": "existing append_domain_event + native AUDIT chain and OUTBOX, same transaction as record revision"
   },
   "response_encoding": "canonical JSON UTF-8; sorted keys; compact; no floats/duplicate keys; depth <=16",
   "schemas": {
@@ -252,5 +259,14 @@
       "error": "closed errors above",
       "automatic_retry": false
     }
+  },
+  "status_paging": {
+    "page_size": 16,
+    "max_session_history": 128,
+    "order": "descending Core created_order, task_id",
+    "next_cursor": "last returned task_id or null; signed GET /status/pages/{task_id}",
+    "history_truncated": "true when a further page exists; never silently drop history",
+    "total_missions": "only this exact session/device/source/scope",
+    "consistency": "current scoped READ per page; not a multi-page transaction snapshot"
   }
 }

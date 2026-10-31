@@ -30,10 +30,10 @@
       "sha256": "8df60fe302565a375b09631fc0d34375e0846e3032a33f66dbfc1e13451430c7"
     },
     {
-      "bytes": 1437,
+      "bytes": 1360,
       "executable": false,
       "path": "clients/android/app/build.gradle.kts",
-      "sha256": "4470796ebbcd206a138b64271fb791bc84a1724d09bc252ecac93bc99e7e6874"
+      "sha256": "0da34d15e3c93203739d8781d162bc3dbb05cdce403dd8436024620ecc82cd08"
     },
     {
       "bytes": 882,
@@ -42,28 +42,28 @@
       "sha256": "7d9aa3b8434cac4ff632f5157a0584c721fdc013fda7f4fe12904e3856645e0a"
     },
     {
-      "bytes": 493,
+      "bytes": 1175,
       "executable": false,
       "path": "clients/android/app/src/main/java/eu/sparkhat/aioa/companion/Freshness.kt",
-      "sha256": "234bc1d63fa6987b4fcbf244c27170a387d965618648790cf35cba001d9a67d6"
+      "sha256": "2cdf185b6d9a67b0f6cd2d36dcae4d4825c3cc93f7b926be7d0dc97e5cf944e6"
     },
     {
-      "bytes": 5800,
+      "bytes": 7586,
       "executable": false,
       "path": "clients/android/app/src/main/java/eu/sparkhat/aioa/companion/MainActivity.kt",
-      "sha256": "bca92c14372435a2f1c5be26ea3499b56090ef799405ddf8dab06d4afc82b7bc"
+      "sha256": "a0673e27a0dcfded47faae1e6d67aecb5e13596c3956c7b98476ca9a20815965"
     },
     {
-      "bytes": 5565,
+      "bytes": 8245,
       "executable": false,
       "path": "clients/android/app/src/main/java/eu/sparkhat/aioa/companion/MissionViewModel.kt",
-      "sha256": "70443d7fd1f903ab996803c4efc098d07ea375ceac42a90dee1a5e95438989c7"
+      "sha256": "5f05308c12077b67498db0ad8031cf5c9bc96d51fcab812de3329abca6dc5abf"
     },
     {
-      "bytes": 10870,
+      "bytes": 11983,
       "executable": false,
       "path": "clients/android/app/src/main/java/eu/sparkhat/aioa/companion/MobileClient.kt",
-      "sha256": "0f4a38db2fbf755581638386a8d8c24511f15a253cd792be041e88bc6130dfcd"
+      "sha256": "4d3e4f585c7f3b6bba090f7028e256c7d986f44e4b62ee03371ebf93f397a1a0"
     },
     {
       "bytes": 1414,
@@ -90,10 +90,16 @@
       "sha256": "eb5f5c57a88fc656cb97ee142694b996b286064ba973e51e0158bcdff08b34f2"
     },
     {
-      "bytes": 2459,
+      "bytes": 3509,
       "executable": false,
       "path": "clients/android/app/src/test/java/eu/sparkhat/aioa/companion/WireContractTest.kt",
-      "sha256": "d67440922eef056b4424441aeb04f54c8405c87af9072edbcf7a31b7e64cffaa"
+      "sha256": "78c7deb2ddb03638e4ad86ea2ce9d29ae8409c21e4491b0d129badf6f7377391"
+    },
+    {
+      "bytes": 1018,
+      "executable": false,
+      "path": "clients/android/app/src/test/resources/mobile_wire_vector.json",
+      "sha256": "9a8f70de4dbd9199f8119cacb9d63f8fed1ac567a99d17993184c9303c854149"
     },
     {
       "bytes": 218,

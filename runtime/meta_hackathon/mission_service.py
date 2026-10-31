@@ -306,6 +306,16 @@ class MissionService:
         self.core.require(principal, Capability.READ, scope=self.scope)
         return plain(self._get(identity).payload)
 
+    def evidence_many(self, identities, principal):
+        """One bounded READ snapshot of existing records; no provider or effects."""
+        self.core.require(principal, Capability.READ, scope=self.scope)
+        require(type(identities) is tuple and 1 <= len(identities) <= 16)
+        require(all(type(i) is str and i.startswith('meta-') and len(i) <= 80 for i in identities))
+        require(len(set(identities)) == len(identities))
+        rows = self._run(Capability.READ, lambda tx: tuple(tx.get(RecordKind.OPERATION, i) for i in identities))
+        require(all(row is not None and row.payload.get('schema') == KIND for row in rows), 'META_MISSION_NOT_FOUND')
+        return tuple(plain(row.payload) for row in rows)
+
     def stop(self, identity, principal):
         self.core.require(principal, Capability.READ, scope=self.scope)
         with self._lock:

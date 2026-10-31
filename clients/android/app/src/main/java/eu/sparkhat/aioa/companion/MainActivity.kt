@@ -44,6 +44,16 @@ private fun MissionScreen(model: MissionViewModel = viewModel()) {
     var hostKey by remember { mutableStateOf("") }
     var code by remember { mutableStateOf("") }
     var instruction by remember { mutableStateOf("Podsumuj publiczny dokument testowy.") }
+    var archiveDialog by remember { mutableStateOf(false) }
+    if (archiveDialog && ui.pending != null) AlertDialog(
+        onDismissRequest={ archiveDialog=false },
+        title={ Text("Przekaż ID do rozliczenia na hoście") },
+        text={ Column(Modifier.heightIn(max=300.dp).verticalScroll(rememberScrollState())) {
+            Text("To zmieni wyłącznie lokalny znacznik ekranu. UNKNOWN w Core pozostanie UNKNOWN; nie wyślemy retry, STOP ani zgody. ID zostanie zachowany poniżej do rozliczenia przez operatora. Nowa propozycja nadal podlega Core i osobnej zgodzie hosta.")
+        } },
+        confirmButton={ TextButton(onClick={ model.archivePendingHint(); archiveDialog=false }) { Text("Zachowaj ID jako nierozliczony") } },
+        dismissButton={ TextButton(onClick={ archiveDialog=false }) { Text("Anuluj") } }
+    )
     Column(Modifier.fillMaxSize().safeDrawingPadding().imePadding().verticalScroll(rememberScrollState())
         .padding(16.dp), verticalArrangement=Arrangement.spacedBy(12.dp)) {
         Text("AIOA spArkHAT",style=MaterialTheme.typography.headlineMedium)
@@ -62,9 +72,9 @@ private fun MissionScreen(model: MissionViewModel = viewModel()) {
         SelectionContainer { Text(model.publicSpki) }
         OutlinedTextField(code,{ code=it },label={ Text("Jednorazowy kod ≤5 min") },
             visualTransformation=PasswordVisualTransformation(),modifier=Modifier.fillMaxWidth(),enabled=!ui.busy)
-        Button(enabled=!ui.busy && !ui.enrolled && code.isNotEmpty(),onClick={
+        Button(enabled=!ui.busy && code.isNotEmpty(),onClick={
             model.connect(origin,tlsPin,hostKey,code); code=""
-        }) { Text("Sprawdź hosta i zarejestruj transport") }
+        }) { Text(if(ui.enrolled) "Nowy enrollment — odwołaj starą sesję" else "Sprawdź hosta i zarejestruj transport") }
         Button(enabled=ui.enrolled && !ui.busy,onClick=model::status) { Text("Podpisany status / readback") }
         Button(enabled=ui.enrolled && !ui.busy,onClick=model::revoke) { Text("Odwołaj tę sesję") }
         HorizontalDivider()
@@ -74,9 +84,23 @@ private fun MissionScreen(model: MissionViewModel = viewModel()) {
             modifier=Modifier.fillMaxWidth(),enabled=!ui.busy)
         val task = ui.task
         val state = task?.let { Wire.text(it,"state") } ?: "NONE"
-        Button(enabled=ui.enrolled && !ui.busy && ui.freshness.state=="FRESH" && ui.pending==null &&
+        Button(enabled=ui.enrolled && !ui.busy && ui.freshness.isFresh() && ui.pending==null &&
             state !in setOf("PREVIEWED","RUNNING","LIVE_PENDING_AUTHORIZATION"),onClick={ model.preview(instruction) }) { Text("Preview") }
         Button(enabled=ui.enrolled && !ui.busy && ui.pending!=null,onClick=model::readback) { Text("Readback nierozliczonej propozycji") }
+        Button(enabled=!ui.busy && ui.pending!=null,onClick={ archiveDialog=true }) { Text("Zachowaj nierozliczony ID dla operatora") }
+        if (ui.archived.isNotEmpty()) SelectionContainer {
+            Text("Nierozliczone lokalne ID — operator hosta, bez zmiany Core:\n"+ui.archived.joinToString("\n"))
+        }
+        if (ui.missions.isNotEmpty()) {
+            Text("Własne zadania — strona maks.16; starsze przez podpisany GET")
+            ui.missions.forEach { item ->
+                val id = Wire.text(item,"task_id")
+                OutlinedButton(enabled=ui.enrolled && !ui.busy,onClick={ model.selectTask(id) },modifier=Modifier.fillMaxWidth()) {
+                    Text(id.take(15)+"… • "+Wire.text(item,"state"))
+                }
+            }
+        }
+        Button(enabled=ui.enrolled && !ui.busy && ui.nextCursor!=null,onClick=model::older) { Text("Starsze zadania") }
         if (task != null) {
             SelectionContainer { Column {
                 Text("Task: ${Wire.text(task,"task_id")}")

@@ -85,8 +85,21 @@ def sandbox_command(output, width, height, source_sha):
                  '/etc/ld.so.cache','/etc/fonts','/etc/nsswitch.conf','/etc/hosts','/etc/localtime'):
         if Path(name).exists():argv+=['--ro-bind',name,name]
     # Deliberately exclude .git, .local, .env, the home directory and other repos.
-    for name in ('runtime','web','lab','protocol','clients'):
+    for name in ('runtime','web','lab'):
         argv+=['--ro-bind',str(ROOT/name),'/app/'+name]
+    # The capsule needs mobile source bytes, not Android builds/caches/settings.
+    from runtime.meta_hackathon.runtime_adapter import SOURCE_FILES, sealed_source_path
+    created=set()
+    for name in SOURCE_FILES:
+        if not name.startswith(('protocol/','clients/')):continue
+        try:source=sealed_source_path(name,root=ROOT)
+        except (ValueError,OSError):raise BrowserReadError('CHROME_SOURCE_SEAL_DENIED') from None
+        for parent in reversed(Path(name).parents):
+            if parent==Path('.'):continue
+            destination='/app/'+parent.as_posix()
+            if destination not in created:
+                argv+=['--dir',destination];created.add(destination)
+        argv+=['--ro-bind',str(source),'/app/'+name]
     argv+=['--ro-bind',str(ROOT/'tests/fixtures/meta_p03_ui_probe.js'),'/app/probe.js',
         '--bind',str(output),'/out','--proc','/proc','--dev','/dev','--tmpfs','/tmp',
         '--dir','/tmp/home','--chdir','/app','--','/usr/bin/python3','-B','-m',
