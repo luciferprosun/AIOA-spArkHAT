@@ -67,10 +67,11 @@ Rollback dotyczy wyłącznie TARGET, po zatrzymaniu własnego serwera i sprawdze
 ```bash
 # Tylko przy czystym TARGET, bez aktywnego writera:
 git revert --no-edit <SHA_commitu_zawierajacego_ten_runbook>
+git revert --no-edit 6fe684632b183dca334868feed3262bba26337f0
 git revert --no-edit c0d535ac904ffafb3eec5fba9a0ac80bedba3482
 git revert --no-edit 0c2ada5f554ce4e088c1afa22d4f679026b82511
 ```
 
-SHA pierwszej komendy ustala `git log -1 --format=%H -- docs/meta/P02_MUSE_CHROME_RUNBOOK.md` przed rollbackiem. Revert tworzy nową historię; nie cofa niepewnego zewnętrznego efektu ani nie odtwarza zużytego warrantu. Jeśli Git zgłasza konflikt, zachować stan i rozwiązać tylko własne zmiany; brak automatycznego resetu.
+SHA pierwszej komendy ustala `git log -1 --format=%H -- docs/meta/P02_MUSE_CHROME_RUNBOOK.md` przed rollbackiem; to końcowy checkpoint dokumentacyjny po trzech checkpointach kodu. Revert tworzy nową historię; nie cofa niepewnego zewnętrznego efektu ani nie odtwarza zużytego warrantu. Jeśli Git zgłasza konflikt, zachować stan i rozwiązać tylko własne zmiany; brak automatycznego resetu.
 
 Push nie został wykonany. Do osobnego zatwierdzenia właściciela: `git push origin AIOA-METAGuardiansSPARK`.

@@ -26,9 +26,10 @@ Lokalne checkpointy P02:
 
 1. `0c2ada5f554ce4e088c1afa22d4f679026b82511` — browser fixture adapter, typowany observer P01 i testy.
 2. `c0d535ac904ffafb3eec5fba9a0ac80bedba3482` — Meta provider, kompozycja istniejącego Core/mission i testy.
-3. Commit zawierający ten raport — istniejący web UI/API, status/STOP/evidence i dokumentacja. Jego SHA: `git log -1 --format=%H -- docs/meta/migration/P02_INTEGRATION_REPORT_20261031.md`.
+3. `6fe684632b183dca334868feed3262bba26337f0` — istniejący web UI/API, status/STOP/evidence i dokumentacja.
+4. Commit zamykający evidence po próbie uruchomienia checkpointu 3 — wyłącznie dokumentacja/dowody. Jego SHA: `git log -1 --format=%H -- docs/meta/migration/P02_INTEGRATION_REPORT_20261031.md`.
 
-Kolejność browser → provider/mission → web wynika z zależności importów; zachowuje trzy osobne checkpointy wymagane w P02. Dokładny końcowy HEAD i czystość indexu/worktree są sprawdzane po commicie w prywatnym `FINAL_VERIFICATION.json`. Nie wykonano push, pull, reset, clean, stash, merge ani rebase. Autor technicznych commitów: `Codex <codex@localhost>`, bez zmiany globalnej konfiguracji Git.
+Kolejność browser → provider/mission → web wynika z zależności importów; zachowuje trzy osobne checkpointy kodu wymagane w P02. Ostatni checkpoint dokumentacyjny wiąże ponowioną próbę CLI z rzeczywistym commitem kodu, bez zmiany testowanych bytes. Dokładny końcowy HEAD i czystość indexu/worktree są sprawdzane po commicie w prywatnym `FINAL_VERIFICATION.json`. Nie wykonano push, pull, reset, clean, stash, merge ani rebase. Autor technicznych commitów: `Codex <codex@localhost>`, bez zmiany globalnej konfiguracji Git.
 
 Źródło Nebius pozostaje READ-ONLY: branch `feature/nebius-nemotron-integration-20261028`, HEAD `6e9dd8ebc1dcb2c03345d9dc7d30895013751cd5`; 24 modified i **199 untracked** w aktualnym preflight, a nie historyczne 88 z PDF. Companion: branch `codex/final-connect-20261023`, HEAD `9cf6c567b40bc87385fb90e9143b0fb170889b2a`, czysty. Porównanie branch/HEAD/status przed i po pracy oraz 54 hashów z ledgera P01: zgodne. Dwa chronione pliki P01 (`mission_runner_offline.py`, `test_meta_mvp_runner.py`) pozostały identyczne bajtowo. Nie zmieniano Codex/Codex-Muse, usług, GOLD72, budżetów Nebius ani innych worktree.
 
@@ -68,7 +69,7 @@ Jedna instancja `OfflineMetaComposition` składa istniejący `AgentRuntime`, `Co
 
 API w tym samym serwerze: `GET /api/meta/status`, `POST /api/meta/preview`, `POST /api/meta/run`, `POST /api/meta/stop`, `GET /api/meta/evidence/<task_id>`. Istniejące local-host/session-token/Origin checks i dokładne `X-AIOA-Intent` są obowiązkowe. W profilu Meta pozostałe effect endpoints są zamknięte. HTTP nie przyjmuje ownera, warrantu, budżetu ani allowlisty od modelu. Lokalna sesja UI nie jest uwierzytelnieniem produkcyjnego ownera.
 
-Każda zapisana misja/receipt wiąże task/digest, owner scope, Git source SHA, hash kapsuły 13 plików, provider/model, deadline, budget, origins, correlation i STOP. Source SHA w dowodzie aplikacji to HEAD z czasu próby; dirty bytes są osobno zapieczętowane w evidence index. Dane modelu i stron są niezaufane. Tylko `navigate_read` zgodne z dokładnym zadaniem przechodzi walidację. Model nie wystawia approvals i nie wykonuje narzędzi.
+Każda zapisana misja/receipt wiąże task/digest, owner scope, Git source SHA, hash kapsuły 13 plików, provider/model, deadline, budget, origins, correlation i STOP. Source SHA w końcowym dowodzie aplikacji to `6fe6846`, sprawdzony po trzech commitach kodu przy czystym worktree; dokładne bytes są osobno zapieczętowane w evidence index. Późniejszy checkpoint zamknięcia zmienia wyłącznie dokumentację. Dane modelu i stron są niezaufane. Tylko `navigate_read` zgodne z dokładnym zadaniem przechodzi walidację. Model nie wystawia approvals i nie wykonuje narzędzi.
 
 Warrant fixture jest zatwierdzany dopiero przez osobną akcję Run operatora w lokalnej sesji. Wykonanie jednorazowe, maksymalnie jedna aktywna misja, brak retry efektów. Niepewny approval ACK/readback i restart pending → `UNKNOWN`, bez awansu do VERIFIED. Przy 1024 misjach w ograniczonym skanie dalsze operacje fail closed; nie tworzono drugiego indeksu/store. STOP anuluje wyłącznie własną misję/fixture worker.
 
@@ -109,7 +110,7 @@ Jedna komenda i pięć czynności: [runbook](../P02_MUSE_CHROME_RUNBOOK.md). Dow
 
 Klucz Meta: exists/regular/owner/perms0600 potwierdzone z metadanych. Nie odczytywano wartości, długości ani fingerprintu. Posiadanie pliku lub deklaracja hackathonowych kredytów nie potwierdza key type/Billing. Oficjalne źródła: [overview](https://dev.meta.ai/docs/overview), [Chat Completions](https://dev.meta.ai/docs/protocols/chat-completions), [tool calling](https://dev.meta.ai/docs/tool-calling), [pricing](https://dev.meta.ai/docs/pricing-rate-limits). Adapter wykorzystuje `https://api.meta.ai/v1/chat/completions`, `muse-spark-1.3`, nested function tools i Bearer auth. Cennik standardowy odczytany 31.10: 1,25 USD wejście / 4,25 USD wyjście za milion tokenów; lokalny estimate nie jest fakturą ani potwierdzeniem salda. Nie potwierdzono niezależnie uprawnienia do 150 USD.
 
-Rollback: zachować bieżący diff/untracked, wymagać czystego TARGET, następnie `git revert` trzech checkpointów P02 w odwrotnej kolejności. Pełne komendy w runbooku. Pozostawić P01 i prywatne dowody. Nie usuwać Core records i nie cofać UNKNOWN w celu retry. Bez zgody nie pushować; komenda do osobnego zatwierdzenia: `git push origin AIOA-METAGuardiansSPARK`.
+Rollback: zachować bieżący diff/untracked, wymagać czystego TARGET, następnie `git revert` checkpointu dokumentacyjnego i trzech checkpointów kodu P02 w odwrotnej kolejności. Pełne komendy w runbooku. Pozostawić P01 i prywatne dowody. Nie usuwać Core records i nie cofać UNKNOWN w celu retry. Bez zgody nie pushować; komenda do osobnego zatwierdzenia: `git push origin AIOA-METAGuardiansSPARK`.
 
 ## 8. Tylko Prompt 03
 

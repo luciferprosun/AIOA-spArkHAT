@@ -1,6 +1,6 @@
 {
   "schema": "aioa.meta.p02.evidence-index.v1",
-  "created_at_utc": "2026-10-31T15:35:47.779412Z",
+  "created_at_utc": "2026-10-31T15:38:11.787852Z",
   "product": "AIOA spArkHAT",
   "subtitle": "METAGuardiansSPARK",
   "status": "P02_OFFLINE_PASS",
@@ -17,10 +17,11 @@
     "p01_start_head": "34490b91ecd7f961bc98e088bd1b504e740a510a",
     "browser_checkpoint": "0c2ada5f554ce4e088c1afa22d4f679026b82511",
     "provider_mission_checkpoint": "c0d535ac904ffafb3eec5fba9a0ac80bedba3482",
-    "ui_docs_checkpoint": "containing commit; git log -1 --format=%H -- reports/meta/P02_EVIDENCE_INDEX_20261031.json",
+    "ui_docs_checkpoint": "6fe684632b183dca334868feed3262bba26337f0",
     "push_performed": false,
-    "app_proof_source_head": "34490b91ecd7f961bc98e088bd1b504e740a510a",
-    "app_proof_note": "Probe after final code fixes, before P02 commits. Source HEAD plus capsule and exact 16 changed-file seals identify tested working-tree bytes. The receipt does not claim the final commit SHA."
+    "app_proof_source_head": "6fe684632b183dca334868feed3262bba26337f0",
+    "app_proof_note": "Final probe ran after the three implementation commits on clean 6fe6846. Subsequent closure changes documentation only. All code seals still match the final QA bytes.",
+    "evidence_closure_checkpoint": "containing documentation-only commit; git log -1 --format=%H -- reports/meta/P02_EVIDENCE_INDEX_20261031.json"
   },
   "source_preservation": {
     "source_seals_checked": 54,
@@ -178,27 +179,27 @@
     "html_sha256": "ce28bad98d9897d5566ca6af158765e3013210c1713ce7162d7836a27dc48e1b",
     "ui_client_sha256": "1d4c8b22b517c7ea6f1fc1b963647b3d71cbe81d6c247719ce35c3035d15712c",
     "mission": {
-      "task_id": "meta-0bbcb33731024f2ab7b3074abf1f7826",
+      "task_id": "meta-e4cc5fd56a834292b72e75e4e1a2ce34",
       "state": "OFFLINE_FIXTURE",
       "mode": "OFFLINE_FIXTURE",
-      "task_digest": "ca5dcdca26070f9f7abf742608de9b6c98eb696a287450d97d019f9b334263d5",
+      "task_digest": "4df2101bd6457152741bfdfbedbf584c9cb4005e33bff653cc5c8e2231d96000",
       "owner_scope_digest": "13d25f1368e9e7215a6e46bcd3341c1f00cfec2b97f42e60285ce1e97dc781da",
-      "source_sha": "34490b91ecd7f961bc98e088bd1b504e740a510a",
+      "source_sha": "6fe684632b183dca334868feed3262bba26337f0",
       "capsule_digest": "0ea8f0b96d91480eddd0a49d85a1c0d64413351edfc0edf7244147ee63746fbc",
       "provider_id": "meta_model_api",
       "model_id": "muse-spark-1.3",
-      "deadline": "2026-10-31T15:28:23.890916Z",
+      "deadline": "2026-10-31T15:38:50.417485Z",
       "budget_usd": "0",
       "allowed_origins": [
         "https://docs.example.org"
       ],
-      "correlation_id": "meta-corr-f41781138dfd48fab155f39c19bec5de",
+      "correlation_id": "meta-corr-ae4418506c15405bac578915c0555ce7",
       "stopped": false,
       "live_verified": false,
       "verified": false,
       "dispatch_allowed": false,
-      "preview_digest": "c867d8373de8a62afaf60d508dff9ab614bae1af5ec04a4688468a71f6fc4c24",
-      "warrant_digest": "sha256:4b9d32d348340d01565ec5e2d9a6fb59dc5b163a38129c6e8a64c5d45697b818",
+      "preview_digest": "56fc69930206e784547cae25de8c970ea992bc9c024ab6c2e05489880e50bc2a",
+      "warrant_digest": "sha256:6afea56a59fd2284a834e7a2f18f13664b106fa49bb2c408eb78cad12a056896",
       "provider_receipt": {
         "authority": "ADVISORY_ONLY",
         "binding": {
@@ -207,15 +208,15 @@
           ],
           "budget_usd": "0",
           "capsule_digest": "0ea8f0b96d91480eddd0a49d85a1c0d64413351edfc0edf7244147ee63746fbc",
-          "correlation_id": "meta-corr-f41781138dfd48fab155f39c19bec5de",
-          "deadline": "2026-10-31T15:28:23.890916Z",
+          "correlation_id": "meta-corr-ae4418506c15405bac578915c0555ce7",
+          "deadline": "2026-10-31T15:38:50.417485Z",
           "model_id": "muse-spark-1.3",
           "owner_scope_digest": "13d25f1368e9e7215a6e46bcd3341c1f00cfec2b97f42e60285ce1e97dc781da",
           "provider_id": "meta_model_api",
-          "source_sha": "34490b91ecd7f961bc98e088bd1b504e740a510a",
+          "source_sha": "6fe684632b183dca334868feed3262bba26337f0",
           "stopped": false,
-          "task_digest": "ca5dcdca26070f9f7abf742608de9b6c98eb696a287450d97d019f9b334263d5",
-          "task_id": "meta-0bbcb33731024f2ab7b3074abf1f7826"
+          "task_digest": "4df2101bd6457152741bfdfbedbf584c9cb4005e33bff653cc5c8e2231d96000",
+          "task_id": "meta-e4cc5fd56a834292b72e75e4e1a2ce34"
         },
         "cost_estimate_usd": "0",
         "cost_kind": "ESTIMATE_NOT_INVOICE",
@@ -224,9 +225,9 @@
         "live_verified": false,
         "model_id": "muse-spark-1.3",
         "provider_id": "meta_model_api",
-        "request_digest": "97c346340255bb4f24fe99a37720475ebbf20377f1f27501d636059c69ac3596",
+        "request_digest": "5412f678fa1e6cb1e1ee43f2d3a7e4487d68f1ee0f9a6dc429723af2ff1fc487",
         "schema": "aioa.meta.api-receipt.v1",
-        "tool_call_id": "call_meta-0bbcb33731024f2ab7b3074abf1f7826",
+        "tool_call_id": "call_meta-e4cc5fd56a834292b72e75e4e1a2ce34",
         "usage": {
           "completion_tokens": 30,
           "prompt_tokens": 50,
@@ -239,21 +240,21 @@
         ],
         "budget_usd": "0",
         "capsule_digest": "0ea8f0b96d91480eddd0a49d85a1c0d64413351edfc0edf7244147ee63746fbc",
-        "captured_at_utc": "2026-10-31T15:26:24.995385Z",
+        "captured_at_utc": "2026-10-31T15:36:51.520937Z",
         "content_sha256": "135332222afecf8400385eb7642d67bdeb1a249c28860aed754c1231d42d5e87",
-        "correlation_id": "meta-corr-f41781138dfd48fab155f39c19bec5de",
-        "deadline": "2026-10-31T15:28:23.890916Z",
+        "correlation_id": "meta-corr-ae4418506c15405bac578915c0555ce7",
+        "deadline": "2026-10-31T15:38:50.417485Z",
         "environment": "OFFLINE_FIXTURE",
         "live_verified": false,
         "model_id": "muse-spark-1.3",
         "observed_url": "https://docs.example.org/offline-fixture",
         "owner_scope_digest": "13d25f1368e9e7215a6e46bcd3341c1f00cfec2b97f42e60285ce1e97dc781da",
-        "profile_sha256": "08b9cff8eaf40a6870dd07d1a931446f39e0a55ff3466a9ea225ba66cebc7b1b",
+        "profile_sha256": "e784d9d04a2afcdc996a7c10b27e3b2bcd887a6e9f0157f549f1d77a2a50e47b",
         "provider_id": "meta_model_api",
         "screenshot_sha256": "802a61f70b816c9dc1d9ad6394f059cdf7c764000d30de0fd4058f09b3575779",
-        "source_sha": "34490b91ecd7f961bc98e088bd1b504e740a510a",
+        "source_sha": "6fe684632b183dca334868feed3262bba26337f0",
         "stopped": false,
-        "task_digest": "ca5dcdca26070f9f7abf742608de9b6c98eb696a287450d97d019f9b334263d5"
+        "task_digest": "4df2101bd6457152741bfdfbedbf584c9cb4005e33bff653cc5c8e2231d96000"
       },
       "offline_result": {
         "status": "OFFLINE_LINKED_UNVERIFIED",
@@ -262,13 +263,13 @@
         "environment": "OFFLINE_FIXTURE",
         "verified": false,
         "dispatch_allowed": false,
-        "evidence_digest": "6395cc86be8d8cfe091342a65502d580f30357b34693a4987ccf53b1160aa9a0"
+        "evidence_digest": "1d75d6ef0bcf11ff088b7c4e91af993fbe023f844f8e0f0303da470bc5afe8c0"
       },
-      "tool_result_call_id": "call_meta-0bbcb33731024f2ab7b3074abf1f7826"
+      "tool_result_call_id": "call_meta-e4cc5fd56a834292b72e75e4e1a2ce34"
     },
     "replay_http_status": 409,
     "stop": {
-      "task_id": "meta-4bbf052a273c4eaebc109772c47923dd",
+      "task_id": "meta-76b4421a34c445048ed2ce95364d0cc2",
       "state": "STOPPED"
     },
     "diagnostics": {
@@ -409,7 +410,7 @@
     },
     {
       "private_path": "/home/l/projects/META_INTEGRATION_PRIVATE_20261031/20261031T143446Z/APP_PROOF.json",
-      "sha256": "d94da519000eafdf28373e203ae2b690e2b3de3a1d6dbe52071c153868810d78"
+      "sha256": "a53de015ce1c1c9d9ba3723d90c69c692e783227d84a2a21673e0c7e327b4889"
     },
     {
       "private_path": "/home/l/projects/META_INTEGRATION_PRIVATE_20261031/20261031T143446Z/APP_LIFECYCLE.json",
