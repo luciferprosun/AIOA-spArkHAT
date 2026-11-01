@@ -8,9 +8,9 @@ To nowa lokalna poprawka po rzeczywistym błędzie, nie ponowny review starego P
 - [x] Przy FAIL przywrócić poprzedni CodeQL i potwierdzić walidację; bez retry.
 - [x] Odtworzyć cached JDK symlink RED; użyć istniejącego pinned acquire; GREEN.
 - [x] Odtworzyć realny konflikt ImageVersion/startup metadata RED; native metadata guard przed checkout; GREEN.
-- [ ] Jeden niezależny read-only review wyłącznie nowego diff od087937c; autor naprawia Important/Critical w jednej serii RED→GREEN.
-- [ ] Zachować prywatne dowody, manifesty i chronione źródła/procesy; końcowy scan/test.
-- [ ] Dostarczyć konkretny patch/raport i exact nowy head/base. Nie publikować/merge ani nie dispatchować bez nowej zgody.
+- [x] Jeden niezależny read-only review wyłącznie nowego diff od087937c:0Critical/0Important/1Minor odroczony, brak wymaganej serii napraw.
+- [x] Zachować prywatne dowody, manifesty i chronione źródła/procesy; końcowy scan/test i maszynowy handoff poza repo.
+- [x] Dostarczyć konkretny patch/raport i exact nowy head/base. Publikacja/merge i dodatkowy dispatch pozostają na nowym owner gate.
 
 Review focus: JDK wyłącznie z istniejącego SHA-bound instalatora; brak podążania za cache linkiem; brak rozluźnienia SDK/Core/CI owner gates; runtime metadata guard faktycznie przed checkout i spójny w trzech jobach; test symlink musi odrzucać kernelowym O_NOFOLLOW; żaden wynik offline nie może oznaczać nowego APK/obrazu/kompilacji. Jeden run już wykorzystany, CodeQL default musi pozostać przywrócony podczas przygotowania.
 

@@ -1,7 +1,7 @@
 # Pierwsza rzeczywista próba Android — wynik i lokalna naprawa
 
 Status wykonanej próby: **BUILD_FAILED_REAL / APK_NOT_BUILT**.
-Nie uruchomiono Kotlin/JVM/lint/assemble. Nie ma APK, certu ani wyniku E2E.
+Nie uruchomiono kompilacji Kotlin, testów JVM, lint ani assemble. Nie ma APK, certu ani wyniku E2E.
 
 ## Wykonana zgoda właściciela
 
@@ -48,7 +48,16 @@ cache obrazu. To dodatkowy transfer standardowego runnera, bez zmiany
 budżetu modeli. Samo przejście testów offline nie potwierdza dostępności
 archiwum, nowej kompilacji ani zgodności metadanych przyszłego obrazu.
 
-Testy kandydata:89/89 PASS,92 subtests. Review nowego zakresu: PENDING.
+Testy kandydata:89/89 PASS,92 subtests. Niezależny review nowego zakresu
+`087937c…444ca36` przez `/root/review_android_first_ci_repair_20261101`
+(GPT-6 Astra max, read-only):0Critical/0Important/1Minor; kod gotowy do merge,
+bez certyfikacji wykonania. Reviewer sprawdził zapisane wyniki, nie uruchamiał
+suite ani CI. Nie było serii napraw po tym review, bo nie znalazł blokera.
+
+Minor M2 odroczony: setup-java pozostaje dodatkową zależnością joba APK,
+choć builder korzysta z prywatnego JDK. Może być kolejnym punktem awarii lub
+pobrać drugi JDK przy braku cache. Usunięcie go z CodeQL wymaga osobnego
+sprawdzenia potrzeb init; nie rozszerzamy teraz zakresu o porządkowanie.
 Dokładny końcowy head/tree/hash patcha i review zapisujemy prywatnie;
 nie wpisujemy do tego pliku jego własnego przyszłego commitu.
 
@@ -63,3 +72,10 @@ narzędziami. Taki wynik pozostaje BLOCKED_RUNNER_QUALIFICATION, nigdy PASS.
 Do odbioru nadal potrzeba realnych JVM/lint/assemble, aapt/apksigner/hash,
 jednego powiązanego receipt oraz osobnego odbioru Kotlin CodeQL/API readback.
 Telefon/produkcja/Muse LIVE pozostają osobnymi zadaniami.
+
+Decyzje naprawy: istniejący SHA-bound importer zamiast podążania za cache
+(koszt:193.6MB transferu JDK na kwalifikowanym runnerze); metadata/env muszą
+być spójne przed checkout (koszt: następna próba może ponownie odmówić przed
+narzędziami); zachowanie main i nowej lokalnej gałęzi (koszt: zmiana nie trafi
+na serwer przed nowym exact-source GO). Nie rozstrzygnięto przyczyny
+historycznej rozbieżności obrazów ani dostępności przyszłej VM/archiwum.
