@@ -25,7 +25,7 @@ else:
 SOURCE_REF='refs/heads/main'
 WORKFLOW_PATH='.github/workflows/android-manual-build.yml'
 REVIEWED_IMAGE_VERSION='20261026.354.1'
-REVIEWED_WORKFLOW_SHA256='ef7fb9e6e4edcd610e316c46a20feddfe3c44649aebbc62f2f3c1d4573be1c4c'
+REVIEWED_WORKFLOW_SHA256='02ceb510532392da85285c6777715796d76a376c690a58069619435d0e7a1a46'
 CODEQL_VERSION='2.27.3'
 CODEQL_HOME=Path('/opt/hostedtoolcache/CodeQL/2.27.3/x64/codeql')
 CODEQL_DATABASE=Path('/home/runner/work/_temp/aioa-codeql-databases/java')
@@ -151,9 +151,7 @@ def prepare(env,source_sha,image,*,purpose='apk'):
     lib.require(Path(env.get('GITHUB_WORKSPACE',''))==lib.REPO
         and lib.REPO.is_relative_to(Path('/home/runner/work')),'BLOCKED_CI_WORKSPACE')
     sdk=lib.safe_path(env.get('ANDROID_SDK_ROOT',''))
-    jdk=lib.safe_path(env.get('JAVA_HOME',''))
-    lib.require(sdk==Path('/usr/local/lib/android/sdk')
-        and jdk.is_relative_to(Path('/opt/hostedtoolcache')),'BLOCKED_CI_VENDOR_PATH')
+    lib.require(sdk==Path('/usr/local/lib/android/sdk'),'BLOCKED_CI_VENDOR_PATH')
     before=sdk_inventory(sdk)
     wrapper=lib.REPO/'clients/android/gradle/wrapper'
     lock=installer.catalog()
@@ -163,6 +161,12 @@ def prepare(env,source_sha,image,*,purpose='apk'):
     root=lib.safe_path(Path(env['RUNNER_TEMP'])/('aioa-android-'+env['GITHUB_RUN_ID']+'-'+env['GITHUB_RUN_ATTEMPT']))
     root.mkdir(mode=0o700)  # Exclusive: never overwrite an earlier run.
     for name in ('tmp','android-user','java-user','downloads'):(root/name).mkdir(mode=0o700)
+    # Hosted setup-java may return an image tool-cache symlink. Keep the
+    # no-symlink boundary: use the existing locked downloader/extractor instead
+    # of following the cached JAVA_HOME into a mutable system installation.
+    jdk_artifact=next(a for a in lock['artifacts'] if a['id']=='jdk')
+    jdk=lib.safe_path(acquire(jdk_artifact,root))
+    lib.require(jdk==root/'jdk-17','BLOCKED_CI_JDK_SOURCE')
     scoped=environment(root,jdk,sdk)
     status=build_apk.run_logged([str(jdk/'bin/java'),'-version'],cwd=root,environment=scoped,
         log=root/'java-version.log',timeout=15)
@@ -182,6 +186,7 @@ def prepare(env,source_sha,image,*,purpose='apk'):
     installer.private_write(root/'BUILD_INVOCATION.json',{'schema':'aioa.android.controlled-build.v1',
         'source_sha':source_sha,'command':argv,'init_sha256':lib.sha(init),'started_at':lib.utc(),
         'profile':'GITHUB_HOSTED_MANUAL_V2','purpose':purpose,
+        'jdk_source':'LOCKED_VENDOR_ARCHIVE_SHA256','jdk_archive_sha256':jdk_artifact['sha256'],
         'workflow_revision':REVIEWED_WORKFLOW_SHA256})
     lib.gradle_configuration_check(root/'gradle-cache')
     status=build_apk.run_logged(['./gradlew','--no-daemon','--offline','--version'],
@@ -214,6 +219,8 @@ def execute(env,source_sha,image,*,purpose='apk'):
     lib.source_check(source_sha)
     lib.gradle_configuration_check(root/'gradle-cache')
     lib.require(before==sdk_inventory(sdk),'BLOCKED_CI_SDK_CHANGED')
+    jdk_artifact=next(a for a in installer.catalog()['artifacts'] if a['id']=='jdk')
+    installer.component_check(jdk_artifact,root)
     if purpose=='codeql':
         evidence={'schema':'aioa.android.codeql-build.v1','status':'CODEQL_TRACED_BUILD_RETURNED_ZERO',
             'source_sha':source_sha,'runner_image':image,'workflow_revision':REVIEWED_WORKFLOW_SHA256,
@@ -230,6 +237,7 @@ def execute(env,source_sha,image,*,purpose='apk'):
         workflow_revision=REVIEWED_WORKFLOW_SHA256,
         codeql_status='PENDING_SEPARATE_JOB' if env.get('AIOA_CODEQL_REQUESTED')=='true' else 'NOT_REQUESTED',
         sdk=before,versions=installer.catalog()['versions'],dependency_resolution='ONLINE_VENDOR_REPOSITORIES_NOT_FULLY_HASH_LOCKED',
+        jdk_source='LOCKED_VENDOR_ARCHIVE_SHA256',jdk_archive_sha256=jdk_artifact['sha256'],
         model_calls=0,workflow_run_id=env['GITHUB_RUN_ID'],workflow_run_attempt=env['GITHUB_RUN_ATTEMPT'])
     artifact=verified_artifact(apk,root,evidence,sdk=sdk,jdk=jdk,source_sha=source_sha,environment=scoped)
     installer.private_write(artifact/'APK_EVIDENCE.json',evidence)

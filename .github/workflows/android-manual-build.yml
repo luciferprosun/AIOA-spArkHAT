@@ -76,6 +76,54 @@ jobs:
         run: |
           set -euo pipefail
           test "$ImageVersion" = '20261026.354.1'
+          python3 -B - <<'PY'
+          import hashlib
+          import json
+          import os
+          import re
+          import stat
+          
+          IMAGE_PATH = '/imagegeneration/imagedata.json'
+          EXPECTED_IMAGE = '20261026.354.1'
+          
+          def read_image():
+              parent = os.lstat(os.path.dirname(IMAGE_PATH))
+              if not stat.S_ISDIR(parent.st_mode) or parent.st_uid != 0 or parent.st_mode & 0o022:
+                  raise SystemExit('BLOCKED_CI_IMAGE_METADATA_DIRECTORY')
+              fd = os.open(IMAGE_PATH, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC)
+              try:
+                  before = os.fstat(fd)
+                  if not stat.S_ISREG(before.st_mode) or before.st_uid != 0 or before.st_mode & 0o022 or not 0 < before.st_size <= 65536:
+                      raise SystemExit('BLOCKED_CI_IMAGE_METADATA_FILE')
+                  raw = os.read(fd, 65537)
+                  after = os.fstat(fd)
+                  if len(raw) != before.st_size or (before.st_size, before.st_mtime_ns) != (after.st_size, after.st_mtime_ns):
+                      raise SystemExit('BLOCKED_CI_IMAGE_METADATA_RACE')
+                  return raw
+              finally:
+                  os.close(fd)
+          
+          def check_image(raw, environment):
+              try:
+                  data = json.loads(raw)
+                  if type(data) is not list or not 0 < len(data) <= 16 or any(type(row) is not dict for row in data):
+                      raise ValueError('shape')
+                  rows = [row for row in data if row.get('group') == 'Runner Image']
+                  if len(rows) != 1 or type(rows[0].get('detail')) is not str:
+                      raise ValueError('image row')
+                  detail = rows[0]['detail']
+                  versions = re.findall(r'^Version: ([0-9]{8}\.[0-9]{1,4}\.[0-9]{1,4})$', detail, re.M)
+                  images = re.findall(r'^Image: (ubuntu-[0-9.]+)$', detail, re.M)
+                  observed = versions[0] if len(versions) == 1 else 'INVALID'
+                  if images != ['ubuntu-24.04'] or observed != EXPECTED_IMAGE or environment.get('ImageVersion') != observed:
+                      raise SystemExit('BLOCKED_CI_IMAGE_METADATA_MISMATCH observed=' + observed)
+                  return {'metadata_version': observed, 'metadata_sha256': hashlib.sha256(raw).hexdigest()}
+              except (ValueError, TypeError, KeyError):
+                  raise SystemExit('BLOCKED_CI_IMAGE_METADATA_FORMAT') from None
+          
+          if __name__ == '__main__':
+              print(json.dumps(check_image(read_image(), os.environ), sort_keys=True))
+          PY
       - name: Checkout exact dispatched commit without persistent credentials
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1, node24
         with:
@@ -181,6 +229,54 @@ jobs:
         run: |
           set -euo pipefail
           test "$ImageVersion" = '20261026.354.1'
+          python3 -B - <<'PY'
+          import hashlib
+          import json
+          import os
+          import re
+          import stat
+          
+          IMAGE_PATH = '/imagegeneration/imagedata.json'
+          EXPECTED_IMAGE = '20261026.354.1'
+          
+          def read_image():
+              parent = os.lstat(os.path.dirname(IMAGE_PATH))
+              if not stat.S_ISDIR(parent.st_mode) or parent.st_uid != 0 or parent.st_mode & 0o022:
+                  raise SystemExit('BLOCKED_CI_IMAGE_METADATA_DIRECTORY')
+              fd = os.open(IMAGE_PATH, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC)
+              try:
+                  before = os.fstat(fd)
+                  if not stat.S_ISREG(before.st_mode) or before.st_uid != 0 or before.st_mode & 0o022 or not 0 < before.st_size <= 65536:
+                      raise SystemExit('BLOCKED_CI_IMAGE_METADATA_FILE')
+                  raw = os.read(fd, 65537)
+                  after = os.fstat(fd)
+                  if len(raw) != before.st_size or (before.st_size, before.st_mtime_ns) != (after.st_size, after.st_mtime_ns):
+                      raise SystemExit('BLOCKED_CI_IMAGE_METADATA_RACE')
+                  return raw
+              finally:
+                  os.close(fd)
+          
+          def check_image(raw, environment):
+              try:
+                  data = json.loads(raw)
+                  if type(data) is not list or not 0 < len(data) <= 16 or any(type(row) is not dict for row in data):
+                      raise ValueError('shape')
+                  rows = [row for row in data if row.get('group') == 'Runner Image']
+                  if len(rows) != 1 or type(rows[0].get('detail')) is not str:
+                      raise ValueError('image row')
+                  detail = rows[0]['detail']
+                  versions = re.findall(r'^Version: ([0-9]{8}\.[0-9]{1,4}\.[0-9]{1,4})$', detail, re.M)
+                  images = re.findall(r'^Image: (ubuntu-[0-9.]+)$', detail, re.M)
+                  observed = versions[0] if len(versions) == 1 else 'INVALID'
+                  if images != ['ubuntu-24.04'] or observed != EXPECTED_IMAGE or environment.get('ImageVersion') != observed:
+                      raise SystemExit('BLOCKED_CI_IMAGE_METADATA_MISMATCH observed=' + observed)
+                  return {'metadata_version': observed, 'metadata_sha256': hashlib.sha256(raw).hexdigest()}
+              except (ValueError, TypeError, KeyError):
+                  raise SystemExit('BLOCKED_CI_IMAGE_METADATA_FORMAT') from None
+          
+          if __name__ == '__main__':
+              print(json.dumps(check_image(read_image(), os.environ), sort_keys=True))
+          PY
       - name: Checkout exact reviewed main source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
