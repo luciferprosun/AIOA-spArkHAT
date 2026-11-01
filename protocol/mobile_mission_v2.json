@@ -1,0 +1,33 @@
+{
+  "schema": "aioa.mobile-mission.v2",
+  "base_path": "/api/mobile/v2",
+  "extends": "aioa.mobile-mission.v1",
+  "request_proof_schema": "aioa.mobile.request-proof.v1",
+  "observation_schema": "aioa.mobile.observation.v1",
+  "mission_schema": "aioa.mobile.mission-view.v2",
+  "body_limit": 16384,
+  "response_limit": 65536,
+  "history_page_limit": 16,
+  "routes": {
+    "status": ["GET", "/status"],
+    "older": ["GET", "/status/pages/{agent_task_id}"],
+    "propose": ["POST", "/propose"],
+    "install_proposal": ["POST", "/install-proposal"],
+    "task": ["GET", "/tasks/{agent_task_id}"],
+    "proposal_readback": ["GET", "/proposals/{request_id}"],
+    "stop": ["POST", "/stop"],
+    "providers": ["GET", "/providers"]
+  },
+  "capabilities": {
+    "run": false,
+    "approve": false,
+    "native_execute": false,
+    "install": false,
+    "github_write": false,
+    "meta_spend": false
+  },
+  "authority": "NEEDS_HOST_APPROVAL",
+  "production_owner": "NOT_BOUND",
+  "remote_tls": "NOT_QUALIFIED",
+  "automatic_post_retry": false
+}
