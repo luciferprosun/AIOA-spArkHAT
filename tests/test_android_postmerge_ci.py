@@ -29,6 +29,25 @@ def context():
 
 
 class PostmergeCIGuardTests(unittest.TestCase):
+    def test_workflow_denies_stale_sha_and_wrong_actor_before_allocating_build_job(self):
+        import yaml
+        job=yaml.safe_load((ROOT/WORKFLOW).read_text())['jobs']['debug-apk']
+        self.assertIn('inputs.expected_source_sha == github.sha',job['if'])
+        self.assertIn("github.actor == 'luciferprosun'",job['if'])
+        self.assertIn("github.run_attempt == '1'",job['if'])
+
+    def test_workflow_preflight_precedes_setup_java_and_codeql_tools(self):
+        import yaml
+        workflow=yaml.safe_load((ROOT/WORKFLOW).read_text())
+        for name in ('debug-apk','codeql-kotlin'):
+            steps=workflow['jobs'][name]['steps']
+            preflight=next(i for i,s in enumerate(steps) if '--preflight-only' in s.get('run',''))
+            setup=next(i for i,s in enumerate(steps) if s.get('uses','').startswith('actions/setup-java@'))
+            self.assertLess(preflight,setup)
+            image=next(i for i,s in enumerate(steps) if 'test "$ImageVersion"' in s.get('run',''))
+            checkout=next(i for i,s in enumerate(steps) if s.get('uses','').startswith('actions/checkout@'))
+            self.assertLess(image,checkout)
+
     def test_exact_main_context_admitted(self):
         ci.context_check(context(),SHA,IMAGE)
 
