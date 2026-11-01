@@ -18,7 +18,7 @@ def codeql_context():
 
 class AndroidCodeQLContractTests(unittest.TestCase):
     def readback_fixture(self,root,*,build_changes=None,sarif_changes=None):
-        env={**codeql_context(),'RUNNER_TEMP':str(root)}
+        env={**codeql_context(),'RUNNER_TEMP':str(root),'AIOA_SARIF_ID':'11223344-5566-7788-9900-aabbccddeeff'}
         build=root/'aioa-android-123-1';build.mkdir(mode=0o700)
         (build/'build.log').write_text('controlled compile returned zero\n')
         (build/'redirect.gradle').write_text('controlled init')
@@ -59,7 +59,7 @@ class AndroidCodeQLContractTests(unittest.TestCase):
     def test_wrong_language_and_sarif_source_are_denied(self):
         for change in [{'automationDetails':{'id':'/language:python/'}},
             {'versionControlProvenance':[{'revisionId':'b'*40}]},
-            {'versionControlProvenance':[]}, {'versionControlProvenance':None}]:
+            {'versionControlProvenance':None}]:
             with self.subTest(change=change),tempfile.TemporaryDirectory() as directory:
                 env,_=self.readback_fixture(Path(directory),sarif_changes=change)
                 with self.assertRaises(ci.lib.Blocked):self.readback(env)

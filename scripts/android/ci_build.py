@@ -25,7 +25,7 @@ else:
 SOURCE_REF='refs/heads/main'
 WORKFLOW_PATH='.github/workflows/android-manual-build.yml'
 REVIEWED_IMAGE_VERSION='20261026.354.1'
-REVIEWED_WORKFLOW_SHA256='4dd97937fe9923c20fc3786a5b338c28f0f621e9cd8ce2e8878f15aa74e64f68'
+REVIEWED_WORKFLOW_SHA256='ef7fb9e6e4edcd610e316c46a20feddfe3c44649aebbc62f2f3c1d4573be1c4c'
 CODEQL_VERSION='2.27.3'
 CODEQL_HOME=Path('/opt/hostedtoolcache/CodeQL/2.27.3/x64/codeql')
 CODEQL_DATABASE=Path('/home/runner/work/_temp/aioa-codeql-databases/java')
@@ -136,7 +136,8 @@ def codeql_command(env,cache,init):
     argv=command(cache,init)
     lib.require(argv[-3:]==['testDebugUnitTest','lintDebug','assembleDebug'],'BLOCKED_CI_BUILD_COMMAND')
     argv=argv[:-3]+['--no-build-cache','--rerun-tasks',':app:compileDebugKotlin']
-    return [str(tool),'database','trace-command','--threads=1','--ram=2048',str(database),'--',*argv]
+    return [str(tool),'database','trace-command','--threads=1','--ram=2048',
+        '--working-dir='+str(lib.REPO/'clients/android'),str(database),'--',*argv]
 
 
 def check_sdkmanager_version(text,options):
@@ -207,7 +208,9 @@ def execute(env,source_sha,image,*,purpose='apk'):
         lib.require(version.get('version')==CODEQL_VERSION,'BLOCKED_CI_CODEQL_VERSION')
     status=build_apk.run_logged(argv,cwd=lib.REPO/'clients/android',
         environment=scoped,log=root/'build.log',timeout=1800)
-    lib.require(status==0,'BLOCKED_CI_BUILD_FAILED_LOG_PRESERVED')
+    if status!=0:
+        error=lib.Blocked('BLOCKED_CI_BUILD_FAILED');error.build_exit_code=status
+        raise error
     lib.source_check(source_sha)
     lib.gradle_configuration_check(root/'gradle-cache')
     lib.require(before==sdk_inventory(sdk),'BLOCKED_CI_SDK_CHANGED')
@@ -288,15 +291,82 @@ def preflight(env,source_sha,image,*,purpose='apk'):
 
 def build(env,source_sha,image,*,purpose='apk'):
     preflight(env,source_sha,image,purpose=purpose)
-    if purpose=='codeql':codeql_tool_check(env)
-    result=execute(env,source_sha,image,purpose=purpose)
-    branch_head_check(source_sha)
-    return result
+    try:
+        if purpose=='codeql':codeql_tool_check(env)
+        result=execute(env,source_sha,image,purpose=purpose)
+        branch_head_check(source_sha)
+        return result
+    except (lib.Blocked,OSError,ValueError,TypeError,KeyError,subprocess.SubprocessError) as error:
+        # Preserve the original nonzero outcome even if diagnostics cannot be
+        # recorded. Failed preflight never reaches this writer or the tools.
+        try:record_failure(env,source_sha,image,error,purpose=purpose)
+        except (lib.Blocked,OSError,ValueError,TypeError,KeyError):pass
+        raise
+
+
+def record_failure(env,source_sha,image,error,*,purpose='apk'):
+    """Publishable structured diagnostics, never raw tool output or an APK.
+
+    Only called after successful preflight. Private logs remain ephemeral;
+    their hashes and bounded known public-source locations survive the job.
+    """
+    lib.require(purpose in ('apk','codeql') and all(re.fullmatch(r'[0-9]{1,20}',env.get(k,''))
+        for k in ('GITHUB_RUN_ID','GITHUB_RUN_ATTEMPT')),'BLOCKED_CI_DIAGNOSTIC_CONTEXT')
+    suffix=env['GITHUB_RUN_ID']+'-'+env['GITHUB_RUN_ATTEMPT']
+    parent=lib.safe_path(Path(env['RUNNER_TEMP']))
+    root=lib.safe_path(parent/('aioa-android-'+suffix))
+    logs=[];raw=b''
+    for name in ('build.log','java-version.log','gradle-version.log','sdkmanager-version.log',
+                 'codeql-version.log','keytool-generate.log','keytool-certificate.log'):
+        path=root/name
+        if not path.exists() and not path.is_symlink():continue
+        data=lib.private_bytes(path,max_bytes=8*1024*1024)
+        logs.append({'name':name,'sha256':hashlib.sha256(data).hexdigest(),'bytes':len(data)})
+        if name=='build.log':raw=data
+    manifest=lib.strict_json((lib.REPO/'clients/android/ANDROID_BUILD_INPUT_MANIFEST.json').read_bytes())
+    allowed={row['path'] for row in manifest['files'] if row['path'].startswith('clients/android/app/src/')
+        and row['path'].endswith(('.kt','.java'))}
+    tasks=set();locations=[]
+    for line in raw.decode('utf-8','replace').splitlines():
+        task=re.fullmatch(r'> Task :app:(compileDebugKotlin|testDebugUnitTest|lintDebug|assembleDebug) FAILED',line)
+        if task:tasks.add(':app:'+task[1])
+        match=re.match(r'^e: (?:file://)?(.+\.(?:kt|java)):(\d{1,6}):(\d{1,4})\s+(.+)$',line)
+        if not match or len(locations)>=16:continue
+        path=Path(match[1])
+        if not path.is_absolute() or '..' in path.parts or not path.is_relative_to(lib.REPO):continue
+        relative=path.relative_to(lib.REPO).as_posix()
+        if relative not in allowed or int(match[2])<1 or int(match[3])<1:continue
+        category=next((value for text,value in [('Unresolved reference','UNRESOLVED_REFERENCE'),
+            ('Type mismatch','TYPE_MISMATCH'),('Syntax error','SYNTAX_ERROR'),
+            ('Cannot infer type','TYPE_INFERENCE')] if text in match[4]),'KOTLIN_COMPILER_ERROR')
+        item={'path':relative,'line':int(match[2]),'column':int(match[3]),'category':category}
+        if item not in locations:locations.append(item)
+    permitted_codes={'BLOCKED_CI_BUILD_FAILED','BLOCKED_BUILD_TIMEOUT','BLOCKED_BUILD_CANCELLED',
+        'BLOCKED_BUILD_LOG_SIZE','BLOCKED_CI_CODEQL_VERSION','BLOCKED_CI_JDK_VERSION',
+        'BLOCKED_CI_SDKMANAGER_VERSION','BLOCKED_CI_GRADLE_VERSION','BLOCKED_CI_BRANCH_DRIFT',
+        'BLOCKED_CI_SDK_CHANGED','BLOCKED_JUNIT_RESULT','BLOCKED_LINT_RESULT','BLOCKED_APK_CONTRACT'}
+    code=getattr(error,'code',None)
+    exit_code=getattr(error,'build_exit_code',None)
+    value={'schema':'aioa.android.failure-evidence.v1','status':'FAILED_NO_APK_PUBLICATION',
+        'source_sha':source_sha,'source_binding':'REQUESTED_SHA_NOT_BUILD_ATTESTATION',
+        'runner_image':image,'workflow_revision':REVIEWED_WORKFLOW_SHA256,
+        'workflow_run_id':env['GITHUB_RUN_ID'],'workflow_run_attempt':env['GITHUB_RUN_ATTEMPT'],
+        'purpose':purpose,'stage':'GRADLE_BUILD_OR_VERIFICATION' if raw else 'TOOLCHAIN_PREPARATION_OR_VERIFICATION',
+        'error_code':code if code in permitted_codes else 'DIAGNOSTIC_UNAVAILABLE',
+        'exit_code':exit_code if type(exit_code) is int and -128<=exit_code<=255 else None,
+        'logs':logs,'failed_tasks':sorted(tasks),'compiler_locations':locations,
+        'diagnostic_status':'STRUCTURED_DIAGNOSTIC_AVAILABLE' if tasks or locations else 'DIAGNOSTIC_UNAVAILABLE',
+        'raw_log_retention':'EPHEMERAL_RUNNER_ONLY','apk_verified':False,'automatic_retry':False}
+    destination=lib.safe_path(parent/('aioa-failure-'+suffix+'-'+purpose));destination.mkdir(mode=0o700)
+    installer.private_write(destination/'BUILD_FAILURE_EVIDENCE.json',value)
+    return value
 
 
 def codeql_readback(env,source_sha,image):
     context_check(env,source_sha,image,purpose='codeql')
     lib.source_check(source_sha);workflow_check(env);branch_head_check(source_sha)
+    lib.require(re.fullmatch(r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}',
+        env.get('AIOA_SARIF_ID','')) is not None,'BLOCKED_CI_SARIF_UPLOAD_ID')
     root=lib.safe_path(Path(env['RUNNER_TEMP'])/('aioa-android-'+env['GITHUB_RUN_ID']+'-'+env['GITHUB_RUN_ATTEMPT']))
     evidence=lib.private_json(root/'CODEQL_BUILD_EVIDENCE.json')
     invocation=lib.private_json(root/'BUILD_INVOCATION.json')
@@ -333,9 +403,8 @@ def codeql_readback(env,source_sha,image):
         and all(type(run) is dict and run.get('tool',{}).get('driver',{}).get('name')=='CodeQL'
             and run.get('automationDetails',{}).get('id','').rstrip('/')=='/language:java-kotlin'
             and type(run.get('results')) is list
-            and type(run.get('versionControlProvenance')) is list
-            and bool(run['versionControlProvenance'])
-            and all(type(p) is dict and p.get('revisionId')==source_sha for p in run['versionControlProvenance'])
+            and type(run.get('versionControlProvenance',[])) is list
+            and all(type(p) is dict and p.get('revisionId')==source_sha for p in run.get('versionControlProvenance',[]))
             for run in runs),
         'BLOCKED_CI_SARIF_FORMAT')
     artifact=root/'codeql-artifact';artifact.mkdir(mode=0o700)
@@ -343,7 +412,11 @@ def codeql_readback(env,source_sha,image):
         'build_log_sha256','build_invocation_sha256','model_calls','apk_built')}
     filtered.update(schema='aioa.android.codeql-evidence.v1',status='SARIF_READBACK_VERIFIED_UPLOAD_STATUS_PENDING',
         sarif_sha256=hashlib.sha256(raw).hexdigest(),workflow_run_id=env['GITHUB_RUN_ID'],
-        workflow_run_attempt=env['GITHUB_RUN_ATTEMPT'],server_upload_verified=False)
+        workflow_run_attempt=env['GITHUB_RUN_ATTEMPT'],server_upload_verified=False,
+        source_binding='CONTROLLED_CHECKOUT_AND_BUILD_NOT_SERVER_ATTESTATION',
+        source_verification_status='PENDING_SERVER_COMMIT_SHA_READBACK',
+        server_sarif_id=env['AIOA_SARIF_ID'],
+        sarif_embedded_revision='MATCHED' if all(run.get('versionControlProvenance') for run in runs) else 'ABSENT')
     installer.private_write(artifact/'CODEQL_EVIDENCE.json',filtered)
     return filtered
 

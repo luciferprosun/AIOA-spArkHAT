@@ -105,6 +105,7 @@ jobs:
           overwrite-settings: false
           settings-path: ${{ runner.temp }}/aioa-java-settings
       - name: Verify image, existing SDK license, wrapper; test, lint, build and inspect DEBUG APK
+        id: controlled_build
         shell: bash
         run: |
           set -euo pipefail
@@ -117,6 +118,16 @@ jobs:
           path: |
             ${{ runner.temp }}/aioa-android-${{ github.run_id }}-${{ github.run_attempt }}/artifact/aioa-companion-debug.apk
             ${{ runner.temp }}/aioa-android-${{ github.run_id }}-${{ github.run_attempt }}/artifact/APK_EVIDENCE.json
+          retention-days: 1
+          if-no-files-found: error
+          include-hidden-files: false
+          overwrite: false
+      - name: Retain filtered failure diagnostics without raw logs or APK
+        if: ${{ failure() && steps.controlled_build.outcome == 'failure' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: aioa-build-failure-${{ github.sha }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/aioa-failure-${{ github.run_id }}-${{ github.run_attempt }}-apk/BUILD_FAILURE_EVIDENCE.json
           retention-days: 1
           if-no-files-found: error
           include-hidden-files: false
@@ -209,19 +220,24 @@ jobs:
           threads: 1
           ram: 2048
       - name: Compile Kotlin through the existing bounded builder under CodeQL tracing
+        id: controlled_build
         shell: bash
         run: |
           set -euo pipefail
           umask 077
           python3 -B scripts/android/ci_build.py --source-sha "$AIOA_SOURCE_SHA" --runner-image "$AIOA_RUNNER_IMAGE" --purpose codeql
       - name: Analyze actual compiled Kotlin and upload SARIF
+        id: codeql_analyze
         uses: github/codeql-action/analyze@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
         with:
           category: /language:java-kotlin
           output: ${{ runner.temp }}/aioa-codeql-sarif
           threads: 1
           ram: 2048
+          upload-database: false
       - name: Verify source and actual SARIF readback
+        env:
+          AIOA_SARIF_ID: ${{ steps.codeql_analyze.outputs.sarif-id }}
         shell: bash
         run: |
           set -euo pipefail
@@ -232,6 +248,16 @@ jobs:
         with:
           name: aioa-codeql-evidence-${{ github.sha }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/aioa-android-${{ github.run_id }}-${{ github.run_attempt }}/codeql-artifact/CODEQL_EVIDENCE.json
+          retention-days: 1
+          if-no-files-found: error
+          include-hidden-files: false
+          overwrite: false
+      - name: Retain filtered Kotlin build failure diagnostics only
+        if: ${{ failure() && steps.controlled_build.outcome == 'failure' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: aioa-codeql-build-failure-${{ github.sha }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/aioa-failure-${{ github.run_id }}-${{ github.run_attempt }}-codeql/BUILD_FAILURE_EVIDENCE.json
           retention-days: 1
           if-no-files-found: error
           include-hidden-files: false

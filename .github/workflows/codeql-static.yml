@@ -10,6 +10,8 @@ name: AIOA CodeQL (owner-gated advanced profile)
       source_sha:
         type: string
         required: true
+  schedule:
+    - cron: '17 3 * * 1'
 
 permissions:
   contents: read
@@ -68,5 +70,6 @@ jobs:
         uses: github/codeql-action/analyze@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
         with:
           category: /language:${{ matrix.language }}
+          upload-database: false
           threads: 1
           ram: 2048
