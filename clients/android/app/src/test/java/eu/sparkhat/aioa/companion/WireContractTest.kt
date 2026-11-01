@@ -65,4 +65,18 @@ class WireContractTest {
         assertEquals(archive,PendingHints.archive(pending,archive))
         assertThrows(Exception::class.java) { PendingHints.archive("not-an-id",archive) }
     }
+    @Test fun agentPendingAndRetainedIdsSurviveUnavailableSession() {
+        val pending = "a".repeat(32)
+        val retained = listOf("b".repeat(32))
+        val ui = MissionUi(enrolled=true,pendingAgent=pending,archivedAgents=retained).sessionUnavailable()
+        assertFalse(ui.enrolled)
+        assertEquals(pending,ui.pendingAgent); assertEquals(retained,ui.archivedAgents)
+        assertEquals(retained+pending,PendingHints.archive(pending,ui.archivedAgents))
+    }
+    @Test fun agentHandoffCannotLoseIdsWhenArchiveCapacityIsExhausted() {
+        val full = (0 until 128).map { it.toString(16).padStart(32,'0') }
+        assertEquals(full,PendingHints.archive(full.first(),full))
+        assertThrows(Exception::class.java) { PendingHints.archive("f".repeat(32),full) }
+        assertEquals(128,full.size)
+    }
 }

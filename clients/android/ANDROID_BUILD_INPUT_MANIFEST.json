@@ -24,10 +24,10 @@
       "sha256": "c4e0c0b1d4ebac4be5ff168b9b32ad32d2c9f3b5e44f57c6fed2c437549be6da"
     },
     {
-      "bytes": 2485,
+      "bytes": 3112,
       "executable": false,
       "path": "clients/android/README.md",
-      "sha256": "30339956d5adf8d208607e97549b0687e1ed9fe098cdede009c48cbc1d979794"
+      "sha256": "3373de1b1f2232f6aea135e5e0f1383123bbff91cc7d997dfad817460ab9f582"
     },
     {
       "bytes": 1360,
@@ -54,16 +54,16 @@
       "sha256": "ac8637f5e9dde68f8b057746432c902d48518b399ad0c9fe0057638d07d45e08"
     },
     {
-      "bytes": 10799,
+      "bytes": 12039,
       "executable": false,
       "path": "clients/android/app/src/main/java/eu/sparkhat/aioa/companion/MainActivity.kt",
-      "sha256": "0cdf34872be4c76c9d47d27381a0744b8c9f7e3c37e253264bcde397ccbd6653"
+      "sha256": "94c842b3eaa1c680b50d1274d4c27105095b8ad729959f4cb75800e203e992ba"
     },
     {
-      "bytes": 11209,
+      "bytes": 12166,
       "executable": false,
       "path": "clients/android/app/src/main/java/eu/sparkhat/aioa/companion/MissionViewModel.kt",
-      "sha256": "ee5877a6cccfc70e1b2fb47e337dc793a7a966c1c289e1cc56bedbb32ee2eb9c"
+      "sha256": "3ab167a48d72b63ed372f98fb443adac94373cc1319837cbfb26bd8b82e19c76"
     },
     {
       "bytes": 14960,
@@ -102,10 +102,10 @@
       "sha256": "c57cef9fd4b760592ba42190a1b26ee6a3064f11c539305d8b4afe293ff759cc"
     },
     {
-      "bytes": 3509,
+      "bytes": 4331,
       "executable": false,
       "path": "clients/android/app/src/test/java/eu/sparkhat/aioa/companion/WireContractTest.kt",
-      "sha256": "78c7deb2ddb03638e4ad86ea2ce9d29ae8409c21e4491b0d129badf6f7377391"
+      "sha256": "3376cc5997b650995b760948b7156e34ee29d1259adae0de11c3ae9c05c8cd93"
     },
     {
       "bytes": 1018,

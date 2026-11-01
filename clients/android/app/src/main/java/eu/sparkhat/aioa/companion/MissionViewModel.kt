@@ -19,7 +19,8 @@ data class MissionUi(
     val pending: String? = null, val archived: List<String> = emptyList(),
     val missions: List<JsonObject> = emptyList(), val nextCursor: String? = null,
     val agentTask: JsonObject? = null, val agentMissions: List<JsonObject> = emptyList(),
-    val pendingAgent: String? = null, val providers: JsonObject? = null,
+    val pendingAgent: String? = null, val archivedAgents: List<String> = emptyList(),
+    val providers: JsonObject? = null,
     val message: String = "Verified HTTPS and fresh enrollment required; owner NOT_BOUND."
 )
 fun MissionUi.sessionUnavailable() = copy(enrolled=false)
@@ -31,6 +32,7 @@ class MissionViewModel(app: Application) : AndroidViewModel(app) {
     val publicSpki get() = client.publicSpki
     var ui by mutableStateOf(MissionUi(pending=prefs.getString("pending_proposal",null),
         pendingAgent=prefs.getString("pending_agent_proposal",null),
+        archivedAgents=prefs.getStringSet("unresolved_agent_proposals",emptySet())!!.filter { Wire.hex32.matches(it) }.sorted(),
         archived=prefs.getStringSet("unresolved_proposals",emptySet())!!.filter { Wire.hex32.matches(it) }.sorted()))
         private set
 
@@ -140,7 +142,7 @@ class MissionViewModel(app: Application) : AndroidViewModel(app) {
     }
     fun revoke() = request({ client.revoke() }) {
         generation = generation.invalidate(); ui = MissionUi(freshness=generation,pending=ui.pending,archived=ui.archived,
-            pendingAgent=ui.pendingAgent,
+            pendingAgent=ui.pendingAgent,archivedAgents=ui.archivedAgents,
             message="Session revoked; fresh enrollment required.")
     }
     fun agentStatus() = request({ client.agentStatus() }) { data ->
@@ -182,6 +184,18 @@ class MissionViewModel(app: Application) : AndroidViewModel(app) {
                 ui = ui.copy(agentTask=data,pendingAgent=null,message="Signed proposal readback.")
             }
         }
+    }
+    fun archivePendingAgentHint() {
+        if (ui.busy) return
+        val proposal = ui.pendingAgent ?: return
+        try {
+            val history = PendingHints.archive(proposal,ui.archivedAgents)
+            if (prefs.edit().putStringSet("unresolved_agent_proposals",history.toSet())
+                    .remove("pending_agent_proposal").commit()) {
+                ui = ui.copy(pendingAgent=null,archivedAgents=history,
+                    message="Agent ID retained for the host. Core UNKNOWN is unchanged; no retry or effect.")
+            } else ui = ui.copy(message="Cannot retain agent ID; pending remains blocked.")
+        } catch (_: Exception) { ui = ui.copy(message="Cannot retain agent ID; pending remains blocked.") }
     }
     fun agentEvidence() {
         val task = ui.agentTask ?: return

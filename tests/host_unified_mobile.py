@@ -74,6 +74,31 @@ class UnifiedMobileTests(unittest.TestCase):
             status,response=other.request('GET',BASE+'/tasks/'+task['task_id'])
         self.assertEqual(403,status,response)
 
+    def test_session_loss_handoff_keeps_old_scope_and_never_replays_pending(self):
+        task=self.propose();old=self.client
+        self.host.close()
+        self.host=OfflineMetaComposition(Path(self.tmp.name),source_probe=lambda:tuple(self.source))
+        self.owner=self.host.core.local_operator(Capability.OWNER_APPROVAL)
+        self.reader=self.host.core.local_operator(Capability.READ)
+        self.host.missions.bind_agent_tools(self.config,self.owner)
+        self.gateway=MobileGateway(self.host.missions,identity=self.identity,fixture=True)
+        old.gateway=self.gateway
+        fresh=SignedDeviceFixture(self.gateway,self.owner,identity=old.device)
+        self.assertNotEqual(old.token,fresh.token)
+        with patch.object(self.host.missions,'agent_view',side_effect=AssertionError('old scope read')):
+            self.assertEqual(401,old.request('GET',BASE+'/proposals/'+'1'*32)[0])
+            self.assertEqual(403,fresh.request('GET',BASE+'/proposals/'+'1'*32)[0])
+            self.assertEqual(403,fresh.request('GET',BASE+'/tasks/'+task['task_id'])[0])
+        before=self.host.missions.agent_view(task['task_id'],self.reader)
+        self.assertEqual('AGENT_UNKNOWN',before['state'])
+        self.client=fresh
+        new=self.propose('2'*32)
+        after=self.host.missions.agent_view(task['task_id'],self.reader)
+        self.assertNotEqual(task['task_id'],new['task_id'])
+        self.assertEqual(before,after)
+        self.assertIsNone(after['receipt'])
+        self.assertEqual('NEEDS_HOST_APPROVAL',new['approval_status'])
+
     def test_mobile_never_exposes_owner_or_native_write_ports(self):
         for action in ('run','approve','install','native_execute','github_write','meta_spend'):
             with self.subTest(action=action):

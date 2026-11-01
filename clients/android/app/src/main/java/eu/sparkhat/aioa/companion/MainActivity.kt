@@ -45,6 +45,7 @@ private fun MissionScreen(model: MissionViewModel = viewModel()) {
     var code by remember { mutableStateOf("") }
     var instruction by remember { mutableStateOf("Summarize the public test document.") }
     var archiveDialog by remember { mutableStateOf(false) }
+    var archiveAgentDialog by remember { mutableStateOf(false) }
     if (archiveDialog && ui.pending != null) AlertDialog(
         onDismissRequest={ archiveDialog=false },
         title={ Text("Hand off the ID for host reconciliation") },
@@ -53,6 +54,15 @@ private fun MissionScreen(model: MissionViewModel = viewModel()) {
         } },
         confirmButton={ TextButton(onClick={ model.archivePendingHint(); archiveDialog=false }) { Text("Keep unresolved ID") } },
         dismissButton={ TextButton(onClick={ archiveDialog=false }) { Text("Cancel") } }
+    )
+    if (archiveAgentDialog && ui.pendingAgent != null) AlertDialog(
+        onDismissRequest={ archiveAgentDialog=false },
+        title={ Text("Hand off the agent ID to the host") },
+        text={ Column(Modifier.heightIn(max=300.dp).verticalScroll(rememberScrollState())) {
+            Text("Keep this unresolved ID for host reconciliation after session loss. Core UNKNOWN stays UNKNOWN. No retry, STOP or approval is sent. Only the local proposal block is cleared after the ID is saved. A new proposal requires a fresh session and exact host approval.")
+        } },
+        confirmButton={ TextButton(onClick={ model.archivePendingAgentHint(); archiveAgentDialog=false }) { Text("Keep unresolved agent ID") } },
+        dismissButton={ TextButton(onClick={ archiveAgentDialog=false }) { Text("Cancel") } }
     )
     Column(Modifier.fillMaxSize().safeDrawingPadding().imePadding().verticalScroll(rememberScrollState())
         .padding(16.dp), verticalArrangement=Arrangement.spacedBy(12.dp)) {
@@ -92,6 +102,12 @@ private fun MissionScreen(model: MissionViewModel = viewModel()) {
             Text("Read back pending agent proposal")
         }
         ui.pendingAgent?.let { SelectionContainer { Text("Pending ID: $it — no automatic retry") } }
+        Button(enabled=!ui.busy && ui.pendingAgent!=null,onClick={ archiveAgentDialog=true }) {
+            Text("Keep agent ID for the host operator")
+        }
+        if (ui.archivedAgents.isNotEmpty()) SelectionContainer {
+            Text("Unresolved agent IDs — host reconciliation, Core unchanged:\n"+ui.archivedAgents.joinToString("\n"))
+        }
         ui.agentMissions.forEach { item ->
             val id = Wire.text(item,"task_id")
             OutlinedButton(enabled=ui.enrolled && !ui.busy,onClick={ model.agentSelect(id) }) {

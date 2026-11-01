@@ -2,6 +2,7 @@
 import hashlib
 import json
 from pathlib import Path
+import re
 import unittest
 import xml.etree.ElementTree as ET
 
@@ -92,6 +93,38 @@ class AndroidSourceTests(unittest.TestCase):
         self.assertIn('AlertDialog(',ui)
         self.assertIn('archivePendingHint()',vm)
         self.assertIn('unresolved_proposals',vm)
+        self.assertIn('Core UNKNOWN stays UNKNOWN',ui)
+
+    def test_agent_pending_handoff_is_persisted_before_unblocking_and_sends_no_request(self):
+        vm=(SRC/'MissionViewModel.kt').read_text()
+        match=re.search(r'fun archivePendingAgentHint\(\) \{(.*?)(?=\n    (?:private )?fun |\n    override fun )',vm,re.S)
+        self.assertIsNotNone(match,'v2 must offer an explicit local handoff after session loss')
+        body=match.group(1)
+        self.assertIn('if (ui.busy) return',body)
+        self.assertIn('PendingHints.archive(proposal,ui.archivedAgents)',body)
+        self.assertRegex(body,r'if \(prefs\.edit\(\)\.putStringSet\("unresolved_agent_proposals",history\.toSet\(\)\)\s*'
+            r'\.remove\("pending_agent_proposal"\)\.commit\(\)\) \{\s*ui = ui\.copy\(pendingAgent=null,archivedAgents=history,')
+        self.assertEqual(1,body.count('pendingAgent=null'))
+        self.assertNotIn('.apply()',body)
+        for forbidden in ('client.','request(','run_agent','reconcile','approve(','.stop('):
+            self.assertNotIn(forbidden,body)
+        self.assertIn('Core UNKNOWN is unchanged',body)
+
+    def test_agent_handoff_survives_ui_restart_and_session_revocation(self):
+        vm=(SRC/'MissionViewModel.kt').read_text()
+        self.assertIn('val archivedAgents: List<String> = emptyList()',vm)
+        self.assertIn('archivedAgents=prefs.getStringSet("unresolved_agent_proposals",emptySet())',vm)
+        revoke=vm.split('fun revoke()',1)[1].split('fun agentStatus()',1)[0]
+        self.assertIn('pendingAgent=ui.pendingAgent,archivedAgents=ui.archivedAgents',revoke)
+        self.assertLess(vm.index('putString("pending_agent_proposal",proposal).commit()'),
+                        vm.index('client.agentProposal('))
+
+    def test_agent_handoff_requires_explicit_confirmation_and_displays_retained_ids(self):
+        ui=(SRC/'MainActivity.kt').read_text()
+        self.assertIn('if (archiveAgentDialog && ui.pendingAgent != null) AlertDialog(',ui)
+        self.assertIn('model.archivePendingAgentHint(); archiveAgentDialog=false',ui)
+        self.assertIn('enabled=!ui.busy && ui.pendingAgent!=null,onClick={ archiveAgentDialog=true }',ui)
+        self.assertIn('ui.archivedAgents.joinToString("\\n")',ui)
         self.assertIn('Core UNKNOWN stays UNKNOWN',ui)
 
 

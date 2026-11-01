@@ -13,6 +13,15 @@ i obserwuje, host zatwierdza konkretny lokalny profil fixture. Podpisane testy
 Pythona nie są wykonaniem kodu Kotlin. Nowy `AgentMissionViewTest.kt` pozostaje
 NOT_RUN razem z JVM/lint/APK, do osobnego zakwalifikowanego builda.
 
+Po utracie sesji nierozliczony agent proposal pozostaje związany ze starą
+sesją; nowe enrollment nie daje dostępu do jego danych. W panelu Agent workspace
+użyj jawnego „Keep agent ID for the host operator”, potwierdź zachowanie ID
+i przekaż widoczny identyfikator operatorowi hosta do rozliczenia. Dopiero
+synchroniczny zapis ID usuwa lokalną blokadę nowej propozycji; błąd zapisu lub
+limit 128 zachowanych ID utrzymuje blokadę. To nie ponawia starego POST,
+nie wysyła STOP/approval i nie zmienia Core UNKNOWN. Nowa propozycja ma nowe ID
+i nadal wymaga świeżej sesji oraz osobnego zatwierdzenia na hoście.
+
 **APK_BUILD_BLOCKED_TOOLCHAIN.** Sprawdzono źródła, nie wykonano kompilacji
 Kotlin/JVM, Android lint ani testu urządzenia. Bez kwalifikowanego JDK17,
 SDK36/build-tools35.0.0 i cache zależności nie uruchamiaj wrappera; samo `--offline`
