@@ -1,9 +1,11 @@
 # ONE AIOA — odbiór właściciela, 2026-11-01
 
-Stan: READY_FOR_INDEPENDENT_REVIEW. Kod i utrwalony home demo działają;
-natywne41/41 PASS po poprawce cache; końcowa pełna regresja i review pozostają
-wymagane przed publikacją.
-Ten dokument roboczy nie zatwierdza merge, API, instalacji ani Android Actions.
+Stan: UNIFIED_CANDIDATE_READY / MAIN_MERGE_PENDING_OWNER_GO.
+Końcowy kod `1cd2a91da0a1e8ef10186458327d4a115d9444a0`, capsule `2d587c399a4cba5342182bea7f17a7c3ea1dfe6775c1ccc6d938077aba642dfa`.
+Python 2488: 2483 PASS +5 SKIP, 2138 subtests; native 42/42 PASS,
+Node15/15 i wheel+sdist2/2 PASS. Independent review 0C/3I/1M; Important naprawione
+RED→GREEN przez autora i końcowe regresje. Dokładne logi/komendy: U9_QA_EVIDENCE.md.
+Raport nie zatwierdza merge, API, instalacji ani Android Actions.
 
 ## Co rzeczywiście działa
 
@@ -39,7 +41,7 @@ workspace: przygotować propozycję, obejrzeć manifest/diff i dokładny digest,
 potwierdzić jedną operację fixture. Sprawdzić 5 testów, pliki/SHA i receipt.
 Git preview jest osobną propozycją i wymaga osobnego potwierdzenia. Instalator
 pokazuje wyłącznie plan. Nie wybierać płatnego providera ani starej instancji.
-Wymagane są już dostępne, zakwalifikowane Linux/Python3.12/Git/bwrap/cc/cgroups;
+Wymagane są już dostępne, zakwalifikowane Linux/Python3.12/cryptography41.0.7/Git/bwrap/cc/cgroups;
 polecenie nie instaluje brakujących narzędzi. Profil unified wymaga checkoutu;
 sprawdzony wheel/sdist nie poświadcza uruchomienia unified bez source checkoutu.
 
@@ -65,8 +67,8 @@ Katalog ma być nowy; harness nie nadpisuje istniejących dowodów.
 | U6 | PASS_SIGNED_FIXTURE | Ten sam gateway/app source, receipt po restarcie; Kotlin/JVM/APK/telefon/TLS NOT_RUN |
 | U7 | PASS_OFFLINE_CATALOG | Meta mock, Nebius NOT_BOUND, LLaMA DESIGN_ONLY; płatne API wyłączone |
 | U8 | PASS_LOCAL_FIXTURE | Jeden start, auth HTTP, web, MCP i mobile; brak cutover legacy |
-| U9 | PENDING_FINAL_REGRESSION_AND_REVIEW | Świeże regresje, source seals, pakiety i niezależny review |
-| U10 | MAIN_MERGE_PENDING_OWNER_GO | Draft integracji po pełnym odbiorze; main nie jest jeszcze scalonym produktem |
+| U9 | PASS_POST_REVIEW_LOCAL_FIXTURE | Świeże regresje, source seals, pakiety i niezależny review |
+| U10 | MAIN_MERGE_PENDING_OWNER_GO | Draft integracji po pełnym odbiorze; exact PR/head/base w końcowym przekazaniu; main bez promotion |
 
 Pełne ścieżki i SHAs: U0_SOURCE_LEDGER.md oraz FINAL_INTEGRATION_MATRIX.md.
 Komendy, liczniki, źródła i zakres pominięć: U9_QA_EVIDENCE.md.
@@ -151,9 +153,63 @@ revert PR i zachowania dowodów, bez przepisywania historii/baz.
    pochodzenie, hash i redacted review. Nie ukryto kandydatów ani nie zmieniono
    testów po to, żeby uciszyć skaner.
 
-Niezależny review i jego rozstrzygnięcia zostaną uzupełnione przed publikacją.
-Przebieg home: U9_DEMO_HOME_GREEN, source9f5e6b437df5a9ebd711c257a092da102d12b038,
-5 checks, lokalny commit0d0885cead94fa88efb93dea9bc69b291e0fbe15, restart signed readback.
-Pełny wcześniejszy GREEN:2477 total/2472PASS+5SKIP,2062subtests; nowy rerun wymagany.
-Node15/15, wheel+sdist2/2 PASS. Dokładne zakresy i źródła są w U9_QA_EVIDENCE.md.
-Dowody prywatne są zachowane zgodnie ze zleceniem, poza repo, z ograniczonym dostępem.
+10. Review i długa regresja mogły działać read-only na jednym zamrożonym SHA.
+    Koszt: reviewer widział nieukończony wynik; przerwany f0 run jest INCOMPLETE,
+    a publikację bramkują dopiero rzeczywiste wyniki nowego kodu.
+11. I2: wybrano istniejący PendingHints i jawne zachowanie v2 ID; nie osłabiono
+    session scope i nie dodano recovery authority. Koszt: stary rekord wymaga
+    host reconciliation; limit128/błąd zapisu pozostawia lokalną blokadę.
+
+12. Metadata /proc chronionych host PID sprawdzono read-only poza QA namespace,
+    który odmawiał tego odczytu. Koszt: host-specific observation; nie jest
+    to dowód izolowanej kontroli procesów ani zmiana uprawnień produktu.
+
+## Niezależny review i rozstrzygnięcia
+
+Review main de6fddb..f0ddb3e: 0 Critical, 3 Important, 1 Minor. Jeden autorski fix pass:
+I1 shared revoke wszystkich nowych użyć warrantu (v1 consume/delegate/START,
+Meta pre-key/transport); historyczne witness-free v1 i readback zachowano.
+I2 jawny persisted agent-ID handoff po utracie sesji, bez Core mutation/retry.
+I3 sealed read-only LICENSE i invariant dostępności wszystkich capsule files.
+RED→GREEN i final suite: U9_QA_EVIDENCE.md. Poprawek nie przedstawiamy jako
+ponownie niezależnie zrecenzowanych; cały pierwotny raport i granice:
+INDEPENDENT_REVIEW.md.
+
+Odroczone Minor M1: Android v2 nie wystawia kolejnej strony historii >16 zadań;
+starsze ID należy przekazać hostowi. Brak fikcyjnego naprawienia/potwierdzenia UI.
+
+Reviewer świadomie nie oceniał 13 granic. Decyzje autora i koszt, jeśli błędne:
+
+1. Owner/CPL: NOT_BOUND; fixture nie nadaje produkcyjnej authority. Koszt:
+   bez prawdziwego admission żadne produkcyjne wykonanie nie jest gotowe.
+2. M12/Cockroach/storage: tylko istniejący COW fixture. Koszt: brak certyfikacji
+   wieloprocesowej trwałości, migracji, backup/restore i load.
+3. API/billing/LLaMA: brak paid calls/fallback/key loading, billing UNKNOWN.
+   Koszt: rzeczywisty model i credits wymagają odrębnego potwierdzenia.
+4. Remote Git: transport DENY. Publikacja tego PR przez Codex ma osobną zgodę
+   i nie jest zdolnością AIOA. Koszt: credential/create-only/ancestry/retry/
+   cancellation wymagają kwalifikacji przed zdalnym efektem agenta.
+5. Install/SDK/JDK/system: plan i fake bounded artifact, installed=false.
+   Koszt: realny installer/licencje/rollback pozostają niesprawdzone.
+6. Android: SOURCE guards i przyszłe JVM tests, bez compile/APK/TLS/phone.
+   Koszt: kod Kotlin/Keystore/Compose może wymagać poprawek po qualified build.
+7. Chrome: poprawiono I3 mounts bez wykonania capture. Koszt: brak dowodu
+   wizualnego/DOM/layout na aktualnym źródle.
+8. Packaging: importy wheel/sdist PASS, unified wymaga source checkoutu.
+   Koszt: bare-wheel startup na innym hoście nie jest certyfikowany.
+9. Security: dokładny host/profile/binary i bounded fault tests. Koszt: brak
+   pełnego pentestu, wszystkich kernel/same-UID wariantów i nowego audytu C.
+10. Historia/transitive/legal: pełny inventory i zachowane notices, depth
+    na trust paths. Koszt: nie jest to wyczerpujący audyt binarny/prawny.
+11. Provenance/secrets: aktualny lokalny scan historii + źródeł i official
+    Gradle checksums; brak unknown flag. Koszt: SDK i pełny supply chain nadal
+    wymagają osobnych bramek; raw fixture FAIL nie staje się scanner PASS.
+12. GitHub/main: bieżący readback, branch-only push/draft, bez cutover/dispatch.
+    Koszt: duży merge wymaga exact owner GO, a potem smoke wynikowego main.
+13. Final QA: nowe frozen-code regresje, package/seals/demo faktycznie green.
+    Koszt: wynik dotyczy tych bajtów/hosta; drift wymaga ponownej oceny.
+
+Dowody prywatne pozostają zachowane poza repo. Finalny numer/link draft PR,
+head i bieżący main trafiają do końcowego przekazania i opisu PR. To unika
+podmieniania SHA testów SHA późniejszego raportu. Publiczne raporty i rollback
+nie nadają zgody na scalenie.

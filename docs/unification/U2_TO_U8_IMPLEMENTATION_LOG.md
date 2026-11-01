@@ -82,3 +82,13 @@ Przygotowanie hosta może kompilować wyłącznie stałe źródła natywnego bro
 i zapisać prywatne, przypięte snapshoty runtime/recipes przed zatwierdzeniem.
 Żaden plik workspace, test ani commit nie jest wykonywany przed START.
 Nie korzysta z sekretów lub prywatnych receipts starego Nebiusa.
+
+## Zamknięcie review
+
+I1: zapisane revoke blokuje także legacy consume/delegate/v1 START i Meta
+preflight przed key/transport; historyczne v1 bez witness i reconciliation
+pozostają poprawne. I2: Android v2 ma jawny bounded persisted ID handoff po
+session loss, bez zmiany Core UNKNOWN i bez replay. I3: Chrome source mounts
+obejmują sealed LICENSE i wszystkie capsule files; actual capture NOT_RUN.
+Końcowe liczniki są wyłącznie w U9_QA_EVIDENCE.md. Minor M1 paging jawnie
+odroczony; produkcyjne bramki nadal nie są zastąpione wynikiem fixture.

@@ -60,3 +60,13 @@ WNIOSKI: minimalny lokalny zakres U2–U8 jest implementacją z rzeczywistymi
 efektami i fixture authority. REKOMENDACJA: akceptować wyłącznie tak opisany
 zakres. Produkcyjne owner binding, wydatki, zdalny publisher, instalacje,
 APK/telefon/TLS i promotion main wymagają odrębnych dowodów i zgód.
+
+## Zamrożony kandydat po review
+
+Finalne local/offline wyniki: U9_QA_EVIDENCE.md; niezależny raport i autorski
+fix pass: INDEPENDENT_REVIEW.md. Recorded revoke działa także w legacy paths.
+Android agent pending-ID ma explicit local handoff, bez cross-session authority.
+M1 v2 history paging pozostaje odroczony. Produkcyjny owner, M12/storage,
+paid inference, real remote publisher/installer i APK/phone/TLS nie uzyskały GO.
+Main pozostaje celem osobnej dokładnej zgody: UNIFIED_CANDIDATE_READY /
+MAIN_MERGE_PENDING_OWNER_GO. Exact final PR/head/base w przekazaniu właściciela.
