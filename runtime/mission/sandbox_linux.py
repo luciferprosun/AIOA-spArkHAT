@@ -103,6 +103,11 @@ class TrustedSandboxConfig:
     def runtime(self):return json.loads(self.runtime_bytes)
 
 
+def _host_json(value):
+    """Private host locators, never public authority/contract data."""
+    return json.dumps(value,sort_keys=True,separators=(',',':'),allow_nan=False).encode('utf-8')
+
+
 def save_host_config(config):
     """Private host preparation descriptor, never an approval or replay permit."""
     require(type(config) is TrustedSandboxConfig,'TRUSTED_SANDBOX_CONFIGURATION_REQUIRED')
@@ -113,7 +118,9 @@ def save_host_config(config):
     fd=os.open(config.root/'host-config.json',os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)
     try:
         with os.fdopen(fd,'wb',closefd=False) as stream:
-            stream.write(canonical_json_bytes(value));stream.flush();os.fsync(fd)
+            # Private host locators include home paths. They are never public
+            # authority/contract data; keep that serializer's path guard intact.
+            stream.write(_host_json(value));stream.flush();os.fsync(fd)
     finally:os.close(fd)
     sync_directory(config.root)
 
@@ -149,8 +156,8 @@ def load_host_config(root,*,trusted_root):
             require(Path(path).absolute().is_relative_to(root),'SANDBOX_CACHE_INPUT_DENIED');private(path)
     recipes=tuple(SandboxRecipe(**{**r,'argv':tuple(r['argv'])}) for r in value['recipes'])
     return TrustedSandboxConfig(root,canonical_json_bytes(value['profile']),value['profile_digest'],
-        SandboxRegistry(value['workspace'],recipes),canonical_json_bytes(value['inputs']),
-        canonical_json_bytes(value['runtime']))
+        SandboxRegistry(value['workspace'],recipes),_host_json(value['inputs']),
+        _host_json(value['runtime']))
 
 def prepare_linux_sandbox(root,runtime_manifest,*,workspace,recipes):
     """Explicit operator preparation: compile packaged trusted C, pin runtime/inputs.
