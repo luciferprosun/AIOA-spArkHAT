@@ -258,6 +258,11 @@ def verified_artifact(apk,root,evidence,*,sdk,jdk,source_sha,environment):
             'BLOCKED_CI_ARTIFACT_RACE')
     finally:os.close(fd)
     lib.require(lib.sha(target)==evidence['apk_sha256'],'BLOCKED_CI_ARTIFACT_READBACK')
+    checksum=subprocess.run(['/usr/bin/sha256sum',str(target)],env=environment,
+        stdin=subprocess.DEVNULL,capture_output=True,text=True,timeout=15)
+    lib.require(checksum.returncode==0 and not checksum.stderr
+        and checksum.stdout==evidence['apk_sha256']+'  '+str(target)+'\n',
+        'BLOCKED_CI_ARTIFACT_INDEPENDENT_HASH')
     observed=verify_apk.verify(target,root,sdk=sdk,jdk=jdk,source_sha=source_sha,environment=environment)
     fields=('apk_sha256','bytes','certificate_sha256','package','version_code','version_name',
         'min_sdk','target_sdk','permissions','debuggable','kind','inspected_checkout_sha',

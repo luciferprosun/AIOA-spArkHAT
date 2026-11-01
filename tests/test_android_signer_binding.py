@@ -1,6 +1,7 @@
 """Offline signer/artifact contracts. No real keytool, keystore or APK claim."""
 from pathlib import Path
 import tempfile
+import subprocess
 import unittest
 from unittest.mock import patch
 
@@ -93,6 +94,19 @@ class ControlledDebugSignerTests(unittest.TestCase):
                 patch.object(ci,'verified_artifact',return_value=artifact,create=True):
                 result=ci.execute({'GITHUB_RUN_ID':'123','GITHUB_RUN_ATTEMPT':'1'},'a'*40,ci.REVIEWED_IMAGE_VERSION)
             self.assertEqual(ci.installer.catalog()['versions'],result['versions'])
+
+    def test_independent_sha256sum_mismatch_blocks_artifact(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);apk=root/'app.apk';apk.write_bytes(b'fixture-apk')
+            evidence={'apk_sha256':ci.lib.sha(apk),'certificate_sha256':'a'*64,'package':'eu.sparkhat.aioa.companion',
+                'bytes':apk.stat().st_size,'version_code':2,'version_name':'0.2.0-n1','min_sdk':26,'target_sdk':36,
+                'permissions':['android.permission.INTERNET'],'junit_pass':10,'junit_fail':0,'junit_skip':0,
+                'lint_errors':0,'report_digests':[],'debuggable':True,'kind':'DEBUG','inspected_checkout_sha':'a'*40}
+            with patch.object(ci.verify_apk,'verify',return_value=evidence),\
+                patch.object(build,'assert_debug_signer'),\
+                patch.object(ci.subprocess,'run',return_value=subprocess.CompletedProcess([],0,'0'*64+'  '+str(root/'artifact/aioa-companion-debug.apk')+'\n','')):
+                with self.assertRaises(build.lib.Blocked):
+                    ci.verified_artifact(apk,root,evidence,sdk=Path('/sdk'),jdk=Path('/jdk'),source_sha='a'*40,environment={})
 
 
 if __name__=='__main__':unittest.main()
