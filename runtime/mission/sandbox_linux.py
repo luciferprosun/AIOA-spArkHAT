@@ -34,13 +34,14 @@ def command_result(argv):
         return {'argv':argv,'exit_code':r.returncode,'stdout':r.stdout[:2048],'stderr':r.stderr[:1024]}
     except (OSError,subprocess.TimeoutExpired) as exc:
         return {'argv':argv,'error':type(exc).__name__,'errno':getattr(exc,'errno',None)}
-def bounded_line(stream,seconds=8):
+def bounded_line(stream,seconds=8,*,cancel=None):
     data=bytearray()
     import time
     deadline=time.monotonic()+seconds
     while time.monotonic()<deadline and len(data)<65536:
-        ready,_,_=select.select([stream.fileno()],[],[],max(0,deadline-time.monotonic()))
-        if not ready:break
+        require(cancel is None or not cancel.cancelled,'SANDBOX_CANCELLED')
+        ready,_,_=select.select([stream.fileno()],[],[],min(.05,max(0,deadline-time.monotonic())))
+        if not ready:continue
         byte=os.read(stream.fileno(),1)
         if not byte:break
         data.extend(byte)
@@ -141,7 +142,7 @@ class LinuxSandboxBroker:
     def __call__(self,request):
         raise ValueError('LIVE_CORE_GATE_REQUIRED')
 
-    def dispatch(self,request,release_check):
+    def dispatch(self,request,release_check,*,cancel=None):
         require(type(request) is SandboxDispatchRequest and callable(release_check),'LIVE_CORE_GATE_REQUIRED')
         self.config.registry.validate(SandboxOperation(request.operation_bytes).to_dict())
         p=self.config.profile();inputs=self.config.inputs()[json.loads(request.operation_bytes)['payload']['recipe_id']]
@@ -161,9 +162,9 @@ class LinuxSandboxBroker:
             'gate':str(self.config.root/'worker_gate'),'bootstrap':str(self.config.root/'bootstrap'),
             'setup_filter':str(self.config.root/'setup_filter.bpf'),'final_filter':str(self.config.root/'final_filter.bpf')}
         config_path=run/'worker.json';config_path.write_bytes(json.dumps(worker_config,sort_keys=True,separators=(',',':')).encode());config_path.chmod(0o400)
-        return self._run(request,release_check,config_path,run,inputs)
+        return self._run(request,release_check,config_path,run,inputs,cancel=cancel)
 
-    def _run(self,request,release_check,config_path,run,inputs):
+    def _run(self,request,release_check,config_path,run,inputs,*,cancel=None):
         unit='aioa-sandbox-'+uuid.uuid4().hex+'.service';nonce=uuid.uuid4().hex
         receipt={'started_at':now(),'unit':unit,'status':'UNKNOWN','project_code_started':False,'operation_digest':request.operation_digest,'dispatch_digest':request.digest,'request':request.to_dict(),'warrant_digest':request.warrant_digest,'profile_digest':self.config.profile_digest,'stage':'PREPARED','observations':{},'cleanup':[]}
         proc=None;peer=None;listener=None;directory=None;peerpidfd=None;procdir=None;proof=None;work_events=None
@@ -176,7 +177,7 @@ class LinuxSandboxBroker:
             receipt['argv']=argv
             proc=subprocess.Popen(argv,stdout=subprocess.PIPE,stderr=subprocess.PIPE,stdin=subprocess.PIPE)
             receipt['stage']='WAITING_FOR_TRUSTED_KEEPER'
-            ready=bounded_line(proc.stdout)
+            ready=bounded_line(proc.stdout,cancel=cancel)
             assert ready['stage']=='WORK_READY' and ready['before_exec_placement'] is True
             expected_path='/sys/fs/cgroup/'+exact_cgroup(unit).split('::',1)[1].lstrip('/')
             assert ready['work_cgroup']==expected_path
@@ -270,7 +271,7 @@ class LinuxSandboxBroker:
             release_check()
             peer.sendall(b'Y');receipt['project_code_started']=True;peer.close();peer=None
             receipt['stage']='FINAL_FILTER_AND_TEARDOWN'
-            empty=bounded_line(proc.stdout,24)
+            empty=bounded_line(proc.stdout,24,cancel=cancel)
             assert empty['stage']=='WORK_EMPTY' and empty['spawn_and_migration_sealed'] is True
             assert populated(work_events)=='0'
             receipt['observations']['worker_populated_zero_before_readback']=True
@@ -346,14 +347,22 @@ class LinuxSandboxBroker:
         from lab.archaioa.evidence import EvidenceRef
         from runtime.mission.liability import Reconciliation
         # Never bless exit code/model text. Require the independent pinned readback receipt.
-        digest=SandboxOperation.parse(operation).digest
+        digest='sha256:'+canonical_sha256(operation)
         require(digest==warrant.operation_hash,'READBACK_BINDING')
+        inner=operation
+        if operation.get('payload',{}).get('schema')=='aioa.local-operation.v2':
+            inner=operation['payload']['sandbox_operation']
+            require(inner['target_fingerprint']==operation['target_fingerprint']
+                and inner['expected_target_revision']==operation['expected_target_revision']
+                and inner['payload']['task_id']==warrant.task_id,'READBACK_BINDING')
+        self.config.registry.validate(inner)
+        inner_digest=SandboxOperation.parse(inner).digest
         candidates=[]
         for run in self.config.root.glob('run-*'):
             path=run/'receipt.json'
             if not path.is_file():continue
             receipt=json.loads(path.read_bytes())
-            if receipt.get('operation_digest')==digest and receipt.get('warrant_digest')==warrant.digest():
+            if receipt.get('operation_digest')==inner_digest and receipt.get('warrant_digest')==warrant.digest():
                 candidates.append((run,receipt,path))
         require(len(candidates)==1,'READBACK_REQUIRED')
         run,receipt,path=candidates[0]
@@ -361,12 +370,12 @@ class LinuxSandboxBroker:
         stored['operation_bytes']=canonical_json_bytes(stored.pop('operation'))
         request=SandboxDispatchRequest(**stored)
         require(request.digest==receipt['dispatch_digest'] and run.name=='run-'+request.digest
-                and request.operation_digest==digest and request.warrant_digest==warrant.digest()
-                and request.operation_bytes==canonical_json_bytes(operation),'READBACK_BINDING')
+                and request.operation_digest==inner_digest and request.warrant_digest==warrant.digest()
+                and request.operation_bytes==canonical_json_bytes(inner),'READBACK_BINDING')
         require(receipt['status']=='READBACK_VERIFIED' and receipt['cgroup_populated_zero_directly_observed']
                 and receipt['cgroup_absent_after_cleanup'] and receipt['unit_terminal_observed']
                 and receipt['profile_digest']==self.config.profile_digest,'UNRESOLVED_READBACK')
-        expected=self.config.inputs()[operation['payload']['recipe_id']]['expected']
+        expected=self.config.inputs()[inner['payload']['recipe_id']]['expected']
         for name,pin in expected.items():
             fd=os.open(run/('artifact-'+name),os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK|os.O_CLOEXEC)
             try:

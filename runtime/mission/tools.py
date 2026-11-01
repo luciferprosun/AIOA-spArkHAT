@@ -37,6 +37,7 @@ from runtime.mission.sandbox_contracts import (
 )
 
 SESSION = 'aioa-local-synthetic-session-v1'
+LOCAL_SESSION = 'aioa-local-zero-session-v2'
 CONTEXT = 'aioa-local-synthetic-effect-context-v1'
 
 
@@ -44,6 +45,9 @@ class ToolCapability(str, Enum):
     READ_PROJECT = 'READ_PROJECT'
     PROJECT_WRITE = 'PROJECT_WRITE'
     SANDBOX_EXEC = 'SANDBOX_EXEC'
+    GIT_COMMIT = 'GIT_COMMIT'
+    GIT_PUSH = 'GIT_PUSH'
+    GITHUB_DRAFT_PR = 'GITHUB_DRAFT_PR'
     DEPENDENCY_INSTALL = 'DEPENDENCY_INSTALL'
     GITHUB_REMOTE_WRITE = 'GITHUB_REMOTE_WRITE'
     BROWSER_EXTERNAL_EFFECT = 'BROWSER_EXTERNAL_EFFECT'
@@ -142,7 +146,9 @@ class SessionGrant:
         require(type(self.completion_digest) is str and len(self.completion_digest)==64
                 and all(c in '0123456789abcdef' for c in self.completion_digest), 'INVALID_SESSION')
         require(all(type(getattr(self,f)) is int and getattr(self,f)>0 for f in (
-            'policy_revision','issued_at','expires_at','epoch','money_nano','risk_units','deadline_seconds','output_bytes'))
+            'policy_revision','issued_at','expires_at','epoch','risk_units','deadline_seconds','output_bytes'))
+            and type(self.money_nano) is int
+            and (self.money_nano == 0 if type(self) is LocalSessionGrant else self.money_nano > 0)
             and 0 < self.expires_at-self.issued_at <= 300 and self.deadline_seconds<=20
             and self.output_bytes<=16384 and self.egress=='OFF', 'INVALID_SESSION')
 
@@ -162,6 +168,11 @@ class SessionGrant:
     @property
     def digest(self):
         return canonical_sha256(self.to_dict())
+
+
+@dataclass(frozen=True, slots=True)
+class LocalSessionGrant(SessionGrant):
+    """USD0 version; a distinct schema, never a v1 positive-money grant."""
 
 
 class CoreToolRoute:
@@ -200,10 +211,10 @@ class CoreToolRoute:
         row=tx.get(RecordKind.OPERATION,self.session_key(session_id))
         require(row is not None,'SESSION_REQUIRED')
         state=json.loads(canonical_json_bytes(row.payload))
-        require(set(state)=={'schema','grant','revoked','assignment_revision'} and state['schema']==SESSION
+        require(set(state)=={'schema','grant','revoked','assignment_revision'} and state['schema'] in (SESSION, LOCAL_SESSION)
                 and type(state['revoked']) is bool and type(state['assignment_revision']) is int,
                 'SESSION_INTEGRITY')
-        grant=SessionGrant.parse(state['grant'])
+        grant=(LocalSessionGrant if state['schema'] == LOCAL_SESSION else SessionGrant).parse(state['grant'])
         require(grant.session_id==session_id and grant.scope==self.scope and grant.workspace==self.workspace
                 and grant.policy_revision in TOOL_POLICY_VERSIONS
                 and state['assignment_revision']>=1,'SESSION_BINDING')
@@ -216,7 +227,7 @@ class CoreToolRoute:
         return row,state,grant
 
     def create_session(self,principal,grant):
-        require(type(grant) is SessionGrant,'INVALID_SESSION')
+        require(type(grant) in (SessionGrant, LocalSessionGrant),'INVALID_SESSION')
         def change(tx):
             require(grant.scope==self.scope and grant.workspace==self.workspace
                     and grant.policy_revision==self.policy_revision
@@ -226,9 +237,39 @@ class CoreToolRoute:
             key=self.session_key(grant.session_id)
             require(tx.get(RecordKind.OPERATION,key) is None,'SESSION_ALREADY_REGISTERED')
             tx.insert(StoredRecord(RecordKind.OPERATION,key,self.scope,1,
-                {'schema':SESSION,'grant':grant.to_dict(),'revoked':False,
+                {'schema':LOCAL_SESSION if type(grant) is LocalSessionGrant else SESSION,
+                 'grant':grant.to_dict(),'revoked':False,
                  'assignment_revision':principal.assignment_revision}))
         return self._run(principal,Capability.OWNER_APPROVAL,change)
+
+    def validate_registered_local(self, tx, warrant, operation, *, consumed=False):
+        """Pure native checks for the additive local-zero tool profile."""
+        require(type(operation) is dict and operation['payload']['schema'] == 'aioa.local-operation.v2',
+                'LOCAL_OPERATION_REQUIRED')
+        payload = operation['payload']
+        _, _, grant = self._session(tx, payload['session_id'])
+        require(type(grant) is LocalSessionGrant and grant.money_nano == 0
+                and grant.digest == payload['session_grant_digest']
+                and grant.completion_digest == payload['task_digest']
+                and grant.epoch == warrant.lease_epoch
+                and payload['workspace'] == self.workspace
+                and operation['operation_class'] in grant.capabilities, 'LOCAL_SESSION_BINDING')
+        state = self.journal.governor._load(tx)
+        self.journal.governor._epoch(state, grant.epoch)
+        require(not state['kill'], 'KILL_SWITCH')
+        require(self.sandbox_registry is not None, 'LOCAL_REGISTRY_REQUIRED')
+        inner = payload['sandbox_operation']
+        self.sandbox_registry.validate(inner)
+        require(inner['payload']['task_id'] == warrant.task_id
+                and inner['target_fingerprint'] == operation['target_fingerprint']
+                and inner['expected_target_revision'] == operation['expected_target_revision'], 'LOCAL_TARGET_BINDING')
+        self.journal.ledger.require_active_in_transaction(tx, warrant, consumed=consumed)
+        return grant
+
+    def dispatch_registered_local(self, principal, warrant, operation, reservation, *, check, cancel):
+        from runtime.service_guard.service import CoreServiceGuard
+        return CoreServiceGuard.dispatch_registered_local(self, principal, warrant, operation,
+                                                         reservation, check=check, cancel=cancel)
 
     def revoke_session(self,principal,session_id):
         self.core.require(principal,Capability.MANAGE,scope=self.scope)

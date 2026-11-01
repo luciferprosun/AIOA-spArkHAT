@@ -153,7 +153,7 @@ class CoreIntentJournal:
                     and reservation.money_nano == 0, 'LOCAL_ZERO_CONTRACT')
             payload = operation['payload']
             require(payload.get('schema') == 'aioa.local-operation.v2'
-                    and payload.get('session_id') == principal.actor_session_id
+                    and payload.get('principal_session_id', payload.get('session_id')) == principal.actor_session_id
                     and payload.get('policy_epoch') == warrant.lease_epoch, 'LOCAL_ZERO_BINDING')
         else:
             require(reservation.request_id == warrant.money_reservation_id

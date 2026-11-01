@@ -114,7 +114,7 @@ class CoreWarrantLedger:
                  'assignment_revision': principal.assignment_revision, 'revoked': False}))
         return self._run(principal, Capability.OWNER_APPROVAL, mutation)
 
-    def require_active_in_transaction(self, tx, current):
+    def require_active_in_transaction(self, tx, current, *, consumed=False):
         """Native local START requires a stored human witness from this session.
 
         A model string, a deserialized principal or an old process's approval
@@ -130,7 +130,8 @@ class CoreWarrantLedger:
                 and witness.payload.get('session_id') == tx.context.principal.actor_session_id
                 and witness.payload.get('assignment_revision') == tx.context.principal.assignment_revision,
                 'OWNER_SESSION_CHANGED')
-        require(active == current and state['consumption'] is None, 'WARRANT_INACTIVE')
+        require(active == current and state['consumption'] == (self._receipt(current) if consumed else None),
+                'WARRANT_INACTIVE')
         return stored, state
 
     def revoke(self, principal, warrant):

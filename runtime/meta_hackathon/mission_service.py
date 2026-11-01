@@ -106,6 +106,36 @@ class MissionService:
         for row in self._rows():
             if row.payload['state'] in ACTIVE:
                 self._change(row.record_id, ACTIVE, 'UNKNOWN', {'error': 'RESTART_READBACK_REQUIRED'})
+        from . import agent_operations
+        agent_operations.recover(self)
+
+    def bind_agent_tools(self, config, owner_principal):
+        from . import agent_operations
+        return agent_operations.bind_tools(self, config, owner_principal)
+
+    def propose_agent(self, payload, reader, *, device_id='local-host'):
+        from . import agent_operations
+        return agent_operations.propose(self, payload, reader, device_id=device_id)
+
+    def run_agent(self, task_id, preview_digest, owner_principal):
+        from . import agent_operations
+        return agent_operations.run(self, task_id, preview_digest, owner_principal)
+
+    def propose_git(self, source_task_id, request_id, reader, *, device_id='local-host'):
+        from . import agent_operations
+        return agent_operations.propose_git(self, source_task_id, request_id, reader, device_id=device_id)
+
+    def propose_install(self, payload, request_id, reader, *, device_id='local-host'):
+        from . import agent_operations
+        return agent_operations.propose_install(self, payload, request_id, reader, device_id=device_id)
+
+    def agent_view(self, task_id, reader):
+        from . import agent_operations
+        return agent_operations.view(self, task_id, reader)
+
+    def agent_stop(self, task_id, reader):
+        from . import agent_operations
+        return agent_operations.stop(self, task_id, reader)
 
     def _run(self, purpose, callback):
         principal = self.core.local_operator(purpose)
@@ -344,4 +374,4 @@ class MissionService:
     def close(self):
         self._closed = True
         for cancel in tuple(self._cancels.values()): cancel.cancel()
-        for thread in tuple(self._workers.values()): thread.join(timeout=2)
+        for task, thread in tuple(self._workers.items()): thread.join(timeout=12 if task.startswith('agent-') else 2)

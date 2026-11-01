@@ -51,6 +51,17 @@ SOURCE_FILES = ('runtime/meta_hackathon/runtime_adapter.py', 'runtime/meta_hacka
         'clients/android/app/src/main/res/xml/network_security_config.xml',
         'clients/android/app/src/main/res/xml/data_extraction_rules.xml')
 
+SOURCE_FILES += ('LICENSE', 'runtime/meta_hackathon/agent_operations.py',
+        'runtime/mission/intent.py', 'runtime/mission/tools.py', 'runtime/mission/liability.py',
+        'runtime/service_guard/service.py', 'runtime/mission/project_recipe.py',
+        'runtime/mission/project_worker.py', 'runtime/mission/workspace_worker.py',
+        'runtime/mission/sensorbridge_template.py', 'runtime/mission/sensorbridge_checks.py',
+        'runtime/mission/sandbox_linux.py', 'runtime/mission/sandbox_worker.py',
+        'runtime/mission/sandbox_contracts.py', 'runtime/mission/native/worker_gate.c',
+        'runtime/mission/native/bootstrap.c', 'runtime/mission/git_publish.py',
+        'runtime/mission/git_publish_worker.py', 'runtime/mission/git_recipe.py',
+        'runtime/mission/git_worker.py', 'runtime/mission/install_plan.py')
+
 
 def sealed_source_path(relative, *, root=None):
     """Fixed source list only; reject links before any source content read."""
@@ -90,7 +101,7 @@ class OfflineMetaComposition:
         clock = lambda: datetime.now(timezone.utc)
         scope = OwnerScope('offline-fixture', 'offline-operator', 'offline-meta', 'single-runtime')
         self.core = CoreAdmission(LocalOwnerAssignment(scope,
-            frozenset({Capability.READ, Capability.COMMIT, Capability.OWNER_APPROVAL}),
+            frozenset({Capability.READ, Capability.COMMIT, Capability.OWNER_APPROVAL, Capability.MANAGE}),
             frozenset({'offline-fixture'}), frozenset({MODEL}), operator_approved=True), clock=clock)
         self.runtime = create_runtime(inspection_only=True)
         self.runtime._memory_patch_admission = self.core
