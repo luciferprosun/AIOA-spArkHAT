@@ -1,6 +1,9 @@
 # U1 — jedna kompozycja produktu
 
 `runtime.webapp.WebRuntimeService` pozostaje jedynym serwerem/startupem.
+Lokalny profil używa istniejącego DurableFactory copy-on-write/core-records.json
+przez ten sam TransactionRunner. To fixture store, bez certyfikacji CockroachDB,
+Core M12 lub wieloprocesowego storage produkcyjnego.
 Istniejący `MissionService` zostaje rozszerzony o typowane misje lokalne.
 Jeden `CoreAdmission`, `CoreWarrantLedger`, `CoreIntentJournal`, `CoreDualGovernor`,
 `TransactionRunner` i natywny AUDIT/OUTBOX. Nie powstaje druga baza ani approval engine.
