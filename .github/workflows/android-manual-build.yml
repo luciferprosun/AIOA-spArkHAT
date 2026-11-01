@@ -82,10 +82,10 @@ jobs:
           import os
           import re
           import stat
-          
+
           IMAGE_PATH = '/imagegeneration/imagedata.json'
           EXPECTED_IMAGE = '20261026.354.1'
-          
+
           def read_image():
               parent = os.lstat(os.path.dirname(IMAGE_PATH))
               if not stat.S_ISDIR(parent.st_mode) or parent.st_uid != 0 or parent.st_mode & 0o022:
@@ -102,7 +102,7 @@ jobs:
                   return raw
               finally:
                   os.close(fd)
-          
+
           def check_image(raw, environment):
               try:
                   data = json.loads(raw)
@@ -120,7 +120,7 @@ jobs:
                   return {'metadata_version': observed, 'metadata_sha256': hashlib.sha256(raw).hexdigest()}
               except (ValueError, TypeError, KeyError):
                   raise SystemExit('BLOCKED_CI_IMAGE_METADATA_FORMAT') from None
-          
+
           if __name__ == '__main__':
               print(json.dumps(check_image(read_image(), os.environ), sort_keys=True))
           PY
@@ -235,10 +235,10 @@ jobs:
           import os
           import re
           import stat
-          
+
           IMAGE_PATH = '/imagegeneration/imagedata.json'
           EXPECTED_IMAGE = '20261026.354.1'
-          
+
           def read_image():
               parent = os.lstat(os.path.dirname(IMAGE_PATH))
               if not stat.S_ISDIR(parent.st_mode) or parent.st_uid != 0 or parent.st_mode & 0o022:
@@ -255,7 +255,7 @@ jobs:
                   return raw
               finally:
                   os.close(fd)
-          
+
           def check_image(raw, environment):
               try:
                   data = json.loads(raw)
@@ -273,7 +273,7 @@ jobs:
                   return {'metadata_version': observed, 'metadata_sha256': hashlib.sha256(raw).hexdigest()}
               except (ValueError, TypeError, KeyError):
                   raise SystemExit('BLOCKED_CI_IMAGE_METADATA_FORMAT') from None
-          
+
           if __name__ == '__main__':
               print(json.dumps(check_image(read_image(), os.environ), sort_keys=True))
           PY

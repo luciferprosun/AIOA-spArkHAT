@@ -25,7 +25,7 @@ else:
 SOURCE_REF='refs/heads/main'
 WORKFLOW_PATH='.github/workflows/android-manual-build.yml'
 REVIEWED_IMAGE_VERSION='20261026.354.1'
-REVIEWED_WORKFLOW_SHA256='02ceb510532392da85285c6777715796d76a376c690a58069619435d0e7a1a46'
+REVIEWED_WORKFLOW_SHA256='5411efb8c17262f7387df3a2b3e594ac0943cca24957f716ad05357b9bd09b4d'
 CODEQL_VERSION='2.27.3'
 CODEQL_HOME=Path('/opt/hostedtoolcache/CodeQL/2.27.3/x64/codeql')
 CODEQL_DATABASE=Path('/home/runner/work/_temp/aioa-codeql-databases/java')
