@@ -255,6 +255,8 @@ def prepare(env,source_sha,image,*,purpose='apk',stages=None):
         sdk=lib.safe_path(env.get('ANDROID_SDK_ROOT',''))
         lib.require(sdk==Path('/usr/local/lib/android/sdk'),'BLOCKED_CI_VENDOR_PATH')
         before=sdk_inventory(sdk)
+        lib.require(env.get('AIOA_BUILD_PROFILE','STRICT')!=DEBUG_PROFILE
+            or before['inventory_sha256']==DEBUG_SDK_INVENTORY_SHA256,'BLOCKED_CI_DEBUG_SDK_INVENTORY')
     wrapper=lib.REPO/'clients/android/gradle/wrapper'
     with phase(stages,'JDK_PREPARE','JDK_ARCHIVE'):lock=installer.catalog()
     with phase(stages,'GRADLE_BOOTSTRAP','GRADLE_WRAPPER'):

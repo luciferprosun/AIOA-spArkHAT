@@ -45,7 +45,7 @@ DEBUG_TOOLCHAIN_V1 wymaga wszystkich istniejących bramek oraz osobnej zgody DEB
   oznaczony `MISMATCH_ACCEPTED_DEBUG`; nie zostaje przemianowany na zgodność.
 - SDK: istniejące API36 rev2 / build-tools35.0.0 / zaobserwowany wpis licencji,
   brak automatycznej akceptacji licencji lub pobierania SDK przez Gradle.
-  Inwentarz musi odpowiadać SHA-256
+  Inwentarz w preflight i ponownie bezpośrednio przed pozyskaniem narzędzi musi odpowiadać SHA-256
   `9f81aed02ae39189e55282cd66a561969590f2c032a868beaa1afc7e3b51e793`
   z preflight pierwszego zatwierdzonego runu, a po buildzie pozostać niezmieniony.
 - JDK17.0.21+9, Gradle8.13, cmdline-tools22.0: niezmienione przypięte archiwa,

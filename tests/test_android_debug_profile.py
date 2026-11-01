@@ -126,6 +126,27 @@ class AndroidDebugProfileTests(unittest.TestCase):
             with self.assertRaises(ci.lib.Blocked):
                 ci.preflight({**debug_context(), 'ANDROID_SDK_ROOT': '/usr/local/lib/android/sdk'}, SHA, IMAGE)
 
+    def test_sdk_cannot_change_after_preflight_and_become_the_build_baseline(self):
+        pinned = {'inventory_sha256': '9f81aed02ae39189e55282cd66a561969590f2c032a868beaa1afc7e3b51e793'}
+        changed = {'inventory_sha256': '0'*64}
+        checkout = Path('/home/runner/work/AIOA-spArkHAT/AIOA-spArkHAT')
+        env = {**debug_context(), 'ANDROID_SDK_ROOT': '/usr/local/lib/android/sdk',
+            'GITHUB_WORKSPACE': str(checkout)}
+        with patch.object(ci.lib, 'REPO', checkout), \
+            patch.object(ci.lib, 'source_check', return_value={}), \
+            patch.object(ci, 'workflow_check', return_value=None), \
+            patch.object(ci, 'branch_head_check', return_value=None), \
+            patch.object(ci, 'sdk_inventory', side_effect=[pinned, changed, changed]), \
+            patch.object(ci.installer, 'catalog', side_effect=AssertionError('advanced past SDK gate')):
+            ci.preflight(env, SHA, IMAGE)
+            try:
+                ci.prepare(env, SHA, IMAGE)
+            except Exception as error:
+                self.assertIsInstance(error, ci.lib.Blocked)
+                self.assertEqual('BLOCKED_CI_DEBUG_SDK_INVENTORY', error.code)
+            else:
+                self.fail('SDK changed after preflight; prepare must refuse before tool acquisition')
+
     def test_matching_image_is_allowed_in_debug_and_still_discloses_profile(self):
         fixture = metadata_tests.ImageMetadataConsistencyTests().raw()
         try:
