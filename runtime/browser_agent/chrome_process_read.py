@@ -87,11 +87,14 @@ def sandbox_command(output, width, height, source_sha):
     # Deliberately exclude .git, .local, .env, the home directory and other repos.
     for name in ('runtime','web','lab'):
         argv+=['--ro-bind',str(ROOT/name),'/app/'+name]
-    # The capsule needs mobile source bytes, not Android builds/caches/settings.
+    # Mount every remaining capsule file individually. Unknown source roots
+    # fail closed rather than yielding an incomplete capsule inside the worker.
     from runtime.meta_hackathon.runtime_adapter import SOURCE_FILES, sealed_source_path
     created=set()
     for name in SOURCE_FILES:
-        if not name.startswith(('protocol/','clients/')):continue
+        if name.startswith(('runtime/','web/','lab/')):continue
+        require(name=='LICENSE' or name.startswith(('protocol/','clients/')),
+                'CHROME_SOURCE_SCOPE_DENIED')
         try:source=sealed_source_path(name,root=ROOT)
         except (ValueError,OSError):raise BrowserReadError('CHROME_SOURCE_SEAL_DENIED') from None
         for parent in reversed(Path(name).parents):
