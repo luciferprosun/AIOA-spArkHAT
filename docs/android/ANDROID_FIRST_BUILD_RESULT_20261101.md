@@ -95,3 +95,9 @@ zapisane; zmiany poniżej mieszczą się w doprecyzowanym zakresie CI/helperów.
 Testy R4/R6: RED7przypadków(2fail/6errors), następnie96/96PASS,
 94subtests. To nadal testy offline. Rzeczywisty JVM/APK jest celem następnej
 zatwierdzonej pojedynczej próby, a nie wynikiem tego checkpointu.
+
+Ten sam reviewer ocenił wyłącznie delta R4/R5/R6:0Critical/1Important,
+werdykt With fixes. I1 dotyczył błędnego etapu dla JUnit/lint we wspólnym
+weryfikatorze i dla compileDebugKotlin w celu CodeQL. Autor zamknął go
+regresjami przez execute i failure JSON: RED2przypadki/3fail → GREEN98/98,
+96subtests. Brak ponownego pełnego audytu; źródła Core/Android bez zmian.

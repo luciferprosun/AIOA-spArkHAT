@@ -33,7 +33,8 @@ CODEQL_DATABASE=Path('/home/runner/work/_temp/aioa-codeql-databases/java')
 STAGES=('IMAGE_CHECK','JDK_PREPARE','SDK_CHECK','GRADLE_BOOTSTRAP','JVM_TESTS',
     'LINT','ASSEMBLE','SIGNATURE_VERIFY','ARTIFACT_UPLOAD','CODEQL')
 PATH_ROLES=frozenset(('UNKNOWN','SDK_ROOT','JOB_ROOT','JDK_ARCHIVE','JDK_ROOT','JAVA','JAVAC',
-    'GRADLE_WRAPPER','SDKMANAGER','ANDROID_PROJECT','DEBUG_SIGNER','APK','COPIED_APK','CODEQL_TOOL','PROJECT_SOURCE'))
+    'GRADLE_WRAPPER','SDKMANAGER','ANDROID_PROJECT','DEBUG_SIGNER','APK','COPIED_APK','CODEQL_TOOL',
+    'PROJECT_SOURCE','JUNIT_REPORT','LINT_REPORT'))
 
 
 def new_stages():
@@ -48,11 +49,19 @@ def command_check(status,valid,code):
 
 @contextmanager
 def phase(stages,name,path_role):
+    previous=stages[name]
     stages[name]='RUNNING'
     try:yield
     except (lib.Blocked,OSError,ValueError,TypeError,KeyError,subprocess.SubprocessError) as error:
         chosen=getattr(error,'ci_stage',name)
         if chosen not in STAGES:chosen=name
+        code=getattr(error,'code','')
+        if name=='SIGNATURE_VERIFY' and path_role in ('APK','COPIED_APK'):
+            if type(code) is str and code.startswith('BLOCKED_JUNIT_'):
+                chosen='JVM_TESTS';error.ci_path_role='JUNIT_REPORT'
+            elif type(code) is str and code.startswith('BLOCKED_LINT_'):
+                chosen='LINT';error.ci_path_role='LINT_REPORT'
+            if chosen!=name:stages[name]='PASS' if previous=='PASS' else 'UNKNOWN'
         stages[chosen]='FAIL'
         error.ci_stage=chosen
         if getattr(error,'ci_path_role',None) not in PATH_ROLES:error.ci_path_role=path_role
@@ -284,7 +293,7 @@ def execute(env,source_sha,image,*,purpose='apk',stages=None):
     with phase(stages,'CODEQL' if purpose=='codeql' else 'GRADLE_BOOTSTRAP','ANDROID_PROJECT'):
         status=build_apk.run_logged(argv,cwd=lib.REPO/'clients/android',
             environment=scoped,log=root/'build.log',timeout=1800)
-        failed=gradle_stages((root/'build.log').read_text(),stages) if (root/'build.log').exists() else None
+        failed=gradle_stages((root/'build.log').read_text(),stages) if purpose=='apk' and (root/'build.log').exists() else None
         if status!=0:
             error=lib.Blocked('BLOCKED_CI_BUILD_FAILED');error.build_exit_code=status
             if failed:error.ci_stage=failed
@@ -439,8 +448,8 @@ def record_failure(env,source_sha,image,error,*,purpose='apk'):
     stages=new_stages()
     recorded=getattr(error,'ci_stage_statuses',{})
     if type(recorded) is dict:
-        stages.update({k:v for k,v in recorded.items() if k in STAGES and v in ('NOT_RUN','PASS','FAIL','SKIPPED','RUNNING')})
-    failed=gradle_stages(raw.decode('utf-8','replace'),stages)
+        stages.update({k:v for k,v in recorded.items() if k in STAGES and v in ('NOT_RUN','PASS','FAIL','SKIPPED','RUNNING','UNKNOWN')})
+    failed=gradle_stages(raw.decode('utf-8','replace'),stages) if purpose=='apk' else None
     stage=getattr(error,'ci_stage',None)
     if stage not in STAGES:stage=failed or ('CODEQL' if purpose=='codeql' else 'GRADLE_BOOTSTRAP')
     stages[stage]='FAIL'

@@ -14,6 +14,42 @@ import test_android_image_metadata as image_tests
 
 
 class ApkUpdateDiagnosticsTests(unittest.TestCase):
+    def execution_failure(self,*,purpose='apk',verification_error=None):
+        tmp=tempfile.TemporaryDirectory();self.addCleanup(tmp.cleanup)
+        parent=Path(tmp.name);root=parent/'aioa-android-123-1';root.mkdir(mode=0o700)
+        env={**context(),'RUNNER_TEMP':str(parent)}
+        argv=['./gradlew','testDebugUnitTest','lintDebug','assembleDebug']
+        def run(command,**kwargs):
+            if command[-1]=='--format=json':text=json.dumps({'version':'2.27.3'});code=0
+            elif purpose=='codeql':text='> Task :app:compileDebugKotlin FAILED\n';code=1
+            else:text='> Task :app:testDebugUnitTest\n> Task :app:lintDebug\n> Task :app:assembleDebug\n';code=0
+            kwargs['log'].write_text(text);kwargs['log'].chmod(0o600);return code
+        with contextlib.ExitStack() as stack:
+            for obj,name,options in [(ci,'preflight',{}),(ci,'prepare',{'return_value':(root,root/'jdk-17',root/'sdk',{}, {},root/'init.gradle',argv)}),
+                (ci,'codeql_tool_check',{'return_value':(Path('/trusted/codeql'),Path('/trusted/db'))}),
+                (ci.build_apk,'prepare_debug_signer',{}),(ci.build_apk,'run_logged',{'side_effect':run}),
+                (ci.lib,'source_check',{}),(ci.lib,'gradle_configuration_check',{}),
+                (ci,'sdk_inventory',{'return_value':{}}),(ci.installer,'component_check',{}),
+                (ci.verify_apk,'verify',{'side_effect':ci.lib.Blocked(verification_error or 'BLOCKED_APK_CONTRACT')})]:
+                stack.enter_context(patch.object(obj,name,**options))
+            with self.assertRaises(ci.lib.Blocked):ci.build(env,SHA,IMAGE,purpose=purpose)
+        return json.loads((parent/('aioa-failure-123-1-'+purpose)/'BUILD_FAILURE_EVIDENCE.json').read_text())
+
+    def test_verifier_junit_or_lint_failure_is_not_reported_as_signature_failure(self):
+        for code,stage,role in [('BLOCKED_JUNIT_MISSING','JVM_TESTS','JUNIT_REPORT'),('BLOCKED_LINT_RESULT','LINT','LINT_REPORT')]:
+            with self.subTest(code=code):
+                v=self.execution_failure(verification_error=code)
+                self.assertEqual(stage,v['stage']);self.assertEqual(role,v['path_role'])
+                self.assertEqual(code,v['error_code']);self.assertEqual('FAIL',v['stage_statuses'][stage])
+                self.assertNotEqual('FAIL',v['stage_statuses']['SIGNATURE_VERIFY'])
+
+    def test_codeql_compile_failure_remains_codeql_without_running_marker(self):
+        v=self.execution_failure(purpose='codeql')
+        self.assertEqual('CODEQL',v['stage']);self.assertEqual('FAIL',v['stage_statuses']['CODEQL'])
+        self.assertNotEqual('FAIL',v['stage_statuses']['GRADLE_BOOTSTRAP'])
+        self.assertNotIn('RUNNING',v['stage_statuses'].values())
+        for stage in ('JVM_TESTS','LINT','ASSEMBLE'):self.assertEqual('NOT_RUN',v['stage_statuses'][stage])
+
     def probe(self,root,*,arch='amd64',javac='17.0.21'):
         jdk=root/'jdk-17';jdk.mkdir();calls=[]
         def run(argv,**kwargs):
