@@ -4,6 +4,7 @@ Runner SDK integrity is observed against an owner-reviewed image, not promoted
 to a claim about independently published SDK archive SHA256 values.
 """
 import argparse
+from contextlib import contextmanager
 import hashlib
 import json
 import os
@@ -25,10 +26,80 @@ else:
 SOURCE_REF='refs/heads/main'
 WORKFLOW_PATH='.github/workflows/android-manual-build.yml'
 REVIEWED_IMAGE_VERSION='20261026.354.1'
-REVIEWED_WORKFLOW_SHA256='ef7fb9e6e4edcd610e316c46a20feddfe3c44649aebbc62f2f3c1d4573be1c4c'
+REVIEWED_WORKFLOW_SHA256='82cfd6be03fb8d80c169566c21fc0cea812c543f4620e16b1cce77a43249a9fa'
 CODEQL_VERSION='2.27.3'
 CODEQL_HOME=Path('/opt/hostedtoolcache/CodeQL/2.27.3/x64/codeql')
 CODEQL_DATABASE=Path('/home/runner/work/_temp/aioa-codeql-databases/java')
+STAGES=('IMAGE_CHECK','JDK_PREPARE','SDK_CHECK','GRADLE_BOOTSTRAP','JVM_TESTS',
+    'LINT','ASSEMBLE','SIGNATURE_VERIFY','ARTIFACT_UPLOAD','CODEQL')
+PATH_ROLES=frozenset(('UNKNOWN','SDK_ROOT','JOB_ROOT','JDK_ARCHIVE','JDK_ROOT','JAVA','JAVAC',
+    'GRADLE_WRAPPER','SDKMANAGER','ANDROID_PROJECT','DEBUG_SIGNER','APK','COPIED_APK','CODEQL_TOOL',
+    'PROJECT_SOURCE','JUNIT_REPORT','LINT_REPORT'))
+
+
+def new_stages():
+    return dict.fromkeys(STAGES,'NOT_RUN')
+
+
+def command_check(status,valid,code):
+    if status!=0 or not valid:
+        error=lib.Blocked(code);error.build_exit_code=status
+        raise error
+
+
+@contextmanager
+def phase(stages,name,path_role):
+    previous=stages[name]
+    stages[name]='RUNNING'
+    try:yield
+    except (lib.Blocked,OSError,ValueError,TypeError,KeyError,subprocess.SubprocessError) as error:
+        chosen=getattr(error,'ci_stage',name)
+        if chosen not in STAGES:chosen=name
+        code=getattr(error,'code','')
+        if name=='SIGNATURE_VERIFY' and path_role in ('APK','COPIED_APK'):
+            if type(code) is str and code.startswith('BLOCKED_JUNIT_'):
+                chosen='JVM_TESTS';error.ci_path_role='JUNIT_REPORT'
+            elif type(code) is str and code.startswith('BLOCKED_LINT_'):
+                chosen='LINT';error.ci_path_role='LINT_REPORT'
+            if chosen!=name:stages[name]='PASS' if previous=='PASS' else 'UNKNOWN'
+        stages[chosen]='FAIL'
+        error.ci_stage=chosen
+        if getattr(error,'ci_path_role',None) not in PATH_ROLES:error.ci_path_role=path_role
+        error.ci_stage_statuses=dict(stages)
+        raise
+    else:stages[name]='PASS'
+
+
+def gradle_stages(text,stages):
+    failed=None
+    for line in text.splitlines():
+        match=re.fullmatch(r'> Task :app:([A-Za-z0-9]+)(?: (FAILED|UP-TO-DATE|FROM-CACHE|SKIPPED|NO-SOURCE))?',line.strip())
+        if not match:continue
+        name,outcome=match.groups()
+        stage=('JVM_TESTS' if name=='testDebugUnitTest' else 'LINT' if name in
+            ('lintDebug','lintReportDebug','lintAnalyzeDebug') else 'ASSEMBLE' if name in
+            ('assembleDebug','packageDebug','validateSigningDebug') else 'GRADLE_BOOTSTRAP')
+        stages[stage]='FAIL' if outcome=='FAILED' else 'SKIPPED' if outcome else 'PASS'
+        if outcome=='FAILED' and failed is None:failed=stage
+    return failed
+
+
+def check_jdk(root,jdk,scoped,stages=None):
+    stages=stages if stages is not None else new_stages()
+    with phase(stages,'JDK_PREPARE','JAVA'):
+        status=build_apk.run_logged([str(jdk/'bin/java'),'-XshowSettings:properties','-version'],
+            cwd=root,environment=scoped,log=root/'java-version.log',timeout=15)
+        text=(root/'java-version.log').read_text()
+        command_check(status,re.search(r'17\.0\.21\+9(?:\D|$)',text),'BLOCKED_CI_JDK_VERSION')
+        command_check(status,re.search(r'^\s*os\.arch\s*=\s*amd64\s*$',text,re.M)
+            and re.search(r'^\s*java\.home\s*=\s*'+re.escape(str(jdk))+r'\s*$',text,re.M),
+            'BLOCKED_CI_JDK_ARCH_OR_HOME')
+    with phase(stages,'JDK_PREPARE','JAVAC'):
+        status=build_apk.run_logged([str(jdk/'bin/javac'),'-version'],cwd=root,
+            environment=scoped,log=root/'javac-version.log',timeout=15)
+        text=(root/'javac-version.log').read_text()
+        command_check(status,re.search(r'^javac 17\.0\.21\s*$',text,re.M),'BLOCKED_CI_JAVAC_VERSION')
+    return {'architecture':'amd64','java_version':'17.0.21+9','javac_version':'17.0.21'}
 
 
 def context_check(env,source_sha,image,*,purpose='apk'):
@@ -146,54 +217,67 @@ def check_sdkmanager_version(text,options):
     lib.require(lines==['22.0'],'BLOCKED_CI_SDKMANAGER_VERSION')
 
 
-def prepare(env,source_sha,image,*,purpose='apk'):
-    lib.source_check(source_sha)
-    lib.require(Path(env.get('GITHUB_WORKSPACE',''))==lib.REPO
-        and lib.REPO.is_relative_to(Path('/home/runner/work')),'BLOCKED_CI_WORKSPACE')
-    sdk=lib.safe_path(env.get('ANDROID_SDK_ROOT',''))
-    jdk=lib.safe_path(env.get('JAVA_HOME',''))
-    lib.require(sdk==Path('/usr/local/lib/android/sdk')
-        and jdk.is_relative_to(Path('/opt/hostedtoolcache')),'BLOCKED_CI_VENDOR_PATH')
-    before=sdk_inventory(sdk)
+def prepare(env,source_sha,image,*,purpose='apk',stages=None):
+    stages=stages if stages is not None else new_stages()
+    with phase(stages,'IMAGE_CHECK','PROJECT_SOURCE'):
+        lib.source_check(source_sha)
+        lib.require(Path(env.get('GITHUB_WORKSPACE',''))==lib.REPO
+            and lib.REPO.is_relative_to(Path('/home/runner/work')),'BLOCKED_CI_WORKSPACE')
+    with phase(stages,'SDK_CHECK','SDK_ROOT'):
+        sdk=lib.safe_path(env.get('ANDROID_SDK_ROOT',''))
+        lib.require(sdk==Path('/usr/local/lib/android/sdk'),'BLOCKED_CI_VENDOR_PATH')
+        before=sdk_inventory(sdk)
     wrapper=lib.REPO/'clients/android/gradle/wrapper'
-    lock=installer.catalog()
-    lib.require(lib.sha(wrapper/'gradle-wrapper.jar')==lock['wrapper_sha256']
-        and lock['artifacts'][1]['sha256'] in (wrapper/'gradle-wrapper.properties').read_text(),
-        'BLOCKED_CI_WRAPPER')
-    root=lib.safe_path(Path(env['RUNNER_TEMP'])/('aioa-android-'+env['GITHUB_RUN_ID']+'-'+env['GITHUB_RUN_ATTEMPT']))
-    root.mkdir(mode=0o700)  # Exclusive: never overwrite an earlier run.
-    for name in ('tmp','android-user','java-user','downloads'):(root/name).mkdir(mode=0o700)
+    with phase(stages,'JDK_PREPARE','JDK_ARCHIVE'):lock=installer.catalog()
+    with phase(stages,'GRADLE_BOOTSTRAP','GRADLE_WRAPPER'):
+        lib.require(lib.sha(wrapper/'gradle-wrapper.jar')==lock['wrapper_sha256']
+            and lock['artifacts'][1]['sha256'] in (wrapper/'gradle-wrapper.properties').read_text(),
+            'BLOCKED_CI_WRAPPER')
+    with phase(stages,'JDK_PREPARE','JOB_ROOT'):
+        root=lib.safe_path(Path(env['RUNNER_TEMP'])/('aioa-android-'+env['GITHUB_RUN_ID']+'-'+env['GITHUB_RUN_ATTEMPT']))
+        root.mkdir(mode=0o700)  # Exclusive: never overwrite an earlier run.
+        for name in ('tmp','android-user','java-user','downloads'):(root/name).mkdir(mode=0o700)
+    # Hosted setup-java may return an image tool-cache symlink. Keep the
+    # no-symlink boundary: use the existing locked downloader/extractor instead
+    # of following the cached JAVA_HOME into a mutable system installation.
+    with phase(stages,'JDK_PREPARE','JDK_ARCHIVE'):
+        jdk_artifact=next(a for a in lock['artifacts'] if a['id']=='jdk')
+        jdk=lib.safe_path(acquire(jdk_artifact,root))
+        lib.require(jdk==root/'jdk-17','BLOCKED_CI_JDK_SOURCE')
     scoped=environment(root,jdk,sdk)
-    status=build_apk.run_logged([str(jdk/'bin/java'),'-version'],cwd=root,environment=scoped,
-        log=root/'java-version.log',timeout=15)
-    lib.require(status==0 and re.search(r'17\.0\.21\+9(?:\D|$)',(root/'java-version.log').read_text()),
-        'BLOCKED_CI_JDK_VERSION')
+    check_jdk(root,jdk,scoped,stages)
     gradle=next(a for a in lock['artifacts'] if a['id']=='gradle')
     manager=next(a for a in lock['artifacts'] if a['id']=='cmdline-tools')
-    acquire(gradle,root);installer.seed_wrapper_cache(gradle,root)
-    tools=acquire(manager,root)
-    status=build_apk.run_logged([str(tools/'bin/sdkmanager'),'--version'],cwd=root,
-        environment=scoped,log=root/'sdkmanager-version.log',timeout=30)
-    lib.require(status==0,'BLOCKED_CI_SDKMANAGER_VERSION')
-    check_sdkmanager_version((root/'sdkmanager-version.log').read_text(),scoped['JDK_JAVA_OPTIONS'])
+    with phase(stages,'GRADLE_BOOTSTRAP','GRADLE_WRAPPER'):
+        acquire(gradle,root);installer.seed_wrapper_cache(gradle,root)
+    with phase(stages,'SDK_CHECK','SDKMANAGER'):
+        tools=acquire(manager,root)
+        status=build_apk.run_logged([str(tools/'bin/sdkmanager'),'--version'],cwd=root,
+            environment=scoped,log=root/'sdkmanager-version.log',timeout=30)
+        command_check(status,True,'BLOCKED_CI_SDKMANAGER_VERSION')
+        check_sdkmanager_version((root/'sdkmanager-version.log').read_text(),scoped['JDK_JAVA_OPTIONS'])
     init=root/'redirect.gradle';init.write_text(build_apk.init_script(root));init.chmod(0o600)
     argv=(command(root/'gradle-cache',init) if purpose=='apk'
         else codeql_command(env,root/'gradle-cache',init))
     installer.private_write(root/'BUILD_INVOCATION.json',{'schema':'aioa.android.controlled-build.v1',
         'source_sha':source_sha,'command':argv,'init_sha256':lib.sha(init),'started_at':lib.utc(),
         'profile':'GITHUB_HOSTED_MANUAL_V2','purpose':purpose,
+        'jdk_source':'LOCKED_VENDOR_ARCHIVE_SHA256','jdk_archive_sha256':jdk_artifact['sha256'],
         'workflow_revision':REVIEWED_WORKFLOW_SHA256})
     lib.gradle_configuration_check(root/'gradle-cache')
-    status=build_apk.run_logged(['./gradlew','--no-daemon','--offline','--version'],
-        cwd=lib.REPO/'clients/android',environment=scoped,log=root/'gradle-version.log',timeout=60)
-    lib.require(status==0 and 'Gradle 8.13' in (root/'gradle-version.log').read_text(),'BLOCKED_CI_GRADLE_VERSION')
+    with phase(stages,'GRADLE_BOOTSTRAP','GRADLE_WRAPPER'):
+        status=build_apk.run_logged(['./gradlew','--no-daemon','--offline','--version'],
+            cwd=lib.REPO/'clients/android',environment=scoped,log=root/'gradle-version.log',timeout=60)
+        command_check(status,'Gradle 8.13' in (root/'gradle-version.log').read_text(),'BLOCKED_CI_GRADLE_VERSION')
     lib.gradle_configuration_check(root/'gradle-cache')
     return root,jdk,sdk,before,scoped,init,argv
 
 
-def execute(env,source_sha,image,*,purpose='apk'):
-    root,jdk,sdk,before,scoped,init,argv=prepare(env,source_sha,image,purpose=purpose)
-    if purpose=='apk':build_apk.prepare_debug_signer(root,jdk,scoped)
+def execute(env,source_sha,image,*,purpose='apk',stages=None):
+    stages=stages if stages is not None else new_stages()
+    root,jdk,sdk,before,scoped,init,argv=prepare(env,source_sha,image,purpose=purpose,stages=stages)
+    if purpose=='apk':
+        with phase(stages,'JDK_PREPARE','DEBUG_SIGNER'):build_apk.prepare_debug_signer(root,jdk,scoped)
     if purpose=='codeql':
         tool,_=codeql_tool_check(env)
         # The CLI installs its own tracer into its child. Do not inherit ambient
@@ -206,14 +290,21 @@ def execute(env,source_sha,image,*,purpose='apk'):
             if line.strip()!='NOTE: Picked up JDK_JAVA_OPTIONS: '+scoped['JDK_JAVA_OPTIONS']]
         version=lib.strict_json('\n'.join(lines).encode())
         lib.require(version.get('version')==CODEQL_VERSION,'BLOCKED_CI_CODEQL_VERSION')
-    status=build_apk.run_logged(argv,cwd=lib.REPO/'clients/android',
-        environment=scoped,log=root/'build.log',timeout=1800)
-    if status!=0:
-        error=lib.Blocked('BLOCKED_CI_BUILD_FAILED');error.build_exit_code=status
-        raise error
-    lib.source_check(source_sha)
-    lib.gradle_configuration_check(root/'gradle-cache')
-    lib.require(before==sdk_inventory(sdk),'BLOCKED_CI_SDK_CHANGED')
+    with phase(stages,'CODEQL' if purpose=='codeql' else 'GRADLE_BOOTSTRAP','ANDROID_PROJECT'):
+        status=build_apk.run_logged(argv,cwd=lib.REPO/'clients/android',
+            environment=scoped,log=root/'build.log',timeout=1800)
+        failed=gradle_stages((root/'build.log').read_text(),stages) if purpose=='apk' and (root/'build.log').exists() else None
+        if status!=0:
+            error=lib.Blocked('BLOCKED_CI_BUILD_FAILED');error.build_exit_code=status
+            if failed:error.ci_stage=failed
+            raise error
+    if purpose=='codeql':stages['CODEQL']='RUNNING'  # Trace completed; analyze has not run yet.
+    with phase(stages,'IMAGE_CHECK','PROJECT_SOURCE'):lib.source_check(source_sha)
+    with phase(stages,'GRADLE_BOOTSTRAP','GRADLE_WRAPPER'):lib.gradle_configuration_check(root/'gradle-cache')
+    with phase(stages,'SDK_CHECK','SDK_ROOT'):lib.require(before==sdk_inventory(sdk),'BLOCKED_CI_SDK_CHANGED')
+    with phase(stages,'JDK_PREPARE','JDK_ROOT'):
+        jdk_artifact=next(a for a in installer.catalog()['artifacts'] if a['id']=='jdk')
+        installer.component_check(jdk_artifact,root)
     if purpose=='codeql':
         evidence={'schema':'aioa.android.codeql-build.v1','status':'CODEQL_TRACED_BUILD_RETURNED_ZERO',
             'source_sha':source_sha,'runner_image':image,'workflow_revision':REVIEWED_WORKFLOW_SHA256,
@@ -224,14 +315,19 @@ def execute(env,source_sha,image,*,purpose='apk'):
         installer.private_write(root/'CODEQL_BUILD_EVIDENCE.json',evidence)
         return evidence
     apk=root/'builds/_app/outputs/apk/debug/app-debug.apk'
-    evidence=verify_apk.verify(apk,root,sdk=sdk,jdk=jdk,source_sha=source_sha,environment=scoped)
-    evidence=build_apk._bind_controlled_build(evidence,source_sha,root,argv)
+    with phase(stages,'SIGNATURE_VERIFY','APK'):
+        evidence=verify_apk.verify(apk,root,sdk=sdk,jdk=jdk,source_sha=source_sha,environment=scoped)
+        evidence=build_apk._bind_controlled_build(evidence,source_sha,root,argv)
+    for name in ('JVM_TESTS','LINT','ASSEMBLE'):stages[name]='PASS'
     evidence.update(ci_profile='GITHUB_HOSTED_MANUAL_V2',runner_image=image,
         workflow_revision=REVIEWED_WORKFLOW_SHA256,
         codeql_status='PENDING_SEPARATE_JOB' if env.get('AIOA_CODEQL_REQUESTED')=='true' else 'NOT_REQUESTED',
         sdk=before,versions=installer.catalog()['versions'],dependency_resolution='ONLINE_VENDOR_REPOSITORIES_NOT_FULLY_HASH_LOCKED',
-        model_calls=0,workflow_run_id=env['GITHUB_RUN_ID'],workflow_run_attempt=env['GITHUB_RUN_ATTEMPT'])
-    artifact=verified_artifact(apk,root,evidence,sdk=sdk,jdk=jdk,source_sha=source_sha,environment=scoped)
+        jdk_source='LOCKED_VENDOR_ARCHIVE_SHA256',jdk_archive_sha256=jdk_artifact['sha256'],
+        model_calls=0,workflow_run_id=env['GITHUB_RUN_ID'],workflow_run_attempt=env['GITHUB_RUN_ATTEMPT'],
+        stage_statuses=dict(stages))
+    with phase(stages,'SIGNATURE_VERIFY','COPIED_APK'):
+        artifact=verified_artifact(apk,root,evidence,sdk=sdk,jdk=jdk,source_sha=source_sha,environment=scoped)
     installer.private_write(artifact/'APK_EVIDENCE.json',evidence)
     return evidence
 
@@ -291,14 +387,16 @@ def preflight(env,source_sha,image,*,purpose='apk'):
 
 def build(env,source_sha,image,*,purpose='apk'):
     preflight(env,source_sha,image,purpose=purpose)
+    stages=new_stages();stages.update(IMAGE_CHECK='PASS',SDK_CHECK='PASS')
     try:
         if purpose=='codeql':codeql_tool_check(env)
-        result=execute(env,source_sha,image,purpose=purpose)
+        result=execute(env,source_sha,image,purpose=purpose,stages=stages)
         branch_head_check(source_sha)
         return result
     except (lib.Blocked,OSError,ValueError,TypeError,KeyError,subprocess.SubprocessError) as error:
         # Preserve the original nonzero outcome even if diagnostics cannot be
         # recorded. Failed preflight never reaches this writer or the tools.
+        if not hasattr(error,'ci_stage_statuses'):error.ci_stage_statuses=dict(stages)
         try:record_failure(env,source_sha,image,error,purpose=purpose)
         except (lib.Blocked,OSError,ValueError,TypeError,KeyError):pass
         raise
@@ -314,10 +412,10 @@ def record_failure(env,source_sha,image,error,*,purpose='apk'):
         for k in ('GITHUB_RUN_ID','GITHUB_RUN_ATTEMPT')),'BLOCKED_CI_DIAGNOSTIC_CONTEXT')
     suffix=env['GITHUB_RUN_ID']+'-'+env['GITHUB_RUN_ATTEMPT']
     parent=lib.safe_path(Path(env['RUNNER_TEMP']))
-    root=lib.safe_path(parent/('aioa-android-'+suffix))
+    root=parent/('aioa-android-'+suffix)
     logs=[];raw=b''
-    for name in ('build.log','java-version.log','gradle-version.log','sdkmanager-version.log',
-                 'codeql-version.log','keytool-generate.log','keytool-certificate.log'):
+    for name in (() if root.is_symlink() else ('build.log','java-version.log','javac-version.log','gradle-version.log','sdkmanager-version.log',
+                 'codeql-version.log','keytool-generate.log','keytool-certificate.log')):
         path=root/name
         if not path.exists() and not path.is_symlink():continue
         data=lib.private_bytes(path,max_bytes=8*1024*1024)
@@ -341,21 +439,31 @@ def record_failure(env,source_sha,image,error,*,purpose='apk'):
             ('Cannot infer type','TYPE_INFERENCE')] if text in match[4]),'KOTLIN_COMPILER_ERROR')
         item={'path':relative,'line':int(match[2]),'column':int(match[3]),'category':category}
         if item not in locations:locations.append(item)
-    permitted_codes={'BLOCKED_CI_BUILD_FAILED','BLOCKED_BUILD_TIMEOUT','BLOCKED_BUILD_CANCELLED',
-        'BLOCKED_BUILD_LOG_SIZE','BLOCKED_CI_CODEQL_VERSION','BLOCKED_CI_JDK_VERSION',
-        'BLOCKED_CI_SDKMANAGER_VERSION','BLOCKED_CI_GRADLE_VERSION','BLOCKED_CI_BRANCH_DRIFT',
-        'BLOCKED_CI_SDK_CHANGED','BLOCKED_JUNIT_RESULT','BLOCKED_LINT_RESULT','BLOCKED_APK_CONTRACT'}
     code=getattr(error,'code',None)
+    # Machine codes from the native exception type, never arbitrary messages or
+    # tool/provider output. This preserves new installer errors without leaking text.
+    native_code=(type(error) is lib.Blocked and type(code) is str
+        and re.fullmatch(r'BLOCKED_[A-Z0-9_]{1,80}',code) is not None)
     exit_code=getattr(error,'build_exit_code',None)
+    stages=new_stages()
+    recorded=getattr(error,'ci_stage_statuses',{})
+    if type(recorded) is dict:
+        stages.update({k:v for k,v in recorded.items() if k in STAGES and v in ('NOT_RUN','PASS','FAIL','SKIPPED','RUNNING','UNKNOWN')})
+    failed=gradle_stages(raw.decode('utf-8','replace'),stages) if purpose=='apk' else None
+    stage=getattr(error,'ci_stage',None)
+    if stage not in STAGES:stage=failed or ('CODEQL' if purpose=='codeql' else 'GRADLE_BOOTSTRAP')
+    stages[stage]='FAIL'
+    role=getattr(error,'ci_path_role','UNKNOWN')
     value={'schema':'aioa.android.failure-evidence.v1','status':'FAILED_NO_APK_PUBLICATION',
         'source_sha':source_sha,'source_binding':'REQUESTED_SHA_NOT_BUILD_ATTESTATION',
         'runner_image':image,'workflow_revision':REVIEWED_WORKFLOW_SHA256,
         'workflow_run_id':env['GITHUB_RUN_ID'],'workflow_run_attempt':env['GITHUB_RUN_ATTEMPT'],
-        'purpose':purpose,'stage':'GRADLE_BUILD_OR_VERIFICATION' if raw else 'TOOLCHAIN_PREPARATION_OR_VERIFICATION',
-        'error_code':code if code in permitted_codes else 'DIAGNOSTIC_UNAVAILABLE',
+        'purpose':purpose,'stage':stage,'stage_statuses':stages,
+        'path_role':role if role in PATH_ROLES else 'UNKNOWN',
+        'error_code':code if native_code else 'DIAGNOSTIC_UNAVAILABLE',
         'exit_code':exit_code if type(exit_code) is int and -128<=exit_code<=255 else None,
         'logs':logs,'failed_tasks':sorted(tasks),'compiler_locations':locations,
-        'diagnostic_status':'STRUCTURED_DIAGNOSTIC_AVAILABLE' if tasks or locations else 'DIAGNOSTIC_UNAVAILABLE',
+        'diagnostic_status':'STRUCTURED_DIAGNOSTIC_AVAILABLE' if tasks or locations or native_code else 'DIAGNOSTIC_UNAVAILABLE',
         'raw_log_retention':'EPHEMERAL_RUNNER_ONLY','apk_verified':False,'automatic_retry':False}
     destination=lib.safe_path(parent/('aioa-failure-'+suffix+'-'+purpose));destination.mkdir(mode=0o700)
     installer.private_write(destination/'BUILD_FAILURE_EVIDENCE.json',value)

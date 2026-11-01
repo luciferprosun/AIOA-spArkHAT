@@ -89,6 +89,7 @@ class ControlledDebugSignerTests(unittest.TestCase):
                 patch.object(ci.lib,'source_check'),patch.object(ci.lib,'gradle_configuration_check'),\
                 patch.object(ci,'sdk_inventory',return_value={}),\
                 patch.object(ci.verify_apk,'verify',return_value=dict(evidence)),\
+                patch.object(ci.installer,'component_check'),\
                 patch.object(build,'_bind_controlled_build',side_effect=lambda e,*_:e),\
                 patch.object(build,'prepare_debug_signer',create=True),\
                 patch.object(ci,'verified_artifact',return_value=artifact,create=True):

@@ -36,14 +36,17 @@ class PostmergeCIGuardTests(unittest.TestCase):
         self.assertIn("github.actor == 'luciferprosun'",job['if'])
         self.assertIn("github.run_attempt == '1'",job['if'])
 
-    def test_workflow_preflight_precedes_setup_java_and_codeql_tools(self):
+    def test_workflow_preflight_precedes_private_jdk_and_codeql_tools(self):
         import yaml
         workflow=yaml.safe_load((ROOT/WORKFLOW).read_text())
         for name in ('debug-apk','codeql-kotlin'):
             steps=workflow['jobs'][name]['steps']
             preflight=next(i for i,s in enumerate(steps) if '--preflight-only' in s.get('run',''))
-            setup=next(i for i,s in enumerate(steps) if s.get('uses','').startswith('actions/setup-java@'))
-            self.assertLess(preflight,setup)
+            build=next(i for i,s in enumerate(steps) if s.get('id')=='controlled_build')
+            self.assertLess(preflight,build)
+            if name=='codeql-kotlin':
+                init=next(i for i,s in enumerate(steps) if s.get('uses','').startswith('github/codeql-action/init@'))
+                self.assertLess(preflight,init)
             image=next(i for i,s in enumerate(steps) if 'test "$ImageVersion"' in s.get('run',''))
             checkout=next(i for i,s in enumerate(steps) if s.get('uses','').startswith('actions/checkout@'))
             self.assertLess(image,checkout)
