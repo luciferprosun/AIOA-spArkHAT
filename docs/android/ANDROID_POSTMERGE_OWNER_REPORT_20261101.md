@@ -9,7 +9,9 @@ Repo: https://github.com/luciferprosun/AIOA-spArkHAT.
 Potwierdzony main/base: `ad5ae30494b9844e0433ffb1712254b781b3fa77`
 (PR #27), tree `dda2cbb2047c35df79b8eb1833453ec1b67d689b`.
 Gałąź lokalna: `codex/android-postmerge-apk-20261101`.
-Code head przed końcowym review: `25235e1b39b6e9f1fc15ef145227676288612649`.
+Code head po poprawkach review: `e1a93ad7894183d0f715b069d6e85d4831e87045`.
+Niezależny review obejmował head `6e859ba4864ac7368c41905831e44cad159a59e2`;
+następnie autor zamknął pięć Important testami RED→GREEN, bez drugiego review.
 Końcowy head/tree i SHA patcha są zapisane w prywatnym OWNER_GATE.json;
 nie wpisujemy do pliku jego własnego przyszłego commitu.
 Nowy PR: **NONE**. Push/merge/security migration/dispatch: **NOT_EXECUTED**.
@@ -50,7 +52,7 @@ A11/A13/A16, niniejszy raport i plan. Pełną listę daje
 
 | Zestaw | Wynik rzeczywisty | Zakres |
 |---|---|---|
-| Android tooling/CI | 74/74 PASS, 88 subtests, 4.078s | Offline; keytool/aapt/apksigner/Gradle/CodeQL zastąpione fixture w testach kontraktu; realny sha256sum na fixture |
+| Android tooling/CI po review | 83/83 PASS, 89 subtests, 4.161s | Offline; keytool/aapt/apksigner/Gradle/CodeQL zastąpione fixture w testach kontraktu; realny sha256sum na fixture i proces modelujący fallback cwd CLI |
 | Core/warrant/intent/effects/MCP/unified | 202/202 PASS, 255 subtests, 160.215s | Izolowane procesy i prywatne testowe storage, bez provider API |
 | Mobile wire/gateway/HTTP/source/doctor | 77/77 PASS, 35 subtests, 41.140s | Podpisy i odczyty lokalne; brak urządzenia Android |
 | Node UI | 15/15 PASS, bez skip | Rzeczywiste kontrakty JS i source checks UI |
@@ -65,8 +67,23 @@ RED pokazał też brak powiązania własnego signera/kopii, NameError przy
 raporcie wersji i pustą provenance SARIF; końcowy GREEN obejmuje poprawki.
 Żaden mockowany sukces nie oznacza skompilowanego APK.
 
-Review: PENDING_FINAL_REVIEW. Reviewer nie może certyfikować Kotlin/JVM,
-którego nie wykonał. Prywatny raport i odpowiedź autora są osobnymi dowodami.
+Razem:419 wykonanych przypadków i407 subtests, bez skip. Zestawy runtime
+przeszły na `25235e1`; po review zmieniły się wyłącznie CI/helper/testy/dokumenty,
+bez zmiany któregokolwiek z76 zapieczętowanych źródeł Core/mobile.
+
+Niezależny reviewer: `/root/review_android_postmerge_final_20261101`,
+GPT-6 Astra max, tryb read-only. Werdykt oryginalny: **With fixes**,0Critical,
+5Important,1Minor. R1: jawny working-dir Android dla trace-command; R2:
+upload-database:false; R3: filtrowany failure JSON; R4: opcjonalna provenance
+SARIF + rzeczywisty analyze sarif-id i pending server readback; R5: tygodniowe
+skany czterech grup. Wszystkie Important zamknięto w jednej serii autora:
+RED7 (5fail/3errors) → GREEN83; dodatkowy RED brakującego upload ID → GREEN.
+Nie nazywamy tego ponownym PASS reviewera. Reviewer nie uruchamiał JVM/CI.
+Prywatne REVIEW_RESULT.json i AUTHOR_REVIEW_RESPONSE.md zachowują ustalenia.
+
+Minor M1 odroczony: exact ImageVersion obowiązuje także automatyczny SAST.
+Zmiana hosted image zatrzyma skany przed analizą, dopóki pin nie otrzyma
+nowego review. To koszt utrzymania fail-closed, nie gwarancja ciągłej analizy.
 
 ## Faktyczny CodeQL i wymagane ustawienie
 
@@ -94,7 +111,8 @@ Przygotowana migracja po osobnym GO:
 4. Ten sam jeden zatwierdzony dispatch uruchamia APK, potem Kotlin manual
    i reusable SAST dla dotychczasowych czterech grup. Upload SARIF dostaje
    `security-events:write` tylko w jobach CodeQL; APK pozostaje contents:read.
-   Kolejne push/PR w advanced skanują cztery grupy; Kotlin wymaga osobnego
+   Kolejne push/PR oraz harmonogram poniedziałek03:17UTC w advanced skanują
+   cztery grupy; Kotlin wymaga osobnego
    manualnego odbioru, bez automatycznej kompilacji Androida.
 
 GitHub wymaga zastąpienia default setup dla własnych uploadów advanced;
@@ -114,7 +132,7 @@ merge SHA; nie podstawiamy ad5 (nie zawiera poprawek) ani starego N1.
 
 Reviewed ImageVersion: **20261026.354.1**.
 Workflow SHA256:
-**4dd97937fe9923c20fc3786a5b338c28f0f621e9cd8ce2e8878f15aa74e64f68**.
+**ef7fb9e6e4edcd610e316c46a20feddfe3c44649aebbc62f2f3c1d4573be1c4c**.
 Dowolny inny rzeczywisty obraz kończy próbę przed checkout/setup/build.
 Nie wystarczy zmienić tekstowego inputu. Hosted label ubuntu-24.04 może
 zostać przeniesiony na inny obraz; nie ma automatycznego retry.
@@ -127,7 +145,7 @@ Payload do `POST /repos/luciferprosun/AIOA-spArkHAT/actions/workflows/403351712/
   "inputs": {
     "expected_source_sha": "ACTUAL_APPROVED_MERGE_SHA_40_HEX",
     "expected_runner_image": "20261026.354.1",
-    "expected_workflow_revision": "4dd97937fe9923c20fc3786a5b338c28f0f621e9cd8ce2e8878f15aa74e64f68",
+    "expected_workflow_revision": "ef7fb9e6e4edcd610e316c46a20feddfe3c44649aebbc62f2f3c1d4573be1c4c",
     "approve_run": false,
     "sdk_license_ack": false,
     "artifact_exposure_ack": false,
@@ -163,11 +181,18 @@ Zależności Maven/Gradle pozostają ONLINE_VENDOR_REPOSITORIES_NOT_FULLY_HASH_L
 Publiczne repo oznacza dostęp do artefaktu dla osób mających dostęp do runu.
 Retencja: 1 dzień, missing-files:error, bez hidden files/overwrite/cache.
 Publikowane tylko `aioa-companion-debug.apk`, filtrowany `APK_EVIDENCE.json`
-i osobny ograniczony `CODEQL_EVIDENCE.json`. Nie publikujemy debug.keystore,
+i osobny ograniczony `CODEQL_EVIDENCE.json`; przy porażce wyłącznie osobny
+`BUILD_FAILURE_EVIDENCE.json` z retencją1d, bez APK. Failure JSON zawiera etap,
+exit/status, hashe logów i ograniczone rozpoznane publiczne lokalizacje/kategorie
+kompilatora. Nieznane wyjście: DIAGNOSTIC_UNAVAILABLE, bez eksportu raw tekstu.
+Nie publikujemy debug.keystore,
 prywatnego DEBUG_SIGNER.json/cert-key binding, pełnych logów/cache, tokenów,
 operator sessions, enrollment code, danych Tailscale ani prywatnych dowodów.
 SARIF to osobny wynik Code Scanning, bez raw SARIF w artefakcie.
+Upload bazy CodeQL jest jawnie wyłączony we wszystkich krokach analyze.
 Same logi Actions mają własną retencję GitHub i nie znikają po jednym dniu.
+Raw prywatny build.log jest efemeryczny; trwale zachowujemy tylko ograniczony
+failure JSON/hash, nie obiecujemy odzyskania pełnego logu po usunięciu runnera.
 
 Po realnym SUCCESS wszystkich wymaganych jobów: odczytać run head SHA,
 ImageVersion/versions i status uploadu; pobrać artifact przez `gh run download
@@ -176,6 +201,18 @@ do nowego prywatnego katalogu na zakwalifikowanym dysku. Weryfikować hash
 ZIP/artefaktu GitHub oddzielnie od SHA-256 APK, następnie sha256sum,
 aapt badging, apksigner, cert fingerprint i wszystkie pola JSON.
 Brak zgodności lub źródła → odrzucenie, nie instalacja.
+
+Readback Kotlin CodeQL używa `server_sarif_id` z rzeczywistego outputu kroku
+analyze. Odczytać `GET /repos/luciferprosun/AIOA-spArkHAT/code-scanning/sarifs/ID`,
+wymagać processing_status=complete, następnie pobrać zwrócone analyses_url
+i sprawdzić commit_sha=zaakceptowany merge, ref main, kategorię java-kotlin,
+tool/version, brak błędu i powiązanie z runem. Analogicznie odebrać cztery
+pozostałe analizy i statusy wszystkich jobów. Nie podążać za obcą domeną/URL
+z danych bez walidacji. [Oficjalny kontrakt readback](https://docs.github.com/en/rest/code-scanning/code-scanning#get-information-about-a-sarif-upload).
+Lokalny JSON ma zawsze server_upload_verified:false oraz
+PENDING_SERVER_COMMIT_SHA_READBACK aż do tego niezależnego odbioru.
+Brak opcjonalnego versionControlProvenance w SARIF nie tworzy fikcyjnej
+provenance; sprzeczna obecna wartość nadal odmawia.
 
 Oczekiwany pakiet: eu.sparkhat.aioa.companion, versionCode2 / 0.2.0-n1,
 min26, target36, jedyne permission android.permission.INTERNET, debuggable.
@@ -213,7 +250,7 @@ komenda parowania telefonu ani prawdziwe połączenie Muse LIVE.
 | Ryzyko | Granica i rollback |
 |---|---|
 | Hosted image drift | Stop przed setup; aktualizacja reviewowanego pina/testów wymaga nowej decyzji, nie podmiany inputu |
-| Pierwsza kompilacja ujawni błąd Kotlin/lint | BUILD_FAILED_REAL i zachowany run/log; brak automatycznej kolejnej próby |
+| Pierwsza kompilacja ujawni błąd Kotlin/lint | BUILD_FAILED_REAL, run i filtrowany failure JSON; raw log efemeryczny; brak automatycznej kolejnej próby |
 | Advanced migration lub SARIF fail | Nie usuwać wyników; wyłączyć nowy profile variable i przywrócić poprzedni configured/default/remote/standard/weekly/four-language setup. Restore może wywołać skan i wymaga zgody |
 | Świeży DEBUG cert | Nie nadpisywać starego APK ani danych; fizyczna instalacja osobno |
 | Własne dependency/SDK/Supplier trust | Piny/archiwalne hashe i runtime inventory; brak twierdzenia o pełnym Maven lock lub niezależnej weryfikacji każdego bajtu obrazu/CodeQL cache |
@@ -230,9 +267,24 @@ do niezmienionego ad5; akceptacja możliwych automatycznych skanów PR/merge;
 opisana migracja CodeQL/default→advanced i jeden workflow_dispatch z
 weryfikacją drzewa/SHA/obrazu; owner akceptuje Actions billing/limity,
 vendor network, rzeczywiste [warunki SDK](https://developer.android.com/studio/terms),
-publiczny DEBUG APK/ograniczone evidence z retencją1d oraz warunkowy restore
+publiczny DEBUG APK/ograniczone evidence, także failure JSON, z retencją1d,
+przyszłe automatyczne SAST push/PR/tygodniowe oraz warunkowy restore
 poprzedniego CodeQL bez ponowienia Android builda.
 
 GO nie obejmuje model/API spend, telefonu, produkcyjnego ownera,
 Tailscale/Serve/Funnel/ACL, publikacji UI ani usług 4314/4315/4316/4321.
 Bez tej decyzji: **BUILD_BLOCKED_OWNER_GATE / APK_NOT_BUILT**.
+
+## Decyzje autora i koszt
+
+| Decyzja | Koszt/granica |
+|---|---|
+| Samodzielne decyzje projektu zgodnie z mandatem PDF, jeden końcowy review | Architektura wymagała niezależnego sprawdzenia; brak dodatkowych menu zgody na lokalny kod |
+| Zachować prywatne dowody i worktree | Zajętość dysku; bez ich publikacji/usuwania |
+| Exact oficjalny obraz26.354.1 | Pierwsza próba i przyszły SAST mogą odmówić po image drift; Minor M1 pozostaje odroczony |
+| SARIF write tylko w osobnych owner-gated jobach | Dodatkowe joby i jawna migracja security settings |
+| Curated env + oficjalny trace-command | Brak dziedziczenia tokenów; rzeczywista instrumentacja nadal NOT_RUN |
+| Jeden dispatch APK + reusable cztery grupy i osobny Kotlin compile | Więcej hosted jobs/network; brak drugiego APKbuildera/Core |
+| Edge tylko zaprojektowany do czasu autentycznego owner/TLS | APK sam nie sparuje telefonu; P1 pozostaje zablokowane |
+| Targeted regresje i zachowanie gałęzi zamiast ogólnego cleanup/menu/full20min | Nie powtórzono całego historycznego suite eksperymentów; zachowano źródła/dowody |
+| Source/upload CodeQL pending do APIreadback rzeczywistego sarif-id/commit_sha | Sam lokalny SARIF nie zamyka bramki i nie stanowi atestacji serwera |

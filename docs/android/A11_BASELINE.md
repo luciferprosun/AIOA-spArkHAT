@@ -6,6 +6,7 @@ tree `dda2cbb2047c35df79b8eb1833453ec1b67d689b`.
 Writer: `codex/android-postmerge-apk-20261101`, isolated worktree
 `/home/l/AIOA_LOCAL_WORKTREES/android-postmerge-apk-20261101`.
 The prior verified-main detached checkout is preserved as evidence.
+Baseline tracked files:1577; Android input manifest:24 files (unchanged).
 
 One Android module `clients/android/:app`, package `eu.sparkhat.aioa.companion`,
 versionCode2 / 0.2.0-n1, minSDK26 / compile+targetSDK36, build-tools35.0.0,

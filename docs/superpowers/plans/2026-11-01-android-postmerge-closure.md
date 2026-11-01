@@ -71,7 +71,7 @@ Files: docs/android/ANDROID_POSTMERGE_OWNER_REPORT_20261101.md; private patch, r
 Interfaces: consumes exact final local head/main base and successful targeted suites; produces one concrete effect authorization request without dispatch/merge before consent.
 
 - [x] Run Android74/Core202/mobile77/native42/Node15 regressions; no redundant full20min run.
-- [ ] One fresh independent review of whole diff, CI permissions and absent build evidence; fix Critical/Important once with RED→GREEN + green necessary suite; defer Minor explicitly.
-- [ ] Scan changed files and outgoing local history; preserve raw results and source seals.
-- [ ] Produce exact workflow/source/image/owner acknowledgments and CodeQL settings transition plan, bounded public artifact exposure and ACK-loss readback procedure.
-- [ ] Final status BUILD_BLOCKED_OWNER_GATE/APK_NOT_BUILT unless real separately authorized build exists. Preserve worktree and evidence; ask one precise GO only after concrete patch/review.
+- [x] One fresh independent review of whole diff, CI permissions and absent build evidence; fix Critical/Important once with RED→GREEN + green necessary suite; defer Minor explicitly.
+- [x] Scan changed files and outgoing local history; preserve raw results and source seals.
+- [x] Produce exact workflow/source/image/owner acknowledgments and CodeQL settings transition plan, bounded public artifact exposure and ACK-loss readback procedure.
+- [x] Final status BUILD_BLOCKED_OWNER_GATE/APK_NOT_BUILT unless real separately authorized build exists. Preserve worktree and evidence; ask one precise GO only after concrete patch/review.
