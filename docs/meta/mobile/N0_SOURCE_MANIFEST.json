@@ -1,0 +1,774 @@
+{
+  "schema": "aioa.mobile.n0-source-manifest.v1",
+  "target_branch": "AIOA-METAGuardiansSPARK",
+  "start_head": "7387d823f38d1bc4ca964788ae11441d29b6ae6e",
+  "source_files": [
+    {
+      "repository": "companion",
+      "source": "/home/l/projects/AIOA-spArkHAT-Companion/android/app/build.gradle.kts",
+      "head": "9cf6c567b40bc87385fb90e9143b0fb170889b2a",
+      "branch": "codex/final-connect-20261023",
+      "path": "android/app/build.gradle.kts",
+      "sha256": "ed1214214e6740316f3f00df5b2a5c25012bd24632aaf3a111b6897885bfe51a",
+      "license": "UNKNOWN_NO_LICENSE_FILE_FOUND",
+      "copy_policy": "neutral compatible implementation; no verbatim project code copy"
+    },
+    {
+      "repository": "companion",
+      "source": "/home/l/projects/AIOA-spArkHAT-Companion/android/app/src/androidTest/java/eu/sparkhat/aioa/companion/KeystoreTest.kt",
+      "head": "9cf6c567b40bc87385fb90e9143b0fb170889b2a",
+      "branch": "codex/final-connect-20261023",
+      "path": "android/app/src/androidTest/java/eu/sparkhat/aioa/companion/KeystoreTest.kt",
+      "sha256": "a40c429869727c2d030a99e6a4ed129e3504a36f23ed4e568fd122b8c56dce5e",
+      "license": "UNKNOWN_NO_LICENSE_FILE_FOUND",
+      "copy_policy": "neutral compatible implementation; no verbatim project code copy"
+    },
+    {
+      "repository": "companion",
+      "source": "/home/l/projects/AIOA-spArkHAT-Companion/android/app/src/androidTest/java/eu/sparkhat/aioa/companion/LocalMaintenanceWorkerTest.kt",
+      "head": "9cf6c567b40bc87385fb90e9143b0fb170889b2a",
+      "branch": "codex/final-connect-20261023",
+      "path": "android/app/src/androidTest/java/eu/sparkhat/aioa/companion/LocalMaintenanceWorkerTest.kt",
+      "sha256": "7a069cae62c2c27d91092392b46131e3b3692c593a546cc2c2b4467c3f145b19",
+      "license": "UNKNOWN_NO_LICENSE_FILE_FOUND",
+      "copy_policy": "neutral compatible implementation; no verbatim project code copy"
+    },
+    {
+      "repository": "companion",
+      "source": "/home/l/projects/AIOA-spArkHAT-Companion/android/app/src/androidTest/java/eu/sparkhat/aioa/companion/NavigationTest.kt",
+      "head": "9cf6c567b40bc87385fb90e9143b0fb170889b2a",
+      "branch": "codex/final-connect-20261023",
+      "path": "android/app/src/androidTest/java/eu/sparkhat/aioa/companion/NavigationTest.kt",
+      "sha256": "74f98f2991760fc0764af3a00a4321df22a8eb9c183d661bf851e2fb81a0340f",
+      "license": "UNKNOWN_NO_LICENSE_FILE_FOUND",
+      "copy_policy": "neutral compatible implementation; no verbatim project code copy"
+    },
+    {
+      "repository": "companion",
+      "source": "/home/l/projects/AIOA-spArkHAT-Companion/android/app/src/main/AndroidManifest.xml",
+      "head": "9cf6c567b40bc87385fb90e9143b0fb170889b2a",
+      "branch": "codex/final-connect-20261023",
+      "path": "android/app/src/main/AndroidManifest.xml",
+      "sha256": "1d33637dfc521ad391fb8a419494652dfa911275f79a0893fcb3403e097a89f4",
+      "license": "UNKNOWN_NO_LICENSE_FILE_FOUND",
+      "copy_policy": "neutral compatible implementation; no verbatim project code copy"
+    },
+    {
+      "repository": "companion",
+      "source": "/home/l/projects/AIOA-spArkHAT-Companion/android/app/src/main/java/eu/sparkhat/aioa/companion/CompanionUi.kt",
+      "head": "9cf6c567b40bc87385fb90e9143b0fb170889b2a",
+      "branch": "codex/final-connect-20261023",
+      "path": "android/app/src/main/java/eu/sparkhat/aioa/companion/CompanionUi.kt",
+      "sha256": "05233955421811519b707e03d5bcb462da6ee0d0fce6bd5cfebd29b5359ef373",
+      "license": "UNKNOWN_NO_LICENSE_FILE_FOUND",
+      "copy_policy": "neutral compatible implementation; no verbatim project code copy"
+    },
+    {
+      "repository": "companion",
+      "source": "/home/l/projects/AIOA-spArkHAT-Companion/android/app/src/main/java/eu/sparkhat/aioa/companion/GatewayRepository.kt",
+      "head": "9cf6c567b40bc87385fb90e9143b0fb170889b2a",
+      "branch": "codex/final-connect-20261023",
+      "path": "android/app/src/main/java/eu/sparkhat/aioa/companion/GatewayRepository.kt",
+      "sha256": "1e82a70565b2fbc9726b3842656a68cde997576ca74d1e3e9ce6982e18042623",
+      "license": "UNKNOWN_NO_LICENSE_FILE_FOUND",
+      "copy_policy": "neutral compatible implementation; no verbatim project code copy"
+    },
+    {
+      "repository": "companion",
+      "source": "/home/l/projects/AIOA-spArkHAT-Companion/android/app/src/main/java/eu/sparkhat/aioa/companion/HostIdentity.kt",
+      "head": "9cf6c567b40bc87385fb90e9143b0fb170889b2a",
+      "branch": "codex/final-connect-20261023",
+      "path": "android/app/src/main/java/eu/sparkhat/aioa/companion/HostIdentity.kt",
+      "sha256": "e00189d7dc66bb7bc5af7a9159774de17c2ad764568b285498ac49516481699d",
+      "license": "UNKNOWN_NO_LICENSE_FILE_FOUND",
+      "copy_policy": "neutral compatible implementation; no verbatim project code copy"
+    },
+    {
+      "repository": "companion",
+      "source": "/home/l/projects/AIOA-spArkHAT-Companion/android/app/src/main/java/eu/sparkhat/aioa/companion/LocalDiagnostics.kt",
+      "head": "9cf6c567b40bc87385fb90e9143b0fb170889b2a",
+      "branch": "codex/final-connect-20261023",
+      "path": "android/app/src/main/java/eu/sparkhat/aioa/companion/LocalDiagnostics.kt",
+      "sha256": "c99b99179cc584397cd51b61c4dc63a9fb7d37cba193e5d2853b6bdf2f9252c7",
+      "license": "UNKNOWN_NO_LICENSE_FILE_FOUND",
+      "copy_policy": "neutral compatible implementation; no verbatim project code copy"
+    },
+    {
+      "repository": "companion",
+      "source": "/home/l/projects/AIOA-spArkHAT-Companion/android/app/src/main/java/eu/sparkhat/aioa/companion/LocalMaintenanceWorker.kt",
+      "head": "9cf6c567b40bc87385fb90e9143b0fb170889b2a",
+      "branch": "codex/final-connect-20261023",
+      "path": "android/app/src/main/java/eu/sparkhat/aioa/companion/LocalMaintenanceWorker.kt",
+      "sha256": "c7ae21f86e2a5edafe8f98ce1fb7f1e6d20677c0afafdaeaab5e8d3982fa8ce9",
+      "license": "UNKNOWN_NO_LICENSE_FILE_FOUND",
+      "copy_policy": "neutral compatible implementation; no verbatim project code copy"
+    },
+    {
+      "repository": "companion",
+      "source": "/home/l/projects/AIOA-spArkHAT-Companion/android/app/src/main/java/eu/sparkhat/aioa/companion/MainActivity.kt",
+      "head": "9cf6c567b40bc87385fb90e9143b0fb170889b2a",
+      "branch": "codex/final-connect-20261023",
+      "path": "android/app/src/main/java/eu/sparkhat/aioa/companion/MainActivity.kt",
+      "sha256": "89fe6965a0b54aac26de1aee24a16b6efb3c58b96ef66839507665a3e0a5704e",
+      "license": "UNKNOWN_NO_LICENSE_FILE_FOUND",
+      "copy_policy": "neutral compatible implementation; no verbatim project code copy"
+    },
+    {
+      "repository": "companion",
+      "source": "/home/l/projects/AIOA-spArkHAT-Companion/android/app/src/main/java/eu/sparkhat/aioa/companion/NativeTrust.kt",
+      "head": "9cf6c567b40bc87385fb90e9143b0fb170889b2a",
+      "branch": "codex/final-connect-20261023",
+      "path": "android/app/src/main/java/eu/sparkhat/aioa/companion/NativeTrust.kt",
+      "sha256": "d050158b146527ceeba0a6b3f4fb99dacf044d10ab6297d6ec1562de069d632a",
+      "license": "UNKNOWN_NO_LICENSE_FILE_FOUND",
+      "copy_policy": "neutral compatible implementation; no verbatim project code copy"
+    },
+    {
+      "repository": "companion",
+      "source": "/home/l/projects/AIOA-spArkHAT-Companion/android/app/src/main/java/eu/sparkhat/aioa/companion/Protocol.kt",
+      "head": "9cf6c567b40bc87385fb90e9143b0fb170889b2a",
+      "branch": "codex/final-connect-20261023",
+      "path": "android/app/src/main/java/eu/sparkhat/aioa/companion/Protocol.kt",
+      "sha256": "3c2cdf90c6b390beae4a50def558b0f9ada0fc61c58bae60be5543b6c0336a96",
+      "license": "UNKNOWN_NO_LICENSE_FILE_FOUND",
+      "copy_policy": "neutral compatible implementation; no verbatim project code copy"
+    },
+    {
+      "repository": "companion",
+      "source": "/home/l/projects/AIOA-spArkHAT-Companion/android/app/src/main/java/eu/sparkhat/aioa/companion/RemoteTransport.kt",
+      "head": "9cf6c567b40bc87385fb90e9143b0fb170889b2a",
+      "branch": "codex/final-connect-20261023",
+      "path": "android/app/src/main/java/eu/sparkhat/aioa/companion/RemoteTransport.kt",
+      "sha256": "a1d17cb27e3b5fd3eab34e75b0474bfe76cc240861f5faf1722c188e332000fa",
+      "license": "UNKNOWN_NO_LICENSE_FILE_FOUND",
+      "copy_policy": "neutral compatible implementation; no verbatim project code copy"
+    },
+    {
+      "repository": "companion",
+      "source": "/home/l/projects/AIOA-spArkHAT-Companion/android/app/src/main/java/eu/sparkhat/aioa/companion/Security.kt",
+      "head": "9cf6c567b40bc87385fb90e9143b0fb170889b2a",
+      "branch": "codex/final-connect-20261023",
+      "path": "android/app/src/main/java/eu/sparkhat/aioa/companion/Security.kt",
+      "sha256": "0690a8de033b75ddad1c47f498cec4125e6234dd184b5aab7c32d857fabd36ce",
+      "license": "UNKNOWN_NO_LICENSE_FILE_FOUND",
+      "copy_policy": "neutral compatible implementation; no verbatim project code copy"
+    },
+    {
+      "repository": "companion",
+      "source": "/home/l/projects/AIOA-spArkHAT-Companion/android/app/src/main/res/drawable/ic_aioa.xml",
+      "head": "9cf6c567b40bc87385fb90e9143b0fb170889b2a",
+      "branch": "codex/final-connect-20261023",
+      "path": "android/app/src/main/res/drawable/ic_aioa.xml",
+      "sha256": "f11c52c458a27fba2e7c7f8243491e4eaecb1d5f539f3922b8c506a366b81e2b",
+      "license": "UNKNOWN_NO_LICENSE_FILE_FOUND",
+      "copy_policy": "neutral compatible implementation; no verbatim project code copy"
+    },
+    {
+      "repository": "companion",
+      "source": "/home/l/projects/AIOA-spArkHAT-Companion/android/app/src/main/res/xml/data_extraction_rules.xml",
+      "head": "9cf6c567b40bc87385fb90e9143b0fb170889b2a",
+      "branch": "codex/final-connect-20261023",
+      "path": "android/app/src/main/res/xml/data_extraction_rules.xml",
+      "sha256": "aa78fd133cebec0e7fcc8d75a03549f3579e6ba746e5014243e639c3321d9c52",
+      "license": "UNKNOWN_NO_LICENSE_FILE_FOUND",
+      "copy_policy": "neutral compatible implementation; no verbatim project code copy"
+    },
+    {
+      "repository": "companion",
+      "source": "/home/l/projects/AIOA-spArkHAT-Companion/android/app/src/main/res/xml/network_security_config.xml",
+      "head": "9cf6c567b40bc87385fb90e9143b0fb170889b2a",
+      "branch": "codex/final-connect-20261023",
+      "path": "android/app/src/main/res/xml/network_security_config.xml",
+      "sha256": "eb5f5c57a88fc656cb97ee142694b996b286064ba973e51e0158bcdff08b34f2",
+      "license": "UNKNOWN_NO_LICENSE_FILE_FOUND",
+      "copy_policy": "neutral compatible implementation; no verbatim project code copy"
+    },
+    {
+      "repository": "companion",
+      "source": "/home/l/projects/AIOA-spArkHAT-Companion/android/app/src/test/java/eu/sparkhat/aioa/companion/DiagnosticsTest.kt",
+      "head": "9cf6c567b40bc87385fb90e9143b0fb170889b2a",
+      "branch": "codex/final-connect-20261023",
+      "path": "android/app/src/test/java/eu/sparkhat/aioa/companion/DiagnosticsTest.kt",
+      "sha256": "92f352b6a7d024ccb92a8a57cfe25062290b059b091618cdded945beaf540545",
+      "license": "UNKNOWN_NO_LICENSE_FILE_FOUND",
+      "copy_policy": "neutral compatible implementation; no verbatim project code copy"
+    },
+    {
+      "repository": "companion",
+      "source": "/home/l/projects/AIOA-spArkHAT-Companion/android/app/src/test/java/eu/sparkhat/aioa/companion/HostCredentialReleaseTest.kt",
+      "head": "9cf6c567b40bc87385fb90e9143b0fb170889b2a",
+      "branch": "codex/final-connect-20261023",
+      "path": "android/app/src/test/java/eu/sparkhat/aioa/companion/HostCredentialReleaseTest.kt",
+      "sha256": "4585be290d003ddcda0bab723fec336cb17fccc35300237dea41aebf239d4499",
+      "license": "UNKNOWN_NO_LICENSE_FILE_FOUND",
+      "copy_policy": "neutral compatible implementation; no verbatim project code copy"
+    },
+    {
+      "repository": "companion",
+      "source": "/home/l/projects/AIOA-spArkHAT-Companion/android/app/src/test/java/eu/sparkhat/aioa/companion/HostIdentityTest.kt",
+      "head": "9cf6c567b40bc87385fb90e9143b0fb170889b2a",
+      "branch": "codex/final-connect-20261023",
+      "path": "android/app/src/test/java/eu/sparkhat/aioa/companion/HostIdentityTest.kt",
+      "sha256": "64bd3eff6df005d9b2d2b1d31bbc8da010b4a04b24b57f7ec6d620e911626ced",
+      "license": "UNKNOWN_NO_LICENSE_FILE_FOUND",
+      "copy_policy": "neutral compatible implementation; no verbatim project code copy"
+    },
+    {
+      "repository": "companion",
+      "source": "/home/l/projects/AIOA-spArkHAT-Companion/android/app/src/test/java/eu/sparkhat/aioa/companion/InteropVectorTest.kt",
+      "head": "9cf6c567b40bc87385fb90e9143b0fb170889b2a",
+      "branch": "codex/final-connect-20261023",
+      "path": "android/app/src/test/java/eu/sparkhat/aioa/companion/InteropVectorTest.kt",
+      "sha256": "ccec9cb143bd3234f6c088a96672d3f53e60efec331cad348a646ec51b39919d",
+      "license": "UNKNOWN_NO_LICENSE_FILE_FOUND",
+      "copy_policy": "neutral compatible implementation; no verbatim project code copy"
+    },
+    {
+      "repository": "companion",
+      "source": "/home/l/projects/AIOA-spArkHAT-Companion/android/app/src/test/java/eu/sparkhat/aioa/companion/ProtocolTest.kt",
+      "head": "9cf6c567b40bc87385fb90e9143b0fb170889b2a",
+      "branch": "codex/final-connect-20261023",
+      "path": "android/app/src/test/java/eu/sparkhat/aioa/companion/ProtocolTest.kt",
+      "sha256": "de111e4d79e79bd2603438806446dd1982c65586bf766118e9d12ed582f5a61c",
+      "license": "UNKNOWN_NO_LICENSE_FILE_FOUND",
+      "copy_policy": "neutral compatible implementation; no verbatim project code copy"
+    },
+    {
+      "repository": "companion",
+      "source": "/home/l/projects/AIOA-spArkHAT-Companion/android/app/src/test/java/eu/sparkhat/aioa/companion/ReadPublicationRaceTest.kt",
+      "head": "9cf6c567b40bc87385fb90e9143b0fb170889b2a",
+      "branch": "codex/final-connect-20261023",
+      "path": "android/app/src/test/java/eu/sparkhat/aioa/companion/ReadPublicationRaceTest.kt",
+      "sha256": "59532a26c792418c51557f2e2da95c47c7d111004e28d36fc672b803ca631bef",
+      "license": "UNKNOWN_NO_LICENSE_FILE_FOUND",
+      "copy_policy": "neutral compatible implementation; no verbatim project code copy"
+    },
+    {
+      "repository": "companion",
+      "source": "/home/l/projects/AIOA-spArkHAT-Companion/android/app/src/test/java/eu/sparkhat/aioa/companion/RepositoryTest.kt",
+      "head": "9cf6c567b40bc87385fb90e9143b0fb170889b2a",
+      "branch": "codex/final-connect-20261023",
+      "path": "android/app/src/test/java/eu/sparkhat/aioa/companion/RepositoryTest.kt",
+      "sha256": "b4725460a58997c4fe31cdc2bccd6b1b5962c26e612fcf169227d621532d6979",
+      "license": "UNKNOWN_NO_LICENSE_FILE_FOUND",
+      "copy_policy": "neutral compatible implementation; no verbatim project code copy"
+    },
+    {
+      "repository": "companion",
+      "source": "/home/l/projects/AIOA-spArkHAT-Companion/android/app/src/test/java/eu/sparkhat/aioa/companion/TrustTest.kt",
+      "head": "9cf6c567b40bc87385fb90e9143b0fb170889b2a",
+      "branch": "codex/final-connect-20261023",
+      "path": "android/app/src/test/java/eu/sparkhat/aioa/companion/TrustTest.kt",
+      "sha256": "3608f4cda5530d5666b8d86980ba39f6d2bcf2e756cabab1a134d13cf25063e6",
+      "license": "UNKNOWN_NO_LICENSE_FILE_FOUND",
+      "copy_policy": "neutral compatible implementation; no verbatim project code copy"
+    },
+    {
+      "repository": "companion",
+      "source": "/home/l/projects/AIOA-spArkHAT-Companion/android/build.gradle.kts",
+      "head": "9cf6c567b40bc87385fb90e9143b0fb170889b2a",
+      "branch": "codex/final-connect-20261023",
+      "path": "android/build.gradle.kts",
+      "sha256": "0e5ddb6b36d817c42ccdf0132bcc0aa602c2948e451315fc77f0b9c4199df9f2",
+      "license": "UNKNOWN_NO_LICENSE_FILE_FOUND",
+      "copy_policy": "neutral compatible implementation; no verbatim project code copy"
+    },
+    {
+      "repository": "companion",
+      "source": "/home/l/projects/AIOA-spArkHAT-Companion/android/gradle/libs.versions.toml",
+      "head": "9cf6c567b40bc87385fb90e9143b0fb170889b2a",
+      "branch": "codex/final-connect-20261023",
+      "path": "android/gradle/libs.versions.toml",
+      "sha256": "aafe073fc7c0ecd61fa4360b2503edd5e85c34acce88ff4dfb3d5ba6e87e9c88",
+      "license": "UNKNOWN_NO_LICENSE_FILE_FOUND",
+      "copy_policy": "neutral compatible implementation; no verbatim project code copy"
+    },
+    {
+      "repository": "companion",
+      "source": "/home/l/projects/AIOA-spArkHAT-Companion/android/gradle/wrapper/gradle-wrapper.properties",
+      "head": "9cf6c567b40bc87385fb90e9143b0fb170889b2a",
+      "branch": "codex/final-connect-20261023",
+      "path": "android/gradle/wrapper/gradle-wrapper.properties",
+      "sha256": "3b6b8df392b92f86332d907707f3d952a32c8d6e1fedabafe2b5ec3d933a78c4",
+      "license": "UNKNOWN_NO_LICENSE_FILE_FOUND",
+      "copy_policy": "neutral compatible implementation; no verbatim project code copy"
+    },
+    {
+      "repository": "companion",
+      "source": "/home/l/projects/AIOA-spArkHAT-Companion/android/settings.gradle.kts",
+      "head": "9cf6c567b40bc87385fb90e9143b0fb170889b2a",
+      "branch": "codex/final-connect-20261023",
+      "path": "android/settings.gradle.kts",
+      "sha256": "a81ae640ac379e50e2f34760db1dfcf5761b6d2a517c9faac97dbe1fde9aed97",
+      "license": "UNKNOWN_NO_LICENSE_FILE_FOUND",
+      "copy_policy": "neutral compatible implementation; no verbatim project code copy"
+    },
+    {
+      "repository": "companion",
+      "source": "/home/l/projects/AIOA-spArkHAT-Companion/gateway/auth.py",
+      "head": "9cf6c567b40bc87385fb90e9143b0fb170889b2a",
+      "branch": "codex/final-connect-20261023",
+      "path": "gateway/auth.py",
+      "sha256": "8a7c4782925931e93e150727fdfa3598443b6f9d0c9f6ace9a255d94da3c7fa6",
+      "license": "UNKNOWN_NO_LICENSE_FILE_FOUND",
+      "copy_policy": "neutral compatible implementation; no verbatim project code copy"
+    },
+    {
+      "repository": "companion",
+      "source": "/home/l/projects/AIOA-spArkHAT-Companion/gateway/config.py",
+      "head": "9cf6c567b40bc87385fb90e9143b0fb170889b2a",
+      "branch": "codex/final-connect-20261023",
+      "path": "gateway/config.py",
+      "sha256": "2ba27d4fcc0e1cc26286bf35d44b867ebc56facaa235ed4db564642272fef5ca",
+      "license": "UNKNOWN_NO_LICENSE_FILE_FOUND",
+      "copy_policy": "neutral compatible implementation; no verbatim project code copy"
+    },
+    {
+      "repository": "companion",
+      "source": "/home/l/projects/AIOA-spArkHAT-Companion/gateway/server.py",
+      "head": "9cf6c567b40bc87385fb90e9143b0fb170889b2a",
+      "branch": "codex/final-connect-20261023",
+      "path": "gateway/server.py",
+      "sha256": "6caf9c739254d49ae6b64fa341dce371addcad01a1f4de7c77ed2c5b4e1666cd",
+      "license": "UNKNOWN_NO_LICENSE_FILE_FOUND",
+      "copy_policy": "neutral compatible implementation; no verbatim project code copy"
+    },
+    {
+      "repository": "companion",
+      "source": "/home/l/projects/AIOA-spArkHAT-Companion/gateway/wire.py",
+      "head": "9cf6c567b40bc87385fb90e9143b0fb170889b2a",
+      "branch": "codex/final-connect-20261023",
+      "path": "gateway/wire.py",
+      "sha256": "5570360541023cd358ba4b6db113848cf12d8dca03dec21c428cf57728b778d0",
+      "license": "UNKNOWN_NO_LICENSE_FILE_FOUND",
+      "copy_policy": "neutral compatible implementation; no verbatim project code copy"
+    },
+    {
+      "repository": "companion",
+      "source": "/home/l/projects/AIOA-spArkHAT-Companion/protocol/CONTRACT.md",
+      "head": "9cf6c567b40bc87385fb90e9143b0fb170889b2a",
+      "branch": "codex/final-connect-20261023",
+      "path": "protocol/CONTRACT.md",
+      "sha256": "1e7570f64a362156448a52edfa60168d1e6f87563610eaf8bd63d4192dfff89e",
+      "license": "UNKNOWN_NO_LICENSE_FILE_FOUND",
+      "copy_policy": "neutral compatible implementation; no verbatim project code copy"
+    },
+    {
+      "repository": "agentlab",
+      "source": "/home/l/AIOA_LOCAL_WORKTREES/aioa-android-agent-lab-20261028/android/app/build.gradle.kts",
+      "head": "fb8642f108aea7db5db7a0b1446d4145f4167991",
+      "branch": "feature/aioa-android-agent-lab-20261028",
+      "path": "android/app/build.gradle.kts",
+      "sha256": "ed1214214e6740316f3f00df5b2a5c25012bd24632aaf3a111b6897885bfe51a",
+      "license": "UNKNOWN_NO_LICENSE_FILE_FOUND",
+      "copy_policy": "neutral compatible implementation; no verbatim project code copy"
+    },
+    {
+      "repository": "agentlab",
+      "source": "/home/l/AIOA_LOCAL_WORKTREES/aioa-android-agent-lab-20261028/android/app/src/androidTest/java/eu/sparkhat/aioa/companion/KeystoreTest.kt",
+      "head": "fb8642f108aea7db5db7a0b1446d4145f4167991",
+      "branch": "feature/aioa-android-agent-lab-20261028",
+      "path": "android/app/src/androidTest/java/eu/sparkhat/aioa/companion/KeystoreTest.kt",
+      "sha256": "a40c429869727c2d030a99e6a4ed129e3504a36f23ed4e568fd122b8c56dce5e",
+      "license": "UNKNOWN_NO_LICENSE_FILE_FOUND",
+      "copy_policy": "neutral compatible implementation; no verbatim project code copy"
+    },
+    {
+      "repository": "agentlab",
+      "source": "/home/l/AIOA_LOCAL_WORKTREES/aioa-android-agent-lab-20261028/android/app/src/androidTest/java/eu/sparkhat/aioa/companion/LocalMaintenanceWorkerTest.kt",
+      "head": "fb8642f108aea7db5db7a0b1446d4145f4167991",
+      "branch": "feature/aioa-android-agent-lab-20261028",
+      "path": "android/app/src/androidTest/java/eu/sparkhat/aioa/companion/LocalMaintenanceWorkerTest.kt",
+      "sha256": "7a069cae62c2c27d91092392b46131e3b3692c593a546cc2c2b4467c3f145b19",
+      "license": "UNKNOWN_NO_LICENSE_FILE_FOUND",
+      "copy_policy": "neutral compatible implementation; no verbatim project code copy"
+    },
+    {
+      "repository": "agentlab",
+      "source": "/home/l/AIOA_LOCAL_WORKTREES/aioa-android-agent-lab-20261028/android/app/src/androidTest/java/eu/sparkhat/aioa/companion/NavigationTest.kt",
+      "head": "fb8642f108aea7db5db7a0b1446d4145f4167991",
+      "branch": "feature/aioa-android-agent-lab-20261028",
+      "path": "android/app/src/androidTest/java/eu/sparkhat/aioa/companion/NavigationTest.kt",
+      "sha256": "74f98f2991760fc0764af3a00a4321df22a8eb9c183d661bf851e2fb81a0340f",
+      "license": "UNKNOWN_NO_LICENSE_FILE_FOUND",
+      "copy_policy": "neutral compatible implementation; no verbatim project code copy"
+    },
+    {
+      "repository": "agentlab",
+      "source": "/home/l/AIOA_LOCAL_WORKTREES/aioa-android-agent-lab-20261028/android/app/src/main/AndroidManifest.xml",
+      "head": "fb8642f108aea7db5db7a0b1446d4145f4167991",
+      "branch": "feature/aioa-android-agent-lab-20261028",
+      "path": "android/app/src/main/AndroidManifest.xml",
+      "sha256": "1d33637dfc521ad391fb8a419494652dfa911275f79a0893fcb3403e097a89f4",
+      "license": "UNKNOWN_NO_LICENSE_FILE_FOUND",
+      "copy_policy": "neutral compatible implementation; no verbatim project code copy"
+    },
+    {
+      "repository": "agentlab",
+      "source": "/home/l/AIOA_LOCAL_WORKTREES/aioa-android-agent-lab-20261028/android/app/src/main/java/eu/sparkhat/aioa/companion/AgentLabClient.kt",
+      "head": "fb8642f108aea7db5db7a0b1446d4145f4167991",
+      "branch": "feature/aioa-android-agent-lab-20261028",
+      "path": "android/app/src/main/java/eu/sparkhat/aioa/companion/AgentLabClient.kt",
+      "sha256": "d880abfe1eda270133fc3ba4881bec9d8896a5004b821110ad3751a31d23ee6e",
+      "license": "UNKNOWN_NO_LICENSE_FILE_FOUND",
+      "copy_policy": "neutral compatible implementation; no verbatim project code copy"
+    },
+    {
+      "repository": "agentlab",
+      "source": "/home/l/AIOA_LOCAL_WORKTREES/aioa-android-agent-lab-20261028/android/app/src/main/java/eu/sparkhat/aioa/companion/AgentLabScreen.kt",
+      "head": "fb8642f108aea7db5db7a0b1446d4145f4167991",
+      "branch": "feature/aioa-android-agent-lab-20261028",
+      "path": "android/app/src/main/java/eu/sparkhat/aioa/companion/AgentLabScreen.kt",
+      "sha256": "2ccd7b890205c5c4e7a3249a1c05d54a657252635f077ea130fa4f18b0d98666",
+      "license": "UNKNOWN_NO_LICENSE_FILE_FOUND",
+      "copy_policy": "neutral compatible implementation; no verbatim project code copy"
+    },
+    {
+      "repository": "agentlab",
+      "source": "/home/l/AIOA_LOCAL_WORKTREES/aioa-android-agent-lab-20261028/android/app/src/main/java/eu/sparkhat/aioa/companion/CompanionUi.kt",
+      "head": "fb8642f108aea7db5db7a0b1446d4145f4167991",
+      "branch": "feature/aioa-android-agent-lab-20261028",
+      "path": "android/app/src/main/java/eu/sparkhat/aioa/companion/CompanionUi.kt",
+      "sha256": "ac1e7c169e6bfa1d444e83ef71fb614513fe0e853c8ef9964e7a253ff0e15e6a",
+      "license": "UNKNOWN_NO_LICENSE_FILE_FOUND",
+      "copy_policy": "neutral compatible implementation; no verbatim project code copy"
+    },
+    {
+      "repository": "agentlab",
+      "source": "/home/l/AIOA_LOCAL_WORKTREES/aioa-android-agent-lab-20261028/android/app/src/main/java/eu/sparkhat/aioa/companion/GatewayRepository.kt",
+      "head": "fb8642f108aea7db5db7a0b1446d4145f4167991",
+      "branch": "feature/aioa-android-agent-lab-20261028",
+      "path": "android/app/src/main/java/eu/sparkhat/aioa/companion/GatewayRepository.kt",
+      "sha256": "39dd07b86689cf8e20b91234e72ec2c6cf3e6f17721a640aab5a5e05864d22f4",
+      "license": "UNKNOWN_NO_LICENSE_FILE_FOUND",
+      "copy_policy": "neutral compatible implementation; no verbatim project code copy"
+    },
+    {
+      "repository": "agentlab",
+      "source": "/home/l/AIOA_LOCAL_WORKTREES/aioa-android-agent-lab-20261028/android/app/src/main/java/eu/sparkhat/aioa/companion/HostIdentity.kt",
+      "head": "fb8642f108aea7db5db7a0b1446d4145f4167991",
+      "branch": "feature/aioa-android-agent-lab-20261028",
+      "path": "android/app/src/main/java/eu/sparkhat/aioa/companion/HostIdentity.kt",
+      "sha256": "e00189d7dc66bb7bc5af7a9159774de17c2ad764568b285498ac49516481699d",
+      "license": "UNKNOWN_NO_LICENSE_FILE_FOUND",
+      "copy_policy": "neutral compatible implementation; no verbatim project code copy"
+    },
+    {
+      "repository": "agentlab",
+      "source": "/home/l/AIOA_LOCAL_WORKTREES/aioa-android-agent-lab-20261028/android/app/src/main/java/eu/sparkhat/aioa/companion/LocalDiagnostics.kt",
+      "head": "fb8642f108aea7db5db7a0b1446d4145f4167991",
+      "branch": "feature/aioa-android-agent-lab-20261028",
+      "path": "android/app/src/main/java/eu/sparkhat/aioa/companion/LocalDiagnostics.kt",
+      "sha256": "c99b99179cc584397cd51b61c4dc63a9fb7d37cba193e5d2853b6bdf2f9252c7",
+      "license": "UNKNOWN_NO_LICENSE_FILE_FOUND",
+      "copy_policy": "neutral compatible implementation; no verbatim project code copy"
+    },
+    {
+      "repository": "agentlab",
+      "source": "/home/l/AIOA_LOCAL_WORKTREES/aioa-android-agent-lab-20261028/android/app/src/main/java/eu/sparkhat/aioa/companion/LocalMaintenanceWorker.kt",
+      "head": "fb8642f108aea7db5db7a0b1446d4145f4167991",
+      "branch": "feature/aioa-android-agent-lab-20261028",
+      "path": "android/app/src/main/java/eu/sparkhat/aioa/companion/LocalMaintenanceWorker.kt",
+      "sha256": "c7ae21f86e2a5edafe8f98ce1fb7f1e6d20677c0afafdaeaab5e8d3982fa8ce9",
+      "license": "UNKNOWN_NO_LICENSE_FILE_FOUND",
+      "copy_policy": "neutral compatible implementation; no verbatim project code copy"
+    },
+    {
+      "repository": "agentlab",
+      "source": "/home/l/AIOA_LOCAL_WORKTREES/aioa-android-agent-lab-20261028/android/app/src/main/java/eu/sparkhat/aioa/companion/MainActivity.kt",
+      "head": "fb8642f108aea7db5db7a0b1446d4145f4167991",
+      "branch": "feature/aioa-android-agent-lab-20261028",
+      "path": "android/app/src/main/java/eu/sparkhat/aioa/companion/MainActivity.kt",
+      "sha256": "b95a319e25ff6db67b9e032e665b9757d0ad0053ce1e28de1ba96c34d7cfbc30",
+      "license": "UNKNOWN_NO_LICENSE_FILE_FOUND",
+      "copy_policy": "neutral compatible implementation; no verbatim project code copy"
+    },
+    {
+      "repository": "agentlab",
+      "source": "/home/l/AIOA_LOCAL_WORKTREES/aioa-android-agent-lab-20261028/android/app/src/main/java/eu/sparkhat/aioa/companion/NativeTrust.kt",
+      "head": "fb8642f108aea7db5db7a0b1446d4145f4167991",
+      "branch": "feature/aioa-android-agent-lab-20261028",
+      "path": "android/app/src/main/java/eu/sparkhat/aioa/companion/NativeTrust.kt",
+      "sha256": "d050158b146527ceeba0a6b3f4fb99dacf044d10ab6297d6ec1562de069d632a",
+      "license": "UNKNOWN_NO_LICENSE_FILE_FOUND",
+      "copy_policy": "neutral compatible implementation; no verbatim project code copy"
+    },
+    {
+      "repository": "agentlab",
+      "source": "/home/l/AIOA_LOCAL_WORKTREES/aioa-android-agent-lab-20261028/android/app/src/main/java/eu/sparkhat/aioa/companion/Protocol.kt",
+      "head": "fb8642f108aea7db5db7a0b1446d4145f4167991",
+      "branch": "feature/aioa-android-agent-lab-20261028",
+      "path": "android/app/src/main/java/eu/sparkhat/aioa/companion/Protocol.kt",
+      "sha256": "3c2cdf90c6b390beae4a50def558b0f9ada0fc61c58bae60be5543b6c0336a96",
+      "license": "UNKNOWN_NO_LICENSE_FILE_FOUND",
+      "copy_policy": "neutral compatible implementation; no verbatim project code copy"
+    },
+    {
+      "repository": "agentlab",
+      "source": "/home/l/AIOA_LOCAL_WORKTREES/aioa-android-agent-lab-20261028/android/app/src/main/java/eu/sparkhat/aioa/companion/RemoteTransport.kt",
+      "head": "fb8642f108aea7db5db7a0b1446d4145f4167991",
+      "branch": "feature/aioa-android-agent-lab-20261028",
+      "path": "android/app/src/main/java/eu/sparkhat/aioa/companion/RemoteTransport.kt",
+      "sha256": "5782737ee136de1bdb0431c741b1ab2e9addc74fcc4b094d41c1c17399d0b35f",
+      "license": "UNKNOWN_NO_LICENSE_FILE_FOUND",
+      "copy_policy": "neutral compatible implementation; no verbatim project code copy"
+    },
+    {
+      "repository": "agentlab",
+      "source": "/home/l/AIOA_LOCAL_WORKTREES/aioa-android-agent-lab-20261028/android/app/src/main/java/eu/sparkhat/aioa/companion/Security.kt",
+      "head": "fb8642f108aea7db5db7a0b1446d4145f4167991",
+      "branch": "feature/aioa-android-agent-lab-20261028",
+      "path": "android/app/src/main/java/eu/sparkhat/aioa/companion/Security.kt",
+      "sha256": "0690a8de033b75ddad1c47f498cec4125e6234dd184b5aab7c32d857fabd36ce",
+      "license": "UNKNOWN_NO_LICENSE_FILE_FOUND",
+      "copy_policy": "neutral compatible implementation; no verbatim project code copy"
+    },
+    {
+      "repository": "agentlab",
+      "source": "/home/l/AIOA_LOCAL_WORKTREES/aioa-android-agent-lab-20261028/android/app/src/main/java/eu/sparkhat/aioa/companion/SparkhatScreensV1.kt",
+      "head": "fb8642f108aea7db5db7a0b1446d4145f4167991",
+      "branch": "feature/aioa-android-agent-lab-20261028",
+      "path": "android/app/src/main/java/eu/sparkhat/aioa/companion/SparkhatScreensV1.kt",
+      "sha256": "6f40beddf21cfb3565cdb387966ffb9c2555a91f65114bd326e281603742bb00",
+      "license": "UNKNOWN_NO_LICENSE_FILE_FOUND",
+      "copy_policy": "neutral compatible implementation; no verbatim project code copy"
+    },
+    {
+      "repository": "agentlab",
+      "source": "/home/l/AIOA_LOCAL_WORKTREES/aioa-android-agent-lab-20261028/android/app/src/main/res/drawable/ic_aioa.xml",
+      "head": "fb8642f108aea7db5db7a0b1446d4145f4167991",
+      "branch": "feature/aioa-android-agent-lab-20261028",
+      "path": "android/app/src/main/res/drawable/ic_aioa.xml",
+      "sha256": "f11c52c458a27fba2e7c7f8243491e4eaecb1d5f539f3922b8c506a366b81e2b",
+      "license": "UNKNOWN_NO_LICENSE_FILE_FOUND",
+      "copy_policy": "neutral compatible implementation; no verbatim project code copy"
+    },
+    {
+      "repository": "agentlab",
+      "source": "/home/l/AIOA_LOCAL_WORKTREES/aioa-android-agent-lab-20261028/android/app/src/main/res/xml/data_extraction_rules.xml",
+      "head": "fb8642f108aea7db5db7a0b1446d4145f4167991",
+      "branch": "feature/aioa-android-agent-lab-20261028",
+      "path": "android/app/src/main/res/xml/data_extraction_rules.xml",
+      "sha256": "aa78fd133cebec0e7fcc8d75a03549f3579e6ba746e5014243e639c3321d9c52",
+      "license": "UNKNOWN_NO_LICENSE_FILE_FOUND",
+      "copy_policy": "neutral compatible implementation; no verbatim project code copy"
+    },
+    {
+      "repository": "agentlab",
+      "source": "/home/l/AIOA_LOCAL_WORKTREES/aioa-android-agent-lab-20261028/android/app/src/main/res/xml/network_security_config.xml",
+      "head": "fb8642f108aea7db5db7a0b1446d4145f4167991",
+      "branch": "feature/aioa-android-agent-lab-20261028",
+      "path": "android/app/src/main/res/xml/network_security_config.xml",
+      "sha256": "eb5f5c57a88fc656cb97ee142694b996b286064ba973e51e0158bcdff08b34f2",
+      "license": "UNKNOWN_NO_LICENSE_FILE_FOUND",
+      "copy_policy": "neutral compatible implementation; no verbatim project code copy"
+    },
+    {
+      "repository": "agentlab",
+      "source": "/home/l/AIOA_LOCAL_WORKTREES/aioa-android-agent-lab-20261028/android/app/src/test/java/eu/sparkhat/aioa/companion/AgentLabContractTest.kt",
+      "head": "fb8642f108aea7db5db7a0b1446d4145f4167991",
+      "branch": "feature/aioa-android-agent-lab-20261028",
+      "path": "android/app/src/test/java/eu/sparkhat/aioa/companion/AgentLabContractTest.kt",
+      "sha256": "f80bfbfce7b43dfe9d25929a083bb19ba772e6ae0966b126b3933684bf8ba2fa",
+      "license": "UNKNOWN_NO_LICENSE_FILE_FOUND",
+      "copy_policy": "neutral compatible implementation; no verbatim project code copy"
+    },
+    {
+      "repository": "agentlab",
+      "source": "/home/l/AIOA_LOCAL_WORKTREES/aioa-android-agent-lab-20261028/android/app/src/test/java/eu/sparkhat/aioa/companion/DiagnosticsTest.kt",
+      "head": "fb8642f108aea7db5db7a0b1446d4145f4167991",
+      "branch": "feature/aioa-android-agent-lab-20261028",
+      "path": "android/app/src/test/java/eu/sparkhat/aioa/companion/DiagnosticsTest.kt",
+      "sha256": "92f352b6a7d024ccb92a8a57cfe25062290b059b091618cdded945beaf540545",
+      "license": "UNKNOWN_NO_LICENSE_FILE_FOUND",
+      "copy_policy": "neutral compatible implementation; no verbatim project code copy"
+    },
+    {
+      "repository": "agentlab",
+      "source": "/home/l/AIOA_LOCAL_WORKTREES/aioa-android-agent-lab-20261028/android/app/src/test/java/eu/sparkhat/aioa/companion/HostCredentialReleaseTest.kt",
+      "head": "fb8642f108aea7db5db7a0b1446d4145f4167991",
+      "branch": "feature/aioa-android-agent-lab-20261028",
+      "path": "android/app/src/test/java/eu/sparkhat/aioa/companion/HostCredentialReleaseTest.kt",
+      "sha256": "4585be290d003ddcda0bab723fec336cb17fccc35300237dea41aebf239d4499",
+      "license": "UNKNOWN_NO_LICENSE_FILE_FOUND",
+      "copy_policy": "neutral compatible implementation; no verbatim project code copy"
+    },
+    {
+      "repository": "agentlab",
+      "source": "/home/l/AIOA_LOCAL_WORKTREES/aioa-android-agent-lab-20261028/android/app/src/test/java/eu/sparkhat/aioa/companion/HostIdentityTest.kt",
+      "head": "fb8642f108aea7db5db7a0b1446d4145f4167991",
+      "branch": "feature/aioa-android-agent-lab-20261028",
+      "path": "android/app/src/test/java/eu/sparkhat/aioa/companion/HostIdentityTest.kt",
+      "sha256": "64bd3eff6df005d9b2d2b1d31bbc8da010b4a04b24b57f7ec6d620e911626ced",
+      "license": "UNKNOWN_NO_LICENSE_FILE_FOUND",
+      "copy_policy": "neutral compatible implementation; no verbatim project code copy"
+    },
+    {
+      "repository": "agentlab",
+      "source": "/home/l/AIOA_LOCAL_WORKTREES/aioa-android-agent-lab-20261028/android/app/src/test/java/eu/sparkhat/aioa/companion/InteropVectorTest.kt",
+      "head": "fb8642f108aea7db5db7a0b1446d4145f4167991",
+      "branch": "feature/aioa-android-agent-lab-20261028",
+      "path": "android/app/src/test/java/eu/sparkhat/aioa/companion/InteropVectorTest.kt",
+      "sha256": "ccec9cb143bd3234f6c088a96672d3f53e60efec331cad348a646ec51b39919d",
+      "license": "UNKNOWN_NO_LICENSE_FILE_FOUND",
+      "copy_policy": "neutral compatible implementation; no verbatim project code copy"
+    },
+    {
+      "repository": "agentlab",
+      "source": "/home/l/AIOA_LOCAL_WORKTREES/aioa-android-agent-lab-20261028/android/app/src/test/java/eu/sparkhat/aioa/companion/ProtocolTest.kt",
+      "head": "fb8642f108aea7db5db7a0b1446d4145f4167991",
+      "branch": "feature/aioa-android-agent-lab-20261028",
+      "path": "android/app/src/test/java/eu/sparkhat/aioa/companion/ProtocolTest.kt",
+      "sha256": "de111e4d79e79bd2603438806446dd1982c65586bf766118e9d12ed582f5a61c",
+      "license": "UNKNOWN_NO_LICENSE_FILE_FOUND",
+      "copy_policy": "neutral compatible implementation; no verbatim project code copy"
+    },
+    {
+      "repository": "agentlab",
+      "source": "/home/l/AIOA_LOCAL_WORKTREES/aioa-android-agent-lab-20261028/android/app/src/test/java/eu/sparkhat/aioa/companion/ReadPublicationRaceTest.kt",
+      "head": "fb8642f108aea7db5db7a0b1446d4145f4167991",
+      "branch": "feature/aioa-android-agent-lab-20261028",
+      "path": "android/app/src/test/java/eu/sparkhat/aioa/companion/ReadPublicationRaceTest.kt",
+      "sha256": "59532a26c792418c51557f2e2da95c47c7d111004e28d36fc672b803ca631bef",
+      "license": "UNKNOWN_NO_LICENSE_FILE_FOUND",
+      "copy_policy": "neutral compatible implementation; no verbatim project code copy"
+    },
+    {
+      "repository": "agentlab",
+      "source": "/home/l/AIOA_LOCAL_WORKTREES/aioa-android-agent-lab-20261028/android/app/src/test/java/eu/sparkhat/aioa/companion/RepositoryTest.kt",
+      "head": "fb8642f108aea7db5db7a0b1446d4145f4167991",
+      "branch": "feature/aioa-android-agent-lab-20261028",
+      "path": "android/app/src/test/java/eu/sparkhat/aioa/companion/RepositoryTest.kt",
+      "sha256": "b4725460a58997c4fe31cdc2bccd6b1b5962c26e612fcf169227d621532d6979",
+      "license": "UNKNOWN_NO_LICENSE_FILE_FOUND",
+      "copy_policy": "neutral compatible implementation; no verbatim project code copy"
+    },
+    {
+      "repository": "agentlab",
+      "source": "/home/l/AIOA_LOCAL_WORKTREES/aioa-android-agent-lab-20261028/android/app/src/test/java/eu/sparkhat/aioa/companion/TrustTest.kt",
+      "head": "fb8642f108aea7db5db7a0b1446d4145f4167991",
+      "branch": "feature/aioa-android-agent-lab-20261028",
+      "path": "android/app/src/test/java/eu/sparkhat/aioa/companion/TrustTest.kt",
+      "sha256": "3608f4cda5530d5666b8d86980ba39f6d2bcf2e756cabab1a134d13cf25063e6",
+      "license": "UNKNOWN_NO_LICENSE_FILE_FOUND",
+      "copy_policy": "neutral compatible implementation; no verbatim project code copy"
+    },
+    {
+      "repository": "agentlab",
+      "source": "/home/l/AIOA_LOCAL_WORKTREES/aioa-android-agent-lab-20261028/android/build.gradle.kts",
+      "head": "fb8642f108aea7db5db7a0b1446d4145f4167991",
+      "branch": "feature/aioa-android-agent-lab-20261028",
+      "path": "android/build.gradle.kts",
+      "sha256": "0e5ddb6b36d817c42ccdf0132bcc0aa602c2948e451315fc77f0b9c4199df9f2",
+      "license": "UNKNOWN_NO_LICENSE_FILE_FOUND",
+      "copy_policy": "neutral compatible implementation; no verbatim project code copy"
+    },
+    {
+      "repository": "agentlab",
+      "source": "/home/l/AIOA_LOCAL_WORKTREES/aioa-android-agent-lab-20261028/android/gradle/libs.versions.toml",
+      "head": "fb8642f108aea7db5db7a0b1446d4145f4167991",
+      "branch": "feature/aioa-android-agent-lab-20261028",
+      "path": "android/gradle/libs.versions.toml",
+      "sha256": "aafe073fc7c0ecd61fa4360b2503edd5e85c34acce88ff4dfb3d5ba6e87e9c88",
+      "license": "UNKNOWN_NO_LICENSE_FILE_FOUND",
+      "copy_policy": "neutral compatible implementation; no verbatim project code copy"
+    },
+    {
+      "repository": "agentlab",
+      "source": "/home/l/AIOA_LOCAL_WORKTREES/aioa-android-agent-lab-20261028/android/gradle/wrapper/gradle-wrapper.properties",
+      "head": "fb8642f108aea7db5db7a0b1446d4145f4167991",
+      "branch": "feature/aioa-android-agent-lab-20261028",
+      "path": "android/gradle/wrapper/gradle-wrapper.properties",
+      "sha256": "3b6b8df392b92f86332d907707f3d952a32c8d6e1fedabafe2b5ec3d933a78c4",
+      "license": "UNKNOWN_NO_LICENSE_FILE_FOUND",
+      "copy_policy": "neutral compatible implementation; no verbatim project code copy"
+    },
+    {
+      "repository": "agentlab",
+      "source": "/home/l/AIOA_LOCAL_WORKTREES/aioa-android-agent-lab-20261028/android/settings.gradle.kts",
+      "head": "fb8642f108aea7db5db7a0b1446d4145f4167991",
+      "branch": "feature/aioa-android-agent-lab-20261028",
+      "path": "android/settings.gradle.kts",
+      "sha256": "a81ae640ac379e50e2f34760db1dfcf5761b6d2a517c9faac97dbe1fde9aed97",
+      "license": "UNKNOWN_NO_LICENSE_FILE_FOUND",
+      "copy_policy": "neutral compatible implementation; no verbatim project code copy"
+    },
+    {
+      "repository": "agentlab",
+      "source": "/home/l/AIOA_LOCAL_WORKTREES/aioa-android-agent-lab-20261028/docs/AGENT_LAB_ANDROID_2026-10-28.md",
+      "head": "fb8642f108aea7db5db7a0b1446d4145f4167991",
+      "branch": "feature/aioa-android-agent-lab-20261028",
+      "path": "docs/AGENT_LAB_ANDROID_2026-10-28.md",
+      "sha256": "86100f16af0c39f0b95eb38368d2e7c62d7f6cdd88d3f130f85299ef5967f686",
+      "license": "UNKNOWN_NO_LICENSE_FILE_FOUND",
+      "copy_policy": "neutral compatible implementation; no verbatim project code copy"
+    },
+    {
+      "repository": "agentlab",
+      "source": "/home/l/AIOA_LOCAL_WORKTREES/aioa-android-agent-lab-20261028/gateway/agent_lab.py",
+      "head": "fb8642f108aea7db5db7a0b1446d4145f4167991",
+      "branch": "feature/aioa-android-agent-lab-20261028",
+      "path": "gateway/agent_lab.py",
+      "sha256": "5666f087a84efdea69e227e8c6f627626224fd7cb47787b2b48afeda5c033c23",
+      "license": "UNKNOWN_NO_LICENSE_FILE_FOUND",
+      "copy_policy": "neutral compatible implementation; no verbatim project code copy"
+    },
+    {
+      "repository": "agentlab",
+      "source": "/home/l/AIOA_LOCAL_WORKTREES/aioa-android-agent-lab-20261028/gateway/auth.py",
+      "head": "fb8642f108aea7db5db7a0b1446d4145f4167991",
+      "branch": "feature/aioa-android-agent-lab-20261028",
+      "path": "gateway/auth.py",
+      "sha256": "8a7c4782925931e93e150727fdfa3598443b6f9d0c9f6ace9a255d94da3c7fa6",
+      "license": "UNKNOWN_NO_LICENSE_FILE_FOUND",
+      "copy_policy": "neutral compatible implementation; no verbatim project code copy"
+    },
+    {
+      "repository": "agentlab",
+      "source": "/home/l/AIOA_LOCAL_WORKTREES/aioa-android-agent-lab-20261028/gateway/config.py",
+      "head": "fb8642f108aea7db5db7a0b1446d4145f4167991",
+      "branch": "feature/aioa-android-agent-lab-20261028",
+      "path": "gateway/config.py",
+      "sha256": "2ba27d4fcc0e1cc26286bf35d44b867ebc56facaa235ed4db564642272fef5ca",
+      "license": "UNKNOWN_NO_LICENSE_FILE_FOUND",
+      "copy_policy": "neutral compatible implementation; no verbatim project code copy"
+    },
+    {
+      "repository": "agentlab",
+      "source": "/home/l/AIOA_LOCAL_WORKTREES/aioa-android-agent-lab-20261028/gateway/server.py",
+      "head": "fb8642f108aea7db5db7a0b1446d4145f4167991",
+      "branch": "feature/aioa-android-agent-lab-20261028",
+      "path": "gateway/server.py",
+      "sha256": "320edacb8c89359603f36eea488379d6f3de30e296bcaea832e10e4456c42e86",
+      "license": "UNKNOWN_NO_LICENSE_FILE_FOUND",
+      "copy_policy": "neutral compatible implementation; no verbatim project code copy"
+    },
+    {
+      "repository": "agentlab",
+      "source": "/home/l/AIOA_LOCAL_WORKTREES/aioa-android-agent-lab-20261028/gateway/wire.py",
+      "head": "fb8642f108aea7db5db7a0b1446d4145f4167991",
+      "branch": "feature/aioa-android-agent-lab-20261028",
+      "path": "gateway/wire.py",
+      "sha256": "5570360541023cd358ba4b6db113848cf12d8dca03dec21c428cf57728b778d0",
+      "license": "UNKNOWN_NO_LICENSE_FILE_FOUND",
+      "copy_policy": "neutral compatible implementation; no verbatim project code copy"
+    },
+    {
+      "repository": "agentlab",
+      "source": "/home/l/AIOA_LOCAL_WORKTREES/aioa-android-agent-lab-20261028/protocol/CONTRACT.md",
+      "head": "fb8642f108aea7db5db7a0b1446d4145f4167991",
+      "branch": "feature/aioa-android-agent-lab-20261028",
+      "path": "protocol/CONTRACT.md",
+      "sha256": "1e7570f64a362156448a52edfa60168d1e6f87563610eaf8bd63d4192dfff89e",
+      "license": "UNKNOWN_NO_LICENSE_FILE_FOUND",
+      "copy_policy": "neutral compatible implementation; no verbatim project code copy"
+    }
+  ],
+  "copy_policy": "Neutral compatible implementation; no verbatim Companion/AgentLab project code, no private state or APK copy",
+  "old_apk": {
+    "path": "/home/l/projects/AIOA-spArkHAT-Companion/release-candidate/AIOA-Companion-debug.apk",
+    "sha256": "43943d19196d26e3be93015d1d6f1cad87a49f94015978ce40afa7ccce4725c6",
+    "size": 12592824,
+    "copied": false
+  }
+}

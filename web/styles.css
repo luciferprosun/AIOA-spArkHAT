@@ -685,3 +685,16 @@ textarea {
     grid-template-columns: 1fr;
   }
 }
+/* Meta mission view shares the existing layout and mobile shell. */
+.meta-mission { display: grid; gap: 1rem; min-width: 0; }
+.meta-mission[hidden] { display: none; }
+.meta-actions { display: flex; flex-wrap: wrap; gap: .65rem; margin-top: 1rem; }
+.meta-diagnostics { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: .75rem; }
+.meta-diagnostics dd { overflow-wrap: anywhere; }
+.meta-evidence { max-height: 26rem; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
+.button-stop { background: #a72d3b; color: #fff; font-weight: 700; }
+@media (max-width: 700px) {
+  .meta-diagnostics { grid-template-columns: minmax(0,1fr); }
+  .meta-actions .button { width: 100%; }
+  .meta-mission textarea, .meta-mission input, .meta-mission select { max-width: 100%; box-sizing: border-box; }
+}

@@ -7,7 +7,7 @@
       name="description"
       content="AIOA spArkHAT: one local runtime for Assistant, Evidence Review and advisory Critical Prompt Loop."
     />
-    <title>AIOA METAGuardiansSPARK — AIOA spArkHAT Operator Console</title>
+    <title>AIOA spArkHAT — METAGuardiansSPARK Mission Control</title>
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
@@ -15,11 +15,13 @@
       <aside class="sidebar">
         <div class="brand">
           <p class="eyebrow">Adaptive Oceanic Intelligence Architecture</p>
-          <h1>AIOA METAGuardiansSPARK</h1>
-          <p class="subtitle">Formerly AOIA-Core. Meta Hackathon project inside the unified AIOA spArkHAT runtime. LIVE operations require approval.</p>
+          <h1>AIOA spArkHAT</h1>
+          <p class="subtitle">METAGuardiansSPARK · AIOA METAGuardiansSPARK Meta Hackathon integration. LIVE operations require separate approval.</p>
         </div>
 
         <nav class="view-nav" aria-label="AIOA spArkHAT modules" role="tablist">
+          <button class="view-tab" type="button" role="tab" aria-selected="false"
+            aria-controls="meta-view" data-view="meta">METAGuardiansSPARK</button>
           <button
             class="view-tab view-tab-active"
             type="button"
@@ -96,11 +98,64 @@
       <main class="workspace">
         <header class="topbar">
           <div>
-            <p class="eyebrow product-name">AIOA METAGuardiansSPARK · Operator Console</p>
+            <p class="eyebrow product-name">AIOA spArkHAT · METAGuardiansSPARK</p>
             <h2 id="view-title">Assistant runtime</h2>
           </div>
           <button id="refresh-status" class="button button-ghost" type="button">Refresh status</button>
         </header>
+
+        <section id="meta-view" class="workspace-view meta-mission" role="tabpanel" hidden>
+          <section class="review-card">
+            <p class="eyebrow">One Core · one Mission Control</p>
+            <h2>Muse planning + bounded document READ</h2>
+            <p id="meta-boundary" class="legal-boundary">OFFLINE FIXTURE: synthetic Meta response and browser driver, real Core gates.
+              No paid calls, no real Chromium. Model output remains advisory.</p>
+            <dl class="status-list meta-diagnostics">
+              <div><dt>Provider</dt><dd id="meta-provider">Not connected</dd></div>
+              <div><dt>Meta key configured</dt><dd id="meta-key">unknown</dd></div>
+              <div><dt>API transport</dt><dd id="meta-transport">disabled</dd></div>
+              <div><dt>Credit balance</dt><dd id="meta-credit">unverified</dd></div>
+              <div><dt>Spend permission</dt><dd id="meta-spend">not granted</dd></div>
+              <div><dt>Last actual API receipt</dt><dd id="meta-api-receipt">none</dd></div>
+              <div><dt>Last API call state</dt><dd id="meta-call-state">NOT_ATTEMPTED</dd></div>
+              <div><dt>Billing evidence</dt><dd id="meta-billing">UNVERIFIED</dd></div>
+              <div><dt>Provider attempt</dt><dd id="meta-attempt">none</dd></div>
+              <div><dt>Settled API cost</dt><dd id="meta-settled-cost">unverified</dd></div>
+            </dl>
+            <details><summary>Last actual redacted Core receipt</summary><pre id="meta-live-receipt" class="meta-evidence">none</pre></details>
+            <form id="meta-form">
+              <label class="label" for="meta-instruction">Mission request</label>
+              <textarea id="meta-instruction" class="select" rows="3" maxlength="1000">Read the public fixture and return its evidence hash.</textarea>
+              <label class="label" for="meta-source">Source URL · host allowlist</label>
+              <input id="meta-source" class="select" value="https://docs.example.org/offline-fixture" readonly />
+              <label class="label" for="meta-mode">Execution profile</label>
+              <select id="meta-mode" class="select"><option value="OFFLINE_FIXTURE">OFFLINE FIXTURE · 0 USD</option>
+                <option value="LIVE">LIVE · authorization required</option></select>
+              <div class="meta-actions">
+                <button id="meta-preview" type="submit" class="button button-primary">Preview mission</button>
+                <button id="meta-run" type="button" class="button button-primary" disabled>Approve exact fixture READ &amp; run</button>
+                <button id="meta-stop" type="button" class="button button-stop" disabled>STOP</button>
+                <button id="meta-refresh" type="button" class="button button-ghost">Read evidence</button>
+              </div>
+            </form>
+            <p id="meta-message" class="legal-boundary" role="status" aria-live="polite">Preview one bounded operation first.</p>
+          </section>
+          <section class="review-card" aria-live="polite">
+            <h3>Mission evidence</h3>
+            <dl class="status-list meta-diagnostics">
+              <div><dt>State</dt><dd id="meta-state">IDLE</dd></div>
+              <div><dt>Task</dt><dd id="meta-task">none</dd></div>
+              <div><dt>Source SHA</dt><dd id="meta-sha">none</dd></div>
+              <div><dt>Cost / budget</dt><dd id="meta-budget">0 USD / 0 USD · fixture</dd></div>
+              <div><dt>Browser</dt><dd id="meta-browser">LIVE_BLOCKED · containment and owner GO required</dd></div>
+              <div><dt>Approval</dt><dd id="meta-approval">none</dd></div>
+              <div><dt>Correlation</dt><dd id="meta-correlation">none</dd></div>
+              <div><dt>Allowed origin</dt><dd id="meta-origin">none</dd></div>
+              <div><dt>Evidence digest</dt><dd id="meta-evidence-digest">none</dd></div>
+            </dl>
+            <details open><summary>Exact preview, receipt and readback</summary><pre id="meta-evidence" class="meta-evidence">No mission yet.</pre></details>
+          </section>
+        </section>
 
         <section id="assistant-view" class="workspace-view" role="tabpanel">
           <div class="assistant-mode-bar">
@@ -388,6 +443,7 @@
       </article>
     </template>
 
+    <script src="/meta_mission.js"></script>
     <script src="/app.js" type="module"></script>
   </body>
 </html>
