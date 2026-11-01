@@ -17,13 +17,8 @@ class AndroidManualWorkflowTests(unittest.TestCase):
         return importlib.import_module('scripts.android.ci_build')
 
     def context(self):
-        return {'GITHUB_ACTIONS':'true','GITHUB_EVENT_NAME':'workflow_dispatch',
-            'GITHUB_REPOSITORY':'luciferprosun/AIOA-spArkHAT',
-            'GITHUB_REF':'refs/heads/codex/android-toolchain-mobile-20261031',
-            'GITHUB_SHA':'a'*40,'GITHUB_RUN_ID':'123','GITHUB_RUN_ATTEMPT':'1',
-            'RUNNER_ENVIRONMENT':'github-hosted','RUNNER_ARCH':'X64',
-            'RUNNER_TEMP':'/home/runner/work/_temp','ImageOS':'ubuntu24','ImageVersion':'20261029.1.0',
-            'AIOA_APPROVE_RUN':'true','AIOA_SDK_LICENSE_ACK':'true','AIOA_ARTIFACT_ACK':'true'}
+        from test_android_postmerge_ci import context
+        return context()
 
     def test_workflow_cannot_run_on_push_pr_or_schedule_and_actions_are_pinned(self):
         path=REPO/'.github/workflows/android-manual-build.yml'
@@ -51,20 +46,20 @@ class AndroidManualWorkflowTests(unittest.TestCase):
 
     def test_ci_requires_manual_owner_context_exact_sha_and_image(self):
         ci=self.module();good=self.context()
-        ci.context_check(good,'a'*40,'20261029.1.0')
+        ci.context_check(good,'a'*40,'20261026.354.1')
         for field,value in [('GITHUB_ACTIONS','false'),('GITHUB_EVENT_NAME','push'),
-            ('GITHUB_REF','refs/heads/main'),('GITHUB_REPOSITORY','attacker/repo'),
+            ('GITHUB_REF','refs/heads/codex/android-toolchain-mobile-20261031'),('GITHUB_REPOSITORY','attacker/repo'),
             ('GITHUB_SHA','b'*40),('RUNNER_ENVIRONMENT','self-hosted'),('RUNNER_ARCH','ARM64'),
             ('RUNNER_TEMP','/media/l/LSC_DATA3'),('ImageVersion','different'),
             ('GITHUB_RUN_ID','../bad'),('AIOA_APPROVE_RUN','false'),
             ('AIOA_SDK_LICENSE_ACK','false'),('AIOA_ARTIFACT_ACK','false')]:
             with self.subTest(field=field):
-                with self.assertRaises(ci.lib.Blocked):ci.context_check({**good,field:value},'a'*40,'20261029.1.0')
+                with self.assertRaises(ci.lib.Blocked):ci.context_check({**good,field:value},'a'*40,'20261026.354.1')
 
     def test_ci_rejects_local_run_before_download_mkdir_or_subprocess(self):
         ci=self.module()
         with patch.object(ci,'execute',side_effect=AssertionError('build started')):
-            with self.assertRaises(ci.lib.Blocked):ci.build({},'a'*40,'20261029.1.0')
+            with self.assertRaises(ci.lib.Blocked):ci.build({},'a'*40,'20261026.354.1')
 
     def test_ci_requires_preinstalled_exact_sdk_and_existing_license(self):
         ci=self.module()

@@ -4,11 +4,15 @@ name: Android DEBUG (manual owner review)
   workflow_dispatch:
     inputs:
       expected_source_sha:
-        description: Exact reviewed tooling-branch commit (40 hex); must equal selected ref SHA
+        description: Exact reviewed main commit (40 hex); must equal the dispatched main SHA
         required: true
         type: string
       expected_runner_image:
         description: Owner-reviewed ubuntu24 ImageVersion from official actions/runner-images release
+        required: true
+        type: string
+      expected_workflow_revision:
+        description: Owner-reviewed SHA-256 of this workflow; must match the pinned policy and checked-out bytes
         required: true
         type: string
       approve_run:
@@ -38,13 +42,14 @@ jobs:
   debug-apk:
     if: >-
       github.repository == 'luciferprosun/AIOA-spArkHAT' &&
-      github.ref == 'refs/heads/codex/android-toolchain-mobile-20261031' &&
+      github.ref == 'refs/heads/main' &&
       inputs.approve_run && inputs.sdk_license_ack && inputs.artifact_exposure_ack
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     env:
       AIOA_SOURCE_SHA: ${{ inputs.expected_source_sha }}
       AIOA_RUNNER_IMAGE: ${{ inputs.expected_runner_image }}
+      AIOA_WORKFLOW_REVISION: ${{ inputs.expected_workflow_revision }}
       AIOA_APPROVE_RUN: ${{ inputs.approve_run }}
       AIOA_SDK_LICENSE_ACK: ${{ inputs.sdk_license_ack }}
       AIOA_ARTIFACT_ACK: ${{ inputs.artifact_exposure_ack }}

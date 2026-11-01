@@ -10,6 +10,7 @@ import os
 from pathlib import Path
 import re
 import shutil
+import stat
 import subprocess
 import tempfile
 
@@ -22,19 +23,49 @@ else:
     import verify_apk
 
 
-def context_check(env,source_sha,image):
+SOURCE_REF='refs/heads/main'
+WORKFLOW_PATH='.github/workflows/android-manual-build.yml'
+REVIEWED_IMAGE_VERSION='20261026.354.1'
+REVIEWED_WORKFLOW_SHA256='3ce2f8be0d65d43a5af967656427e9f1a2f4221fa6f584ce1f2865511ea3774e'
+
+
+def context_check(env,source_sha,image,*,purpose='apk'):
     expected={'GITHUB_ACTIONS':'true','GITHUB_EVENT_NAME':'workflow_dispatch',
         'GITHUB_REPOSITORY':'luciferprosun/AIOA-spArkHAT',
-        'GITHUB_REF':'refs/heads/codex/android-toolchain-mobile-20261031',
+        'GITHUB_REPOSITORY_OWNER':'luciferprosun','GITHUB_ACTOR':'luciferprosun',
+        'GITHUB_TRIGGERING_ACTOR':'luciferprosun','GITHUB_REF':SOURCE_REF,
+        'GITHUB_WORKFLOW_REF':'luciferprosun/AIOA-spArkHAT/'+WORKFLOW_PATH+'@'+SOURCE_REF,
+        'GITHUB_JOB':'debug-apk','GITHUB_RUN_ATTEMPT':'1',
         'RUNNER_ENVIRONMENT':'github-hosted','RUNNER_ARCH':'X64','ImageOS':'ubuntu24',
         'RUNNER_TEMP':'/home/runner/work/_temp','AIOA_APPROVE_RUN':'true',
         'AIOA_SDK_LICENSE_ACK':'true','AIOA_ARTIFACT_ACK':'true'}
     lib.require(all(env.get(k)==v for k,v in expected.items()),'BLOCKED_CI_OWNER_OR_RUNNER_CONTEXT')
-    lib.require(re.fullmatch(r'[0-9a-f]{40}',source_sha) and env.get('GITHUB_SHA')==source_sha,'BLOCKED_CI_SOURCE')
-    lib.require(re.fullmatch(r'[0-9]{8}\.[0-9]{1,4}\.[0-9]{1,4}',image)
-        and env.get('ImageVersion')==image,'BLOCKED_CI_IMAGE_DRIFT')
+    lib.require(purpose=='apk','BLOCKED_CI_PURPOSE')
+    lib.require(type(source_sha) is str and re.fullmatch(r'[0-9a-f]{40}',source_sha)
+        and env.get('GITHUB_SHA')==env.get('GITHUB_WORKFLOW_SHA')==source_sha,'BLOCKED_CI_SOURCE')
+    lib.require(image==env.get('ImageVersion')==REVIEWED_IMAGE_VERSION,'BLOCKED_CI_IMAGE_DRIFT')
+    lib.require(env.get('AIOA_WORKFLOW_REVISION')==REVIEWED_WORKFLOW_SHA256,'BLOCKED_CI_WORKFLOW_REVISION')
     lib.require(all(re.fullmatch(r'[0-9]{1,20}',env.get(k,''))
         for k in ('GITHUB_RUN_ID','GITHUB_RUN_ATTEMPT')),'BLOCKED_CI_RUN_ID')
+
+
+def workflow_check(env):
+    path=lib.safe_path(lib.REPO/WORKFLOW_PATH);info=path.lstat()
+    lib.require(stat.S_ISREG(info.st_mode) and info.st_nlink==1 and info.st_size<=65536,
+        'BLOCKED_CI_WORKFLOW_FILE')
+    lib.require(lib.sha(path)==env.get('AIOA_WORKFLOW_REVISION')==REVIEWED_WORKFLOW_SHA256,
+        'BLOCKED_CI_WORKFLOW_REVISION')
+
+
+def branch_head_check(source_sha):
+    # Anonymous fixed Git READ. No ambient credential helper, config or token.
+    environment={'PATH':'/usr/bin:/bin','LANG':'C.UTF-8','GIT_TERMINAL_PROMPT':'0',
+        'GIT_CONFIG_GLOBAL':'/dev/null','GIT_CONFIG_NOSYSTEM':'1'}
+    response=subprocess.run(['git','-c','credential.helper=','ls-remote','--exit-code','--refs',
+        'https://github.com/luciferprosun/AIOA-spArkHAT.git',SOURCE_REF],
+        capture_output=True,text=True,timeout=20,env=environment,stdin=subprocess.DEVNULL)
+    lib.require(response.returncode==0 and response.stdout.splitlines()==[source_sha+'\t'+SOURCE_REF],
+        'BLOCKED_CI_BRANCH_DRIFT')
 
 
 def sdk_inventory(sdk):
@@ -152,7 +183,12 @@ def execute(env,source_sha,image):
 
 def build(env,source_sha,image):
     context_check(env,source_sha,image)
-    return execute(env,source_sha,image)
+    lib.source_check(source_sha)
+    workflow_check(env)
+    branch_head_check(source_sha)
+    result=execute(env,source_sha,image)
+    branch_head_check(source_sha)
+    return result
 
 
 def main():
