@@ -62,15 +62,15 @@ Interfaces: actual controlled JUnit/lint/build, APK inspection and signer eviden
 
 - [x] RED tests for signer/artifact binding and catalog result; GREEN through existing builder. Evidence retained privately.
 - [x] Preserve exact Android input manifest; one-run command/exposure boundary prepared in final handoff.
-- [ ] Reuse mobile packet/SPKI/nonce/replay/UNKNOWN/source/permissions regressions. Document precise HTTPS/owner adapter boundary and Wi-Fi/LTE phone acceptance; do not fake qualification.
-- [ ] Commit validated artifact/mobile handoff. JVM/APK/phone results remain NONE until real authorized execution.
+- [x] Reuse mobile packet/SPKI/nonce/replay/UNKNOWN/source/permissions regressions. Document precise HTTPS/owner adapter boundary and Wi-Fi/LTE phone acceptance; do not fake qualification.
+- [x] Commit validated artifact/mobile handoff. JVM/APK/phone results remain NONE until real authorized execution.
 
 ### Task5: A17–A20 acceptance, independent review and one owner decision
 
 Files: docs/android/ANDROID_POSTMERGE_OWNER_REPORT_20261101.md; private patch, review, logs, source/secrets/license seals and exact dry-run request.
 Interfaces: consumes exact final local head/main base and successful targeted suites; produces one concrete effect authorization request without dispatch/merge before consent.
 
-- [ ] Run appropriate Android/Core/mobile/MCP/STOP/native regressions; avoid redundant full20min suite.
+- [x] Run Android74/Core202/mobile77/native42/Node15 regressions; no redundant full20min run.
 - [ ] One fresh independent review of whole diff, CI permissions and absent build evidence; fix Critical/Important once with RED→GREEN + green necessary suite; defer Minor explicitly.
 - [ ] Scan changed files and outgoing local history; preserve raw results and source seals.
 - [ ] Produce exact workflow/source/image/owner acknowledgments and CodeQL settings transition plan, bounded public artifact exposure and ACK-loss readback procedure.
