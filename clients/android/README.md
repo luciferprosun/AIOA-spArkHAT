@@ -5,6 +5,14 @@ Klient ma Preview, podpisany status/evidence i scoped STOP, bez Run/Approve/chat
 Kontrakt: `../../protocol/mobile_mission_v1.json`; host: istniejący
 `runtime.webapp.WebRuntimeService` + `runtime.mobile_gateway.MobileGateway`.
 
+Integracja ONE AIOA dodaje wersjonowany `/api/mobile/v2` w tej samej aplikacji:
+typed agent proposal, kroki, pliki/SHA, diff, testy, plan zależności, lokalny
+Git preview, receipt, STOP i UNKNOWN/readback. Kontrakt v1 zachowano.
+Run/Approve/Install/GitHub-write/Meta-spend pozostają false; telefon proponuje
+i obserwuje, host zatwierdza konkretny lokalny profil fixture. Podpisane testy
+Pythona nie są wykonaniem kodu Kotlin. Nowy `AgentMissionViewTest.kt` pozostaje
+NOT_RUN razem z JVM/lint/APK, do osobnego zakwalifikowanego builda.
+
 **APK_BUILD_BLOCKED_TOOLCHAIN.** Sprawdzono źródła, nie wykonano kompilacji
 Kotlin/JVM, Android lint ani testu urządzenia. Bez kwalifikowanego JDK17,
 SDK36/build-tools35.0.0 i cache zależności nie uruchamiaj wrappera; samo `--offline`

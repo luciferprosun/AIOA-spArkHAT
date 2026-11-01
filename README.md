@@ -23,7 +23,10 @@ sandbox host; it is not a production certification of the installed wheel.
 See [testing and reproducible demo](docs/unification/TESTING.md) and
 [operator handoff](docs/unification/OWNER_HANDOFF_PL.md).
 
-> **Meta Global AI Developer Hackathon project:** [**AIOA METAGuardiansSPARK**](docs/meta/PROJECT_IDENTITY.md) is developed on branch [`AIOA-METAGuardiansSPARK`](https://github.com/luciferprosun/AIOA-spArkHAT/tree/AIOA-METAGuardiansSPARK). This is the same unified AIOA spArkHAT repository; no separate frontend or main rename.
+The [Meta/Muse work](docs/meta/PROJECT_IDENTITY.md) is part of this same application.
+Its historical `AIOA-METAGuardiansSPARK` branch remains a provenance reference.
+The unified candidate targets `main` through the separately approved integration PR;
+no second product or permanent hackathon runtime is introduced.
 
 ### Long-Running Agent | NVIDIA Claw Challenge Berlin 2026
 
@@ -69,11 +72,14 @@ Requires Python 3.11+ and a complete source checkout.
 
 ```bash
 python3 -I -B scripts/nvidia_reviewer_preflight.py --unified
-./runtime/run.sh
-./runtime/run_web.sh
+PYTHONDONTWRITEBYTECODE=1 python3 -B -m runtime.webapp --unified-offline --host 127.0.0.1 --port 0
 ```
 
-Web console is loopback-only by default. The historical `start_nebius_personal_ai_demo.sh` launcher still requires its explicitly approved Nebius branch names; it is not a canonical-main startup command. Use the offline reviewer above to inspect the integrated fixture from main. LIVE provider use requires separate authorization gates.
+Web console is loopback-only. Existing CLI/legacy launchers remain compatibility
+interfaces; the unified profile uses the command above. The historical
+`start_nebius_personal_ai_demo.sh` requires its approved Nebius branch names.
+LIVE provider use requires separate authorization gates. Tests on an integration
+branch do not certify an unmerged `main`.
 
 ## Canonical repository layout
 
