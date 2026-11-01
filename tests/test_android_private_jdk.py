@@ -33,10 +33,12 @@ class PrivatePinnedJdkTests(unittest.TestCase):
                 return target
             def run(argv,**kwargs):
                 calls.append(argv)
-                text=('openjdk version 17.0.21 Temurin-17.0.21+9\n' if argv[0].endswith('/bin/java')
+                text=('java.home = '+str(root_jdk[0])+'\nos.arch = amd64\nopenjdk version 17.0.21 Temurin-17.0.21+9\n' if argv[0].endswith('/bin/java')
+                    else 'javac 17.0.21\n' if argv[0].endswith('/bin/javac')
                     else '22.0\n' if argv[0].endswith('/bin/sdkmanager') else 'Gradle 8.13\n')
                 log=kwargs['log'];log.write_text(text);log.chmod(0o600)
                 return 0
+            root_jdk=[temp/'aioa-android-777-1/jdk-17']
             with ExitStack() as stack:
                 for obj,name,value in [(ci,'Path',path),(ci.lib,'REPO',repo),
                     (ci.installer,'catalog',lambda:catalog),(ci,'acquire',acquire),

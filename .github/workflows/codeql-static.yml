@@ -45,7 +45,6 @@ jobs:
         run: |
           set -euo pipefail
           test -z "$EXPECTED_SOURCE" || test "$EXPECTED_SOURCE" = "$ACTUAL_SOURCE"
-          test "$ImageVersion" = "$EXPECTED_IMAGE"
           python3 -B - <<'PY'
           import hashlib
           import json
@@ -85,15 +84,20 @@ jobs:
                   versions = re.findall(r'^Version: ([0-9]{8}\.[0-9]{1,4}\.[0-9]{1,4})$', detail, re.M)
                   images = re.findall(r'^Image: (ubuntu-[0-9.]+)$', detail, re.M)
                   observed = versions[0] if len(versions) == 1 else 'INVALID'
+                  declared = environment.get('ImageVersion', '')
+                  if not re.fullmatch(r'[0-9]{8}\.[0-9]{1,4}\.[0-9]{1,4}', declared):declared = 'INVALID'
+                  snapshot = {'metadata_version': observed, 'declared_version': declared, 'metadata_sha256': hashlib.sha256(raw).hexdigest()}
+                  print(json.dumps(snapshot, sort_keys=True), flush=True)
                   if images != ['ubuntu-24.04'] or observed != EXPECTED_IMAGE or environment.get('ImageVersion') != observed:
                       raise SystemExit('BLOCKED_CI_IMAGE_METADATA_MISMATCH observed=' + observed)
-                  return {'metadata_version': observed, 'metadata_sha256': hashlib.sha256(raw).hexdigest()}
+                  return snapshot
               except (ValueError, TypeError, KeyError):
                   raise SystemExit('BLOCKED_CI_IMAGE_METADATA_FORMAT') from None
 
           if __name__ == '__main__':
-              print(json.dumps(check_image(read_image(), os.environ), sort_keys=True))
+              check_image(read_image(), os.environ)
           PY
+          test "$ImageVersion" = "$EXPECTED_IMAGE"
       - name: Checkout analyzed commit without credentials
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

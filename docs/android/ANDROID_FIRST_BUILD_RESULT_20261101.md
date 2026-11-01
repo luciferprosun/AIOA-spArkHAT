@@ -79,3 +79,19 @@ być spójne przed checkout (koszt: następna próba może ponownie odmówić pr
 narzędziami); zachowanie main i nowej lokalnej gałęzi (koszt: zmiana nie trafi
 na serwer przed nowym exact-source GO). Nie rozstrzygnięto przyczyny
 historycznej rozbieżności obrazów ani dostępności przyszłej VM/archiwum.
+
+## Kontynuacja po AIOA_APK_Update_2026-11-01.pdf — R4/R5/R6
+
+Aktualizacja operatora jest doprecyzowaniem tej samej naprawy. Wykorzystujemy
+wcześniejszy odbiór A22 i ten sam reviewer; nie tworzymy kolejnego audytu.
+Jedna dodatkowa próba jest zatwierdzona i nadal niewykorzystana w chwili
+tego checkpointu. Zgody SDK, ekspozycji i wskazanej migracji CodeQL pozostają
+zapisane; zmiany poniżej mieszczą się w doprecyzowanym zakresie CI/helperów.
+
+- R4: ten sam prywatny JDK jest sprawdzany przez rzeczywiste java -version z właściwościami java.home/os.arch oraz javac -version przed Gradle. Błędny compiler/arch/home odmawia. Usunięto oba zbędne setup-java; nie ma drugiego pozyskania Android JDK. Po śledzonej kompilacji JAVA_HOME/PATH analizującego kroku CodeQL wskazuje ten sam prywatny katalog. Sam silnik CodeQL pozostaje przypiętym osobnym narzędziem z własnym runtime dostawcy.
+- R5: bounded snapshot metadata_version/declared_version/SHA jest wypisywany także przed odmową przy konflikcie. Bootstrap nadal poprzedza checkout, nie nadpisuje ImageVersion i nie zmienia pina.
+- R6: JSON zachowuje natywny kod BLOCKED_SYMLINK także przy braku root/logów, etap i zamkniętą rolę ścieżki, dostępny exit code oraz jawne NOT_RUN dla nieosiągniętych etapów. Diagnostyczne adnotacje nie tworzą uprawnień ani nowego journala. Raport rozróżnia IMAGE_CHECK, JDK_PREPARE, SDK_CHECK, GRADLE_BOOTSTRAP, JVM_TESTS, LINT, ASSEMBLE, SIGNATURE_VERIFY, ARTIFACT_UPLOAD i CODEQL. Upload jest NOT_RUN w momencie generowania pliku; jego rzeczywisty wynik wymaga późniejszego readbacku joba/artefaktu.
+
+Testy R4/R6: RED7przypadków(2fail/6errors), następnie96/96PASS,
+94subtests. To nadal testy offline. Rzeczywisty JVM/APK jest celem następnej
+zatwierdzonej pojedynczej próby, a nie wynikiem tego checkpointu.
