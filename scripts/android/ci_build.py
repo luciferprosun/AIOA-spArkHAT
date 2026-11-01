@@ -26,7 +26,7 @@ else:
 SOURCE_REF='refs/heads/main'
 WORKFLOW_PATH='.github/workflows/android-manual-build.yml'
 REVIEWED_IMAGE_VERSION='20261026.354.1'
-REVIEWED_WORKFLOW_SHA256='3ce2f8be0d65d43a5af967656427e9f1a2f4221fa6f584ce1f2865511ea3774e'
+REVIEWED_WORKFLOW_SHA256='2b7c4cce545c8de811cd4cee4630fd681813d198b41e79e072723baaa3171a20'
 
 
 def context_check(env,source_sha,image,*,purpose='apk'):

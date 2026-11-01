@@ -29,9 +29,9 @@ class AndroidManualWorkflowTests(unittest.TestCase):
         job=value['jobs']['debug-apk']
         self.assertEqual('ubuntu-24.04',job['runs-on']);self.assertLessEqual(job['timeout-minutes'],35)
         actions=[step for step in job['steps'] if 'uses' in step]
-        expected={'actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683',
-            'actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00',
-            'actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02'}
+        expected={'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1',
+            'actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad',
+            'actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9'}
         self.assertEqual(expected,{step['uses'] for step in actions})
         checkout=next(step for step in actions if step['uses'].startswith('actions/checkout@'))
         self.assertFalse(checkout['with']['persist-credentials'])
