@@ -102,7 +102,16 @@ Komendy, liczniki, źródła i zakres pominięć: U9_QA_EVIDENCE.md.
 
 ## Odbiór i promocja main
 
-PR integracji, exact head i aktualny target main zostaną wpisane po publikacji.
+Draft integracji: [PR #27](https://github.com/luciferprosun/AIOA-spArkHAT/pull/27),
+repo [luciferprosun/AIOA-spArkHAT](https://github.com/luciferprosun/AIOA-spArkHAT),
+gałąź `integration/one-aioa-core-muse-mobile-20261101` → `main`.
+Przy utworzeniu: head `0c32832a1b2e30c01216be68ec5e516281d3daf1`,
+target/merge-base `de6fddb236db1702879fc65838c0c94b53d24cb2`, 216 plików,
+24 484 additions / 60 deletions; pełna lista API zgadza się z lokalnym diffem.
+Ten dopisek raportu powstaje po tym smoke; bieżący exact head, finalny smoke
+i status automatycznego CodeQL są przypięte w opisie tego samego PR.
+Wynik pełnych regresji nadal dotyczy kodu `1cd2a91...`; późniejsze commity
+zmieniają wyłącznie raporty, przy identycznej capsule 76 plików.
 Szeroka integracja nie scala automatycznie PR22 ani PR25. Obie historyczne
 gałęzie pozostają zachowane, bez force-push, reset, clean lub zamknięcia PR.
 
@@ -209,7 +218,7 @@ Reviewer świadomie nie oceniał 13 granic. Decyzje autora i koszt, jeśli błę
 13. Final QA: nowe frozen-code regresje, package/seals/demo faktycznie green.
     Koszt: wynik dotyczy tych bajtów/hosta; drift wymaga ponownej oceny.
 
-Dowody prywatne pozostają zachowane poza repo. Finalny numer/link draft PR,
-head i bieżący main trafiają do końcowego przekazania i opisu PR. To unika
+Dowody prywatne pozostają zachowane poza repo. Draft to PR #27; bieżący exact
+head i target main są w końcowym przekazaniu i opisie tego PR. To unika
 podmieniania SHA testów SHA późniejszego raportu. Publiczne raporty i rollback
 nie nadają zgody na scalenie.
