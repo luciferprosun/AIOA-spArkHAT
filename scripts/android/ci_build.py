@@ -9,7 +9,6 @@ import json
 import os
 from pathlib import Path
 import re
-import shutil
 import stat
 import subprocess
 import tempfile
@@ -193,6 +192,7 @@ def prepare(env,source_sha,image,*,purpose='apk'):
 
 def execute(env,source_sha,image,*,purpose='apk'):
     root,jdk,sdk,before,scoped,init,argv=prepare(env,source_sha,image,purpose=purpose)
+    if purpose=='apk':build_apk.prepare_debug_signer(root,jdk,scoped)
     if purpose=='codeql':
         tool,_=codeql_tool_check(env)
         # The CLI installs its own tracer into its child. Do not inherit ambient
@@ -226,13 +226,46 @@ def execute(env,source_sha,image,*,purpose='apk'):
     evidence.update(ci_profile='GITHUB_HOSTED_MANUAL_V2',runner_image=image,
         workflow_revision=REVIEWED_WORKFLOW_SHA256,
         codeql_status='PENDING_SEPARATE_JOB' if env.get('AIOA_CODEQL_REQUESTED')=='true' else 'NOT_REQUESTED',
-        sdk=before,versions=lock['versions'],dependency_resolution='ONLINE_VENDOR_REPOSITORIES_NOT_FULLY_HASH_LOCKED',
+        sdk=before,versions=installer.catalog()['versions'],dependency_resolution='ONLINE_VENDOR_REPOSITORIES_NOT_FULLY_HASH_LOCKED',
         model_calls=0,workflow_run_id=env['GITHUB_RUN_ID'],workflow_run_attempt=env['GITHUB_RUN_ATTEMPT'])
-    artifact=root/'artifact';artifact.mkdir(mode=0o700)
-    shutil.copyfile(apk,artifact/'aioa-companion-debug.apk')
-    lib.require(lib.sha(artifact/'aioa-companion-debug.apk')==evidence['apk_sha256'],'BLOCKED_CI_ARTIFACT_READBACK')
+    artifact=verified_artifact(apk,root,evidence,sdk=sdk,jdk=jdk,source_sha=source_sha,environment=scoped)
     installer.private_write(artifact/'APK_EVIDENCE.json',evidence)
     return evidence
+
+
+def verified_artifact(apk,root,evidence,*,sdk,jdk,source_sha,environment):
+    """Bounded copy, then independent aapt/apksigner/report readback of the copy."""
+    artifact=lib.safe_path(root/'artifact');artifact.mkdir(mode=0o700)
+    source=lib.safe_path(apk);target=artifact/'aioa-companion-debug.apk'
+    fd=os.open(source,os.O_RDONLY|os.O_NOFOLLOW|os.O_CLOEXEC)
+    try:
+        before=os.fstat(fd)
+        lib.require(stat.S_ISREG(before.st_mode) and before.st_uid==os.getuid()
+            and before.st_nlink==1 and 0<before.st_size<=128*1024*1024,'BLOCKED_CI_ARTIFACT_SOURCE')
+        out_fd=os.open(target,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)
+        try:
+            with os.fdopen(fd,'rb',closefd=False) as stream,os.fdopen(out_fd,'wb',closefd=False) as out:
+                remaining=before.st_size
+                while remaining:
+                    data=stream.read(min(1024*1024,remaining))
+                    lib.require(bool(data),'BLOCKED_CI_ARTIFACT_TRUNCATED')
+                    out.write(data);remaining-=len(data)
+                lib.require(not stream.read(1),'BLOCKED_CI_ARTIFACT_SIZE_DRIFT')
+                out.flush();os.fsync(out.fileno())
+        finally:os.close(out_fd)
+        after=os.fstat(fd)
+        lib.require((before.st_size,before.st_mtime_ns)==(after.st_size,after.st_mtime_ns),
+            'BLOCKED_CI_ARTIFACT_RACE')
+    finally:os.close(fd)
+    lib.require(lib.sha(target)==evidence['apk_sha256'],'BLOCKED_CI_ARTIFACT_READBACK')
+    observed=verify_apk.verify(target,root,sdk=sdk,jdk=jdk,source_sha=source_sha,environment=environment)
+    fields=('apk_sha256','bytes','certificate_sha256','package','version_code','version_name',
+        'min_sdk','target_sdk','permissions','debuggable','kind','inspected_checkout_sha',
+        'junit_pass','junit_fail','junit_skip','lint_errors','report_digests')
+    lib.require(all(name in observed and observed[name]==evidence[name] for name in fields),
+        'BLOCKED_CI_ARTIFACT_METADATA')
+    build_apk.assert_debug_signer(observed,root)
+    return artifact
 
 
 def preflight(env,source_sha,image,*,purpose='apk'):
@@ -292,10 +325,12 @@ def codeql_readback(env,source_sha,image):
     finally:os.close(fd)
     sarif=lib.strict_json(raw);runs=sarif.get('runs')
     lib.require(sarif.get('version')=='2.1.0' and type(runs) is list and bool(runs)
-        and all(run.get('tool',{}).get('driver',{}).get('name')=='CodeQL'
+        and all(type(run) is dict and run.get('tool',{}).get('driver',{}).get('name')=='CodeQL'
             and run.get('automationDetails',{}).get('id','').rstrip('/')=='/language:java-kotlin'
             and type(run.get('results')) is list
-            and all(p.get('revisionId')==source_sha for p in run.get('versionControlProvenance',[]))
+            and type(run.get('versionControlProvenance')) is list
+            and bool(run['versionControlProvenance'])
+            and all(type(p) is dict and p.get('revisionId')==source_sha for p in run['versionControlProvenance'])
             for run in runs),
         'BLOCKED_CI_SARIF_FORMAT')
     artifact=root/'codeql-artifact';artifact.mkdir(mode=0o700)

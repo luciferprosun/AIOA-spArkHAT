@@ -1,10 +1,12 @@
 """One bounded build in external owned output, no phone/retry/publishing."""
 import argparse
+import hashlib
 import json
 import os
 from pathlib import Path
 import selectors
 import signal
+import stat
 import subprocess
 import tempfile
 import threading
@@ -33,10 +35,62 @@ def init_script(output):
     return '''allprojects { p ->
   p.layout.buildDirectory.set(new File(%s, p.path == ':' ? 'root' : p.path.replace(':','_')))
   p.plugins.withId('com.android.application') {
-    p.android.signingConfigs.getByName('debug').storeFile = new File(%s)
+    def signing = p.android.signingConfigs.getByName('debug')
+    signing.storeFile = new File(%s)
+    signing.storeType = 'JKS'
+    signing.keyAlias = 'androiddebugkey'
+    signing.storePassword = 'android'
+    signing.keyPassword = 'android'
   }
 }
 ''' % (build,key)
+
+
+def prepare_debug_signer(output,jdk,environment):
+    """Fresh private DEBUG key for this controlled build; never an update key.
+
+    The conventional Android debug password is public. The private key stays
+    inside the owned output directory and is never an artifact.
+    """
+    output=lib.safe_path(output);info=output.stat()
+    lib.require(stat.S_ISDIR(info.st_mode) and info.st_uid==os.getuid()
+        and not info.st_mode & 0o077,'BLOCKED_DEBUG_SIGNER_DIRECTORY')
+    for name in ('debug.keystore','debug-certificate.der','DEBUG_SIGNER.json',
+                 'keytool-generate.log','keytool-certificate.log'):
+        path=output/name
+        lib.require(not path.exists() and not path.is_symlink(),'BLOCKED_DEBUG_SIGNER_EXISTS')
+    key=output/'debug.keystore';certificate=output/'debug-certificate.der'
+    common=['-keystore',str(key),'-storetype','JKS','-storepass','android','-alias','androiddebugkey']
+    generate=[str(jdk/'bin/keytool'),'-genkeypair',*common,'-keypass','android',
+        '-keyalg','RSA','-keysize','2048','-validity','10000',
+        '-dname','CN=Android Debug,O=Android,C=US','-noprompt']
+    status=run_logged(generate,cwd=output,environment=environment,
+        log=output/'keytool-generate.log',timeout=30)
+    lib.require(status==0,'BLOCKED_DEBUG_SIGNER_GENERATION')
+    key=lib.safe_path(key);key.chmod(0o600)
+    key_bytes=lib.private_bytes(key)
+    status=run_logged([str(jdk/'bin/keytool'),'-exportcert',*common,'-file',str(certificate)],
+        cwd=output,environment=environment,log=output/'keytool-certificate.log',timeout=30)
+    lib.require(status==0,'BLOCKED_DEBUG_SIGNER_CERTIFICATE')
+    certificate=lib.safe_path(certificate);certificate.chmod(0o600)
+    cert_bytes=lib.private_bytes(certificate,max_bytes=16384)
+    lib.require(bool(key_bytes) and bool(cert_bytes),'BLOCKED_DEBUG_SIGNER_EMPTY')
+    marker={'schema':'aioa.android.controlled-debug-signer.v1','kind':'DEBUG',
+        'certificate_sha256':hashlib.sha256(cert_bytes).hexdigest(),
+        'keystore_sha256':hashlib.sha256(key_bytes).hexdigest(),
+        'old_apk_update_signature_compatibility':'UNKNOWN'}
+    installer.private_write(output/'DEBUG_SIGNER.json',marker)
+    return marker
+
+
+def assert_debug_signer(evidence,output):
+    marker=lib.private_json(output/'DEBUG_SIGNER.json')
+    lib.require(marker.get('schema')=='aioa.android.controlled-debug-signer.v1'
+        and marker.get('kind')=='DEBUG'
+        and marker.get('keystore_sha256')==hashlib.sha256(lib.private_bytes(output/'debug.keystore')).hexdigest()
+        and marker.get('certificate_sha256')==evidence.get('certificate_sha256')
+        ==hashlib.sha256(lib.private_bytes(output/'debug-certificate.der',max_bytes=16384)).hexdigest(),
+        'BLOCKED_DEBUG_SIGNER_BINDING')
 
 
 def run_logged(argv,*,cwd,environment,log,timeout=1800):
@@ -86,6 +140,7 @@ def _bind_controlled_build(evidence,source_sha,output,argv):
 No CLI option/imported receipt can upgrade standalone artifact verification.
 This is a local process-origin record, not a third-party build attestation.
 """
+    assert_debug_signer(evidence,output)
     invocation=lib.private_json(output/'BUILD_INVOCATION.json')
     lib.require(evidence['status']=='DEBUG_APK_VALID_SOURCE_UNBOUND'
         and invocation['source_sha']==source_sha and invocation['command']==argv
@@ -127,6 +182,7 @@ def execute_build(source_sha):
         environment=environment,log=output/'gradle-version.log',timeout=60)
     lib.require(version==0 and 'Gradle 8.13' in (output/'gradle-version.log').read_text(),'BLOCKED_GRADLE_VERSION')
     lib.gradle_configuration_check(lib.ROOT/'gradle-cache')
+    prepare_debug_signer(output,lib.ROOT/'jdk-17',environment)
     status=run_logged(argv,cwd=lib.REPO/'clients/android',environment=environment,log=output/'build.log')
     lib.require(status==0,'BLOCKED_BUILD_FAILED_LOG_PRESERVED')
     lib.source_check(source_sha);lib.assert_admitted();lib.gradle_configuration_check(lib.ROOT/'gradle-cache')

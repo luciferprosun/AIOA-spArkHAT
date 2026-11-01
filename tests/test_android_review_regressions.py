@@ -98,7 +98,9 @@ class AndroidReviewRegressions(unittest.TestCase):
     def test_sigterm_supervisor_cleans_its_owned_child_and_restores_handlers(self):
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory);pidfile=root/'child.pid'
-            child='import os,time;from pathlib import Path;Path('+repr(str(pidfile))+').write_text(str(os.getpid()));time.sleep(30)'
+            # Publish readiness atomically; existence of an empty newly opened
+            # file is not proof that the child PID has been written yet.
+            child='import os,time;from pathlib import Path;p=Path('+repr(str(pidfile))+');q=p.with_suffix(".tmp");q.write_text(str(os.getpid()));q.replace(p);time.sleep(30)'
             supervisor='from pathlib import Path;from scripts.android.build_apk import run_logged;run_logged('+repr([sys.executable,'-B','-c',child])+',cwd=Path('+repr(str(root))+'),environment={"PATH":"/usr/bin:/bin"},log=Path('+repr(str(root/'output.log'))+'),timeout=20)'
             process=subprocess.Popen([sys.executable,'-B','-c',supervisor],cwd=REPO,
                 env={'PATH':'/usr/bin:/bin'},stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)

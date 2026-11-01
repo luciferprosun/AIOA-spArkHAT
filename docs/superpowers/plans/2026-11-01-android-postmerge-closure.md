@@ -32,36 +32,36 @@ Interfaces: consumes existing main ad5ae304 and source manifests; produces pinne
 
 - [x] Read PDF, verify main, branch/worktree/remote/status and protected sources/processes.
 - [x] Create exactly one isolated writer from origin/main; preserve verified checkout.
-- [ ] Verify official action commit SHAs/node24, runner inventory and current CodeQL error.
-- [ ] Commit baseline and plan. Expected: clean source, no external mutations.
+- [x] Verify official action commit SHAs/node24, runner inventory and current CodeQL error.
+- [x] Commit baseline and plan. Expected: clean source, no external mutations.
 
 ### Task2: A12/A13 source guards and action runtime
 
 Modify: .github/workflows/android-manual-build.yml, scripts/android/ci_build.py, tests/test_android_manual_workflow.py.
 Interfaces: context_check(env,source_sha,image,purpose='apk'); workflow seal and branch-head checks precede execute; same existing execute/build API remains the APK entry point.
 
-- [ ] Write RED tests for old/unapproved ref, source/workflow SHA mismatch, owner/actor/ref/run-attempt/image drift and changing only inputs; spy zero build/download effects.
-- [ ] Bind main/GITHUB_SHA/GITHUB_WORKFLOW_SHA, exact workflow bytes, reviewed image and actual clean source; canonical branch observation before/after controlled build.
-- [ ] Update only supplier-verified action pins to node24, preserving permissions and upload scope.
-- [ ] GREEN targeted guards + existing Android tooling regressions; commit source then runtime/pins as coherent reviewed stages.
+- [x] Write RED tests for old/unapproved ref, source/workflow SHA mismatch, owner/actor/ref/run-attempt/image drift and changing only inputs; spy zero build/download effects.
+- [x] Bind main/GITHUB_SHA/GITHUB_WORKFLOW_SHA, exact workflow bytes, reviewed image and actual clean source; canonical branch observation before/after controlled build.
+- [x] Update only supplier-verified action pins to node24, preserving permissions and upload scope.
+- [x] GREEN targeted guards + existing Android tooling regressions; commit source then runtime/pins as coherent reviewed stages.
 
 ### Task3: A14 real Kotlin analysis path, activation gated
 
 Modify existing APK workflow/ci_build; add a gated advanced CodeQL configuration preserving four current languages; tests/test_android_codeql.py.
 Interfaces: codeql purpose reuses preparation/installer/source gates; compiles existing :app Kotlin under trusted CodeQL trace-command, then actual analyze produces SARIF. It never claims compilation in offline tests.
 
-- [ ] RED closed context/permission/trace-path/no-credential tests and loss-of-trace regression.
-- [ ] Preserve APK-job contents:read. Isolate security-events:write to optional owner-gated CodeQL job. No settings/variable change in this phase.
-- [ ] Pin official CodeQL action/bundle; use manual build between init/analyze with bounded existing helper; preserve four existing analyses in prepared advanced setup.
-- [ ] GREEN source/contract tests; record precise default-to-advanced owner effect and potential runs; commit.
+- [x] RED closed context/permission/trace-path/no-credential tests and loss-of-trace regression.
+- [x] Preserve APK-job contents:read. Isolate security-events:write to optional owner-gated CodeQL job. No settings/variable change in this phase.
+- [x] Pin official CodeQL action/bundle; use manual build between init/analyze with bounded existing helper; preserve four existing analyses in prepared advanced setup.
+- [x] GREEN source/contract tests; record precise default-to-advanced owner effect and potential runs; commit.
 
 ### Task4: A15/A16 artifact proof and mobile acceptance
 
 Modify existing build_apk/verify_apk only if demonstrated gaps require it; tests/test_android_build_verification.py and focused new regressions; docs/android/EDGE_AND_XIAOMI_ACCEPTANCE.md.
 Interfaces: actual controlled JUnit/lint/build, APK inspection and signer evidence; mobile uses existing ES256, sessions and same Core with remote admission still NOT_BOUND.
 
-- [ ] RED tests for any found signer/artifact/report/path/race gap, then minimal GREEN fix through existing builder.
-- [ ] Verify deterministic Android input manifest; document exact one-run command and APK exposure/privacy boundary.
+- [x] RED tests for signer/artifact binding and catalog result; GREEN through existing builder. Evidence retained privately.
+- [x] Preserve exact Android input manifest; one-run command/exposure boundary prepared in final handoff.
 - [ ] Reuse mobile packet/SPKI/nonce/replay/UNKNOWN/source/permissions regressions. Document precise HTTPS/owner adapter boundary and Wi-Fi/LTE phone acceptance; do not fake qualification.
 - [ ] Commit validated artifact/mobile handoff. JVM/APK/phone results remain NONE until real authorized execution.
 

@@ -58,7 +58,8 @@ class AndroidCodeQLContractTests(unittest.TestCase):
 
     def test_wrong_language_and_sarif_source_are_denied(self):
         for change in [{'automationDetails':{'id':'/language:python/'}},
-            {'versionControlProvenance':[{'revisionId':'b'*40}]}]:
+            {'versionControlProvenance':[{'revisionId':'b'*40}]},
+            {'versionControlProvenance':[]}, {'versionControlProvenance':None}]:
             with self.subTest(change=change),tempfile.TemporaryDirectory() as directory:
                 env,_=self.readback_fixture(Path(directory),sarif_changes=change)
                 with self.assertRaises(ci.lib.Blocked):self.readback(env)
