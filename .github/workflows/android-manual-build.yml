@@ -1,0 +1,89 @@
+name: Android DEBUG (manual owner review)
+
+"on":
+  workflow_dispatch:
+    inputs:
+      expected_source_sha:
+        description: Exact reviewed tooling-branch commit (40 hex); must equal selected ref SHA
+        required: true
+        type: string
+      expected_runner_image:
+        description: Owner-reviewed ubuntu24 ImageVersion from official actions/runner-images release
+        required: true
+        type: string
+      approve_run:
+        description: I authorize this build and have checked Actions billing and dependency network access
+        required: true
+        type: boolean
+        default: false
+      sdk_license_ack:
+        description: I am authorized to use the image's existing Android SDK license records
+        required: true
+        type: boolean
+        default: false
+      artifact_exposure_ack:
+        description: I checked repo visibility and accept DEBUG APK evidence access and one-day retention
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-manual-debug
+  cancel-in-progress: false
+
+jobs:
+  debug-apk:
+    if: >-
+      github.repository == 'luciferprosun/AIOA-spArkHAT' &&
+      github.ref == 'refs/heads/codex/android-toolchain-mobile-20261031' &&
+      inputs.approve_run && inputs.sdk_license_ack && inputs.artifact_exposure_ack
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      AIOA_SOURCE_SHA: ${{ inputs.expected_source_sha }}
+      AIOA_RUNNER_IMAGE: ${{ inputs.expected_runner_image }}
+      AIOA_APPROVE_RUN: ${{ inputs.approve_run }}
+      AIOA_SDK_LICENSE_ACK: ${{ inputs.sdk_license_ack }}
+      AIOA_ARTIFACT_ACK: ${{ inputs.artifact_exposure_ack }}
+    steps:
+      - name: Checkout exact dispatched commit without persistent credentials
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+          clean: false
+          fetch-depth: 1
+          fetch-tags: false
+          submodules: false
+          lfs: false
+          set-safe-directory: false
+      - name: Set up exact Temurin JDK
+        uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00 # v4.7.1
+        with:
+          distribution: temurin
+          java-version: 17.0.21+9
+          architecture: x64
+          java-package: jdk
+          check-latest: false
+          overwrite-settings: false
+          settings-path: ${{ runner.temp }}/aioa-java-settings
+      - name: Verify image, existing SDK license, wrapper; test, lint, build and inspect DEBUG APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          python3 -B scripts/android/ci_build.py --source-sha "$AIOA_SOURCE_SHA" --runner-image "$AIOA_RUNNER_IMAGE"
+      - name: Upload only verified DEBUG APK and filtered evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: aioa-companion-debug-${{ github.sha }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/aioa-android-${{ github.run_id }}-${{ github.run_attempt }}/artifact/aioa-companion-debug.apk
+            ${{ runner.temp }}/aioa-android-${{ github.run_id }}-${{ github.run_attempt }}/artifact/APK_EVIDENCE.json
+          retention-days: 1
+          if-no-files-found: error
+          include-hidden-files: false
+          overwrite: false
