@@ -18,7 +18,10 @@ Manifest Androida zwrócił `BUILD_INPUTS_MATCH`.
 
 Checkpoint A: `9bfb8bff934f007649782cfa87cb467dbcbe7432` — lokalne narzędzia,
 28 testów. Checkpoint B: `042469a362a5e9675ab9056bbca94b9e0ca56b02` — manualny
-workflow, dodatkowe6 testów, architektura i placeholdery. Bieżący HEAD odczytać
+workflow, dodatkowe6 testów, architektura i placeholdery. Checkpoint C:
+`32724a1a6dcfd8f99b26da3bb4b3fb0db628ca86` — poprawki review i końcowe
+533 Python/10 Node PASS. Późniejszy commit handoff zmienia tylko ten dokument.
+Bieżący HEAD odczytać
 przez `git rev-parse HEAD`; dokładny końcowy SHA znajduje się także w prywatnym
 `TOOLCHAIN_FINAL_EVIDENCE.json`, poza commitem, którego tożsamość opisuje.
 
@@ -33,7 +36,7 @@ przez `git rev-parse HEAD`; dokładny końcowy SHA znajduje się także w prywat
 | G4 | READY_FOR_OWNER_REVIEW / NOT_RUN | YAML workflow_dispatch-only, kontrakt testowany offline | Autoryzacja runu, billing/artefakty/licencja/obraz, rejestracja default-branch | Przejrzeć osobny runbook; nie uruchamiać bez osobnej zgody |
 | G5 | SPECIFICATION_ONLY | Architektura i ADR-001 | Produkcyjny edge, owner channel, build i przyszłe zdolności coding/Git | Odebrać projekt; nie włączać Run/approve/WRITE |
 | G6 | SPECIFICATION_ONLY | Manifest7 placeholderów i obliczenia kontrastu | Brak osobnej zgody/licencji/eksportów | Zatwierdzić specyfikację; grafiki nie powstały |
-| G7 | PASS_OFFLINE / PUBLICATION_PENDING | Jeden review,6 ustaleń zamkniętych testami;533 Python +10 Node PASS | Publikacja i końcowe dowody po commicie | Odbiór narzędzi; nadal bez samoczynnego buildu |
+| G7 | PASS_OFFLINE / DRAFT_PR_CREATED | Jeden review,6 ustaleń zamkniętych testami;533 Python +10 Node PASS;PR25 | Odbiór właściciela; pozostałe bramki wykonania nadal czerwone | Przejrzeć draft i handoff, bez samoczynnego buildu |
 
 ## Wersje: plan, nie instalacja
 
@@ -137,8 +140,15 @@ Samodzielne `verify_apk.py` nie nadaje APK source SHA na podstawie nazwy katalog
 Tylko udany kontrolowany build dopina source/invocation/log/report digests;
 to dowód pochodzenia z lokalnego procesu, bez zewnętrznej atestacji buildu.
 
-Na moment zapisu tego checkpointu publikacja oczekuje końcowej kontroli;
-Actions pozostaje NOT_RUN. Nie uruchamiano workflow w żadnym etapie.
+Utworzono wyłącznie nową gałąź oraz
+[draft PR #25](https://github.com/luciferprosun/AIOA-spArkHAT/pull/25),
+base `AIOA-METAGuardiansSPARK`, początkowy head32724a1. Późniejszy push
+uzupełnia wyłącznie ten handoff. Nie wykonano merge ani push do main/bazy.
+API GitHub po publikacji kodu i utworzeniu PR zwróciło0 workflow runs dla
+nowej gałęzi. **Actions pozostaje NOT_RUN**, nie GITHUB_ACTIONS_PASS.
+Wszystkie nowe commity zawierają `[skip ci]`; sprawdzono istniejące workflow
+bazy/main: automatyczne zdarzenia dotyczą wyłącznie main, bez
+pull_request_target/create/workflow_run. Nowy workflow pozostaje dispatch-only.
 
 Zdalna `AIOA-METAGuardiansSPARK` wskazuje
 `0741d37db0630233b4e7212f6f3af6320106c792`, czyli12 lokalnych commitów/93 pliki
@@ -170,7 +180,10 @@ Lokalnie niczego nie instalowano, zatem nie ma nowego toolchainu do usunięcia
 z LSC_DATA3. Nie wykonywać `rm -rf`, reset, clean ani kasowania cudzych cache.
 Kod można wycofać na **tej izolowanej gałęzi** odwracając wyłącznie jej nowe
 commity w odwrotnej kolejności przez `git revert --no-commit`, po potwierdzeniu
-czystego statusu. Zestaw hashy poda finalne evidence; nie obejmuje12 commitów
+czystego statusu oraz zgodności HEAD z końcowym evidence. Dokładne polecenie
+z pełnymi hashami jest w prywatnym `ROLLBACK_OWN_COMMITS.txt`, a lista w
+`TOOLCHAIN_FINAL_EVIDENCE.json`; nie używać zmiennego HEAD jako skrótu do
+nieznanych późniejszych zmian. Zestaw nie obejmuje12 commitów
 odziedziczonych N1/P02/P03. Nie cofać bazy6216b16, ledgera lub UNKNOWN.
 Jeżeli powstał draft PR, pozostawić go bez merge lub zamknąć w odrębnej
 czynności właściciela. Gałąź, worktree i prywatne dowody są zachowane.
