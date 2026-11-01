@@ -224,7 +224,7 @@ class MobileGateway:
         require(wire.HEX64.fullmatch(challenge),400)
         capabilities={'schema':'aioa.mobile.capabilities.v1','profile':'OFFLINE_FIXTURE',
             'status':True,'preview':True,'evidence':True,'stop':True,'run':False,'approve':False,
-            'chat':False,'meta_spend':False,'native_execute':False,'github_write':False,
+            'chat':False,'meta_spend':False,'native_execute':False,'github_write':False,'install':False,
             'owner_pairing_m12':False,'remote_deployment':'REMOTE_DEPLOYMENT_BLOCKED'}
         now=int(self.clock())
         proof={'schema':'aioa.mobile.host-proof.v1','challenge':challenge,'origin':self.origin,
@@ -293,6 +293,9 @@ class MobileGateway:
         return self._project(record)
 
     def _dispatch(self, action, identity, session, value):
+        if action.startswith('agent_'):
+            from .views_v2 import dispatch
+            return dispatch(self,action,identity,session,value)
         if action=='preview':return self._preview(session,value)
         if action=='revoke':
             require(value=={},400)

@@ -32,7 +32,7 @@ runtime = ["prompts/*.txt", "adaptive_routing/*.json", "adaptive_routing/environ
 "runtime.memory_patch" = ["LICENSE-MEMORY-PATCH.txt", "sql/*.sql", "sql/manifest.json", "sql/manifest-learning-v1.json"]
 
 [tool.setuptools.data-files]
-"share/aioa-sparkhat/web" = ["web/index.html", "web/app.js", "web/styles.css"]
+"share/aioa-sparkhat/web" = ["web/index.html", "web/app.js", "web/styles.css", "web/meta_mission.js", "web/agent_mission.js"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

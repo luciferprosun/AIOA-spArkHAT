@@ -42,28 +42,34 @@
       "sha256": "7d9aa3b8434cac4ff632f5157a0584c721fdc013fda7f4fe12904e3856645e0a"
     },
     {
-      "bytes": 1175,
+      "bytes": 3803,
+      "executable": false,
+      "path": "clients/android/app/src/main/java/eu/sparkhat/aioa/companion/AgentMissionView.kt",
+      "sha256": "5a6d34b24716ff0d326f387298a84a82a4b871a946dfe9b2ce1fdb92355f5059"
+    },
+    {
+      "bytes": 1233,
       "executable": false,
       "path": "clients/android/app/src/main/java/eu/sparkhat/aioa/companion/Freshness.kt",
-      "sha256": "2cdf185b6d9a67b0f6cd2d36dcae4d4825c3cc93f7b926be7d0dc97e5cf944e6"
+      "sha256": "ac8637f5e9dde68f8b057746432c902d48518b399ad0c9fe0057638d07d45e08"
     },
     {
-      "bytes": 7586,
+      "bytes": 10799,
       "executable": false,
       "path": "clients/android/app/src/main/java/eu/sparkhat/aioa/companion/MainActivity.kt",
-      "sha256": "a0673e27a0dcfded47faae1e6d67aecb5e13596c3956c7b98476ca9a20815965"
+      "sha256": "0cdf34872be4c76c9d47d27381a0744b8c9f7e3c37e253264bcde397ccbd6653"
     },
     {
-      "bytes": 8245,
+      "bytes": 11209,
       "executable": false,
       "path": "clients/android/app/src/main/java/eu/sparkhat/aioa/companion/MissionViewModel.kt",
-      "sha256": "5f05308c12077b67498db0ad8031cf5c9bc96d51fcab812de3329abca6dc5abf"
+      "sha256": "ee5877a6cccfc70e1b2fb47e337dc793a7a966c1c289e1cc56bedbb32ee2eb9c"
     },
     {
-      "bytes": 11983,
+      "bytes": 14960,
       "executable": false,
       "path": "clients/android/app/src/main/java/eu/sparkhat/aioa/companion/MobileClient.kt",
-      "sha256": "4d3e4f585c7f3b6bba090f7028e256c7d986f44e4b62ee03371ebf93f397a1a0"
+      "sha256": "d1248b85b4e6f19fb1a9e97675a5974e8f57f9950a9c57271ae6674a4486c1eb"
     },
     {
       "bytes": 1414,
@@ -72,10 +78,10 @@
       "sha256": "35196f93e6220fe1544c05e0b606aead1a5f5030eb32a11c394fab8903cad14f"
     },
     {
-      "bytes": 5399,
+      "bytes": 5442,
       "executable": false,
       "path": "clients/android/app/src/main/java/eu/sparkhat/aioa/companion/Wire.kt",
-      "sha256": "00d0c2c2504ee62893b4769ea20f683cf4381316d730df975c2ea7507ca6d7d6"
+      "sha256": "1d384f9e70464c358e0ab88342d57c4ab41b966d9c46cb5f159ae47efb338c8c"
     },
     {
       "bytes": 635,
@@ -88,6 +94,12 @@
       "executable": false,
       "path": "clients/android/app/src/main/res/xml/network_security_config.xml",
       "sha256": "eb5f5c57a88fc656cb97ee142694b996b286064ba973e51e0158bcdff08b34f2"
+    },
+    {
+      "bytes": 2907,
+      "executable": false,
+      "path": "clients/android/app/src/test/java/eu/sparkhat/aioa/companion/AgentMissionViewTest.kt",
+      "sha256": "c57cef9fd4b760592ba42190a1b26ee6a3064f11c539305d8b4afe293ff759cc"
     },
     {
       "bytes": 3509,

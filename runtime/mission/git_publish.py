@@ -76,7 +76,8 @@ class LocalGitPlan:
         return {**json.loads(self.plan_bytes()),'diff':self.diff_bytes().decode(),
             'authority':'NONE','remote_write_allowed':False,'draft':True,
             'remote_gate':'BLOCKED_EXACT_OWNER_GO_AND_CREATE_ONLY_TRANSPORT',
-            'force':False,'protected_branch_write':False,'model_has_credentials':False}
+            'force':False,'protected_branch_write':False,'model_has_credentials':False,
+            'local_repository_profile':'DISPOSABLE_OFFLINE_FIXTURE','canonical_base_verified':False}
 
     def result_bytes(self):
         return canonical({'schema':'aioa.local-git-result.v3','plan_digest':self.digest,

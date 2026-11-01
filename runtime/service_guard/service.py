@@ -52,7 +52,9 @@ class CoreServiceGuard:
             check()
             require(not cancel.cancelled, 'LOCAL_STOPPED')
             def start(tx):
-                route.validate_registered_local(tx, warrant, operation)
+                grant=route.validate_registered_local(tx, warrant, operation)
+                require(reservation.risk_units<=grant.risk_units and reservation.money_nano==0,
+                        'LOCAL_RESOURCE_GRANT_MISMATCH')
                 return route.journal._start_in_transaction(tx, warrant, operation, reservation, local_zero=True)
             marker = route._run(principal, Capability.COMMIT, start)
             if not marker['local_step_now']: return marker

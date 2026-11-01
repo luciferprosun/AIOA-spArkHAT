@@ -289,6 +289,36 @@ class ProviderManager:
             )
         return rows
 
+    def unified_catalog(self, *, receipt_view=None, last_fixture_invocation=None):
+        """Truthful choices for the bounded unified profile; never reads keys.
+
+        Presence of old provider code or a configured credential is not live
+        admission. This catalog neither switches a provider nor enables fallback.
+        """
+        from .meta_model_api import MODEL, PROVIDER
+        provider=self._meta_provider
+        fixture=provider is not None and provider.mode=='MOCK'
+        diagnostic=provider.diagnostics(receipt_view=receipt_view) if provider is not None else {}
+        live=diagnostic.get('last_live_receipt')
+        base={'live_enabled':False,'billing_status':'UNVERIFIED','automatic_fallback':False,
+            'budget_limit_usd':None,'last_invocation':None,'paid_api_calls_verified':None}
+        meta={**base,'provider_id':PROVIDER,'model_id':MODEL,
+            'availability':'AVAILABLE_OFFLINE' if fixture else 'BLOCKED_EXACT_LIVE_OWNER_GO',
+            'mode':'OFFLINE_FIXTURE' if fixture else 'LIVE','selectable':fixture,
+            'budget_limit_usd':'0' if fixture else None,'budget_status':'FIXTURE_ZERO_COST' if fixture else 'NOT_AUTHORIZED',
+            'last_invocation':last_fixture_invocation if fixture else live,
+            'paid_api_calls_verified':0 if live is None else 1,'receipt_count_scope':'LAST_VERIFIED_CORE_RECEIPT',
+            'credit_balance':'UNVERIFIED','source_of_truth':'EXISTING_CORE_RECEIPTS',
+            'live_gate':'EXACT_CORE_BINDING_BILLING_BUDGET_AND_OWNER_GO_REQUIRED'}
+        return {'schema':'aioa.provider-catalog.v1','automatic_fallback':False,
+            'selected_provider_id':PROVIDER,'selected_model_id':MODEL,
+            'providers':[meta,{**base,'provider_id':'nebius','model_id':DEFAULT_NEBIUS_MODEL,
+                'mode':'LIVE','availability':'NOT_BOUND_IN_UNIFIED_PROFILE','selectable':False,
+                'budget_status':'UNKNOWN_NO_NEW_SPEND_GO','source_of_truth':'EXISTING_NEBIUS_LEDGER_NOT_IMPORTED'},
+                {**base,'provider_id':'local_llama','model_id':'UNSELECTED','mode':'OFFLINE_FIXTURE',
+                'availability':'DESIGN_ONLY_NO_INFERENCE','selectable':False,
+                'budget_status':'NOT_APPLICABLE','source_of_truth':'NO_INVOCATIONS'}]}
+
     def model_notice(self, model_name: str) -> str | None:
         normalized = self.normalize_model_name(model_name)
         provider = normalized.split("/", 1)[0]

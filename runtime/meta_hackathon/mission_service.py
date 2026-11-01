@@ -137,6 +137,26 @@ class MissionService:
         from . import agent_operations
         return agent_operations.stop(self, task_id, reader)
 
+    def agent_proposal_readback(self, request_id, reader):
+        from . import agent_operations
+        return agent_operations.proposal_readback(self, request_id, reader)
+
+    def reconcile_agent(self, task_id, reader):
+        from . import agent_operations
+        return agent_operations.reconcile(self, task_id, reader)
+
+    def provider_catalog(self, reader):
+        self.core.require(reader, Capability.READ, scope=self.scope)
+        rows=sorted(self._rows(),key=lambda row:row.payload.get('created_order',0),reverse=True)
+        last=next((row for row in rows if row.payload.get('mode')=='OFFLINE_FIXTURE'
+                   and row.payload.get('provider_receipt') is not None),None)
+        invocation=None if last is None else {'task_id':last.record_id,'task_digest':last.payload['task_digest'],
+            'source_sha':last.payload['source_sha'],'capsule_digest':last.payload['capsule_digest'],
+            'provider_id':PROVIDER,'model_id':MODEL,'mode':'OFFLINE_FIXTURE','live_verified':False,
+            'receipt_sha256':canonical_sha256(last.payload['provider_receipt'])}
+        return self.manager.unified_catalog(receipt_view=MetaReceiptView(self.ledger,source_reader=self.source_probe),
+                                            last_fixture_invocation=invocation)
+
     def _run(self, purpose, callback):
         principal = self.core.local_operator(purpose)
         return self.runner.run(TransactionContext(principal, purpose), callback)

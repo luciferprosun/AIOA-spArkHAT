@@ -78,7 +78,7 @@ class MobileClient(private val identity: TransportIdentity) {
         // Test identities must never become production phone pairing.
         require(Wire.text(caps,"profile") != "OFFLINE_FIXTURE" &&
             Wire.text(caps,"remote_deployment") == "TLS_HOST_VERIFIED") { "REMOTE_DEPLOYMENT_BLOCKED" }
-        require(!Wire.flag(caps,"run") && !Wire.flag(caps,"approve") && !Wire.flag(caps,"meta_spend"))
+        require(listOf("run","approve","meta_spend","native_execute","install","github_write").all { !Wire.flag(caps,it) })
         return caps
     }
     fun enroll(code: String): MobileObservation {
@@ -121,11 +121,12 @@ class MobileClient(private val identity: TransportIdentity) {
         val safeSeconds = (minOf(30L,Wire.integer(proof,"expires_at")-now(),sessionRemaining)-1).coerceAtLeast(0)
         return MobileObservation(data,Freshness.elapsedMs()+safeSeconds*1000)
     }
-    private fun request(method: String, suffix: String, payload: JsonObject? = null): MobileObservation {
+    private fun request(method: String, suffix: String, payload: JsonObject? = null, apiBase: String = Wire.BASE): MobileObservation {
+        require(apiBase in setOf(Wire.BASE,Wire.VIEW_BASE))
         val credential = token ?: throw SessionUnavailable()
         if (now() >= expiresAt) { token = null; session = ""; throw SessionUnavailable() }
         verifyHostProof() // no credential release to an unproven host
-        val path = Wire.BASE+suffix; val n = nonce(); val at = now()
+        val path = apiBase+suffix; val n = nonce(); val at = now()
         val body = payload?.let { Wire.canonical(it) } ?: byteArrayOf()
         require(body.size <= 16384)
         val proof = buildJsonObject {
@@ -140,12 +141,34 @@ class MobileClient(private val identity: TransportIdentity) {
         if (method == "GET") builder.get() else builder.post(body.toRequestBody("application/json".toMediaType()))
         val observation = verifyObservation(exchange(builder.build()),n,method,path)
         val data = observation.data
-        if (data["task_id"] != null) validateMission(data)
-        if (suffix == "/status" || suffix.startsWith("/status/pages/")) {
+        if (data["task_id"] != null) {
+            if (apiBase == Wire.VIEW_BASE) AgentMissionView.decode(data,source,capsule,ownerScope) else validateMission(data)
+        }
+        if (apiBase == Wire.BASE && (suffix == "/status" || suffix.startsWith("/status/pages/"))) {
             val missions = data.getValue("missions").jsonArray
             require(missions.size <= 16 && Wire.integer(data,"total_missions") in 0L..128L)
             missions.forEach { validateMission(it.jsonObject) }
             if (data["next_cursor"] != JsonNull) require(Wire.taskId.matches(Wire.text(data,"next_cursor")))
+        }
+        if (apiBase == Wire.VIEW_BASE && (suffix == "/status" || suffix.startsWith("/status/pages/"))) {
+            require(Wire.text(data,"schema") == "aioa.mobile.agent-status.v2" &&
+                Wire.text(data,"owner_authority") == "NOT_BOUND" && !Wire.flag(data,"live_verified"))
+            val missions = data.getValue("missions").jsonArray
+            require(missions.size <= 16 && Wire.integer(data,"total_missions") in 0L..128L)
+            missions.forEach { item ->
+                val value = item.jsonObject
+                require(AgentMissionView.taskPattern.matches(Wire.text(value,"task_id")) &&
+                    Wire.text(value,"source_sha") == source && Wire.text(value,"capsule_digest") == capsule &&
+                    Wire.text(value,"mode") == "OFFLINE_FIXTURE")
+                AgentState.valueOf(Wire.text(value,"state"))
+            }
+            if (data["next_cursor"] != JsonNull) require(AgentMissionView.taskPattern.matches(Wire.text(data,"next_cursor")))
+        }
+        if (apiBase == Wire.VIEW_BASE && suffix == "/providers") {
+            require(Wire.text(data,"schema") == "aioa.provider-catalog.v1" && !Wire.flag(data,"automatic_fallback"))
+            val providers = data.getValue("providers").jsonArray
+            require(providers.size <= 8)
+            providers.forEach { require(!Wire.flag(it.jsonObject,"live_enabled")) }
         }
         if (suffix == "/session/revoke") { token = null; session = "" }
         return observation
@@ -185,6 +208,27 @@ class MobileClient(private val identity: TransportIdentity) {
         require(Wire.taskId.matches(task)); return request("POST","/stop",buildJsonObject { put("task_id",task) })
     }
     fun revoke() = request("POST","/session/revoke",buildJsonObject {})
+    fun agentStatus() = request("GET","/status",apiBase=Wire.VIEW_BASE)
+    fun agentEvidence(task: String): MobileObservation {
+        require(AgentMissionView.taskPattern.matches(task)); return request("GET","/tasks/$task",apiBase=Wire.VIEW_BASE)
+    }
+    fun agentProposal(proposal: String, sourceTask: String? = null): MobileObservation {
+        require(Wire.hex32.matches(proposal))
+        if (sourceTask != null) require(AgentMissionView.taskPattern.matches(sourceTask))
+        return request("POST","/propose",buildJsonObject {
+            put("schema","aioa.agent-proposal.v2"); put("request_id",proposal); put("provider_id","meta_model_api")
+            put("recipe_id",if(sourceTask == null) "sensorbridge-v1" else "git-commit-v1")
+            if (sourceTask != null) put("source_task_id",sourceTask)
+        },apiBase=Wire.VIEW_BASE)
+    }
+    fun agentReadback(proposal: String): MobileObservation {
+        require(Wire.hex32.matches(proposal)); return request("GET","/proposals/$proposal",apiBase=Wire.VIEW_BASE)
+    }
+    fun agentStop(task: String): MobileObservation {
+        require(AgentMissionView.taskPattern.matches(task))
+        return request("POST","/stop",buildJsonObject { put("task_id",task) },apiBase=Wire.VIEW_BASE)
+    }
+    fun agentProviders() = request("GET","/providers",apiBase=Wire.VIEW_BASE)
     fun cancel() { http?.dispatcher?.cancelAll() }
     fun close() { cancel(); token = null; session = ""; expiresAt = 0; http?.connectionPool?.evictAll(); http = null }
 }

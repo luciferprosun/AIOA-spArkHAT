@@ -66,6 +66,13 @@ class WebRuntimeService:
             if type(mobile_gateway) is not MobileGateway or mobile_gateway.missions is not meta_missions:
                 raise ValueError('MOBILE_SAME_MISSION_CORE_REQUIRED')
         self.mobile_gateway = mobile_gateway
+        self.unified_profile = meta_missions is not None and hasattr(meta_missions, 'agent_route')
+        self.core_mcp = None
+        if self.unified_profile:
+            from runtime.core_admission import Capability
+            from runtime.mcp_bridge.adapter import CoreMissionMCPAdapter
+            self.core_mcp = CoreMissionMCPAdapter(meta_missions,
+                meta_missions.core.local_operator(Capability.READ), project_root=REPOSITORY_DIR)
         if native_console is not None:
             from runtime.native_console import NativeConsoleBinding
             if type(native_console) is not NativeConsoleBinding:raise ValueError("NATIVE_CONSOLE_BINDING")
@@ -119,7 +126,7 @@ class WebRuntimeService:
     def status_payload(self) -> dict:
         if self.meta_missions is not None:
             fixture = self.meta_missions.manager._meta_provider.mode == 'MOCK'
-            return {'product_name': 'AIOA spArkHAT', 'subtitle': 'METAGuardiansSPARK',
+            payload = {'product_name': 'AIOA spArkHAT', 'subtitle': 'METAGuardiansSPARK',
                 'meta_profile': True, 'demo': fixture, 'session_id': 'offline-meta-fixture' if fixture else 'native-meta-core',
                 'cwd': 'Isolated local fixture' if fixture else 'Native Core host binding', 'model': 'meta_model_api/muse-spark-1.3',
                 'available_models': ['meta_model_api/muse-spark-1.3'], 'browser_active': False,
@@ -128,6 +135,10 @@ class WebRuntimeService:
                 'open_tabs': [], 'critical_loop': {'enabled': False, 'mode': 'OFFLINE_FIXTURE' if fixture else 'LIVE_PENDING_AUTHORIZATION',
                     'authority': 'ADVISORY_ONLY', 'live_enabled': False, 'run_ids': [], 'session_budget_usd': '0'},
                 'assistant': {'default_mode': 'meta', 'plain_chat': 'DISABLED'}}
+            if self.unified_profile:
+                from runtime.meta_hackathon.web_agent import status
+                payload.update(status(self))
+            return payload
         owner = getattr(self, 'personal_ai_demo_owner', None)
         if owner is not None:
             return {'product_name': 'AIOA spArkHAT', 'demo': True, 'session_id': 'isolated-personal-ai-demo',
@@ -150,6 +161,10 @@ class WebRuntimeService:
         payload['critical_loop'] = self.runtime.critical_loop.status()
         payload['assistant'] = {'default_mode': 'cpl', 'plain_chat': 'EXPLICIT_BYPASS_ONLY'}
         return payload
+
+    def agent_request(self, action, payload=None, *, intent=None):
+        from runtime.meta_hackathon.web_agent import request
+        return request(self, action, payload, intent=intent)
 
     def switch_model(self, model_name: str) -> dict:
         with self.lock:
@@ -301,6 +316,9 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
         if parsed.path.startswith('/api/mobile/'):
             self._handle_mobile('GET')
             return
+        if parsed.path.startswith('/api/agent/'):
+            if self._check_token(): self._handle_agent('GET', parsed, None)
+            return
         if parsed.path.startswith('/api/meta/'):
             if self._check_token(): self._handle_meta('GET', parsed, None)
             return
@@ -410,10 +428,12 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
             )
             return
         if parsed.path == "/api/status":
+            if self._service().unified_profile and not self._check_token(): return
             self._write_json(HTTPStatus.OK, self._service().status_payload())
             return
         if parsed.path == "/api/models":
             service = self._service()
+            if service.unified_profile and not self._check_token(): return
             self._write_json(
                 HTTPStatus.OK,
                 {
@@ -435,6 +455,19 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
             return
         if parsed.path.startswith('/api/mobile/'):
             self._handle_mobile('POST')
+            return
+        if parsed.path.startswith('/api/agent/'):
+            if not self._check_token(): return
+            intents={'/api/agent/propose':'agent-propose-v2','/api/agent/git-preview':'agent-propose-v2',
+                '/api/agent/install-preview':'agent-propose-v2','/api/agent/run':'agent-approve-offline-exact-v2',
+                '/api/agent/stop':'agent-stop-v2','/api/agent/mcp/submit':'agent-mcp-propose-v2',
+                '/api/agent/reconcile':'agent-readback-v2'}
+            expected=intents.get(parsed.path)
+            if expected is None or self.headers.get_all('X-AIOA-Intent',[]) != [expected]:
+                self._write_json(HTTPStatus.FORBIDDEN,{'ok':False,'error':'AGENT_EXACT_INTENT_REQUIRED','automatic_retry':False})
+                return
+            payload=self._read_json_body()
+            if payload is not None:self._handle_agent('POST',parsed,payload)
             return
         if parsed.path.startswith('/api/meta/'):
             if not self._check_token(): return
@@ -652,6 +685,33 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
             status, result = error_response(operation, error)
         self._write_json(status, result)
 
+    def _handle_agent(self, method, parsed, payload):
+        import re
+        from runtime.memory_patch.errors import CommitOutcomeUnknown
+        try:
+            if parsed.query or parsed.params or parsed.fragment:raise ValueError('AGENT_QUERY_DENIED')
+            fixed={('GET','/api/agent/status'):'status',('GET','/api/agent/providers'):'providers',
+                ('POST','/api/agent/propose'):'propose',('POST','/api/agent/run'):'run',
+                ('POST','/api/agent/stop'):'stop',('POST','/api/agent/git-preview'):'git-preview',
+                ('POST','/api/agent/install-preview'):'install-preview',('POST','/api/agent/mcp/submit'):'mcp-submit',
+                ('POST','/api/agent/reconcile'):'reconcile'}
+            action=fixed.get((method,parsed.path))
+            if method=='GET' and parsed.path.startswith('/api/agent/tasks/'):
+                action,payload='view',{'task_id':parsed.path.removeprefix('/api/agent/tasks/')}
+            if method=='GET' and parsed.path.startswith('/api/agent/mcp/results/'):
+                action,payload='mcp-result',{'task_id':parsed.path.removeprefix('/api/agent/mcp/results/')}
+            if method=='GET' and parsed.path.startswith('/api/agent/proposals/'):
+                action,payload='proposal-readback',{'request_id':parsed.path.removeprefix('/api/agent/proposals/')}
+            if action is None:raise ValueError('AGENT_ROUTE_DENIED')
+            result=self._service().agent_request(action,payload,intent=self.headers.get('X-AIOA-Intent'))
+            self._write_json(HTTPStatus.ACCEPTED if action=='run' else HTTPStatus.OK,result)
+        except CommitOutcomeUnknown:
+            self._write_json(HTTPStatus.SERVICE_UNAVAILABLE,{'ok':False,'error':'AGENT_ACK_UNKNOWN_READBACK_REQUIRED','automatic_retry':False})
+        except Exception as error:
+            code=str(error)
+            if not re.fullmatch(r'(?:AGENT|MCP|LOCAL|CORE)_[A-Z0-9_]{1,72}',code):code='AGENT_REQUEST_DENIED'
+            self._write_json(HTTPStatus.BAD_REQUEST,{'ok':False,'error':code,'automatic_retry':False})
+
     def _handle_meta(self, method, parsed, payload):
         from runtime.meta_hackathon.mission_service import MissionError
         try:
@@ -835,6 +895,7 @@ def _parser() -> argparse.ArgumentParser:
     mode.add_argument('--cpl-fixture', action='store_true', help='Explicit local synthetic HTTP transport; no model API')
     mode.add_argument('--cpl-live-policy', help='Operator-authored price/budget policy JSON; still requires per-plan approval')
     mode.add_argument('--meta-offline', action='store_true', help='One existing UI, isolated Meta fixture, zero spend')
+    mode.add_argument('--unified-offline', action='store_true', help='One app: Core-gated local recipes, MCP and signed mobile fixture; no paid calls')
     mode.add_argument('--meta-live-one-shot', action='store_true', help='Inspect the explicit one-shot LIVE gate; never implies owner GO')
     parser.add_argument('--state-dir', help='Private state directory for the explicit Meta offline profile')
     parser.add_argument("--host", default=HOST)
@@ -852,16 +913,20 @@ def main() -> None:
         return
     from critical_loop.policy import load_cost_policy
     policy = load_cost_policy(args.cpl_live_policy) if args.cpl_live_policy else None
-    if args.meta_offline:
+    if args.meta_offline or args.unified_offline:
+        if args.unified_offline and args.host not in LOOPBACK_HOSTS:
+            raise ValueError('UNIFIED_LOOPBACK_ONLY')
         from runtime.meta_hackathon.runtime_adapter import OfflineMetaComposition
-        root = Path(args.state_dir) if args.state_dir else Path.home()/'.local/state/aioa-meta-offline-v1'
+        root = Path(args.state_dir) if args.state_dir else Path.home()/('.local/state/aioa-unified-offline-v2' if args.unified_offline else '.local/state/aioa-meta-offline-v1')
         owner = OfflineMetaComposition(root)
-        service = WebRuntimeService(runtime=owner.runtime, meta_missions=owner.missions, meta_owner=owner)
+        if args.unified_offline:owner.enable_unified()
+        service = WebRuntimeService(runtime=owner.runtime, meta_missions=owner.missions, meta_owner=owner,
+                                    mobile_gateway=owner.mobile if args.unified_offline else None)
     else:
         service = WebRuntimeService(cpl_fixture=args.cpl_fixture, cpl_cost_policy=policy)
     server = make_server(args.host, args.port, service)
     address, bound_port = server.server_address[:2]
-    print(f"AIOA spArkHAT web UI running on http://{address}:{bound_port}")
+    print(f"AIOA spArkHAT web UI running on http://{address}:{bound_port}",flush=True)
     print("One local runtime | dated evidence review | human authority retained")
     try:
         server.serve_forever()

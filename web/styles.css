@@ -698,3 +698,7 @@ textarea {
   .meta-actions .button { width: 100%; }
   .meta-mission textarea, .meta-mission input, .meta-mission select { max-width: 100%; box-sizing: border-box; }
 }
+/* Existing Mission Control owns scrolling; file/evidence panes stay bounded. */
+.agent-workspace { min-width: 0; }
+.agent-workspace pre { max-height: 28rem; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
+.agent-workspace .meta-actions { flex-wrap: wrap; }

@@ -4,7 +4,7 @@ Only Core's live START branch supplies the release callback. Typed requests and
 on-disk receipts are bindings/evidence, never replayable execution authority.
 """
 from pathlib import Path
-from dataclasses import dataclass
+from dataclasses import dataclass,asdict
 from datetime import datetime,timezone
 import array,errno,hashlib,json,os,select,socket,stat,struct,subprocess,sys,tempfile,uuid
 from runtime.memory_patch.contracts.serialization import canonical_sha256,canonical_json_bytes
@@ -17,6 +17,29 @@ def sync_directory(path):
     try:os.fsync(fd)
     finally:os.close(fd)
 def sha(path):return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+def read_evidence_file(directory,name,maximum=1048576):
+    """Pinned directory/file descriptors; evidence links never become truth."""
+    directory=Path(directory)
+    require(not directory.is_symlink(),'READBACK_DIRECTORY_DENIED')
+    dfd=os.open(directory,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW|os.O_CLOEXEC)
+    fd=None
+    try:
+        fd=os.open(name,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK|os.O_CLOEXEC,dir_fd=dfd)
+        before=os.fstat(fd)
+        require(stat.S_ISREG(before.st_mode) and before.st_nlink==1 and before.st_uid==os.getuid()
+            and 0<before.st_size<=maximum,'READBACK_FILE_TYPE_DENIED')
+        chunks=[];size=0
+        while size<=maximum:
+            part=os.read(fd,min(65536,maximum+1-size))
+            if not part:break
+            chunks.append(part);size+=len(part)
+        after=os.fstat(fd);named=os.stat(name,dir_fd=dfd,follow_symlinks=False)
+        identity=lambda info:(info.st_dev,info.st_ino,info.st_size,info.st_mtime_ns,info.st_ctime_ns,info.st_nlink)
+        require(identity(before)==identity(after)==identity(named) and size==before.st_size,'READBACK_FILE_CHANGED')
+        return b''.join(chunks)
+    finally:
+        if fd is not None:os.close(fd)
+        os.close(dfd)
 def exact_cgroup(unit):
     return '0::/user.slice/user-%d.slice/user@%d.service/app.slice/%s/work'%(os.getuid(),os.getuid(),unit)
 def mountid(fd):
@@ -78,6 +101,56 @@ class TrustedSandboxConfig:
     def profile(self):return json.loads(self.profile_bytes)
     def inputs(self):return json.loads(self.inputs_bytes)
     def runtime(self):return json.loads(self.runtime_bytes)
+
+
+def save_host_config(config):
+    """Private host preparation descriptor, never an approval or replay permit."""
+    require(type(config) is TrustedSandboxConfig,'TRUSTED_SANDBOX_CONFIGURATION_REQUIRED')
+    value={'schema':'aioa.linux-sandbox-host-cache.v1','profile':config.profile(),
+        'profile_digest':config.profile_digest,'workspace':config.registry.workspace,
+        'recipes':[asdict(recipe) for recipe in config.registry.recipes],
+        'inputs':config.inputs(),'runtime':config.runtime()}
+    fd=os.open(config.root/'host-config.json',os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)
+    try:
+        with os.fdopen(fd,'wb',closefd=False) as stream:
+            stream.write(canonical_json_bytes(value));stream.flush();os.fsync(fd)
+    finally:os.close(fd)
+    sync_directory(config.root)
+
+
+def load_host_config(root,*,trusted_root):
+    root=Path(root).absolute();trusted=Path(trusted_root).absolute()
+    def private(path,*,directory=False):
+        path=Path(path).absolute()
+        require(path.is_relative_to(trusted) and path.resolve()==path,'SANDBOX_CACHE_PATH_DENIED')
+        info=path.lstat()
+        require(info.st_uid==os.getuid() and (stat.S_ISDIR(info.st_mode) if directory else
+            stat.S_ISREG(info.st_mode) and info.st_nlink==1) and not info.st_mode&0o077,
+            'SANDBOX_PRIVATE_CACHE_REQUIRED')
+        return info
+    private(trusted,directory=True);private(root,directory=True)
+    path=root/'host-config.json';info=private(path)
+    require(info.st_size<=4194304,'SANDBOX_CACHE_BOUNDS')
+    fd=os.open(path,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK)
+    try:
+        with os.fdopen(fd,'rb',closefd=False) as stream:raw=stream.read(4194305)
+    finally:os.close(fd)
+    value=json.loads(raw)
+    require(set(value)=={'schema','profile','profile_digest','workspace','recipes','inputs','runtime'}
+        and value['schema']=='aioa.linux-sandbox-host-cache.v1'
+        and value['profile_digest']==canonical_sha256(value['profile']),'SANDBOX_CACHE_INTEGRITY')
+    require(value['profile']['backend_sha256']==sha(__file__)
+        and value['profile']['worker_sha256']==sha(Path(__file__).with_name('sandbox_worker.py')),
+        'SANDBOX_CACHE_SOURCE_CHANGED')
+    for name in ('worker_gate','bootstrap','setup_filter.bpf','final_filter.bpf'):private(root/name)
+    for entry in value['runtime'].values():private(entry['snapshot'])
+    for entry in value['inputs'].values():
+        for path in entry['files'].values():
+            require(Path(path).absolute().is_relative_to(root),'SANDBOX_CACHE_INPUT_DENIED');private(path)
+    recipes=tuple(SandboxRecipe(**{**r,'argv':tuple(r['argv'])}) for r in value['recipes'])
+    return TrustedSandboxConfig(root,canonical_json_bytes(value['profile']),value['profile_digest'],
+        SandboxRegistry(value['workspace'],recipes),canonical_json_bytes(value['inputs']),
+        canonical_json_bytes(value['runtime']))
 
 def prepare_linux_sandbox(root,runtime_manifest,*,workspace,recipes):
     """Explicit operator preparation: compile packaged trusted C, pin runtime/inputs.
@@ -338,6 +411,7 @@ class LinuxSandboxBroker:
                 receipt['cleanup_incomplete']=True
             receipt['finished_at']=now()
             with (run/'receipt.json').open('x') as stream:
+                os.fchmod(stream.fileno(),0o600)
                 json.dump(receipt,stream,indent=2);stream.flush();os.fsync(stream.fileno())
             sync_directory(run);sync_directory(self.config.root)
         return receipt
@@ -360,12 +434,13 @@ class LinuxSandboxBroker:
         candidates=[]
         for run in self.config.root.glob('run-*'):
             path=run/'receipt.json'
-            if not path.is_file():continue
-            receipt=json.loads(path.read_bytes())
+            if not path.exists() and not path.is_symlink():continue
+            raw=read_evidence_file(run,'receipt.json')
+            receipt=json.loads(raw)
             if receipt.get('operation_digest')==inner_digest and receipt.get('warrant_digest')==warrant.digest():
-                candidates.append((run,receipt,path))
+                candidates.append((run,receipt,raw))
         require(len(candidates)==1,'READBACK_REQUIRED')
-        run,receipt,path=candidates[0]
+        run,receipt,raw=candidates[0]
         stored=dict(receipt['request']);require(stored.pop('schema')=='aioa.sandbox-dispatch.v1','READBACK_BINDING')
         stored['operation_bytes']=canonical_json_bytes(stored.pop('operation'))
         request=SandboxDispatchRequest(**stored)
@@ -385,6 +460,6 @@ class LinuxSandboxBroker:
             finally:os.close(fd)
         receipt_id='sandbox-'+receipt['dispatch_digest'][:32]
         return Reconciliation(digest,Applied(receipt_id),
-            EvidenceRef(receipt_id,'receipt','sha256:'+sha(path),'v1'),
+            EvidenceRef(receipt_id,'receipt','sha256:'+hashlib.sha256(raw).hexdigest(),'v1'),
             EvidenceRef('sandbox-readback-'+receipt['dispatch_digest'][:24],'independent-readback',
                         'sha256:'+canonical_sha256(receipt['observations']['pinned_readback']),'v1'))

@@ -1,5 +1,28 @@
 # AIOA spArkHAT 🐾
 
+## One local Mission Control
+
+From this source checkout, start the unified local profile:
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 python3 -B -m runtime.webapp --unified-offline --host 127.0.0.1 --port 0
+```
+
+The command prints its random loopback URL. The existing web UI, signed mobile
+transport, MCP adapter and bounded tools share one MissionService/Core ledger.
+Review and approve an exact SensorBridge fixture operation to create real files,
+run five Python checks and inspect its independent readback receipt. A separate
+exact operation can create a local commit of those verified files in a fresh
+disposable repository. Remote writes and package installation remain disabled.
+
+This profile uses synthetic offline owner admission and no model inference for
+the registered coding recipe. Paid Muse/Nebius calls, production owner pairing,
+physical Android, qualified remote TLS and an APK are separate unverified gates.
+The unified profile currently requires the source checkout and a qualified Linux
+sandbox host; it is not a production certification of the installed wheel.
+See [testing and reproducible demo](docs/unification/TESTING.md) and
+[operator handoff](docs/unification/OWNER_HANDOFF_PL.md).
+
 > **Meta Global AI Developer Hackathon project:** [**AIOA METAGuardiansSPARK**](docs/meta/PROJECT_IDENTITY.md) is developed on branch [`AIOA-METAGuardiansSPARK`](https://github.com/luciferprosun/AIOA-spArkHAT/tree/AIOA-METAGuardiansSPARK). This is the same unified AIOA spArkHAT repository; no separate frontend or main rename.
 
 ### Long-Running Agent | NVIDIA Claw Challenge Berlin 2026

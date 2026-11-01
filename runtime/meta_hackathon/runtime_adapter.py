@@ -61,6 +61,12 @@ SOURCE_FILES += ('LICENSE', 'runtime/meta_hackathon/agent_operations.py',
         'runtime/mission/native/bootstrap.c', 'runtime/mission/git_publish.py',
         'runtime/mission/git_publish_worker.py', 'runtime/mission/git_recipe.py',
         'runtime/mission/git_worker.py', 'runtime/mission/install_plan.py')
+SOURCE_FILES += ('runtime/mcp_bridge/adapter.py','runtime/mcp_bridge/policy.py',
+        'runtime/mcp_bridge/read_ops.py','runtime/mcp_bridge/contracts.py','runtime/mcp_bridge/task_bus.py',
+        'runtime/mobile_gateway/views_v2.py','protocol/mobile_mission_v2.json',
+        'clients/android/app/src/main/java/eu/sparkhat/aioa/companion/AgentMissionView.kt')
+SOURCE_FILES += ('runtime/meta_hackathon/web_agent.py','web/agent_mission.js',
+        'clients/android/ANDROID_BUILD_INPUT_MANIFEST.json')
 
 
 def sealed_source_path(relative, *, root=None):
@@ -124,6 +130,41 @@ class OfflineMetaComposition:
         self.driver = FixtureReadDriver(delay_seconds=delay_seconds)
         self.browser = ChromeReadAdapter(self.driver)
         self.missions = MissionService(self.ledger, self.manager, self.browser, source_probe)
+
+    def enable_unified(self, *, config=None):
+        """Explicit labelled fixture composition of the existing app, not LIVE GO."""
+        from cryptography.hazmat.primitives.asymmetric import ec
+        from cryptography.hazmat.primitives import serialization
+        from runtime.mobile_gateway.wire import Identity
+        from runtime.mobile_gateway.service import MobileGateway
+        from runtime.mission.project_recipe import prepare_sensorbridge_sandbox
+        from runtime.mission.sandbox_linux import save_host_config,load_host_config
+        if hasattr(self,'mobile'):raise ValueError('UNIFIED_ALREADY_CONFIGURED')
+        if config is None:
+            cache=self.root/('sandbox-'+self.missions.source_probe()[1][:16])
+            if (cache/'host-config.json').exists():config=load_host_config(cache,trusted_root=self.root)
+            else:
+                config=prepare_sensorbridge_sandbox(cache,workspace='workspace-sensorbridge')
+                save_host_config(config)
+        self.missions.bind_agent_tools(config,self.core.local_operator(Capability.OWNER_APPROVAL))
+        # Only this profile's freshly generated fixture key, never user/API keys.
+        key_path=self.root/'fixture-transport-key.pem'
+        if key_path.exists():
+            info=key_path.lstat()
+            if not stat.S_ISREG(info.st_mode) or info.st_nlink!=1 or info.st_uid!=os.getuid() or info.st_mode&0o077 or info.st_size>1024:
+                raise ValueError('UNIFIED_FIXTURE_KEY_DENIED')
+            fd=os.open(key_path,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK)
+            try:key=serialization.load_pem_private_key(os.read(fd,1025),password=None)
+            finally:os.close(fd)
+        else:
+            key=ec.generate_private_key(ec.SECP256R1())
+            raw=key.private_bytes(serialization.Encoding.PEM,serialization.PrivateFormat.PKCS8,serialization.NoEncryption())
+            fd=os.open(key_path,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)
+            try:
+                with os.fdopen(fd,'wb',closefd=False) as stream:stream.write(raw);stream.flush();os.fsync(fd)
+            finally:os.close(fd)
+        self.mobile=MobileGateway(self.missions,identity=Identity(key),fixture=True)
+        return self
 
     def close(self):
         if self._closed: return

@@ -45,9 +45,6 @@ class ToolCapability(str, Enum):
     READ_PROJECT = 'READ_PROJECT'
     PROJECT_WRITE = 'PROJECT_WRITE'
     SANDBOX_EXEC = 'SANDBOX_EXEC'
-    GIT_COMMIT = 'GIT_COMMIT'
-    GIT_PUSH = 'GIT_PUSH'
-    GITHUB_DRAFT_PR = 'GITHUB_DRAFT_PR'
     DEPENDENCY_INSTALL = 'DEPENDENCY_INSTALL'
     GITHUB_REMOTE_WRITE = 'GITHUB_REMOTE_WRITE'
     BROWSER_EXTERNAL_EFFECT = 'BROWSER_EXTERNAL_EFFECT'
@@ -139,9 +136,11 @@ class SessionGrant:
     def __post_init__(self):
         opaque_id(self.session_id,'session_id'); opaque_id(self.workspace,'workspace')
         require(type(self.scope) is OwnerScope, 'INVALID_SESSION')
+        allowed={t.value for t in ToolCapability}
+        if type(self) is LocalSessionGrant:allowed|={'GIT_COMMIT','GIT_PUSH','GITHUB_DRAFT_PR'}
         require(type(self.capabilities) is tuple and self.capabilities
                 and len(set(self.capabilities)) == len(self.capabilities)
-                and all(type(c) is str and c in {t.value for t in ToolCapability} for c in self.capabilities),
+                and all(type(c) is str and c in allowed for c in self.capabilities),
                 'INVALID_SESSION')
         require(type(self.completion_digest) is str and len(self.completion_digest)==64
                 and all(c in '0123456789abcdef' for c in self.completion_digest), 'INVALID_SESSION')
@@ -263,6 +262,9 @@ class CoreToolRoute:
         require(inner['payload']['task_id'] == warrant.task_id
                 and inner['target_fingerprint'] == operation['target_fingerprint']
                 and inner['expected_target_revision'] == operation['expected_target_revision'], 'LOCAL_TARGET_BINDING')
+        require(inner['payload']['timeout_ms'] <= grant.deadline_seconds*1000
+                and inner['payload']['max_output_bytes'] <= grant.output_bytes
+                and inner['payload']['network_profile'] == grant.egress == 'OFF','LOCAL_RESOURCE_GRANT_MISMATCH')
         self.journal.ledger.require_active_in_transaction(tx, warrant, consumed=consumed)
         return grant
 

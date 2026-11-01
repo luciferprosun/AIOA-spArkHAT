@@ -16,6 +16,7 @@ import kotlinx.serialization.json.*
 /** Neutral MobileMissionV1; signatures use DER ECDSA, not JWT r||s. */
 object Wire {
     const val BASE = "/api/mobile/v1"
+    const val VIEW_BASE = "/api/mobile/v2"
     const val HOST = "aioa.mobile.host-proof.v1"
     const val REQUEST = "aioa.mobile.request-proof.v1"
     const val ENROLL = "aioa.mobile.enrollment-proof.v1"

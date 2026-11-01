@@ -12,12 +12,14 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 
 BASE = '/api/mobile/v1'
+VIEW_BASE = '/api/mobile/v2'
 BODY_LIMIT = 16384
 RESPONSE_LIMIT = 65536
 HEX32 = re.compile(r'[0-9a-f]{32}\Z')
 HEX64 = re.compile(r'[0-9a-f]{64}\Z')
 SHA40 = re.compile(r'[0-9a-f]{40}\Z')
 TASK = re.compile(r'meta-[0-9a-f]{32}\Z')
+AGENT_TASK = re.compile(r'agent-[0-9a-f]{32}\Z')
 ERRORS = {400: 'INVALID_FRAME', 401: 'AUTH_DENIED', 403: 'SCOPE_DENIED',
           409: 'REPLAY_OR_READBACK_REQUIRED', 413: 'BOUNDS', 429: 'RATE_LIMITED',
           501: 'NOT_IMPLEMENTED', 503: 'REMOTE_DEPLOYMENT_BLOCKED_OR_SOURCE_CHANGED_OR_UNKNOWN'}
@@ -164,6 +166,17 @@ def origin(value):
 
 
 def route(method, path):
+    if path.startswith(VIEW_BASE+'/'):
+        fixed={('GET','/status'):'agent_status',('POST','/propose'):'agent_propose',
+            ('POST','/stop'):'agent_stop',('GET','/providers'):'agent_providers',
+            ('POST','/install-proposal'):'agent_install'}
+        suffix=path[len(VIEW_BASE):]
+        if (method,suffix) in fixed:return fixed[(method,suffix)],None
+        for prefix,name,pattern in (('/tasks/','agent_task',AGENT_TASK),
+            ('/proposals/','agent_proposal',HEX32),('/status/pages/','agent_page',AGENT_TASK)):
+            if method=='GET' and suffix.startswith(prefix) and pattern.fullmatch(suffix[len(prefix):]):
+                return name,suffix[len(prefix):]
+        raise MobileError(501 if suffix in ('/run','/approve','/install','/native_execute','/github_write','/meta_spend') else 400)
     fixed = {('GET', '/capabilities'): 'capabilities', ('POST', '/enrollment/redeem'): 'redeem',
              ('GET', '/status'): 'status', ('POST', '/preview'): 'preview',
              ('POST', '/stop'): 'stop', ('POST', '/session/revoke'): 'revoke'}

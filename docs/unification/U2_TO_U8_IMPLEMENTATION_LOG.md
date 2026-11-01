@@ -35,7 +35,43 @@ single-link i kontrolą tożsamości. Wynik zawsze `OFFLINE_FAKE_INSTALLER`,
 `installed=false`. Rzeczywista instalacja, pobieranie i SYSTEM_INSTALL pozostają
 zablokowane; nie uzyskano zgody na licencje ani instalację hosta.
 
-U5–U8: implementacja w toku; wyniki końcowe i dokładne komendy będą w U9.
+U5 — wykonano ten sam Core-backed MCP adapter. Zachowano dotychczasowy Task Bus
+GitHub READ. Namespace/origin/source/fingerprint/expiry oraz zamknięte payloady
+są sprawdzane przed zapisem transportowego markera. LICENSE ma bounded nofollow
+READ; WRITE/EXEC/Git/install są propozycjami REQUIRE_HUMAN. Wynik po lokalnej
+zgodzie odczytuje się z tej samej misji/receipt. Nie powstał serwer MCP ani ledger.
+Testy targeted: 5 PASS; dotychczasowe MCP: 99 PASS (ponowienie finalne w U9).
+
+U6 — podpisane widoki v2 dodano do tego samego MobileGateway i klienta Android.
+N1 /api/mobile/v1 zachowano. V2 wiąże transportowy request/link z kanoniczną
+misją, sprawdza scope urządzenia PRZED jej odczytem i nie wystawia run/approve/
+install/native_execute/github_write. Testy P-256: 5 PASS, w tym receipt po restarcie,
+replay, cross-device i UNKNOWN/STOP. Kotlin ma typed DTO, istniejący MobileClient,
+ViewModel i ekran (domyślnie English). Nowe testy JVM są źródłem do uruchomienia
+na zakwalifikowanym hoście: NOT_RUN, brak JDK/SDK/kotlinc. Brak APK/telefonu/TLS.
+
+U7 — jeden katalog provider/model, jawne OFFLINE_FIXTURE vs LIVE i availability.
+Meta LIVE, billing, Nebius admission i Local LLaMA pozostają zablokowane/niezweryfikowane.
+Nie ma fallbacku ani wczytania klucza jako dowodu uprawnienia. Ostatnie wywołanie
+jest wyprowadzane z istniejącego Core receipt; lokalna receptura nie udaje
+wywołania modelu. 3 targeted PASS; Local LLaMA to wyłącznie opis portu.
+
+U8 — runtime.webapp --unified-offline uruchamia tę samą aplikację i Core.
+Nowy panel w istniejącym web/ pokazuje pliki/diff/testy/receipt, dokładny digest,
+STOP, GET readback i jawne niezależne rozliczenie UNKNOWN. Nie ponawia POST po ACK
+loss. Ten sam serwer obsługuje podpisanego klienta v2, MCP READ i propozycje.
+Private sandbox cache oraz fixture key są trwałe; nie są produkcyjnym admission.
+Pierwsze testy: HTTP4, recovery2, cache2, rzeczywisty CLI+restart1, Node5 PASS.
+Końcowe liczniki i komendy są wyłącznie w U9_QA_EVIDENCE.md.
+
+Bezpieczny start z repo:
+`PYTHONDONTWRITEBYTECODE=1 python3 -B -m runtime.webapp --unified-offline --host 127.0.0.1 --port 0`.
+Proces poda rzeczywisty port. Istniejące instancje nie są przełączane ani zatrzymywane.
+
+Poprawki test-first: oddzielono capability Git od sesji v1; sesja USD0 ogranicza
+zasoby workera i risk reservation; odczyt receipt nie podąża za symlinkami i
+odmawia hardlinków. Przy utracie ACK rzeczywistego efektu UNKNOWN rozlicza tylko
+niezależny broker readback, nigdy powtórzenie operacji.
 
 Granice: profil OFFLINE ma jawnie syntetyczne Core admission/model identity.
 Rzeczywisty lokalny efekt i readback nie oznaczają produkcyjnego owner binding,

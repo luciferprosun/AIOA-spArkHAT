@@ -105,6 +105,45 @@
         </header>
 
         <section id="meta-view" class="workspace-view meta-mission" role="tabpanel" hidden>
+          <section id="agent-workspace" class="review-card agent-workspace" hidden>
+            <p class="eyebrow">One app · one Core · bounded local tools</p>
+            <h2>Agent workspace</h2>
+            <p>Propose SensorBridge, review its exact files and limits, then approve the local fixture operation.
+              The existing Linux sandbox creates real files and runs Python tests. Model inference is separate and LIVE remains blocked.</p>
+            <label class="label" for="agent-provider">Provider / model choice</label>
+            <select id="agent-provider" class="select"></select>
+            <p id="agent-capabilities" class="note"></p>
+            <div class="meta-actions">
+              <button id="agent-propose" class="button button-primary" type="button">Propose SensorBridge + tests + README</button>
+              <button id="agent-refresh" class="button button-ghost" type="button">Readback / refresh</button>
+              <button id="agent-pending" class="button button-ghost" type="button" disabled>Read back pending proposal</button>
+            </div>
+            <label class="label" for="agent-history">Recent missions · same Core, including signed mobile proposals</label>
+            <select id="agent-history" class="select"><option value="">Select a task</option></select>
+            <p id="agent-message" class="note" role="status" aria-live="polite">Prepare an exact operation.</p>
+            <dl class="status-list">
+              <div><dt>Task / state</dt><dd id="agent-state">No task</dd></div>
+              <div><dt>Provider evidence</dt><dd id="agent-model">No model invocation</dd></div>
+              <div><dt>Local effect</dt><dd id="agent-effect">Not verified</dd></div>
+              <div><dt>Source SHA</dt><dd id="agent-source">-</dd></div>
+              <div><dt>Exact approval digest</dt><dd id="agent-digest">-</dd></div>
+            </dl>
+            <details open><summary>Files, diff, tests and execution limits</summary><pre id="agent-plan" class="meta-evidence">No proposal</pre></details>
+            <details><summary>Verified receipt</summary><pre id="agent-receipt" class="meta-evidence">No receipt</pre></details>
+            <label class="label"><input id="agent-confirm" type="checkbox" /> I reviewed this exact local operation and its digest.</label>
+            <div class="meta-actions">
+              <button id="agent-run" class="button button-primary" type="button" disabled>Approve exact LOCAL fixture operation &amp; run</button>
+              <button id="agent-stop" class="button button-stop" type="button" disabled>STOP</button>
+              <button id="agent-reconcile" class="button button-ghost" type="button" disabled>Independent readback of UNKNOWN</button>
+              <button id="agent-git" class="button button-ghost" type="button" disabled>Preview local commit of verified files</button>
+            </div>
+            <p>Remote push / PR, package installation, paid inference, production owner and phone authority remain disabled.</p>
+            <details><summary>Dependency plan · proposal only</summary>
+              <p>Exact package, version, artifact SHA-256, license and resources are required. No packages will be installed.</p>
+              <textarea id="agent-install-plan" class="select" rows="7" aria-label="Typed dependency plan JSON"></textarea>
+              <button id="agent-install" class="button button-ghost" type="button">Preview typed dependency plan</button>
+            </details>
+          </section>
           <section class="review-card">
             <p class="eyebrow">One Core · one Mission Control</p>
             <h2>Muse planning + bounded document READ</h2>
@@ -444,6 +483,7 @@
     </template>
 
     <script src="/meta_mission.js"></script>
+    <script src="/agent_mission.js"></script>
     <script src="/app.js" type="module"></script>
   </body>
 </html>

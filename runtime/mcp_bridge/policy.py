@@ -45,6 +45,11 @@ _OPERATION_RISK: dict[str, RiskClass] = {
     "provider.models": RiskClass.READ,
     "patch.request_apply": RiskClass.WRITE_LOCAL,
     "recipe.request": RiskClass.EXEC_LOCAL,
+    "fs.create_project": RiskClass.WRITE_LOCAL,
+    "sandbox.request": RiskClass.EXEC_LOCAL,
+    "git.commit_preview": RiskClass.WRITE_LOCAL,
+    "git.publish_propose": RiskClass.WRITE_LOCAL,
+    "dependency.propose": RiskClass.EXEC_LOCAL,
 }
 
 

@@ -8,7 +8,9 @@ from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 import hashlib
 import json
+import os
 import re
+import stat
 import threading
 
 from lab.archaioa.authority import AuthorityScope, Money, RiskLevel
@@ -25,7 +27,8 @@ from runtime.mission.intent import CoreIntentJournal
 from runtime.mission.liability import CoreLiabilityLedger
 from runtime.mission.project_recipe import SensorBridgePlan
 from runtime.mission.sandbox_contracts import SandboxDispatchRequest
-from runtime.mission.sandbox_linux import LinuxSandboxBroker, TrustedSandboxConfig, prepare_linux_sandbox
+from runtime.mission.sandbox_linux import (LinuxSandboxBroker, TrustedSandboxConfig, prepare_linux_sandbox,
+    save_host_config,load_host_config,read_evidence_file)
 from runtime.mission.tools import CoreToolRoute, LocalSessionGrant
 from runtime.mission.warrant import approval_digest
 from runtime.providers.exact import CancellationToken
@@ -135,6 +138,7 @@ def _git_config(service, plan):
         workspace=service.agent_route.workspace,recipes={'recipe:git-commit-v3':plan.recipe_spec()})
     config=dc_replace(config,registry=SandboxRegistry(config.registry.workspace,tuple(
         dc_replace(r,timeout_ms=20000,max_output_bytes=16384) for r in config.registry.recipes)))
+    save_host_config(config)
     broker=LinuxSandboxBroker(config)
     service._agent_configs[key]=config;service._agent_brokers[key]=broker
     service._agent_routes[key]=_make_route(service,config,broker)
@@ -143,6 +147,12 @@ def _git_config(service, plan):
 
 def _local_binding(service,data):
     key=data['config_ref']
+    if key not in service._agent_routes and re.fullmatch(r'git-plan-[a-f0-9]{64}',key):
+        config=load_host_config(service.agent_config.root.parent/key,trusted_root=service.agent_config.root.parent)
+        require(config.registry.workspace==service.agent_route.workspace,'AGENT_WORKSPACE_CHANGED')
+        broker=LinuxSandboxBroker(config)
+        service._agent_configs[key]=config;service._agent_brokers[key]=broker
+        service._agent_routes[key]=_make_route(service,config,broker)
     require(key in service._agent_routes,'AGENT_READBACK_CONFIG_NOT_BOUND')
     return service._agent_routes[key],service._agent_configs[key],service._agent_brokers[key]
 
@@ -165,7 +175,7 @@ def propose(service, payload, reader, *, device_id='local-host'):
                     and row.payload['device_id']==device_id,'AGENT_REQUEST_CONFLICT')
                 return view(service,task,reader)
             require(row.payload['state'] not in ACTIVE,'AGENT_ACTIVE')
-        plan=SensorBridgePlan('fixture:sensorbridge'); files=plan.files()
+        plan=SensorBridgePlan('fixture:sensorbridge'); files={} if git else plan.files()
         config_ref,config='sensorbridge',service.agent_config
         operation_class,recipe_id,revision='SANDBOX_EXEC','recipe:sensorbridge-v1','sensorbridge-v1'
         git_preview=None
@@ -175,8 +185,18 @@ def propose(service, payload, reader, *, device_id='local-host'):
             require(source['state']=='AGENT_COMPLETED' and source['receipt']['local_readback_verified'] is True
                 and source['source_sha']==sha and source['capsule_digest']==capsule
                 and source['approval_payload']['operation']['operation_class']=='SANDBOX_EXEC', 'GIT_VERIFIED_SOURCE_REQUIRED')
-            _,_,broker=_local_binding(service,source)
-            broker.verify(source['approval_payload']['operation'],EffectWarrant.from_dict(source['warrant']))
+            _,source_config,broker=_local_binding(service,source)
+            source_operation=source['approval_payload']['operation']
+            source_warrant=EffectWarrant.from_dict(source['warrant'])
+            broker.verify(source_operation,source_warrant)
+            source_run=source_config.root/('run-'+dispatch_request(source_operation,source_warrant).digest)
+            require(source['receipt']['files']==source_operation['payload']['manifest'],'GIT_SOURCE_RECEIPT_CHANGED')
+            for name,pin in source['receipt']['files'].items():
+                require(re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.-]{0,63}',name),'GIT_SOURCE_PATH_DENIED')
+                content=read_evidence_file(source_run,'artifact-'+name,8192)
+                require(len(content)==pin['bytes'] and hashlib.sha256(content).hexdigest()==pin['sha256'],
+                        'GIT_VERIFIED_SOURCE_CHANGED')
+                files[name]=content
             plan=LocalGitPlan(files,canonical_sha256(source['receipt']),task[-32:])
             config_ref,config=_git_config(service,plan)
             operation_class,recipe_id,revision='GIT_COMMIT','recipe:git-commit-v3','empty-repo-v1'
@@ -328,24 +348,62 @@ def _execute(service,data,warrant,cancel):
         result=route.dispatch_registered_local(service.core.local_operator(Capability.COMMIT),
             warrant,operation,reservation(operation,warrant),check=lambda:_check(service,data),cancel=cancel)
         require(result['outcome']['contract_type']=='Applied','AGENT_READBACK_UNKNOWN')
-        request=dispatch_request(operation,warrant)
-        path=config.root/('run-'+request.digest)
-        actual=json.loads((path/'artifact-result.json').read_bytes())
-        git=operation['operation_class']=='GIT_COMMIT'
-        require(actual.get('head')==data['approval_payload']['git']['commit_sha'] if git else actual['tests_passed']==5,
-                'AGENT_EFFECT_READBACK_REQUIRED')
-        receipt={'schema':'aioa.agent.local-receipt.v2','task_id':task,'task_digest':data['task_digest'],
-            'operation_digest':warrant.operation_hash,'warrant_digest':warrant.digest(),
-            'source_sha':data['source_sha'],'capsule_digest':data['capsule_digest'],
-            'provider_id':data['provider_id'],'model_id':data['model_id'],'mode':'OFFLINE_FIXTURE',
-            'model_invoked':False,'live_verified':False,'local_readback_verified':True,
-            'files':data['approval_payload']['operation']['payload']['manifest'],
-            'resolution':result,'tests_passed':0 if git else actual['tests_passed'],'git':actual if git else None}
-        _change(service,task,{'AGENT_RUNNING'},'AGENT_COMPLETED',receipt=receipt,
-                tests={'status':'NOT_RUN_GIT_COMMIT_ONLY' if git else 'PASS','passed':0 if git else actual['tests_passed']})
+        _complete(service,data,warrant,result,config,allowed={'AGENT_RUNNING'})
     except Exception:
         try:_change(service,task,ACTIVE,'AGENT_UNKNOWN',error='LOCAL_OUTCOME_UNKNOWN_READBACK_REQUIRED')
         except Exception:pass  # START/receipt remain durable; restart cannot retry
+
+
+def _complete(service,data,warrant,result,config,*,allowed):
+    operation=data['approval_payload']['operation'];request=dispatch_request(operation,warrant)
+    path=config.root/('run-'+request.digest)/'artifact-result.json'
+    pin=config.inputs()[operation['payload']['sandbox_operation']['payload']['recipe_id']]['expected']['result.json']
+    fd=os.open(path,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK)
+    try:
+        info=os.fstat(fd);raw=os.read(fd,pin['bytes']+1)
+        require(stat.S_ISREG(info.st_mode) and info.st_nlink==1 and len(raw)==pin['bytes']
+            and hashlib.sha256(raw).hexdigest()==pin['sha256'],'AGENT_ARTIFACT_CHANGED')
+    finally:os.close(fd)
+    actual=json.loads(raw);git=operation['operation_class']=='GIT_COMMIT'
+    require(actual.get('head')==data['approval_payload']['git']['commit_sha'] if git else actual['tests_passed']==5,
+            'AGENT_EFFECT_READBACK_REQUIRED')
+    receipt={'schema':'aioa.agent.local-receipt.v2','task_id':data['task_id'],'task_digest':data['task_digest'],
+        'operation_digest':warrant.operation_hash,'warrant_digest':warrant.digest(),
+        'source_sha':data['source_sha'],'capsule_digest':data['capsule_digest'],
+        'provider_id':data['provider_id'],'model_id':data['model_id'],'mode':'OFFLINE_FIXTURE',
+        'model_invoked':False,'live_verified':False,'local_readback_verified':True,
+        'files':operation['payload']['manifest'],'resolution':result,
+        'tests_passed':0 if git else actual['tests_passed'],'git':actual if git else None}
+    return _change(service,data['task_id'],allowed,'AGENT_COMPLETED',receipt=receipt,error=None,
+        tests={'status':'NOT_RUN_GIT_COMMIT_ONLY' if git else 'PASS','passed':0 if git else actual['tests_passed']})
+
+
+def proposal_readback(service,request_id,reader,*,device_id='local-host'):
+    service.core.require(reader,Capability.READ,scope=service.scope)
+    require(type(request_id) is str and re.fullmatch('[a-f0-9]{32}',request_id))
+    task='agent-'+canonical_sha256([service.scope.binding(),device_id,request_id])[:32]
+    row=service._run(Capability.READ,lambda tx:tx.get(RecordKind.OPERATION,task))
+    if row is None:return {'schema':'aioa.agent.proposal-readback.v2','task_id':None,
+        'state':'AGENT_UNKNOWN','readback_required':True,'automatic_retry':False}
+    return view(service,task,reader)
+
+
+def reconcile(service,task,reader):
+    """Independent readback only. No START, executor, grant or effect retry."""
+    service.core.require(reader,Capability.READ,scope=service.scope)
+    data=plain(_get(service,task).payload)
+    if data['state']!='AGENT_UNKNOWN' or data['warrant'] is None:return view(service,task,reader)
+    route,config,broker=_local_binding(service,data)
+    with service._agent_effect_lock:
+        warrant=EffectWarrant.from_dict(data['warrant']);operation=data['approval_payload']['operation']
+        try:resolution=broker.verify(operation,warrant)
+        except (ValueError,OSError):return view(service,task,reader)
+        epoch=service.agent_governor.inspect(reader)['epoch']
+        principal=service.core.local_operator(Capability.COMMIT)
+        result=service.agent_journal._run(principal,Capability.COMMIT,lambda tx:
+            service.agent_journal.apply_resolution_in_transaction(tx,warrant,epoch,resolution))
+        _complete(service,data,warrant,result,config,allowed={'AGENT_UNKNOWN'})
+    return view(service,task,reader)
 
 
 def view(service,task,reader):

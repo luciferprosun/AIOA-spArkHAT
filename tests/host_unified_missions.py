@@ -35,10 +35,6 @@ class UnifiedMissionTests(unittest.TestCase):
             'recipe_id':'sensorbridge-v1', 'provider_id':'meta_model_api',
             'request_id':__import__('uuid').uuid4().hex, **changes}, self.reader)
 
-    def run(self, result=None):
-        # unittest.TestCase.run must remain available to the runner.
-        return super().run(result)
-
     def execute(self, proposal):
         return self.host.missions.run_agent(proposal['task_id'], proposal['preview_digest'], self.owner)
 
@@ -106,6 +102,22 @@ class UnifiedMissionTests(unittest.TestCase):
         view = self.host.missions.agent_view(proposal['task_id'], self.host.core.local_operator(Capability.READ))
         self.assertEqual('AGENT_UNKNOWN', view['state'])
         with self.assertRaises(ValueError): self.host.missions.run_agent(proposal['task_id'], proposal['preview_digest'], owner)
+
+    def test_post_effect_ack_loss_requires_independent_reconciliation_never_retry(self):
+        proposal=self.propose();route=self.host.missions.agent_route
+        original=route.verifier
+        route.verifier=lambda operation,warrant: (_ for _ in ()).throw(ValueError('injected readback ACK loss'))
+        self.execute(proposal);self.host.missions._workers[proposal['task_id']].join(40)
+        unknown=self.host.missions.agent_view(proposal['task_id'],self.reader)
+        self.assertEqual('AGENT_UNKNOWN',unknown['state'])
+        self.assertTrue(any(r['state']=='UNKNOWN' for r in self.host.missions.agent_governor.inspect(self.reader)['reservations'].values()))
+        with self.assertRaises(ValueError):self.execute(proposal)
+        self.assertTrue(callable(getattr(self.host.missions,'reconcile_agent',None)),'independent agent readback port missing')
+        route.verifier=original
+        done=self.host.missions.reconcile_agent(proposal['task_id'],self.reader)
+        self.assertEqual('AGENT_COMPLETED',done['state']);self.assertTrue(done['receipt']['local_readback_verified'])
+        self.assertEqual(1,len([r for r in self.config.root.glob('run-*')
+            if __import__('json').loads((r/'receipt.json').read_bytes()).get('request',{}).get('task_id')==proposal['task_id']]))
 
 
 if __name__ == '__main__': unittest.main()

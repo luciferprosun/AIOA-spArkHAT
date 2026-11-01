@@ -18,7 +18,9 @@ data class MissionUi(
     val connection: String = "REMOTE_DEPLOYMENT_BLOCKED", val task: JsonObject? = null,
     val pending: String? = null, val archived: List<String> = emptyList(),
     val missions: List<JsonObject> = emptyList(), val nextCursor: String? = null,
-    val message: String = "Wymagane HTTPS i nowy enrollment; owner NOT_BOUND."
+    val agentTask: JsonObject? = null, val agentMissions: List<JsonObject> = emptyList(),
+    val pendingAgent: String? = null, val providers: JsonObject? = null,
+    val message: String = "Verified HTTPS and fresh enrollment required; owner NOT_BOUND."
 )
 fun MissionUi.sessionUnavailable() = copy(enrolled=false)
 
@@ -28,6 +30,7 @@ class MissionViewModel(app: Application) : AndroidViewModel(app) {
     private var generation = Freshness()
     val publicSpki get() = client.publicSpki
     var ui by mutableStateOf(MissionUi(pending=prefs.getString("pending_proposal",null),
+        pendingAgent=prefs.getString("pending_agent_proposal",null),
         archived=prefs.getStringSet("unresolved_proposals",emptySet())!!.filter { Wire.hex32.matches(it) }.sorted()))
         private set
 
@@ -35,7 +38,7 @@ class MissionViewModel(app: Application) : AndroidViewModel(app) {
         if (ui.busy) return
         generation = generation.invalidate("STALE")
         val epoch = generation.generation
-        ui = ui.copy(freshness=generation,busy=true,message="Oczekiwanie na podpisany readback…")
+        ui = ui.copy(freshness=generation,busy=true,message="Waiting for signed readback…")
         viewModelScope.launch {
             try {
                 val observation = withContext(Dispatchers.IO) { op() }
@@ -48,7 +51,7 @@ class MissionViewModel(app: Application) : AndroidViewModel(app) {
                         delay((validUntilElapsedMs-Freshness.elapsedMs()).coerceAtLeast(0)+1)
                         if (generation.generation == epoch) {
                             generation = generation.invalidate("STALE")
-                            ui = ui.copy(freshness=generation,connection="STALE",message="Dowód wygasł; pobierz podpisany GET/readback.")
+                            ui = ui.copy(freshness=generation,connection="STALE",message="Proof expired; request signed GET/readback.")
                         }
                     }
                 }
@@ -56,22 +59,23 @@ class MissionViewModel(app: Application) : AndroidViewModel(app) {
                 if (generation.generation == epoch) {
                     generation = generation.invalidate("UNKNOWN")
                     ui = ui.sessionUnavailable().copy(freshness=generation,busy=false,connection="FRESH_ENROLLMENT_REQUIRED",
-                        message="Sesja niedostępna; nowy enrollment wymagany. Pending/UNKNOWN pozostaje do readback lub rozliczenia na hoście.")
+                        message="Session unavailable; fresh enrollment required. Pending/UNKNOWN still needs host readback or reconciliation.")
                 }
             } catch (_: Exception) {
                 if (generation.generation == epoch) {
                     generation = generation.invalidate("UNKNOWN")
                     ui = ui.copy(freshness=generation,busy=false,connection="OFFLINE_OR_DENIED",
-                        message="UNKNOWN: odczytaj stan; nie ponawiaj POST. Sprawdź HTTPS, uprawnienia i czas sesji na hoście.")
+                        message="UNKNOWN: read state; do not repeat POST. Check HTTPS, host permissions and session time.")
                 }
             }
         }
     }
     fun connect(origin: String, tlsPin: String, hostKey: String, code: String) {
         if (ui.busy) return
-        ui = ui.copy(enrolled=false,task=null,missions=emptyList(),nextCursor=null,connection="UNVERIFIED")
+        ui = ui.copy(enrolled=false,task=null,missions=emptyList(),nextCursor=null,agentTask=null,
+            agentMissions=emptyList(),providers=null,connection="UNVERIFIED")
         request({ client.configure(origin,tlsPin,hostKey); client.enroll(code) }) {
-            ui = ui.copy(enrolled=true,message="Nowa sesja transportowa; owner NOT_BOUND. Pobierz status.")
+            ui = ui.copy(enrolled=true,message="Fresh transport session; owner NOT_BOUND. Read status.")
         }
     }
     fun status() = request({ client.status() },::acceptStatus)
@@ -86,7 +90,7 @@ class MissionViewModel(app: Application) : AndroidViewModel(app) {
         val selected = missions.map { it.jsonObject }.firstOrNull { current == null || Wire.text(it,"task_id") == current }
         ui = ui.copy(missions=missions.map { it.jsonObject },nextCursor=if(data["next_cursor"]==JsonNull) null else Wire.text(data,"next_cursor"))
         val visible = selected ?: missions.firstOrNull()?.jsonObject
-        if (visible != null) acceptTask(visible) else ui = ui.copy(task=null,message="Brak własnych zadań na tej stronie.")
+        if (visible != null) acceptTask(visible) else ui = ui.copy(task=null,message="No tasks of yours on this page.")
     }
     fun preview(instruction: String) {
         if (ui.pending != null || !ui.freshness.isFresh() || !ui.enrolled || ui.busy) return
@@ -100,7 +104,7 @@ class MissionViewModel(app: Application) : AndroidViewModel(app) {
         val proposal = ui.pending ?: return
         request({ client.readback(proposal) }) { data ->
             if (Wire.text(data,"state") == "UNKNOWN") {
-                ui = ui.copy(message="UNKNOWN: propozycję musi rozliczyć operator na hoście; bez automatycznego retry.")
+                ui = ui.copy(message="UNKNOWN: host operator reconciliation required; no automatic retry.")
             } else { acceptTask(data); clearPending() }
         }
     }
@@ -114,16 +118,16 @@ class MissionViewModel(app: Application) : AndroidViewModel(app) {
             val history = PendingHints.archive(proposal,ui.archived)
             if (prefs.edit().putStringSet("unresolved_proposals",history.toSet()).remove("pending_proposal").commit()) {
                 ui = ui.copy(pending=null,archived=history,
-                    message="ID zachowany do rozliczenia na hoście. UNKNOWN w Core pozostaje bez zmian; żadnego retry ani efektu.")
+                    message="ID retained for host reconciliation. Core UNKNOWN is unchanged; no retry or effect.")
             }
-        } catch (_: Exception) { ui = ui.copy(message="Nie można zachować lokalnego ID; pending pozostaje zablokowany.") }
+        } catch (_: Exception) { ui = ui.copy(message="Cannot retain local ID; pending remains blocked.") }
     }
     private fun acceptTask(data: JsonObject) {
         val previous = ui.task
         if (previous != null && Wire.text(previous,"task_id") == Wire.text(data,"task_id")) {
             require(Wire.text(previous,"task_digest") == Wire.text(data,"task_digest"))
         }
-        ui = ui.copy(task=data,message="Podpisany stan: ${Wire.text(data,"state")}; model/browser LIVE niezweryfikowane.")
+        ui = ui.copy(task=data,message="Signed state: ${Wire.text(data,"state")}; model/browser LIVE unverified.")
     }
     fun evidence() {
         val task = ui.task ?: return
@@ -136,16 +140,68 @@ class MissionViewModel(app: Application) : AndroidViewModel(app) {
     }
     fun revoke() = request({ client.revoke() }) {
         generation = generation.invalidate(); ui = MissionUi(freshness=generation,pending=ui.pending,archived=ui.archived,
-            message="Sesja odwołana; nowy enrollment wymagany.")
+            pendingAgent=ui.pendingAgent,
+            message="Session revoked; fresh enrollment required.")
+    }
+    fun agentStatus() = request({ client.agentStatus() }) { data ->
+        ui = ui.copy(agentMissions=data.getValue("missions").jsonArray.map { it.jsonObject },
+            message="Signed agent status. Exact approval stays on the Linux host.")
+    }
+    fun agentProviders() = request({ client.agentProviders() }) { data -> ui = ui.copy(providers=data) }
+    fun agentSelect(taskId: String) = request({ client.agentEvidence(taskId) }) { data ->
+        val previous = ui.agentTask
+        if (previous != null && Wire.text(previous,"task_id") == Wire.text(data,"task_id")) {
+            require(Wire.text(previous,"task_digest") == Wire.text(data,"task_digest"))
+        }
+        ui = ui.copy(agentTask=data,message="Signed agent view; model LIVE remains unverified.")
+    }
+    private fun proposeAgent(sourceTask: String? = null) {
+        if (ui.pendingAgent != null || !ui.freshness.isFresh() || !ui.enrolled || ui.busy) return
+        val proposal = UUID.randomUUID().toString().replace("-","")
+        if (!prefs.edit().putString("pending_agent_proposal",proposal).commit()) return
+        ui = ui.copy(pendingAgent=proposal)
+        request({ client.agentProposal(proposal,sourceTask) }) { data ->
+            prefs.edit().remove("pending_agent_proposal").apply()
+            ui = ui.copy(agentTask=data,pendingAgent=null,message="NEEDS_HOST_APPROVAL: review the exact operation on Linux.")
+        }
+    }
+    fun proposeSensorBridge() = proposeAgent()
+    fun proposeGit() {
+        val task = ui.agentTask ?: return
+        if (Wire.text(task,"state") != "AGENT_COMPLETED") return
+        val operation = task.getValue("operation").jsonObject
+        if (Wire.text(operation,"operation_class") != "SANDBOX_EXEC") return
+        proposeAgent(Wire.text(task,"task_id"))
+    }
+    fun agentReadback() {
+        val proposal = ui.pendingAgent ?: return
+        request({ client.agentReadback(proposal) }) { data ->
+            if (data["task_id"] == null) ui = ui.copy(message="UNKNOWN: host readback required; no POST retry.")
+            else {
+                prefs.edit().remove("pending_agent_proposal").apply()
+                ui = ui.copy(agentTask=data,pendingAgent=null,message="Signed proposal readback.")
+            }
+        }
+    }
+    fun agentEvidence() {
+        val task = ui.agentTask ?: return
+        agentSelect(Wire.text(task,"task_id"))
+    }
+    fun agentStop() {
+        val task = ui.agentTask ?: return
+        if (!ui.freshness.canStop(Wire.text(task,"state")) || ui.busy) return
+        request({ client.agentStop(Wire.text(task,"task_id")) }) { data ->
+            ui = ui.copy(agentTask=data,message="STOP observed. UNKNOWN never grants a retry.")
+        }
     }
     fun background() {
         generation = generation.invalidate("STALE"); client.cancel()
-        ui = ui.copy(freshness=generation,busy=false,connection="STALE",message="Wznowienie wymaga podpisanego GET/readback.")
+        ui = ui.copy(freshness=generation,busy=false,connection="STALE",message="Resume requires signed GET/readback.")
     }
     fun resume() {
         generation = generation.invalidate("STALE")
-        ui = ui.copy(freshness=generation,message=if (ui.pending == null) "Pobierz świeży status." else
-            "Nierozliczona propozycja: readback w tej samej sesji albo operator hosta po restarcie.")
+        ui = ui.copy(freshness=generation,message=if (ui.pending == null) "Read fresh status." else
+            "Unresolved proposal: read back in this session, or contact the host operator after restart.")
     }
     override fun onCleared() { client.close(); super.onCleared() }
 }

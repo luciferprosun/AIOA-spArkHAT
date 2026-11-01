@@ -16,7 +16,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
-import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.*
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -43,56 +43,103 @@ private fun MissionScreen(model: MissionViewModel = viewModel()) {
     var tlsPin by remember { mutableStateOf("") }
     var hostKey by remember { mutableStateOf("") }
     var code by remember { mutableStateOf("") }
-    var instruction by remember { mutableStateOf("Podsumuj publiczny dokument testowy.") }
+    var instruction by remember { mutableStateOf("Summarize the public test document.") }
     var archiveDialog by remember { mutableStateOf(false) }
     if (archiveDialog && ui.pending != null) AlertDialog(
         onDismissRequest={ archiveDialog=false },
-        title={ Text("Przekaż ID do rozliczenia na hoście") },
+        title={ Text("Hand off the ID for host reconciliation") },
         text={ Column(Modifier.heightIn(max=300.dp).verticalScroll(rememberScrollState())) {
-            Text("To zmieni wyłącznie lokalny znacznik ekranu. UNKNOWN w Core pozostanie UNKNOWN; nie wyślemy retry, STOP ani zgody. ID zostanie zachowany poniżej do rozliczenia przez operatora. Nowa propozycja nadal podlega Core i osobnej zgodzie hosta.")
+            Text("Only the local UI hint changes. Core UNKNOWN stays UNKNOWN. No retry, STOP or approval is sent. The ID remains available for host reconciliation. A new proposal still requires Core and exact host approval.")
         } },
-        confirmButton={ TextButton(onClick={ model.archivePendingHint(); archiveDialog=false }) { Text("Zachowaj ID jako nierozliczony") } },
-        dismissButton={ TextButton(onClick={ archiveDialog=false }) { Text("Anuluj") } }
+        confirmButton={ TextButton(onClick={ model.archivePendingHint(); archiveDialog=false }) { Text("Keep unresolved ID") } },
+        dismissButton={ TextButton(onClick={ archiveDialog=false }) { Text("Cancel") } }
     )
     Column(Modifier.fillMaxSize().safeDrawingPadding().imePadding().verticalScroll(rememberScrollState())
         .padding(16.dp), verticalArrangement=Arrangement.spacedBy(12.dp)) {
         Text("AIOA spArkHAT",style=MaterialTheme.typography.headlineMedium)
         Text("METAGuardiansSPARK • Tasks / Mission Control")
-        Text("Muse (Meta Model API) • host-side • LIVE niezweryfikowane")
+        Text("Muse (Meta Model API) • host-side • LIVE unverified")
         Text("Connection: ${ui.connection} • ${ui.freshness.state}")
-        Text("Pairing: transport ${if(ui.enrolled) "sesja" else "brak"} • owner NOT_BOUND")
-        Text("Billing Unverified • telefon nie nadaje zgody na koszt")
+        Text("Pairing: transport ${if(ui.enrolled) "session" else "none"} • owner NOT_BOUND")
+        Text("Billing Unverified • phone cannot approve spending")
         Text(ui.message)
         HorizontalDivider()
-        Text("Połączenie i świeży enrollment",style=MaterialTheme.typography.titleMedium)
-        OutlinedTextField(origin,{ origin=it },label={ Text("Dokładny HTTPS origin Linuxa") },modifier=Modifier.fillMaxWidth(),enabled=!ui.busy)
-        OutlinedTextField(tlsPin,{ tlsPin=it },label={ Text("Osobny TLS SPKI pin: sha256/…") },modifier=Modifier.fillMaxWidth(),enabled=!ui.busy)
-        OutlinedTextField(hostKey,{ hostKey=it },label={ Text("Niezależny host identity SPKI (Base64 DER)") },modifier=Modifier.fillMaxWidth(),enabled=!ui.busy)
-        Text("Nowy publiczny klucz urządzenia — porównaj lokalnie na hoście:")
+        Text("Connection and fresh enrollment",style=MaterialTheme.typography.titleMedium)
+        OutlinedTextField(origin,{ origin=it },label={ Text("Exact Linux HTTPS origin") },modifier=Modifier.fillMaxWidth(),enabled=!ui.busy)
+        OutlinedTextField(tlsPin,{ tlsPin=it },label={ Text("Separate TLS SPKI pin: sha256/…") },modifier=Modifier.fillMaxWidth(),enabled=!ui.busy)
+        OutlinedTextField(hostKey,{ hostKey=it },label={ Text("Independent host identity SPKI (Base64 DER)") },modifier=Modifier.fillMaxWidth(),enabled=!ui.busy)
+        Text("New device public key — compare locally on the host:")
         SelectionContainer { Text(model.publicSpki) }
-        OutlinedTextField(code,{ code=it },label={ Text("Jednorazowy kod ≤5 min") },
+        OutlinedTextField(code,{ code=it },label={ Text("One-time code, at most 5 minutes") },
             visualTransformation=PasswordVisualTransformation(),modifier=Modifier.fillMaxWidth(),enabled=!ui.busy)
         Button(enabled=!ui.busy && code.isNotEmpty(),onClick={
             model.connect(origin,tlsPin,hostKey,code); code=""
-        }) { Text(if(ui.enrolled) "Nowy enrollment — odwołaj starą sesję" else "Sprawdź hosta i zarejestruj transport") }
-        Button(enabled=ui.enrolled && !ui.busy,onClick=model::status) { Text("Podpisany status / readback") }
-        Button(enabled=ui.enrolled && !ui.busy,onClick=model::revoke) { Text("Odwołaj tę sesję") }
+        }) { Text(if(ui.enrolled) "Re-enroll and revoke the old session" else "Verify host and enroll transport") }
+        Button(enabled=ui.enrolled && !ui.busy,onClick=model::status) { Text("Signed status / readback") }
+        Button(enabled=ui.enrolled && !ui.busy,onClick=model::revoke) { Text("Revoke this session") }
         HorizontalDivider()
-        Text("Misja • OFFLINE / LIVE",style=MaterialTheme.typography.titleMedium)
-        Text("Preview jest propozycją; Run/approval wyłącznie na zaufanym hoście. LIVE zablokowane.")
-        OutlinedTextField(instruction,{ if(it.toByteArray().size<=2000) instruction=it },label={ Text("Polecenie") },
+        Text("Agent workspace",style=MaterialTheme.typography.titleMedium)
+        Text("One Linux Core. Phone proposes and observes; exact approval remains on the host.")
+        Button(enabled=ui.enrolled && !ui.busy,onClick=model::agentStatus) { Text("Signed agent status") }
+        Button(enabled=ui.enrolled && !ui.busy,onClick=model::agentProviders) { Text("Provider choices / evidence") }
+        ui.providers?.get("providers")?.jsonArray?.forEach { item ->
+            val provider = item.jsonObject
+            Text("${Wire.text(provider,"provider_id")} / ${Wire.text(provider,"model_id")} — ${Wire.text(provider,"availability")}")
+        }
+        Button(enabled=ui.enrolled && !ui.busy && ui.freshness.isFresh() && ui.pendingAgent==null,
+            onClick=model::proposeSensorBridge) { Text("Propose SensorBridge + tests + README") }
+        Button(enabled=ui.enrolled && !ui.busy && ui.pendingAgent!=null,onClick=model::agentReadback) {
+            Text("Read back pending agent proposal")
+        }
+        ui.pendingAgent?.let { SelectionContainer { Text("Pending ID: $it — no automatic retry") } }
+        ui.agentMissions.forEach { item ->
+            val id = Wire.text(item,"task_id")
+            OutlinedButton(enabled=ui.enrolled && !ui.busy,onClick={ model.agentSelect(id) }) {
+                Text(id.take(15)+"… • "+Wire.text(item,"state"))
+            }
+        }
+        ui.agentTask?.let { agent ->
+            val agentState = Wire.text(agent,"state")
+            SelectionContainer { Column(verticalArrangement=Arrangement.spacedBy(6.dp)) {
+                Text("Task: ${Wire.text(agent,"task_id")} • $agentState")
+                Text("${Wire.text(agent,"provider_id")} / ${Wire.text(agent,"model_id")} • ${Wire.text(agent,"mode")}")
+                Text("Source: ${Wire.text(agent,"source_sha")}\nTask digest: ${Wire.text(agent,"task_digest")}")
+                Text("Approval: ${Wire.text(agent,"approval_status")}")
+                Text("Steps: ${agent["steps"]}\nTests: ${agent["tests"]}")
+                Text("Files / diff: ${agent["diff"]}\nDependency plan: ${agent["install_plan"]}")
+                Text("Git branch / commit / PR preview: ${agent["git"]}")
+                Text("Receipt: ${agent["receipt"] ?: JsonNull}")
+            } }
+            val files = agent.getValue("files").jsonObject
+            files.forEach { (name, value) ->
+                Text(name,style=MaterialTheme.typography.titleSmall)
+                SelectionContainer { Text(Wire.text(value.jsonObject,"text")) }
+            }
+            Button(enabled=ui.enrolled && !ui.busy,onClick=model::agentEvidence) { Text("Signed readback") }
+            Button(enabled=ui.enrolled && !ui.busy && ui.freshness.canStop(agentState),onClick=model::agentStop) { Text("STOP agent task") }
+            val sourceOperation = Wire.text(agent.getValue("operation").jsonObject,"operation_class")
+            Button(enabled=ui.enrolled && !ui.busy && ui.freshness.isFresh() && ui.pendingAgent==null &&
+                agentState=="AGENT_COMPLETED" && sourceOperation=="SANDBOX_EXEC",onClick=model::proposeGit) {
+                Text("Preview local commit of verified files")
+            }
+            Text("Install / remote push / PR / owner approval: disabled on this phone.")
+        }
+        HorizontalDivider()
+        Text("Document mission • OFFLINE / LIVE",style=MaterialTheme.typography.titleMedium)
+        Text("Preview is a proposal. Run/approval stays on the trusted host. LIVE is blocked.")
+        OutlinedTextField(instruction,{ if(it.toByteArray().size<=2000) instruction=it },label={ Text("Instruction") },
             modifier=Modifier.fillMaxWidth(),enabled=!ui.busy)
         val task = ui.task
         val state = task?.let { Wire.text(it,"state") } ?: "NONE"
         Button(enabled=ui.enrolled && !ui.busy && ui.freshness.isFresh() && ui.pending==null &&
             state !in setOf("PREVIEWED","RUNNING","LIVE_PENDING_AUTHORIZATION"),onClick={ model.preview(instruction) }) { Text("Preview") }
-        Button(enabled=ui.enrolled && !ui.busy && ui.pending!=null,onClick=model::readback) { Text("Readback nierozliczonej propozycji") }
-        Button(enabled=!ui.busy && ui.pending!=null,onClick={ archiveDialog=true }) { Text("Zachowaj nierozliczony ID dla operatora") }
+        Button(enabled=ui.enrolled && !ui.busy && ui.pending!=null,onClick=model::readback) { Text("Read back unresolved proposal") }
+        Button(enabled=!ui.busy && ui.pending!=null,onClick={ archiveDialog=true }) { Text("Keep unresolved ID for the operator") }
         if (ui.archived.isNotEmpty()) SelectionContainer {
-            Text("Nierozliczone lokalne ID — operator hosta, bez zmiany Core:\n"+ui.archived.joinToString("\n"))
+            Text("Unresolved local IDs — host operator, no Core state change:\n"+ui.archived.joinToString("\n"))
         }
         if (ui.missions.isNotEmpty()) {
-            Text("Własne zadania — strona maks.16; starsze przez podpisany GET")
+            Text("Your tasks — up to 16 per page; signed GET for older tasks")
             ui.missions.forEach { item ->
                 val id = Wire.text(item,"task_id")
                 OutlinedButton(enabled=ui.enrolled && !ui.busy,onClick={ model.selectTask(id) },modifier=Modifier.fillMaxWidth()) {
@@ -100,20 +147,20 @@ private fun MissionScreen(model: MissionViewModel = viewModel()) {
                 }
             }
         }
-        Button(enabled=ui.enrolled && !ui.busy && ui.nextCursor!=null,onClick=model::older) { Text("Starsze zadania") }
+        Button(enabled=ui.enrolled && !ui.busy && ui.nextCursor!=null,onClick=model::older) { Text("Older tasks") }
         if (task != null) {
             SelectionContainer { Column {
                 Text("Task: ${Wire.text(task,"task_id")}")
-                Text("Stan: $state • mode: ${Wire.text(task,"mode")}")
+                Text("State: $state • mode: ${Wire.text(task,"mode")}")
                 Text("Source SHA: ${Wire.text(task,"source_sha")}")
                 Text("Task digest: ${Wire.text(task,"task_digest")}")
                 Text("Capsule: ${Wire.text(task,"capsule_digest")}")
-                Text("Last Receipt: ${if(task["receipt"]==JsonNull) "brak / nieznany" else task["receipt"].toString()}")
+                Text("Last Receipt: ${if(task["receipt"]==JsonNull) "none / unknown" else task["receipt"].toString()}")
             } }
-        } else Text("Last Receipt: brak; brak dowodu wykonania")
+        } else Text("Last receipt: none; no execution evidence")
         Button(enabled=ui.enrolled && !ui.busy && task!=null,onClick=model::evidence) { Text("Evidence") }
-        Button(enabled=ui.enrolled && !ui.busy && ui.freshness.canStop(state),onClick=model::stop) { Text("STOP własnej misji") }
-        Text("Chat: Not yet available — brak zatwierdzonego typed mobile chat.")
-        Text("Transport nie oznacza owner pairing; po reinstalacji wymagany nowy enrollment.")
+        Button(enabled=ui.enrolled && !ui.busy && ui.freshness.canStop(state),onClick=model::stop) { Text("STOP your mission") }
+        Text("Chat: Not yet available in this bounded profile.")
+        Text("Transport does not grant owner pairing. Reinstallation requires fresh enrollment.")
     }
 }

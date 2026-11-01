@@ -666,6 +666,7 @@ async function bootstrap() {
     const initialStatus = await refreshStatus();
     if (initialStatus.meta_profile) {
       setView('meta');
+      if (initialStatus.unified_profile) await refreshAgentStatus();
       await refreshMetaStatus();
       return;
     }
@@ -1032,6 +1033,66 @@ for (const id of ['instruction','mode']) metaNode(id).addEventListener('input', 
   metaClient.invalidate(); metaNode('run').disabled = true;
   showMetaError('Inputs changed. STOP the previous preview before preparing a new mission.');
 });
+
+const agentNode=id=>document.querySelector('#agent-'+id);
+let selectedAgent=null;
+const agentClient=AIOAAgentMissions.createAgentClient({fetchJSON:jsonFetch,
+  error:message=>{agentNode('message').textContent=message;},
+  saveHint:id=>{sessionStorage.setItem('aioa-agent-pending-v2',id);agentNode('pending').disabled=false;},
+  clearHint:()=>{sessionStorage.removeItem('aioa-agent-pending-v2');agentNode('pending').disabled=true;},
+  render:value=>{
+    selectedAgent=value;const text=AIOAAgentMissions.presentation(value);
+    agentNode('state').textContent=value.task_id+' · '+value.state;
+    agentNode('model').textContent=text.model;agentNode('effect').textContent=text.effect;
+    agentNode('source').textContent=value.source_sha;agentNode('digest').textContent=value.preview_digest;
+    agentNode('plan').textContent=JSON.stringify({summary:value.summary,steps:value.steps,files:value.files,
+      diff:value.diff,tests:value.tests,operation:value.operation,git:value.git,install_plan:value.install_plan},null,2);
+    agentNode('receipt').textContent=JSON.stringify(value.receipt,null,2);
+    agentNode('confirm').checked=false;agentNode('run').disabled=true;
+    agentNode('stop').disabled=!['AGENT_PENDING','AGENT_APPROVED','AGENT_RUNNING'].includes(value.state);
+    agentNode('reconcile').disabled=value.state!=='AGENT_UNKNOWN';
+    agentNode('propose').disabled=['AGENT_PENDING','AGENT_APPROVED','AGENT_RUNNING'].includes(value.state);
+    agentNode('git').disabled=value.state!=='AGENT_COMPLETED' || !value.receipt?.local_readback_verified
+      || value.operation?.operation_class!=='SANDBOX_EXEC';
+    agentNode('message').textContent=value.error || text.approval;
+  }});
+async function refreshAgentStatus() {
+  const value=await jsonFetch('/api/agent/status');
+  document.querySelector('#agent-workspace').hidden=false;
+  agentNode('capabilities').textContent=`Core ${value.capabilities.core} · production owner ${value.capabilities.production_owner}
+    · paid inference disabled · local budget ${value.local_budget.money_nano} nanoUSD
+    ${value.capabilities.unresolved_intent ? '· UNKNOWN intent requires independent readback' : ''}`;
+  const picker=agentNode('provider');picker.replaceChildren();
+  for(const row of value.provider_catalog.providers) {
+    const option=document.createElement('option');option.value=row.provider_id;option.disabled=!row.selectable;
+    option.textContent=`${row.provider_id} / ${row.model_id} · ${row.availability}`;
+    option.selected=row.provider_id===value.provider_catalog.selected_provider_id;picker.append(option);
+  }
+  const history=agentNode('history');history.replaceChildren(new Option('Select a task',''));
+  for(const task of value.agent_missions)history.append(new Option(task.task_id+' · '+task.state,task.task_id));
+  agentNode('pending').disabled=!sessionStorage.getItem('aioa-agent-pending-v2');
+  if(!selectedAgent && value.agent_missions.length) {
+    agentClient.adopt(await jsonFetch('/api/agent/tasks/'+value.agent_missions[0].task_id));
+  }
+}
+async function agentAction(action) {
+  try { await action();await refreshAgentStatus(); }
+  catch(error) {agentNode('message').textContent=error.message;}
+}
+agentNode('propose').addEventListener('click',()=>agentAction(()=>agentClient.propose(agentNode('provider').value)));
+agentNode('refresh').addEventListener('click',()=>agentAction(()=>agentClient.refresh()));
+agentNode('pending').addEventListener('click',()=>agentAction(()=>agentClient.proposalReadback(sessionStorage.getItem('aioa-agent-pending-v2'))));
+agentNode('history').addEventListener('change',()=>agentAction(async()=>{
+  if(agentNode('history').value)agentClient.adopt(await jsonFetch('/api/agent/tasks/'+agentNode('history').value));
+}));
+agentNode('confirm').addEventListener('change',()=>{agentNode('run').disabled=!(agentNode('confirm').checked && agentClient.canApprove());});
+agentNode('run').addEventListener('click',()=>{
+  agentNode('run').disabled=true;agentAction(()=>agentClient.approve(selectedAgent.preview_digest));
+});
+agentNode('stop').addEventListener('click',()=>agentAction(()=>agentClient.stop()));
+agentNode('reconcile').addEventListener('click',()=>agentAction(()=>agentClient.reconcile()));
+agentNode('git').addEventListener('click',()=>agentAction(()=>agentClient.gitPreview()));
+agentNode('install').addEventListener('click',()=>agentAction(()=>agentClient.installPreview(JSON.parse(agentNode('install-plan').value))));
 
 setAssistantMode('cpl');
 bootstrap();

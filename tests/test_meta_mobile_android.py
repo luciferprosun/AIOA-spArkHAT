@@ -92,7 +92,7 @@ class AndroidSourceTests(unittest.TestCase):
         self.assertIn('AlertDialog(',ui)
         self.assertIn('archivePendingHint()',vm)
         self.assertIn('unresolved_proposals',vm)
-        self.assertIn('UNKNOWN w Core',ui)
+        self.assertIn('Core UNKNOWN stays UNKNOWN',ui)
 
 
 if __name__=='__main__':unittest.main()
