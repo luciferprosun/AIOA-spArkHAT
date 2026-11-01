@@ -68,7 +68,13 @@ def _extract(text: str, expected_kind: str) -> dict[str, Any]:
     return value
 
 def parse_task(text: str) -> TaskEnvelope:
-    value = _extract(text, TASK_FENCE)
+    return parse_task_dict(_extract(text, TASK_FENCE))
+
+
+def parse_task_dict(value: dict) -> TaskEnvelope:
+    """The same strict decoder for the authenticated local HTTP adapter."""
+    if type(value) is not dict:raise ContractError('task fields must be an object')
+    value=dict(value)
     supplied_fingerprint = value.pop("fingerprint", None)
     try:
         task = TaskEnvelope(

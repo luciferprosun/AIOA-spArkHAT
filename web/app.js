@@ -123,7 +123,7 @@ function addMessage(role, body) {
   if (role === "You") {
     node.classList.add("message-user");
   }
-  if (role.startsWith('AIOA spArkHAT')) node.classList.add('message-product');
+  if (role.startsWith('AIOA spArkHAT') || role.startsWith('AIOA METAGuardiansSPARK')) node.classList.add('message-product');
   elements.chatLog.appendChild(node);
   elements.chatLog.scrollTop = elements.chatLog.scrollHeight;
   return node;
@@ -133,7 +133,10 @@ function applyStatus(status) {
   state.currentModel = status.model;
   elements.currentModelBadge.textContent = status.model;
   elements.sessionModel.textContent = status.model;
-  elements.sessionSummary.textContent = status.demo
+  elements.sessionSummary.textContent = status.meta_profile
+    ? status.demo ? "Meta offline fixture · bounded READ · model and browser LIVE require separate approval."
+      : "Meta native Core host · exact spend approval required · browser LIVE blocked."
+    : status.demo
     ? "Isolated Personal AI demo · typed fixture target · exact human approval required."
     : status.browser_active
     ? "Browser session is active and ready for operator-approved actions."
@@ -145,8 +148,13 @@ function applyStatus(status) {
   elements.metricTools.textContent = String((status.tools || []).length);
   elements.metricCommands.textContent = String((status.previous_commands || []).length);
   elements.metricOutputs.textContent = String((status.recent_outputs || []).length);
-  if (status.critical_loop) applyCPLStatus(status.critical_loop);
-  if (status.demo) {
+  if (status.critical_loop && !status.meta_profile) applyCPLStatus(status.critical_loop);
+  state.metaProfile = status.meta_profile === true;
+  if (state.metaProfile) {
+    for (const node of document.querySelectorAll('.quick-action, #switch-model, #model-picker button')) node.disabled = true;
+    for (const tab of document.querySelectorAll('.view-tab')) tab.hidden = tab.dataset.view !== 'meta';
+  }
+  if (status.demo || status.meta_profile) {
     document.querySelector('#assistant-submit').disabled = true;
     document.querySelector('#assistant-mode').disabled = true;
     elements.modelSelect.disabled = true;
@@ -157,6 +165,7 @@ async function refreshStatus() {
   const payload = await jsonFetch("/api/status");
   applyStatus(payload);
   hydrateModelSelect(payload.available_models, payload.model);
+  return payload;
 }
 
 function renderNativeConsole(payload) {
@@ -458,7 +467,7 @@ async function sendPrompt(prompt) {
   });
   // A command or explicit bypass must never be labeled as a CPL final.
   if (payload.mode === 'cpl') throw new Error('Unexpected plan response; no unapproved final delivered.');
-  addMessage(payload.mode === 'plain' ? 'AIOA spArkHAT · Plain Chat · NOT CPL reviewed' : 'Core command', payload.transcript);
+  addMessage(payload.mode === 'plain' ? 'AIOA METAGuardiansSPARK · Plain Chat · NOT CPL reviewed' : 'Core command', payload.transcript);
   applyStatus(payload.status);
 }
 
@@ -470,7 +479,9 @@ function setView(view) {
   }
   document.querySelector("#assistant-view").hidden = view !== "assistant";
   document.querySelector("#review-view").hidden = view !== "review";
-  elements.viewTitle.textContent = view === "review" ? "Dated evidence review" : "Assistant runtime";
+  document.querySelector("#meta-view").hidden = view !== "meta";
+  elements.viewTitle.textContent = view === 'meta' ? 'METAGuardiansSPARK Mission Control'
+    : view === "review" ? "Dated evidence review" : "Assistant runtime";
 }
 
 function renderEvidence(evidence) {
@@ -652,13 +663,20 @@ elements.personalAIReplayButton.addEventListener("click", async () => {
 async function bootstrap() {
   try {
     state.sessionToken = (await jsonFetch('/api/session')).token;
+    const initialStatus = await refreshStatus();
+    if (initialStatus.meta_profile) {
+      setView('meta');
+      if (initialStatus.unified_profile) await refreshAgentStatus();
+      await refreshMetaStatus();
+      return;
+    }
   } catch (error) {
     addMessage('System', `Local session setup failed: ${error}`);
     return;
   }
   addMessage(
     "System",
-    "AIOA spArkHAT is ready. Assistant, deterministic Evidence Review and Critical Prompt Loop use one local runtime."
+    "AIOA METAGuardiansSPARK: Assistant, deterministic Evidence Review and Critical Prompt Loop share one AIOA runtime. Meta model and Chromium LIVE are not verified."
   );
   const [statusResult, scenarioResult, timelineResult, evaluationResult, providerResult, cplPresetResult, personalAIResult] = await Promise.allSettled([
     refreshStatus(),
@@ -838,7 +856,7 @@ function renderCPL(result) {
   cplElement('draft').textContent = result.draft || 'Not available';
   cplElement('final').textContent = result.execution_status === 'COMPLETED' ? result.final_answer : 'Not delivered';
   if (result.execution_status === 'COMPLETED' && !state.cplDelivered.has(result.run_id)) {
-    const finalNode = addMessage(`AIOA spArkHAT · ${result.plan.scope === 'TEST' ? 'TEST fixture · ' : ''}CPL final · advisory / human review required`, result.final_answer);
+    const finalNode = addMessage(`AIOA METAGuardiansSPARK · ${result.plan.scope === 'TEST' ? 'TEST fixture · ' : ''}CPL final · advisory / human review required`, result.final_answer);
     finalNode.dataset.cplRunId = result.run_id;
     state.cplDelivered.add(result.run_id);
   }
@@ -945,6 +963,136 @@ cplElement('verify').addEventListener('click', async () => {
     cplElement('inspector').open = true;
   } catch (error) { cplError(error); }
 });
+
+const metaNode = id => document.querySelector(`#meta-${id}`);
+function showMetaError(message) { metaNode('message').textContent = String(message); }
+function renderMetaMission(value) {
+  const text=AIOAMetaMissions.missionText(value);
+  metaNode('boundary').textContent=text.boundary;
+  metaNode('provider').textContent = AIOAMetaMissions.providerLabel(value);
+  metaNode('state').textContent = value.state;
+  metaNode('task').textContent = value.task_id;
+  metaNode('sha').textContent = value.source_sha;
+  metaNode('budget').textContent = value.mode === 'LIVE'
+    ? `Core bound: ${value.budget_usd} USD · actual settlement unverified`
+    : `0 USD / ${value.budget_usd} USD · fixture; no actual model charges`;
+  metaNode('approval').textContent = text.approval;
+  metaNode('correlation').textContent = value.correlation_id || 'none';
+  metaNode('origin').textContent = (value.allowed_origins || []).join(', ');
+  metaNode('evidence-digest').textContent = value.result?.evidence_digest || 'none';
+  metaNode('evidence').textContent = JSON.stringify(value, null, 2);
+  metaNode('run').disabled = !(value.state === 'PREVIEWED' || value.state === 'LIVE_PENDING_AUTHORIZATION' && value.native_spend_binding === 'BOUND');
+  metaNode('run').textContent = value.mode === 'LIVE' ? 'Run exact Core-approved request' : 'Approve exact fixture READ & run';
+  metaNode('stop').disabled = !['PREVIEWED','RUNNING','LIVE_PENDING_AUTHORIZATION'].includes(value.state);
+  metaNode('preview').disabled = ['PREVIEWED','RUNNING','LIVE_PENDING_AUTHORIZATION'].includes(value.state);
+  for (const id of ['instruction','mode']) metaNode(id).disabled = ['PREVIEWED','RUNNING','LIVE_PENDING_AUTHORIZATION'].includes(value.state);
+  metaNode('message').textContent = text.progress;
+}
+const metaClient = AIOAMetaMissions.createMissionClient({fetchJSON:jsonFetch,render:renderMetaMission,error:showMetaError});
+async function refreshMetaStatus({adopt = true} = {}) {
+  try {
+    const value = await jsonFetch('/api/meta/status');
+    const provider = value.provider;
+    if (adopt && !value.missions.length) {
+      const profile={mode:value.mode,state:value.mode==='OFFLINE_FIXTURE'?'OFFLINE_FIXTURE':'LIVE_PENDING_AUTHORIZATION'};
+      metaNode('provider').textContent=AIOAMetaMissions.providerLabel(profile);
+      metaNode('boundary').textContent=AIOAMetaMissions.missionText(profile).boundary;
+    }
+    metaNode('key').textContent = provider.key_configured ? 'yes · metadata only' : 'no';
+    metaNode('transport').textContent = provider.transport;
+    metaNode('credit').textContent = provider.credit_balance;
+    metaNode('spend').textContent = provider.spend_permission;
+    metaNode('api-receipt').textContent = provider.last_api_receipt ? 'redacted receipt available' : 'none';
+    metaNode('call-state').textContent = provider.call_state;
+    metaNode('billing').textContent = provider.billing_status;
+    metaNode('attempt').textContent = provider.last_attempt?.attempt_id || 'none';
+    metaNode('settled-cost').textContent = provider.settled_cost === null ? 'unverified' : String(provider.settled_cost);
+    metaNode('live-receipt').textContent = provider.last_live_receipt ? JSON.stringify(provider.last_live_receipt,null,2) : 'none';
+    if (adopt && value.missions.length) {
+      const latest = value.active_task_id || value.missions[value.missions.length-1].task_id;
+      metaClient.adopt(await jsonFetch(`/api/meta/evidence/${encodeURIComponent(latest)}`));
+    }
+  } catch (_) { showMetaError('Meta mission runtime not bound. Start the explicit --meta-offline profile.'); }
+}
+metaNode('form').addEventListener('submit', async event => {
+  event.preventDefault();
+  try { await metaClient.preview({instruction:metaNode('instruction').value,mode:metaNode('mode').value,target_url:metaNode('source').value}); }
+  catch (error) { showMetaError(error.message); }
+});
+metaNode('run').addEventListener('click', async () => {
+  metaNode('run').disabled = true;
+  try { await metaClient.run(); } catch(error) { showMetaError(error.message); }
+});
+metaNode('stop').addEventListener('click', async () => {
+  try { await metaClient.stop(); } catch(error) { showMetaError(error.message); }
+});
+metaNode('refresh').addEventListener('click', async () => {
+  const selected = await metaClient.refresh(); await refreshMetaStatus({adopt:selected === null});
+});
+for (const id of ['instruction','mode']) metaNode(id).addEventListener('input', () => {
+  metaClient.invalidate(); metaNode('run').disabled = true;
+  showMetaError('Inputs changed. STOP the previous preview before preparing a new mission.');
+});
+
+const agentNode=id=>document.querySelector('#agent-'+id);
+let selectedAgent=null;
+const agentClient=AIOAAgentMissions.createAgentClient({fetchJSON:jsonFetch,
+  error:message=>{agentNode('message').textContent=message;},
+  saveHint:id=>{sessionStorage.setItem('aioa-agent-pending-v2',id);agentNode('pending').disabled=false;},
+  clearHint:()=>{sessionStorage.removeItem('aioa-agent-pending-v2');agentNode('pending').disabled=true;},
+  render:value=>{
+    selectedAgent=value;const text=AIOAAgentMissions.presentation(value);
+    agentNode('state').textContent=value.task_id+' · '+value.state;
+    agentNode('model').textContent=text.model;agentNode('effect').textContent=text.effect;
+    agentNode('source').textContent=value.source_sha;agentNode('digest').textContent=value.preview_digest;
+    agentNode('plan').textContent=JSON.stringify({summary:value.summary,steps:value.steps,files:value.files,
+      diff:value.diff,tests:value.tests,operation:value.operation,git:value.git,install_plan:value.install_plan},null,2);
+    agentNode('receipt').textContent=JSON.stringify(value.receipt,null,2);
+    agentNode('confirm').checked=false;agentNode('run').disabled=true;
+    agentNode('stop').disabled=!['AGENT_PENDING','AGENT_APPROVED','AGENT_RUNNING'].includes(value.state);
+    agentNode('reconcile').disabled=value.state!=='AGENT_UNKNOWN';
+    agentNode('propose').disabled=['AGENT_PENDING','AGENT_APPROVED','AGENT_RUNNING'].includes(value.state);
+    agentNode('git').disabled=value.state!=='AGENT_COMPLETED' || !value.receipt?.local_readback_verified
+      || value.operation?.operation_class!=='SANDBOX_EXEC';
+    agentNode('message').textContent=value.error || text.approval;
+  }});
+async function refreshAgentStatus() {
+  const value=await jsonFetch('/api/agent/status');
+  document.querySelector('#agent-workspace').hidden=false;
+  agentNode('capabilities').textContent=`Core ${value.capabilities.core} · production owner ${value.capabilities.production_owner}
+    · paid inference disabled · local budget ${value.local_budget.money_nano} nanoUSD
+    ${value.capabilities.unresolved_intent ? '· UNKNOWN intent requires independent readback' : ''}`;
+  const picker=agentNode('provider');picker.replaceChildren();
+  for(const row of value.provider_catalog.providers) {
+    const option=document.createElement('option');option.value=row.provider_id;option.disabled=!row.selectable;
+    option.textContent=`${row.provider_id} / ${row.model_id} · ${row.availability}`;
+    option.selected=row.provider_id===value.provider_catalog.selected_provider_id;picker.append(option);
+  }
+  const history=agentNode('history');history.replaceChildren(new Option('Select a task',''));
+  for(const task of value.agent_missions)history.append(new Option(task.task_id+' · '+task.state,task.task_id));
+  agentNode('pending').disabled=!sessionStorage.getItem('aioa-agent-pending-v2');
+  if(!selectedAgent && value.agent_missions.length) {
+    agentClient.adopt(await jsonFetch('/api/agent/tasks/'+value.agent_missions[0].task_id));
+  }
+}
+async function agentAction(action) {
+  try { await action();await refreshAgentStatus(); }
+  catch(error) {agentNode('message').textContent=error.message;}
+}
+agentNode('propose').addEventListener('click',()=>agentAction(()=>agentClient.propose(agentNode('provider').value)));
+agentNode('refresh').addEventListener('click',()=>agentAction(()=>agentClient.refresh()));
+agentNode('pending').addEventListener('click',()=>agentAction(()=>agentClient.proposalReadback(sessionStorage.getItem('aioa-agent-pending-v2'))));
+agentNode('history').addEventListener('change',()=>agentAction(async()=>{
+  if(agentNode('history').value)agentClient.adopt(await jsonFetch('/api/agent/tasks/'+agentNode('history').value));
+}));
+agentNode('confirm').addEventListener('change',()=>{agentNode('run').disabled=!(agentNode('confirm').checked && agentClient.canApprove());});
+agentNode('run').addEventListener('click',()=>{
+  agentNode('run').disabled=true;agentAction(()=>agentClient.approve(selectedAgent.preview_digest));
+});
+agentNode('stop').addEventListener('click',()=>agentAction(()=>agentClient.stop()));
+agentNode('reconcile').addEventListener('click',()=>agentAction(()=>agentClient.reconcile()));
+agentNode('git').addEventListener('click',()=>agentAction(()=>agentClient.gitPreview()));
+agentNode('install').addEventListener('click',()=>agentAction(()=>agentClient.installPreview(JSON.parse(agentNode('install-plan').value))));
 
 setAssistantMode('cpl');
 bootstrap();

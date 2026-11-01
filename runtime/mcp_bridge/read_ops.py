@@ -36,6 +36,39 @@ UNVERIFIED_READ_OPERATIONS = frozenset({
 })
 
 
+def bounded_public_license(root, *, maximum=8192):
+    """Trusted host root only. Inbound paths never select a different file."""
+    import hashlib
+    import os
+    import stat
+    from pathlib import Path
+    root=Path(root).absolute()
+    if root.resolve()!=root or type(maximum) is not int or not 1<=maximum<=8192:
+        raise ContractError('bounded public root denied')
+    before=root.lstat();directory=os.open(root,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW)
+    fd=None
+    try:
+        opened=os.fstat(directory)
+        if (before.st_dev,before.st_ino)!=(opened.st_dev,opened.st_ino):
+            raise ContractError('public root changed')
+        fd=os.open('LICENSE',os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK,dir_fd=directory)
+        first=os.fstat(fd)
+        if not stat.S_ISREG(first.st_mode) or first.st_nlink!=1 or first.st_size>8192:
+            raise ContractError('public file type denied')
+        data=os.read(fd,8193);last=os.fstat(fd);named=os.stat('LICENSE',dir_fd=directory,follow_symlinks=False)
+        identity=lambda info:(info.st_dev,info.st_ino,info.st_size,info.st_mtime_ns,info.st_ctime_ns,info.st_nlink)
+        current=root.lstat()
+        if identity(first)!=identity(last) or identity(last)!=identity(named) or len(data)!=first.st_size or (
+                current.st_dev,current.st_ino)!=(opened.st_dev,opened.st_ino):
+            raise ContractError('public file changed')
+        return {'path':'LICENSE','text':data[:maximum].decode('utf-8'),'sha256':hashlib.sha256(data).hexdigest(),
+            'bytes':len(data),'truncated':len(data)>maximum,'local_readback_verified':True,
+            'live_verified':False,'authority':'NONE'}
+    finally:
+        if fd is not None:os.close(fd)
+        os.close(directory)
+
+
 def _exact_keys(
     operation: str,
     payload: dict[str, Any],

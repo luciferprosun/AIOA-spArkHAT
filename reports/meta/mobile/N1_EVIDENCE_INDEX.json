@@ -1,0 +1,884 @@
+{
+  "schema": "aioa.mobile.n1.evidence-index.v1",
+  "baseline_sha": "7387d823f38d1bc4ca964788ae11441d29b6ae6e",
+  "checkpoint_a": "d3c731d712face460a0a7588ce08bfc45a9090f4",
+  "checkpoint_b": "206b8d0ef10eeb06f63bf12e088dcfc08744e0c2",
+  "regression_source_capsule_digest": "1eee716c448c4c14b0cdfd9365a1fedbe1261985b5ad5fee6987e9bcb17e38f8",
+  "regression_results": [
+    {
+      "tag": "N7_META",
+      "command": [
+        "python3",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_meta_*.py",
+        "-q"
+      ],
+      "tests": 323,
+      "exit": 0
+    },
+    {
+      "tag": "N7_NODE",
+      "command": [
+        "node",
+        "--test",
+        "tests/meta_mission_ui.test.cjs",
+        "tests/meta_mobile_ui.test.cjs"
+      ],
+      "tests": 10,
+      "exit": 0
+    },
+    {
+      "tag": "N7_CORE",
+      "command": [
+        "python3",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_core_warrant.py",
+        "-q"
+      ],
+      "tests": 13,
+      "exit": 0
+    },
+    {
+      "tag": "N7_MCP",
+      "command": [
+        "python3",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_mcp_*.py",
+        "-q"
+      ],
+      "tests": 99,
+      "exit": 0
+    },
+    {
+      "tag": "N7_AUDIT_COMPAT",
+      "command": [
+        "python3",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_governor_audit_compatibility.py",
+        "-q"
+      ],
+      "tests": 4,
+      "exit": 0
+    },
+    {
+      "tag": "N7_NATIVE_PORTS",
+      "command": [
+        "python3",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_memory_patch_persistence_ports.py",
+        "-q"
+      ],
+      "tests": 26,
+      "exit": 0
+    },
+    {
+      "tag": "N7_NATIVE_LIFECYCLE",
+      "command": [
+        "python3",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_memory_patch_lifecycle.py",
+        "-q"
+      ],
+      "tests": 24,
+      "exit": 0
+    }
+  ],
+  "android_jvm": {
+    "prepared": 10,
+    "executed": 0,
+    "status": "BLOCKED_TOOLCHAIN"
+  },
+  "companion_isolated": {
+    "passed": 51,
+    "source_written": false
+  },
+  "cost": {
+    "muse_paid_calls": 0,
+    "nebius_paid_calls": 0,
+    "public_chrome": 0
+  },
+  "source_preservation": {
+    "repositories": [
+      {
+        "root": "/home/l/projects/AIOA-spArkHAT-Companion",
+        "head": "9cf6c567b40bc87385fb90e9143b0fb170889b2a",
+        "head_matches_before": true,
+        "branch_matches_before": true,
+        "status_matches_before": true
+      },
+      {
+        "root": "/home/l/AIOA_LOCAL_WORKTREES/aioa-android-agent-lab-20261028",
+        "head": "fb8642f108aea7db5db7a0b1446d4145f4167991",
+        "head_matches_before": true,
+        "branch_matches_before": true,
+        "status_matches_before": true
+      },
+      {
+        "root": "/home/l/AIOA_LOCAL_WORKTREES/nebius-nemotron-integration-20261028",
+        "head": "6e9dd8ebc1dcb2c03345d9dc7d30895013751cd5",
+        "head_matches_before": true,
+        "branch_matches_before": true,
+        "status_matches_before": true
+      }
+    ],
+    "selected_source_files": 76,
+    "changed_selected_files": [],
+    "old_apk_unchanged": true
+  },
+  "review": {
+    "raw_sha256": "a175b7f590314f6a9370ac3b94abaacbc73889023e0fb734fbf10cea468a3006",
+    "rounds": 1,
+    "post_fix_review": false
+  },
+  "final_seal_private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/FINAL_SEAL.json",
+  "post_commit_demo_private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/FINAL_DEMO.json",
+  "files_except_index_itself": [
+    {
+      "path": "clients/android/.gitignore",
+      "sha256": "82688737f158ce5a96f161d4f63ffac33475ecaa8e800c7fce91b988df0bb90f",
+      "bytes": 74
+    },
+    {
+      "path": "clients/android/ANDROID_BUILD_INPUT_MANIFEST.json",
+      "sha256": "9b75281952c6317b754295f1ef104b937a770a9462b849cb2cd80b0bc48e9cd7",
+      "bytes": 6184
+    },
+    {
+      "path": "clients/android/NOTICE.md",
+      "sha256": "c4e0c0b1d4ebac4be5ff168b9b32ad32d2c9f3b5e44f57c6fed2c437549be6da",
+      "bytes": 1209
+    },
+    {
+      "path": "clients/android/README.md",
+      "sha256": "8df60fe302565a375b09631fc0d34375e0846e3032a33f66dbfc1e13451430c7",
+      "bytes": 1946
+    },
+    {
+      "path": "clients/android/app/build.gradle.kts",
+      "sha256": "0da34d15e3c93203739d8781d162bc3dbb05cdce403dd8436024620ecc82cd08",
+      "bytes": 1360
+    },
+    {
+      "path": "clients/android/app/src/main/AndroidManifest.xml",
+      "sha256": "7d9aa3b8434cac4ff632f5157a0584c721fdc013fda7f4fe12904e3856645e0a",
+      "bytes": 882
+    },
+    {
+      "path": "clients/android/app/src/main/java/eu/sparkhat/aioa/companion/Freshness.kt",
+      "sha256": "2cdf185b6d9a67b0f6cd2d36dcae4d4825c3cc93f7b926be7d0dc97e5cf944e6",
+      "bytes": 1175
+    },
+    {
+      "path": "clients/android/app/src/main/java/eu/sparkhat/aioa/companion/MainActivity.kt",
+      "sha256": "a0673e27a0dcfded47faae1e6d67aecb5e13596c3956c7b98476ca9a20815965",
+      "bytes": 7586
+    },
+    {
+      "path": "clients/android/app/src/main/java/eu/sparkhat/aioa/companion/MissionViewModel.kt",
+      "sha256": "5f05308c12077b67498db0ad8031cf5c9bc96d51fcab812de3329abca6dc5abf",
+      "bytes": 8245
+    },
+    {
+      "path": "clients/android/app/src/main/java/eu/sparkhat/aioa/companion/MobileClient.kt",
+      "sha256": "4d3e4f585c7f3b6bba090f7028e256c7d986f44e4b62ee03371ebf93f397a1a0",
+      "bytes": 11983
+    },
+    {
+      "path": "clients/android/app/src/main/java/eu/sparkhat/aioa/companion/TransportIdentity.kt",
+      "sha256": "35196f93e6220fe1544c05e0b606aead1a5f5030eb32a11c394fab8903cad14f",
+      "bytes": 1414
+    },
+    {
+      "path": "clients/android/app/src/main/java/eu/sparkhat/aioa/companion/Wire.kt",
+      "sha256": "00d0c2c2504ee62893b4769ea20f683cf4381316d730df975c2ea7507ca6d7d6",
+      "bytes": 5399
+    },
+    {
+      "path": "clients/android/app/src/main/res/xml/data_extraction_rules.xml",
+      "sha256": "aa78fd133cebec0e7fcc8d75a03549f3579e6ba746e5014243e639c3321d9c52",
+      "bytes": 635
+    },
+    {
+      "path": "clients/android/app/src/main/res/xml/network_security_config.xml",
+      "sha256": "eb5f5c57a88fc656cb97ee142694b996b286064ba973e51e0158bcdff08b34f2",
+      "bytes": 232
+    },
+    {
+      "path": "clients/android/app/src/test/java/eu/sparkhat/aioa/companion/WireContractTest.kt",
+      "sha256": "78c7deb2ddb03638e4ad86ea2ce9d29ae8409c21e4491b0d129badf6f7377391",
+      "bytes": 3509
+    },
+    {
+      "path": "clients/android/app/src/test/resources/mobile_wire_vector.json",
+      "sha256": "9a8f70de4dbd9199f8119cacb9d63f8fed1ac567a99d17993184c9303c854149",
+      "bytes": 1018
+    },
+    {
+      "path": "clients/android/build.gradle.kts",
+      "sha256": "8e4147210ecae92f54658e8124258a535d17037af1572abaeaf7e67fc99ac1f9",
+      "bytes": 218
+    },
+    {
+      "path": "clients/android/gradle.properties",
+      "sha256": "3eac74024f7dc3d38a9850f0d3e35abde7bba2fa95410a33abb2750f2613fe87",
+      "bytes": 152
+    },
+    {
+      "path": "clients/android/gradle/wrapper/gradle-wrapper.jar",
+      "sha256": "81a82aaea5abcc8ff68b3dfcb58b3c3c429378efd98e7433460610fecd7ae45f",
+      "bytes": 43705
+    },
+    {
+      "path": "clients/android/gradle/wrapper/gradle-wrapper.properties",
+      "sha256": "3b6b8df392b92f86332d907707f3d952a32c8d6e1fedabafe2b5ec3d933a78c4",
+      "bytes": 338
+    },
+    {
+      "path": "clients/android/gradlew",
+      "sha256": "704b2ab90a98363b95a164faa9b3b827caa514943e4e8cbfe313eaca77beba41",
+      "bytes": 377
+    },
+    {
+      "path": "clients/android/licenses/gradle-wrapper-LICENSE.txt",
+      "sha256": "0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594",
+      "bytes": 10174
+    },
+    {
+      "path": "clients/android/settings.gradle.kts",
+      "sha256": "a81ae640ac379e50e2f34760db1dfcf5761b6d2a517c9faac97dbe1fde9aed97",
+      "bytes": 282
+    },
+    {
+      "path": "docs/meta/mobile/ADR_MOBILE_V1.md",
+      "sha256": "142a9c2312e49eaa97ddb0120ea5a2c08aa78e7d080b72e505b8319bcddb4459",
+      "bytes": 5183
+    },
+    {
+      "path": "docs/meta/mobile/ANDROID_BUILD_HANDOFF.md",
+      "sha256": "483b37ba4fab89a19d288b5dcbb48b8b35b4fe76862ed7a8aba46dd819157c4e",
+      "bytes": 2683
+    },
+    {
+      "path": "docs/meta/mobile/N0_PREFLIGHT.md",
+      "sha256": "a47ddd9944473c7ad13787351f16c98b4d8bd3bd20c5842a048ef517846924c1",
+      "bytes": 2457
+    },
+    {
+      "path": "docs/meta/mobile/N0_SOURCE_MANIFEST.json",
+      "sha256": "bb06486f656b8c46d6a89c1230f0d299aefe1aaaf9cd052f9759ab44366f1182",
+      "bytes": 44706
+    },
+    {
+      "path": "docs/meta/mobile/NIGHT_N1_FINAL_REPORT_20261031.md",
+      "sha256": "b35bb7349c26e58f3addc577aeded5e13e2c625c8fb10666044ea4e4b4d8ec00",
+      "bytes": 12173
+    },
+    {
+      "path": "docs/meta/mobile/NIGHT_N1_MIGRATION_MAP.md",
+      "sha256": "562468ebec98fb624af686e3a31f731e51ddaceec72906b4cee48eb2247e62b0",
+      "bytes": 6145
+    },
+    {
+      "path": "docs/meta/mobile/OWNER_MORNING_HANDOFF.md",
+      "sha256": "a2bc2248e12f9dc34643480bd420dcbdabd67fd86d3b524fab73d4bc0cca97cb",
+      "bytes": 1320
+    },
+    {
+      "path": "docs/meta/mobile/XIAOMI_13T_PRO_SETUP_PL.md",
+      "sha256": "80f2575ed9bdacaaf0e1e4f8d7477b791d90e1ad5ee7af71656f7bf225fdad42",
+      "bytes": 4350
+    },
+    {
+      "path": "protocol/mobile_mission_v1.json",
+      "sha256": "a531807150c68c64e6fb6d6be5360484fa1e4c4a50031cba4002132641f3a22e",
+      "bytes": 7188
+    },
+    {
+      "path": "reports/meta/mobile/N1_REVIEW_DISPOSITION.md",
+      "sha256": "bc174dfb08e694ea958acf020d8de37e898076ce41b0af5386b7d34ab4004d8d",
+      "bytes": 4863
+    },
+    {
+      "path": "reports/meta/mobile/N1_TEST_MATRIX.md",
+      "sha256": "126208955efa790de91b8c43c78eb556f9643b5b95f73d7515382615f84f656f",
+      "bytes": 5728
+    },
+    {
+      "path": "runtime/browser_agent/chrome_process_read.py",
+      "sha256": "eeb7bba3e91a7a3160c8d2ef6d26efcd50de8ac5776d7b89fbfb72de80411df0",
+      "bytes": 11582
+    },
+    {
+      "path": "runtime/meta_hackathon/mission_service.py",
+      "sha256": "a2cef83e368b294b9239de35fcc2546d3083354381128ff5f8a01ca045f302a7",
+      "bytes": 20994
+    },
+    {
+      "path": "runtime/meta_hackathon/runtime_adapter.py",
+      "sha256": "441f0b7c5a31ba41782b8dcb3cfe310836016e82c11b78216190845a306a7cfa",
+      "bytes": 7273
+    },
+    {
+      "path": "runtime/mobile_gateway/__init__.py",
+      "sha256": "cd300ca08b48cab7ace77573cbde8771a1449abe7ad778d406cfb24ca38dd5c0",
+      "bytes": 79
+    },
+    {
+      "path": "runtime/mobile_gateway/build_handoff.py",
+      "sha256": "8d887ab9a4429a8f140ca90a9fda7d347775507405b6e51305c7290096a27827",
+      "bytes": 3370
+    },
+    {
+      "path": "runtime/mobile_gateway/doctor.py",
+      "sha256": "47c89d9017b449c51348f13ba15db67ef03098754783c51561f1a0e109b3b4b1",
+      "bytes": 2971
+    },
+    {
+      "path": "runtime/mobile_gateway/service.py",
+      "sha256": "6cfcb5053757af34424d4e0cda2a6704ac361ebb7e9fa4469ef85fbcfab54f18",
+      "bytes": 20885
+    },
+    {
+      "path": "runtime/mobile_gateway/wire.py",
+      "sha256": "a4b3d96acac55f259b34aab82d93c2e9f20a052ec4575575592f9da353e7795b",
+      "bytes": 6927
+    },
+    {
+      "path": "runtime/webapp.py",
+      "sha256": "f7d343a5b1d0155d6ef78ba2bf93508ccbb013efdf071ea7175e0d50c16af176",
+      "bytes": 44677
+    },
+    {
+      "path": "tests/demo_mobile_fixture.py",
+      "sha256": "54f2d6748cc0194f49863bb8e8c47bfa78f0cf09758b67eea767cbf153692f00",
+      "bytes": 1024
+    },
+    {
+      "path": "tests/fixtures/mobile_wire_vector.json",
+      "sha256": "9a8f70de4dbd9199f8119cacb9d63f8fed1ac567a99d17993184c9303c854149",
+      "bytes": 1018
+    },
+    {
+      "path": "tests/meta_mobile_ui.test.cjs",
+      "sha256": "41be76ff4824b4fc301b0a1e090d1a1a145a932f9ae6c953e00a29164472d7f0",
+      "bytes": 1733
+    },
+    {
+      "path": "tests/test_meta_mission_batch_read.py",
+      "sha256": "62e1466849c061e3d35e1b03113782d46948b39eec9468667cbba8af59af97d3",
+      "bytes": 2043
+    },
+    {
+      "path": "tests/test_meta_mobile_android.py",
+      "sha256": "7e69febd6bf65200ff030237f6b47871b3455d631d9a5eab5a52e4870353973b",
+      "bytes": 5927
+    },
+    {
+      "path": "tests/test_meta_mobile_build.py",
+      "sha256": "0c204ed1929392895bf2f6655e23e009b1900a53c129845c54dccb0b50889a96",
+      "bytes": 2072
+    },
+    {
+      "path": "tests/test_meta_mobile_chrome_mounts.py",
+      "sha256": "2cc706f3c2290a087c22644cf186a0077f7cfb88c47531480b73acba00504631",
+      "bytes": 1881
+    },
+    {
+      "path": "tests/test_meta_mobile_doctor.py",
+      "sha256": "d5d4ae8d0ffa4747c2044d79498fdc8dcaff1d77fcd5891dae71b10b31586d0d",
+      "bytes": 2125
+    },
+    {
+      "path": "tests/test_meta_mobile_gateway.py",
+      "sha256": "8ae3a6d7e3f257e805a532a8e04bb43963987925ecee8ded50d0a661b0d8029c",
+      "bytes": 18566
+    },
+    {
+      "path": "tests/test_meta_mobile_http.py",
+      "sha256": "f5449b4a328e8b2da26178fbf6b63e9e81771a091dc2b785df2f611b4ebf1a9b",
+      "bytes": 10656
+    },
+    {
+      "path": "tests/test_meta_mobile_source_seal.py",
+      "sha256": "5409f7e4a4803089f970fa87a6b766ba91c217c63d7838765cbe87d2e62565ce",
+      "bytes": 2003
+    },
+    {
+      "path": "tests/test_meta_mobile_wire.py",
+      "sha256": "2c7cc36b0e0d236bfaa6aa7c2adecafcb6f784333d13e5522deec33531b28f1e",
+      "bytes": 4070
+    }
+  ],
+  "private_evidence_artifacts": [
+    {
+      "private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/A_META.log",
+      "sha256": "48d99fa351d305081ff040012a6ec7e74ee26bc4d1372ec6b164edec21367d06",
+      "bytes": 100
+    },
+    {
+      "private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/A_NODE.log",
+      "sha256": "b18d03ff49629ccaee1d03dac14d928bfed773e045ad83606f567ea0d6104d28",
+      "bytes": 1550
+    },
+    {
+      "private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/BASELINE.json",
+      "sha256": "964d18673fa4ae4f6c81aedd622b72f23fe1bf570fbb8721c70e8d5b897a177c",
+      "bytes": 881
+    },
+    {
+      "private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/BASE_CORE.log",
+      "sha256": "0e886ea6e681b63215cec8e5177305ad097fa0ac2f8c00067b742e95ca1c8036",
+      "bytes": 98
+    },
+    {
+      "private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/BASE_MCP.log",
+      "sha256": "3bf455b2ec4342cce7c55a564e41935956c3449ff3ca6c68ad76301a439626df",
+      "bytes": 98
+    },
+    {
+      "private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/BASE_META.log",
+      "sha256": "2aa61ce9f6b6f5d2c4bde42f88288c532874548c19f2f7ba337b164e5470a934",
+      "bytes": 100
+    },
+    {
+      "private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/BASE_NODE.log",
+      "sha256": "62302a42330b35ebb1258dc01b093d4f790ddc0c01cd0e7007587180edf6ce59",
+      "bytes": 1551
+    },
+    {
+      "private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/B_CORE.log",
+      "sha256": "0a3da42a38b01388eb9f10b13be3fb8749cd7589040b7b15188f238faedd8fde",
+      "bytes": 98
+    },
+    {
+      "private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/B_MCP.log",
+      "sha256": "bc6f6293f99a54c48c9a92225ce412b09c8bef6bfb7e86ee7dba0cef9d343fa8",
+      "bytes": 98
+    },
+    {
+      "private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/B_META.log",
+      "sha256": "0bf72cc19181668edded5fabccce56ffbdba19c7180baccda4753aa0f93d1d1f",
+      "bytes": 100
+    },
+    {
+      "private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/B_NODE.log",
+      "sha256": "d81b3c1475ba7f02413b28f9295f68a1821cb1bb6064a0393424a8e27db5dcbd",
+      "bytes": 2226
+    },
+    {
+      "private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/CHECKPOINT_A.json",
+      "sha256": "bf2a2054005b1930429e9c3d7002f5b8af2b9b99d7bbe0a92039668c2840fd14",
+      "bytes": 643
+    },
+    {
+      "private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/CHECKPOINT_A_PYTHON.log",
+      "sha256": "28ff009a5a6cbea3d7aee18bd60d021afe46e55243c558ea171811e1d27d09f6",
+      "bytes": 99
+    },
+    {
+      "private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/CHECKPOINT_B.json",
+      "sha256": "f8ab4c06816316a0177e366fbab04b05571108d964adfe242e71e0d1fe87727b",
+      "bytes": 176
+    },
+    {
+      "private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/CHECKPOINT_B_TESTS.json",
+      "sha256": "0e11c6b172569e179396905aec97680022f0532d1bd13b63349ba4ebfd29fb9f",
+      "bytes": 911
+    },
+    {
+      "private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/COMPANION_TEST_COPY_MANIFEST.json",
+      "sha256": "a1724f5c910236c9eb91826a4be418634aa09362c94bd0b8efc457ea0dffd636",
+      "bytes": 5684
+    },
+    {
+      "private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/INDEPENDENT_REVIEW.md",
+      "sha256": "a175b7f590314f6a9370ac3b94abaacbc73889023e0fb734fbf10cea468a3006",
+      "bytes": 18244
+    },
+    {
+      "private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/N1_WIRE_GREEN.log",
+      "sha256": "1e5fe9af7c37a719cdb39e2a23654f187bc14aa663eb5752d0565a7e3e9896e5",
+      "bytes": 97
+    },
+    {
+      "private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/N1_WIRE_RED.log",
+      "sha256": "30950e862571cdd7a56bbb250eff75aedece139e32bca04a25df6b38b0285fe8",
+      "bytes": 4265
+    },
+    {
+      "private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/N2_GREEN.log",
+      "sha256": "a64e6adb4162ccb1e4023ba883c8163979c137f96abb48c6795ca47122d220fa",
+      "bytes": 98
+    },
+    {
+      "private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/N2_GREEN_ATTEMPT1.log",
+      "sha256": "8ca93a9291abd9e3ff256ea8b5e08255c7aa9cb9522a1d23e14539c38d7b5028",
+      "bytes": 2590
+    },
+    {
+      "private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/N2_HTTP_GREEN.log",
+      "sha256": "d13b8f973fcf46fbc91f3844aad78d50978533654ebb0d5f6b1a1e30ff35b057",
+      "bytes": 97
+    },
+    {
+      "private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/N2_HTTP_RED.log",
+      "sha256": "5494d5691761603700bb78336a33fd2fdaf45f2f353579fb1795d4e598fa7382",
+      "bytes": 4678
+    },
+    {
+      "private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/N2_RED.log",
+      "sha256": "331f393b1615879812709d0031b2a52252ac39a37b7bc932d09098fb049e46d8",
+      "bytes": 7380
+    },
+    {
+      "private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/N3_ANDROID_SOURCE_GREEN.log",
+      "sha256": "502b25fa0a2b099daf263a5514e75370b402ae0f16ca3c0b8aea54fdde71cc74",
+      "bytes": 97
+    },
+    {
+      "private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/N3_ANDROID_SOURCE_RED.log",
+      "sha256": "8e738d6d3837b08a7e3a1959d07febdfe4852bc1cb8cfb86b020be9feca7d192",
+      "bytes": 8096
+    },
+    {
+      "private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/N3_HTTP_HEADER_RED.log",
+      "sha256": "bd63aa0635aa2e5921e391ed50df220a91d3ca7c094d091531336ebc8fd83012",
+      "bytes": 695
+    },
+    {
+      "private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/N3_SOURCE_SEAL_RED.log",
+      "sha256": "3ec751d65affdce9fac9ab3cf322b8eefd066ff87536d06f5259b643ea871e78",
+      "bytes": 747
+    },
+    {
+      "private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/N4_DOCTOR_GREEN.log",
+      "sha256": "0ed784c0f8f226c2a13812f96b3620a848f58a26bb8c4fd701913d3aef1153ab",
+      "bytes": 97
+    },
+    {
+      "private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/N4_DOCTOR_RED.log",
+      "sha256": "0a34e4c71e2e338a55b20677edc067ef79271867c0acfbc1532823476157f229",
+      "bytes": 1735
+    },
+    {
+      "private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/N4_PASSIVE_DOCTOR.log",
+      "sha256": "b117222f3fd68f1a8734dd20733d81857d17f1c0a7e5097b7bd02c8ada919a6b",
+      "bytes": 622
+    },
+    {
+      "private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/N5_COMPANION_COMMAND.json",
+      "sha256": "3ecc2326a51f29a9ea6ecbca29c9291aac97e7a678e41cee55390469346f385e",
+      "bytes": 286
+    },
+    {
+      "private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/N5_COMPANION_ISOLATED.log",
+      "sha256": "977cc49037f1bc2f3423259ee6eac053803e17f848307e31299b81e95b422d4d",
+      "bytes": 100
+    },
+    {
+      "private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/N5_DEMO.json",
+      "sha256": "5d980f329bd9104f7bc0038120bce14039ddaa5020aa602babb94a75f6473e37",
+      "bytes": 1020
+    },
+    {
+      "private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/N5_DEMO.stderr.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/N5_MOBILE_GREEN.log",
+      "sha256": "0944bbb501bec0407d54f4c9dcd67b3d599ae6cc958665b16fb19eeb8f555cab",
+      "bytes": 99
+    },
+    {
+      "private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/N5_NODE_SOURCE.log",
+      "sha256": "40e5e9dfcef6eeab2566ec47367563d65e16aad35c9401f391d89138831a6fa1",
+      "bytes": 792
+    },
+    {
+      "private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/N6_BUILD_HANDOFF_GREEN.log",
+      "sha256": "6c97d61eb1684c2f375ce2260800082aad60f1fb5811e00b2f0409fe03dbb582",
+      "bytes": 97
+    },
+    {
+      "private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/N6_BUILD_HANDOFF_RED.log",
+      "sha256": "67bb2ea72e0328dcb162d83656ce7f9db5a00c70300c974a591f15e6b4f95858",
+      "bytes": 1800
+    },
+    {
+      "private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/N6_BUILD_MANIFEST_CHECK.log",
+      "sha256": "c4c45304e430ac3dfb9a2b9ce1572de53aa8a4bbdedb80b75c9ace4b0f18b497",
+      "bytes": 19
+    },
+    {
+      "private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/N6_TOOLCHAIN_OBSERVATION.json",
+      "sha256": "ac5bdeb2b0ee9657395bb25371c132363193146764cf88b1317ba7bbc8fadbe6",
+      "bytes": 838
+    },
+    {
+      "private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/N7_AUDIT_COMPAT.log",
+      "sha256": "fffa554e847b79c63feff0da3f09837aefc9e3fc251a43cf81905466b2f8bc09",
+      "bytes": 97
+    },
+    {
+      "private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/N7_BATCH_GREEN.log",
+      "sha256": "563d5fbdd24f4f383ccf638247f0f2c581c52b735397dc758f62a60b5c4cdd71",
+      "bytes": 97
+    },
+    {
+      "private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/N7_BATCH_RED.log",
+      "sha256": "def65f38b32e44d2c14361132c993da70795ad76ffadcb1612cc95588e21117a",
+      "bytes": 1402
+    },
+    {
+      "private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/N7_CORE.log",
+      "sha256": "c73f84e0233e36903cf325fb47538330c5bd723c073b29e1f8ed671519b07002",
+      "bytes": 98
+    },
+    {
+      "private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/N7_FINAL_DEMO.json",
+      "sha256": "5f9c943beeda65c6b4a401916ea8b29750c273d095c43f2a6757b2a79316597f",
+      "bytes": 1020
+    },
+    {
+      "private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/N7_FINAL_DEMO.stderr.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/N7_FIX_ANDROID_SOURCE_GREEN.log",
+      "sha256": "783e08d0ceafc674dad146a5d9a8a0efdfd61cc31d4e5232abfbbb974a74c42d",
+      "bytes": 98
+    },
+    {
+      "private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/N7_FIX_ANDROID_SOURCE_RED.log",
+      "sha256": "1fd9d1bb829b61e0b24c54a87f0f95f7c6444bf445a43b90e62c934057666eb7",
+      "bytes": 24876
+    },
+    {
+      "private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/N7_FIX_GATEWAY_GREEN.log",
+      "sha256": "a376e15f077dcf4d1577b27cfaf0352fb889bfb9833b5d33b3eae77a4fbdc79c",
+      "bytes": 99
+    },
+    {
+      "private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/N7_FIX_GATEWAY_RED.log",
+      "sha256": "3ac6a6cc8770e9850375a6e0822220563a74bfeebadaf2389d18d5ef41756d6b",
+      "bytes": 4175
+    },
+    {
+      "private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/N7_MCP.log",
+      "sha256": "5686c7e2da96eee0da0e163ec98b287c75c8c96acb297f4d83cc86b6916bf0e9",
+      "bytes": 98
+    },
+    {
+      "private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/N7_META.log",
+      "sha256": "d419bae226acc65dc34dea10ed25dcd175bc9079b5054e9311cce74bd791134c",
+      "bytes": 100
+    },
+    {
+      "private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/N7_NATIVE_LIFECYCLE.log",
+      "sha256": "3740eaa98540e120f3fa423eada30253d20f6a4950e9659bcd02885b13d65979",
+      "bytes": 99
+    },
+    {
+      "private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/N7_NATIVE_PORTS.log",
+      "sha256": "2db118a1b273c15462c1bf150b406e28542336e776ed1d34e4fb76d1201f6eb9",
+      "bytes": 98
+    },
+    {
+      "private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/N7_NODE.log",
+      "sha256": "a1b6f2f5fded518325986e84921abd81b29b7588b52f17ab332008282f407bb2",
+      "bytes": 2227
+    },
+    {
+      "private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/N7_PROVIDER_DRIFT_RED.log",
+      "sha256": "cd3b7b2b55bf3b7c0371eabab373b7437ef7170c0a3ea1827d61a2663ef54d22",
+      "bytes": 726
+    },
+    {
+      "private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/N7_SECRET_SCAN.json",
+      "sha256": "adf99cbc1698f34740182e3d6dd03bb042108f3033fc1bb8303da63f8ddba79f",
+      "bytes": 325
+    },
+    {
+      "private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/N7_SOURCE_MOUNTS_GREEN.log",
+      "sha256": "95576d428e2972663d133f5895bcd7ea65f20015a18253ad915ff18918d02031",
+      "bytes": 97
+    },
+    {
+      "private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/N7_SOURCE_MOUNTS_RED.log",
+      "sha256": "8c5a7416b83905723a381e75ce59130c8a279b424cbe5f7c1a2113c4dc26dfc1",
+      "bytes": 1887
+    },
+    {
+      "private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/N7_SOURCE_PRESERVATION.json",
+      "sha256": "6aabb93274e6d27bf5cdfc87a084adf5f52dfab5ca8ca7b4bd28e5f665a19e57",
+      "bytes": 875
+    },
+    {
+      "private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/N7_SOURCE_SYMLINK_GREEN.log",
+      "sha256": "2ccc94ff2417692599649eb1342d14bb6265a6d6ebeb2aedf5853c15ba160875",
+      "bytes": 97
+    },
+    {
+      "private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/N7_SOURCE_SYMLINK_RED.log",
+      "sha256": "df9ccf75f18f0316a45a502b8d96a47ef6be8126119d4173cb31cc772d410f51",
+      "bytes": 697
+    },
+    {
+      "private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/N7_SOURCE_SYMLINK_TEST_SYNTAX_ERROR.log",
+      "sha256": "568c4e24f179237e6c3f712d0c2fb056062d5f1970358fef820960c4922c4d3a",
+      "bytes": 997
+    },
+    {
+      "private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/N7_TARGET_REFS.json",
+      "sha256": "34da4f8b5b9fc85f0e6d1b109eb1d176a854869d5033fa268790fe650892b8a1",
+      "bytes": 385
+    },
+    {
+      "private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/N7_TESTED_CODE_SEAL.json",
+      "sha256": "b97fbef92af24d5f9de7202afc24420fccc5ad4b5b975eddc8c5bd9adeb31e86",
+      "bytes": 5556
+    },
+    {
+      "private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/N7_TEST_RESULTS.json",
+      "sha256": "0195c924869d9ab5a3e38aff9fae52bb37d4280c6887c955450d42471dba1122",
+      "bytes": 1713
+    },
+    {
+      "private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/N8_ANDROID_SOURCE_GREEN.log",
+      "sha256": "7e73bac5779f5aa3bd6458fa985a18f9b285963df13f6af74631f33dea6f041f",
+      "bytes": 98
+    },
+    {
+      "private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/N8_BUILD_HANDOFF_GREEN.log",
+      "sha256": "5084dcdb72036db3efb0ef2e6a9fd2fb68202fc02968ffcee3863d19ad25c862",
+      "bytes": 97
+    },
+    {
+      "private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/N8_BUILD_MANIFEST_CHECK.log",
+      "sha256": "c4c45304e430ac3dfb9a2b9ce1572de53aa8a4bbdedb80b75c9ace4b0f18b497",
+      "bytes": 19
+    },
+    {
+      "private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/N8_BUILD_RESOURCE_RED.log",
+      "sha256": "31d891f72d01fc5f7b7138ac714ae58920bb3dc015763f0e6ce0e8d1f1aa71ce",
+      "bytes": 1273
+    },
+    {
+      "private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/N8_SECRET_SCAN.json",
+      "sha256": "4bc882f4ca89951952bf1d3b107a5b41efaee98a67bfd36fca82e4f56ceb2210",
+      "bytes": 109
+    },
+    {
+      "private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/OLD_APK_METADATA.json",
+      "sha256": "2eba75882db7eb068a047869158903fca4ebedc9dc63b4993813c5c7d23bc9e0",
+      "bytes": 209
+    },
+    {
+      "private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/SOURCE_MANIFEST.json",
+      "sha256": "c5e1d196d9e1045add66a45e76428bdae652707b1099a668373bc05a03977426",
+      "bytes": 42635
+    },
+    {
+      "private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/WRITER_METADATA.json",
+      "sha256": "09cd2792f6d089d402f8eea9b2aa3efa2873a86259d4d5af1f3c28c9e0189ca2",
+      "bytes": 217
+    },
+    {
+      "private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/agentlab_after.json",
+      "sha256": "57d29be6a296f388090a745372c2aa9b82f95f06f6fc1b2fa9527b87b155818c",
+      "bytes": 299
+    },
+    {
+      "private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/agentlab_before.json",
+      "sha256": "07a4472ec58044163237b88fd3665206569555bde3789153ee427199ba7c079d",
+      "bytes": 1627
+    },
+    {
+      "private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/agentlab_selected_count.json",
+      "sha256": "bcefc4ae98d1eb95073a2003315f9d41ebe09cf0c66d0459d392d60dbb1ed264",
+      "bytes": 38
+    },
+    {
+      "private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/companion_after.json",
+      "sha256": "593377ea96ef025d08780503778752872997ead378da585a9a49157fb6c57469",
+      "bytes": 268
+    },
+    {
+      "private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/companion_before.json",
+      "sha256": "afca193a998e0a72a02e58d203ec3194eba22b560ae9b67ee41067d011be5a10",
+      "bytes": 1599
+    },
+    {
+      "private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/companion_selected_count.json",
+      "sha256": "d84fe881d3f7844cc9dff4bc4234e16afb5ce1c5236e8bf3b29be127e1b98185",
+      "bytes": 38
+    },
+    {
+      "private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/nebius_after.json",
+      "sha256": "229085d17609218259a907c1d0ed4658102a732b7452946c565dbc584a37de5e",
+      "bytes": 10831
+    },
+    {
+      "private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/nebius_before.json",
+      "sha256": "6df1234d3da76fa6903b3e074fef501bcc79632c260ffca5081fd4f40b9234e1",
+      "bytes": 12332
+    },
+    {
+      "private_path": "/home/l/projects/META_MOBILE_PRIVATE_20261031/N1_20261031T212814Z/target_before.json",
+      "sha256": "2163472896f218940cb65e001e5251a9c35bc0ea382d07c8b8be51122cbc9493",
+      "bytes": 1810
+    }
+  ],
+  "post_regression_targeted_checks": [
+    {
+      "log": "N8_ANDROID_SOURCE_GREEN.log",
+      "pass": 10
+    },
+    {
+      "log": "N8_BUILD_HANDOFF_GREEN.log",
+      "pass": 3
+    },
+    {
+      "log": "N8_BUILD_MANIFEST_CHECK.log",
+      "status": "MATCH"
+    }
+  ]
+}

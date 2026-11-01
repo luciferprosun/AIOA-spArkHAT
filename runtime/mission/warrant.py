@@ -79,6 +79,21 @@ class CoreWarrantLedger:
         except (KeyError, TypeError, ValueError):
             raise WarrantError('WARRANT_INTEGRITY') from None
 
+    def _load_unrevoked(self, tx, warrant):
+        """New authority use honors root revocation, including v1 children.
+
+        Historical v1 rows without the additive witness retain their existing
+        approval semantics. Inspection/reconciliation use _load, never this gate.
+        """
+        stored,state,active=self._load(tx,warrant)
+        witness=tx.get(RecordKind.APPROVAL,self._key(warrant))
+        if witness is not None:
+            root=EffectWarrant.from_dict(state['root'])
+            require(witness.payload.get('schema')=='aioa.warrant-owner-witness.v1'
+                and witness.payload.get('warrant_digest')==root.digest(),'WARRANT_APPROVAL_INTEGRITY')
+            require(witness.payload.get('revoked') is False,'WARRANT_REVOKED')
+        return stored,state,active
+
     @staticmethod
     def _attenuation(parent, child):
         # Delegation can narrow scope/window only, never mint another use.
@@ -108,12 +123,45 @@ class CoreWarrantLedger:
             require(tx.get(RecordKind.OPERATION, self._key(warrant)) is None, 'NONCE_ALREADY_REGISTERED')
             self._save(tx, warrant, {'schema': KIND, 'root': warrant.to_dict(),
                                     'active': warrant.to_dict(), 'consumption': None})
+            tx.insert(StoredRecord(RecordKind.APPROVAL, self._key(warrant), self.scope, 1,
+                {'schema': 'aioa.warrant-owner-witness.v1', 'warrant_digest': warrant.digest(),
+                 'session_id': principal.actor_session_id,
+                 'assignment_revision': principal.assignment_revision, 'revoked': False}))
+        return self._run(principal, Capability.OWNER_APPROVAL, mutation)
+
+    def require_active_in_transaction(self, tx, current, *, consumed=False):
+        """Native local START requires a stored human witness from this session.
+
+        A model string, a deserialized principal or an old process's approval
+        cannot replace Core admission. Inspection after revocation is still safe.
+        """
+        self._check(current)
+        stored, state, active = self._load_unrevoked(tx, current)
+        witness = tx.get(RecordKind.APPROVAL, self._key(current))
+        require(witness is not None and witness.payload.get('schema') == 'aioa.warrant-owner-witness.v1',
+                'HUMAN_APPROVAL_REQUIRED')
+        require(witness.payload.get('revoked') is False, 'WARRANT_REVOKED')
+        require(witness.payload.get('warrant_digest') == current.digest()
+                and witness.payload.get('session_id') == tx.context.principal.actor_session_id
+                and witness.payload.get('assignment_revision') == tx.context.principal.assignment_revision,
+                'OWNER_SESSION_CHANGED')
+        require(active == current and state['consumption'] == (self._receipt(current) if consumed else None),
+                'WARRANT_INACTIVE')
+        return stored, state
+
+    def revoke(self, principal, warrant):
+        def mutation(tx):
+            row = tx.get(RecordKind.APPROVAL, self._key(warrant))
+            require(row is not None and row.payload.get('warrant_digest') == warrant.digest(),
+                    'HUMAN_APPROVAL_REQUIRED')
+            tx.replace(StoredRecord(row.kind, row.record_id, row.scope, row.revision+1,
+                       {**row.payload, 'revoked': True}), expected_revision=row.revision)
         return self._run(principal, Capability.OWNER_APPROVAL, mutation)
 
     def delegate(self, principal, parent, child):
         def mutation(tx):
             self._check(parent); self._check(child)
-            stored, state, active = self._load(tx, parent)
+            stored, state, active = self._load_unrevoked(tx, parent)
             require(active == parent and state['consumption'] is None, 'WARRANT_INACTIVE')
             self._attenuation(parent, child)
             state['active'] = child.to_dict()
@@ -126,7 +174,7 @@ class CoreWarrantLedger:
         """
         def mutation(tx):
             self._check(current)
-            stored, state, active = self._load(tx, current)
+            stored, state, active = self._load_unrevoked(tx, current)
             require(current == active, 'STALE_WARRANT_BINDING')
             require(state['consumption'] is None, 'WARRANT_ALREADY_CONSUMED')
             state['consumption'] = self._receipt(active)

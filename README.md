@@ -1,4 +1,33 @@
 # AIOA spArkHAT 🐾
+
+## One local Mission Control
+
+From this source checkout, start the unified local profile:
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 python3 -B -m runtime.webapp --unified-offline --host 127.0.0.1 --port 0
+```
+
+The command prints its random loopback URL. The existing web UI, signed mobile
+transport, MCP adapter and bounded tools share one MissionService/Core ledger.
+Review and approve an exact SensorBridge fixture operation to create real files,
+run five Python checks and inspect its independent readback receipt. A separate
+exact operation can create a local commit of those verified files in a fresh
+disposable repository. Remote writes and package installation remain disabled.
+
+This profile uses synthetic offline owner admission and no model inference for
+the registered coding recipe. Paid Muse/Nebius calls, production owner pairing,
+physical Android, qualified remote TLS and an APK are separate unverified gates.
+The unified profile currently requires the source checkout and a qualified Linux
+sandbox host; it is not a production certification of the installed wheel.
+See [testing and reproducible demo](docs/unification/TESTING.md) and
+[operator handoff](docs/unification/OWNER_HANDOFF_PL.md).
+
+The [Meta/Muse work](docs/meta/PROJECT_IDENTITY.md) is part of this same application.
+Its historical `AIOA-METAGuardiansSPARK` branch remains a provenance reference.
+The unified candidate targets `main` through the separately approved integration PR;
+no second product or permanent hackathon runtime is introduced.
+
 ### Long-Running Agent | NVIDIA Claw Challenge Berlin 2026
 
 ![GOLD24](https://img.shields.io/badge/GOLD24-PASSED-00FF00)
@@ -43,11 +72,14 @@ Requires Python 3.11+ and a complete source checkout.
 
 ```bash
 python3 -I -B scripts/nvidia_reviewer_preflight.py --unified
-./runtime/run.sh
-./runtime/run_web.sh
+PYTHONDONTWRITEBYTECODE=1 python3 -B -m runtime.webapp --unified-offline --host 127.0.0.1 --port 0
 ```
 
-Web console is loopback-only by default. The historical `start_nebius_personal_ai_demo.sh` launcher still requires its explicitly approved Nebius branch names; it is not a canonical-main startup command. Use the offline reviewer above to inspect the integrated fixture from main. LIVE provider use requires separate authorization gates.
+Web console is loopback-only. Existing CLI/legacy launchers remain compatibility
+interfaces; the unified profile uses the command above. The historical
+`start_nebius_personal_ai_demo.sh` requires its approved Nebius branch names.
+LIVE provider use requires separate authorization gates. Tests on an integration
+branch do not certify an unmerged `main`.
 
 ## Canonical repository layout
 

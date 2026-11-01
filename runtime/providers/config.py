@@ -95,7 +95,21 @@ class ProviderManager:
     """Cloud-provider manager with fallback routing and no fake offline mode."""
 
     def __init__(self, project_dir: Path, *, fixture_base_url: str | None = None,
-                 state_dir: Path | None = None) -> None:
+                 state_dir: Path | None = None, meta_only: bool = False) -> None:
+        self._meta_provider = None
+        self._meta_only = meta_only
+        if meta_only:
+            # Explicit bounded profile: no .env import, legacy state or fallback.
+            from .meta_model_api import MetaModelProvider, MODEL, PROVIDER
+            self.project_dir = project_dir
+            self.fixture_base_url = None
+            self.current_model = PROVIDER+'/'+MODEL
+            self.provider_chain = [ProviderConfig(PROVIDER, MODEL, True)]
+            self.provider = None
+            self.last_used_model = ''
+            self.competition_profile = ''
+            self._meta_provider = MetaModelProvider()
+            return
         if fixture_base_url is None:
             load_api_environment()
         self.fixture_base_url = fixture_base_url
@@ -119,9 +133,23 @@ class ProviderManager:
         self.last_used_model = ""
 
     def generate(self, prompt: str) -> str:
+        if self.current_model.startswith('meta_model_api/'):
+            raise RuntimeError('META_TYPED_MISSION_REQUIRED')
         if self.fixture_base_url is not None:
             raise RuntimeError("TEST_TRANSPORT_ONLY: ordinary cloud chat is disabled in fixture mode")
         return self.generate_with_fallback(prompt)
+
+    def configure_meta(self, provider):
+        from .meta_model_api import MetaModelProvider
+        if type(provider) is not MetaModelProvider:
+            raise ValueError('META_PROVIDER_BINDING_DENIED')
+        self._meta_provider = provider
+
+    def generate_meta_plan(self, request, cancel, *, live_binding=None):
+        from .meta_model_api import MetaAPIError
+        if self._meta_provider is None:
+            raise MetaAPIError('META_API_LIVE_BLOCKED_OWNER_GO')
+        return self._meta_provider.plan(request, cancel, live_binding=live_binding)
 
     def strict_status(self) -> dict:
         provider = "openrouter"
@@ -179,6 +207,8 @@ class ProviderManager:
         return (value,) if value else ()
 
     def generate_with_fallback(self, prompt: str) -> str:
+        if self.current_model.startswith('meta_model_api/'):
+            raise RuntimeError('META_TYPED_MISSION_REQUIRED')
         if self.fixture_base_url is not None:
             raise RuntimeError("TEST_TRANSPORT_ONLY: ordinary cloud chat is disabled in fixture mode")
         errors: list[str] = []
@@ -205,6 +235,10 @@ class ProviderManager:
         )
 
     def switch_model(self, model_name: str) -> str:
+        if self._meta_only:
+            if model_name != self.current_model:
+                raise ValueError('META_PROFILE_MODEL_LOCKED')
+            return self.current_model
         normalized = self.normalize_model_name(model_name)
         if (
             self.competition_profile == NEBIUS_COMPETITION_PROFILE
@@ -227,6 +261,8 @@ class ProviderManager:
         return [provider.full_name for provider in self.provider_chain if provider.enabled]
 
     def available_models(self) -> list[str]:
+        if self._meta_only:
+            return [self.current_model]
         return [
             f"{alias:<15} -> {model}"
             for alias, model in DEFAULT_MODEL_PRESETS.items()
@@ -235,6 +271,11 @@ class ProviderManager:
         ]
 
     def provider_status(self) -> list[dict[str, str | bool]]:
+        if self._meta_only:
+            return [{'name': 'meta_model_api', 'model': self._meta_provider.diagnostics()['model_id'],
+                'enabled': True, 'available': self._meta_provider.mode == 'MOCK',
+                'full_name': self.current_model, 'transport': self._meta_provider.mode,
+                'live_verified': False}]
         rows: list[dict[str, str | bool]] = []
         for provider in self.provider_chain:
             rows.append(
@@ -247,6 +288,36 @@ class ProviderManager:
                 }
             )
         return rows
+
+    def unified_catalog(self, *, receipt_view=None, last_fixture_invocation=None):
+        """Truthful choices for the bounded unified profile; never reads keys.
+
+        Presence of old provider code or a configured credential is not live
+        admission. This catalog neither switches a provider nor enables fallback.
+        """
+        from .meta_model_api import MODEL, PROVIDER
+        provider=self._meta_provider
+        fixture=provider is not None and provider.mode=='MOCK'
+        diagnostic=provider.diagnostics(receipt_view=receipt_view) if provider is not None else {}
+        live=diagnostic.get('last_live_receipt')
+        base={'live_enabled':False,'billing_status':'UNVERIFIED','automatic_fallback':False,
+            'budget_limit_usd':None,'last_invocation':None,'paid_api_calls_verified':None}
+        meta={**base,'provider_id':PROVIDER,'model_id':MODEL,
+            'availability':'AVAILABLE_OFFLINE' if fixture else 'BLOCKED_EXACT_LIVE_OWNER_GO',
+            'mode':'OFFLINE_FIXTURE' if fixture else 'LIVE','selectable':fixture,
+            'budget_limit_usd':'0' if fixture else None,'budget_status':'FIXTURE_ZERO_COST' if fixture else 'NOT_AUTHORIZED',
+            'last_invocation':last_fixture_invocation if fixture else live,
+            'paid_api_calls_verified':0 if live is None else 1,'receipt_count_scope':'LAST_VERIFIED_CORE_RECEIPT',
+            'credit_balance':'UNVERIFIED','source_of_truth':'EXISTING_CORE_RECEIPTS',
+            'live_gate':'EXACT_CORE_BINDING_BILLING_BUDGET_AND_OWNER_GO_REQUIRED'}
+        return {'schema':'aioa.provider-catalog.v1','automatic_fallback':False,
+            'selected_provider_id':PROVIDER,'selected_model_id':MODEL,
+            'providers':[meta,{**base,'provider_id':'nebius','model_id':DEFAULT_NEBIUS_MODEL,
+                'mode':'LIVE','availability':'NOT_BOUND_IN_UNIFIED_PROFILE','selectable':False,
+                'budget_status':'UNKNOWN_NO_NEW_SPEND_GO','source_of_truth':'EXISTING_NEBIUS_LEDGER_NOT_IMPORTED'},
+                {**base,'provider_id':'local_llama','model_id':'UNSELECTED','mode':'OFFLINE_FIXTURE',
+                'availability':'DESIGN_ONLY_NO_INFERENCE','selectable':False,
+                'budget_status':'NOT_APPLICABLE','source_of_truth':'NO_INVOCATIONS'}]}
 
     def model_notice(self, model_name: str) -> str | None:
         normalized = self.normalize_model_name(model_name)

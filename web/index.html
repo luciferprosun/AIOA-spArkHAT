@@ -7,7 +7,7 @@
       name="description"
       content="AIOA spArkHAT: one local runtime for Assistant, Evidence Review and advisory Critical Prompt Loop."
     />
-    <title>AIOA spArkHAT Operator Console</title>
+    <title>AIOA spArkHAT Operator Console — Mission Control</title>
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
@@ -16,10 +16,12 @@
         <div class="brand">
           <p class="eyebrow">Adaptive Oceanic Intelligence Architecture</p>
           <h1>AIOA spArkHAT</h1>
-          <p class="subtitle">Formerly AOIA-Core. One local runtime for assisted work and evidence-aware review.</p>
+          <p class="subtitle">One Core Mission Control · Formerly AOIA-Core. LIVE operations require separate approval.</p>
         </div>
 
         <nav class="view-nav" aria-label="AIOA spArkHAT modules" role="tablist">
+          <button class="view-tab" type="button" role="tab" aria-selected="false"
+            aria-controls="meta-view" data-view="meta">METAGuardiansSPARK</button>
           <button
             class="view-tab view-tab-active"
             type="button"
@@ -96,11 +98,103 @@
       <main class="workspace">
         <header class="topbar">
           <div>
-            <p class="eyebrow product-name">AIOA spArkHAT Operator Console</p>
+            <p class="eyebrow product-name">AIOA spArkHAT · METAGuardiansSPARK</p>
             <h2 id="view-title">Assistant runtime</h2>
           </div>
           <button id="refresh-status" class="button button-ghost" type="button">Refresh status</button>
         </header>
+
+        <section id="meta-view" class="workspace-view meta-mission" role="tabpanel" hidden>
+          <section id="agent-workspace" class="review-card agent-workspace" hidden>
+            <p class="eyebrow">One app · one Core · bounded local tools</p>
+            <h2>Agent workspace</h2>
+            <p>Propose SensorBridge, review its exact files and limits, then approve the local fixture operation.
+              The existing Linux sandbox creates real files and runs Python tests. Model inference is separate and LIVE remains blocked.</p>
+            <label class="label" for="agent-provider">Provider / model choice</label>
+            <select id="agent-provider" class="select"></select>
+            <p id="agent-capabilities" class="note"></p>
+            <div class="meta-actions">
+              <button id="agent-propose" class="button button-primary" type="button">Propose SensorBridge + tests + README</button>
+              <button id="agent-refresh" class="button button-ghost" type="button">Readback / refresh</button>
+              <button id="agent-pending" class="button button-ghost" type="button" disabled>Read back pending proposal</button>
+            </div>
+            <label class="label" for="agent-history">Recent missions · same Core, including signed mobile proposals</label>
+            <select id="agent-history" class="select"><option value="">Select a task</option></select>
+            <p id="agent-message" class="note" role="status" aria-live="polite">Prepare an exact operation.</p>
+            <dl class="status-list">
+              <div><dt>Task / state</dt><dd id="agent-state">No task</dd></div>
+              <div><dt>Provider evidence</dt><dd id="agent-model">No model invocation</dd></div>
+              <div><dt>Local effect</dt><dd id="agent-effect">Not verified</dd></div>
+              <div><dt>Source SHA</dt><dd id="agent-source">-</dd></div>
+              <div><dt>Exact approval digest</dt><dd id="agent-digest">-</dd></div>
+            </dl>
+            <details open><summary>Files, diff, tests and execution limits</summary><pre id="agent-plan" class="meta-evidence">No proposal</pre></details>
+            <details><summary>Verified receipt</summary><pre id="agent-receipt" class="meta-evidence">No receipt</pre></details>
+            <label class="label"><input id="agent-confirm" type="checkbox" /> I reviewed this exact local operation and its digest.</label>
+            <div class="meta-actions">
+              <button id="agent-run" class="button button-primary" type="button" disabled>Approve exact LOCAL fixture operation &amp; run</button>
+              <button id="agent-stop" class="button button-stop" type="button" disabled>STOP</button>
+              <button id="agent-reconcile" class="button button-ghost" type="button" disabled>Independent readback of UNKNOWN</button>
+              <button id="agent-git" class="button button-ghost" type="button" disabled>Preview local commit of verified files</button>
+            </div>
+            <p>Remote push / PR, package installation, paid inference, production owner and phone authority remain disabled.</p>
+            <details><summary>Dependency plan · proposal only</summary>
+              <p>Exact package, version, artifact SHA-256, license and resources are required. No packages will be installed.</p>
+              <textarea id="agent-install-plan" class="select" rows="7" aria-label="Typed dependency plan JSON"></textarea>
+              <button id="agent-install" class="button button-ghost" type="button">Preview typed dependency plan</button>
+            </details>
+          </section>
+          <section class="review-card">
+            <p class="eyebrow">One Core · one Mission Control</p>
+            <h2>Muse planning + bounded document READ</h2>
+            <p id="meta-boundary" class="legal-boundary">OFFLINE FIXTURE: synthetic Meta response and browser driver, real Core gates.
+              No paid calls, no real Chromium. Model output remains advisory.</p>
+            <dl class="status-list meta-diagnostics">
+              <div><dt>Provider</dt><dd id="meta-provider">Not connected</dd></div>
+              <div><dt>Meta key configured</dt><dd id="meta-key">unknown</dd></div>
+              <div><dt>API transport</dt><dd id="meta-transport">disabled</dd></div>
+              <div><dt>Credit balance</dt><dd id="meta-credit">unverified</dd></div>
+              <div><dt>Spend permission</dt><dd id="meta-spend">not granted</dd></div>
+              <div><dt>Last actual API receipt</dt><dd id="meta-api-receipt">none</dd></div>
+              <div><dt>Last API call state</dt><dd id="meta-call-state">NOT_ATTEMPTED</dd></div>
+              <div><dt>Billing evidence</dt><dd id="meta-billing">UNVERIFIED</dd></div>
+              <div><dt>Provider attempt</dt><dd id="meta-attempt">none</dd></div>
+              <div><dt>Settled API cost</dt><dd id="meta-settled-cost">unverified</dd></div>
+            </dl>
+            <details><summary>Last actual redacted Core receipt</summary><pre id="meta-live-receipt" class="meta-evidence">none</pre></details>
+            <form id="meta-form">
+              <label class="label" for="meta-instruction">Mission request</label>
+              <textarea id="meta-instruction" class="select" rows="3" maxlength="1000">Read the public fixture and return its evidence hash.</textarea>
+              <label class="label" for="meta-source">Source URL · host allowlist</label>
+              <input id="meta-source" class="select" value="https://docs.example.org/offline-fixture" readonly />
+              <label class="label" for="meta-mode">Execution profile</label>
+              <select id="meta-mode" class="select"><option value="OFFLINE_FIXTURE">OFFLINE FIXTURE · 0 USD</option>
+                <option value="LIVE">LIVE · authorization required</option></select>
+              <div class="meta-actions">
+                <button id="meta-preview" type="submit" class="button button-primary">Preview mission</button>
+                <button id="meta-run" type="button" class="button button-primary" disabled>Approve exact fixture READ &amp; run</button>
+                <button id="meta-stop" type="button" class="button button-stop" disabled>STOP</button>
+                <button id="meta-refresh" type="button" class="button button-ghost">Read evidence</button>
+              </div>
+            </form>
+            <p id="meta-message" class="legal-boundary" role="status" aria-live="polite">Preview one bounded operation first.</p>
+          </section>
+          <section class="review-card" aria-live="polite">
+            <h3>Mission evidence</h3>
+            <dl class="status-list meta-diagnostics">
+              <div><dt>State</dt><dd id="meta-state">IDLE</dd></div>
+              <div><dt>Task</dt><dd id="meta-task">none</dd></div>
+              <div><dt>Source SHA</dt><dd id="meta-sha">none</dd></div>
+              <div><dt>Cost / budget</dt><dd id="meta-budget">0 USD / 0 USD · fixture</dd></div>
+              <div><dt>Browser</dt><dd id="meta-browser">LIVE_BLOCKED · containment and owner GO required</dd></div>
+              <div><dt>Approval</dt><dd id="meta-approval">none</dd></div>
+              <div><dt>Correlation</dt><dd id="meta-correlation">none</dd></div>
+              <div><dt>Allowed origin</dt><dd id="meta-origin">none</dd></div>
+              <div><dt>Evidence digest</dt><dd id="meta-evidence-digest">none</dd></div>
+            </dl>
+            <details open><summary>Exact preview, receipt and readback</summary><pre id="meta-evidence" class="meta-evidence">No mission yet.</pre></details>
+          </section>
+        </section>
 
         <section id="assistant-view" class="workspace-view" role="tabpanel">
           <div class="assistant-mode-bar">
@@ -388,6 +482,8 @@
       </article>
     </template>
 
+    <script src="/meta_mission.js"></script>
+    <script src="/agent_mission.js"></script>
     <script src="/app.js" type="module"></script>
   </body>
 </html>

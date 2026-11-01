@@ -35,6 +35,43 @@ def plain(value):
 
 class CoreServiceGuard:
     """Admitted domain service; does not create a Core, credential source or loop."""
+    @staticmethod
+    def dispatch_registered_local(route, principal, warrant, operation, reservation, *, check, cancel):
+        """Local-zero slice over the SAME journal and Core session registry.
+
+        Callbacks are native registered ports, never supplied by HTTP/model/MCP.
+        Only an acknowledged START grants the immediate bounded attempt.
+        """
+        from runtime.mission.tools import CoreToolRoute
+        from runtime.mission.warrant import require
+        from runtime.mission.liability import Reconciliation
+        require(type(route) is CoreToolRoute and callable(check) and route.verifier is not None,
+                'LOCAL_ROUTE_REQUIRED')
+        route.core.require(principal, Capability.COMMIT, scope=route.scope)
+        with route.target_guard():
+            check()
+            require(not cancel.cancelled, 'LOCAL_STOPPED')
+            def start(tx):
+                grant=route.validate_registered_local(tx, warrant, operation)
+                require(reservation.risk_units<=grant.risk_units and reservation.money_nano==0,
+                        'LOCAL_RESOURCE_GRANT_MISMATCH')
+                return route.journal._start_in_transaction(tx, warrant, operation, reservation, local_zero=True)
+            marker = route._run(principal, Capability.COMMIT, start)
+            if not marker['local_step_now']: return marker
+            def release():
+                check()
+                require(not cancel.cancelled, 'LOCAL_STOPPED')
+                route._run(principal, Capability.COMMIT, lambda tx:
+                    route.validate_registered_local(tx, warrant, operation, consumed=True))
+            release()
+            route.executor(operation, warrant, release, cancel)
+            require(not cancel.cancelled, 'LOCAL_STOPPED_READBACK_REQUIRED')
+            resolution = route.verifier(operation, warrant)
+            require(type(resolution) is Reconciliation and resolution.operation_digest == warrant.operation_hash,
+                    'LOCAL_READBACK_REQUIRED')
+            return route._run(principal, Capability.COMMIT, lambda tx:
+                route.journal.apply_resolution_in_transaction(tx, warrant, warrant.lease_epoch, resolution))
+
     def __init__(self, core, runner, policy, target, *, clock=time.time, governor_binding=None,
                  decision_context_reader=None):
         target_port = (

@@ -1,0 +1,18 @@
+{
+  "spki": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEX9eICEU4rdbz159ADvAVI3dYmdV4Mvyd2qvohNbF3hDLf+2R82qfU+ooYYxn6NAnKyywb0ZE9XAUW5k1nDuW2g==",
+  "signature": "MEYCIQCGGetSz2qiONrvbdqICBgaO4nPL7LaopL+uN/tvOGqGgIhANnJJCXIum6R+kLFerQ3Z7wP33iYseaiQtn1Z9VDdjP9",
+  "proof": {
+    "schema": "aioa.mobile.request-proof.v1",
+    "method": "GET",
+    "path": "/api/mobile/v1/status",
+    "nonce": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "body_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "token_sha256": "64f79c9402fb84a271d592640dd98fa2e3934e45c54a3467ae9a246addbd9aa4",
+    "issued_at": 123,
+    "audience": "49e8549e0f74a998bf9815749bb75b9ebcc16b341f3b9addb9583486f25139cb",
+    "source_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "capsule_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+  },
+  "canonical_sha256": "605ef45d4465ee1263ee22ee3bacb41d63ddae8d619892a069e345f8ae7aeafc",
+  "classification": "PUBLIC_TEST_VECTOR_ONLY_PRIVATE_KEY_DISCARDED"
+}
