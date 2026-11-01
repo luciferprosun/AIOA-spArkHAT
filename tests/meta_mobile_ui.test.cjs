@@ -9,7 +9,7 @@ const read = name => fs.readFileSync(path.join(dir, name), 'utf8');
 test('SOURCE: small-screen UI scrolls with insets and has no mobile Run approval', () => {
   const ui = read('MainActivity.kt');
   for (const text of ['verticalScroll(rememberScrollState())','safeDrawingPadding()','imePadding()',
-    'Evidence','STOP własnej misji','Billing Unverified','Not yet available']) assert.ok(ui.includes(text));
+    'Evidence','STOP your mission','Billing Unverified','Not yet available']) assert.ok(ui.includes(text));
   assert.ok(!/onClick\s*=\s*model::(?:run|approve)/.test(ui));
 });
 test('SOURCE: process death does not recover token or automatically resend a proposal', () => {
@@ -22,7 +22,11 @@ test('SOURCE: process death does not recover token or automatically resend a pro
 });
 test('SOURCE: UNKNOWN is not a stoppable success and TLS fixture pairing is blocked', () => {
   const freshness = read('Freshness.kt'), client = read('MobileClient.kt');
-  assert.ok(freshness.includes('setOf("PREVIEWED","RUNNING","LIVE_PENDING_AUTHORIZATION")'));
+  const stoppable = freshness.match(/fun canStop[\s\S]*?taskState in setOf\(([\s\S]*?)\)/);
+  assert.ok(stoppable, 'bounded lifecycle STOP rule missing');
+  assert.deepEqual([...stoppable[1].matchAll(/"([A-Z_]+)"/g)].map(match => match[1]),
+    ['PREVIEWED','RUNNING','LIVE_PENDING_AUTHORIZATION','AGENT_PENDING','AGENT_APPROVED','AGENT_RUNNING']);
+  assert.ok(!stoppable[1].includes('UNKNOWN'));
   assert.ok(client.includes('Wire.text(caps,"profile") != "OFFLINE_FIXTURE"'));
   assert.ok(client.includes('"REMOTE_DEPLOYMENT_BLOCKED"'));
 });
