@@ -1,0 +1,75 @@
+name: AIOA CodeQL (owner-gated advanced profile)
+
+"on":
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_call:
+    inputs:
+      source_sha:
+        type: string
+        required: true
+  schedule:
+    - cron: '17 3 * * 1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: codeql-static-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: false
+
+jobs:
+  analyze:
+    if: >-
+      github.repository == 'luciferprosun/AIOA-spArkHAT' &&
+      vars.AIOA_CODEQL_PROFILE == 'advanced-v1'
+    permissions:
+      contents: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        language: [actions, c-cpp, javascript-typescript, python]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Require unchanged requested source
+        env:
+          EXPECTED_SOURCE: ${{ inputs.source_sha }}
+          ACTUAL_SOURCE: ${{ github.sha }}
+          EXPECTED_IMAGE: '20261026.354.1'
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$EXPECTED_SOURCE" || test "$EXPECTED_SOURCE" = "$ACTUAL_SOURCE"
+          test "$ImageVersion" = "$EXPECTED_IMAGE"
+      - name: Checkout analyzed commit without credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+          clean: false
+          fetch-depth: 1
+          fetch-tags: false
+          submodules: false
+          lfs: false
+          set-safe-directory: false
+      - name: Initialize preserved language analysis
+        uses: github/codeql-action/init@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: none
+          tools: https://github.com/github/codeql-action/releases/download/codeql-bundle-v2.27.3/codeql-bundle-linux64.tar.gz
+          dependency-caching: false
+          threads: 1
+          ram: 2048
+      - name: Analyze and upload preserved language SARIF
+        uses: github/codeql-action/analyze@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
+        with:
+          category: /language:${{ matrix.language }}
+          upload-database: false
+          threads: 1
+          ram: 2048

@@ -4,11 +4,15 @@ name: Android DEBUG (manual owner review)
   workflow_dispatch:
     inputs:
       expected_source_sha:
-        description: Exact reviewed tooling-branch commit (40 hex); must equal selected ref SHA
+        description: Exact reviewed main commit (40 hex); must equal the dispatched main SHA
         required: true
         type: string
       expected_runner_image:
         description: Owner-reviewed ubuntu24 ImageVersion from official actions/runner-images release
+        required: true
+        type: string
+      expected_workflow_revision:
+        description: Owner-reviewed SHA-256 of this workflow; must match the pinned policy and checked-out bytes
         required: true
         type: string
       approve_run:
@@ -26,6 +30,16 @@ name: Android DEBUG (manual owner review)
         required: true
         type: boolean
         default: false
+      enable_codeql:
+        description: Also compile Kotlin under CodeQL and run all required language analyses
+        required: true
+        type: boolean
+        default: false
+      codeql_settings_ack:
+        description: Owner approved the reviewed advanced CodeQL migration and scoped SARIF upload permission
+        required: true
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -36,21 +50,34 @@ concurrency:
 
 jobs:
   debug-apk:
+    permissions:
+      contents: read
     if: >-
       github.repository == 'luciferprosun/AIOA-spArkHAT' &&
-      github.ref == 'refs/heads/codex/android-toolchain-mobile-20261031' &&
+      github.ref == 'refs/heads/main' &&
+      github.actor == 'luciferprosun' && github.triggering_actor == 'luciferprosun' &&
+      github.run_attempt == '1' && inputs.expected_source_sha == github.sha &&
       inputs.approve_run && inputs.sdk_license_ack && inputs.artifact_exposure_ack
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     env:
       AIOA_SOURCE_SHA: ${{ inputs.expected_source_sha }}
       AIOA_RUNNER_IMAGE: ${{ inputs.expected_runner_image }}
+      AIOA_WORKFLOW_REVISION: ${{ inputs.expected_workflow_revision }}
       AIOA_APPROVE_RUN: ${{ inputs.approve_run }}
       AIOA_SDK_LICENSE_ACK: ${{ inputs.sdk_license_ack }}
       AIOA_ARTIFACT_ACK: ${{ inputs.artifact_exposure_ack }}
+      AIOA_CODEQL_REQUESTED: ${{ inputs.enable_codeql }}
+      AIOA_CODEQL_ACK: ${{ inputs.codeql_settings_ack }}
+      AIOA_CODEQL_PROFILE: ${{ vars.AIOA_CODEQL_PROFILE }}
     steps:
+      - name: Reject unreviewed image before checkout or tool setup
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$ImageVersion" = '20261026.354.1'
       - name: Checkout exact dispatched commit without persistent credentials
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1, node24
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
@@ -60,29 +87,177 @@ jobs:
           submodules: false
           lfs: false
           set-safe-directory: false
+      - name: Verify immutable source workflow and existing SDK before tool acquisition
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          python3 -B scripts/android/ci_build.py --source-sha "$AIOA_SOURCE_SHA" --runner-image "$AIOA_RUNNER_IMAGE" --preflight-only
       - name: Set up exact Temurin JDK
-        uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00 # v4.7.1
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0, node24
         with:
           distribution: temurin
           java-version: 17.0.21+9
           architecture: x64
           java-package: jdk
           check-latest: false
+          cache-jdk: false
           overwrite-settings: false
           settings-path: ${{ runner.temp }}/aioa-java-settings
       - name: Verify image, existing SDK license, wrapper; test, lint, build and inspect DEBUG APK
+        id: controlled_build
         shell: bash
         run: |
           set -euo pipefail
           umask 077
           python3 -B scripts/android/ci_build.py --source-sha "$AIOA_SOURCE_SHA" --runner-image "$AIOA_RUNNER_IMAGE"
       - name: Upload only verified DEBUG APK and filtered evidence
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2, node24
         with:
           name: aioa-companion-debug-${{ github.sha }}-${{ github.run_attempt }}
           path: |
             ${{ runner.temp }}/aioa-android-${{ github.run_id }}-${{ github.run_attempt }}/artifact/aioa-companion-debug.apk
             ${{ runner.temp }}/aioa-android-${{ github.run_id }}-${{ github.run_attempt }}/artifact/APK_EVIDENCE.json
+          retention-days: 1
+          if-no-files-found: error
+          include-hidden-files: false
+          overwrite: false
+      - name: Retain filtered failure diagnostics without raw logs or APK
+        if: ${{ failure() && steps.controlled_build.outcome == 'failure' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: aioa-build-failure-${{ github.sha }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/aioa-failure-${{ github.run_id }}-${{ github.run_attempt }}-apk/BUILD_FAILURE_EVIDENCE.json
+          retention-days: 1
+          if-no-files-found: error
+          include-hidden-files: false
+          overwrite: false
+
+  codeql-static:
+    needs: debug-apk
+    if: >-
+      github.repository == 'luciferprosun/AIOA-spArkHAT' &&
+      github.ref == 'refs/heads/main' && inputs.approve_run &&
+      github.actor == 'luciferprosun' && github.triggering_actor == 'luciferprosun' &&
+      github.run_attempt == '1' && inputs.expected_source_sha == github.sha &&
+      inputs.sdk_license_ack && inputs.artifact_exposure_ack &&
+      inputs.enable_codeql && inputs.codeql_settings_ack &&
+      vars.AIOA_CODEQL_PROFILE == 'advanced-v1'
+    permissions:
+      contents: read
+      security-events: write
+    uses: ./.github/workflows/codeql-static.yml
+    with:
+      source_sha: ${{ inputs.expected_source_sha }}
+
+  codeql-kotlin:
+    needs: debug-apk
+    if: >-
+      github.repository == 'luciferprosun/AIOA-spArkHAT' &&
+      github.ref == 'refs/heads/main' && inputs.approve_run &&
+      github.actor == 'luciferprosun' && github.triggering_actor == 'luciferprosun' &&
+      github.run_attempt == '1' && inputs.expected_source_sha == github.sha &&
+      inputs.sdk_license_ack && inputs.artifact_exposure_ack &&
+      inputs.enable_codeql && inputs.codeql_settings_ack &&
+      vars.AIOA_CODEQL_PROFILE == 'advanced-v1'
+    permissions:
+      contents: read
+      security-events: write
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      AIOA_SOURCE_SHA: ${{ inputs.expected_source_sha }}
+      AIOA_RUNNER_IMAGE: ${{ inputs.expected_runner_image }}
+      AIOA_WORKFLOW_REVISION: ${{ inputs.expected_workflow_revision }}
+      AIOA_APPROVE_RUN: ${{ inputs.approve_run }}
+      AIOA_SDK_LICENSE_ACK: ${{ inputs.sdk_license_ack }}
+      AIOA_ARTIFACT_ACK: ${{ inputs.artifact_exposure_ack }}
+      AIOA_CODEQL_REQUESTED: ${{ inputs.enable_codeql }}
+      AIOA_CODEQL_ACK: ${{ inputs.codeql_settings_ack }}
+      AIOA_CODEQL_PROFILE: ${{ vars.AIOA_CODEQL_PROFILE }}
+    steps:
+      - name: Reject unreviewed image before checkout or tool setup
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$ImageVersion" = '20261026.354.1'
+      - name: Checkout exact reviewed main source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+          clean: false
+          fetch-depth: 1
+          fetch-tags: false
+          submodules: false
+          lfs: false
+          set-safe-directory: false
+      - name: Verify source owner workflow and existing SDK before tool acquisition
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          python3 -B scripts/android/ci_build.py --source-sha "$AIOA_SOURCE_SHA" --runner-image "$AIOA_RUNNER_IMAGE" --purpose codeql --preflight-only
+      - name: Set up exact Temurin JDK
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: 17.0.21+9
+          architecture: x64
+          java-package: jdk
+          check-latest: false
+          cache-jdk: false
+          overwrite-settings: false
+          settings-path: ${{ runner.temp }}/aioa-java-settings
+      - name: Initialize real Kotlin database
+        uses: github/codeql-action/init@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
+        with:
+          languages: java-kotlin
+          build-mode: manual
+          tools: https://github.com/github/codeql-action/releases/download/codeql-bundle-v2.27.3/codeql-bundle-linux64.tar.gz
+          db-location: ${{ runner.temp }}/aioa-codeql-databases
+          dependency-caching: false
+          threads: 1
+          ram: 2048
+      - name: Compile Kotlin through the existing bounded builder under CodeQL tracing
+        id: controlled_build
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          python3 -B scripts/android/ci_build.py --source-sha "$AIOA_SOURCE_SHA" --runner-image "$AIOA_RUNNER_IMAGE" --purpose codeql
+      - name: Analyze actual compiled Kotlin and upload SARIF
+        id: codeql_analyze
+        uses: github/codeql-action/analyze@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
+        with:
+          category: /language:java-kotlin
+          output: ${{ runner.temp }}/aioa-codeql-sarif
+          threads: 1
+          ram: 2048
+          upload-database: false
+      - name: Verify source and actual SARIF readback
+        env:
+          AIOA_SARIF_ID: ${{ steps.codeql_analyze.outputs.sarif-id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          python3 -B scripts/android/ci_build.py --source-sha "$AIOA_SOURCE_SHA" --runner-image "$AIOA_RUNNER_IMAGE" --purpose codeql --verify-codeql
+      - name: Upload filtered CodeQL evidence only
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: aioa-codeql-evidence-${{ github.sha }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/aioa-android-${{ github.run_id }}-${{ github.run_attempt }}/codeql-artifact/CODEQL_EVIDENCE.json
+          retention-days: 1
+          if-no-files-found: error
+          include-hidden-files: false
+          overwrite: false
+      - name: Retain filtered Kotlin build failure diagnostics only
+        if: ${{ failure() && steps.controlled_build.outcome == 'failure' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: aioa-codeql-build-failure-${{ github.sha }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/aioa-failure-${{ github.run_id }}-${{ github.run_attempt }}-codeql/BUILD_FAILURE_EVIDENCE.json
           retention-days: 1
           if-no-files-found: error
           include-hidden-files: false
