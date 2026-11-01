@@ -185,7 +185,7 @@ class CoreIntentJournal:
         if local_zero:
             stored, approval = self.ledger.require_active_in_transaction(tx, warrant)
         else:
-            stored, approval, active = self.ledger._load(tx, warrant)
+            stored, approval, active = self.ledger._load_unrevoked(tx, warrant)
             require(active == warrant and approval['consumption'] is None, 'WARRANT_INACTIVE')
         state = json.loads(canonical_json_bytes(before))
         gov._clock(state, now)

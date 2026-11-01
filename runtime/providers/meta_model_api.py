@@ -227,7 +227,7 @@ class MetaLiveBinding:
         # _check alone only validates shape, owner, revision policy and time.
         reader = core.local_operator(Capability.READ)
         def approved(tx):
-            _, approval, active = self.ledger._load(tx, w)
+            _, approval, active = self.ledger._load_unrevoked(tx, w)
             require(active == w and approval['consumption'] is None, 'META_EXACT_HUMAN_APPROVAL_REQUIRED')
         self.ledger._run(reader, Capability.READ, approved)
         current = self.governor.inspect(core.local_operator(Capability.READ))

@@ -191,6 +191,20 @@ class MetaModelAPITests(unittest.TestCase):
                 if hasattr(request,'capsule_digest') else request.task.source_sha)
         return request,binding
 
+    def test_recorded_revocation_denies_before_key_transport_and_budget_transition(self):
+        from runtime.core_admission import Capability
+        request,binding=self.live_binding()
+        reader=binding.ledger.core.local_operator(Capability.READ)
+        binding.ledger.revoke(binding.ledger.core.local_operator(Capability.OWNER_APPROVAL),binding.warrant)
+        before=binding.governor.inspect(reader)
+        provider=self.api.MetaModelProvider(mode='LIVE')
+        with patch.object(self.api,'load_private_key',side_effect=AssertionError('credential read')) as key, \
+             patch.object(self.api,'_https_once',side_effect=AssertionError('transport')) as transport:
+            with self.assertRaises(ValueError):
+                provider.plan(request,CancellationToken(),live_binding=binding)
+        key.assert_not_called();transport.assert_not_called()
+        self.assertEqual(before,binding.governor.inspect(reader))
+
     def test_live_shaped_mock_uses_real_core_budget_hold_before_http_and_rejects_replay(self):
         from runtime.core_admission import Capability
         request,binding = self.live_binding()

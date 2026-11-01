@@ -79,6 +79,21 @@ class CoreWarrantLedger:
         except (KeyError, TypeError, ValueError):
             raise WarrantError('WARRANT_INTEGRITY') from None
 
+    def _load_unrevoked(self, tx, warrant):
+        """New authority use honors root revocation, including v1 children.
+
+        Historical v1 rows without the additive witness retain their existing
+        approval semantics. Inspection/reconciliation use _load, never this gate.
+        """
+        stored,state,active=self._load(tx,warrant)
+        witness=tx.get(RecordKind.APPROVAL,self._key(warrant))
+        if witness is not None:
+            root=EffectWarrant.from_dict(state['root'])
+            require(witness.payload.get('schema')=='aioa.warrant-owner-witness.v1'
+                and witness.payload.get('warrant_digest')==root.digest(),'WARRANT_APPROVAL_INTEGRITY')
+            require(witness.payload.get('revoked') is False,'WARRANT_REVOKED')
+        return stored,state,active
+
     @staticmethod
     def _attenuation(parent, child):
         # Delegation can narrow scope/window only, never mint another use.
@@ -121,7 +136,7 @@ class CoreWarrantLedger:
         cannot replace Core admission. Inspection after revocation is still safe.
         """
         self._check(current)
-        stored, state, active = self._load(tx, current)
+        stored, state, active = self._load_unrevoked(tx, current)
         witness = tx.get(RecordKind.APPROVAL, self._key(current))
         require(witness is not None and witness.payload.get('schema') == 'aioa.warrant-owner-witness.v1',
                 'HUMAN_APPROVAL_REQUIRED')
@@ -146,7 +161,7 @@ class CoreWarrantLedger:
     def delegate(self, principal, parent, child):
         def mutation(tx):
             self._check(parent); self._check(child)
-            stored, state, active = self._load(tx, parent)
+            stored, state, active = self._load_unrevoked(tx, parent)
             require(active == parent and state['consumption'] is None, 'WARRANT_INACTIVE')
             self._attenuation(parent, child)
             state['active'] = child.to_dict()
@@ -159,7 +174,7 @@ class CoreWarrantLedger:
         """
         def mutation(tx):
             self._check(current)
-            stored, state, active = self._load(tx, current)
+            stored, state, active = self._load_unrevoked(tx, current)
             require(current == active, 'STALE_WARRANT_BINDING')
             require(state['consumption'] is None, 'WARRANT_ALREADY_CONSUMED')
             state['consumption'] = self._receipt(active)
