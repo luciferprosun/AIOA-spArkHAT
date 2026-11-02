@@ -11,6 +11,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from runtime.core_admission import (
+    AdmissionError,
     Capability,
     CoreAdmission,
     LocalOwnerAssignment,
@@ -108,6 +109,39 @@ class LocalCoreRecordAdapterTests(unittest.TestCase):
                         runner.run(TransactionContext(reader,Capability.READ),lambda tx:tx.scan(RecordKind.OPERATION))
                     self.assertEqual(ErrorCode.INTEGRITY_FAILED,error.exception.code)
                 finally:runner.close()
+
+    def test_failed_rollback_is_unknown_poisoned_and_releases_the_native_lock(self):
+        import sqlite3
+        from runtime.memory_patch.persistence.ports import LocalCoreRecordFactory
+        with tempfile.TemporaryDirectory() as directory:
+            core=make_admission();factory=LocalCoreRecordFactory(Path(directory)/'core.sqlite3',core)
+            real=factory.db
+            class Fault:
+                def __getattr__(self,name):return getattr(real,name)
+                def commit(self):raise OSError('test commit uncertainty')
+                def rollback(self):raise OSError('test rollback failure')
+                def close(self):real.close()
+            factory.db=Fault();runner=TransactionRunner(core,factory);writer=core.local_operator(Capability.COMMIT)
+            callbacks=[]
+            def write(tx):
+                callbacks.append(1);tx.insert(StoredRecord(RecordKind.OPERATION,'uncertain',writer.scope,1,{'state':'TEST'}))
+            try:
+                with self.assertRaises(CommitOutcomeUnknown):runner.run(TransactionContext(writer,Capability.COMMIT),write)
+                self.assertEqual(1,len(callbacks),'UNKNOWN was retried')
+                self.assertTrue(factory.closed,'Uncertain native transaction remained reusable')
+                available=[]
+                def probe():
+                    got=factory.lock.acquire(timeout=.3);available.append(got)
+                    if got:factory.lock.release()
+                worker=threading.Thread(target=probe,daemon=True);worker.start();worker.join(1)
+                self.assertEqual([True],available,'Native lock leaked after rollback error')
+                with self.assertRaises(AdmissionError):runner.run(TransactionContext(writer,Capability.COMMIT),write)
+                self.assertEqual(1,len(callbacks),'Poisoned Core ran the operation again')
+            finally:
+                try:real.rollback()
+                except sqlite3.Error:pass
+                while factory.lock._is_owned():factory.lock.release()
+                runner.close()
 
 
 class StructuredFailure(Exception):

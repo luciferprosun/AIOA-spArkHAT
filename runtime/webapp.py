@@ -299,6 +299,15 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
     def _service(self) -> WebRuntimeService:
         return self.runtime_service or get_service()
 
+    def handle(self):
+        if getattr(self.runtime_service,'mobile_only',False):
+            import ssl
+            self.connection.settimeout(8)
+            try:self.connection.do_handshake()
+            except (OSError,ssl.SSLError):
+                self.close_connection=True;return
+        super().handle()
+
     def parse_request(self):
         if not super().parse_request():return False
         if getattr(self.runtime_service,'mobile_only',False):
@@ -961,7 +970,7 @@ def make_server(
             context=ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
             context.minimum_version=context.maximum_version=ssl.TLSVersion.TLSv1_3
             context.load_cert_chain(tls_certificate,tls_key)
-            server.socket=context.wrap_socket(server.socket,server_side=True)
+            server.socket=context.wrap_socket(server.socket,server_side=True,do_handshake_on_connect=False)
         except BaseException:server.server_close();raise
     elif tls_certificate is not None or tls_key is not None:
         server.server_close();raise ValueError('MOBILE_NATIVE_TLS_BINDING_REQUIRED')

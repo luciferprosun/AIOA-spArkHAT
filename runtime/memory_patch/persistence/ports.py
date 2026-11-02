@@ -448,9 +448,18 @@ class LocalCoreTransaction:
         try:self.factory.db.commit()
         except Exception as error:raise CommitOutcomeUnknown() from error
 
-    def rollback(self):self.factory.db.rollback()
+    def rollback(self):
+        try:
+            if not self.factory.closed and self.factory.db.in_transaction:self.factory.db.rollback()
+        except Exception as error:
+            self.factory.closed=True
+            self.factory.core.close()
+            try:self.factory.db.close()
+            except Exception:pass
+            raise CommitOutcomeUnknown() from error
 
     def close(self):
         if self.active:
-            if self.factory.db.in_transaction:self.factory.db.rollback()
-            self.active=False;self.factory.lock.release()
+            try:self.rollback()
+            finally:
+                self.active=False;self.factory.lock.release()

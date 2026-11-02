@@ -82,6 +82,14 @@ class NativePairingHTTPTests(unittest.TestCase):
                         response=connection.getresponse();raw=response.read();return response.status,raw
                     finally:connection.close()
                 self.assertEqual(404,request('GET','/api/session')[0]);self.assertEqual(404,request('HEAD','/')[0])
+                import socket
+                idle=socket.create_connection(('127.0.0.1',server.server_address[1]),timeout=5)
+                try:
+                    try:parallel=request('GET',wire.BASE+'/capabilities',{'X-AIOA-Challenge':'f'*64})
+                    except (OSError,ssl.SSLError):parallel=None
+                finally:idle.close()
+                self.assertIsNotNone(parallel,'An unfinished TLS handshake blocked other clients')
+                self.assertEqual(200,parallel[0])
                 caps=json.loads(request('GET',wire.BASE+'/capabilities',{'X-AIOA-Challenge':'d'*64})[1])['capabilities']
                 self.assertEqual('TLS_HOST_VERIFIED',caps['remote_deployment']);self.assertFalse(caps['chat']);self.assertFalse(caps['run'])
                 owner=app.operator_principal();request_id=secrets.token_hex(16)
@@ -136,6 +144,12 @@ class NativePairingHTTPTests(unittest.TestCase):
                 self.assertEqual(503,request('GET',wire.BASE+'/capabilities',{'X-AIOA-Challenge':'d'*64})[0])
                 self.source[1]='b'*64;app._auth_deadline=time.monotonic()-1
                 self.assertEqual(503,request('GET',wire.BASE+'/capabilities',{'X-AIOA-Challenge':'d'*64})[0])
+                idle=socket.create_connection(('127.0.0.1',server.server_address[1]),timeout=5)
+                stopped=threading.Event()
+                def shutdown():server.shutdown();stopped.set()
+                closer=threading.Thread(target=shutdown,daemon=True);closer.start()
+                try:self.assertTrue(stopped.wait(2),'Unfinished TLS blocked bounded shutdown')
+                finally:idle.close();closer.join(3)
             finally:
                 if server is not None:server.shutdown();server.server_close();worker.join(3)
                 app.close()
