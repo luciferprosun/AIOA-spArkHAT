@@ -38,9 +38,10 @@
     if (!state.devices.length) text('p','Brak zapamiętanych urządzeń.',node('trusted'));
     for (const row of state.devices) {
       const card=text('article','',node('trusted'));card.className='device-card';
-      text('h3',row.device_name,card);text('p',row.revoked?'Dostęp odwołany':'Zaufane urządzenie · status online niezweryfikowany',card);
+      text('h3',row.device_name,card);text('p',row.revoked?'Ponowne łączenie odwołane':'Zaufane urządzenie · status online niezweryfikowany',card);
       text('p',row.device_id,card).className='device-digest';
-      if (!row.revoked) {
+      text('p','Aktywne sesje: '+(row.active_sessions || 0)+' · Oczekujące kody: '+(row.pending_enrollments || 0),card);
+      if (AIOAMobileDevices.canRevokeDevice(row)) {
         const button=text('button','Odwołaj dostęp',card);button.className='button button-ghost';button.disabled=state.phase!=='READY'||state.busy;
         button.dataset.deviceFocus=JSON.stringify(['revoke',row.device_id]);
         button.addEventListener('click',()=>{

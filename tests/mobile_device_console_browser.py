@@ -70,7 +70,8 @@ def worker():
             row=dict(request_id='1'*32,request_digest='a'*64,device_id='b'*64,
                 device_name='Synthetic phone',sas='123456',state='PENDING',expires_at=int(time.time())+600)
             other={**row,'request_id':'2'*32,'request_digest':'c'*64,'device_id':'d'*64,'sas':'654321'}
-            device=dict(device_id='e'*64,device_name='Synthetic trusted phone',revoked=False)
+            device=dict(device_id='e'*64,device_name='Synthetic legacy access',revoked=True,
+                active_sessions=1,pending_enrollments=1)
             reads=0
             def synthetic_operation(value):
                 nonlocal reads
@@ -101,6 +102,9 @@ def worker():
               try {
                 await wait(1);
                 result.bootstrap=location.pathname==='/devices'&&location.hash===''&&pending().length===2;
+                const saved=document.getElementById('devices-trusted').textContent;
+                result.revoked_reconnect_keeps_legacy_revoke=!!trusted()&&!trusted().disabled&&
+                  saved.includes('Ponowne łączenie odwołane')&&saved.includes('Aktywne sesje: 1')&&saved.includes('Oczekujące kody: 1');
                 pending()[0].focus();window.consoleProbePoll();
                 result.busy_controls_disabled=pending().every(x=>x.disabled)&&trusted().disabled;
                 await wait(2);
@@ -163,7 +167,7 @@ def worker():
             result=json.loads(html.unescape(found[1]))
             self.assertEqual(dict.fromkeys(('bootstrap','busy_controls_disabled','pending_focus','device_focus',
                 'reordered_exact_focus','changed_digest_not_focused','removed_request_not_focused',
-                'deliberate_focus_preserved','unknown_suppresses_poll'),True),result)
+                'deliberate_focus_preserved','unknown_suppresses_poll','revoked_reconnect_keeps_legacy_revoke'),True),result)
 
     suite=unittest.TestSuite([BrowserConsoleTests('test_chrome_private_launcher_bootstrap_and_exact_control_focus')])
     result=unittest.TextTestRunner(verbosity=2).run(suite)

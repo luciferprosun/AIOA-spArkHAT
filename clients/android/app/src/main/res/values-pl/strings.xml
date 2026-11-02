@@ -107,4 +107,5 @@
     <string name="state_expired">Wygasło</string>
     <string name="state_begin_uncertain">Niepewny wynik żądania</string>
     <string name="agent_unavailable">Misje agenta są niedostępne w tym profilu hosta. Istniejące nierozstrzygnięte identyfikatory zachowano poniżej.</string>
+    <string name="state_pairing_saved">Parowanie zapisane na tym telefonie</string>
 </resources>

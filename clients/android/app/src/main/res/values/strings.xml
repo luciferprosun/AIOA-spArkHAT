@@ -107,4 +107,5 @@
     <string name="state_expired">Expired</string>
     <string name="state_begin_uncertain">Request outcome uncertain</string>
     <string name="agent_unavailable">Agent missions are unavailable in this host profile. Existing unresolved IDs remain below.</string>
+    <string name="state_pairing_saved">Pairing saved on this phone</string>
 </resources>

@@ -2,6 +2,7 @@
 (function (root) {
   'use strict';
   const copy = value => JSON.parse(JSON.stringify(value));
+  const canRevokeDevice = row => row.revoked===false || row.active_sessions>0 || row.pending_enrollments>0;
   function createDeviceConsole(credential, fetcher = root.fetch.bind(root), clock = () => Math.floor(Date.now()/1000)) {
     if (!/^[A-Za-z0-9_-]{43}$/.test(credential)) throw Error('LOCAL_OPERATOR_REQUIRED');
     let token = credential, busy = false, generation = 0;
@@ -51,17 +52,17 @@
         });
       },
       revoke:async deviceId => {
-        const selected=state.devices.find(x=>x.device_id===deviceId && x.revoked===false);
+        const selected=state.devices.find(x=>x.device_id===deviceId && canRevokeDevice(x));
         if (!selected) throw Error('REVIEW_REQUIRED');
         return call({op:'pairing_revoke', device_id:deviceId}, true, data => {
           if (data.device_id!==deviceId || data.revoked!==true) throw Error('INVALID_REVOCATION_READBACK');
-          state.devices=state.devices.map(x=>x.device_id===deviceId ? {...x,revoked:true} : x);
+          state.devices=state.devices.map(x=>x.device_id===deviceId ? {...x,revoked:true,active_sessions:0,pending_enrollments:0} : x);
         });
       },
       close:() => { generation++; token=''; state={phase:'LOCKED',pending:[],devices:[],invite:null,message:'LOCAL_OPERATOR_REQUIRED'}; }
     });
   }
-  const api={createDeviceConsole};
+  const api={createDeviceConsole,canRevokeDevice};
   if (typeof module !== 'undefined' && module.exports) module.exports=api;
   else root.AIOAMobileDevices=Object.freeze(api);
 })(typeof globalThis !== 'undefined' ? globalThis : this);

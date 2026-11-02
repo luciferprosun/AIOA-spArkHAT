@@ -41,4 +41,38 @@ class CosmicLocalizationTest {
         val message = UiMessage(R.string.host_value,listOf("https://host.invalid"))
         assertEquals(listOf("https://host.invalid"),message.arguments) // no pre-rendered English retained
     }
+    private fun connectedUi() = MissionUi(enrolled=true,connection="SIGNED_SESSION",pairingState="CONNECTED",
+        freshness=Freshness().accept(0,2000,now=1000),
+        pairing=PairingRecord(TrustedHost("https://host.invalid","pin","spki","source","capsule","scope"),
+            "request","digest",3000,true,true))
+
+    @Test fun homeKeepsSavedPairingHistorySeparateFromCurrentVerifiedConnection() {
+        val connected=connectedUi()
+        assertEquals(R.string.state_connected,connected.connectionLabel(1000))
+        assertEquals(R.string.state_pairing_saved,connected.pairingLabel())
+        assertEquals(R.string.refresh_connection,connected.reconnectLabel(1000))
+        // Crossing the signed deadline alone must downgrade the connection,
+        // even before the ViewModel's scheduled expiry callback runs.
+        assertEquals(R.string.state_stale,connected.connectionLabel(2000))
+        assertEquals(R.string.state_pairing_saved,connected.pairingLabel())
+        assertEquals(R.string.recover_session,connected.reconnectLabel(2000))
+    }
+    @Test fun homeAfterBackgroundTransportFailureOrSessionRejectionNeverClaimsCurrentConnection() {
+        val connected=connectedUi()
+        val background=connected.copy(connection="STALE",freshness=connected.freshness.invalidate("STALE"))
+        val transportFailure=connected.copy(connection="OFFLINE_OR_DENIED",freshness=connected.freshness.invalidate("UNKNOWN"))
+        val rejected=connected.sessionUnavailable().copy(connection="FRESH_ENROLLMENT_REQUIRED",
+            freshness=connected.freshness.invalidate("UNKNOWN"))
+        for ((ui,expected) in listOf(background to R.string.state_stale,transportFailure to R.string.state_unknown,
+                rejected to R.string.state_recovery)) {
+            assertEquals(expected,ui.connectionLabel(1000))
+            assertEquals(R.string.state_pairing_saved,ui.pairingLabel())
+            assertEquals(R.string.recover_session,ui.reconnectLabel(1000))
+            assertEquals(connected.pairing,ui.pairing) // public trust retained for explicit recovery
+        }
+        // Enrollment rejection wins even if a stale positive observation remains.
+        assertEquals(R.string.state_recovery,connected.sessionUnavailable().connectionLabel(1000))
+        assertEquals(R.string.recover_session,connected.sessionUnavailable().reconnectLabel(1000))
+    }
+
 }

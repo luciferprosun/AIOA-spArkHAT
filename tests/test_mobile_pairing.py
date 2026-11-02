@@ -270,7 +270,70 @@ class PairingTests(unittest.TestCase):
                 self.assertEqual(403,self.call('/session/challenge',device_id=data['device_id'])[0])
                 code,response=redeem(grant())
                 self.assertEqual(200,code,response)
-                self.assertEqual(200,self.status(response['data'])[0])
+                fresh_session=response['data']
+                self.assertEqual(200,self.status(fresh_session)[0])
+                fresh_grants=[grant(),grant()]
+                # Repeating either operator entry point must revoke newly
+                # owner-authorized legacy access without restoring QR trust.
+                if operation=='pairing_revoke':result=self.owner(operation,device_id=data['device_id'])
+                else:result=self.owner(operation,device_spki=self.device.spki)
+                self.assertEqual(1,result['revoked_sessions'])
+                self.assertNotEqual(200,self.status(fresh_session)[0])
+                for outstanding in fresh_grants:
+                    code,response=redeem(outstanding)
+                    self.assertEqual(401,code,response)
+                    self.assertNotIn('data',response)
+                self.assertEqual(403,self.call('/session/challenge',device_id=data['device_id'])[0])
+                self.assertNotEqual(200,self.call('/pairing/complete',request_id=data['request_id'])[0])
+                self.assertEqual('REVOKED',self.call('/pairing/status',request_id=data['request_id'])[1]['data']['state'])
+
+    def test_revoked_binding_list_exposes_fresh_legacy_access_and_pending_grants(self):
+        data,_=self.paired()
+        def listing():
+            rows=self.owner('pairing_list')['devices']
+            return next(row for row in rows if row['device_id']==data['device_id'])
+        row=listing()
+        self.assertEqual((1,0),(row.get('active_sessions'),row.get('pending_enrollments')))
+        self.owner('pairing_revoke',device_id=data['device_id'])
+        row=listing()
+        self.assertTrue(row['revoked'])
+        self.assertEqual((0,0),(row.get('active_sessions'),row.get('pending_enrollments')))
+        code=self.owner('enroll',request_id=secrets.token_hex(16),device_spki=self.device.spki)['enrollment_code']
+        row=listing()
+        self.assertTrue(row['revoked'])
+        self.assertEqual((0,1),(row.get('active_sessions'),row.get('pending_enrollments')))
+        value=dict(code=code,device_spki=self.device.spki,nonce=secrets.token_hex(16),
+            issued_at=self.now,audience=self.app.identity.audience,source_sha=self.source[0],capsule_digest=self.source[1])
+        value['signature']=self.device.sign(self.app.mobile.enrollment_proof(value))
+        status,response=self.app.mobile.handle('POST',wire.BASE+'/enrollment/redeem',{},wire.canonical(value))
+        self.assertEqual(200,status,response)
+        row=listing()
+        self.assertTrue(row['revoked'])
+        self.assertEqual((1,0),(row.get('active_sessions'),row.get('pending_enrollments')))
+        self.owner('enroll',request_id=secrets.token_hex(16),device_spki=self.device.spki)
+        row=listing()
+        self.assertEqual((1,1),(row.get('active_sessions'),row.get('pending_enrollments')))
+        self.owner('pairing_revoke',device_id=data['device_id'])
+        row=listing()
+        self.assertEqual((0,0),(row.get('active_sessions'),row.get('pending_enrollments')))
+        self.assertEqual(403,self.call('/session/challenge',device_id=data['device_id'])[0])
+        # Current-access counters exclude expired grants.
+        self.owner('enroll',request_id=secrets.token_hex(16),device_spki=self.device.spki)
+        self.now+=301
+        self.assertEqual(0,listing()['pending_enrollments'])
+
+    def test_repeated_revoke_keeps_host_and_owner_scope_binding_checks(self):
+        data,_=self.paired();self.owner('pairing_revoke',device_id=data['device_id'])
+        key='mobile-device-'+data['device_id'];before=self.app.mobile._get(key)
+        for field,bad in (('origin','https://other.example.org'),('owner_scope_digest','f'*64)):
+            with self.subTest(binding_field=field),patch.object(self.app.mobile,field,bad):
+                for operation,args in (('pairing_revoke',{'device_id':data['device_id']}),('revoke',{'device_spki':self.device.spki})):
+                    with self.assertRaises(wire.MobileError) as caught:
+                        self.app.operator_request(os.getuid(),dict(op=operation,**args))
+                    self.assertEqual(401,caught.exception.status)
+        after=self.app.mobile._get(key)
+        self.assertEqual(before.revision,after.revision)
+        self.assertEqual(before.payload_digest,after.payload_digest)
 
     def test_replacement_approval_preserves_nonce_and_current_challenge(self):
         for revoke_first in (False,True):

@@ -165,8 +165,11 @@
         "revoked",
         "approved_at",
         "audience",
-        "origin"
-      ]
+        "origin",
+        "active_sessions",
+        "pending_enrollments"
+      ],
+      "access_semantics": "revoked describes durable QR reconnect approval. active_sessions and pending_enrollments count unexpired, current-instance/source/scope access paths; fresh explicit legacy owner approval can authorize these while durable reconnect remains revoked. Either operator revoke entry point always revokes current sessions and consumes outstanding legacy grants, including after a prior durable revoke."
     },
     "pairing_approve": "begin_status_data",
     "pairing_revoke": [

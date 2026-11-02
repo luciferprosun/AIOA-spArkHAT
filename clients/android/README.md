@@ -117,3 +117,12 @@ VIEW deliveries, rotation/intent consumption, Forget/rebind and returning to an
 older UI also require the qualified device gate. JVM ownership tests use the real
 local ownership/store adapter with fake persistence and transport; they are not
 Android Activity instrumentation or a claim of device execution.
+
+Home shows **Pairing saved on this phone** as local pairing history. Only a fresh
+signed observation with a valid enrolled session is presented as connected.
+After the signed deadline, backgrounding, transport failure or session rejection,
+Home must show refresh/recovery and keep the saved pairing as history. The
+physical gate must check both rows and the reconnect action through each of
+these transitions in English and Polish, including Linux revoke followed by
+Refresh signed status. The JVM presentation regressions remain NOT_RUN until
+the qualified Android toolchain is available.

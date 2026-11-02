@@ -74,3 +74,46 @@ test('closing the owner panel rejects late responses and cannot restore authorit
   await assert.rejects(client.refresh(),/LOCAL_OPERATOR_REQUIRED/);
   assert.equal(calls.length,1);
 });
+
+test('revoked QR trust still exposes revocation of fresh legacy sessions and grants',async()=>{
+  for (const counts of [{active_sessions:1,pending_enrollments:0},{active_sessions:0,pending_enrollments:1}]) {
+    const device={device_id:'b'.repeat(64),revoked:true,...counts};
+    const {client,calls}=harness(v=>v.op==='pairing_list'?{pending:[],devices:[device]}:{device_id:device.device_id,revoked:true,revoked_sessions:counts.active_sessions});
+    await client.refresh();await client.revoke(device.device_id);
+    assert.equal(calls.length,2);
+    assert.deepEqual(JSON.parse(calls[1].options.body),{op:'pairing_revoke',device_id:device.device_id});
+    const after=client.snapshot().devices[0];
+    assert.equal(after.revoked,true);
+    assert.equal(after.active_sessions,0);
+    assert.equal(after.pending_enrollments,0);
+    await assert.rejects(client.revoke(device.device_id),/REVIEW_REQUIRED/);
+    assert.equal(calls.length,2);
+  }
+});
+test('device panel renders revoked reconnect separately from active legacy access and its revoke control',async()=>{
+  const vm=require('node:vm');
+  class Element {
+    constructor(tag='div') {this.tag=tag;this.children=[];this.dataset={};this.listeners={};this.textContent='';this.classList={add(){}};}
+    append(child){this.children.push(child);}
+    replaceChildren(){this.children=[];}
+    addEventListener(event,fn){this.listeners[event]=fn;}
+    getContext(){return {clearRect(){}};}
+    text(){return this.textContent+this.children.map(x=>x.text()).join(' ');}
+  }
+  const ids=new Map();const get=id=>{if(!ids.has(id))ids.set(id,new Element());return ids.get(id);};
+  const device={device_id:'b'.repeat(64),device_name:'Phone',revoked:true,active_sessions:1,pending_enrollments:1};
+  const document={body:new Element('body'),getElementById:get,createElement:tag=>new Element(tag)};
+  const client={snapshot:()=>({phase:'READY',pending:[],devices:[device],busy:false}),refresh:async()=>{}};
+  vm.runInNewContext(fs.readFileSync(require('node:path').join(__dirname,'../web/mobile_devices_dom.js'),'utf8'),{
+    location:{pathname:'/devices',hash:'#operator='+'T'.repeat(43)},history:{replaceState(){}},document,
+    AIOAMobileDevices:{...api,createDeviceConsole:()=>client},window:{addEventListener(){}},setInterval(){},Date,JSON});
+  await Promise.resolve();
+  const card=get('devices-trusted').children[0];
+  assert.match(card.text(),/Ponowne łączenie odwołane/);
+  assert.match(card.text(),/Aktywne sesje: 1/);
+  assert.match(card.text(),/Oczekujące kody: 1/);
+  const button=card.children.find(x=>x.tag==='button');
+  assert.ok(button,'fresh legacy access must retain a revoke action');
+  assert.equal(button.disabled,false);
+  assert.equal(button.dataset.deviceFocus,JSON.stringify(['revoke',device.device_id]));
+});

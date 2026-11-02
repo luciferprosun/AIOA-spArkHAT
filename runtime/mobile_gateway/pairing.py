@@ -32,12 +32,12 @@ class Pairing:
         require(data.get('audience')==self.g.identity.audience and data.get('origin')==self.g.origin)
         require(data.get('owner_scope_digest')==self.g.owner_scope_digest)
 
-    def _device(self,tx,device_id,spki=None):
+    def _device(self,tx,device_id,spki=None,*,active=True):
         row=tx.get(RecordKind.OPERATION,'mobile-device-'+device_id)
         require(row is not None)
         self._bound(row.payload)
         if spki is not None:require(row.payload['device_spki']==spki)
-        require(not row.payload['revoked'],403)
+        if active:require(not row.payload['revoked'],403)
         return row
 
     def _nonce(self,tx,row,value):
@@ -79,8 +79,24 @@ class Pairing:
                 def listing(tx):
                     pending=tx.scan(RecordKind.OPERATION,limit=128,states=('MOBILE_PAIRING_REQUEST',))
                     devices=tx.scan(RecordKind.OPERATION,limit=128,states=('MOBILE_DEVICE',))
+                    current=dict(audience=g.identity.audience,owner_scope_digest=g.owner_scope_digest,
+                        source_sha=g.source[0],capsule_digest=g.source[1],core_instance_id=g.native_host.instance_id)
+                    def usable(row):
+                        return now<row.payload['expires_at'] and all(row.payload.get(k)==v for k,v in current.items())
+                    sessions=[r for r in tx.scan(RecordKind.OPERATION,limit=128,states=('MOBILE_SESSION',))
+                        if not r.payload['revoked'] and usable(r)]
+                    grants=[r for r in tx.scan(RecordKind.OPERATION,limit=128,states=('MOBILE_ENROLLMENT',))
+                        if not r.payload['used'] and usable(r)]
+                    def device_view(row):
+                        data={k:row.payload[k] for k in ('device_id','device_name','revoked','approved_at','audience','origin')}
+                        # Durable reconnect approval and fresh legacy owner grants
+                        # are separate. Count only currently usable access paths.
+                        data['active_sessions']=sum(r.payload['device_id']==data['device_id'] and
+                            (not r.payload.get('binding_id') or not data['revoked']) for r in sessions)
+                        data['pending_enrollments']=sum(r.payload['device_id']==data['device_id'] for r in grants)
+                        return data
                     return {'pending':[self._view(tx,r) for r in pending if r.payload['core_instance_id']==g.native_host.instance_id],
-                        'devices':[{k:r.payload[k] for k in ('device_id','device_name','revoked','approved_at','audience','origin')} for r in devices]}
+                        'devices':[device_view(r) for r in devices]}
                 return g._run(Capability.READ,listing)
             if op=='pairing_approve':
                 require(type(value['request_id']) is str and wire.HEX32.fullmatch(value['request_id']),400)
@@ -111,7 +127,9 @@ class Pairing:
                 return g._run(Capability.OWNER_APPROVAL,approve,principal)
             require(type(value['device_id']) is str and wire.HEX64.fullmatch(value['device_id']),400)
             def revoke(tx):
-                row=self._device(tx,value['device_id']);data=plain(row.payload);data['revoked']=True
+                # Revocation must still close fresh legacy access after a prior
+                # durable revoke; completion/reconnect keep the active default.
+                row=self._device(tx,value['device_id'],active=False);data=plain(row.payload);data['revoked']=True
                 self._save(tx,row.record_id,data,row)
                 count=g._revoke_device_sessions(tx,value['device_id'],now)
                 # Legacy grants are also preauthorized paths to a session. Consume

@@ -24,10 +24,10 @@
       "sha256": "9287049b5404f1418ba29115b0ef9537be5b6d338d7f98326273d2cfedc185fd"
     },
     {
-      "bytes": 7288,
+      "bytes": 7879,
       "executable": false,
       "path": "clients/android/README.md",
-      "sha256": "610cc3f30b3b207164cdd72d859c57feb2d9f6bc8b5f026a37decb383cf1f085"
+      "sha256": "c7586a8350c2f720606dd809821a873fa4e7b5b632691caf2545a59e05523ffd"
     },
     {
       "bytes": 1443,
@@ -48,10 +48,10 @@
       "sha256": "5a6d34b24716ff0d326f387298a84a82a4b871a946dfe9b2ce1fdb92355f5059"
     },
     {
-      "bytes": 12538,
+      "bytes": 13342,
       "executable": false,
       "path": "clients/android/app/src/main/java/eu/sparkhat/aioa/companion/CosmicScreen.kt",
-      "sha256": "6102f5f965a34421aaf9cd7fc399eade09e565bc4095b44ed0a1119785efc177"
+      "sha256": "dcb6ba2fd5f0e01d2f0e388c579e99b5dc1fe5a31534f22eb996cdb4ee5eb749"
     },
     {
       "bytes": 1233,
@@ -102,16 +102,16 @@
       "sha256": "1d384f9e70464c358e0ab88342d57c4ab41b966d9c46cb5f159ae47efb338c8c"
     },
     {
-      "bytes": 10385,
+      "bytes": 10461,
       "executable": false,
       "path": "clients/android/app/src/main/res/values/strings.xml",
-      "sha256": "f92e20a26cd528619b27630efa621537b4ca5e20ffbb4da12fbeb39881f0576d"
+      "sha256": "68dc1e4cdad2bf85e62c689b28528598e88657c95d48f38dfc9930e7451f0647"
     },
     {
-      "bytes": 11801,
+      "bytes": 11885,
       "executable": false,
       "path": "clients/android/app/src/main/res/values-pl/strings.xml",
-      "sha256": "ad5f59ad543f59af123399a1a79c92d7d650dd57a50d8130cd08eb2070098ed7"
+      "sha256": "d8eb35fd5571faf076405442cd116a9e170b70544516463699894ed3bf820e97"
     },
     {
       "bytes": 635,
@@ -132,10 +132,10 @@
       "sha256": "c57cef9fd4b760592ba42190a1b26ee6a3064f11c539305d8b4afe293ff759cc"
     },
     {
-      "bytes": 2486,
+      "bytes": 4860,
       "executable": false,
       "path": "clients/android/app/src/test/java/eu/sparkhat/aioa/companion/CosmicLocalizationTest.kt",
-      "sha256": "69a3ccb34d387c5d9e07beff0d680553e6f3398efa3c4625e37884ec8c4288c4"
+      "sha256": "66e1dfcedcf864d1274f31793f2995a6d6bfc22566cdd10385d116a7b303e408"
     },
     {
       "bytes": 3128,

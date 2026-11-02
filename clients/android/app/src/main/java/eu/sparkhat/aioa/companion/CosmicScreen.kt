@@ -88,7 +88,7 @@ private fun CosmicPage(page: String, model: MissionViewModel, advanced: () -> Un
         when(page) {
             "home" -> {
                 Text(stringResource(R.string.home_title),style=MaterialTheme.typography.headlineSmall)
-                Text(stringResource(R.string.connection_value,stateLabel(ui.connection)))
+                Text(stringResource(R.string.connection_value,stringResource(ui.connectionLabel())))
                 Text(ui.message.localized())
                 Button(enabled=!ui.busy,onClick={
                     try {
@@ -120,7 +120,7 @@ private fun CosmicPage(page: String, model: MissionViewModel, advanced: () -> Un
                 }
                 ui.pairing?.let { record ->
                     Text(stringResource(R.string.host_value,record.host.origin))
-                    Text(stringResource(R.string.pairing_value,stateLabel(ui.pairingState)))
+                    Text(stringResource(R.string.pairing_value,stringResource(ui.pairingLabel())))
                     if (ui.pairingState in setOf("PENDING","APPROVED","BEGIN_UNCERTAIN","RECOVERY_REQUIRED")) {
                         val spokenCode = stringResource(R.string.sas_value,PairingProtocol.sas(record.requestDigest).toList().joinToString(" "))
                         SelectionContainer { Text(stringResource(R.string.sas_value,PairingProtocol.sas(record.requestDigest)),style=MaterialTheme.typography.headlineMedium,modifier=Modifier.semantics { contentDescription=spokenCode }) }
@@ -129,7 +129,7 @@ private fun CosmicPage(page: String, model: MissionViewModel, advanced: () -> Un
                     Button(onClick=model::readPairingStatus,enabled=!ui.busy && !ui.enrolled && System.currentTimeMillis()/1000 < record.expiresAt,
                         modifier=Modifier.heightIn(min=48.dp)) { Text(stringResource(R.string.read_pairing)) }
                     Button(onClick=model::reconnect,enabled=!ui.busy && (record.trusted || record.completeAttempted),modifier=Modifier.heightIn(min=48.dp)) {
-                        Text(if(ui.pairingState == "CONNECTED") stringResource(R.string.refresh_connection) else stringResource(R.string.recover_session))
+                        Text(stringResource(ui.reconnectLabel()))
                     }
                 }
                 Button(onClick=model::status,enabled=ui.enrolled && !ui.busy,modifier=Modifier.heightIn(min=48.dp)) { Text(stringResource(R.string.refresh_status)) }
@@ -176,8 +176,7 @@ internal fun pageLabel(page: String): Int = when(page) {
     else -> R.string.advanced_enrollment
 }
 
-@Composable
-private fun stateLabel(state: String): String = stringResource(when(state) {
+internal fun stateResource(state: String): Int = when(state) {
     "REMOTE_DEPLOYMENT_BLOCKED" -> R.string.state_deployment_blocked
     "DISCONNECTED" -> R.string.state_disconnected
     "STALE" -> R.string.state_stale
@@ -189,11 +188,12 @@ private fun stateLabel(state: String): String = stringResource(when(state) {
     "PENDING" -> R.string.state_pending
     "APPROVED" -> R.string.state_approved
     "COMPLETED" -> R.string.state_completed
+    "PAIRING_SAVED" -> R.string.state_pairing_saved
     "REVOKED" -> R.string.state_revoked
     "EXPIRED" -> R.string.state_expired
     "BEGIN_UNCERTAIN" -> R.string.state_begin_uncertain
     else -> R.string.state_unknown
-})
+}
 
 
 /** A delivery event reveals accepted confirmation; ordinary recomposition never changes navigation. */
@@ -202,3 +202,14 @@ internal fun routePairingDelivery(raw: String, deliver: (String) -> Boolean,
     if (deliver(raw)) showConfirmation()
     consumed()
 }
+
+/** Home distinguishes public pairing history from live, signed session evidence. */
+private fun MissionUi.currentConnectionState(now: Long): String = when {
+    connection in setOf("SIGNED_SESSION","CONNECTED") && (!enrolled || bindingInvalid) -> "RECOVERY_REQUIRED"
+    connection in setOf("SIGNED_SESSION","CONNECTED") && !freshness.isFresh(now) -> "STALE"
+    else -> connection
+}
+internal fun MissionUi.connectionLabel(now: Long = Freshness.elapsedMs()): Int = stateResource(currentConnectionState(now))
+internal fun MissionUi.pairingLabel(): Int = stateResource(if (pairingState == "CONNECTED") "PAIRING_SAVED" else pairingState)
+internal fun MissionUi.reconnectLabel(now: Long = Freshness.elapsedMs()): Int =
+    if (currentConnectionState(now) in setOf("SIGNED_SESSION","CONNECTED")) R.string.refresh_connection else R.string.recover_session
