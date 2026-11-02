@@ -60,7 +60,7 @@ class ControlledDebugSignerTests(unittest.TestCase):
             root=Path(directory);apk=root/'app.apk';apk.write_bytes(b'fixture-apk')
             evidence={'apk_sha256':build.lib.sha(apk),'certificate_sha256':'a'*64,'package':'eu.sparkhat.aioa.companion',
                 'bytes':apk.stat().st_size,'version_code':2,'version_name':'0.2.0-n1','min_sdk':26,'target_sdk':36,
-                'permissions':['android.permission.INTERNET'],'junit_pass':10,'junit_fail':0,'junit_skip':0,
+                'permissions':['android.permission.INTERNET'],'signature_permissions':{},'junit_pass':10,'junit_fail':0,'junit_skip':0,
                 'lint_errors':0,'report_digests':[],'debuggable':True,'kind':'DEBUG',
                 'inspected_checkout_sha':'a'*40}
             with patch.object(ci.verify_apk,'verify',return_value=evidence) as inspect,\
@@ -68,7 +68,8 @@ class ControlledDebugSignerTests(unittest.TestCase):
                 artifact=ci.verified_artifact(apk,root,evidence,sdk=Path('/sdk'),jdk=Path('/jdk'),source_sha='a'*40,environment={})
                 self.assertEqual(apk.read_bytes(),(artifact/'aioa-companion-debug.apk').read_bytes())
                 inspect.assert_called_once()
-            for change in [{'certificate_sha256':'b'*64},{'apk_sha256':'0'*64},{'package':'other'}]:
+            for change in [{'certificate_sha256':'b'*64},{'apk_sha256':'0'*64},{'package':'other'},
+                {'signature_permissions':{'other.app':'normal'}}]:
                 with self.subTest(change=change),tempfile.TemporaryDirectory() as other:
                     destination=Path(other);source=destination/'app.apk';source.write_bytes(b'fixture-apk')
                     with patch.object(ci.verify_apk,'verify',return_value={**evidence,**change}),\
@@ -101,7 +102,7 @@ class ControlledDebugSignerTests(unittest.TestCase):
             root=Path(directory);apk=root/'app.apk';apk.write_bytes(b'fixture-apk')
             evidence={'apk_sha256':ci.lib.sha(apk),'certificate_sha256':'a'*64,'package':'eu.sparkhat.aioa.companion',
                 'bytes':apk.stat().st_size,'version_code':2,'version_name':'0.2.0-n1','min_sdk':26,'target_sdk':36,
-                'permissions':['android.permission.INTERNET'],'junit_pass':10,'junit_fail':0,'junit_skip':0,
+                'permissions':['android.permission.INTERNET'],'signature_permissions':{},'junit_pass':10,'junit_fail':0,'junit_skip':0,
                 'lint_errors':0,'report_digests':[],'debuggable':True,'kind':'DEBUG','inspected_checkout_sha':'a'*40}
             with patch.object(ci.verify_apk,'verify',return_value=evidence),\
                 patch.object(build,'assert_debug_signer'),\

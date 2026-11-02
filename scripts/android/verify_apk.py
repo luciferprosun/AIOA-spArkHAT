@@ -13,17 +13,56 @@ else:
     import toolchain_lib as lib
 
 
+RECEIVER_PERMISSION='eu.sparkhat.aioa.companion.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION'
+
+
 def parse_badging(text):
     p=re.search(r"^package: name='([^']+)' versionCode='([^']+)' versionName='([^']+)'",text,re.M)
     minimum=re.search(r"^sdkVersion:'([0-9]+)'",text,re.M)
     target=re.search(r"^targetSdkVersion:'([0-9]+)'",text,re.M)
     permissions=set(re.findall(r"^uses-permission(?:-sdk-[0-9]+)?: name='([^']+)'",text,re.M))
     lib.require(p is not None and minimum is not None and target is not None,'BLOCKED_APK_METADATA')
-    lib.require(p.groups()==('eu.sparkhat.aioa.companion','2','0.2.0-n1')
-        and minimum.group(1)=='26' and target.group(1)=='36'
-        and permissions=={'android.permission.INTERNET'},'BLOCKED_APK_CONTRACT')
+    lib.require(p.groups()==('eu.sparkhat.aioa.companion','2','0.2.0-n1'),'BLOCKED_APK_IDENTITY')
+    lib.require(minimum.group(1)=='26' and target.group(1)=='36','BLOCKED_APK_SDK')
+    lib.require(permissions in ({'android.permission.INTERNET'},
+        {'android.permission.INTERNET',RECEIVER_PERMISSION}),'BLOCKED_APK_PERMISSIONS')
     return {'package':p.group(1),'version_code':2,'version_name':p.group(3),'min_sdk':26,'target_sdk':36,
         'permissions':sorted(permissions),'debuggable':'application-debuggable' in text}
+
+
+def parse_receiver_permission(text,permissions):
+    """Check the actual compiled manifest, not just the uses-permission name.
+
+    AndroidX adds this app-private signature permission for non-exported
+    receivers before API33. Never remove its protection or allow a foreign
+    name, normal/dangerous level, extra flag or duplicate declaration.
+    """
+    code='BLOCKED_APK_RECEIVER_PERMISSION'
+    lines=text.splitlines()
+    roots=[re.fullmatch(r'( *)E: manifest \(line=[0-9]+\)',line) for line in lines]
+    roots=[match for match in roots if match]
+    lib.require(len(roots)==1,code)
+    expected_indent=len(roots[0][1])+2
+    definitions=[]
+    for i,line in enumerate(lines):
+        element=re.fullmatch(r'( *)E: (permission(?:-tree|-group)?) \(line=[0-9]+\)',line)
+        if element is None:continue
+        lib.require(element[2]=='permission' and len(element[1])==expected_indent,code)
+        attributes=[]
+        for child in lines[i+1:]:
+            if len(child)-len(child.lstrip())<=expected_indent:break
+            lib.require(child.startswith(' '*(expected_indent+2)+'A: '),code)
+            attributes.append(child.strip())
+        names=[re.fullmatch(r'A: android:name\(0x01010003\)="([^"]+)" \(Raw: "\1"\)',value)
+            for value in attributes]
+        names=[match[1] for match in names if match]
+        levels=[value for value in attributes if re.fullmatch(
+            r'A: android:protectionLevel\(0x01010009\)=\(type 0x1[01]\)0x2',value)]
+        lib.require(len(attributes)==2 and names==[RECEIVER_PERMISSION] and len(levels)==1,code)
+        definitions.append(names[0])
+    expected=[RECEIVER_PERMISSION] if RECEIVER_PERMISSION in permissions else []
+    lib.require(definitions==expected,code)
+    return {name:'signature' for name in definitions}
 
 
 def parse_signature(text):
@@ -69,6 +108,8 @@ def verify(apk,build_root,*,sdk,jdk,source_sha,environment):
         return result.stdout
     metadata=parse_badging(call('aapt',['dump','badging',str(apk)]))
     lib.require(metadata['debuggable'],'BLOCKED_NOT_DEBUG_APK')
+    metadata['signature_permissions']=parse_receiver_permission(
+        call('aapt',['dump','xmltree',str(apk),'AndroidManifest.xml']),metadata['permissions'])
     signature=parse_signature(call('apksigner',['verify','--verbose','--print-certs',str(apk)]))
     junit=list((build_root/'builds/_app/test-results/testDebugUnitTest').glob('TEST-*.xml'))
     lint=build_root/'builds/_app/reports/lint-results-debug.xml'
