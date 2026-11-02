@@ -198,5 +198,20 @@ class AndroidReviewRegressions(unittest.TestCase):
         for text in ('23.0\n','error\n22.0\n','22.0\n22.0\n'):
             with self.subTest(text=text),self.assertRaises(lib.Blocked):ci_build.check_sdkmanager_version(text,options)
 
+    def test_pinned_sdk22_vendor_deprecation_is_recorded_without_a_version_mismatch(self):
+        options='-Xmx128m -Duser.home=/owned/run/java-user'
+        vendor_notice=(
+            'WARNING: The SDK Manager CLI tool (sdkmanager) is deprecated. Use Android CLI instead.\n'
+            "The 'android' binary can also be found in the cmdline-tools directory, and 'android sdk' is the replacement for 'sdkmanager'.\n"
+            'To learn more about the Android CLI and how to use it, see the documentation (https://d.android.com/tools/agents/android-cli)\n')
+        text='NOTE: Picked up JDK_JAVA_OPTIONS: '+options+'\n'+vendor_notice+'\n22.0\n\n'
+        try:observed=ci_build.check_sdkmanager_version(text,options)
+        except lib.Blocked as error:self.fail('Pinned SDK22 informational notice rejected: '+error.code)
+        self.assertEqual({'version':'22.0','vendor_notice':'SDKMANAGER_DEPRECATED'},observed)
+        for invalid in (text.replace('22.0','23.0'),text+'unrecognized warning\n',
+            text.replace('Use Android CLI instead.','altered notice'),text.replace('22.0','22.0\n22.0')):
+            with self.subTest(invalid=invalid),self.assertRaises(lib.Blocked):
+                ci_build.check_sdkmanager_version(invalid,options)
+
 
 if __name__=='__main__':unittest.main()

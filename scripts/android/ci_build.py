@@ -12,6 +12,7 @@ from pathlib import Path
 import re
 import stat
 import subprocess
+import sys
 import tempfile
 
 if __package__:
@@ -242,7 +243,16 @@ def codeql_command(env,cache,init):
 def check_sdkmanager_version(text,options):
     notice='NOTE: Picked up JDK_JAVA_OPTIONS: '+options
     lines=[line.strip() for line in text.splitlines() if line.strip() and line.strip()!=notice]
+    # Exact informational output from the SHA-bound cmdline-tools22 archive.
+    # Unknown, partial or changed warnings still fail; no CLI/version migration.
+    vendor_notice=[
+        'WARNING: The SDK Manager CLI tool (sdkmanager) is deprecated. Use Android CLI instead.',
+        "The 'android' binary can also be found in the cmdline-tools directory, and 'android sdk' is the replacement for 'sdkmanager'.",
+        'To learn more about the Android CLI and how to use it, see the documentation (https://d.android.com/tools/agents/android-cli)']
+    deprecated=lines[:len(vendor_notice)]==vendor_notice
+    if deprecated:lines=lines[len(vendor_notice):]
     lib.require(lines==['22.0'],'BLOCKED_CI_SDKMANAGER_VERSION')
+    return {'version':'22.0','vendor_notice':'SDKMANAGER_DEPRECATED' if deprecated else 'NONE'}
 
 
 def prepare(env,source_sha,image,*,purpose='apk',stages=None):
@@ -285,7 +295,9 @@ def prepare(env,source_sha,image,*,purpose='apk',stages=None):
         status=build_apk.run_logged([str(tools/'bin/sdkmanager'),'--version'],cwd=root,
             environment=scoped,log=root/'sdkmanager-version.log',timeout=30)
         command_check(status,True,'BLOCKED_CI_SDKMANAGER_VERSION')
-        check_sdkmanager_version((root/'sdkmanager-version.log').read_text(),scoped['JDK_JAVA_OPTIONS'])
+        manager_probe=check_sdkmanager_version((root/'sdkmanager-version.log').read_text(),scoped['JDK_JAVA_OPTIONS'])
+        if manager_probe['vendor_notice']=='SDKMANAGER_DEPRECATED':
+            print('SDKMANAGER_DEPRECATED: pinned22.0 verified; vendor informational notice retained.',file=sys.stderr,flush=True)
     init=root/'redirect.gradle';init.write_text(build_apk.init_script(root));init.chmod(0o600)
     argv=(command(root/'gradle-cache',init) if purpose=='apk'
         else codeql_command(env,root/'gradle-cache',init))
@@ -294,6 +306,7 @@ def prepare(env,source_sha,image,*,purpose='apk',stages=None):
         'profile':'GITHUB_HOSTED_MANUAL_V2','purpose':purpose,
         **profile_evidence(env,purpose=purpose),
         'jdk_source':'LOCKED_VENDOR_ARCHIVE_SHA256','jdk_archive_sha256':jdk_artifact['sha256'],
+        'sdkmanager_probe':manager_probe,
         'workflow_revision':REVIEWED_WORKFLOW_SHA256})
     lib.gradle_configuration_check(root/'gradle-cache')
     with phase(stages,'GRADLE_BOOTSTRAP','GRADLE_WRAPPER'):
