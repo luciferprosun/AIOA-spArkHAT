@@ -1,0 +1,178 @@
+{
+  "schema": "aioa.mobile.pairing-contract.v1",
+  "base": "/api/mobile/v1",
+  "encoding": "Existing wire.canonical: sorted-key UTF-8 JSON, integers only; P-256 ECDSA SHA256 DER signature standard padded base64",
+  "invite": {
+    "envelope_fields": [
+      "invite",
+      "signature"
+    ],
+    "signed_fields": [
+      "schema",
+      "invite_id",
+      "origin",
+      "host_spki",
+      "audience",
+      "tls_spki_pin",
+      "source_sha",
+      "capsule_digest",
+      "owner_scope_digest",
+      "issued_at",
+      "expires_at"
+    ],
+    "schema": "aioa.mobile.pairing-invite.v1",
+    "trust": "Scan trusted local display; signature proves integrity only. Normal CA, hostname, TLS1.3 and pin validation required. No secrets in packet.",
+    "ttl_max_seconds": 300
+  },
+  "requests": {
+    "common_fields": [
+      "schema",
+      "device_spki",
+      "nonce",
+      "issued_at",
+      "audience",
+      "origin",
+      "source_sha",
+      "capsule_digest",
+      "signature"
+    ],
+    "schema": "aioa.mobile.pairing-request.v1",
+    "signature_proof": "All body fields except signature, plus method=POST and path=exact full route. No additional fields accepted.",
+    "routes": {
+      "/pairing/begin": [
+        "invite",
+        "request_id",
+        "device_name"
+      ],
+      "/pairing/status": [
+        "request_id"
+      ],
+      "/pairing/complete": [
+        "request_id"
+      ],
+      "/session/challenge": [
+        "device_id"
+      ],
+      "/session/reconnect": [
+        "device_id",
+        "challenge_id",
+        "challenge_nonce"
+      ]
+    },
+    "invite_field": "Full signed invite envelope",
+    "nonce_request_id_challenge_id": "32 lowercase hex characters",
+    "device_id_audience_capsule_digest": "64 lowercase hex SHA256",
+    "device_name": "1..64 ASCII printable characters",
+    "issued_at": "Unix seconds within +/-30 seconds"
+  },
+  "responses": {
+    "envelope_fields": [
+      "ok",
+      "data",
+      "proof",
+      "signature"
+    ],
+    "proof_fields": [
+      "schema",
+      "method",
+      "path",
+      "request_sha256",
+      "nonce",
+      "audience",
+      "origin",
+      "source_sha",
+      "capsule_digest",
+      "owner_scope_digest",
+      "issued_at",
+      "expires_at",
+      "data_sha256"
+    ],
+    "schema": "aioa.mobile.pairing-response.v1",
+    "request_sha256": "SHA256 of canonical full request including device signature",
+    "ttl_seconds": 30,
+    "begin_status_data": [
+      "request_id",
+      "request_digest",
+      "device_id",
+      "device_name",
+      "sas",
+      "state",
+      "expires_at",
+      "automatic_retry"
+    ],
+    "states": [
+      "PENDING",
+      "APPROVED",
+      "COMPLETED",
+      "EXPIRED",
+      "REVOKED"
+    ],
+    "challenge_data": [
+      "device_id",
+      "challenge_id",
+      "challenge_nonce",
+      "expires_at"
+    ],
+    "complete_reconnect_data": [
+      "token",
+      "session_id",
+      "device_id",
+      "expires_at",
+      "owner_authority"
+    ],
+    "session": "Same existing MOBILE_SESSION and signed v1 /status transport; owner_authority=NOT_BOUND; status READ only"
+  },
+  "sas": "decimal zero-padded six digits: integer(first 8 hex digits of request_digest) modulo 1000000",
+  "request_digest": "SHA256 canonical begin signature proof (all unsigned request fields plus method/path)",
+  "owner_socket": {
+    "pairing_invite": [
+      "op"
+    ],
+    "pairing_list": [
+      "op"
+    ],
+    "pairing_approve": [
+      "op",
+      "request_id",
+      "request_digest",
+      "sas"
+    ],
+    "pairing_revoke": [
+      "op",
+      "device_id"
+    ]
+  },
+  "limits": {
+    "invites_lifetime": 128,
+    "devices_lifetime": 128,
+    "requests_per_invite": 1,
+    "request_nonces": 128,
+    "body_bytes": 16384,
+    "active_challenges_per_device": 1,
+    "device_request_nonces_per_accepted_timestamp_window": 128,
+    "sessions_per_device": 1,
+    "inherited_core_audit_events": 1024,
+    "inherited_core_database_bytes": 33554432
+  },
+  "readback": "Never repeat begin/approve/complete/reconnect automatically. Duplicate mutations 409. After lost begin or approve ACK signed status identifies exact request. After lost complete/reconnect ACK use fresh signed challenge/reconnect to replace old session. Restart invalidates invites/pending/short sessions/challenges; durable device binding survives under same host key/origin/scope and newly OS-authenticated host. Source updates require fresh challenge tied to current source. Revoked bindings require new QR plus exact approval. Fresh challenge replaces any previous challenge for that device. Device nonce retention lasts through issued_at+30s (including permitted future skew). Reconnect rotates one existing MOBILE_SESSION per durable device; no lifetime reconnect limit.",
+  "owner_response": {
+    "pairing_list": {
+      "pending": "begin_status_data array; all current-instance phases, max128",
+      "devices": [
+        "device_id",
+        "device_name",
+        "revoked",
+        "approved_at",
+        "audience",
+        "origin"
+      ]
+    },
+    "pairing_approve": "begin_status_data",
+    "pairing_revoke": [
+      "device_id",
+      "revoked",
+      "revoked_sessions"
+    ]
+  },
+  "capacity": "Existing Core audit and database limits remain fail-closed. Transport rotation avoids an independent reconnect lifetime counter but does not bypass Core quota; no evidence deletion or quota expansion is implemented."
+}
