@@ -61,6 +61,10 @@ jobs:
       - name: NVIDIA isolated reviewer preflight
         working-directory: ${{ runner.temp }}
         run: python -I -B "$GITHUB_WORKSPACE/scripts/nvidia_reviewer_preflight.py" --root "$RUNNER_TEMP/aioa-nvidia-reviewer-${{ matrix.python-version }}"
+      - name: Required isolated Chrome device console regression
+        # Hard-fails unless bubblewrap, Chrome and system Python cryptography
+        # are available; never launches the browser on the host network.
+        run: /usr/bin/python3 -B tests/mobile_device_console_browser.py
       - name: Full Core suite and native authority regressions
         run: |
           python - <<'PY'
