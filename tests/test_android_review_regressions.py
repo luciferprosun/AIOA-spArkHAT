@@ -69,6 +69,47 @@ class AndroidReviewRegressions(unittest.TestCase):
             self.assertEqual(installer.tree_manifest(installed),lib.archive_inventory(archive))
             self.assertEqual(before,set(root.rglob('*')))
 
+    def test_vendor_module_prefixes_have_one_canonical_inventory_order(self):
+        # Real JDK layouts contain java.xml and java.xml.crypto directories.
+        # The former witness sorted relative strings instead of directory parts.
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);cache=root/'downloads';cache.mkdir();archive=cache/'fixture.zip'
+            with zipfile.ZipFile(archive,'w') as stream:
+                stream.writestr('jdk/legal/java.xml/LICENSE',b'fixture base license')
+                stream.writestr('jdk/legal/java.xml.crypto/LICENSE',b'fixture crypto license')
+            artifact={'id':'fixture','version':'1','filename':archive.name,
+                'url':'https://dl.google.com/android/repository/fixture.zip',
+                'size':archive.stat().st_size,'sha256':lib.sha(archive),
+                'destination':'installed','license':'fixture'}
+            try:
+                installed=ci_build.acquire(artifact,root)
+            except lib.Blocked as error:
+                self.fail('Untampered vendor-style inventory refused: '+error.code)
+            self.assertEqual(['legal/java.xml/LICENSE','legal/java.xml.crypto/LICENSE'],
+                [row['path'] for row in installer.tree_manifest(installed)])
+            (installed/'legal/java.xml/LICENSE').write_bytes(b'unverified change')
+            with self.assertRaises(lib.Blocked):installer.component_check(artifact,root)
+
+    def test_archive_fix_preserves_the_approved_sdk_inventory_serialization(self):
+        # Independent fixed vector uses the existing directory-part ordering.
+        # Changing global tree order would invalidate the real DEBUG SDK pin.
+        with tempfile.TemporaryDirectory() as directory:
+            sdk=Path(directory)
+            fixtures={
+                'platforms/android-36/android.jar':b'jar',
+                'platforms/android-36/data/res/color/base.xml':b'base',
+                'platforms/android-36/data/res/color-v31/night.xml':b'night',
+                'platforms/android-36/source.properties':b'Pkg.Revision = 2\n',
+                'build-tools/35.0.0/aapt':b'aapt',
+                'build-tools/35.0.0/apksigner':b'signer',
+                'build-tools/35.0.0/source.properties':b'Pkg.Revision = 35.0.0\n',
+                'licenses/android-sdk-license':b'8933bad161af4178b1185d1a37fbf41ea5269c55\n'}
+            for name,data in fixtures.items():
+                path=sdk/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(data)
+            observation=ci_build.sdk_inventory(sdk)
+            self.assertEqual('c8a0f766bfc1a035a8950128b6b55330546b384a3bf20707c353616fc01c92ed',
+                observation['inventory_sha256'])
+
     def source_fixture(self,root):
         shutil.copytree(REPO/'clients/android',root/'clients/android')
         for args in [('init','-q'),('add','clients/android'),('-c','user.name=Fixture','-c',
