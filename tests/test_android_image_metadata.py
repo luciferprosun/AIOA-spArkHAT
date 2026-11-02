@@ -53,14 +53,20 @@ class ImageMetadataConsistencyTests(unittest.TestCase):
                 with self.assertRaises(OSError) as caught:ns['read_image']()
             self.assertEqual(errno.ELOOP,caught.exception.errno)
 
-    def test_all_three_jobs_use_same_check_before_any_checkout(self):
-        _,script=self.bootstrap()
+    def test_all_three_jobs_keep_strict_check_before_any_checkout(self):
         workflow=yaml.safe_load((ROOT/'.github/workflows/android-manual-build.yml').read_text())
         static=yaml.safe_load((ROOT/'.github/workflows/codeql-static.yml').read_text())
         for job in (workflow['jobs']['debug-apk'],workflow['jobs']['codeql-kotlin'],static['jobs']['analyze']):
             steps=job['steps'];run=steps[0]['run']
-            self.assertIn(script,run);self.assertNotIn('uses',steps[0])
+            self.assertNotIn('uses',steps[0])
             self.assertTrue(steps[1]['uses'].startswith('actions/checkout@'))
+            script=run.split("python3 -B - <<'PY'\n",1)[1].rsplit('\nPY',1)[0]
+            namespace={'__name__':'offline_guard_test'}
+            exec(compile(script,'reviewed-image-bootstrap','exec'),namespace)
+            env={'ImageVersion':'20261026.354.1','AIOA_BUILD_PROFILE':'STRICT','AIOA_DEBUG_ENVIRONMENT_ACK':'true'}
+            self.assertEqual('20261026.354.1',namespace['check_image'](self.raw(),env)['metadata_version'])
+            with self.assertRaises(SystemExit):
+                namespace['check_image'](self.raw('20261025.353.1'),env)
 
 
 if __name__=='__main__':unittest.main()

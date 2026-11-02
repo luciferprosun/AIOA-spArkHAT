@@ -26,7 +26,11 @@ else:
 SOURCE_REF='refs/heads/main'
 WORKFLOW_PATH='.github/workflows/android-manual-build.yml'
 REVIEWED_IMAGE_VERSION='20261026.354.1'
-REVIEWED_WORKFLOW_SHA256='82cfd6be03fb8d80c169566c21fc0cea812c543f4620e16b1cce77a43249a9fa'
+REVIEWED_WORKFLOW_SHA256='28c879ca224be01f4c66716ec1711fa3fe3eb8ceac85e837656c86a5f187a86e'
+DEBUG_PROFILE='DEBUG_TOOLCHAIN_V1'
+DEBUG_IMAGE_METADATA_SHA256='6d35057ab003af4dc74998526957d7bde2e5526e1da06b4ed93201f6fa82e8ba'
+# Observed on the first authorized run41322536413, not a publisher SDK digest.
+DEBUG_SDK_INVENTORY_SHA256='9f81aed02ae39189e55282cd66a561969590f2c032a868beaa1afc7e3b51e793'
 CODEQL_VERSION='2.27.3'
 CODEQL_HOME=Path('/opt/hostedtoolcache/CodeQL/2.27.3/x64/codeql')
 CODEQL_DATABASE=Path('/home/runner/work/_temp/aioa-codeql-databases/java')
@@ -102,8 +106,32 @@ def check_jdk(root,jdk,scoped,stages=None):
     return {'architecture':'amd64','java_version':'17.0.21+9','javac_version':'17.0.21'}
 
 
+def profile_evidence(env,*,purpose='apk'):
+    profile=env.get('AIOA_BUILD_PROFILE','STRICT')
+    lib.require(profile in ('STRICT',DEBUG_PROFILE),'BLOCKED_CI_BUILD_PROFILE')
+    if profile=='STRICT':return {'build_profile':profile}
+    lib.require(purpose=='apk' and env.get('AIOA_DEBUG_ENVIRONMENT_ACK')=='true'
+        and env.get('AIOA_CODEQL_REQUESTED')=='false','BLOCKED_CI_DEBUG_PROFILE_CONSENT')
+    raw=env.get('AIOA_IMAGE_SNAPSHOT','')
+    lib.require(type(raw) is str and 0<len(raw)<=2048,'BLOCKED_CI_DEBUG_IMAGE_SNAPSHOT')
+    snapshot=lib.strict_json(raw.encode())
+    fields={'build_profile','metadata_version','declared_version','metadata_sha256','image_identity_status'}
+    lib.require(type(snapshot) is dict and set(snapshot)==fields
+        and all(type(v) is str for v in snapshot.values())
+        and snapshot['build_profile']==profile and snapshot['declared_version']==REVIEWED_IMAGE_VERSION
+        and re.fullmatch('[0-9a-f]{64}',snapshot['metadata_sha256']) is not None,
+        'BLOCKED_CI_DEBUG_IMAGE_SNAPSHOT')
+    matched=(snapshot['metadata_version']==REVIEWED_IMAGE_VERSION and snapshot['image_identity_status']=='MATCHED')
+    exception=(snapshot['metadata_version']=='20261025.353.1'
+        and snapshot['metadata_sha256']==DEBUG_IMAGE_METADATA_SHA256
+        and snapshot['image_identity_status']=='MISMATCH_ACCEPTED_DEBUG')
+    lib.require(matched or exception,'BLOCKED_CI_DEBUG_IMAGE_SNAPSHOT')
+    return {'build_profile':profile,'runner_observation':snapshot}
+
+
 def context_check(env,source_sha,image,*,purpose='apk'):
     lib.require(purpose in ('apk','codeql'),'BLOCKED_CI_PURPOSE')
+    profile_evidence(env,purpose=purpose)
     expected={'GITHUB_ACTIONS':'true','GITHUB_EVENT_NAME':'workflow_dispatch',
         'GITHUB_REPOSITORY':'luciferprosun/AIOA-spArkHAT',
         'GITHUB_REPOSITORY_OWNER':'luciferprosun','GITHUB_ACTOR':'luciferprosun',
@@ -227,6 +255,8 @@ def prepare(env,source_sha,image,*,purpose='apk',stages=None):
         sdk=lib.safe_path(env.get('ANDROID_SDK_ROOT',''))
         lib.require(sdk==Path('/usr/local/lib/android/sdk'),'BLOCKED_CI_VENDOR_PATH')
         before=sdk_inventory(sdk)
+        lib.require(env.get('AIOA_BUILD_PROFILE','STRICT')!=DEBUG_PROFILE
+            or before['inventory_sha256']==DEBUG_SDK_INVENTORY_SHA256,'BLOCKED_CI_DEBUG_SDK_INVENTORY')
     wrapper=lib.REPO/'clients/android/gradle/wrapper'
     with phase(stages,'JDK_PREPARE','JDK_ARCHIVE'):lock=installer.catalog()
     with phase(stages,'GRADLE_BOOTSTRAP','GRADLE_WRAPPER'):
@@ -262,6 +292,7 @@ def prepare(env,source_sha,image,*,purpose='apk',stages=None):
     installer.private_write(root/'BUILD_INVOCATION.json',{'schema':'aioa.android.controlled-build.v1',
         'source_sha':source_sha,'command':argv,'init_sha256':lib.sha(init),'started_at':lib.utc(),
         'profile':'GITHUB_HOSTED_MANUAL_V2','purpose':purpose,
+        **profile_evidence(env,purpose=purpose),
         'jdk_source':'LOCKED_VENDOR_ARCHIVE_SHA256','jdk_archive_sha256':jdk_artifact['sha256'],
         'workflow_revision':REVIEWED_WORKFLOW_SHA256})
     lib.gradle_configuration_check(root/'gradle-cache')
@@ -320,6 +351,7 @@ def execute(env,source_sha,image,*,purpose='apk',stages=None):
         evidence=build_apk._bind_controlled_build(evidence,source_sha,root,argv)
     for name in ('JVM_TESTS','LINT','ASSEMBLE'):stages[name]='PASS'
     evidence.update(ci_profile='GITHUB_HOSTED_MANUAL_V2',runner_image=image,
+        **profile_evidence(env,purpose=purpose),
         workflow_revision=REVIEWED_WORKFLOW_SHA256,
         codeql_status='PENDING_SEPARATE_JOB' if env.get('AIOA_CODEQL_REQUESTED')=='true' else 'NOT_REQUESTED',
         sdk=before,versions=installer.catalog()['versions'],dependency_resolution='ONLINE_VENDOR_REPOSITORIES_NOT_FULLY_HASH_LOCKED',
@@ -380,7 +412,11 @@ def preflight(env,source_sha,image,*,purpose='apk'):
     sdk=lib.safe_path(env.get('ANDROID_SDK_ROOT',''))
     lib.require(sdk==Path('/usr/local/lib/android/sdk'),'BLOCKED_CI_VENDOR_PATH')
     observation=sdk_inventory(sdk)
+    profile=profile_evidence(env,purpose=purpose)
+    lib.require(profile['build_profile']!=DEBUG_PROFILE
+        or observation['inventory_sha256']==DEBUG_SDK_INVENTORY_SHA256,'BLOCKED_CI_DEBUG_SDK_INVENTORY')
     return {'status':'CI_PREFLIGHT_VERIFIED','source_sha':source_sha,'runner_image':image,
+        **profile,
         'workflow_revision':REVIEWED_WORKFLOW_SHA256,'sdk_inventory_sha256':observation['inventory_sha256'],
         'no_tools_acquired':True,'purpose':purpose}
 
@@ -455,6 +491,7 @@ def record_failure(env,source_sha,image,error,*,purpose='apk'):
     stages[stage]='FAIL'
     role=getattr(error,'ci_path_role','UNKNOWN')
     value={'schema':'aioa.android.failure-evidence.v1','status':'FAILED_NO_APK_PUBLICATION',
+        **profile_evidence(env,purpose=purpose),
         'source_sha':source_sha,'source_binding':'REQUESTED_SHA_NOT_BUILD_ATTESTATION',
         'runner_image':image,'workflow_revision':REVIEWED_WORKFLOW_SHA256,
         'workflow_run_id':env['GITHUB_RUN_ID'],'workflow_run_attempt':env['GITHUB_RUN_ATTEMPT'],

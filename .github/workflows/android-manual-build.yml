@@ -3,6 +3,17 @@ name: Android DEBUG (manual owner review)
 "on":
   workflow_dispatch:
     inputs:
+      build_profile:
+        description: STRICT preserves exact image identity; DEBUG_TOOLCHAIN_V1 permits only the documented bounded DEBUG exception
+        required: true
+        type: choice
+        options: [STRICT, DEBUG_TOOLCHAIN_V1]
+        default: STRICT
+      debug_environment_ack:
+        description: I accept the documented DEBUG image mismatch and runner-provided SDK trust for this single build
+        required: true
+        type: boolean
+        default: false
       expected_source_sha:
         description: Exact reviewed main commit (40 hex); must equal the dispatched main SHA
         required: true
@@ -61,6 +72,8 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     env:
+      AIOA_BUILD_PROFILE: ${{ inputs.build_profile }}
+      AIOA_DEBUG_ENVIRONMENT_ACK: ${{ inputs.debug_environment_ack }}
       AIOA_SOURCE_SHA: ${{ inputs.expected_source_sha }}
       AIOA_RUNNER_IMAGE: ${{ inputs.expected_runner_image }}
       AIOA_WORKFLOW_REVISION: ${{ inputs.expected_workflow_revision }}
@@ -72,6 +85,7 @@ jobs:
       AIOA_CODEQL_PROFILE: ${{ vars.AIOA_CODEQL_PROFILE }}
     steps:
       - name: Reject unreviewed image before checkout or tool setup
+        id: image_check
         shell: bash
         run: |
           set -euo pipefail
@@ -103,6 +117,11 @@ jobs:
                   os.close(fd)
 
           def check_image(raw, environment):
+              profile = environment.get('AIOA_BUILD_PROFILE', 'STRICT')
+              if profile not in ('STRICT', 'DEBUG_TOOLCHAIN_V1'):
+                  raise SystemExit('BLOCKED_CI_BUILD_PROFILE')
+              if profile == 'DEBUG_TOOLCHAIN_V1' and (environment.get('AIOA_DEBUG_ENVIRONMENT_ACK') != 'true' or environment.get('AIOA_CODEQL_REQUESTED') != 'false'):
+                  raise SystemExit('BLOCKED_CI_DEBUG_PROFILE_CONSENT')
               try:
                   data = json.loads(raw)
                   if type(data) is not list or not 0 < len(data) <= 16 or any(type(row) is not dict for row in data):
@@ -117,15 +136,21 @@ jobs:
                   declared = environment.get('ImageVersion', '')
                   if not re.fullmatch(r'[0-9]{8}\.[0-9]{1,4}\.[0-9]{1,4}', declared):declared = 'INVALID'
                   snapshot = {'metadata_version': observed, 'declared_version': declared, 'metadata_sha256': hashlib.sha256(raw).hexdigest()}
+                  mismatch = images != ['ubuntu-24.04'] or observed != EXPECTED_IMAGE or environment.get('ImageVersion') != observed
+                  exception = (profile == 'DEBUG_TOOLCHAIN_V1' and images == ['ubuntu-24.04'] and observed == '20261025.353.1' and declared == EXPECTED_IMAGE
+                      and snapshot['metadata_sha256'] == '6d35057ab003af4dc74998526957d7bde2e5526e1da06b4ed93201f6fa82e8ba')
+                  snapshot.update(build_profile=profile, image_identity_status='MISMATCH_ACCEPTED_DEBUG' if mismatch and exception else 'MISMATCH' if mismatch else 'MATCHED')
                   print(json.dumps(snapshot, sort_keys=True), flush=True)
-                  if images != ['ubuntu-24.04'] or observed != EXPECTED_IMAGE or environment.get('ImageVersion') != observed:
+                  if mismatch and not exception:
                       raise SystemExit('BLOCKED_CI_IMAGE_METADATA_MISMATCH observed=' + observed)
                   return snapshot
               except (ValueError, TypeError, KeyError):
                   raise SystemExit('BLOCKED_CI_IMAGE_METADATA_FORMAT') from None
 
           if __name__ == '__main__':
-              check_image(read_image(), os.environ)
+              snapshot = check_image(read_image(), os.environ)
+              with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as output:
+                  output.write('snapshot=' + json.dumps(snapshot, sort_keys=True) + '\n')
           PY
           test "$ImageVersion" = '20261026.354.1'
       - name: Checkout exact dispatched commit without persistent credentials
@@ -140,6 +165,8 @@ jobs:
           lfs: false
           set-safe-directory: false
       - name: Verify immutable source workflow and existing SDK before tool acquisition
+        env:
+          AIOA_IMAGE_SNAPSHOT: ${{ steps.image_check.outputs.snapshot }}
         shell: bash
         run: |
           set -euo pipefail
@@ -147,6 +174,8 @@ jobs:
           python3 -B scripts/android/ci_build.py --source-sha "$AIOA_SOURCE_SHA" --runner-image "$AIOA_RUNNER_IMAGE" --preflight-only
       - name: Verify image, existing SDK license, wrapper; test, lint, build and inspect DEBUG APK
         id: controlled_build
+        env:
+          AIOA_IMAGE_SNAPSHOT: ${{ steps.image_check.outputs.snapshot }}
         shell: bash
         run: |
           set -euo pipefail
@@ -183,6 +212,7 @@ jobs:
       github.run_attempt == '1' && inputs.expected_source_sha == github.sha &&
       inputs.sdk_license_ack && inputs.artifact_exposure_ack &&
       inputs.enable_codeql && inputs.codeql_settings_ack &&
+      inputs.build_profile == 'STRICT' &&
       vars.AIOA_CODEQL_PROFILE == 'advanced-v1'
     permissions:
       contents: read
@@ -200,6 +230,7 @@ jobs:
       github.run_attempt == '1' && inputs.expected_source_sha == github.sha &&
       inputs.sdk_license_ack && inputs.artifact_exposure_ack &&
       inputs.enable_codeql && inputs.codeql_settings_ack &&
+      inputs.build_profile == 'STRICT' &&
       vars.AIOA_CODEQL_PROFILE == 'advanced-v1'
     permissions:
       contents: read
