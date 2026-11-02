@@ -31,6 +31,7 @@
       if (row.state==='PENDING' && row.expires_at>Math.floor(Date.now()/1000)) {
         const button=text('button','Kod '+row.sas+' zgadza się — zatwierdź ten telefon',card);
         button.className='button button-primary';button.disabled=state.busy || state.phase!=='READY';
+        button.dataset.deviceFocus=JSON.stringify(['approve',row.request_id,row.request_digest]);
         button.addEventListener('click',()=>act(()=>client.approve(row.request_id,row.request_digest)));
       }
     }
@@ -41,6 +42,7 @@
       text('p',row.device_id,card).className='device-digest';
       if (!row.revoked) {
         const button=text('button','Odwołaj dostęp',card);button.className='button button-ghost';button.disabled=state.phase!=='READY'||state.busy;
+        button.dataset.deviceFocus=JSON.stringify(['revoke',row.device_id]);
         button.addEventListener('click',()=>{
           if (window.confirm('Odwołać dostęp urządzeniu '+row.device_name+'?\n'+row.device_id)) act(()=>client.revoke(row.device_id));
         });
@@ -64,9 +66,23 @@
     } else {node('packet').value='';const canvas=node('qr');canvas.getContext('2d').clearRect(0,0,canvas.width,canvas.height);delete canvas.dataset.invite;}
   }
   async function act(fn) {
+    const focus=document.activeElement?.dataset.deviceFocus;
+    let focusMoved=false;
+    const moved=()=>{focusMoved=true;};
+    if(focus)document.addEventListener('focusin',moved);
     let failure='';
     try {const pending=fn();render();await pending;} catch(error) {failure=errors[error.message] || 'Operacja odrzucona. Odczytaj stan Core.';}
     render();if(failure)node('message').textContent=failure;
+    if(focus) {
+      document.removeEventListener('focusin',moved);
+      // Disabled controls are rebuilt while awaiting readback. Restore only the
+      // exact reviewed record, unless the operator deliberately moved focus.
+      if(!focusMoved && document.activeElement===document.body) {
+        for(const button of document.querySelectorAll('#devices-pending button, #devices-trusted button')) {
+          if(!button.disabled && button.dataset.deviceFocus===focus) {button.focus();break;}
+        }
+      }
+    }
   }
   node('add').addEventListener('click',()=>act(()=>client.invite()));
   node('refresh').addEventListener('click',()=>act(()=>client.refresh()));

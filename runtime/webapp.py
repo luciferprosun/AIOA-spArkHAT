@@ -859,8 +859,13 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
         hosts = self.headers.get_all('Host', [])
         origins = self.headers.get_all('Origin', [])
         valid_origin = not origins or (len(origins) == 1 and origins[0] in {('https://' if mobile_only else 'http://') + host for host in allowed_hosts})
+        # The private file launcher has an opaque origin. Permit only its public
+        # top-level document GET; this grants no owner token or authority.
+        console_navigation = (self.command == 'GET' and self.path == '/devices'
+            and self.headers.get_all('Sec-Fetch-Mode', []) == ['navigate']
+            and self.headers.get_all('Sec-Fetch-Dest', []) == ['document'])
         if (len(hosts) != 1 or hosts[0].lower() not in allowed_hosts or not valid_origin
-                or self.headers.get('Sec-Fetch-Site') == 'cross-site'):
+                or (self.headers.get('Sec-Fetch-Site') == 'cross-site' and not console_navigation)):
             self._write_json(HTTPStatus.FORBIDDEN, {'ok': False, 'error': 'local_origin_required'})
             return False
         return True
