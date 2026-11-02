@@ -13,6 +13,8 @@ class MobileSourceSealTests(unittest.TestCase):
                   'protocol/mobile_mission_v1.json','runtime/mobile_gateway/pairing.py',
                   'protocol/mobile_pairing_v1.json','web/mobile_devices.js',
                   'web/mobile_devices_dom.js','web/qr.js'}
+        required.update('clients/android/app/src/main/java/eu/sparkhat/aioa/companion/'+name
+            for name in ('PairingProtocol.kt','TrustedHostStore.kt','CosmicScreen.kt'))
         self.assertTrue(required <= set(getattr(runtime_adapter,'SOURCE_FILES',())))
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory)
