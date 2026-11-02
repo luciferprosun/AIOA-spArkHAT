@@ -144,3 +144,32 @@ Prawdziwe archiwum wypakowano także w prywatnym katalogu diagnostycznym:
 nie pasuje, poprawiona pasuje. Nie wykonano kodu JDK ani zmiany systemowego PATH.
 Następna próba będzie oparta na tej konkretnej poprawce i aktualnym merge.
 Ustawienia CodeQL pozostają default/cztery grupy/weekly, bez migracji.
+
+## Kontynuacja 2026-11-02 — poprawny SDK22 i komunikat dostawcy
+
+PR31 po niezależnym review bez uwag i pełnym CI scalono jako
+f8e3d3c13bf41d21af9c89d43ee3182fb9b18dca. Run41385237119 /
+job125084502168 przeszedł JDK_PREPARE, w tym rzeczywiste java/javac.
+Zatrzymał się na SDK_CHECK/BLOCKED_CI_SDKMANAGER_VERSION. Native SDK
+pozostał zgodny z pinem9f81…; manager zwrócił exit0. Failure artifact
+13115002400/1141B zweryfikowano ZIP SHA-256:
+7f94467f735815c3a141fcc36b0d68ec8434d35e5bce9b654947570332f0c171.
+
+Oficjalne cmdline-tools22 pobrano ze zgodnym SHA-2564e4c464f…eedf583
+i odtworzono samo sdkmanager --version w prywatnym katalogu. Wynik22.0
+poprzedzają trzy stałe linie ostrzeżenia SDKMANAGER_DEPRECATED. Po
+normalizacji wyłącznie ścieżki JDK_JAVA_OPTIONS do tej z CI odtworzone
+534B mają identyczny hash jak rzeczywisty sdkmanager-version.log:
+ad42222c9e519d3ea28028192b1f18e91b6dea90a5a1a83c6524a028632da329.
+Normalizacja to dowód pochodny z replay, nie kolejny rzeczywisty run CI.
+
+Parser dopuszcza ten jeden dokładny blok informacyjny przypiętego narzędzia,
+nadal wymaga pojedynczej wersji22.0 i odmawia błędnych/zmienionych ostrzeżeń,
+dodatkowych błędów, innej lub powtórzonej wersji. Ostrzeżenie zachowuje
+jawny kod w logu i BUILD_INVOCATION. Nie zmieniono toolchainu, SDK,
+SHA archiwów, profilu STRICT, pina9f81…, ustawień CodeQL ani klienta Android.
+Nie uruchomiono sugerowanej w komunikacie migracji do Android CLI.
+
+Regresja rzeczywistego formatu: RED1failure/0errors → GREEN1 oraz cztery
+odmowy zmienionego wyjścia; pełny właściwy zestaw:113 testów/125subtests.
+JVM testy aplikacji, lint, assemble i APK nadal NOT_RUN/NONE.
