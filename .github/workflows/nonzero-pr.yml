@@ -32,7 +32,7 @@ jobs:
         run: python -B tests/packaging_acceptance.py --output "$RUNNER_TEMP/aioa-packaging-${{ matrix.python-version }}"
 
   certify:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     strategy:
       fail-fast: false
@@ -61,6 +61,19 @@ jobs:
       - name: NVIDIA isolated reviewer preflight
         working-directory: ${{ runner.temp }}
         run: python -I -B "$GITHUB_WORKSPACE/scripts/nvidia_reviewer_preflight.py" --root "$RUNNER_TEMP/aioa-nvidia-reviewer-${{ matrix.python-version }}"
+      - name: Install pinned isolated browser prerequisites on hosted Noble
+        timeout-minutes: 5
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "${RUNNER_ENVIRONMENT:-}" == github-hosted ]]
+          [[ "${RUNNER_OS:-}" == Linux && "${RUNNER_ARCH:-}" == X64 ]]
+          . /etc/os-release
+          [[ "$ID" == ubuntu && "$VERSION_ID" == 24.04 && "${VERSION_CODENAME:-}" == noble ]]
+          [[ "$(/usr/bin/dpkg --print-architecture)" == amd64 ]]
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends --yes bubblewrap=0.9.0-1ubuntu0.3 python3-cryptography=41.0.7-4ubuntu0.4
+          dpkg-query --show --showformat='${Package}=${Version}\n' bubblewrap python3-cryptography
       - name: Required isolated Chrome device console regression
         # Hard-fails unless bubblewrap, Chrome and system Python cryptography
         # are available; never launches the browser on the host network.
