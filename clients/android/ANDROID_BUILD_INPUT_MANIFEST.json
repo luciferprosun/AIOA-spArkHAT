@@ -24,10 +24,10 @@
       "sha256": "9287049b5404f1418ba29115b0ef9537be5b6d338d7f98326273d2cfedc185fd"
     },
     {
-      "bytes": 5863,
+      "bytes": 7288,
       "executable": false,
       "path": "clients/android/README.md",
-      "sha256": "e4fd3409b6e97413842eb37244e7f02e07d712eb1f835421058f79d25be7239c"
+      "sha256": "610cc3f30b3b207164cdd72d859c57feb2d9f6bc8b5f026a37decb383cf1f085"
     },
     {
       "bytes": 1443,
@@ -36,10 +36,10 @@
       "sha256": "2a38d0afc53b7cb7b46ef6f74a3c6b80420dd3631c6190759808daaf54d44db6"
     },
     {
-      "bytes": 1229,
+      "bytes": 1261,
       "executable": false,
       "path": "clients/android/app/src/main/AndroidManifest.xml",
-      "sha256": "2465ca0588e3582c22b1453cd809cdc5dc5545958630ba07138692185483e2f8"
+      "sha256": "72a7943aa871159c78013b93821ea8f13cb922712ccec5c4f4666e0a70a49689"
     },
     {
       "bytes": 3803,
@@ -48,10 +48,10 @@
       "sha256": "5a6d34b24716ff0d326f387298a84a82a4b871a946dfe9b2ce1fdb92355f5059"
     },
     {
-      "bytes": 11210,
+      "bytes": 12150,
       "executable": false,
       "path": "clients/android/app/src/main/java/eu/sparkhat/aioa/companion/CosmicScreen.kt",
-      "sha256": "8179f89c2a4bdfdc2ff67f8e7102d303088297427f02741ee723cb5b7cd8ba0e"
+      "sha256": "2234c70dac8e913fbbe4dc5b8ecf4157018ce1d9f05db4ad27c4c390f09bbfbb"
     },
     {
       "bytes": 1233,
@@ -60,16 +60,16 @@
       "sha256": "ac8637f5e9dde68f8b057746432c902d48518b399ad0c9fe0057638d07d45e08"
     },
     {
-      "bytes": 12189,
+      "bytes": 12546,
       "executable": false,
       "path": "clients/android/app/src/main/java/eu/sparkhat/aioa/companion/MainActivity.kt",
-      "sha256": "deacd00bddd438d3ed87d3fa2a84fb4f74b1b72da3836a938928a46da4025177"
+      "sha256": "233f10a33198eab78c22b5b671600eb050e7162dc03fdf04052e2d6b7d97099a"
     },
     {
-      "bytes": 22584,
+      "bytes": 22702,
       "executable": false,
       "path": "clients/android/app/src/main/java/eu/sparkhat/aioa/companion/MissionViewModel.kt",
-      "sha256": "6b70f3a2bc864e0c89c6065958e220b82d44679ccad28265ba82669ad4db364e"
+      "sha256": "536127b09e3d99e9fcdb3a7aa0771c7d4152b8caeb1fbbb09c83a2d90b434624"
     },
     {
       "bytes": 19288,
@@ -90,16 +90,28 @@
       "sha256": "35196f93e6220fe1544c05e0b606aead1a5f5030eb32a11c394fab8903cad14f"
     },
     {
-      "bytes": 681,
+      "bytes": 3185,
       "executable": false,
       "path": "clients/android/app/src/main/java/eu/sparkhat/aioa/companion/TrustedHostStore.kt",
-      "sha256": "c7c7c928cb0d4073f580c3b6708dc75d725b59406d1b9f8d982215b49d2ff09b"
+      "sha256": "61b2685f1459733b11a774021490bc7fea24d421780454da3a77d0c807211a41"
     },
     {
       "bytes": 5442,
       "executable": false,
       "path": "clients/android/app/src/main/java/eu/sparkhat/aioa/companion/Wire.kt",
       "sha256": "1d384f9e70464c358e0ab88342d57c4ab41b966d9c46cb5f159ae47efb338c8c"
+    },
+    {
+      "bytes": 10385,
+      "executable": false,
+      "path": "clients/android/app/src/main/res/values/strings.xml",
+      "sha256": "f92e20a26cd528619b27630efa621537b4ca5e20ffbb4da12fbeb39881f0576d"
+    },
+    {
+      "bytes": 11801,
+      "executable": false,
+      "path": "clients/android/app/src/main/res/values-pl/strings.xml",
+      "sha256": "ad5f59ad543f59af123399a1a79c92d7d650dd57a50d8130cd08eb2070098ed7"
     },
     {
       "bytes": 635,
@@ -118,6 +130,18 @@
       "executable": false,
       "path": "clients/android/app/src/test/java/eu/sparkhat/aioa/companion/AgentMissionViewTest.kt",
       "sha256": "c57cef9fd4b760592ba42190a1b26ee6a3064f11c539305d8b4afe293ff759cc"
+    },
+    {
+      "bytes": 2486,
+      "executable": false,
+      "path": "clients/android/app/src/test/java/eu/sparkhat/aioa/companion/CosmicLocalizationTest.kt",
+      "sha256": "69a3ccb34d387c5d9e07beff0d680553e6f3398efa3c4625e37884ec8c4288c4"
+    },
+    {
+      "bytes": 3128,
+      "executable": false,
+      "path": "clients/android/app/src/test/java/eu/sparkhat/aioa/companion/PairingOwnershipTest.kt",
+      "sha256": "66afdf751f9fc2eaaa4669c0e7f7bc8be27df42562113b2b2a96f0e109b8bdfe"
     },
     {
       "bytes": 7431,

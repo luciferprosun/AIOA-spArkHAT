@@ -95,3 +95,25 @@ completion. These tests have **not run here**: Java/JDK/Android SDK are absent a
 no toolchain or dependencies were downloaded. The Python source suite is only a
 static source check. APK assembly, lint, physical TalkBack/200% font and scanner
 module qualification remain part of the concrete build/device gate.
+
+### Reviewed lifecycle and language behavior
+
+The deep-link activity uses `singleTask` for cold/warm VIEW delivery and clears
+consumed intent data before recreation. Public binding writes use a durable
+revision and atomic compare-and-set; Forget advances the revision even when the
+same host is paired again. Resume reloads changed trust metadata and closes stale
+transport. A stale owner cannot restore its previous host after Forget/rebind.
+Corrupt public binding data remains fail-closed until explicit local Forget; this
+does not clear unresolved mission IDs.
+
+The new primary screens, spoken comparison code, connection states and ViewModel
+messages use Android resources with English defaults and Polish translations.
+Internal navigation IDs do not depend on translated labels. Messages retain
+resource IDs/arguments, so composition resolves the current device language.
+The physical gate must switch English ↔ Polish with a pending pairing and while
+Settings is selected; inspect long Polish messages and dialogs at 200% font,
+scrollability, 48dp targets and TalkBack digit pronunciation. Repeated cold/warm
+VIEW deliveries, rotation/intent consumption, Forget/rebind and returning to an
+older UI also require the qualified device gate. JVM ownership tests use the real
+local ownership/store adapter with fake persistence and transport; they are not
+Android Activity instrumentation or a claim of device execution.

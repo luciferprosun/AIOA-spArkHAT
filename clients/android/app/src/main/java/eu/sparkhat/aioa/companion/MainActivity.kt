@@ -23,12 +23,17 @@ class MainActivity : ComponentActivity() {
     private var incomingPacket by mutableStateOf<String?>(null)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        incomingPacket = intent?.dataString
+        if (savedInstanceState == null) consumePairingIntent(intent)
         setContent { CosmicApp(incomingPacket,consumed={ incomingPacket = null }) }
     }
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        incomingPacket = intent.dataString
+        consumePairingIntent(intent)
+    }
+    private fun consumePairingIntent(delivery: Intent?) {
+        incomingPacket = delivery?.takeIf { it.action == Intent.ACTION_VIEW }?.dataString
+        // Clear Activity's retained intent immediately: recreation cannot replay a consumed VIEW.
+        setIntent(Intent(delivery ?: Intent()).apply { data = null; action = Intent.ACTION_MAIN })
     }
 }
 
@@ -68,7 +73,7 @@ internal fun LegacyMissionScreen(model: MissionViewModel, showConnection: Boolea
         Text("Connection: ${ui.connection} • ${ui.freshness.state}")
         Text("Pairing: transport ${if(ui.enrolled) "session" else "none"} • owner NOT_BOUND")
         Text("Billing Unverified • phone cannot approve spending")
-        Text(ui.message)
+        Text(ui.message.localized())
         HorizontalDivider()
         if (showConnection) {
         Text("Connection and fresh enrollment",style=MaterialTheme.typography.titleMedium)
@@ -87,7 +92,7 @@ internal fun LegacyMissionScreen(model: MissionViewModel, showConnection: Boolea
         HorizontalDivider()
         }
         Text("Agent workspace",style=MaterialTheme.typography.titleMedium)
-        if (!model.agentAvailable) Text("Agent missions are unavailable in this host profile. Existing unresolved IDs remain below.")
+        if (!model.agentAvailable) Text(androidx.compose.ui.res.stringResource(R.string.agent_unavailable))
         Text("One Linux Core. Phone proposes and observes; exact approval remains on the host.")
         Button(enabled=model.agentAvailable && !ui.busy,onClick=model::agentStatus) { Text("Signed agent status") }
         Button(enabled=model.agentAvailable && !ui.busy,onClick=model::agentProviders) { Text("Provider choices / evidence") }
