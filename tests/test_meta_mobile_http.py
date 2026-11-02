@@ -52,6 +52,8 @@ class NativePairingHTTPTests(unittest.TestCase):
                 except TypeError:self.fail('Native TLS server binding is missing')
                 worker=threading.Thread(target=server.serve_forever,daemon=True);worker.start()
                 context=ssl.create_default_context(cadata=pem.decode())
+                context.minimum_version=ssl.TLSVersion.TLSv1_3
+                context.maximum_version=ssl.TLSVersion.TLSv1_3
                 from runtime.core_admission import AdmissionError
                 original=self.gateway._host_proof
                 def stale(headers):
