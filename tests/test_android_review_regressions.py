@@ -69,6 +69,27 @@ class AndroidReviewRegressions(unittest.TestCase):
             self.assertEqual(installer.tree_manifest(installed),lib.archive_inventory(archive))
             self.assertEqual(before,set(root.rglob('*')))
 
+    def test_vendor_module_prefixes_have_one_canonical_inventory_order(self):
+        # Real JDK layouts contain java.xml and java.xml.crypto directories.
+        # Path sorts directory parts; archive witnesses sort relative strings.
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);cache=root/'downloads';cache.mkdir();archive=cache/'fixture.zip'
+            with zipfile.ZipFile(archive,'w') as stream:
+                stream.writestr('jdk/legal/java.xml/LICENSE',b'fixture base license')
+                stream.writestr('jdk/legal/java.xml.crypto/LICENSE',b'fixture crypto license')
+            artifact={'id':'fixture','version':'1','filename':archive.name,
+                'url':'https://dl.google.com/android/repository/fixture.zip',
+                'size':archive.stat().st_size,'sha256':lib.sha(archive),
+                'destination':'installed','license':'fixture'}
+            try:
+                installed=ci_build.acquire(artifact,root)
+            except lib.Blocked as error:
+                self.fail('Untampered vendor-style inventory refused: '+error.code)
+            self.assertEqual(['legal/java.xml.crypto/LICENSE','legal/java.xml/LICENSE'],
+                [row['path'] for row in installer.tree_manifest(installed)])
+            (installed/'legal/java.xml/LICENSE').write_bytes(b'unverified change')
+            with self.assertRaises(lib.Blocked):installer.component_check(artifact,root)
+
     def source_fixture(self,root):
         shutil.copytree(REPO/'clients/android',root/'clients/android')
         for args in [('init','-q'),('add','clients/android'),('-c','user.name=Fixture','-c',

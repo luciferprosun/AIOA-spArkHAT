@@ -101,3 +101,39 @@ werdykt With fixes. I1 dotyczył błędnego etapu dla JUnit/lint we wspólnym
 weryfikatorze i dla compileDebugKotlin w celu CodeQL. Autor zamknął go
 regresjami przez execute i failure JSON: RED2przypadki/3fail → GREEN98/98,
 96subtests. Brak ponownego pełnego audytu; źródła Core/Android bez zmian.
+
+## Kontynuacja 2026-11-02 — pierwsza próba zatwierdzonego DEBUG
+
+Właściciel zatwierdził pakiet 5d3b29a i rozszerzył zgodę na uzasadnione
+naprawy oraz kolejne próby do ukończenia obecnego etapu, każda do35min,
+wyłącznie z zasobami bez dodatkowych opłat. Nie zmienia to authority agenta.
+PR30 po dodaniu brakującego testowego PyYAML6.0.3 przeszedł pełne regresje
+Core/Python3.11 i3.12: po2554 testy(5 dozwolonych pominięć) oraz105 native
+regressions bez pominięć. Pakowanie i cztery analizy CodeQL także przeszły.
+
+Merge/source: c5c5d18703fb551e0dc96a1b16915bc0eb2d68d4.
+Run41382329699 / job125075620948: rzeczywisty IMAGE_CHECK, checkout
+i preflight SDK przeszły; zachowano MISMATCH_ACCEPTED_DEBUG i inwentarz9f81….
+Przy przygotowaniu JDK nastąpił BLOCKED_COMPONENT_DRIFT, przed java/javac
+i Gradle. JVM/lint/assemble/APK pozostają NOT_RUN/NONE. Failure artifact
+13112764805 pobrano i niezależnie sprawdzono ZIP SHA-256:
+8609c2589e933a47344cbe531361caeea36be1df40b1cb7efa3f1b47044e9801.
+
+Przyczyna: tree_manifest sortował obiekty Path według części ścieżki,
+a archive_inventory sortował pełne względne ciągi. Dla katalogów modułów
+o wspólnym prefiksie kolejność się różniła mimo zgodnych plików. Oficjalne
+archiwum JDK193594705B zweryfikowano SHA-2568b9b611d…fe8711 i odczytano
+bez wykonywania kodu:454 pliki; pierwsza różnica przy indeksie160 to
+legal/java.management/ADDITIONAL_LICENSE_INFO wobec
+legal/java.management.rmi/ADDITIONAL_LICENSE_INFO. To porządek tablicy,
+nie dowód zmiany archiwum lub usunięcia granicy integralności.
+
+Minimalna naprawa: tree_manifest zwraca wpisy posortowane według row.path,
+tak samo jak niezależny witness. Pozostają wszystkie porównania SHA, bajtów,
+bitów wykonania, całego zbioru plików oraz zakaz symlinków na dysku.
+Regresja rzeczywistego acquire na małym archiwum z legal/java.xml oraz
+legal/java.xml.crypto daje RED1failure/0errors → GREEN1; podmieniony plik
+nadal odmawia. Zestaw Android:111 testów /121subtests,0fail/errors/skips.
+To testy offline i analiza prawdziwego archiwum, nadal nie wykonanie JVM/APK.
+Następna próba będzie oparta na tej konkretnej poprawce i aktualnym merge.
+Ustawienia CodeQL pozostają default/cztery grupy/weekly, bez migracji.
