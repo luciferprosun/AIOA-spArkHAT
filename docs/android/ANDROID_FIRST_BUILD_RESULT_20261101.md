@@ -128,12 +128,19 @@ legal/java.management/ADDITIONAL_LICENSE_INFO wobec
 legal/java.management.rmi/ADDITIONAL_LICENSE_INFO. To porządek tablicy,
 nie dowód zmiany archiwum lub usunięcia granicy integralności.
 
-Minimalna naprawa: tree_manifest zwraca wpisy posortowane według row.path,
-tak samo jak niezależny witness. Pozostają wszystkie porównania SHA, bajtów,
+Minimalna naprawa: archive_inventory sortuje względne PurePosixPath,
+tak samo jak istniejący tree_manifest. Sam tree_manifest i serializacja SDK
+pozostają bez zmian; zachowujemy dokładny zatwierdzony pin9f81….
+Pozostają wszystkie porównania SHA, bajtów,
 bitów wykonania, całego zbioru plików oraz zakaz symlinków na dysku.
 Regresja rzeczywistego acquire na małym archiwum z legal/java.xml oraz
 legal/java.xml.crypto daje RED1failure/0errors → GREEN1; podmieniony plik
-nadal odmawia. Zestaw Android:111 testów /121subtests,0fail/errors/skips.
+nadal odmawia. Osobny golden-vector SDK wykazał RED dla zmiany globalnego
+porządku i chroni zgodność istniejącego pina. Zestaw Android:112 testów
+/121subtests,0fail/errors/skips.
 To testy offline i analiza prawdziwego archiwum, nadal nie wykonanie JVM/APK.
+Prawdziwe archiwum wypakowano także w prywatnym katalogu diagnostycznym:
+454 pliki mają zgodne SHA/bajty/bity wykonania; stara kolejność świadectwa
+nie pasuje, poprawiona pasuje. Nie wykonano kodu JDK ani zmiany systemowego PATH.
 Następna próba będzie oparta na tej konkretnej poprawce i aktualnym merge.
 Ustawienia CodeQL pozostają default/cztery grupy/weekly, bez migracji.

@@ -85,7 +85,7 @@ def tree_manifest(directory):
         rows.append({'path':path.relative_to(directory).as_posix(),'sha256':lib.sha(path),
                      'bytes':path.stat().st_size,'executable':bool(path.stat().st_mode & 0o111)})
     lib.require(bool(rows),'BLOCKED_EMPTY_COMPONENT')
-    return sorted(rows,key=lambda row:row['path'])
+    return rows
 
 
 def component_check(artifact,root=lib.ROOT,*,directory=None):

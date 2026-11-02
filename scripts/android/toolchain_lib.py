@@ -366,7 +366,9 @@ def archive_inventory(archive,*,expected_sha256=None,expected_size=None):
         verify_digest();after=os.fstat(raw.fileno())
         require((before.st_size,before.st_mtime_ns,before.st_ctime_ns)==
             (after.st_size,after.st_mtime_ns,after.st_ctime_ns),'BLOCKED_ARCHIVE_WITNESS_CHANGED')
-        return sorted(rows,key=lambda row:row['path'])
+        # Match the existing tree manifest's directory-part ordering. Keep SDK
+        # serialization (and its approved DEBUG digest) unchanged.
+        return sorted(rows,key=lambda row:PurePosixPath(row['path']))
 
 
 def promote(stage,destination):
