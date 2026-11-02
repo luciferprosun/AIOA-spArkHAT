@@ -120,7 +120,8 @@
       "expires_at",
       "owner_authority"
     ],
-    "session": "Same existing MOBILE_SESSION and signed v1 /status transport; owner_authority=NOT_BOUND; status READ only"
+    "session": "Same existing MOBILE_SESSION and signed v1 /status transport; owner_authority=NOT_BOUND; status READ only",
+    "state_semantics": "REVOKED means the previously approved request was revoked or its approval digest was superseded by another exact approval for the same key. A new unapproved request remains PENDING until exact approval or expiry; re-pairing never restores an older request to APPROVED or COMPLETED."
   },
   "sas": "decimal zero-padded six digits: integer(first 8 hex digits of request_digest) modulo 1000000",
   "request_digest": "SHA256 canonical begin signature proof (all unsigned request fields plus method/path)",

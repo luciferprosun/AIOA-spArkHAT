@@ -100,6 +100,11 @@ class Pairing:
                         approval_request_digest=data['request_digest'],approval_instance_id=g.native_host.instance_id,
                         approval_source_sha=g.source[0],approval_capsule_digest=g.source[1],
                         nonce_count=0,challenge_count=0,scope='STATUS_READ_ONLY')
+                    # A new approval cannot make a consumed signed request fresh.
+                    # Retain the accepted nonce through the full timestamp window.
+                    if old is not None:
+                        binding['recent_nonces']=[dict(item) for item in old.payload.get('recent_nonces',())
+                            if item['expires_at']>=now]
                     self._save(tx,key,binding,old)
                     data['phase']='APPROVED';self._save(tx,row.record_id,data,row)
                     return self._view(tx,tx.get(RecordKind.OPERATION,row.record_id))
@@ -109,6 +114,12 @@ class Pairing:
                 row=self._device(tx,value['device_id']);data=plain(row.payload);data['revoked']=True
                 self._save(tx,row.record_id,data,row)
                 count=g._revoke_device_sessions(tx,value['device_id'],now)
+                # Legacy grants are also preauthorized paths to a session. Consume
+                # every outstanding grant atomically with durable revocation.
+                for grant in tx.scan(RecordKind.OPERATION,limit=128,states=('MOBILE_ENROLLMENT',)):
+                    if grant.payload['device_id']==value['device_id'] and not grant.payload['used']:
+                        invalidated=plain(grant.payload);invalidated.update(used=True,revoked=True)
+                        self._save(tx,grant.record_id,invalidated,grant)
                 return {'device_id':value['device_id'],'revoked':True,'revoked_sessions':count}
             return g._run(Capability.OWNER_APPROVAL,revoke,principal)
 
@@ -116,7 +127,9 @@ class Pairing:
         data=row.payload
         state=data['phase']
         binding=tx.get(RecordKind.OPERATION,'mobile-device-'+data['device_id'])
-        if binding is not None and binding.payload['revoked']:state='REVOKED'
+        if (binding is not None and state in {'APPROVED','COMPLETED'} and
+                (binding.payload['revoked'] or binding.payload['approval_request_digest']!=data['request_digest'])):
+            state='REVOKED'
         elif int(self.g.clock())>=data['expires_at'] and state!='COMPLETED':state='EXPIRED'
         return {**{k:data[k] for k in ('request_id','request_digest','device_id','device_name','sas','expires_at')},
             'state':state,'automatic_retry':False}

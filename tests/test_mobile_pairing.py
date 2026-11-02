@@ -245,3 +245,62 @@ class PairingTests(unittest.TestCase):
         data,_=self.paired();self.app._auth_deadline=0
         self.assertEqual(503,self.call('/session/challenge',device_id=data['device_id'])[0])
         with self.assertRaises(AdmissionError):self.app.operator_request(os.getuid(),{'op':'pairing_invite'})
+
+    def test_revocation_invalidates_all_preexisting_legacy_grants_and_requires_fresh_owner(self):
+        def grant():
+            return self.owner('enroll',request_id=secrets.token_hex(16),device_spki=self.device.spki)['enrollment_code']
+        def redeem(code):
+            value=dict(code=code,device_spki=self.device.spki,nonce=secrets.token_hex(16),
+                issued_at=self.now,audience=self.app.identity.audience,source_sha=self.source[0],capsule_digest=self.source[1])
+            proof=dict(schema='aioa.mobile.enrollment-proof.v1',code_sha256=wire.digest(code.encode('ascii')),
+                **{k:value[k] for k in ('device_spki','nonce','issued_at','audience','source_sha','capsule_digest')})
+            value['signature']=self.device.sign(proof)
+            return self.app.mobile.handle('POST',wire.BASE+'/enrollment/redeem',{},wire.canonical(value))
+        for operation in ('pairing_revoke','revoke'):
+            with self.subTest(operator_operation=operation):
+                self.device=wire.Identity(ec.generate_private_key(ec.SECP256R1()))
+                data,session=self.paired();grants=[grant(),grant()]
+                if operation=='pairing_revoke':self.owner(operation,device_id=data['device_id'])
+                else:self.owner(operation,device_spki=self.device.spki)
+                self.assertNotEqual(200,self.status(session)[0])
+                for stale in grants:
+                    code,response=redeem(stale)
+                    self.assertEqual(401,code,response)
+                    self.assertNotIn('data',response)
+                self.assertEqual(403,self.call('/session/challenge',device_id=data['device_id'])[0])
+                code,response=redeem(grant())
+                self.assertEqual(200,code,response)
+                self.assertEqual(200,self.status(response['data'])[0])
+
+    def test_replacement_approval_preserves_nonce_and_current_challenge(self):
+        for revoke_first in (False,True):
+            with self.subTest(revoked_before_replacement=revoke_first):
+                self.device=wire.Identity(ec.generate_private_key(ec.SECP256R1()))
+                data,_=self.paired()
+                consumed=self.request('/session/challenge',device_id=data['device_id'])
+                self.assertEqual(200,self.call('/session/challenge',consumed)[0])
+                if revoke_first:self.owner('pairing_revoke',device_id=data['device_id'])
+                _,replacement=self.begin();self.approve(replacement)
+                fresh=self.call('/session/challenge',device_id=data['device_id'])[1]['data']
+                key='mobile-challenge-'+data['device_id']
+                before=self.app.mobile._get(key)
+                self.assertEqual(409,self.call('/session/challenge',consumed)[0])
+                after=self.app.mobile._get(key)
+                self.assertEqual(before.revision,after.revision)
+                self.assertEqual(before.payload_digest,after.payload_digest)
+                self.assertEqual(200,self.call('/session/reconnect',**{k:fresh[k] for k in ('device_id','challenge_id','challenge_nonce')})[0])
+
+    def test_superseded_approval_readback_stays_revoked_and_new_request_is_pending(self):
+        for completed in (False,True):
+            with self.subTest(original_completed=completed):
+                self.device=wire.Identity(ec.generate_private_key(ec.SECP256R1()))
+                _,old=self.begin();self.approve(old)
+                if completed:self.assertEqual(200,self.call('/pairing/complete',request_id=old['request_id'])[0])
+                self.owner('pairing_revoke',device_id=old['device_id'])
+                self.assertEqual('REVOKED',self.call('/pairing/status',request_id=old['request_id'])[1]['data']['state'])
+                _,replacement=self.begin()
+                self.approve(replacement)
+                self.assertEqual('REVOKED',self.call('/pairing/status',request_id=old['request_id'])[1]['data']['state'])
+                self.assertEqual('APPROVED',self.call('/pairing/status',request_id=replacement['request_id'])[1]['data']['state'])
+                self.assertNotEqual(200,self.call('/pairing/complete',request_id=old['request_id'])[0])
+                self.assertEqual('PENDING',replacement['state'])
