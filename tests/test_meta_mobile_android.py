@@ -108,7 +108,13 @@ class AndroidSourceTests(unittest.TestCase):
         self.assertNotIn('.apply()',body)
         for forbidden in ('client.','request(','run_agent','reconcile','approve(','.stop('):
             self.assertNotIn(forbidden,body)
-        self.assertIn('Core UNKNOWN is unchanged',body)
+        self.assertIn('UiMessage(R.string.agent_id_retained)',body)
+        for locale in ('values','values-pl'):
+            messages=ET.parse(ANDROID/'app/src/main/res'/locale/'strings.xml').getroot()
+            retained=messages.find("string[@name='agent_id_retained']")
+            self.assertIsNotNone(retained)
+            self.assertIn('UNKNOWN',retained.text)
+            if locale=='values':self.assertIn('Core UNKNOWN is unchanged',retained.text)
 
     def test_agent_handoff_survives_ui_restart_and_session_revocation(self):
         vm=(SRC/'MissionViewModel.kt').read_text()

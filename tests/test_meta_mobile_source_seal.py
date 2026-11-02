@@ -15,6 +15,8 @@ class MobileSourceSealTests(unittest.TestCase):
                   'web/mobile_devices_dom.js','web/qr.js'}
         required.update('clients/android/app/src/main/java/eu/sparkhat/aioa/companion/'+name
             for name in ('PairingProtocol.kt','TrustedHostStore.kt','CosmicScreen.kt'))
+        required.update('clients/android/app/src/main/res/'+name+'/strings.xml'
+            for name in ('values','values-pl'))
         self.assertTrue(required <= set(getattr(runtime_adapter,'SOURCE_FILES',())))
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory)
