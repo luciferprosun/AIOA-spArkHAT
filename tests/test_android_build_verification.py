@@ -29,6 +29,50 @@ class AndroidBuildVerificationTests(unittest.TestCase):
         with self.assertRaises(self.verify.lib.Blocked):self.verify.parse_signature(raw.replace('CN=Android Debug','CN=Private Owner'))
         with self.assertRaises(self.verify.lib.Blocked):self.verify.parse_signature('DOES NOT VERIFY')
 
+    def test_androidx_permission_requires_its_exact_signature_definition_in_the_apk(self):
+        # AAPT-format fixture, not an actual APK or Android build claim.
+        permission='eu.sparkhat.aioa.companion.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION'
+        badging="package: name='eu.sparkhat.aioa.companion' versionCode='2' versionName='0.2.0-n1'\nsdkVersion:'26'\ntargetSdkVersion:'36'\nuses-permission: name='android.permission.INTERNET'\nuses-permission: name='"+permission+"'\napplication-debuggable\n"
+        declaration=('    E: permission (line=10)\n'
+            '      A: android:name(0x01010003)="'+permission+'" (Raw: "'+permission+'")\n'
+            '      A: android:protectionLevel(0x01010009)=(type 0x11)0x2\n')
+        tree='N: android=http://schemas.android.com/apk/res/android\n  E: manifest (line=2)\n'+declaration+'    E: application (line=20)\n'
+        signature='Verified using v2 scheme (APK Signature Scheme v2): true\nSigner #1 certificate DN: CN=Android Debug\nSigner #1 certificate SHA-256 digest: '+'a'*64+'\n'
+        cases=[('signature',tree,True),('normal',tree.replace('0x2\n','0x0\n'),False),
+            ('dangerous',tree.replace('0x2\n','0x1\n'),False),
+            ('privileged',tree.replace('0x2\n','0x12\n'),False),
+            ('wrong-package',tree.replace(permission,'other.app.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION'),False),
+            ('missing-definition','  E: manifest (line=2)\n    E: application (line=20)\n',False),
+            ('duplicate-definition',tree.replace(declaration,declaration*2),False),
+            ('nested-definition',tree.replace('    E: permission','      E: permission'),False)]
+        for name,xml,allowed in cases:
+            with self.subTest(case=name),tempfile.TemporaryDirectory() as directory:
+                root=Path(directory);apk=root/'app.apk';apk.write_bytes(b'apk-fixture')
+                reports=root/'builds/_app';(reports/'test-results/testDebugUnitTest').mkdir(parents=True);(reports/'reports').mkdir()
+                (reports/'test-results/testDebugUnitTest/TEST-fixture.xml').write_text('<testsuite tests="1"><testcase name="fixture"/></testsuite>')
+                (reports/'reports/lint-results-debug.xml').write_text('<issues/>')
+                def tool(argv,**kwargs):
+                    text=xml if argv[1:3]==['dump','xmltree'] else badging if Path(argv[0]).name=='aapt' else signature
+                    return self.verify.subprocess.CompletedProcess(argv,0,text,'')
+                with patch.object(self.verify.subprocess,'run',side_effect=tool) as calls:
+                    if allowed:
+                        try:result=self.verify.verify(apk,root,sdk=root/'sdk',jdk=root/'jdk',source_sha='a'*40,environment={})
+                        except self.verify.lib.Blocked as error:self.fail('Valid AndroidX signature permission refused: '+error.code)
+                        self.assertEqual({permission:'signature'},result['signature_permissions'])
+                        self.assertTrue(any(c.args[0][1:3]==['dump','xmltree'] for c in calls.call_args_list))
+                    else:
+                        with self.assertRaises(self.verify.lib.Blocked) as error:
+                            self.verify.verify(apk,root,sdk=root/'sdk',jdk=root/'jdk',source_sha='a'*40,environment={})
+                        self.assertEqual('BLOCKED_APK_RECEIVER_PERMISSION',error.exception.code)
+
+    def test_extra_or_foreign_permission_is_never_granted_by_androidx_compatibility(self):
+        permission='eu.sparkhat.aioa.companion.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION'
+        good="package: name='eu.sparkhat.aioa.companion' versionCode='2' versionName='0.2.0-n1'\nsdkVersion:'26'\ntargetSdkVersion:'36'\nuses-permission: name='android.permission.INTERNET'\nuses-permission: name='"+permission+"'\n"
+        self.assertEqual(['android.permission.INTERNET',permission],self.verify.parse_badging(good)['permissions'])
+        for bad in [good+"uses-permission: name='android.permission.READ_SMS'\n",
+            good.replace(permission,'other.app.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION')]:
+            with self.assertRaises(self.verify.lib.Blocked):self.verify.parse_badging(bad)
+
     def test_failed_or_skipped_junit_and_lint_do_not_pass(self):
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory);test=root/'TEST.xml';lint=root/'lint.xml'

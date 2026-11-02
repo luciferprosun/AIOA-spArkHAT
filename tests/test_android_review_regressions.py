@@ -173,7 +173,9 @@ class AndroidReviewRegressions(unittest.TestCase):
             reports=new/'builds/_app';(reports/'test-results/testDebugUnitTest').mkdir(parents=True);(reports/'reports').mkdir()
             (reports/'test-results/testDebugUnitTest/TEST-fixture.xml').write_text('<testsuite tests="1"><testcase name="fixture"/></testsuite>')
             (reports/'reports/lint-results-debug.xml').write_text('<issues/>')
-            def tool(argv,**kwargs):return subprocess.CompletedProcess(argv,0,badging if Path(argv[0]).name=='aapt' else signature,'')
+            def tool(argv,**kwargs):
+                text='  E: manifest (line=2)\n' if argv[1:3]==['dump','xmltree'] else badging if Path(argv[0]).name=='aapt' else signature
+                return subprocess.CompletedProcess(argv,0,text,'')
             with patch.object(verify_apk.subprocess,'run',side_effect=tool):
                 result=verify_apk.verify(new/'app-debug.apk',new,sdk=root/'sdk',jdk=root/'jdk',source_sha='b'*40,environment={})
             self.assertIsNone(result['source_sha'])

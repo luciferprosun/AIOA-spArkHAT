@@ -173,3 +173,44 @@ Nie uruchomiono sugerowanej w komunikacie migracji do Android CLI.
 Regresja rzeczywistego formatu: RED1failure/0errors → GREEN1 oraz cztery
 odmowy zmienionego wyjścia; pełny właściwy zestaw:113 testów/125subtests.
 JVM testy aplikacji, lint, assemble i APK nadal NOT_RUN/NONE.
+
+## Kontynuacja 2026-11-02 — rzeczywisty Gradle i kontrakt manifestu APK
+
+PR32 po pełnym CI i niezależnym review scalono jako
+b98d9afe5eceb336eb1fab81f51c9b0baab9a071. Rzeczywisty run
+41387925783 / job125092781691 wykonał Gradle testDebugUnitTest,
+lintDebug i assembleDebug z kodem0. Zatrzymał się później przy
+SIGNATURE_VERIFY/BLOCKED_APK_CONTRACT. APK nie zostało opublikowane.
+Failure artifact13116571414/1350B ma ZIP SHA-256
+a543fa57c709fb9f897cd39255da7887b4885d07cef88fd4799baa60ea2c6a30.
+Trwały raport ma JVM_TESTS/LINT/ASSEMBLE=PASS i build.log4000B,
+SHA-256c061c1e7a339bf6e04c91abd3de2c439bd46878215b50163404d58f1ab10c3da.
+Liczba przypadków JUnit i wyniki inspekcji podpisu nie zostały dotąd odebrane;
+nie zastępujemy ich statusem procesu Gradle.
+
+Dotychczasowa kontrola dopuszczała wyłącznie INTERNET. Oficjalny
+[manifest AndroidX Core](https://android.googlesource.com/platform/prebuilts/sdk/+/5c762fb2f6235bbe5d006d3a26063a8e921354b4/current/androidx/manifests/androidx.core_core/AndroidManifest.xml)
+dodaje app-scoped DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION z poziomem signature.
+Potwierdzono też manifest oficjalnego AAR core1.15.0 wymaganego bezpośrednio
+przez ui-android1.9.0. SHA-256 AAR:
+432b85a1974076e14b487ece4a28c59a84f1b9efc3fc8be72cd7f05d32055e51.
+To dowód z zależności i uzasadniona przyczyna do sprawdzenia w kolejnym APK,
+nie odzyskany manifest poprzedniego runu ani dokładny resolved graph.
+
+Minimalna zmiana weryfikatora dopuszcza dodatkowo tylko dokładną nazwę
+eu.sparkhat.aioa.companion.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION.
+Osobny odczyt aapt xmltree z tego samego APK wymaga pojedynczej deklaracji
+na poziomie manifestu z dokładnym protectionLevel=signature, bez innych flag.
+Inny pakiet, normal/dangerous/privileged, duplikat, brak lub zagnieżdżona
+deklaracja odmawiają. Dodatkowe uprawnienia, w tym READ_SMS, nadal odmawiają.
+Nie usuwamy ochrony AndroidX ani nie zmieniamy manifestu aplikacji.
+Jawny signature_permissions trafia do evidence i ponownej kontroli kopii.
+Osobne kody IDENTITY/SDK/PERMISSIONS/RECEIVER_PERMISSION zawężają przyszły
+błąd bez publikowania surowego wyjścia narzędzia.
+
+Testy najpierw wykazały odmowę poprawnego formatu; finalny zestaw offline:
+115 testów/134subtests,0fail/errors/skips. To weryfikacja parsera i kontraktów,
+nie nowa kompilacja. Profil STRICT, zaakceptowany wyjątek DEBUG, pin SDK9f81…,
+workflow28c879ca…, toolchain i ustawienia CodeQL pozostają bez zmian.
+Kolejny run musi niezależnie potwierdzić rzeczywisty manifest, JUnit, lint,
+podpis i powiązanie APK ze źródłem, zanim artefakt będzie dostępny.

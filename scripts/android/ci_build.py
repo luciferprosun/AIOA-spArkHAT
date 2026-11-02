@@ -409,7 +409,7 @@ def verified_artifact(apk,root,evidence,*,sdk,jdk,source_sha,environment):
         'BLOCKED_CI_ARTIFACT_INDEPENDENT_HASH')
     observed=verify_apk.verify(target,root,sdk=sdk,jdk=jdk,source_sha=source_sha,environment=environment)
     fields=('apk_sha256','bytes','certificate_sha256','package','version_code','version_name',
-        'min_sdk','target_sdk','permissions','debuggable','kind','inspected_checkout_sha',
+        'min_sdk','target_sdk','permissions','signature_permissions','debuggable','kind','inspected_checkout_sha',
         'junit_pass','junit_fail','junit_skip','lint_errors','report_digests')
     lib.require(all(name in observed and observed[name]==evidence[name] for name in fields),
         'BLOCKED_CI_ARTIFACT_METADATA')
