@@ -15,6 +15,7 @@ import subprocess
 
 from runtime.browser_agent.chrome_read_adapter import ChromeReadAdapter, FixtureReadDriver
 from runtime.core_admission import Capability, CoreAdmission, LocalOwnerAssignment, OwnerScope
+from runtime.core_admission import AdmissionError
 from runtime.memory_patch.contracts.serialization import canonical_sha256
 from runtime.memory_patch.persistence.ports import TransactionRunner
 from runtime.mission.warrant import CoreWarrantLedger
@@ -173,3 +174,214 @@ class OfflineMetaComposition:
             self.missions.close(); self.runner.close(); self.runtime.close()
         finally:
             os.close(self._lease)
+
+
+def _desktop_operator_uid():
+    """Authenticate the actual OS subject through the existing system polkit.
+
+    No flag, model text, environment identity or persisted JSON grants admission.
+    PID/start-time/UID are bound together to prevent PID-reuse substitution.
+    """
+    try:
+        uid,pid=os.getuid(),os.getpid()
+        if uid==0:raise AdmissionError()
+        for name in ('/usr/bin/pkcheck','/usr/bin/loginctl'):
+            info=Path(name).lstat()
+            if not stat.S_ISREG(info.st_mode) or info.st_uid!=0 or info.st_mode&0o022:raise AdmissionError()
+        environment={'PATH':'/usr/bin:/bin','LANG':'C.UTF-8'}
+        for name in ('DISPLAY','XAUTHORITY'):
+            if name in os.environ:environment[name]=os.environ[name]
+        session=subprocess.run(['/usr/bin/loginctl','show-session','self','-p','User','-p','Active','-p','Remote'],
+            env=environment,stdin=subprocess.DEVNULL,capture_output=True,text=True,timeout=10)
+        fields=dict(line.split('=',1) for line in session.stdout.splitlines() if '=' in line)
+        if session.returncode or fields!={'User':str(uid),'Remote':'no','Active':'yes'}:raise AdmissionError()
+        raw=Path('/proc/self/stat').read_text();started=raw[raw.rfind(')')+2:].split()[19]
+        result=subprocess.run(['/usr/bin/pkcheck','--action-id','org.freedesktop.policykit.exec',
+            '--process',f'{pid},{started},{uid}','--allow-user-interaction'],env=environment,
+            stdin=subprocess.DEVNULL,capture_output=True,text=True,timeout=120)
+        if result.returncode!=0:raise AdmissionError()
+        return uid,{'method':'SYSTEM_POLKIT_ACTIVE_LOCAL_SESSION','action':'org.freedesktop.policykit.exec',
+            'uid':uid,'pid':pid,'process_start':started}
+    except (OSError,ValueError,subprocess.SubprocessError) as error:
+        raise AdmissionError() from error
+
+
+class NativeMobileComposition:
+    """Read-only phone transport in the existing app, without a model/worker.
+
+    One admitted Core, MissionService and native TransactionRunner. The local
+    persistent record adapter carries all mobile records and native audit/outbox.
+    This is neither OfflineMetaComposition nor a promotion of its fixture data.
+    """
+    def __init__(self,root,*,origin,source_probe=current_source):
+        import time
+        from runtime.mobile_gateway import wire
+        self.origin=wire.origin(origin)
+        if self.origin=='https://fixture.invalid':raise AdmissionError()
+        self.uid,self.operator_authentication=_desktop_operator_uid()
+        self.source_probe,self.source=source_probe,tuple(source_probe())
+        self._auth_deadline=time.monotonic()+3600
+        self.root=Path(root).absolute()
+        self.root.mkdir(mode=0o700,parents=True,exist_ok=True)
+        info=self.root.lstat()
+        if (not stat.S_ISDIR(info.st_mode) or self.root.resolve()!=self.root or info.st_uid!=self.uid
+                or info.st_mode&0o077):raise AdmissionError()
+        self._lease=os.open(self.root/'runtime.lock',os.O_RDWR|os.O_CREAT|os.O_NOFOLLOW,0o600)
+        info=os.fstat(self._lease)
+        if not stat.S_ISREG(info.st_mode) or info.st_uid!=self.uid or info.st_nlink!=1 or info.st_mode&0o077:
+            os.close(self._lease);raise AdmissionError()
+        try:fcntl.flock(self._lease,fcntl.LOCK_EX|fcntl.LOCK_NB)
+        except OSError:os.close(self._lease);raise AdmissionError() from None
+        self._closed=False
+        try:self._initialize()
+        except BaseException:self.close();raise
+
+    def _initialize(self):
+        from main import create_runtime
+        from runtime.memory_patch.persistence.ports import LocalCoreRecordFactory
+        from runtime.mobile_gateway import wire
+        from runtime.mobile_gateway.service import MobileGateway
+        from cryptography.hazmat.primitives.asymmetric import ec
+        from cryptography.hazmat.primitives import serialization
+        scope=OwnerScope('local-linux',f'uid-{self.uid}','aioa-main','mobile-status')
+        # True is derived from successful system authentication above, never a
+        # caller-supplied approval flag or a synthetic fixture assignment.
+        admitted=self.operator_authentication['uid']==os.getuid()
+        self.core=CoreAdmission(LocalOwnerAssignment(scope,
+            frozenset({Capability.READ,Capability.COMMIT,Capability.OWNER_APPROVAL}),
+            frozenset({'mobile-status'}),frozenset({'NO_MODEL_PAIRING'}),operator_approved=admitted))
+        self.instance_id=self.core.local_operator(Capability.READ).actor_session_id
+        self.runtime=create_runtime(inspection_only=True)
+        self.runtime._memory_patch_admission=self.core
+        self.runner=TransactionRunner(self.core,LocalCoreRecordFactory(self.root/'core-records.sqlite3',self.core))
+        self.ledger=CoreWarrantLedger(self.core,self.runner,scope)
+        self.missions=MissionService(self.ledger,None,None,self.source_probe)
+        path=self.root/'host-signing-key.pem'
+        if path.exists() or path.is_symlink():
+            info=path.lstat()
+            if (not stat.S_ISREG(info.st_mode) or info.st_uid!=self.uid or info.st_nlink!=1
+                    or info.st_mode&0o077 or info.st_size>1024):raise AdmissionError()
+            fd=os.open(path,os.O_RDONLY|os.O_NOFOLLOW)
+            try:key=serialization.load_pem_private_key(os.read(fd,1025),password=None)
+            finally:os.close(fd)
+        else:
+            key=ec.generate_private_key(ec.SECP256R1())
+            data=key.private_bytes(serialization.Encoding.PEM,serialization.PrivateFormat.PKCS8,serialization.NoEncryption())
+            fd=os.open(path,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)
+            with os.fdopen(fd,'wb') as stream:stream.write(data);stream.flush();os.fsync(stream.fileno())
+        self.identity=wire.Identity(key)
+        self.tls_verified=False
+        self.mobile=MobileGateway(self.missions,identity=self.identity,native_host=self)
+        now=int(datetime.now(timezone.utc).timestamp())
+        self.mobile._run(Capability.COMMIT,lambda tx:self.mobile._record(tx,
+            'mobile-operator-'+self.instance_id,{'state':'MOBILE_OPERATOR_ADMISSION',
+                'authentication':self.operator_authentication,'source_sha':self.source[0],
+                'capsule_digest':self.source[1],'core_instance_id':self.instance_id},at=now))
+
+    def operator_principal(self):
+        import time
+        if (self._closed or os.getuid()!=self.uid or time.monotonic()>=self._auth_deadline
+                or tuple(self.source_probe())!=self.source):raise AdmissionError()
+        return self.core.local_operator(Capability.OWNER_APPROVAL)
+
+    def qualify_tls(self,port):
+        """System-CA/hostname/TLS1.3 plus a signed challenge of this same app."""
+        import base64,http.client,secrets,socket,ssl,time
+        from urllib.parse import urlsplit
+        from cryptography import x509
+        from cryptography.hazmat.primitives import serialization
+        from runtime.mobile_gateway import wire
+        self.operator_principal()
+        context=ssl.create_default_context()
+        context.minimum_version=context.maximum_version=ssl.TLSVersion.TLSv1_3
+        peer=context.wrap_socket(socket.create_connection(('127.0.0.1',port),timeout=8),
+            server_hostname=urlsplit(self.origin).hostname)
+        try:
+            if peer.version()!='TLSv1.3':raise AdmissionError()
+            certificate=x509.load_der_x509_certificate(peer.getpeercert(binary_form=True))
+            challenge=secrets.token_hex(32)
+            client=http.client.HTTPConnection('127.0.0.1',port,timeout=8);client.sock=peer
+            client.request('GET',wire.BASE+'/capabilities',headers={'Host':urlsplit(self.origin).hostname,'X-AIOA-Challenge':challenge})
+            response=client.getresponse();raw=response.read(65537)
+            if response.status!=200 or len(raw)>65536:raise AdmissionError()
+            value=wire.strict_json(raw);proof=value['proof']
+            wire.verify(self.identity.spki,value['signature'],proof)
+            caps=value['capabilities'];now=int(time.time())
+            if (proof['challenge']!=challenge or proof['origin']!=self.origin or proof['host_spki']!=self.identity.spki
+                    or proof['schema']!='aioa.mobile.host-proof.v1' or proof['audience']!=self.identity.audience
+                    or proof['owner_scope_digest']!=self.mobile.owner_scope_digest
+                    or (proof['source_sha'],proof['capsule_digest'])!=self.source
+                    or not proof['issued_at']<=now<proof['expires_at']<=proof['issued_at']+30
+                    or proof['capabilities_sha256']!=wire.digest(wire.canonical(caps))
+                    or caps['profile']!='NATIVE_STATUS_READ_ONLY_V1'
+                    or any(caps[k] is not False for k in ('run','approve','chat','meta_spend','native_execute','github_write','install'))):
+                raise AdmissionError()
+            public=certificate.public_key().public_bytes(serialization.Encoding.DER,serialization.PublicFormat.SubjectPublicKeyInfo)
+            self.tls_pin='sha256/'+base64.b64encode(hashlib.sha256(public).digest()).decode()
+            self.tls_certificate_sha256=hashlib.sha256(certificate.public_bytes(serialization.Encoding.DER)).hexdigest()
+            self._tls_expires=certificate.not_valid_after.replace(tzinfo=timezone.utc).timestamp()
+            if self._tls_expires<=time.time()+300:raise AdmissionError()
+            self.tls_verified=True
+        finally:peer.close()
+
+    def public_settings(self):
+        import time
+        self.operator_principal()
+        if not self.tls_verified or time.time()>=self._tls_expires:raise AdmissionError()
+        return {'profile':'NATIVE_STATUS_READ_ONLY_V1','origin':self.origin,'tls_spki_pin':self.tls_pin,
+            'host_spki':self.identity.spki,'source_sha':self.source[0],'capsule_digest':self.source[1],
+            'operator_authentication':self.operator_authentication,'model_calls':0}
+
+    def operator_request(self,peer_uid,value):
+        """Called only by the private socket after kernel SO_PEERCRED lookup."""
+        from runtime.mobile_gateway import wire
+        from runtime.mobile_gateway.service import plain
+        from runtime.memory_patch.persistence.ports import RecordKind
+        if peer_uid!=self.uid:raise AdmissionError()
+        owner=self.operator_principal()
+        if type(value) is not dict or type(value.get('op')) is not str:raise wire.MobileError(400)
+        op=value['op']
+        fields={'settings':{'op'},'status':{'op'},'enroll':{'op','request_id','device_spki'},'revoke':{'op','device_spki'}}
+        if op not in fields or set(value)!=fields[op]:raise wire.MobileError(400)
+        if op=='settings':return self.public_settings()
+        if op=='enroll':
+            key=value['device_spki'];wire.public_key(key)
+            code=self.mobile.issue_enrollment(owner,key,ttl=300,native_request_id=value['request_id'])
+            return {'enrollment_code':code,'expires_in_seconds':300,'device_id':wire.digest(wire.unbase64(key)),
+                'request_id':value['request_id'],'source_sha':self.source[0]}
+        if op=='revoke':
+            wire.public_key(value['device_spki']);device=wire.digest(wire.unbase64(value['device_spki']))
+            now=int(self.mobile.clock())
+            def revoke(tx):
+                count=0
+                for row in tx.scan(RecordKind.OPERATION,limit=128,states=('MOBILE_SESSION',)):
+                    if row.payload['device_id']==device and not row.payload['revoked']:
+                        data=plain(row.payload);data.pop('schema');data['revoked']=True
+                        self.mobile._record(tx,row.record_id,data,row,at=now);count+=1
+                return count
+            return {'revoked_sessions':self.mobile._run(Capability.COMMIT,revoke),'device_id':device}
+        def inspect(tx):
+            sessions=tx.scan(RecordKind.OPERATION,limit=128,states=('MOBILE_SESSION',))
+            observations=tx.scan(RecordKind.OPERATION,limit=128,states=('MOBILE_OBSERVATION',))
+            sessions=[r for r in sessions if r.payload.get('core_instance_id')==self.instance_id]
+            observations=sorted((r for r in observations if r.payload.get('core_instance_id')==self.instance_id),
+                key=lambda r:r.payload['proof']['issued_at'],reverse=True)
+            return {'sessions':[{k:r.payload[k] for k in ('device_id','session_id','expires_at','revoked','nonce_count')}
+                for r in sessions[:8]],'history_truncated':len(sessions)>8 or len(observations)>8,
+                'observations':[{'proof':plain(r.payload['proof']),'signature':r.payload['signature']}
+                    for r in observations[:8]]}
+        return {**self.public_settings(),**self.mobile._run(Capability.READ,inspect)}
+
+    def close(self):
+        if self._closed:return
+        self._closed=True
+        try:
+            if hasattr(self,'missions'):self.missions.close()
+        finally:
+            try:
+                if hasattr(self,'runner'):self.runner.close()
+            finally:
+                try:
+                    if hasattr(self,'runtime'):self.runtime.close()
+                    if hasattr(self,'core'):self.core.close()
+                finally:os.close(self._lease)

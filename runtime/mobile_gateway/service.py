@@ -45,11 +45,12 @@ class Session:
 
 
 class MobileGateway:
-    def __init__(self, missions, *, identity=None, fixture=False, clock=time.time):
+    def __init__(self, missions, *, identity=None, fixture=False, clock=time.time,native_host=None):
         require(type(missions) is MissionService, 503)
         self.missions, self.core, self.runner = missions, missions.core, missions.runner
         self.scope = missions.scope
         self.identity, self.clock = identity, clock
+        self.native_host=native_host
         self._lock = threading.RLock()
         self.enabled = (fixture is True and type(identity) is wire.Identity
                         and missions.manager._meta_provider.mode == 'MOCK'
@@ -59,10 +60,21 @@ class MobileGateway:
                 and wire.HEX64.fullmatch(self.source[1]), 503)
         self.owner_scope_digest = canonical_sha256(self.scope)
         self.origin = 'https://fixture.invalid'
+        if native_host is not None:
+            from runtime.meta_hackathon.runtime_adapter import NativeMobileComposition
+            require(type(native_host) is NativeMobileComposition and native_host.core is self.core
+                and native_host.missions is missions and fixture is False and identity is native_host.identity,503)
+            self.core.require(native_host.operator_principal(),Capability.OWNER_APPROVAL,scope=self.scope)
+            self.origin=native_host.origin
+            self.enabled=True
 
-    def _ready(self):
-        require(self.enabled and self.missions.manager._meta_provider.mode == 'MOCK'
-                and self.core.configured and self.runner.configured and not self.missions._closed, 503)
+    def _ready(self,*,allow_pending_tls=False):
+        if self.native_host is not None:
+            self.core.require(self.native_host.operator_principal(),Capability.OWNER_APPROVAL,scope=self.scope)
+            if self.native_host.tls_verified:self.native_host.public_settings()
+            require(allow_pending_tls or self.native_host.tls_verified,503)
+        else:require(self.enabled and self.missions.manager._meta_provider.mode=='MOCK',503)
+        require(self.core.configured and self.runner.configured and not self.missions._closed,503)
         require(tuple(self.missions.source_probe()) == self.source, 503)
 
     def _run(self, purpose, callback, principal=None):
@@ -100,20 +112,29 @@ class MobileGateway:
     def _get(self, key):
         return self._run(Capability.READ, lambda tx: tx.get(RecordKind.OPERATION, key))
 
-    def issue_enrollment(self, principal, device_spki, *, ttl=300):
+    def issue_enrollment(self, principal, device_spki, *, ttl=300,native_request_id=None):
         """Native host-only, exact prebound transport key; never an HTTP action."""
         with self._lock:
             self._ready()
             self.core.require(principal, Capability.OWNER_APPROVAL, scope=self.scope)
             require(type(ttl) is int and 1 <= ttl <= 300, 400)
             wire.public_key(device_spki)
+            if self.native_host is not None:
+                require(type(native_request_id) is str and wire.HEX32.fullmatch(native_request_id),400)
             code, now = secrets.token_hex(24), int(self.clock())
             key = 'mobile-enroll-'+wire.digest(code.encode())
             data = {'state':'MOBILE_ENROLLMENT', 'device_spki':device_spki,
                 'device_id':wire.digest(wire.unbase64(device_spki)), 'expires_at':now+ttl,
                 'used':False, 'source_sha':self.source[0], 'capsule_digest':self.source[1],
                 'owner_scope_digest':self.owner_scope_digest, 'audience':self.identity.audience}
+            if self.native_host is not None:data['core_instance_id']=self.native_host.instance_id
             def save(tx):
+                if self.native_host is not None:
+                    request_key='mobile-owner-request-'+native_request_id
+                    require(tx.get(RecordKind.OPERATION,request_key) is None,409)
+                    self._record(tx,request_key,{'state':'MOBILE_OWNER_REQUEST','device_id':data['device_id'],
+                        'core_instance_id':self.native_host.instance_id,'source_sha':self.source[0],
+                        'capsule_digest':self.source[1]},at=now)
                 require(len(tx.scan(RecordKind.OPERATION, limit=128, states=('MOBILE_ENROLLMENT',))) < 128, 429)
                 self._record(tx,key,data,at=now)
             self._run(Capability.OWNER_APPROVAL, save, principal)
@@ -129,6 +150,7 @@ class MobileGateway:
         require(type(issued) is int and int(self.clock())-30 <= issued <= int(self.clock())+30)
 
     def _binding(self, data):
+        if self.native_host is not None:require(data.get('core_instance_id')==self.native_host.instance_id)
         require(data.get('audience') == self.identity.audience)
         require(data['source_sha'] == self.source[0] and data['capsule_digest'] == self.source[1]
                 and data['owner_scope_digest'] == self.owner_scope_digest, 503)
@@ -165,6 +187,7 @@ class MobileGateway:
                 'device_id':device_id,'session_id':session_id,'source_sha':self.source[0],
                 'capsule_digest':self.source[1],'owner_scope_digest':self.owner_scope_digest,
                 'expires_at':now+600,'revoked':False,'nonce_count':0,'audience':self.identity.audience}
+            if self.native_host is not None:session['core_instance_id']=self.native_host.instance_id
             self._record(tx,'mobile-session-'+token_hash,session,at=now)
             return session
         session=self._run(Capability.COMMIT,redeem)
@@ -217,6 +240,12 @@ class MobileGateway:
             'path':session.path,'issued_at':now,'expires_at':now+30,'data_sha256':wire.digest(wire.canonical(data))}
         response={'ok':True,'data':data,'proof':proof,'signature':self.identity.sign(proof)}
         require(len(wire.canonical(response)) <= wire.RESPONSE_LIMIT,413)
+        if self.native_host is not None:
+            key='mobile-observation-'+wire.digest(wire.canonical([session.data['session_id'],session.nonce,session.path]))
+            record={'state':'MOBILE_OBSERVATION','device_id':session.data['device_id'],
+                'session_id':session.data['session_id'],'proof':proof,'signature':response['signature'],
+                'core_instance_id':self.native_host.instance_id}
+            self._run(Capability.COMMIT,lambda tx:self._record(tx,key,record,at=now))
         return response
 
     def _host_proof(self, headers):
@@ -226,6 +255,9 @@ class MobileGateway:
             'status':True,'preview':True,'evidence':True,'stop':True,'run':False,'approve':False,
             'chat':False,'meta_spend':False,'native_execute':False,'github_write':False,'install':False,
             'owner_pairing_m12':False,'remote_deployment':'REMOTE_DEPLOYMENT_BLOCKED'}
+        if self.native_host is not None:
+            capabilities.update(profile='NATIVE_STATUS_READ_ONLY_V1',preview=False,evidence=False,stop=False,
+                remote_deployment='TLS_HOST_VERIFIED' if self.native_host.tls_verified else 'TLS_QUALIFICATION_PENDING')
         now=int(self.clock())
         proof={'schema':'aioa.mobile.host-proof.v1','challenge':challenge,'origin':self.origin,
             'audience':self.identity.audience,'host_spki':self.identity.spki,'issued_at':now,'expires_at':now+30,
@@ -323,11 +355,11 @@ class MobileGateway:
                             'capsule_digest','owner_scope_digest')),503)
             views=[self._project(record) for record in records]
             more=start+len(page)<len(mine)
-            return {'schema':'aioa.mobile.status.v1','mode':'OFFLINE_FIXTURE','missions':views,
+            return {'schema':'aioa.mobile.status.v1','mode':'NATIVE_STATUS_READ_ONLY_V1' if self.native_host else 'OFFLINE_FIXTURE','missions':views,
                 'total_missions':len(mine),'history_truncated':more,
                 'next_cursor':page[-1].payload['task_id'] if more else None,
                 'owner_authority':'NOT_BOUND','billing':'UNVERIFIED','live_verified':False,
-                'remote_deployment':'REMOTE_DEPLOYMENT_BLOCKED'}
+                'remote_deployment':'TLS_HOST_VERIFIED' if self.native_host else 'REMOTE_DEPLOYMENT_BLOCKED'}
         if action=='proposal':
             key='mobile-proposal-'+wire.digest((session.data['session_id']+identity).encode())
             row=self._get(key)
@@ -347,9 +379,10 @@ class MobileGateway:
         """Bounded response only; never leaks exceptions, tokens, code or task text."""
         with self._lock:
             try:
-                self._ready()
                 require(type(body) is bytes and len(body)<=wire.BODY_LIMIT,413)
                 action,identity=wire.route(method,path)
+                self._ready(allow_pending_tls=action=='capabilities')
+                if self.native_host is not None:require(action in {'capabilities','redeem','status','status_page','revoke'},501)
                 if method=='GET':require(not body,400)
                 value=wire.strict_json(body) if method=='POST' else {}
                 if action=='capabilities':return 200,self._host_proof(headers)

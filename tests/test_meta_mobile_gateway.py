@@ -7,12 +7,99 @@ import tempfile
 import time
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from cryptography.hazmat.primitives.asymmetric import ec
 from runtime.core_admission import AdmissionError, Capability
 from runtime.meta_hackathon.runtime_adapter import OfflineMetaComposition
 from runtime.browser_agent.offline_adapter import FIXTURE_URL
 from runtime.mobile_gateway import wire
+
+
+class NativePairingAdmissionTests(unittest.TestCase):
+    """Hermetic OS-auth simulations; never evidence of a real owner admission."""
+
+    def composition_type(self):
+        module=importlib.import_module('runtime.meta_hackathon.runtime_adapter')
+        cls=getattr(module,'NativeMobileComposition',None)
+        if cls is None:self.fail('Native pairing composition is missing; fixture must stay blocked')
+        return cls
+
+    def system_metadata(self):
+        import stat
+        from types import SimpleNamespace
+        original=Path.lstat
+        def metadata(path,*args,**kwargs):
+            if str(path) in ('/usr/bin/pkcheck','/usr/bin/loginctl'):
+                return SimpleNamespace(st_mode=stat.S_IFREG|0o755,st_uid=0)
+            return original(path,*args,**kwargs)
+        return patch.object(Path,'lstat',metadata)
+
+    def test_missing_system_operator_authentication_denies_before_core_storage(self):
+        import subprocess
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory)/'native'
+            def system(argv,**kwargs):
+                if argv[0]=='/usr/bin/loginctl':
+                    import os
+                    return subprocess.CompletedProcess(argv,0,f'User={os.getuid()}\nRemote=no\nActive=yes\n','')
+                return subprocess.CompletedProcess(argv,2,'','authentication required')
+            with self.system_metadata(),patch('runtime.meta_hackathon.runtime_adapter.subprocess.run',side_effect=system):
+                with self.assertRaises(AdmissionError):self.composition_type()(root,origin='https://host.example.org')
+            self.assertFalse(root.exists(),'denied authentication created Core storage')
+
+    def test_admitted_native_core_stays_unavailable_until_real_tls_qualification(self):
+        import os,subprocess
+        with tempfile.TemporaryDirectory() as directory:
+            def system(argv,**kwargs):
+                text=f'User={os.getuid()}\nRemote=no\nActive=yes\n' if argv[0]=='/usr/bin/loginctl' else ''
+                return subprocess.CompletedProcess(argv,0,text,'')
+            with self.system_metadata(),patch('runtime.meta_hackathon.runtime_adapter.subprocess.run',side_effect=system):
+                app=self.composition_type()(Path(directory)/'native',origin='https://host.example.org',
+                    source_probe=lambda:('a'*40,'b'*64))
+            try:
+                self.assertIs(app.core,app.missions.core)
+                self.assertIs(app.core,app.runtime._memory_patch_admission)
+                self.assertNotEqual('offline-fixture',app.core.local_operator(Capability.READ).scope.tenant_id)
+                status,body=app.mobile.handle('GET',wire.BASE+'/capabilities',{'X-AIOA-Challenge':'c'*64},b'')
+                self.assertEqual(200,status)
+                self.assertEqual('TLS_QUALIFICATION_PENDING',body['capabilities']['remote_deployment'])
+                owner=app.operator_principal()
+                with self.assertRaises(wire.MobileError):app.mobile.issue_enrollment(owner,wire.Identity(ec.generate_private_key(ec.SECP256R1())).spki)
+                with self.assertRaises(AdmissionError):
+                    app.core.local_operator(Capability.ACTIVATE)
+            finally:app.close()
+
+    def test_native_operator_socket_request_rejects_other_uid_and_approval_flags(self):
+        import os,subprocess
+        with tempfile.TemporaryDirectory() as directory:
+            def system(argv,**kwargs):
+                text=f'User={os.getuid()}\nRemote=no\nActive=yes\n' if argv[0]=='/usr/bin/loginctl' else ''
+                return subprocess.CompletedProcess(argv,0,text,'')
+            with self.system_metadata(),patch('runtime.meta_hackathon.runtime_adapter.subprocess.run',side_effect=system):
+                app=self.composition_type()(Path(directory)/'native',origin='https://host.example.org',source_probe=lambda:('a'*40,'b'*64))
+            try:
+                call=getattr(app,'operator_request',None)
+                if call is None:self.fail('Kernel-peer-bound native operator port is missing')
+                with self.assertRaises(AdmissionError):call(os.getuid()+1,{'op':'status'})
+                with self.assertRaises(wire.MobileError):call(os.getuid(),{'op':'enroll','approved':True})
+            finally:app.close()
+
+    def test_failed_native_setup_releases_lease_and_preserves_the_bad_key(self):
+        import os,subprocess
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory)/'native';root.mkdir(mode=0o700)
+            key=root/'host-signing-key.pem';key.write_bytes(b'not-a-private-key');key.chmod(0o600)
+            def system(argv,**kwargs):
+                text=f'User={os.getuid()}\nRemote=no\nActive=yes\n' if argv[0]=='/usr/bin/loginctl' else ''
+                return subprocess.CompletedProcess(argv,0,text,'')
+            with self.system_metadata(),patch('runtime.meta_hackathon.runtime_adapter.subprocess.run',side_effect=system):
+                with self.assertRaises(Exception):self.composition_type()(root,origin='https://host.example.org',source_probe=lambda:('a'*40,'b'*64))
+                self.assertEqual(b'not-a-private-key',key.read_bytes())
+                key.unlink()  # Test-owned invalid bytes only, never a user key.
+                try:app=self.composition_type()(root,origin='https://host.example.org',source_probe=lambda:('a'*40,'b'*64))
+                except AdmissionError:self.fail('Failed setup retained the native runtime lease')
+                app.close()
 
 
 class MobileGatewayTests(unittest.TestCase):

@@ -260,6 +260,16 @@
       "automatic_retry": false
     }
   },
+  "native_status_profile": {
+    "id": "NATIVE_STATUS_READ_ONLY_V1",
+    "operator_admission": "active local OS UID plus successful system PolicyKit check bound to PID/start-time/UID; never an approval flag",
+    "tls": "system CA + exact hostname + TLS1.3 + same-instance signed fresh challenge before enrollment",
+    "allowed_routes": ["capabilities", "enrollment/redeem", "status", "status/pages", "session/revoke"],
+    "disallowed": ["preview", "run", "approve", "chat", "native_execute", "github_write", "meta_spend", "install"],
+    "records": "same Core TransactionRunner, canonical OPERATION/AUDIT/OUTBOX in local single-owner storage",
+    "restart": "new Core instance invalidates old enrollment codes and sessions; no automatic re-admission",
+    "meaning": "real transport session and signed status only, no LIVE model or mission certification"
+  },
   "status_paging": {
     "page_size": 16,
     "max_session_history": 128,
