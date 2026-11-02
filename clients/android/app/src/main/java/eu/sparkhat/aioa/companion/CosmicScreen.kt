@@ -42,10 +42,12 @@ internal fun CosmicApp(incomingPacket: String?, consumed: () -> Unit, model: Mis
         }
         lifecycle.addObserver(observer); onDispose { lifecycle.removeObserver(observer) }
     }
-    LaunchedEffect(incomingPacket) {
-        incomingPacket?.let { model.deliverPacket(it); consumed() }
-    }
     var page by rememberSaveable { mutableStateOf("home") }
+    LaunchedEffect(incomingPacket) {
+        incomingPacket?.let { raw ->
+            routePairingDelivery(raw,model::deliverPacket,showConfirmation={ page="home" },consumed=consumed)
+        }
+    }
     MaterialTheme(colorScheme=CosmicColors) {
         Surface(Modifier.fillMaxSize()) {
             Column(Modifier.fillMaxSize().safeDrawingPadding().imePadding()) {
@@ -192,3 +194,11 @@ private fun stateLabel(state: String): String = stringResource(when(state) {
     "BEGIN_UNCERTAIN" -> R.string.state_begin_uncertain
     else -> R.string.state_unknown
 })
+
+
+/** A delivery event reveals accepted confirmation; ordinary recomposition never changes navigation. */
+internal fun routePairingDelivery(raw: String, deliver: (String) -> Boolean,
+    showConfirmation: () -> Unit, consumed: () -> Unit) {
+    if (deliver(raw)) showConfirmation()
+    consumed()
+}

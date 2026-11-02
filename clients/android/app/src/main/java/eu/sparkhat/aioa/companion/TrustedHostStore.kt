@@ -59,8 +59,8 @@ class BindingOwner(private val store: TrustedHostStore, private val closeTranspo
         try { snapshot = store.replace(snapshot,null); closeTransport() }
         catch (failure: StaleBindingOwner) { closeTransport(); throw failure }
     }
-    fun deliver(packet: String, importPacket: (String) -> Unit) {
+    fun <T> deliver(packet: String, importPacket: (String) -> T): T {
         reconcile()
-        importPacket(packet)
+        return importPacket(packet)
     }
 }

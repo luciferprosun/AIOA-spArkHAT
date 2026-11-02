@@ -62,21 +62,22 @@ class MissionViewModel(app: Application) : AndroidViewModel(app) {
                 freshness=generation,connection="STALE",pairingState="DISCONNECTED")
         }
     }
-    fun deliverPacket(raw: String) {
-        if (ui.busy) return
-        try { reconcileBinding(); owner().deliver(raw,::importPacket) }
-        catch (_: Exception) { ui = ui.copy(bindingInvalid=true) }
+    fun deliverPacket(raw: String): Boolean {
+        if (ui.busy) return false
+        return try { reconcileBinding(); owner().deliver(raw,::importPacket) }
+        catch (_: Exception) { ui = ui.copy(bindingInvalid=true); false }
     }
     fun scannerMessage(resource: Int) { ui = ui.copy(message=UiMessage(resource)) }
-    fun importPacket(raw: String) {
-        if (ui.busy) return
-        try {
+    fun importPacket(raw: String): Boolean {
+        if (ui.busy) return false
+        return try {
             owner().requireCurrent()
             check(!ui.bindingInvalid) { "HOST_BINDING_INVALID" }
             val invite = PairingProtocol.parseInvite(raw,now())
             owner().record?.host?.requireSameBinding(invite.host)
             ui = ui.copy(invite=invite,pairingState="CONFIRM_HOST",message=UiMessage(R.string.confirm_notice))
-        } catch (_: Exception) { ui = ui.copy(invite=null,message=UiMessage(R.string.packet_invalid)) }
+            true
+        } catch (_: Exception) { ui = ui.copy(invite=null,message=UiMessage(R.string.packet_invalid)); false }
     }
     private fun pairingFlow(work: suspend () -> Unit) {
         if (ui.busy || pairingJob?.isActive == true) return

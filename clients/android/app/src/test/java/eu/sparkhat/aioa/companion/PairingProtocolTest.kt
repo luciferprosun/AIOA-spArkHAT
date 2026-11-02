@@ -102,4 +102,33 @@ class PairingProtocolTest {
         assertThrows(Exception::class.java) { PairingProtocol.validateStatus(JsonObject(status+("automatic_retry" to JsonPrimitive("false"))),record,device) }
     }
 
+    @Test fun warmSignedDeliveryFromEveryOtherPageShowsConfirmationBeforeConsumption() {
+        val raw = "aioa://pair#"+Base64.getUrlEncoder().withoutPadding().encodeToString(Wire.canonical(packet()))
+        for (startingPage in listOf("repositories","settings","missions","advanced")) {
+            var page = startingPage
+            var confirmation: PairingInvite? = null
+            val events = mutableListOf<String>()
+            routePairingDelivery(raw,deliver={ value ->
+                confirmation = PairingProtocol.parseInvite(value,1001)
+                events += "packet-accepted"
+                true
+            },showConfirmation={ page="home"; events += "confirmation-visible" },consumed={ events += "intent-consumed" })
+            assertEquals(startingPage,"home",page)
+            assertEquals("https://fixture.invalid",confirmation!!.host.origin)
+            // Delivery has only import/navigation/consumption effects; confirmation is still required.
+            assertEquals(listOf("packet-accepted","confirmation-visible","intent-consumed"),events)
+        }
+    }
+    @Test fun rejectedOrBusyDeliveryDoesNotNavigateOrPresentAnOldInvitation() {
+        var page = "settings"
+        var consumed = 0
+        routePairingDelivery("invalid-packet",deliver={ raw ->
+            runCatching { PairingProtocol.parseInvite(raw,1001) }.isSuccess
+        },showConfirmation={ page="home" },consumed={ consumed++ })
+        assertEquals("settings",page); assertEquals(1,consumed)
+        routePairingDelivery(Wire.canonical(packet()).toString(Charsets.UTF_8),deliver={ false },
+            showConfirmation={ page="home" },consumed={ consumed++ })
+        assertEquals("settings",page); assertEquals(2,consumed)
+    }
+
 }
