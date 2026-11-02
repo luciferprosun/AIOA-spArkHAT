@@ -66,6 +66,7 @@ class WebRuntimeService:
             if type(mobile_gateway) is not MobileGateway or mobile_gateway.missions is not meta_missions:
                 raise ValueError('MOBILE_SAME_MISSION_CORE_REQUIRED')
         self.mobile_gateway = mobile_gateway
+        self.mobile_only=mobile_gateway is not None and mobile_gateway.native_host is not None
         self.unified_profile = meta_missions is not None and hasattr(meta_missions, 'agent_route')
         self.core_mcp = None
         if self.unified_profile:
@@ -297,6 +298,23 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
 
     def _service(self) -> WebRuntimeService:
         return self.runtime_service or get_service()
+
+    def handle(self):
+        if getattr(self.runtime_service,'mobile_only',False):
+            import ssl
+            self.connection.settimeout(8)
+            try:self.connection.do_handshake()
+            except (OSError,ssl.SSLError):
+                self.close_connection=True;return
+        super().handle()
+
+    def parse_request(self):
+        if not super().parse_request():return False
+        if getattr(self.runtime_service,'mobile_only',False):
+            if (self.command not in {'GET','POST'} or len(self.path)>2048 or
+                    not self.path.startswith('/api/mobile/v1/') or any(c in self.path for c in ('?','#','%','\\'))):
+                self.send_error(404);return False
+        return True
 
     def end_headers(self) -> None:
         self.send_header("X-Content-Type-Options", "nosniff")
@@ -779,9 +797,16 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
     def _check_local_request(self):
         port = self.server.server_address[1]
         allowed_hosts = {f'127.0.0.1:{port}', f'localhost:{port}'}
+        mobile_only=getattr(self.runtime_service,'mobile_only',False)
+        if mobile_only:
+            import ssl
+            owner=self.runtime_service.mobile_gateway.native_host
+            allowed_hosts={urlparse(owner.origin).netloc}
+            if not isinstance(self.connection,ssl.SSLSocket) or self.connection.version()!='TLSv1.3':
+                self._write_json(403,{'ok':False,'error':'TLS_REQUIRED'});return False
         hosts = self.headers.get_all('Host', [])
         origins = self.headers.get_all('Origin', [])
-        valid_origin = not origins or (len(origins) == 1 and origins[0] in {'http://' + host for host in allowed_hosts})
+        valid_origin = not origins or (len(origins) == 1 and origins[0] in {('https://' if mobile_only else 'http://') + host for host in allowed_hosts})
         if (len(hosts) != 1 or hosts[0].lower() not in allowed_hosts or not valid_origin
                 or self.headers.get('Sec-Fetch-Site') == 'cross-site'):
             self._write_json(HTTPStatus.FORBIDDEN, {'ok': False, 'error': 'local_origin_required'})
@@ -874,10 +899,58 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
         self.wfile.write(body)
 
 
+def make_mobile_operator_server(owner):
+    """Private OS-peer authenticated transport of this same Core instance."""
+    import socket,socketserver,stat,struct
+    from runtime.core_admission import AdmissionError
+    from runtime.mobile_gateway import wire
+    owner.operator_principal()
+    path=owner.root/'operator.sock'
+    if path.exists() or path.is_symlink():
+        info=path.lstat()
+        if not stat.S_ISSOCK(info.st_mode) or info.st_uid!=owner.uid:raise AdmissionError()
+        path.unlink()  # Only our stale socket, after the exclusive runtime lease.
+    class Handler(socketserver.StreamRequestHandler):
+        def handle(self):
+            self.request.settimeout(10)
+            try:
+                _,uid,_=struct.unpack('3i',self.request.getsockopt(socket.SOL_SOCKET,socket.SO_PEERCRED,12))
+                if uid!=owner.uid:raise AdmissionError()
+                raw=self.rfile.readline(wire.BODY_LIMIT+1)
+                if not raw.endswith(b'\n'):raise wire.MobileError(400)
+                data=owner.operator_request(uid,wire.strict_json(raw))
+                result={'ok':True,'data':data}
+                if len(wire.canonical(result))>wire.BODY_LIMIT:raise wire.MobileError(413)
+            except wire.MobileError as error:result={'ok':False,'error':error.code,'automatic_retry':False}
+            except Exception:result={'ok':False,'error':'NATIVE_OPERATOR_DENIED_OR_UNKNOWN','automatic_retry':False}
+            self.wfile.write(wire.canonical(result)+b'\n')
+    class Server(socketserver.ThreadingUnixStreamServer):daemon_threads=True
+    server=Server(str(path),Handler);os.chmod(path,0o600)
+    return server
+
+
+def mobile_operator_client(root,value):
+    import socket,stat,struct
+    from runtime.mobile_gateway import wire
+    root=Path(root).absolute();path=root/'operator.sock';info=path.lstat()
+    if (root.resolve()!=root or root.stat().st_uid!=os.getuid() or root.stat().st_mode&0o077
+            or not stat.S_ISSOCK(info.st_mode) or info.st_uid!=os.getuid() or info.st_mode&0o077):
+        raise ValueError('NATIVE_OPERATOR_SOCKET_DENIED')
+    with socket.socket(socket.AF_UNIX,socket.SOCK_STREAM) as peer:
+        peer.settimeout(10);peer.connect(str(path))
+        _,uid,_=struct.unpack('3i',peer.getsockopt(socket.SOL_SOCKET,socket.SO_PEERCRED,12))
+        if uid!=os.getuid():raise ValueError('NATIVE_OPERATOR_PEER_DENIED')
+        peer.sendall(wire.canonical(value)+b'\n')
+        with peer.makefile('rb') as stream:raw=stream.readline(wire.BODY_LIMIT+1)
+        if not raw.endswith(b'\n'):raise ValueError('UNKNOWN_NO_AUTOMATIC_RETRY')
+        return wire.strict_json(raw)
+
+
 def make_server(
     host: str = HOST,
     port: int = PORT,
     service: WebRuntimeService | None = None,
+    *,tls_certificate=None,tls_key=None,
 ) -> ThreadingHTTPServer:
     """Create the single local AOIA-Core server."""
 
@@ -886,6 +959,21 @@ def make_server(
     handler = partial(AOIAWebHandler, service=service)
     server = ThreadingHTTPServer((host, port), handler)
     server.daemon_threads = True
+    if getattr(service,'mobile_only',False):
+        import ssl,stat
+        try:
+            for path,private in ((tls_certificate,False),(tls_key,True)):
+                path=Path(path);info=path.lstat()
+                if (not stat.S_ISREG(info.st_mode) or path.resolve()!=path.absolute() or info.st_uid!=os.getuid()
+                        or info.st_nlink!=1 or info.st_size>65536 or info.st_mode&(0o077 if private else 0o022)):
+                    raise ValueError('MOBILE_PRIVATE_TLS_FILES_REQUIRED')
+            context=ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+            context.minimum_version=context.maximum_version=ssl.TLSVersion.TLSv1_3
+            context.load_cert_chain(tls_certificate,tls_key)
+            server.socket=context.wrap_socket(server.socket,server_side=True,do_handshake_on_connect=False)
+        except BaseException:server.server_close();raise
+    elif tls_certificate is not None or tls_key is not None:
+        server.server_close();raise ValueError('MOBILE_NATIVE_TLS_BINDING_REQUIRED')
     return server
 
 
@@ -896,8 +984,14 @@ def _parser() -> argparse.ArgumentParser:
     mode.add_argument('--cpl-live-policy', help='Operator-authored price/budget policy JSON; still requires per-plan approval')
     mode.add_argument('--meta-offline', action='store_true', help='One existing UI, isolated Meta fixture, zero spend')
     mode.add_argument('--unified-offline', action='store_true', help='One app: Core-gated local recipes, MCP and signed mobile fixture; no paid calls')
+    mode.add_argument('--mobile-native',action='store_true',help='System-authenticated private mobile status only; no model, task execution or fixture')
+    mode.add_argument('--mobile-operator',choices=('settings','enroll','status','revoke'),help='Private native operator socket; code stays local')
     mode.add_argument('--meta-live-one-shot', action='store_true', help='Inspect the explicit one-shot LIVE gate; never implies owner GO')
     parser.add_argument('--state-dir', help='Private state directory for the explicit Meta offline profile')
+    parser.add_argument('--mobile-origin')
+    parser.add_argument('--mobile-tls-certificate')
+    parser.add_argument('--mobile-tls-key')
+    parser.add_argument('--device-spki',help='Exact public phone SPKI for native enrollment/revocation')
     parser.add_argument("--host", default=HOST)
     parser.add_argument("--port", default=PORT, type=int)
     return parser
@@ -905,6 +999,37 @@ def _parser() -> argparse.ArgumentParser:
 
 def main() -> None:
     args = _parser().parse_args()
+    if args.mobile_operator:
+        if not args.state_dir:raise SystemExit('NATIVE_STATE_REQUIRED')
+        value={'op':args.mobile_operator}
+        if args.mobile_operator in ('enroll','revoke'):value['device_spki']=args.device_spki
+        if args.mobile_operator=='enroll':value['request_id']=secrets.token_hex(16)
+        try:result=mobile_operator_client(args.state_dir,value)
+        except Exception:result={'ok':False,'error':'UNKNOWN_NO_AUTOMATIC_RETRY','automatic_retry':False}
+        print(json.dumps(result,ensure_ascii=False),flush=True)
+        return
+    if args.mobile_native:
+        import threading
+        from runtime.meta_hackathon.runtime_adapter import NativeMobileComposition
+        if not all((args.state_dir,args.mobile_origin,args.mobile_tls_certificate,args.mobile_tls_key)):
+            raise SystemExit('NATIVE_STATE_OR_TLS_CONFIG_REQUIRED')
+        owner=NativeMobileComposition(args.state_dir,origin=args.mobile_origin)
+        server=control=None
+        try:
+            service=WebRuntimeService(runtime=owner.runtime,meta_missions=owner.missions,meta_owner=owner,mobile_gateway=owner.mobile)
+            server=make_server(args.host,args.port,service,tls_certificate=Path(args.mobile_tls_certificate),tls_key=Path(args.mobile_tls_key))
+            worker=threading.Thread(target=server.serve_forever,daemon=True);worker.start()
+            owner.qualify_tls(server.server_address[1])
+            control=make_mobile_operator_server(owner)
+            threading.Thread(target=control.serve_forever,daemon=True).start()
+            print(json.dumps({'status':'NATIVE_MOBILE_HOST_READY',**owner.public_settings()}),flush=True)
+            threading.Event().wait()
+        except KeyboardInterrupt:pass
+        finally:
+            if control is not None:control.shutdown();control.server_close()
+            if server is not None:server.shutdown();server.server_close()
+            owner.close()
+        return
     if args.meta_live_one_shot:
         from runtime.providers.meta_model_api import MetaModelProvider
         print(json.dumps({'mode': 'META_LIVE_ONE_SHOT', **MetaModelProvider().diagnostics(),

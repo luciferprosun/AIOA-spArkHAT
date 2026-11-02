@@ -11,6 +11,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from runtime.core_admission import (
+    AdmissionError,
     Capability,
     CoreAdmission,
     LocalOwnerAssignment,
@@ -61,6 +62,86 @@ def make_admission(
         operator_approved=True,
     )
     return CoreAdmission(assignment, clock=clock)
+
+
+class LocalCoreRecordAdapterTests(unittest.TestCase):
+    """Real SQLite storage with the test's explicitly synthetic Core principal."""
+    def test_commit_cas_rollback_and_reopen_use_one_native_record_store(self):
+        from runtime.memory_patch.persistence.ports import LocalCoreRecordFactory
+        with tempfile.TemporaryDirectory() as directory:
+            core=make_admission();principal=core.local_operator(Capability.COMMIT)
+            scope=principal.scope;context=TransactionContext(principal,Capability.COMMIT)
+            path=Path(directory)/'core.sqlite3';runner=TransactionRunner(core,LocalCoreRecordFactory(path,core))
+            record=StoredRecord(RecordKind.OPERATION,'local-cas',scope,1,{'state':'TEST','value':1})
+            runner.run(context,lambda tx:tx.insert(record))
+            second=StoredRecord(RecordKind.OPERATION,'local-cas',scope,2,{'state':'TEST','value':2})
+            runner.run(context,lambda tx:tx.replace(second,expected_revision=1))
+            with self.assertRaises(MemoryPatchError):runner.run(context,lambda tx:tx.replace(second,expected_revision=1))
+            def fail(tx):
+                tx.insert(StoredRecord(RecordKind.OPERATION,'rolled-back',scope,1,{'state':'TEST'}))
+                raise ValueError('test rollback')
+            with self.assertRaises(MemoryPatchError):runner.run(context,fail)
+            runner.close();runner=TransactionRunner(core,LocalCoreRecordFactory(path,core))
+            read=TransactionContext(core.local_operator(Capability.READ),Capability.READ)
+            self.assertEqual(2,runner.run(read,lambda tx:tx.get(RecordKind.OPERATION,'local-cas')).payload['value'])
+            self.assertIsNone(runner.run(read,lambda tx:tx.get(RecordKind.OPERATION,'rolled-back')))
+            with self.assertRaises(MemoryPatchError):runner.run(read,lambda tx:tx.insert(record))
+            runner.close()
+            other=make_admission(owner='other-owner');reader=other.local_operator(Capability.READ)
+            runner=TransactionRunner(other,LocalCoreRecordFactory(path,other))
+            self.assertEqual((),runner.run(TransactionContext(reader,Capability.READ),lambda tx:tx.scan(RecordKind.OPERATION)))
+            runner.close()
+
+    def test_changed_inode_permissions_or_links_reject_before_native_transaction(self):
+        from runtime.memory_patch.persistence.ports import LocalCoreRecordFactory
+        for attack in ('mode','inode','hardlink'):
+            with self.subTest(attack=attack),tempfile.TemporaryDirectory() as directory:
+                core=make_admission();path=Path(directory)/'core.sqlite3';factory=LocalCoreRecordFactory(path,core)
+                runner=TransactionRunner(core,factory);reader=core.local_operator(Capability.READ)
+                if attack=='mode':path.chmod(0o666)
+                elif attack=='inode':
+                    other=Path(directory)/'replacement';other.write_bytes(b'');other.chmod(0o600);other.replace(path)
+                else:
+                    import os
+                    os.link(path,Path(directory)/'alias')
+                try:
+                    with self.assertRaises(MemoryPatchError) as error:
+                        runner.run(TransactionContext(reader,Capability.READ),lambda tx:tx.scan(RecordKind.OPERATION))
+                    self.assertEqual(ErrorCode.INTEGRITY_FAILED,error.exception.code)
+                finally:runner.close()
+
+    def test_failed_rollback_is_unknown_poisoned_and_releases_the_native_lock(self):
+        import sqlite3
+        from runtime.memory_patch.persistence.ports import LocalCoreRecordFactory
+        with tempfile.TemporaryDirectory() as directory:
+            core=make_admission();factory=LocalCoreRecordFactory(Path(directory)/'core.sqlite3',core)
+            real=factory.db
+            class Fault:
+                def __getattr__(self,name):return getattr(real,name)
+                def commit(self):raise OSError('test commit uncertainty')
+                def rollback(self):raise OSError('test rollback failure')
+                def close(self):real.close()
+            factory.db=Fault();runner=TransactionRunner(core,factory);writer=core.local_operator(Capability.COMMIT)
+            callbacks=[]
+            def write(tx):
+                callbacks.append(1);tx.insert(StoredRecord(RecordKind.OPERATION,'uncertain',writer.scope,1,{'state':'TEST'}))
+            try:
+                with self.assertRaises(CommitOutcomeUnknown):runner.run(TransactionContext(writer,Capability.COMMIT),write)
+                self.assertEqual(1,len(callbacks),'UNKNOWN was retried')
+                self.assertTrue(factory.closed,'Uncertain native transaction remained reusable')
+                available=[]
+                def probe():
+                    got=factory.lock.acquire(timeout=.3);available.append(got)
+                    if got:factory.lock.release()
+                worker=threading.Thread(target=probe,daemon=True);worker.start();worker.join(1)
+                self.assertEqual([True],available,'Native lock leaked after rollback error')
+                with self.assertRaises(AdmissionError):runner.run(TransactionContext(writer,Capability.COMMIT),write)
+                self.assertEqual(1,len(callbacks),'Poisoned Core ran the operation again')
+            finally:
+                try:real.rollback()
+                except sqlite3.Error:pass
+                while factory.lock._is_owned():factory.lock.release()
+                runner.close()
 
 
 class StructuredFailure(Exception):

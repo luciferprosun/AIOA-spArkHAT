@@ -322,3 +322,144 @@ class TransactionRunner:
         self._closed = True
         if self._factory is not None and self._owns_factory:
             self._factory.close()
+
+
+class LocalCoreRecordFactory:
+    """Local single-owner adapter of the native record/transaction protocol.
+
+    One database carries OPERATION/AUDIT/OUTBOX, not a separate approval store.
+    Reuses the canonical native serializer and Core purpose checks. No fixture,
+    assignment, credentials, principal issuer or effect dispatcher lives here.
+    """
+
+    def __init__(self, path, core):
+        import os
+        from pathlib import Path
+        import sqlite3
+        import stat
+        import threading
+        self.path=Path(path).absolute()
+        parent=self.path.parent
+        if (parent.is_symlink() or parent.resolve()!=parent or parent.stat().st_uid!=os.getuid()
+                or parent.stat().st_mode&0o077 or type(core) is not CoreAdmission):
+            raise MemoryPatchError(ErrorCode.ADMISSION_DENIED)
+        fd=os.open(self.path,os.O_RDWR|os.O_CREAT|os.O_NOFOLLOW,0o600)
+        try:
+            info=os.fstat(fd)
+            if (not stat.S_ISREG(info.st_mode) or info.st_uid!=os.getuid() or info.st_nlink!=1
+                    or info.st_mode&0o077 or info.st_size>32*1024*1024):
+                raise MemoryPatchError(ErrorCode.ADMISSION_DENIED)
+            self.db=sqlite3.connect(self.path,check_same_thread=False,isolation_level=None,timeout=5)
+            after=self.path.lstat()
+            if (info.st_dev,info.st_ino)!=(after.st_dev,after.st_ino):
+                self.db.close();raise MemoryPatchError(ErrorCode.INTEGRITY_FAILED)
+        finally:os.close(fd)
+        self.db.row_factory=sqlite3.Row
+        self._identity=(info.st_dev,info.st_ino)
+        self.db.execute('PRAGMA trusted_schema=OFF')
+        self.db.execute('PRAGMA synchronous=FULL')
+        self.db.execute('CREATE TABLE IF NOT EXISTS core_records_v1 ('
+            'scope_key TEXT NOT NULL,kind TEXT NOT NULL,record_id TEXT NOT NULL,revision INTEGER NOT NULL,'
+            'record_json TEXT NOT NULL,record_digest TEXT NOT NULL,PRIMARY KEY(scope_key,kind,record_id))')
+        self.core,self.lock,self.closed=core,threading.RLock(),False
+
+    def _file_check(self):
+        import os,stat
+        try:
+            info=self.path.lstat();parent=self.path.parent.stat()
+            if (not stat.S_ISREG(info.st_mode) or (info.st_dev,info.st_ino)!=self._identity
+                    or info.st_uid!=os.getuid() or info.st_nlink!=1 or info.st_mode&0o077
+                    or info.st_size>32*1024*1024 or self.path.resolve()!=self.path
+                    or parent.st_uid!=os.getuid() or parent.st_mode&0o077):
+                raise MemoryPatchError(ErrorCode.INTEGRITY_FAILED)
+        except OSError as error:raise MemoryPatchError(ErrorCode.INTEGRITY_FAILED) from error
+
+    def begin(self, context, *, attempt):
+        self.lock.acquire()
+        try:
+            self._file_check()
+            if self.closed or self.path.stat().st_size>32*1024*1024:
+                raise MemoryPatchError(ErrorCode.MODULE_CLOSED)
+            self.core.require(context.principal,context.purpose,scope=context.scope)
+            self.db.execute('BEGIN IMMEDIATE')
+            return LocalCoreTransaction(self,context)
+        except BaseException:self.lock.release();raise
+
+    def close(self):
+        with self.lock:
+            if not self.closed:self.closed=True;self.db.close()
+
+
+class LocalCoreTransaction:
+    def __init__(self,factory,context):
+        from runtime.memory_patch.contracts.serialization import canonical_json_bytes
+        self.factory,self.context,self.active=factory,context,True
+        self.scope_key=canonical_json_bytes(context.scope.binding()).decode()
+
+    def _check(self,kind):
+        if not self.active or self.factory.closed or type(kind) is not RecordKind:
+            raise MemoryPatchError(ErrorCode.TRANSACTION_FAILED)
+        self.factory._file_check()
+        self.factory.core.require(self.context.principal,self.context.purpose,scope=self.context.scope)
+
+    def _read(self,row,kind):
+        from runtime.memory_patch.adapters.cockroach.repositories import restore_record
+        return None if row is None else restore_record(row['record_json'],row['record_digest'],kind=kind,scope=self.context.scope)
+
+    def get(self,kind,record_id):
+        self._check(kind)
+        row=self.factory.db.execute('SELECT record_json,record_digest FROM core_records_v1 '
+            'WHERE scope_key=? AND kind=? AND record_id=?',(self.scope_key,kind.value,record_id)).fetchone()
+        return self._read(row,kind)
+
+    def scan(self,kind,*,limit=128,states=()):
+        self._check(kind)
+        where='' if not states else " AND json_extract(record_json,'$.payload.state') IN ("+','.join('?' for _ in states)+')'
+        rows=self.factory.db.execute('SELECT record_json,record_digest FROM core_records_v1 '
+            'WHERE scope_key=? AND kind=?'+where+' ORDER BY record_id LIMIT ?',
+            (self.scope_key,kind.value,*states,limit)).fetchall()
+        return tuple(self._read(row,kind) for row in rows)
+
+    def _write(self,record):
+        from runtime.memory_patch.adapters.cockroach.repositories import canonical_record
+        self._check(record.kind)
+        if record.scope!=self.context.scope or record.kind not in _WRITE_KINDS.get(self.context.purpose,()):
+            raise MemoryPatchError(ErrorCode.ADMISSION_DENIED)
+        raw=canonical_record(record)
+        if len(raw.encode())>2*1024*1024:raise MemoryPatchError(ErrorCode.INVALID_REQUEST)
+        return raw
+
+    def insert(self,record):
+        import sqlite3
+        raw=self._write(record)
+        try:self.factory.db.execute('INSERT INTO core_records_v1 VALUES(?,?,?,?,?,?)',
+            (self.scope_key,record.kind.value,record.record_id,record.revision,raw,record.payload_digest))
+        except sqlite3.IntegrityError:raise MemoryPatchError(ErrorCode.STATE_CONFLICT) from None
+
+    def replace(self,record,*,expected_revision):
+        raw=self._write(record)
+        if record.revision!=expected_revision+1:raise MemoryPatchError(ErrorCode.STATE_CONFLICT)
+        changed=self.factory.db.execute('UPDATE core_records_v1 SET revision=?,record_json=?,record_digest=? '
+            'WHERE scope_key=? AND kind=? AND record_id=? AND revision=?',
+            (record.revision,raw,record.payload_digest,self.scope_key,record.kind.value,record.record_id,expected_revision)).rowcount
+        if changed!=1:raise MemoryPatchError(ErrorCode.STATE_CONFLICT)
+
+    def commit(self):
+        try:self.factory.db.commit()
+        except Exception as error:raise CommitOutcomeUnknown() from error
+
+    def rollback(self):
+        try:
+            if not self.factory.closed and self.factory.db.in_transaction:self.factory.db.rollback()
+        except Exception as error:
+            self.factory.closed=True
+            self.factory.core.close()
+            try:self.factory.db.close()
+            except Exception:pass
+            raise CommitOutcomeUnknown() from error
+
+    def close(self):
+        if self.active:
+            try:self.rollback()
+            finally:
+                self.active=False;self.factory.lock.release()

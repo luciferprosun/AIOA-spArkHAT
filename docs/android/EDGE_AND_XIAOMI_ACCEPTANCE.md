@@ -69,3 +69,42 @@ sprawdzają kontrakty i izolowany host, nie telefon.
 
 `ANDROID_E2E_VERIFIED` wolno nadać dopiero po pełnym odbiorze. Muse LIVE,
 GitHub WRITE i produkcyjna certyfikacja Core pozostają osobnymi bramkami.
+
+## 2026-11-02 — ograniczony natywny transport statusu
+
+Właściciel zgłosił instalację APK2e112d29 na Xiaomi oraz działający ekran
+enrollment. Ten etap dodaje profil NATIVE_STATUS_READ_ONLY_V1 do istniejącej
+WebRuntimeService/MobileGateway/MissionService, bez zmiany klienta i bez modelu.
+Historyczny OFFLINE_FIXTURE pozostaje testowym profilem i nie jest przemianowany.
+
+NativeMobileComposition przyjmuje operatora dopiero po sprawdzeniu aktywnej
+lokalnej sesji Linux i rzeczywistym PolicyKit dla PID/start-time/UID. Uprawnienia
+pochodzą z systemu, a nie flagi, env, tekstu modelu lub JSON. Istniejący Core
+otrzymuje ograniczone lokalne assignment; telefon otrzymuje wyłącznie transport.
+CorePrincipal nigdy nie przechodzi przez HTTP jako deklaracja użytkownika.
+
+Ponieważ dotychczasowy main miał wyłącznie file-fixture lub port Cockroach,
+lokalny profil korzysta z LocalCoreRecordFactory w istniejącym persistence/ports.py:
+jeden prywatny SQLite dla kanonicznych OPERATION/AUDIT/OUTBOX tego samego Core,
+istniejący TransactionRunner, serializacja, kontrola zakresu i CAS. Nie używa
+FakeFactory/DurableFactory i nie migruje baz M12/Nebius. To ograniczony lokalny
+adapter; nie deklaracja certyfikacji produkcyjnego Cockroach lub pełnego Core M12.
+
+Prywatny operator.sock w tym samym procesie sprawdza SO_PEERCRED z kernela.
+Wydanie kodu wymaga dokładnego SPKI i jednorazowego request ID; marker i hash
+kodu są zapisane atomowo w istniejącym journalu. Kod jest zwracany tylko lokalnie,
+TTL300s, bez publicznych logów. Restart wymaga ponownego systemowego admission
+i odrzuca stare kody oraz sesje, także gdy wpisy pozostały na dysku.
+
+Istniejący web server wiąże wyłącznie loopback, z certyfikatem CA i TLS1.3.
+Kwalifikacja TLS obejmuje hostname, systemowe CA oraz świeży podpisany challenge
+tej samej instancji. Tailscale Serve może przekazać prywatny TCP443 do tego
+listenera. Native handler odrzuca UI, HEAD i pozostałe API; udostępnia tylko
+capabilities, enrollment, podpisany status i revoke. Brak Funnel/publicznego bindu.
+
+Testy używają testowego CA i jawnie symulowanego OS admission; nie są dowodem
+faktycznego parowania telefonu. Rzeczywisty wynik wymaga osobnego wpisu operatora
+po uruchomieniu hosta, exact SPKI z telefonu, enrollment i podpisanym GET/status.
+W chwili przygotowania tego kodu wynik telefonu pozostaje NOT_RUN.
+Chat/Muse/misje/WRITE/EXEC/spend nadal disabled. Nowy APK nie jest wymagany:
+schematy podpisów v1, warunki klienta i wszystkie pliki clients/android zachowano.
