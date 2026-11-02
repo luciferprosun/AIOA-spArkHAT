@@ -108,4 +108,17 @@
     <string name="state_begin_uncertain">Request outcome uncertain</string>
     <string name="agent_unavailable">Agent missions are unavailable in this host profile. Existing unresolved IDs remain below.</string>
     <string name="state_pairing_saved">Pairing saved on this phone</string>
+    <string name="host_fingerprint">Host fingerprint (SHA-256 prefix): %1$s</string>
+    <string name="last_signed_readback">Last verified session readback — host time: %1$s. Historical only; current connection status is shown above.</string>
+    <string name="no_signed_readback">No verified session readback yet in this connection context.</string>
+    <string name="reason_busy">Unavailable while a connection or readback is in progress.</string>
+    <string name="reason_invalid_binding">Saved host data is invalid. Explicitly forget the local binding in Settings before pairing again.</string>
+    <string name="reason_no_invite">Scan or paste a signed invitation before confirming a host.</string>
+    <string name="reason_no_pairing">No pairing request is saved. Scan or paste a signed invitation and confirm your host first.</string>
+    <string name="reason_no_session">No active session is available. Complete pairing or reconnect before requesting signed status.</string>
+    <string name="reason_pairing_pending">Reconnect is unavailable until pairing is approved on Linux and completed or confirmed by signed readback.</string>
+    <string name="reason_expired">This invitation or pending request has expired. Obtain a fresh QR; an existing approved binding can still use reconnect.</string>
+    <string name="reason_revoked">Linux revoked or replaced this pairing request. A fresh QR and exact Linux approval are required.</string>
+    <string name="reason_already_connected">A session is already available. Use Refresh signed status to read its current state.</string>
+    <string name="reason_packet_required">Paste the signed JSON packet or pairing link to enable reading it.</string>
 </resources>

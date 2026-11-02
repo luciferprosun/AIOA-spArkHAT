@@ -108,4 +108,17 @@
     <string name="state_begin_uncertain">Niepewny wynik żądania</string>
     <string name="agent_unavailable">Misje agenta są niedostępne w tym profilu hosta. Istniejące nierozstrzygnięte identyfikatory zachowano poniżej.</string>
     <string name="state_pairing_saved">Parowanie zapisane na tym telefonie</string>
+    <string name="host_fingerprint">Odcisk hosta (początek SHA-256): %1$s</string>
+    <string name="last_signed_readback">Ostatni zweryfikowany odczyt sesji — czas hosta: %1$s. To informacja historyczna; aktualny stan połączenia jest powyżej.</string>
+    <string name="no_signed_readback">Brak zweryfikowanego odczytu sesji w bieżącym kontekście połączenia.</string>
+    <string name="reason_busy">Niedostępne podczas łączenia lub odczytywania stanu.</string>
+    <string name="reason_invalid_binding">Zapisane dane hosta są nieprawidłowe. Przed ponownym parowaniem jawnie usuń lokalne powiązanie w Ustawieniach.</string>
+    <string name="reason_no_invite">Przed potwierdzeniem hosta zeskanuj lub wklej podpisane zaproszenie.</string>
+    <string name="reason_no_pairing">Nie zapisano żądania parowania. Najpierw zeskanuj lub wklej podpisane zaproszenie i potwierdź host.</string>
+    <string name="reason_no_session">Brak aktywnej sesji. Przed pobraniem podpisanego stanu ukończ parowanie lub połącz ponownie.</string>
+    <string name="reason_pairing_pending">Ponowne połączenie jest niedostępne, dopóki parowanie nie zostanie zatwierdzone w Linuksie i ukończone lub potwierdzone podpisanym odczytem.</string>
+    <string name="reason_expired">To zaproszenie lub oczekujące żądanie wygasło. Pobierz nowy QR; istniejące zatwierdzone powiązanie nadal umożliwia ponowne połączenie.</string>
+    <string name="reason_revoked">Linux cofnął lub zastąpił to żądanie parowania. Wymagany jest nowy QR i zatwierdzenie dokładnego żądania w Linuksie.</string>
+    <string name="reason_already_connected">Sesja jest już dostępna. Użyj opcji Odśwież podpisany stan, aby odczytać jej aktualny stan.</string>
+    <string name="reason_packet_required">Aby włączyć odczyt, wklej podpisany pakiet JSON lub odnośnik parowania.</string>
 </resources>

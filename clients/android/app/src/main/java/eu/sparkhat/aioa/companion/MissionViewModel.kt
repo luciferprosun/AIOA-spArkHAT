@@ -29,6 +29,7 @@ data class MissionUi(
     val providers: JsonObject? = null,
     val invite: PairingInvite? = null, val pairing: PairingRecord? = null,
     val pairingState: String = "DISCONNECTED", val capabilities: JsonObject? = null, val bindingInvalid: Boolean = false,
+    val lastSignedResponseAt: Long? = null, // historical verified v1 proof time, memory only
     val message: UiMessage = UiMessage(R.string.initial)
 )
 fun MissionUi.sessionUnavailable() = copy(enrolled=false)
@@ -58,7 +59,7 @@ class MissionViewModel(app: Application) : AndroidViewModel(app) {
     private fun reconcileBinding() {
         if (owner().reconcile()) {
             generation = generation.invalidate("STALE")
-            ui = ui.copy(pairing=owner().record,bindingInvalid=owner().invalid,invite=null,enrolled=false,capabilities=null,
+            ui = ui.copy(pairing=owner().record,bindingInvalid=owner().invalid,invite=null,enrolled=false,capabilities=null,lastSignedResponseAt=null,
                 freshness=generation,connection="STALE",pairingState="DISCONNECTED")
         }
     }
@@ -75,7 +76,7 @@ class MissionViewModel(app: Application) : AndroidViewModel(app) {
             check(!ui.bindingInvalid) { "HOST_BINDING_INVALID" }
             val invite = PairingProtocol.parseInvite(raw,now())
             owner().record?.host?.requireSameBinding(invite.host)
-            ui = ui.copy(invite=invite,pairingState="CONFIRM_HOST",message=UiMessage(R.string.confirm_notice))
+            ui = ui.copy(invite=invite,lastSignedResponseAt=null,pairingState="CONFIRM_HOST",message=UiMessage(R.string.confirm_notice))
             true
         } catch (_: Exception) { ui = ui.copy(invite=null,message=UiMessage(R.string.packet_invalid)); false }
     }
@@ -202,7 +203,7 @@ class MissionViewModel(app: Application) : AndroidViewModel(app) {
         val epoch = generation.generation
         generation = generation.accept(epoch,observation.validUntilElapsedMs)
         ui = ui.copy(enrolled=true,connection="SIGNED_SESSION",pairingState="CONNECTED",capabilities=client.capabilities,
-            freshness=generation,message=UiMessage(R.string.connected_notice))
+            freshness=generation,lastSignedResponseAt=observation.issuedAtEpochSeconds,message=UiMessage(R.string.connected_notice))
         acceptStatus(observation.data)
         viewModelScope.launch {
             delay((observation.validUntilElapsedMs-Freshness.elapsedMs()).coerceAtLeast(0)+1)
@@ -216,7 +217,7 @@ class MissionViewModel(app: Application) : AndroidViewModel(app) {
         if (ui.busy || pairingJob?.isActive == true) return
         try {
             owner().forget(); client.close(); generation = generation.invalidate("STALE")
-            ui = ui.copy(pairing=null,invite=null,enrolled=false,capabilities=null,bindingInvalid=false,pairingState="DISCONNECTED",
+            ui = ui.copy(pairing=null,invite=null,enrolled=false,capabilities=null,bindingInvalid=false,lastSignedResponseAt=null,pairingState="DISCONNECTED",
                 freshness=generation,connection="DISCONNECTED",message=UiMessage(R.string.forgot_notice))
         } catch (_: Exception) { ui = ui.copy(message=UiMessage(R.string.forget_failed)) }
     }
@@ -236,6 +237,7 @@ class MissionViewModel(app: Application) : AndroidViewModel(app) {
                     generation = generation.accept(epoch,validUntilElapsedMs)
                     ui = ui.copy(freshness=generation,busy=false,connection="SIGNED_SESSION")
                     apply(observation.data)
+                    ui = ui.copy(lastSignedResponseAt=observation.issuedAtEpochSeconds)
                     viewModelScope.launch {
                         delay((validUntilElapsedMs-Freshness.elapsedMs()).coerceAtLeast(0)+1)
                         if (generation.generation == epoch) {
@@ -267,7 +269,7 @@ class MissionViewModel(app: Application) : AndroidViewModel(app) {
     }
     fun connect(origin: String, tlsPin: String, hostKey: String, code: String) {
         if (ui.busy) return
-        ui = ui.copy(enrolled=false,task=null,missions=emptyList(),nextCursor=null,agentTask=null,
+        ui = ui.copy(enrolled=false,lastSignedResponseAt=null,task=null,missions=emptyList(),nextCursor=null,agentTask=null,
             agentMissions=emptyList(),providers=null,connection="UNVERIFIED")
         request({
             owner().requireCurrent()

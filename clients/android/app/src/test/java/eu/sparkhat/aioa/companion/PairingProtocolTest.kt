@@ -131,4 +131,12 @@ class PairingProtocolTest {
         assertEquals("settings",page); assertEquals(2,consumed)
     }
 
+    @Test fun confirmationFingerprintUsesVerifiedPublicIdentityDigest() {
+        val invite = PairingProtocol.parseInvite(Wire.canonical(packet()).toString(Charsets.UTF_8),1001)
+        val expected = Wire.sha(key.public.encoded).take(16).chunked(4).joinToString(" ")
+        assertEquals(expected,invite.host.shortFingerprint)
+        assertFalse(invite.host.shortFingerprint.contains(spki))
+        assertEquals(invite.host.shortFingerprint,invite.host.copy(source="f".repeat(40)).shortFingerprint)
+    }
+
 }

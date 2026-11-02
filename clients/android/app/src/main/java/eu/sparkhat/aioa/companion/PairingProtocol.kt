@@ -7,6 +7,7 @@ import kotlinx.serialization.json.*
 data class TrustedHost(val origin: String, val tlsPin: String, val spki: String,
     val source: String, val capsule: String, val ownerScope: String) {
     val audience get() = Wire.sha(Wire.decode(spki))
+    val shortFingerprint get() = audience.take(16).chunked(4).joinToString(" ")
     fun requireSameBinding(other: TrustedHost) {
         require(origin == other.origin && tlsPin == other.tlsPin && spki == other.spki && ownerScope == other.ownerScope) {
             "HOST_BINDING_CHANGED"

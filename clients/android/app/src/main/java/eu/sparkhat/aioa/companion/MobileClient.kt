@@ -10,7 +10,7 @@ import okhttp3.RequestBody.Companion.toRequestBody
 /** Host owns model credentials and Core authority. This client has no Run port. */
 class PairingFailure(val reason: String) : IllegalStateException(reason)
 class SessionUnavailable : IllegalStateException("FRESH_ENROLLMENT_REQUIRED")
-data class MobileObservation(val data: JsonObject, val validUntilElapsedMs: Long)
+data class MobileObservation(val data: JsonObject, val validUntilElapsedMs: Long, val issuedAtEpochSeconds: Long)
 
 class MobileClient(private val identity: TransportIdentity) {
     private var http: OkHttpClient? = null
@@ -127,7 +127,7 @@ class MobileClient(private val identity: TransportIdentity) {
             Wire.text(proof,"data_sha256") == Wire.sha(Wire.canonical(data)))
         val sessionRemaining = if (expiresAt > now()) expiresAt-now() else 30L
         val safeSeconds = (minOf(30L,Wire.integer(proof,"expires_at")-now(),sessionRemaining)-1).coerceAtLeast(0)
-        return MobileObservation(data,Freshness.elapsedMs()+safeSeconds*1000)
+        return MobileObservation(data,Freshness.elapsedMs()+safeSeconds*1000,Wire.integer(proof,"issued_at"))
     }
     private fun request(method: String, suffix: String, payload: JsonObject? = null, apiBase: String = Wire.BASE): MobileObservation {
         require(apiBase in setOf(Wire.BASE,Wire.VIEW_BASE))

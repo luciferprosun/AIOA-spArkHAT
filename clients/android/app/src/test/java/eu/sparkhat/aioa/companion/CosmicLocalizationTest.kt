@@ -75,4 +75,36 @@ class CosmicLocalizationTest {
         assertEquals(R.string.recover_session,connected.sessionUnavailable().reconnectLabel(1000))
     }
 
+    @Test fun historicalSignedTimeNeverMakesStaleOrRevokedSessionCurrent() {
+        assertNull(MissionUi().lastSignedResponseAt)
+        val observed = connectedUi().copy(lastSignedResponseAt=1700000000)
+        assertEquals("2023-11-14 22:13:20 UTC",formatSignedHostTime(observed.lastSignedResponseAt!!))
+        val stale = observed.copy(freshness=observed.freshness.invalidate("STALE"))
+        val revoked = observed.sessionUnavailable().copy(connection="FRESH_ENROLLMENT_REQUIRED",pairingState="REVOKED")
+        assertEquals(observed.lastSignedResponseAt,stale.lastSignedResponseAt)
+        assertEquals(R.string.state_stale,stale.connectionLabel(1000))
+        assertEquals(observed.lastSignedResponseAt,revoked.lastSignedResponseAt)
+        assertEquals(R.string.state_recovery,revoked.connectionLabel(1000))
+    }
+    @Test fun disabledReasonsTrackBusyMissingPendingExpiredAndRevokedWithoutGrantingPermissions() {
+        val initial = MissionUi()
+        assertNull(initial.primaryDisabledReason(PrimaryAction.CONNECT,1000))
+        assertEquals(R.string.reason_no_pairing,initial.primaryDisabledReason(PrimaryAction.RECONNECT,1000))
+        assertEquals(R.string.reason_no_session,initial.primaryDisabledReason(PrimaryAction.STATUS,1000))
+        val waiting = connectedUi().copy(enrolled=false,pairingState="PENDING",
+            pairing=connectedUi().pairing!!.copy(trusted=false,completeAttempted=false))
+        assertEquals(R.string.reason_pairing_pending,waiting.primaryDisabledReason(PrimaryAction.RECONNECT,1000))
+        assertNull(waiting.primaryDisabledReason(PrimaryAction.PAIRING_STATUS,1000))
+        assertEquals(R.string.reason_expired,waiting.primaryDisabledReason(PrimaryAction.PAIRING_STATUS,3000))
+        assertEquals(R.string.reason_expired,waiting.primaryDisabledReason(PrimaryAction.RECONNECT,3000))
+        assertEquals(R.string.reason_revoked,waiting.copy(pairingState="REVOKED").primaryDisabledReason(PrimaryAction.RECONNECT,1000))
+        for (action in PrimaryAction.values()) {
+            assertEquals(action.name,R.string.reason_busy,waiting.copy(busy=true).primaryDisabledReason(action,1000))
+        }
+        // Durable approval can reconnect after invite expiry; an expired observation can request fresh status.
+        assertNull(connectedUi().primaryDisabledReason(PrimaryAction.RECONNECT,4000))
+        assertNull(connectedUi().copy(freshness=Freshness()).primaryDisabledReason(PrimaryAction.STATUS,4000))
+        assertEquals(R.string.reason_already_connected,connectedUi().primaryDisabledReason(PrimaryAction.PAIRING_STATUS,1000))
+    }
+
 }

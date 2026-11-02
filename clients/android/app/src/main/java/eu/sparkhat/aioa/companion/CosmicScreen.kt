@@ -7,6 +7,11 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import java.time.Instant
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
+import java.util.Locale
+import kotlinx.coroutines.delay
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -74,6 +79,21 @@ internal fun CosmicApp(incomingPacket: String?, consumed: () -> Unit, model: Mis
 private fun CosmicPage(page: String, model: MissionViewModel, advanced: () -> Unit) {
     val ui = model.ui
     val context = LocalContext.current
+    // Used only for invitation expiry controls, never as the displayed host response time.
+    var expiryRefresh by remember { mutableIntStateOf(0) }
+    val nowSeconds = remember(ui,expiryRefresh) { System.currentTimeMillis()/1000 }
+    val nextExpiry = listOfNotNull(ui.invite?.expiresAt,ui.pairing?.expiresAt).filter { it > nowSeconds }.minOrNull()
+    LaunchedEffect(nextExpiry) {
+        if (nextExpiry != null) {
+            delay((nextExpiry-nowSeconds)*1000+1)
+            expiryRefresh++
+        }
+    }
+    val connectReason = ui.primaryDisabledReason(PrimaryAction.CONNECT,nowSeconds)
+    val confirmReason = ui.primaryDisabledReason(PrimaryAction.CONFIRM,nowSeconds)
+    val pairingStatusReason = ui.primaryDisabledReason(PrimaryAction.PAIRING_STATUS,nowSeconds)
+    val reconnectReason = ui.primaryDisabledReason(PrimaryAction.RECONNECT,nowSeconds)
+    val statusReason = ui.primaryDisabledReason(PrimaryAction.STATUS,nowSeconds)
     var manual by remember { mutableStateOf(false) }
     var packet by remember { mutableStateOf("") }
     var diagnostics by remember { mutableStateOf(false) }
@@ -90,7 +110,9 @@ private fun CosmicPage(page: String, model: MissionViewModel, advanced: () -> Un
                 Text(stringResource(R.string.home_title),style=MaterialTheme.typography.headlineSmall)
                 Text(stringResource(R.string.connection_value,stringResource(ui.connectionLabel())))
                 Text(ui.message.localized())
-                Button(enabled=!ui.busy,onClick={
+                Text(ui.lastSignedResponseAt?.let { stringResource(R.string.last_signed_readback,formatSignedHostTime(it)) }
+                    ?: stringResource(R.string.no_signed_readback))
+                Button(enabled=connectReason == null,onClick={
                     try {
                         val options = GmsBarcodeScannerOptions.Builder().setBarcodeFormats(Barcode.FORMAT_QR_CODE).build()
                         GmsBarcodeScanning.getClient(context,options).startScan()
@@ -102,19 +124,24 @@ private fun CosmicPage(page: String, model: MissionViewModel, advanced: () -> Un
                             .addOnFailureListener { model.scannerMessage(R.string.scanner_module); manual=true }
                     } catch (_: Exception) { manual=true; model.scannerMessage(R.string.scanner_unavailable) }
                 },modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)) { Text(stringResource(R.string.connect_action)) }
+                DisabledReason(connectReason)
                 Text(stringResource(R.string.scanner_explanation))
-                TextButton(onClick={ manual=!manual },enabled=!ui.busy,modifier=Modifier.heightIn(min=48.dp)) { Text(stringResource(R.string.paste_action)) }
+                TextButton(onClick={ manual=!manual },enabled=connectReason == null,modifier=Modifier.heightIn(min=48.dp)) { Text(stringResource(R.string.paste_action)) }
                 if (manual) {
                     OutlinedTextField(packet,{ if(it.length<=22000) packet=it },label={ Text(stringResource(R.string.packet_label)) },modifier=Modifier.fillMaxWidth(),enabled=!ui.busy)
-                    Button(onClick={ model.importPacket(packet); packet="" },enabled=!ui.busy && packet.isNotBlank(),modifier=Modifier.heightIn(min=48.dp)) { Text(stringResource(R.string.read_packet)) }
+                    val packetReason = connectReason ?: if(packet.isBlank()) R.string.reason_packet_required else null
+                    Button(onClick={ model.importPacket(packet); packet="" },enabled=packetReason == null,modifier=Modifier.heightIn(min=48.dp)) { Text(stringResource(R.string.read_packet)) }
+                    DisabledReason(packetReason)
                 }
                 ui.invite?.let { invite ->
                     Card(Modifier.fillMaxWidth()) {
                         Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
                             Text(stringResource(R.string.confirm_title),style=MaterialTheme.typography.titleLarge)
                             SelectionContainer { Text(invite.host.origin) }
+                            SelectionContainer { Text(stringResource(R.string.host_fingerprint,invite.host.shortFingerprint)) }
                             Text(stringResource(R.string.confirm_explanation))
-                            Button(onClick=model::confirmHost,enabled=!ui.busy,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)) { Text(stringResource(R.string.confirm_action)) }
+                            Button(onClick=model::confirmHost,enabled=confirmReason == null,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)) { Text(stringResource(R.string.confirm_action)) }
+                            DisabledReason(confirmReason)
                         }
                     }
                 }
@@ -126,13 +153,16 @@ private fun CosmicPage(page: String, model: MissionViewModel, advanced: () -> Un
                         SelectionContainer { Text(stringResource(R.string.sas_value,PairingProtocol.sas(record.requestDigest)),style=MaterialTheme.typography.headlineMedium,modifier=Modifier.semantics { contentDescription=spokenCode }) }
                         Text(stringResource(R.string.sas_explanation))
                     }
-                    Button(onClick=model::readPairingStatus,enabled=!ui.busy && !ui.enrolled && System.currentTimeMillis()/1000 < record.expiresAt,
-                        modifier=Modifier.heightIn(min=48.dp)) { Text(stringResource(R.string.read_pairing)) }
-                    Button(onClick=model::reconnect,enabled=!ui.busy && (record.trusted || record.completeAttempted),modifier=Modifier.heightIn(min=48.dp)) {
-                        Text(stringResource(ui.reconnectLabel()))
-                    }
                 }
-                Button(onClick=model::status,enabled=ui.enrolled && !ui.busy,modifier=Modifier.heightIn(min=48.dp)) { Text(stringResource(R.string.refresh_status)) }
+                Button(onClick=model::readPairingStatus,enabled=pairingStatusReason == null,
+                    modifier=Modifier.heightIn(min=48.dp)) { Text(stringResource(R.string.read_pairing)) }
+                DisabledReason(pairingStatusReason)
+                Button(onClick=model::reconnect,enabled=reconnectReason == null,modifier=Modifier.heightIn(min=48.dp)) {
+                    Text(stringResource(ui.reconnectLabel()))
+                }
+                DisabledReason(reconnectReason)
+                Button(onClick=model::status,enabled=statusReason == null,modifier=Modifier.heightIn(min=48.dp)) { Text(stringResource(R.string.refresh_status)) }
+                DisabledReason(statusReason)
                 Text(stringResource(R.string.chat_unavailable))
             }
             "repositories" -> {
@@ -143,7 +173,8 @@ private fun CosmicPage(page: String, model: MissionViewModel, advanced: () -> Un
                 Text(stringResource(R.string.trust_title),style=MaterialTheme.typography.titleLarge)
                 Text(ui.message.localized())
                 ui.pairing?.let { SelectionContainer { Text(stringResource(R.string.saved_host_value,it.host.origin)) } }
-                Button(onClick=model::revoke,enabled=ui.enrolled && !ui.busy,modifier=Modifier.heightIn(min=48.dp)) { Text(stringResource(R.string.revoke_session)) }
+                Button(onClick=model::revoke,enabled=statusReason == null,modifier=Modifier.heightIn(min=48.dp)) { Text(stringResource(R.string.revoke_session)) }
+                DisabledReason(statusReason)
                 Text(stringResource(R.string.revoke_explanation))
                 OutlinedButton(onClick={ forget=true },enabled=!ui.busy,modifier=Modifier.heightIn(min=48.dp)) { Text(stringResource(R.string.forget_action)) }
                 Text(stringResource(R.string.motion_explanation))
@@ -213,3 +244,48 @@ internal fun MissionUi.connectionLabel(now: Long = Freshness.elapsedMs()): Int =
 internal fun MissionUi.pairingLabel(): Int = stateResource(if (pairingState == "CONNECTED") "PAIRING_SAVED" else pairingState)
 internal fun MissionUi.reconnectLabel(now: Long = Freshness.elapsedMs()): Int =
     if (currentConnectionState(now) in setOf("SIGNED_SESSION","CONNECTED")) R.string.refresh_connection else R.string.recover_session
+
+
+@Composable
+private fun DisabledReason(reason: Int?) {
+    if (reason != null) Text(stringResource(reason),style=MaterialTheme.typography.bodyMedium)
+}
+
+internal enum class PrimaryAction { CONNECT, CONFIRM, PAIRING_STATUS, RECONNECT, STATUS }
+
+/** The same state decision drives each primary control and its adjacent explanation. */
+internal fun MissionUi.primaryDisabledReason(action: PrimaryAction, nowSeconds: Long): Int? {
+    if (busy) return R.string.reason_busy
+    if (bindingInvalid) return R.string.reason_invalid_binding
+    return when(action) {
+        PrimaryAction.CONNECT -> null
+        PrimaryAction.CONFIRM -> when {
+            invite == null -> R.string.reason_no_invite
+            nowSeconds >= invite.expiresAt -> R.string.reason_expired
+            else -> null
+        }
+        PrimaryAction.PAIRING_STATUS -> when {
+            pairing == null -> R.string.reason_no_pairing
+            pairingState == "REVOKED" -> R.string.reason_revoked
+            enrolled -> R.string.reason_already_connected
+            pairingState == "EXPIRED" || nowSeconds >= pairing.expiresAt -> R.string.reason_expired
+            else -> null
+        }
+        PrimaryAction.RECONNECT -> when {
+            pairing == null -> R.string.reason_no_pairing
+            pairingState == "REVOKED" -> R.string.reason_revoked
+            pairing.trusted || pairing.completeAttempted -> null
+            pairingState == "EXPIRED" || nowSeconds >= pairing.expiresAt -> R.string.reason_expired
+            else -> R.string.reason_pairing_pending
+        }
+        PrimaryAction.STATUS -> when {
+            pairingState == "REVOKED" -> R.string.reason_revoked
+            !enrolled -> R.string.reason_no_session
+            else -> null
+        }
+    }
+}
+
+internal fun formatSignedHostTime(epochSeconds: Long): String =
+    DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss 'UTC'",Locale.ROOT)
+        .withZone(ZoneOffset.UTC).format(Instant.ofEpochSecond(epochSeconds))
