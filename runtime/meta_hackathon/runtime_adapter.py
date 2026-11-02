@@ -69,6 +69,7 @@ SOURCE_FILES += ('runtime/mcp_bridge/adapter.py','runtime/mcp_bridge/policy.py',
         'clients/android/app/src/main/java/eu/sparkhat/aioa/companion/AgentMissionView.kt')
 SOURCE_FILES += ('runtime/meta_hackathon/web_agent.py','web/agent_mission.js',
         'clients/android/ANDROID_BUILD_INPUT_MANIFEST.json')
+SOURCE_FILES += ('web/mobile_devices.js','web/mobile_devices_dom.js','web/qr.js')
 
 
 def sealed_source_path(relative, *, root=None):

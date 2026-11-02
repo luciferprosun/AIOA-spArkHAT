@@ -702,3 +702,27 @@ textarea {
 .agent-workspace { min-width: 0; }
 .agent-workspace pre { max-height: 28rem; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
 .agent-workspace .meta-actions { flex-wrap: wrap; }
+
+/* Cosmic device view in the same application; respect text zoom and reduced motion. */
+body.devices-mode { --muted:#CED5E8; --accent-deep:#F1A75D; background:#080D1C; color:#F4F7FF; overflow:auto; height:auto; min-height:100vh; }
+.devices-mode .shell { display:block; height:auto; min-height:100vh; }
+.devices-mode .sidebar, .devices-mode .workspace > :not(#devices-view) { display:none; }
+.devices-mode .workspace { display:block; overflow:visible; height:auto; padding:clamp(16px,4vw,48px); }
+.cosmic-devices { max-width:1000px; margin:auto; }
+.cosmic-devices .panel { background:#13203B; border:1px solid #A58CF5; margin:24px 0; padding:24px; }
+.cosmic-devices button, .cosmic-devices summary, .cosmic-devices label { min-height:48px; }
+.cosmic-devices button { white-space:normal; height:auto; max-width:100%; padding:12px 20px; }
+.cosmic-devices .button-primary { background:#63D9FF; color:#080D1C; }
+.cosmic-devices .button-ghost { background:#13203B; color:#F4F7FF; border:1px solid #63D9FF; }
+.cosmic-devices button:disabled { opacity:.55; cursor:not-allowed; }
+.cosmic-devices :focus-visible { outline:3px solid #F1A75D; outline-offset:4px; }
+.cosmic-devices h1 { font-size:clamp(2rem,5vw,3.6rem); line-height:1.15; }
+.device-actions { display:flex; flex-wrap:wrap; gap:12px; }
+.device-card { padding:16px 0; border-bottom:1px solid #A58CF5; }
+.device-card label { display:flex; align-items:center; gap:12px; margin:12px 0; }
+.device-card input { width:24px; height:24px; flex:none; }
+.device-digest { overflow-wrap:anywhere; font-family:monospace; }
+.device-sas { font-size:1.5rem; font-weight:700; color:#63D9FF; }
+#devices-qr { max-width:100%; height:auto; image-rendering:pixelated; }
+#devices-packet { width:100%; min-height:140px; background:#080D1C; color:#F4F7FF; }
+@media (prefers-reduced-motion:reduce) { .cosmic-devices * { animation:none!important; transition:none!important; } }

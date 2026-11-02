@@ -1,3 +1,4 @@
+if (location.pathname !== '/devices') {
 const state = {
   currentModel: "",
   scenario: null,
@@ -1096,3 +1097,5 @@ agentNode('install').addEventListener('click',()=>agentAction(()=>agentClient.in
 
 setAssistantMode('cpl');
 bootstrap();
+
+}

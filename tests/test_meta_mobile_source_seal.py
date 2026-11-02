@@ -11,7 +11,8 @@ class MobileSourceSealTests(unittest.TestCase):
     def test_mobile_gateway_and_contract_are_part_of_existing_capsule(self):
         required={'runtime/mobile_gateway/wire.py','runtime/mobile_gateway/service.py',
                   'protocol/mobile_mission_v1.json','runtime/mobile_gateway/pairing.py',
-                  'protocol/mobile_pairing_v1.json'}
+                  'protocol/mobile_pairing_v1.json','web/mobile_devices.js',
+                  'web/mobile_devices_dom.js','web/qr.js'}
         self.assertTrue(required <= set(getattr(runtime_adapter,'SOURCE_FILES',())))
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory)
