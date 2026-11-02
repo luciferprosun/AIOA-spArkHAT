@@ -77,7 +77,40 @@ jobs:
       - name: Required isolated Chrome device console regression
         # Hard-fails unless bubblewrap, Chrome and system Python cryptography
         # are available; never launches the browser on the host network.
-        run: /usr/bin/python3 -B tests/mobile_device_console_browser.py
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "${RUNNER_ENVIRONMENT:-}" == github-hosted ]]
+          [[ "${RUNNER_OS:-}" == Linux && "${RUNNER_ARCH:-}" == X64 ]]
+          . /etc/os-release
+          [[ "$ID" == ubuntu && "$VERSION_ID" == 24.04 && "${VERSION_CODENAME:-}" == noble ]]
+          [[ "$(/usr/bin/dpkg --print-architecture)" == amd64 ]]
+          apparmor_enabled="$(cat /sys/module/apparmor/parameters/enabled)"
+          userns_restriction="$(cat /proc/sys/kernel/apparmor_restrict_unprivileged_userns)"
+          printf 'AppArmor enabled=%s userns_restriction=%s\n' "$apparmor_enabled" "$userns_restriction"
+          umask 077
+          policy_file="$(mktemp "$RUNNER_TEMP/aioa-ci-bwrap.XXXXXX")"
+          profile_loaded=0
+          cleanup() {
+            status=$?
+            trap - EXIT
+            if [[ "$profile_loaded" == 1 ]]; then
+              if ! sudo /usr/sbin/apparmor_parser --remove --skip-cache "$policy_file"; then status=1; fi
+            fi
+            if ! rm -- "$policy_file"; then status=1; fi
+            exit "$status"
+          }
+          trap cleanup EXIT
+          cat > "$policy_file" <<'APPARMOR'
+          abi <abi/4.0>,
+          profile aioa-ci-bwrap /usr/bin/bwrap flags=(unconfined) {
+            userns,
+          }
+          APPARMOR
+          echo 'Temporary AppArmor userns profile: aioa-ci-bwrap (/usr/bin/bwrap)'
+          sudo /usr/sbin/apparmor_parser --add --skip-cache "$policy_file"
+          profile_loaded=1
+          /usr/bin/python3 -B tests/mobile_device_console_browser.py
       - name: Full Core suite and native authority regressions
         run: |
           python - <<'PY'
