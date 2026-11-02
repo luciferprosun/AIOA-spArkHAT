@@ -92,6 +92,7 @@ class WebRuntimeService:
         self.lock = Lock()
         self.csrf_token = secrets.token_urlsafe(32)
         self._mobile_console_uid = None
+        self._mobile_console_delivery = None
 
     def mobile_operator_request(self, value):
         """HTTP adapter for an already OS-authenticated private console grant."""
@@ -326,7 +327,7 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
         if not super().parse_request():return False
         if getattr(self.runtime_service,'mobile_only',False):
             route=(self.path.startswith('/api/mobile/v1/') or
-                (self.command=='POST' and self.path=='/api/native-operator') or
+                (self.command=='POST' and self.path in {'/api/native-operator','/devices'}) or
                 (self.command=='GET' and self.path in MOBILE_CONSOLE_ASSETS))
             if (self.command not in {'GET','POST'} or len(self.path)>2048 or
                     not route or any(c in self.path for c in ('?','#','%','\\'))):
@@ -491,6 +492,9 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
     def do_POST(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler API
         parsed = urlparse(self.path)
         if not self._check_local_request():
+            return
+        if parsed.path=='/devices' and getattr(self.runtime_service,'mobile_only',False):
+            self._handle_mobile_console_delivery()
             return
         if parsed.path=='/api/native-operator':
             self._handle_mobile_operator()
@@ -775,6 +779,46 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
                 HTTPStatus.SERVICE_UNAVAILABLE if code == 'META_RUNTIME_NOT_BOUND' else HTTPStatus.BAD_REQUEST)
             self._write_json(status, {'ok': False, 'error': code})
 
+    def _handle_mobile_console_delivery(self):
+        """Redeem only the private launcher's one-time top-level form POST."""
+        import re,time
+        self.close_connection=True
+        service=self._service()
+        length=self.headers.get_all('Content-Length',[])
+        if (self.headers.get_all('Content-Type',[])!=['application/x-www-form-urlencoded']
+                or length!=['52']
+                or any(self.headers.get_all(h,[]) for h in
+                    ('Transfer-Encoding','Forwarded','X-Forwarded-Host','X-Forwarded-Proto'))):
+            self._write_json(400,{'ok':False,'error':'INVALID_CONSOLE_DELIVERY','automatic_retry':False});return
+        self.connection.settimeout(5)
+        try:
+            raw=self.rfile.read(52)
+            if not re.fullmatch(rb'delivery=[A-Za-z0-9_-]{43}',raw):raise ValueError()
+            with service.lock:
+                pending=service._mobile_console_delivery
+                if pending is None or not hmac.compare_digest(raw[9:],pending[0].encode('ascii')):
+                    raise ValueError()
+                # Consume before admission or response: an ambiguous ACK never
+                # permits redelivery. Only a fresh explicit socket launch retries.
+                service._mobile_console_delivery=None
+                if time.monotonic()>=pending[1]:raise ValueError()
+                service.meta_owner.operator_principal()
+                service.meta_owner.public_settings()
+                token=service.csrf_token
+                body=(WEB_DIR/'index.html').read_bytes()
+                marker=b'<script src="/mobile_devices_dom.js"></script>'
+                if body.count(marker)!=1:raise ValueError()
+                carrier=('<input type="hidden" id="aioa-console-credential" value="'+token+'">').encode('ascii')
+                body=body.replace(marker,carrier+marker)
+                service._mobile_console_uid=pending[2]
+        except Exception:
+            self._write_json(403,{'ok':False,'error':'LOCAL_OPERATOR_REQUIRED','automatic_retry':False});return
+        self.send_response(200)
+        self.send_header('Content-Type','text/html; charset=utf-8')
+        self.send_header('Content-Length',str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
     def _handle_mobile_operator(self):
         """Same Core owner operations; a tailnet/loopback address grants nothing."""
         from runtime.mobile_gateway import wire
@@ -859,13 +903,22 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
         hosts = self.headers.get_all('Host', [])
         origins = self.headers.get_all('Origin', [])
         valid_origin = not origins or (len(origins) == 1 and origins[0] in {('https://' if mobile_only else 'http://') + host for host in allowed_hosts})
-        # The private file launcher has an opaque origin. Permit only its public
-        # top-level document GET; this grants no owner token or authority.
+        # The opaque-origin private launcher may only redeem its bounded secret
+        # through this exact top-level form navigation. Operator actions still
+        # require the actual HTTPS Origin and the existing CSRF/Core checks.
+        console_delivery = (mobile_only and self.command=='POST' and self.path=='/devices'
+            and origins==['null']
+            and self.headers.get_all('Sec-Fetch-Site',[])==['cross-site']
+            and self.headers.get_all('Sec-Fetch-Mode',[])==['navigate']
+            and self.headers.get_all('Sec-Fetch-Dest',[])==['document'])
+        valid_origin=valid_origin or console_delivery
+        # Public document navigation grants no owner token or authority.
         console_navigation = (self.command == 'GET' and self.path == '/devices'
             and self.headers.get_all('Sec-Fetch-Mode', []) == ['navigate']
             and self.headers.get_all('Sec-Fetch-Dest', []) == ['document'])
         if (len(hosts) != 1 or hosts[0].lower() not in allowed_hosts or not valid_origin
-                or (self.headers.get('Sec-Fetch-Site') == 'cross-site' and not console_navigation)):
+                or (mobile_only and self.command=='POST' and self.path=='/devices' and not console_delivery)
+                or (self.headers.get('Sec-Fetch-Site') == 'cross-site' and not (console_navigation or console_delivery))):
             self._write_json(HTTPStatus.FORBIDDEN, {'ok': False, 'error': 'local_origin_required'})
             return False
         return True
@@ -982,9 +1035,12 @@ def make_mobile_operator_server(owner, *, service=None):
                     owner.operator_principal()
                     owner.public_settings()  # Requires current source and qualified TLS.
                     with service.lock:
+                        import time
                         service.csrf_token=secrets.token_urlsafe(32)
-                        service._mobile_console_uid=uid
-                        data={'token':service.csrf_token,'url':owner.origin+'/devices'}
+                        service._mobile_console_uid=None
+                        delivery=secrets.token_urlsafe(32)
+                        service._mobile_console_delivery=(delivery,time.monotonic()+30,uid)
+                        data={'delivery':delivery,'url':owner.origin+'/devices'}
                 else:data=owner.operator_request(uid,value)
                 result={'ok':True,'data':data}
                 if len(wire.canonical(result))>wire.BODY_LIMIT:raise wire.MobileError(413)
@@ -1048,7 +1104,7 @@ def _launch_mobile_console(data, runtime_dir):
     """Short-lived private bootstrap; no credential in process args or stdout."""
     import html,re,stat,subprocess,tempfile,time
     from runtime.mobile_gateway import wire
-    if type(data) is not dict or set(data)!={'url','token'} or not re.fullmatch(r'[A-Za-z0-9_-]{43}',data['token']):
+    if type(data) is not dict or set(data)!={'url','delivery'} or not re.fullmatch(r'[A-Za-z0-9_-]{43}',data['delivery']):
         raise ValueError('LOCAL_OPERATOR_REQUIRED')
     parsed=urlparse(data['url'])
     if parsed.path!='/devices' or parsed.query or parsed.fragment or wire.origin('https://'+parsed.netloc)+'/devices'!=data['url']:
@@ -1058,8 +1114,10 @@ def _launch_mobile_console(data, runtime_dir):
         raise ValueError('PRIVATE_RUNTIME_DIRECTORY_REQUIRED')
     with tempfile.TemporaryDirectory(prefix='aioa-console-',dir=directory) as temporary:
         page=Path(temporary)/'open.html'
-        target=html.escape(data['url']+'#operator='+data['token'],quote=True)
-        content='<meta charset="utf-8"><meta name="referrer" content="no-referrer"><meta http-equiv="refresh" content="0;url='+target+'"><title>AIOA</title>'
+        target=html.escape(data['url'],quote=True)
+        content=('<meta charset="utf-8"><meta name="referrer" content="no-referrer"><title>AIOA</title>'
+            '<form method="post" action="'+target+'"><input type="hidden" name="delivery" value="'+data['delivery']+'">'
+            '<noscript><button>Otwórz panel urządzeń</button></noscript></form><script>document.forms[0].submit()</script>')
         with page.open('x') as output:
             os.fchmod(output.fileno(),0o600);output.write(content)
         result=subprocess.run(['/usr/bin/xdg-open',page.as_uri()],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,timeout=10,check=False)

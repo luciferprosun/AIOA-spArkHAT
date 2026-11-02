@@ -94,6 +94,7 @@ test('device panel renders revoked reconnect separately from active legacy acces
   const vm=require('node:vm');
   class Element {
     constructor(tag='div') {this.tag=tag;this.children=[];this.dataset={};this.listeners={};this.textContent='';this.classList={add(){}};}
+    remove(){this.removed=true;this.value='';}
     append(child){this.children.push(child);}
     replaceChildren(){this.children=[];}
     addEventListener(event,fn){this.listeners[event]=fn;}
@@ -103,11 +104,17 @@ test('device panel renders revoked reconnect separately from active legacy acces
   const ids=new Map();const get=id=>{if(!ids.has(id))ids.set(id,new Element());return ids.get(id);};
   const device={device_id:'b'.repeat(64),device_name:'Phone',revoked:true,active_sessions:1,pending_enrollments:1};
   const document={body:new Element('body'),getElementById:get,createElement:tag=>new Element(tag)};
+  const credential=get('aioa-console-credential');credential.value='T'.repeat(43);
+  let consumed=false;
   const client={snapshot:()=>({phase:'READY',pending:[],devices:[device],busy:false}),refresh:async()=>{}};
   vm.runInNewContext(fs.readFileSync(require('node:path').join(__dirname,'../web/mobile_devices_dom.js'),'utf8'),{
-    location:{pathname:'/devices',hash:'#operator='+'T'.repeat(43)},history:{replaceState(){}},document,
-    AIOAMobileDevices:{...api,createDeviceConsole:()=>client},window:{addEventListener(){}},setInterval(){},Date,JSON});
+    location:{pathname:'/devices',hash:'',search:''},history:{replaceState(){}},document,
+    AIOAMobileDevices:{...api,createDeviceConsole:token=>{
+      assert.equal(token,'T'.repeat(43));assert.equal(credential.removed,true);assert.equal(credential.value,'');
+      consumed=true;return client;
+    }},window:{addEventListener(){}},setInterval(){},Date,JSON});
   await Promise.resolve();
+  assert.equal(consumed,true,'memory client must consume and remove the POST document carrier');
   const card=get('devices-trusted').children[0];
   assert.match(card.text(),/Ponowne łączenie odwołane/);
   assert.match(card.text(),/Aktywne sesje: 1/);
@@ -116,4 +123,10 @@ test('device panel renders revoked reconnect separately from active legacy acces
   assert.ok(button,'fresh legacy access must retain a revoke action');
   assert.equal(button.disabled,false);
   assert.equal(button.dataset.deviceFocus,JSON.stringify(['revoke',device.device_id]));
+  // A manually supplied legacy hash cannot supply a credential to a public GET.
+  vm.runInNewContext(fs.readFileSync(require('node:path').join(__dirname,'../web/mobile_devices_dom.js'),'utf8'),{
+    location:{pathname:'/devices',hash:'#operator='+'T'.repeat(43)},history:{replaceState(){}},
+    document:{...document,getElementById:id=>id==='aioa-console-credential'?null:get(id)},
+    AIOAMobileDevices:{...api,createDeviceConsole:()=>assert.fail('URL credential accepted')},
+    window:{addEventListener(){}},setInterval(){},Date,JSON});
 });

@@ -5,11 +5,13 @@
   document.body.classList.add('devices-mode');
   const node = id => document.getElementById('devices-'+id);
   document.getElementById('devices-view').hidden=false;
-  const fragment=location.hash;
+  const carrier=document.getElementById('aioa-console-credential');
+  let credential=carrier?.value || '';
+  if(carrier) {carrier.value='';carrier.remove();}
   history.replaceState(null,'','/devices');
   let client=null;
-  const match=/^#operator=([A-Za-z0-9_-]{43})$/.exec(fragment);
-  if (match) client=AIOAMobileDevices.createDeviceConsole(match[1]);
+  if (/^[A-Za-z0-9_-]{43}$/.test(credential)) client=AIOAMobileDevices.createDeviceConsole(credential);
+  credential='';
   const errors={LOCAL_OPERATOR_REQUIRED:'Lokalna sesja operatora jest wymagana. Otwórz panel ponownie z Linuxa.',
     UNKNOWN_READBACK_REQUIRED:'Wynik nieznany. Odczytaj stan Core przed kolejną operacją. Nie ponowiono automatycznie.',
     READBACK_REQUIRED:'Najpierw odczytaj aktualny stan Core.',REVIEW_REQUIRED:'Stan urządzenia zmienił się. Odczytaj go ponownie.',

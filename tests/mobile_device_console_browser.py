@@ -84,6 +84,7 @@ def worker():
                     return {'pending':pending,'devices':[device]}
                 self.fail('Browser probe attempted a mutation')
             prelude="""
+            window.consoleProbeInitialURL=location.href;
             window.consoleProbeReads=0;
             const originalFetch=window.fetch.bind(window);
             window.fetch=async(...args)=>{const reply=await originalFetch(...args);window.consoleProbeReads++;return reply;};
@@ -101,7 +102,11 @@ def worker():
               const trusted=()=>document.querySelector('#devices-trusted button');
               try {
                 await wait(1);
-                result.bootstrap=location.pathname==='/devices'&&location.hash===''&&pending().length===2;
+                result.bootstrap=location.pathname==='/devices'&&location.hash===''&&location.search===''&&pending().length===2;
+                result.no_url_or_storage_credential=window.consoleProbeInitialURL===location.origin+'/devices'&&
+                  document.referrer===''&&localStorage.length===0&&sessionStorage.length===0&&
+                  !document.getElementById('aioa-console-credential')&&
+                  !document.documentElement.outerHTML.includes('name="delivery"');
                 const saved=document.getElementById('devices-trusted').textContent;
                 result.revoked_reconnect_keeps_legacy_revoke=!!trusted()&&!trusted().disabled&&
                   saved.includes('Ponowne łączenie odwołane')&&saved.includes('Aktywne sesje: 1')&&saved.includes('Oczekujące kody: 1');
@@ -130,8 +135,11 @@ def worker():
             """
             class BrowserHandler(webapp.AOIAWebHandler):
                 def do_GET(handler):
-                    capture.append((handler.path,handler.headers.get('Sec-Fetch-Site')))
+                    capture.append(('GET',handler.path,handler.headers.get('Sec-Fetch-Site')))
                     super().do_GET()
+                def do_POST(handler):
+                    capture.append(('POST',handler.path,handler.headers.get('Sec-Fetch-Site')))
+                    super().do_POST()
                 def send_head(handler):
                     # Test-only scripts reuse allowed asset paths. All document and
                     # owner POST admission checks remain the real handler's checks.
@@ -147,7 +155,9 @@ def worker():
             grant=self.console_socket(service)({'op':'console'})['data']
             real_run=subprocess.run;outputs=[];files=[]
             def launch(argv,**kwargs):
-                self.assertEqual('/usr/bin/xdg-open',argv[0]);self.assertNotIn(grant['token'],str(argv))
+                self.assertEqual('/usr/bin/xdg-open',argv[0])
+                for secret in (grant['delivery'],service.csrf_token):
+                    self.assertNotIn(secret,str(argv));self.assertNotIn(secret,str(kwargs))
                 files.append(Path(argv[1].removeprefix('file://')))
                 result=real_run([chrome,'--headless=new','--no-sandbox','--disable-dev-shm-usage',
                     '--no-proxy-server','--host-resolver-rules=MAP host.example.org 127.0.0.1',
@@ -155,19 +165,47 @@ def worker():
                     '--disable-background-networking','--disable-component-update',
                     '--user-data-dir='+str(self.root/'chrome-profile'),'--dump-dom','--virtual-time-budget=15000',argv[1]],
                     capture_output=True,text=True,timeout=40)
-                outputs.append(result.stdout);self.assertEqual(0,result.returncode,result.stderr[-2000:]);return result
+                outputs.append(result.stdout);self.assertEqual(0,result.returncode,result.stderr[-2000:])
+                persisted={'delivery':[],'csrf':[]}
+                for kind,secret in (('delivery',grant['delivery']),('csrf',service.csrf_token)):
+                    self.assertNotIn(secret,result.stdout);self.assertNotIn(secret,result.stderr)
+                    for path in (self.root/'chrome-profile').rglob('*'):
+                        if not path.is_file():continue
+                        with path.open('rb') as stream:
+                            previous=b''
+                            while chunk:=stream.read(65536):
+                                if secret.encode() in previous+chunk:
+                                    persisted[kind].append(str(path.relative_to(self.root/'chrome-profile')))
+                                    break
+                                previous=chunk[-42:]
+                print('CONSOLE_PROFILE_SCAN '+json.dumps(persisted,sort_keys=True),flush=True)
+                self.assertFalse(persisted['csrf'],'Reusable CSRF persisted in browser profile')
+                # Chrome can retain the spent POST ticket in Sessions. It is
+                # deliberately distinct from the reusable, memory-only CSRF.
+                return result
             with patch.object(service,'mobile_operator_request',side_effect=synthetic_operation),\
                     patch('subprocess.run',side_effect=launch),patch('time.sleep'):
                 webapp._launch_mobile_console(grant,self.root)
             self.assertFalse(files[0].exists())
-            self.assertIn(('/devices','cross-site'),capture)
+            from urllib.parse import urlsplit
+            code,raw=request('POST','/devices',('delivery='+grant['delivery']).encode(),
+                {**self.navigation,'Host':urlsplit(self.app.origin).netloc})
+            self.assertEqual(403,code)
+            self.assertEqual('LOCAL_OPERATOR_REQUIRED',json.loads(raw)['error'])
+            self.assertFalse(service.csrf_token.encode() in raw,'Replay exposed reusable credential')
+            self.assertFalse(grant['delivery'].encode() in raw,'Replay echoed spent delivery ticket')
+            self.assertIn(('POST','/devices','cross-site'),capture)
+            self.assertTrue(all('?' not in path and '#' not in path for _,path,_ in capture))
+            self.assertFalse(any(path=='/api/session' for _,path,_ in capture))
+            for secret in (grant['delivery'],service.csrf_token):self.assertNotIn(secret,repr(capture))
             self.assertEqual(8,len(operations));self.assertTrue(all(x=={'op':'pairing_list'} for x in operations))
             found=re.search(r'<pre id="console-browser-result">(.*?)</pre>',outputs[0],re.S)
             self.assertIsNotNone(found,'Browser probe did not finish')
             result=json.loads(html.unescape(found[1]))
             self.assertEqual(dict.fromkeys(('bootstrap','busy_controls_disabled','pending_focus','device_focus',
                 'reordered_exact_focus','changed_digest_not_focused','removed_request_not_focused',
-                'deliberate_focus_preserved','unknown_suppresses_poll','revoked_reconnect_keeps_legacy_revoke'),True),result)
+                'deliberate_focus_preserved','unknown_suppresses_poll','revoked_reconnect_keeps_legacy_revoke',
+                'no_url_or_storage_credential'),True),result)
 
     suite=unittest.TestSuite([BrowserConsoleTests('test_chrome_private_launcher_bootstrap_and_exact_control_focus')])
     result=unittest.TextTestRunner(verbosity=2).run(suite)
