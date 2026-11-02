@@ -54,3 +54,44 @@ python3 -B -m unittest discover -s tests -p test_meta_mobile_http.py -v
 
 To rzeczywiste podpisane HTTP loopback:0 i istniejący fixture Core/receipts.
 Nie jest to emulator Androida, fizyczny Xiaomi ani prawdziwe API Muse.
+
+## Cosmic pairing (version 0.3.0, code 3)
+
+Home → **Connect my AIOA** opens the official Google Code Scanner, restricted to QR.
+It needs Google Play services; first use may download its scanner module. This app
+requests no CAMERA permission. If unavailable or cancelled, paste the complete
+signed JSON envelope from the trusted Linux display. Optional `aioa://pair#…`
+links contain unpadded base64url of exactly that canonical JSON; no URL is fetched.
+Both inputs require local host confirmation before any pairing request is sent.
+Compare the six-digit SAS on Linux and approve the exact request there.
+
+Native profile capabilities currently allow signed status and session revoke.
+Missions, chat and repository operations remain unavailable when the host does not
+advertise their capability. Existing mission IDs, UNKNOWN readback and explicit
+local handoff are retained. Advanced legacy enrollment is under Settings →
+Diagnostic details. Home, Missions, Repositories and Settings use static Material3
+screens with wrapping text, scrolling and minimum 48dp controls.
+
+Only the public host binding (including owner scope), exact request ID/digest and
+completion-attempt metadata are saved atomically in app-private, backup-excluded
+preferences. The existing AndroidKeyStore alias and package are unchanged. Tokens
+stay in memory. On restart, **Reconnect / recover session** proves the same pinned
+host afresh and performs a new signed challenge/reconnect. New source/capsule
+values are accepted only from that verified proof. No silent identity, TLS pin or
+owner-scope replacement occurs; Forget is an explicit local action. It does not
+revoke Linux device approval. Revoke current session ends only that session; the
+Linux device revoke action is required to deny future reconnects.
+
+An uncertain begin or complete is never automatically repeated. Read pairing
+status uses the saved exact request metadata. Completion is marked durably before
+sending; if its response is lost, explicit recovery rotates a fresh session via a
+new challenge. Pending polling is spaced by at least 3.1 seconds, bounded by the
+invite's 300-second lifetime and 98 automatic polls, and stops on expiry or HTTP429.
+Backgrounding cancels pending polling; transport work is serialized.
+
+`PairingProtocolTest` adds JVM behavior coverage for packet/link safety, signatures,
+expiry/clock, host/scope continuity, response request binding and uncertain/revoked
+completion. These tests have **not run here**: Java/JDK/Android SDK are absent and
+no toolchain or dependencies were downloaded. The Python source suite is only a
+static source check. APK assembly, lint, physical TalkBack/200% font and scanner
+module qualification remain part of the concrete build/device gate.

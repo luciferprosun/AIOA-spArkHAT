@@ -18,28 +18,28 @@
       "sha256": "82688737f158ce5a96f161d4f63ffac33475ecaa8e800c7fce91b988df0bb90f"
     },
     {
-      "bytes": 1209,
+      "bytes": 1453,
       "executable": false,
       "path": "clients/android/NOTICE.md",
-      "sha256": "c4e0c0b1d4ebac4be5ff168b9b32ad32d2c9f3b5e44f57c6fed2c437549be6da"
+      "sha256": "9287049b5404f1418ba29115b0ef9537be5b6d338d7f98326273d2cfedc185fd"
     },
     {
-      "bytes": 3112,
+      "bytes": 5863,
       "executable": false,
       "path": "clients/android/README.md",
-      "sha256": "3373de1b1f2232f6aea135e5e0f1383123bbff91cc7d997dfad817460ab9f582"
+      "sha256": "e4fd3409b6e97413842eb37244e7f02e07d712eb1f835421058f79d25be7239c"
     },
     {
-      "bytes": 1360,
+      "bytes": 1443,
       "executable": false,
       "path": "clients/android/app/build.gradle.kts",
-      "sha256": "0da34d15e3c93203739d8781d162bc3dbb05cdce403dd8436024620ecc82cd08"
+      "sha256": "2a38d0afc53b7cb7b46ef6f74a3c6b80420dd3631c6190759808daaf54d44db6"
     },
     {
-      "bytes": 882,
+      "bytes": 1229,
       "executable": false,
       "path": "clients/android/app/src/main/AndroidManifest.xml",
-      "sha256": "7d9aa3b8434cac4ff632f5157a0584c721fdc013fda7f4fe12904e3856645e0a"
+      "sha256": "2465ca0588e3582c22b1453cd809cdc5dc5545958630ba07138692185483e2f8"
     },
     {
       "bytes": 3803,
@@ -48,34 +48,52 @@
       "sha256": "5a6d34b24716ff0d326f387298a84a82a4b871a946dfe9b2ce1fdb92355f5059"
     },
     {
+      "bytes": 11210,
+      "executable": false,
+      "path": "clients/android/app/src/main/java/eu/sparkhat/aioa/companion/CosmicScreen.kt",
+      "sha256": "8179f89c2a4bdfdc2ff67f8e7102d303088297427f02741ee723cb5b7cd8ba0e"
+    },
+    {
       "bytes": 1233,
       "executable": false,
       "path": "clients/android/app/src/main/java/eu/sparkhat/aioa/companion/Freshness.kt",
       "sha256": "ac8637f5e9dde68f8b057746432c902d48518b399ad0c9fe0057638d07d45e08"
     },
     {
-      "bytes": 12039,
+      "bytes": 12189,
       "executable": false,
       "path": "clients/android/app/src/main/java/eu/sparkhat/aioa/companion/MainActivity.kt",
-      "sha256": "94c842b3eaa1c680b50d1274d4c27105095b8ad729959f4cb75800e203e992ba"
+      "sha256": "deacd00bddd438d3ed87d3fa2a84fb4f74b1b72da3836a938928a46da4025177"
     },
     {
-      "bytes": 12166,
+      "bytes": 22584,
       "executable": false,
       "path": "clients/android/app/src/main/java/eu/sparkhat/aioa/companion/MissionViewModel.kt",
-      "sha256": "3ab167a48d72b63ed372f98fb443adac94373cc1319837cbfb26bd8b82e19c76"
+      "sha256": "6b70f3a2bc864e0c89c6065958e220b82d44679ccad28265ba82669ad4db364e"
     },
     {
-      "bytes": 14960,
+      "bytes": 19288,
       "executable": false,
       "path": "clients/android/app/src/main/java/eu/sparkhat/aioa/companion/MobileClient.kt",
-      "sha256": "d1248b85b4e6f19fb1a9e97675a5974e8f57f9950a9c57271ae6674a4486c1eb"
+      "sha256": "fbde731f41de61fa2019b57c0e3724a69614243de2be1cf9d480e831828101c9"
+    },
+    {
+      "bytes": 7618,
+      "executable": false,
+      "path": "clients/android/app/src/main/java/eu/sparkhat/aioa/companion/PairingProtocol.kt",
+      "sha256": "28e4e2e79fce70369d21ac0b2bfc8a15ad045888442f68d0456262683badf8d6"
     },
     {
       "bytes": 1414,
       "executable": false,
       "path": "clients/android/app/src/main/java/eu/sparkhat/aioa/companion/TransportIdentity.kt",
       "sha256": "35196f93e6220fe1544c05e0b606aead1a5f5030eb32a11c394fab8903cad14f"
+    },
+    {
+      "bytes": 681,
+      "executable": false,
+      "path": "clients/android/app/src/main/java/eu/sparkhat/aioa/companion/TrustedHostStore.kt",
+      "sha256": "c7c7c928cb0d4073f580c3b6708dc75d725b59406d1b9f8d982215b49d2ff09b"
     },
     {
       "bytes": 5442,
@@ -100,6 +118,12 @@
       "executable": false,
       "path": "clients/android/app/src/test/java/eu/sparkhat/aioa/companion/AgentMissionViewTest.kt",
       "sha256": "c57cef9fd4b760592ba42190a1b26ee6a3064f11c539305d8b4afe293ff759cc"
+    },
+    {
+      "bytes": 7431,
+      "executable": false,
+      "path": "clients/android/app/src/test/java/eu/sparkhat/aioa/companion/PairingProtocolTest.kt",
+      "sha256": "9915b2f04dc0cca254dcf49620f94ee6377c3cdc3bb4bcd4afab47d4743d18dd"
     },
     {
       "bytes": 4331,
@@ -185,9 +209,9 @@
     "target_sdk": 36
   },
   "schema": "aioa.android.build-inputs.v1",
-  "source_baseline": "7387d823f38d1bc4ca964788ae11441d29b6ae6e",
+  "source_baseline": "5d0fb00d5b7c68f3f9ea0698e4047829a2636654",
   "status": "APK_BUILD_BLOCKED_TOOLCHAIN",
   "verification_reference": "https://gradle.org/release-checksums/",
-  "version_code": 2,
-  "version_name": "0.2.0-n1"
+  "version_code": 3,
+  "version_name": "0.3.0-cosmic"
 }

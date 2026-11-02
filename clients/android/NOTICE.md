@@ -17,3 +17,7 @@ Zależności są zadeklarowane, nie pobrane: AndroidX/Compose (Apache-2.0),
 Kotlin/kotlinx (Apache-2.0), OkHttp (Apache-2.0), JUnit4 (EPL-1.0).
 Pełny audyt transitive artifacts i notices następuje po rzeczywistym buildzie;
 nie jest dowodem ukończonej kompilacji ani zgody na publikację APK.
+
+Cosmic declares `com.google.android.gms:play-services-code-scanner:16.1.0` for
+Google Code Scanner. No Google binary or generated asset was downloaded or copied
+in this change. Review its resolved artifact notices at the qualified build gate.
