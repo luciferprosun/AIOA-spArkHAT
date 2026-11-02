@@ -75,7 +75,12 @@ class NativePairingHTTPTests(unittest.TestCase):
                 finally:control.shutdown();control.server_close();control_worker.join(3)
                 def request(method,path,headers=None,body=b''):
                     import socket
-                    peer=context.wrap_socket(socket.create_connection(('127.0.0.1',server.server_address[1]),timeout=5),server_hostname='host.example.org')
+                    # Independent client policy at the point of use: the probe
+                    # must not configure or weaken this client's TLS context.
+                    client_context=ssl.create_default_context(cadata=pem.decode())
+                    client_context.minimum_version=ssl.TLSVersion.TLSv1_3
+                    client_context.maximum_version=ssl.TLSVersion.TLSv1_3
+                    peer=client_context.wrap_socket(socket.create_connection(('127.0.0.1',server.server_address[1]),timeout=5),server_hostname='host.example.org')
                     connection=http.client.HTTPConnection('127.0.0.1',server.server_address[1],timeout=5);connection.sock=peer
                     try:
                         connection.request(method,path,headers={'Host':'host.example.org','Content-Type':'application/json',**(headers or {})},body=body)
