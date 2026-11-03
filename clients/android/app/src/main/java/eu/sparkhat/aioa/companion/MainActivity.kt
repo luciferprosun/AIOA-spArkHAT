@@ -1,6 +1,7 @@
 package eu.sparkhat.aioa.companion
 
 import android.os.Bundle
+import android.content.Intent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
@@ -19,25 +20,25 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.serialization.json.*
 
 class MainActivity : ComponentActivity() {
+    private var incomingPacket by mutableStateOf<String?>(null)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent { MaterialTheme { Surface(Modifier.fillMaxSize()) { MissionScreen() } } }
+        if (savedInstanceState == null) consumePairingIntent(intent)
+        setContent { CosmicApp(incomingPacket,consumed={ incomingPacket = null }) }
+    }
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        consumePairingIntent(intent)
+    }
+    private fun consumePairingIntent(delivery: Intent?) {
+        incomingPacket = delivery?.takeIf { it.action == Intent.ACTION_VIEW }?.dataString
+        // Clear Activity's retained intent immediately: recreation cannot replay a consumed VIEW.
+        setIntent(Intent(delivery ?: Intent()).apply { data = null; action = Intent.ACTION_MAIN })
     }
 }
 
 @Composable
-private fun MissionScreen(model: MissionViewModel = viewModel()) {
-    val lifecycle = LocalLifecycleOwner.current.lifecycle
-    DisposableEffect(lifecycle) {
-        val observer = LifecycleEventObserver { _, event ->
-            when (event) {
-                Lifecycle.Event.ON_STOP -> model.background()
-                Lifecycle.Event.ON_RESUME -> model.resume()
-                else -> Unit
-            }
-        }
-        lifecycle.addObserver(observer); onDispose { lifecycle.removeObserver(observer) }
-    }
+internal fun LegacyMissionScreen(model: MissionViewModel, showConnection: Boolean = false) {
     val ui = model.ui
     var origin by remember { mutableStateOf("") }
     var tlsPin by remember { mutableStateOf("") }
@@ -72,8 +73,9 @@ private fun MissionScreen(model: MissionViewModel = viewModel()) {
         Text("Connection: ${ui.connection} • ${ui.freshness.state}")
         Text("Pairing: transport ${if(ui.enrolled) "session" else "none"} • owner NOT_BOUND")
         Text("Billing Unverified • phone cannot approve spending")
-        Text(ui.message)
+        Text(ui.message.localized())
         HorizontalDivider()
+        if (showConnection) {
         Text("Connection and fresh enrollment",style=MaterialTheme.typography.titleMedium)
         OutlinedTextField(origin,{ origin=it },label={ Text("Exact Linux HTTPS origin") },modifier=Modifier.fillMaxWidth(),enabled=!ui.busy)
         OutlinedTextField(tlsPin,{ tlsPin=it },label={ Text("Separate TLS SPKI pin: sha256/…") },modifier=Modifier.fillMaxWidth(),enabled=!ui.busy)
@@ -88,17 +90,19 @@ private fun MissionScreen(model: MissionViewModel = viewModel()) {
         Button(enabled=ui.enrolled && !ui.busy,onClick=model::status) { Text("Signed status / readback") }
         Button(enabled=ui.enrolled && !ui.busy,onClick=model::revoke) { Text("Revoke this session") }
         HorizontalDivider()
+        }
         Text("Agent workspace",style=MaterialTheme.typography.titleMedium)
+        if (!model.agentAvailable) Text(androidx.compose.ui.res.stringResource(R.string.agent_unavailable))
         Text("One Linux Core. Phone proposes and observes; exact approval remains on the host.")
-        Button(enabled=ui.enrolled && !ui.busy,onClick=model::agentStatus) { Text("Signed agent status") }
-        Button(enabled=ui.enrolled && !ui.busy,onClick=model::agentProviders) { Text("Provider choices / evidence") }
+        Button(enabled=model.agentAvailable && !ui.busy,onClick=model::agentStatus) { Text("Signed agent status") }
+        Button(enabled=model.agentAvailable && !ui.busy,onClick=model::agentProviders) { Text("Provider choices / evidence") }
         ui.providers?.get("providers")?.jsonArray?.forEach { item ->
             val provider = item.jsonObject
             Text("${Wire.text(provider,"provider_id")} / ${Wire.text(provider,"model_id")} — ${Wire.text(provider,"availability")}")
         }
-        Button(enabled=ui.enrolled && !ui.busy && ui.freshness.isFresh() && ui.pendingAgent==null,
+        Button(enabled=model.agentAvailable && !ui.busy && ui.freshness.isFresh() && ui.pendingAgent==null,
             onClick=model::proposeSensorBridge) { Text("Propose SensorBridge + tests + README") }
-        Button(enabled=ui.enrolled && !ui.busy && ui.pendingAgent!=null,onClick=model::agentReadback) {
+        Button(enabled=model.agentAvailable && !ui.busy && ui.pendingAgent!=null,onClick=model::agentReadback) {
             Text("Read back pending agent proposal")
         }
         ui.pendingAgent?.let { SelectionContainer { Text("Pending ID: $it — no automatic retry") } }
@@ -110,7 +114,7 @@ private fun MissionScreen(model: MissionViewModel = viewModel()) {
         }
         ui.agentMissions.forEach { item ->
             val id = Wire.text(item,"task_id")
-            OutlinedButton(enabled=ui.enrolled && !ui.busy,onClick={ model.agentSelect(id) }) {
+            OutlinedButton(enabled=model.agentAvailable && !ui.busy,onClick={ model.agentSelect(id) }) {
                 Text(id.take(15)+"… • "+Wire.text(item,"state"))
             }
         }
@@ -131,10 +135,10 @@ private fun MissionScreen(model: MissionViewModel = viewModel()) {
                 Text(name,style=MaterialTheme.typography.titleSmall)
                 SelectionContainer { Text(Wire.text(value.jsonObject,"text")) }
             }
-            Button(enabled=ui.enrolled && !ui.busy,onClick=model::agentEvidence) { Text("Signed readback") }
-            Button(enabled=ui.enrolled && !ui.busy && ui.freshness.canStop(agentState),onClick=model::agentStop) { Text("STOP agent task") }
+            Button(enabled=model.agentAvailable && !ui.busy,onClick=model::agentEvidence) { Text("Signed readback") }
+            Button(enabled=model.agentAvailable && !ui.busy && ui.freshness.canStop(agentState),onClick=model::agentStop) { Text("STOP agent task") }
             val sourceOperation = Wire.text(agent.getValue("operation").jsonObject,"operation_class")
-            Button(enabled=ui.enrolled && !ui.busy && ui.freshness.isFresh() && ui.pendingAgent==null &&
+            Button(enabled=model.agentAvailable && !ui.busy && ui.freshness.isFresh() && ui.pendingAgent==null &&
                 agentState=="AGENT_COMPLETED" && sourceOperation=="SANDBOX_EXEC",onClick=model::proposeGit) {
                 Text("Preview local commit of verified files")
             }
@@ -147,9 +151,9 @@ private fun MissionScreen(model: MissionViewModel = viewModel()) {
             modifier=Modifier.fillMaxWidth(),enabled=!ui.busy)
         val task = ui.task
         val state = task?.let { Wire.text(it,"state") } ?: "NONE"
-        Button(enabled=ui.enrolled && !ui.busy && ui.freshness.isFresh() && ui.pending==null &&
+        Button(enabled=model.supports("preview") && !ui.busy && ui.freshness.isFresh() && ui.pending==null &&
             state !in setOf("PREVIEWED","RUNNING","LIVE_PENDING_AUTHORIZATION"),onClick={ model.preview(instruction) }) { Text("Preview") }
-        Button(enabled=ui.enrolled && !ui.busy && ui.pending!=null,onClick=model::readback) { Text("Read back unresolved proposal") }
+        Button(enabled=model.supports("preview") && !ui.busy && ui.pending!=null,onClick=model::readback) { Text("Read back unresolved proposal") }
         Button(enabled=!ui.busy && ui.pending!=null,onClick={ archiveDialog=true }) { Text("Keep unresolved ID for the operator") }
         if (ui.archived.isNotEmpty()) SelectionContainer {
             Text("Unresolved local IDs — host operator, no Core state change:\n"+ui.archived.joinToString("\n"))
@@ -158,7 +162,7 @@ private fun MissionScreen(model: MissionViewModel = viewModel()) {
             Text("Your tasks — up to 16 per page; signed GET for older tasks")
             ui.missions.forEach { item ->
                 val id = Wire.text(item,"task_id")
-                OutlinedButton(enabled=ui.enrolled && !ui.busy,onClick={ model.selectTask(id) },modifier=Modifier.fillMaxWidth()) {
+                OutlinedButton(enabled=model.supports("evidence") && !ui.busy,onClick={ model.selectTask(id) },modifier=Modifier.fillMaxWidth()) {
                     Text(id.take(15)+"… • "+Wire.text(item,"state"))
                 }
             }
@@ -174,8 +178,8 @@ private fun MissionScreen(model: MissionViewModel = viewModel()) {
                 Text("Last Receipt: ${if(task["receipt"]==JsonNull) "none / unknown" else task["receipt"].toString()}")
             } }
         } else Text("Last receipt: none; no execution evidence")
-        Button(enabled=ui.enrolled && !ui.busy && task!=null,onClick=model::evidence) { Text("Evidence") }
-        Button(enabled=ui.enrolled && !ui.busy && ui.freshness.canStop(state),onClick=model::stop) { Text("STOP your mission") }
+        Button(enabled=model.supports("evidence") && !ui.busy && task!=null,onClick=model::evidence) { Text("Evidence") }
+        Button(enabled=model.supports("stop") && !ui.busy && ui.freshness.canStop(state),onClick=model::stop) { Text("STOP your mission") }
         Text("Chat: Not yet available in this bounded profile.")
         Text("Transport does not grant owner pairing. Reinstallation requires fresh enrollment.")
     }

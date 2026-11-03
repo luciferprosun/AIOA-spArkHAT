@@ -174,26 +174,52 @@ class MobileGateway:
             data=plain(row.payload)
             require(not data['used'] and now < data['expires_at'] and data['device_spki'] == value['device_spki'])
             self._binding(data)
-            rows=tx.scan(RecordKind.OPERATION,limit=128,states=('MOBILE_SESSION',))
-            require(len(rows)<128,429)
-            # Explicit key re-enrollment revokes every old session of this key.
-            for old in rows:
-                if old.payload['device_id'] == device_id and not old.payload['revoked']:
-                    prior=plain(old.payload);prior.pop('schema');prior['revoked']=True
-                    self._record(tx,old.record_id,prior,old,at=now)
             data.pop('schema');data['used']=True
             self._record(tx,key,data,row,at=now)
-            session={'state':'MOBILE_SESSION','device_spki':value['device_spki'],
-                'device_id':device_id,'session_id':session_id,'source_sha':self.source[0],
-                'capsule_digest':self.source[1],'owner_scope_digest':self.owner_scope_digest,
-                'expires_at':now+600,'revoked':False,'nonce_count':0,'audience':self.identity.audience}
-            if self.native_host is not None:session['core_instance_id']=self.native_host.instance_id
-            self._record(tx,'mobile-session-'+token_hash,session,at=now)
-            return session
-        session=self._run(Capability.COMMIT,redeem)
+            return self._issue_session(tx,value['device_spki'],now,token=token,session_id=session_id)
+        self._run(Capability.COMMIT,redeem)
+        session=plain(self._get('mobile-session-'+token_hash).payload)
         request=Session(token_hash,session,value['nonce'],'POST',wire.BASE+'/enrollment/redeem')
         return self._observe(request,{'token':token,'session_id':session_id,'device_id':device_id,
                                     'expires_at':session['expires_at'],'owner_authority':'NOT_BOUND'})
+
+    def _revoke_device_sessions(self,tx,device_id,now):
+        count=0
+        for old in tx.scan(RecordKind.OPERATION,limit=128,states=('MOBILE_SESSION',)):
+            if old.payload['device_id']==device_id and not old.payload['revoked']:
+                prior=plain(old.payload);prior.pop('schema');prior['revoked']=True
+                self._record(tx,old.record_id,prior,old,at=now);count+=1
+        return count
+
+    def _issue_session(self,tx,device_spki,now,*,binding_id=None,token=None,session_id=None):
+        """Shared v1 enrollment/reconnect issuer in the caller's Core transaction."""
+        session_key='mobile-session-device-'+binding_id if binding_id else None
+        old=tx.get(RecordKind.OPERATION,session_key) if session_key else None
+        if old is None:require(len(tx.scan(RecordKind.OPERATION,limit=128,states=('MOBILE_SESSION',)))<128,429)
+        device_id=wire.digest(wire.unbase64(device_spki))
+        self._revoke_device_sessions(tx,device_id,now)
+        token=token or secrets.token_urlsafe(32);session_id=session_id or secrets.token_hex(16)
+        session={'state':'MOBILE_SESSION','device_spki':device_spki,
+            'device_id':device_id,'session_id':session_id,'source_sha':self.source[0],
+            'capsule_digest':self.source[1],'owner_scope_digest':self.owner_scope_digest,
+            'expires_at':now+600,'revoked':False,'nonce_count':0,'audience':self.identity.audience}
+        if self.native_host is not None:session['core_instance_id']=self.native_host.instance_id
+        token_hash=wire.digest(token.encode('ascii'))
+        if binding_id is not None:
+            session.update(binding_id=binding_id,token_hash=token_hash)
+            old=tx.get(RecordKind.OPERATION,session_key)
+        self._record(tx,session_key or 'mobile-session-'+token_hash,session,old,at=now)
+        return {'token':token,'session_id':session_id,'device_id':device_id,
+            'expires_at':session['expires_at'],'owner_authority':'NOT_BOUND'}
+
+    def _session_row(self,token_hash):
+        def lookup(tx):
+            direct=tx.get(RecordKind.OPERATION,'mobile-session-'+token_hash)
+            found=[row for row in tx.scan(RecordKind.OPERATION,limit=128,states=('MOBILE_SESSION',))
+                if row.payload.get('token_hash')==token_hash]
+            require(len(found)+(1 if direct else 0)<=1)
+            return direct or (found[0] if found else None)
+        return self._run(Capability.READ,lookup)
 
     def _authenticate(self, method, path, headers, body):
         auth=headers.get('Authorization','')
@@ -208,12 +234,15 @@ class MobileGateway:
         require(headers.get('X-AIOA-Audience') == self.identity.audience)
         require((headers.get('X-AIOA-Source-SHA'),headers.get('X-AIOA-Capsule')) == self.source,503)
         token_hash=wire.digest(token.encode())
-        key='mobile-session-'+token_hash
-        row=self._get(key)
+        row=self._session_row(token_hash)
         require(row is not None and row.payload.get('schema') == SCHEMA)
+        key=row.record_id
         session=plain(row.payload)
         self._binding(session)
         require(not session['revoked'] and int(self.clock()) < session['expires_at'])
+        if 'binding_id' in session:
+            row_binding=self._get('mobile-device-'+session['binding_id'])
+            require(row_binding is not None and not row_binding.payload['revoked'],403)
         proof=wire.request_proof(method,path,body,token=token,nonce=nonce,issued_at=issued,
             audience=self.identity.audience,source_sha=self.source[0],capsule_digest=self.source[1])
         wire.verify(session['device_spki'],headers.get('X-AIOA-Signature',''),proof)
@@ -331,7 +360,8 @@ class MobileGateway:
         if action=='preview':return self._preview(session,value)
         if action=='revoke':
             require(value=={},400)
-            key='mobile-session-'+session.token_hash
+            row=self._session_row(session.token_hash);require(row is not None)
+            key=row.record_id
             revoked_at=int(self.clock())
             def revoke(tx):
                 row=tx.get(RecordKind.OPERATION,key);data=plain(row.payload);data.pop('schema');data['revoked']=True
@@ -382,11 +412,15 @@ class MobileGateway:
                 require(type(body) is bytes and len(body)<=wire.BODY_LIMIT,413)
                 action,identity=wire.route(method,path)
                 self._ready(allow_pending_tls=action=='capabilities')
-                if self.native_host is not None:require(action in {'capabilities','redeem','status','status_page','revoke'},501)
+                if self.native_host is not None:require(action in {'capabilities','redeem','status','status_page','revoke','pairing_begin','pairing_status','pairing_complete','session_challenge','session_reconnect'},501)
                 if method=='GET':require(not body,400)
                 value=wire.strict_json(body) if method=='POST' else {}
                 if action=='capabilities':return 200,self._host_proof(headers)
                 if action=='redeem':return 200,self._redeem(value)
+                if action.startswith('pairing_') or action in {'session_challenge','session_reconnect'}:
+                    require(self.native_host is not None,503)
+                    from .pairing import Pairing
+                    return 200,Pairing(self).handle(action,path,value)
                 session=self._authenticate(method,path,headers,body)
                 return 200,self._observe(session,self._dispatch(action,identity,session,value))
             except wire.MobileError as exc:

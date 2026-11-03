@@ -30,7 +30,7 @@ def manifest():
     if 'distributionSha256Sum='+DISTRIBUTION not in props:raise ValueError('DISTRIBUTION_SHA_DENIED')
     return {'schema':'aioa.android.build-inputs.v1','status':'APK_BUILD_BLOCKED_TOOLCHAIN',
         'apk_built':False,'phone_installed':False,'package':'eu.sparkhat.aioa.companion',
-        'version_code':2,'version_name':'0.2.0-n1','source_baseline':'7387d823f38d1bc4ca964788ae11441d29b6ae6e',
+        'version_code':3,'version_name':'0.3.0-cosmic','source_baseline':'5d0fb00d5b7c68f3f9ea0698e4047829a2636654',
         'required_toolchain':{'jdk':17,'gradle':'8.13','android_gradle_plugin':'8.11.1',
             'kotlin':'2.2.21','compile_sdk':36,'build_tools':'35.0.0','min_sdk':26,'target_sdk':36},
         'gradle_wrapper_sha256':WRAPPER,'gradle_distribution_sha256':DISTRIBUTION,

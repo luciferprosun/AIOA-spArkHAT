@@ -40,6 +40,7 @@ SOURCE_FILES = ('runtime/meta_hackathon/runtime_adapter.py', 'runtime/meta_hacka
         'lab/archaioa/authority.py', 'lab/archaioa/decision_root.py',
         'runtime/mobile_gateway/__init__.py', 'runtime/mobile_gateway/wire.py',
         'runtime/mobile_gateway/service.py', 'protocol/mobile_mission_v1.json',
+        'runtime/mobile_gateway/pairing.py', 'protocol/mobile_pairing_v1.json',
         'runtime/memory_patch/audit.py', 'runtime/memory_patch/persistence/idempotency.py',
         'runtime/memory_patch/contracts/records.py', 'runtime/memory_patch/contracts/enums.py',
         'clients/android/app/src/main/java/eu/sparkhat/aioa/companion/Wire.kt',
@@ -68,6 +69,11 @@ SOURCE_FILES += ('runtime/mcp_bridge/adapter.py','runtime/mcp_bridge/policy.py',
         'clients/android/app/src/main/java/eu/sparkhat/aioa/companion/AgentMissionView.kt')
 SOURCE_FILES += ('runtime/meta_hackathon/web_agent.py','web/agent_mission.js',
         'clients/android/ANDROID_BUILD_INPUT_MANIFEST.json')
+SOURCE_FILES += ('web/mobile_devices.js','web/mobile_devices_dom.js','web/qr.js')
+SOURCE_FILES += tuple('clients/android/app/src/main/java/eu/sparkhat/aioa/companion/'+name
+        for name in ('PairingProtocol.kt','TrustedHostStore.kt','CosmicScreen.kt'))
+SOURCE_FILES += tuple('clients/android/app/src/main/res/'+name+'/strings.xml'
+        for name in ('values','values-pl'))
 
 
 def sealed_source_path(relative, *, root=None):
@@ -341,6 +347,8 @@ class NativeMobileComposition:
         owner=self.operator_principal()
         if type(value) is not dict or type(value.get('op')) is not str:raise wire.MobileError(400)
         op=value['op']
+        from runtime.mobile_gateway.pairing import Pairing, OWNER_FIELDS
+        if op in OWNER_FIELDS:return Pairing(self.mobile).owner(owner,value)
         fields={'settings':{'op'},'status':{'op'},'enroll':{'op','request_id','device_spki'},'revoke':{'op','device_spki'}}
         if op not in fields or set(value)!=fields[op]:raise wire.MobileError(400)
         if op=='settings':return self.public_settings()
@@ -351,6 +359,8 @@ class NativeMobileComposition:
                 'request_id':value['request_id'],'source_sha':self.source[0]}
         if op=='revoke':
             wire.public_key(value['device_spki']);device=wire.digest(wire.unbase64(value['device_spki']))
+            if self.mobile._get('mobile-device-'+device) is not None:
+                return Pairing(self.mobile).owner(owner,{'op':'pairing_revoke','device_id':device})
             now=int(self.mobile.clock())
             def revoke(tx):
                 count=0

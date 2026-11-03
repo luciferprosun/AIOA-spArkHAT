@@ -177,7 +177,9 @@ def route(method, path):
             if method=='GET' and suffix.startswith(prefix) and pattern.fullmatch(suffix[len(prefix):]):
                 return name,suffix[len(prefix):]
         raise MobileError(501 if suffix in ('/run','/approve','/install','/native_execute','/github_write','/meta_spend') else 400)
-    fixed = {('GET', '/capabilities'): 'capabilities', ('POST', '/enrollment/redeem'): 'redeem',
+    fixed = {('POST','/pairing/begin'):'pairing_begin', ('POST','/pairing/status'):'pairing_status',
+             ('POST','/pairing/complete'):'pairing_complete',('POST','/session/challenge'):'session_challenge',
+             ('POST','/session/reconnect'):'session_reconnect',('GET', '/capabilities'): 'capabilities', ('POST', '/enrollment/redeem'): 'redeem',
              ('GET', '/status'): 'status', ('POST', '/preview'): 'preview',
              ('POST', '/stop'): 'stop', ('POST', '/session/revoke'): 'revoke'}
     if (method, path.removeprefix(BASE)) in fixed and path.startswith(BASE + '/'):

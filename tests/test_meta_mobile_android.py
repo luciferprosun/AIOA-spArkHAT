@@ -16,7 +16,7 @@ class AndroidSourceTests(unittest.TestCase):
     def test_package_revision_and_pinned_build_inputs(self):
         build=(ANDROID/'app/build.gradle.kts').read_text()
         for value in ['eu.sparkhat.aioa.companion','compileSdk = 36','minSdk = 26','targetSdk = 36',
-                      'versionCode = 2','jvmToolchain(17)']:self.assertIn(value,build)
+                      'versionCode = 3','jvmToolchain(17)']:self.assertIn(value,build)
         props=(ANDROID/'gradle/wrapper/gradle-wrapper.properties').read_text()
         self.assertIn('gradle-8.13-bin.zip',props)
         self.assertIn('20f1b1176237254a6fc204d8434196fa11a4cfb387567519c61556e8710aed78',props)
@@ -108,7 +108,13 @@ class AndroidSourceTests(unittest.TestCase):
         self.assertNotIn('.apply()',body)
         for forbidden in ('client.','request(','run_agent','reconcile','approve(','.stop('):
             self.assertNotIn(forbidden,body)
-        self.assertIn('Core UNKNOWN is unchanged',body)
+        self.assertIn('UiMessage(R.string.agent_id_retained)',body)
+        for locale in ('values','values-pl'):
+            messages=ET.parse(ANDROID/'app/src/main/res'/locale/'strings.xml').getroot()
+            retained=messages.find("string[@name='agent_id_retained']")
+            self.assertIsNotNone(retained)
+            self.assertIn('UNKNOWN',retained.text)
+            if locale=='values':self.assertIn('Core UNKNOWN is unchanged',retained.text)
 
     def test_agent_handoff_survives_ui_restart_and_session_revocation(self):
         vm=(SRC/'MissionViewModel.kt').read_text()

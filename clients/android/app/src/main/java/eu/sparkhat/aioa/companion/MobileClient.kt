@@ -8,8 +8,9 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
 
 /** Host owns model credentials and Core authority. This client has no Run port. */
+class PairingFailure(val reason: String) : IllegalStateException(reason)
 class SessionUnavailable : IllegalStateException("FRESH_ENROLLMENT_REQUIRED")
-data class MobileObservation(val data: JsonObject, val validUntilElapsedMs: Long)
+data class MobileObservation(val data: JsonObject, val validUntilElapsedMs: Long, val issuedAtEpochSeconds: Long)
 
 class MobileClient(private val identity: TransportIdentity) {
     private var http: OkHttpClient? = null
@@ -19,6 +20,10 @@ class MobileClient(private val identity: TransportIdentity) {
     private var source = ""
     private var capsule = ""
     private var ownerScope = ""
+    private var tlsPin = ""
+    var capabilities: JsonObject? = null
+        private set
+    val deviceId get() = device
     private var token: String? = null // memory only; never SharedPreferences/SavedState
     private var session = ""
     private var expiresAt = 0L
@@ -30,6 +35,7 @@ class MobileClient(private val identity: TransportIdentity) {
 
     fun configure(origin: String, tlsPin: String, hostKey: String) {
         close(); source = ""; capsule = ""; ownerScope = ""
+        this.tlsPin = tlsPin
         endpoint = Wire.origin(origin); Wire.publicKey(hostKey)
         require(Regex("sha256/[A-Za-z0-9+/]{43}=").matches(tlsPin))
         hostSpki = hostKey; audience = Wire.sha(Wire.decode(hostKey))
@@ -46,6 +52,7 @@ class MobileClient(private val identity: TransportIdentity) {
             if (response.code == 401) { token = null; session = ""; throw SessionUnavailable() }
             if (!response.isSuccessful) error(when(response.code) {
                 403 -> "SCOPE_DENIED"; 409 -> "READBACK_REQUIRED"
+                429 -> throw PairingFailure("RATE_LIMITED_STOP")
                 501 -> "NOT_IMPLEMENTED"; else -> "UNKNOWN_READBACK_REQUIRED"
             })
             val stream = response.body?.byteStream() ?: error("UNKNOWN_READBACK_REQUIRED")
@@ -79,6 +86,7 @@ class MobileClient(private val identity: TransportIdentity) {
         require(Wire.text(caps,"profile") != "OFFLINE_FIXTURE" &&
             Wire.text(caps,"remote_deployment") == "TLS_HOST_VERIFIED") { "REMOTE_DEPLOYMENT_BLOCKED" }
         require(listOf("run","approve","meta_spend","native_execute","install","github_write").all { !Wire.flag(caps,it) })
+        capabilities = caps
         return caps
     }
     fun enroll(code: String): MobileObservation {
@@ -119,10 +127,11 @@ class MobileClient(private val identity: TransportIdentity) {
             Wire.text(proof,"data_sha256") == Wire.sha(Wire.canonical(data)))
         val sessionRemaining = if (expiresAt > now()) expiresAt-now() else 30L
         val safeSeconds = (minOf(30L,Wire.integer(proof,"expires_at")-now(),sessionRemaining)-1).coerceAtLeast(0)
-        return MobileObservation(data,Freshness.elapsedMs()+safeSeconds*1000)
+        return MobileObservation(data,Freshness.elapsedMs()+safeSeconds*1000,Wire.integer(proof,"issued_at"))
     }
     private fun request(method: String, suffix: String, payload: JsonObject? = null, apiBase: String = Wire.BASE): MobileObservation {
         require(apiBase in setOf(Wire.BASE,Wire.VIEW_BASE))
+        if (apiBase == Wire.VIEW_BASE) check(capabilities?.get("profile")?.jsonPrimitive?.content == "OFFLINE_FIXTURE") { "CAPABILITY_UNAVAILABLE" }
         val credential = token ?: throw SessionUnavailable()
         if (now() >= expiresAt) { token = null; session = ""; throw SessionUnavailable() }
         verifyHostProof() // no credential release to an unproven host
@@ -187,11 +196,64 @@ class MobileClient(private val identity: TransportIdentity) {
                 Wire.hex64.matches(Wire.text(receipt,"content_sha256")))
         }
     }
+    private fun currentHost() = TrustedHost(endpoint,tlsPin,hostSpki,source,capsule,ownerScope)
+    /** Clear old bearer first. Only the pinned public binding may admit fresh source/capsule. */
+    fun preparePairing(bound: TrustedHost): TrustedHost {
+        configure(bound.origin,bound.tlsPin,bound.spki)
+        verifyHostProof()
+        return currentHost().also { bound.requireSameBinding(it) }
+    }
+    fun pairingRequest(suffix: String, fields: JsonObject): JsonObject {
+        require(suffix in setOf("/pairing/begin","/pairing/status","/pairing/complete","/session/challenge","/session/reconnect"))
+        val unsigned = buildJsonObject {
+            put("schema","aioa.mobile.pairing-request.v1"); put("device_spki",identity.spki)
+            put("nonce",nonce()); put("issued_at",now()); put("audience",audience); put("origin",endpoint)
+            put("source_sha",source); put("capsule_digest",capsule)
+            fields.forEach { (key,value) -> put(key,value) }
+        }
+        val proof = JsonObject(unsigned + mapOf("method" to JsonPrimitive("POST"),"path" to JsonPrimitive(Wire.BASE+suffix)))
+        return JsonObject(unsigned + ("signature" to JsonPrimitive(identity.sign(proof))))
+    }
+    fun beginDigest(request: JsonObject) = Wire.sha(Wire.canonical(JsonObject(request.filterKeys { it != "signature" } +
+        mapOf("method" to JsonPrimitive("POST"),"path" to JsonPrimitive(Wire.BASE+"/pairing/begin")))))
+    fun pairingExchange(suffix: String, body: JsonObject): JsonObject {
+        val raw = Wire.canonical(body); require(raw.size <= 16384)
+        val response = exchange(Request.Builder().url(endpoint+Wire.BASE+suffix)
+            .post(raw.toRequestBody("application/json".toMediaType())).build())
+        return PairingProtocol.verifyResponse(response,body,suffix,currentHost(),now())
+    }
+    fun pairingStatus(record: PairingRecord): JsonObject {
+        val response = pairingExchange("/pairing/status",pairingRequest("/pairing/status",buildJsonObject { put("request_id",record.requestId) }))
+        PairingProtocol.validateStatus(response,record,device)
+        return response
+    }
+    fun completePairing(record: PairingRecord) {
+        val data = pairingExchange("/pairing/complete",pairingRequest("/pairing/complete",buildJsonObject { put("request_id",record.requestId) }))
+        acceptPairingSession(data)
+    }
+    fun reconnectSession() {
+        val challenge = pairingExchange("/session/challenge",pairingRequest("/session/challenge",buildJsonObject { put("device_id",device) }))
+        PairingProtocol.validateChallenge(challenge,device,now())
+        val data = pairingExchange("/session/reconnect",pairingRequest("/session/reconnect",buildJsonObject {
+            put("device_id",device); put("challenge_id",Wire.text(challenge,"challenge_id")); put("challenge_nonce",Wire.text(challenge,"challenge_nonce"))
+        }))
+        acceptPairingSession(data)
+    }
+    private fun acceptPairingSession(data: JsonObject) {
+        require(data.keys == setOf("token","session_id","device_id","expires_at","owner_authority"))
+        val newToken = Wire.text(data,"token"); val newSession = Wire.text(data,"session_id")
+        val expiry = Wire.integer(data,"expires_at")
+        require(Regex("[A-Za-z0-9_-]{43}").matches(newToken) && Wire.hex32.matches(newSession) &&
+            Wire.text(data,"device_id") == device && expiry in (now()+1)..(now()+600) && Wire.text(data,"owner_authority") == "NOT_BOUND")
+        token = newToken; session = newSession; expiresAt = expiry
+    }
+    fun supports(name: String) = capabilities?.let { it[name]?.jsonPrimitive?.booleanOrNull == true } ?: false
     fun status() = request("GET","/status")
     fun statusPage(cursor: String): MobileObservation {
         require(Wire.taskId.matches(cursor)); return request("GET","/status/pages/$cursor")
     }
     fun preview(proposal: String, instruction: String): MobileObservation {
+        check(supports("preview")) { "CAPABILITY_UNAVAILABLE" }
         require(Wire.hex32.matches(proposal) && instruction.toByteArray().size in 1..2000)
         return request("POST","/preview",buildJsonObject {
             put("proposal_id",proposal); put("instruction",instruction); put("mode","OFFLINE_FIXTURE")
@@ -202,9 +264,11 @@ class MobileClient(private val identity: TransportIdentity) {
         require(Wire.hex32.matches(proposal)); return request("GET","/proposals/$proposal")
     }
     fun evidence(task: String): MobileObservation {
+        check(supports("evidence")) { "CAPABILITY_UNAVAILABLE" }
         require(Wire.taskId.matches(task)); return request("GET","/evidence/$task")
     }
     fun stop(task: String): MobileObservation {
+        check(supports("stop")) { "CAPABILITY_UNAVAILABLE" }
         require(Wire.taskId.matches(task)); return request("POST","/stop",buildJsonObject { put("task_id",task) })
     }
     fun revoke() = request("POST","/session/revoke",buildJsonObject {})
@@ -230,5 +294,5 @@ class MobileClient(private val identity: TransportIdentity) {
     }
     fun agentProviders() = request("GET","/providers",apiBase=Wire.VIEW_BASE)
     fun cancel() { http?.dispatcher?.cancelAll() }
-    fun close() { cancel(); token = null; session = ""; expiresAt = 0; http?.connectionPool?.evictAll(); http = null }
+    fun close() { capabilities = null; cancel(); token = null; session = ""; expiresAt = 0; http?.connectionPool?.evictAll(); http = null }
 }

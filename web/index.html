@@ -96,6 +96,29 @@
       </aside>
 
       <main class="workspace">
+        <section id="devices-view" class="cosmic-devices" lang="pl" hidden aria-labelledby="devices-title">
+          <p class="eyebrow">AIOA spArkHAT · jedno Core</p>
+          <h1 id="devices-title">Twój telefon. Twoje AIOA.</h1>
+          <p>Połącz telefon z tym Linuxem. Porównaj kod na obu ekranach i zatwierdź dokładne urządzenie.</p>
+          <p id="devices-message" role="status" aria-live="polite">Otwórz panel z lokalnego konta operatora.</p>
+          <div class="device-actions">
+            <button id="devices-add" class="button button-primary" disabled>Dodaj telefon</button>
+            <button id="devices-refresh" class="button button-ghost" disabled>Odczytaj stan Core</button>
+            <button id="devices-lock" class="button button-ghost" disabled>Zablokuj panel</button>
+          </div>
+          <section id="devices-invite" class="panel" hidden>
+            <h2>Zeskanuj w aplikacji AIOA</h2>
+            <canvas id="devices-qr" aria-label="Podpisane publiczne zaproszenie do parowania"></canvas>
+            <p id="devices-expiry"></p>
+            <details><summary>Alternatywnie: publiczny pakiet parowania</summary>
+              <p>Wklej cały pakiet w opcji importu zaproszenia na telefonie. Pakiet nie zawiera tokenu sesji ani klucza prywatnego.</p>
+              <textarea id="devices-packet" readonly aria-label="Podpisany publiczny pakiet parowania"></textarea>
+            </details>
+          </section>
+          <section class="panel"><h2>Oczekujące urządzenia</h2><div id="devices-pending"></div></section>
+          <section class="panel"><h2>Zapamiętane urządzenia</h2><div id="devices-trusted"></div></section>
+          <p class="note">Parowanie udostępnia podpisany status. Nie daje zgody na WRITE, wykonanie misji ani płatne modele.</p>
+        </section>
         <header class="topbar">
           <div>
             <p class="eyebrow product-name">AIOA spArkHAT · METAGuardiansSPARK</p>
@@ -482,6 +505,9 @@
       </article>
     </template>
 
+    <script src="/qr.js"></script>
+    <script src="/mobile_devices.js"></script>
+    <script src="/mobile_devices_dom.js"></script>
     <script src="/meta_mission.js"></script>
     <script src="/agent_mission.js"></script>
     <script src="/app.js" type="module"></script>

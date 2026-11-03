@@ -41,6 +41,8 @@ LOOPBACK_HOSTS = {"127.0.0.1", "localhost"}
 PERSONAL_AI_OPERATOR_INTENT = "personal-ai-prepare-v1"
 PERSONAL_AI_APPROVAL_INTENT = "personal-ai-approve-exact-v1"
 PERSONAL_AI_RESUME_INTENT = "personal-ai-resume-v1"
+MOBILE_CONSOLE_ASSETS = frozenset(('/devices','/styles.css','/app.js','/meta_mission.js',
+    '/agent_mission.js','/mobile_devices.js','/mobile_devices_dom.js','/qr.js'))
 
 
 class WebRuntimeService:
@@ -89,6 +91,19 @@ class WebRuntimeService:
         self.native_console = native_console
         self.lock = Lock()
         self.csrf_token = secrets.token_urlsafe(32)
+        self._mobile_console_uid = None
+        self._mobile_console_delivery = None
+
+    def mobile_operator_request(self, value):
+        """HTTP adapter for an already OS-authenticated private console grant."""
+        from runtime.mobile_gateway import wire
+        from runtime.mobile_gateway.pairing import OWNER_FIELDS
+        if (not self.mobile_only or self._mobile_console_uid is None or
+                type(value) is not dict or type(value.get('op')) is not str or
+                value['op'] not in OWNER_FIELDS):
+            raise wire.MobileError(403)
+        # Recheck actual authority, source, expiry and exact operation in Core.
+        return self.meta_owner.operator_request(self._mobile_console_uid, value)
 
     def authority_payload(self):
         from authority_timeline import build_authority_timeline
@@ -311,8 +326,11 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
     def parse_request(self):
         if not super().parse_request():return False
         if getattr(self.runtime_service,'mobile_only',False):
+            route=(self.path.startswith('/api/mobile/v1/') or
+                (self.command=='POST' and self.path in {'/api/native-operator','/devices'}) or
+                (self.command=='GET' and self.path in MOBILE_CONSOLE_ASSETS))
             if (self.command not in {'GET','POST'} or len(self.path)>2048 or
-                    not self.path.startswith('/api/mobile/v1/') or any(c in self.path for c in ('?','#','%','\\'))):
+                    not route or any(c in self.path for c in ('?','#','%','\\'))):
                 self.send_error(404);return False
         return True
 
@@ -330,6 +348,10 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
     def do_GET(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler API
         parsed = urlparse(self.path)
         if not self._check_local_request():
+            return
+        if parsed.path=='/devices':
+            self.path='/index.html'
+            super().do_GET()
             return
         if parsed.path.startswith('/api/mobile/'):
             self._handle_mobile('GET')
@@ -470,6 +492,12 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
     def do_POST(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler API
         parsed = urlparse(self.path)
         if not self._check_local_request():
+            return
+        if parsed.path=='/devices' and getattr(self.runtime_service,'mobile_only',False):
+            self._handle_mobile_console_delivery()
+            return
+        if parsed.path=='/api/native-operator':
+            self._handle_mobile_operator()
             return
         if parsed.path.startswith('/api/mobile/'):
             self._handle_mobile('POST')
@@ -751,6 +779,74 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
                 HTTPStatus.SERVICE_UNAVAILABLE if code == 'META_RUNTIME_NOT_BOUND' else HTTPStatus.BAD_REQUEST)
             self._write_json(status, {'ok': False, 'error': code})
 
+    def _handle_mobile_console_delivery(self):
+        """Redeem only the private launcher's one-time top-level form POST."""
+        import re,time
+        self.close_connection=True
+        service=self._service()
+        length=self.headers.get_all('Content-Length',[])
+        if (self.headers.get_all('Content-Type',[])!=['application/x-www-form-urlencoded']
+                or length!=['52']
+                or any(self.headers.get_all(h,[]) for h in
+                    ('Transfer-Encoding','Forwarded','X-Forwarded-Host','X-Forwarded-Proto'))):
+            self._write_json(400,{'ok':False,'error':'INVALID_CONSOLE_DELIVERY','automatic_retry':False});return
+        self.connection.settimeout(5)
+        try:
+            raw=self.rfile.read(52)
+            if not re.fullmatch(rb'delivery=[A-Za-z0-9_-]{43}',raw):raise ValueError()
+            with service.lock:
+                pending=service._mobile_console_delivery
+                if pending is None or not hmac.compare_digest(raw[9:],pending[0].encode('ascii')):
+                    raise ValueError()
+                # Consume before admission or response: an ambiguous ACK never
+                # permits redelivery. Only a fresh explicit socket launch retries.
+                service._mobile_console_delivery=None
+                if time.monotonic()>=pending[1]:raise ValueError()
+                service.meta_owner.operator_principal()
+                service.meta_owner.public_settings()
+                token=service.csrf_token
+                body=(WEB_DIR/'index.html').read_bytes()
+                marker=b'<script src="/mobile_devices_dom.js"></script>'
+                if body.count(marker)!=1:raise ValueError()
+                carrier=('<input type="hidden" id="aioa-console-credential" value="'+token+'">').encode('ascii')
+                body=body.replace(marker,carrier+marker)
+                service._mobile_console_uid=pending[2]
+        except Exception:
+            self._write_json(403,{'ok':False,'error':'LOCAL_OPERATOR_REQUIRED','automatic_retry':False});return
+        self.send_response(200)
+        self.send_header('Content-Type','text/html; charset=utf-8')
+        self.send_header('Content-Length',str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _handle_mobile_operator(self):
+        """Same Core owner operations; a tailnet/loopback address grants nothing."""
+        from runtime.mobile_gateway import wire
+        from runtime.core_admission import AdmissionError
+        self.close_connection=True
+        service=self._service()
+        if (not service.mobile_only or
+                self.headers.get_all('Origin',[])!=[service.meta_owner.origin] or
+                any(self.headers.get(h) for h in ('Transfer-Encoding','Forwarded','X-Forwarded-Host','X-Forwarded-Proto')) or
+                len(self.headers.get_all('Content-Length',[]))!=1 or
+                self.headers.get_all('Content-Type',[])!=['application/json']):
+            self._write_json(403,{'ok':False,'error':'LOCAL_OPERATOR_REQUIRED','automatic_retry':False});return
+        if not self._check_token():return
+        payload=self._read_json_body()
+        if payload is None:return
+        try:
+            # Serialize grant rotation with admission and mutation dispatch.
+            with service.lock:
+                if not self._check_token():return
+                data=service.mobile_operator_request(payload)
+            self._write_json(200,{'ok':True,'data':data})
+        except wire.MobileError as error:
+            self._write_json(error.status,{'ok':False,'error':error.code,'automatic_retry':False})
+        except AdmissionError:
+            self._write_json(403,{'ok':False,'error':'NATIVE_OPERATOR_DENIED_OR_UNKNOWN','automatic_retry':False})
+        except Exception:
+            self._write_json(503,{'ok':False,'error':'UNKNOWN_READBACK_REQUIRED','automatic_retry':False})
+
     def _handle_mobile(self, method):
         """Exact raw-body signature, independent of the loopback UI credential."""
         from runtime.mobile_gateway import wire
@@ -807,8 +903,22 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
         hosts = self.headers.get_all('Host', [])
         origins = self.headers.get_all('Origin', [])
         valid_origin = not origins or (len(origins) == 1 and origins[0] in {('https://' if mobile_only else 'http://') + host for host in allowed_hosts})
+        # The opaque-origin private launcher may only redeem its bounded secret
+        # through this exact top-level form navigation. Operator actions still
+        # require the actual HTTPS Origin and the existing CSRF/Core checks.
+        console_delivery = (mobile_only and self.command=='POST' and self.path=='/devices'
+            and origins==['null']
+            and self.headers.get_all('Sec-Fetch-Site',[])==['cross-site']
+            and self.headers.get_all('Sec-Fetch-Mode',[])==['navigate']
+            and self.headers.get_all('Sec-Fetch-Dest',[])==['document'])
+        valid_origin=valid_origin or console_delivery
+        # Public document navigation grants no owner token or authority.
+        console_navigation = (self.command == 'GET' and self.path == '/devices'
+            and self.headers.get_all('Sec-Fetch-Mode', []) == ['navigate']
+            and self.headers.get_all('Sec-Fetch-Dest', []) == ['document'])
         if (len(hosts) != 1 or hosts[0].lower() not in allowed_hosts or not valid_origin
-                or self.headers.get('Sec-Fetch-Site') == 'cross-site'):
+                or (mobile_only and self.command=='POST' and self.path=='/devices' and not console_delivery)
+                or (self.headers.get('Sec-Fetch-Site') == 'cross-site' and not (console_navigation or console_delivery))):
             self._write_json(HTTPStatus.FORBIDDEN, {'ok': False, 'error': 'local_origin_required'})
             return False
         return True
@@ -899,12 +1009,14 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
         self.wfile.write(body)
 
 
-def make_mobile_operator_server(owner):
+def make_mobile_operator_server(owner, *, service=None):
     """Private OS-peer authenticated transport of this same Core instance."""
     import socket,socketserver,stat,struct
     from runtime.core_admission import AdmissionError
     from runtime.mobile_gateway import wire
     owner.operator_principal()
+    if service is not None and (not service.mobile_only or service.meta_owner is not owner
+            or service.mobile_gateway is not owner.mobile):raise AdmissionError()
     path=owner.root/'operator.sock'
     if path.exists() or path.is_symlink():
         info=path.lstat()
@@ -918,7 +1030,18 @@ def make_mobile_operator_server(owner):
                 if uid!=owner.uid:raise AdmissionError()
                 raw=self.rfile.readline(wire.BODY_LIMIT+1)
                 if not raw.endswith(b'\n'):raise wire.MobileError(400)
-                data=owner.operator_request(uid,wire.strict_json(raw))
+                value=wire.strict_json(raw)
+                if value=={'op':'console'} and service is not None:
+                    owner.operator_principal()
+                    owner.public_settings()  # Requires current source and qualified TLS.
+                    with service.lock:
+                        import time
+                        service.csrf_token=secrets.token_urlsafe(32)
+                        service._mobile_console_uid=None
+                        delivery=secrets.token_urlsafe(32)
+                        service._mobile_console_delivery=(delivery,time.monotonic()+30,uid)
+                        data={'delivery':delivery,'url':owner.origin+'/devices'}
+                else:data=owner.operator_request(uid,value)
                 result={'ok':True,'data':data}
                 if len(wire.canonical(result))>wire.BODY_LIMIT:raise wire.MobileError(413)
             except wire.MobileError as error:result={'ok':False,'error':error.code,'automatic_retry':False}
@@ -977,6 +1100,31 @@ def make_server(
     return server
 
 
+def _launch_mobile_console(data, runtime_dir):
+    """Short-lived private bootstrap; no credential in process args or stdout."""
+    import html,re,stat,subprocess,tempfile,time
+    from runtime.mobile_gateway import wire
+    if type(data) is not dict or set(data)!={'url','delivery'} or not re.fullmatch(r'[A-Za-z0-9_-]{43}',data['delivery']):
+        raise ValueError('LOCAL_OPERATOR_REQUIRED')
+    parsed=urlparse(data['url'])
+    if parsed.path!='/devices' or parsed.query or parsed.fragment or wire.origin('https://'+parsed.netloc)+'/devices'!=data['url']:
+        raise ValueError('LOCAL_OPERATOR_REQUIRED')
+    directory=Path(runtime_dir);info=directory.lstat()
+    if not stat.S_ISDIR(info.st_mode) or info.st_uid!=os.getuid() or info.st_mode&0o077:
+        raise ValueError('PRIVATE_RUNTIME_DIRECTORY_REQUIRED')
+    with tempfile.TemporaryDirectory(prefix='aioa-console-',dir=directory) as temporary:
+        page=Path(temporary)/'open.html'
+        target=html.escape(data['url'],quote=True)
+        content=('<meta charset="utf-8"><meta name="referrer" content="no-referrer"><title>AIOA</title>'
+            '<form method="post" action="'+target+'"><input type="hidden" name="delivery" value="'+data['delivery']+'">'
+            '<noscript><button>Otwórz panel urządzeń</button></noscript></form><script>document.forms[0].submit()</script>')
+        with page.open('x') as output:
+            os.fchmod(output.fileno(),0o600);output.write(content)
+        result=subprocess.run(['/usr/bin/xdg-open',page.as_uri()],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,timeout=10,check=False)
+        if result.returncode:raise ValueError('BROWSER_OPEN_FAILED')
+        time.sleep(30)  # Browser reads the RAM-backed file asynchronously; then erase it.
+
+
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Run the local AIOA spArkHAT web interface (formerly AOIA-Core).")
     mode = parser.add_mutually_exclusive_group()
@@ -985,7 +1133,7 @@ def _parser() -> argparse.ArgumentParser:
     mode.add_argument('--meta-offline', action='store_true', help='One existing UI, isolated Meta fixture, zero spend')
     mode.add_argument('--unified-offline', action='store_true', help='One app: Core-gated local recipes, MCP and signed mobile fixture; no paid calls')
     mode.add_argument('--mobile-native',action='store_true',help='System-authenticated private mobile status only; no model, task execution or fixture')
-    mode.add_argument('--mobile-operator',choices=('settings','enroll','status','revoke'),help='Private native operator socket; code stays local')
+    mode.add_argument('--mobile-operator',choices=('settings','enroll','status','revoke','console'),help='Private native operator socket; code stays local')
     mode.add_argument('--meta-live-one-shot', action='store_true', help='Inspect the explicit one-shot LIVE gate; never implies owner GO')
     parser.add_argument('--state-dir', help='Private state directory for the explicit Meta offline profile')
     parser.add_argument('--mobile-origin')
@@ -1006,6 +1154,18 @@ def main() -> None:
         if args.mobile_operator=='enroll':value['request_id']=secrets.token_hex(16)
         try:result=mobile_operator_client(args.state_dir,value)
         except Exception:result={'ok':False,'error':'UNKNOWN_NO_AUTOMATIC_RETRY','automatic_retry':False}
+        if args.mobile_operator=='console':
+            if not result.get('ok'):raise SystemExit('LOCAL_OPERATOR_REQUIRED')
+            try:
+                import subprocess
+                runtime_dir=Path('/run/user')/str(os.getuid())
+                check=subprocess.run(['/usr/bin/findmnt','--noheadings','--output','FSTYPE','--target',str(runtime_dir)],
+                    capture_output=True,text=True,timeout=5,check=True)
+                if check.stdout.strip()!='tmpfs':raise ValueError('PRIVATE_RAM_RUNTIME_REQUIRED')
+                _launch_mobile_console(result['data'],runtime_dir)
+            except Exception:raise SystemExit('CONSOLE_OPEN_FAILED_NO_AUTOMATIC_RETRY') from None
+            print('AIOA_DEVICE_CONSOLE_OPENED',flush=True)
+            return
         print(json.dumps(result,ensure_ascii=False),flush=True)
         return
     if args.mobile_native:
@@ -1020,7 +1180,7 @@ def main() -> None:
             server=make_server(args.host,args.port,service,tls_certificate=Path(args.mobile_tls_certificate),tls_key=Path(args.mobile_tls_key))
             worker=threading.Thread(target=server.serve_forever,daemon=True);worker.start()
             owner.qualify_tls(server.server_address[1])
-            control=make_mobile_operator_server(owner)
+            control=make_mobile_operator_server(owner,service=service)
             threading.Thread(target=control.serve_forever,daemon=True).start()
             print(json.dumps({'status':'NATIVE_MOBILE_HOST_READY',**owner.public_settings()}),flush=True)
             threading.Event().wait()
