@@ -186,13 +186,14 @@ class FakeTransaction:
     def get(self, kind, record_id):
         return self.snapshot.get(self._key(kind, record_id))
 
-    def scan(self, kind, *, limit, states):
+    def scan(self, kind, *, limit, states, operation_kind=None):
         records = [
             record
             for (scope, record_kind, _), record in self.snapshot.items()
             if scope == self.context.scope.binding()
             and record_kind is kind
             and (not states or record.payload.get("state") in states)
+            and (operation_kind is None or record.payload.get('operation_kind') == operation_kind)
         ]
         return tuple(sorted(records, key=lambda item: item.record_id)[:limit])
 

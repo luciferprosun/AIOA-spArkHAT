@@ -174,7 +174,7 @@ commit or refund it. A lost marker ACK never gives send permission on replay.
                 'kill':False, 'last_now':None, 'reservations':{}, 'circuits':{}}
 
     def _load(self, tx):
-        records = tx.scan(RecordKind.OPERATION, limit=1024)
+        records = tx.scan(RecordKind.OPERATION, limit=1024, operation_kind=KIND)
         _deny(len(records) < 1024, 'HISTORY_QUOTA')
         selected=[]
         for record in records:

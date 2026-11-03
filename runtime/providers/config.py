@@ -151,6 +151,12 @@ class ProviderManager:
             raise MetaAPIError('META_API_LIVE_BLOCKED_OWNER_GO')
         return self._meta_provider.plan(request, cancel, live_binding=live_binding)
 
+    def generate_meta_chat(self, request, cancel, *, live_binding=None):
+        from .meta_model_api import MetaAPIError
+        if self._meta_provider is None:
+            raise MetaAPIError('META_API_LIVE_BLOCKED_OWNER_GO')
+        return self._meta_provider.chat_text(request,cancel,live_binding=live_binding)
+
     def strict_status(self) -> dict:
         provider = "openrouter"
         if self.fixture_base_url is None and self.current_model.startswith("nebius/"):

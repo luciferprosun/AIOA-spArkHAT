@@ -107,8 +107,8 @@ class CockroachTransaction:
     def get(self, kind, record_id):
         return self._repository.get(kind, record_id)
 
-    def scan(self, kind, *, limit, states):
-        return self._repository.scan(kind, limit=limit, states=states)
+    def scan(self, kind, *, limit, states, operation_kind=None):
+        return self._repository.scan(kind, limit=limit, states=states, operation_kind=operation_kind)
 
     def insert(self, record):
         self._repository.insert(record)
