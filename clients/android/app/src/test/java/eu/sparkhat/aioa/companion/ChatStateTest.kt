@@ -34,4 +34,21 @@ class ChatStateTest {
         assertThrows(Exception::class.java) {ChatView.decode(value,"c".repeat(64),"a".repeat(32))}
         assertThrows(Exception::class.java) {ChatView.decode(value,"c".repeat(64),"9".repeat(32))}
     }
+
+    private fun view(id:String,state:String="SUCCEEDED")=ChatView(id,"b".repeat(32),state,"prompt","reply","d".repeat(64),"e".repeat(40),null,null,state=="SUCCEEDED")
+    @Test fun restoredCompletedThreadUsesOnlyGetAndShowsLinuxAddedTurn() {
+        val restored=ChatUi(threadId="b".repeat(32))
+        assertEquals(listOf(ChatReadTarget("THREAD","b".repeat(32))),restored.readbackPlan())
+        val updated=restored.acceptThread(listOf(view("a".repeat(32)),view("c".repeat(32))),100)
+        assertEquals(2,updated.messages.size);assertNull(updated.pendingId)
+        assertEquals("c".repeat(32),updated.messages.last().requestId)
+    }
+    @Test fun unresolvedRequestRemainsIndependentOfTruncatedThreadHistory() {
+        val pending=ChatUi(threadId="b".repeat(32),pendingId="a".repeat(32),state="UNKNOWN")
+        assertEquals(listOf(ChatReadTarget("REQUEST","a".repeat(32)),ChatReadTarget("THREAD","b".repeat(32))),pending.readbackPlan())
+        val read=pending.acceptThread(listOf(view("c".repeat(32))),100)
+        assertEquals("a".repeat(32),read.pendingId);assertTrue(read.readbackOnly)
+        val exact=read.accept(view("a".repeat(32)),101)
+        assertNull(exact.pendingId)
+    }
 }

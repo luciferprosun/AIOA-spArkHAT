@@ -43,6 +43,9 @@ data class ChatView(val requestId:String,val threadId:String,val state:String,va
 }
 
 /** A pending ID is a readback hint, never a stored prompt or retry permission. */
+data class ChatReadTarget(val kind:String,val id:String) {
+    init {require(kind in setOf("REQUEST","THREAD") && Wire.hex32.matches(id))}
+}
 data class ChatUi(val threadId:String?=null,val pendingId:String?=null,val messages:List<ChatView> = emptyList(),
     val state:String="IDLE",val error:String?=null,val lastSignedAt:Long?=null) {
     val readbackOnly get()=pendingId!=null
@@ -50,6 +53,18 @@ data class ChatUi(val threadId:String?=null,val pendingId:String?=null,val messa
         pendingId==null && draft.isNotBlank() && draft.toByteArray(Charsets.UTF_8).size in 1..2000
     fun start(id:String):ChatUi {require(Wire.hex32.matches(id) && pendingId==null);return copy(pendingId=id,state="SENDING",error=null)}
     fun uncertain(code:String="CHAT_ACK_UNKNOWN")=copy(state="UNKNOWN",error=code)
+    fun readbackPlan():List<ChatReadTarget> = buildList {
+        pendingId?.let {add(ChatReadTarget("REQUEST",it))}
+        threadId?.let {add(ChatReadTarget("THREAD",it))}
+    }
+    fun acceptThread(views:List<ChatView>,at:Long):ChatUi {
+        require(views.size<=20 && views.all {it.threadId==threadId})
+        for(view in views)messages.find {it.requestId==view.requestId}?.let {require(it.requestDigest==view.requestDigest)}
+        val exact=pendingId?.let {id->views.find {it.requestId==id}}
+        val pending=if(exact!=null && exact.state in setOf("SUCCEEDED","FAILED","STOPPED")) null else pendingId
+        return copy(messages=views,pendingId=pending,lastSignedAt=at,
+            state=if(pending!=null) exact?.state ?: state else views.lastOrNull()?.state ?: "IDLE",error=exact?.error)
+    }
     fun accept(view:ChatView,at:Long):ChatUi {
         require(pendingId==null || pendingId==view.requestId)
         val pending=view.state in setOf("PENDING_OWNER","RUNNING","UNKNOWN")

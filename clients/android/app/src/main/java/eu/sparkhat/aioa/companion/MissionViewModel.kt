@@ -330,27 +330,37 @@ class MissionViewModel(app: Application) : AndroidViewModel(app) {
             ui=ui.copy(chat=ui.chat.uncertain("LOCAL_BINDING_SAVE_FAILED"));return
         }
         ui=ui.copy(chat=ui.chat.start(id).copy(threadId=thread))
-        chatRequest({client.chatSend(thread,id,prompt)},id)
+        chatRequest({listOf(client.chatSend(thread,id,prompt))},id)
     }
     fun chatRefresh() {
-        val id=ui.chat.pendingId ?: ui.chat.messages.lastOrNull()?.requestId ?: return
-        chatRequest({client.chatRead(id)},id)
+        val plan=ui.chat.readbackPlan();if(plan.isEmpty())return
+        chatRequest({plan.map {target->
+            if(target.kind=="REQUEST") client.chatRead(target.id) else client.chatThread(target.id)
+        }})
     }
     fun chatStop() {
         val id=ui.chat.pendingId ?: return
         if(ui.chat.state !in setOf("PENDING_OWNER","RUNNING"))return
-        chatRequest({client.chatStop(id)},id)
+        chatRequest({listOf(client.chatStop(id))},id)
     }
-    private fun chatRequest(op:()->MobileObservation,id:String) {
+    private fun chatRequest(op:()->List<MobileObservation>,id:String?=null) {
         if(!foreground || ui.busy || recoveryWork.busy || !chatAvailable)return
         val ticket=Any();recoveryWork.start(ticket)
         ui=ui.copy(busy=true,chat=ui.chat.copy(error=null))
         requestJob=viewModelScope.launch {
             try {
-                val observation=withContext(Dispatchers.IO) {transportMutex.withLock {owner().requireCurrent();op().also {owner().requireCurrent()}}}
+                val observations=withContext(Dispatchers.IO) {transportMutex.withLock {owner().requireCurrent();op().also {owner().requireCurrent()}}}
                 if(!foreground)throw CancellationException("BACKGROUND_CHAT_READBACK")
-                val view=ChatView.decode(observation.data,client.deviceId,id)
-                ui=ui.copy(busy=false,chat=ui.chat.accept(view,observation.issuedAtEpochSeconds))
+                for(observation in observations) {
+                    if(Wire.text(observation.data,"schema")=="aioa.mobile.chat-thread.v1") {
+                        val views=observation.data.getValue("messages").jsonArray.map {ChatView.decode(it.jsonObject,client.deviceId)}
+                        ui=ui.copy(chat=ui.chat.acceptThread(views,observation.issuedAtEpochSeconds))
+                    } else {
+                        val view=ChatView.decode(observation.data,client.deviceId,id)
+                        ui=ui.copy(chat=ui.chat.accept(view,observation.issuedAtEpochSeconds))
+                    }
+                }
+                ui=ui.copy(busy=false)
                 if(ui.chat.pendingId==null)check(prefs.edit().remove("chat_pending").commit())
                 // A signed chat observation never refreshes status/task badges.
             } catch(cancelled:CancellationException) {

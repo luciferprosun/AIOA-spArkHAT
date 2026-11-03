@@ -9,6 +9,7 @@ import os
 from pathlib import Path
 import re
 import select
+import signal
 import stat
 import subprocess
 import sys
@@ -32,10 +33,26 @@ def launch(data,runtime_dir):
     child=subprocess.Popen([sys.executable,'-B','-m','runtime.mobile_gateway.chrome_console'],
         stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,start_new_session=True,
         cwd=Path(__file__).resolve().parents[2])
-    child.stdin.write(json.dumps(data).encode()+b'\n');child.stdin.close()
-    if not select.select([child.stdout],[],[],30)[0]:raise ValueError('CONSOLE_OPEN_UNKNOWN_NO_RETRY')
-    raw=child.stdout.readline(1025);child.stdout.close()
-    if json.loads(raw).get('status')!='AIOA_CHROME_CONSOLE_OPENED':raise ValueError('CONSOLE_OPEN_UNKNOWN_NO_RETRY')
+    ready=False
+    try:
+        child.stdin.write(json.dumps(data).encode()+b'\n');child.stdin.close()
+        if not select.select([child.stdout],[],[],30)[0]:raise ValueError('CONSOLE_OPEN_UNKNOWN_NO_RETRY')
+        raw=child.stdout.readline(1025)
+        if json.loads(raw).get('status')!='AIOA_CHROME_CONSOLE_OPENED':raise ValueError('CONSOLE_OPEN_UNKNOWN_NO_RETRY')
+        ready=True
+    finally:
+        child.stdout.close()
+        if not ready:cleanup_owned(child)
+
+def cleanup_owned(process,*,group=False,timeout=5):
+    """Only a Popen child created by this launch; never search/kill browsers."""
+    if process.poll() is not None:return
+    process.terminate()
+    try:process.wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        if group and os.getpgid(process.pid)==process.pid:os.killpg(process.pid,signal.SIGKILL)
+        else:process.kill()
+        process.wait(timeout=timeout)
 
 class Pipe:
     def __init__(self,write_fd,read_fd):self.writer,self.reader,self.sequence,self.buffer=write_fd,read_fd,0,b''
@@ -77,7 +94,7 @@ def run(data):
         # Only descriptor numbers are shell code; all Chrome arguments use "$@".
         command=['/bin/bash','-c','exec 3<&'+str(browser_read)+' 4>&'+str(browser_write)+'; exec "$@"','aioa-chrome',*args]
         process=subprocess.Popen(command,pass_fds=(browser_read,browser_write),stdin=subprocess.DEVNULL,
-            stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+            stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,start_new_session=True)
         os.close(browser_read);os.close(browser_write)
         pipe=Pipe(parent_write,parent_read)
         try:
@@ -101,9 +118,11 @@ def run(data):
                     if not os.read(parent_read,65536):break
         finally:
             os.close(parent_write);os.close(parent_read)
-            if process.poll() is None:process.wait()
+            cleanup_owned(process,group=True,timeout=2)
 
 if __name__=='__main__':
+    def stop_owned(signum,frame):raise SystemExit(0)
+    signal.signal(signal.SIGTERM,stop_owned)
     try:
         raw=sys.stdin.buffer.readline(2049)
         if len(raw)>2048:raise ValueError()

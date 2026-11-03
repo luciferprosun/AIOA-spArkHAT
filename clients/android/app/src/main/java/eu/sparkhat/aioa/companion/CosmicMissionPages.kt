@@ -108,7 +108,7 @@ private fun ChatPage(model: MissionViewModel) {
         Button(onClick={model.chatSend(draft);draft=""},enabled=ui.chat.canSend(model.chatAvailable,model.supports("chat"),ui.busy,draft),
             modifier=Modifier.heightIn(min=48.dp)) {Text(stringResource(R.string.cosmic_send))}
         OutlinedButton(onClick=model::chatRefresh,enabled=model.chatAvailable && !ui.busy &&
-            (ui.chat.pendingId!=null || ui.chat.messages.isNotEmpty()),modifier=Modifier.heightIn(min=48.dp)) {
+            (ui.chat.pendingId!=null || ui.chat.threadId!=null),modifier=Modifier.heightIn(min=48.dp)) {
             Text(stringResource(R.string.chat_readback))
         }
         OutlinedButton(onClick=model::chatStop,enabled=model.chatAvailable && !ui.busy && ui.chat.pendingId!=null &&
