@@ -17,23 +17,6 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.*
 
-data class UiMessage(val resource: Int, val arguments: List<String> = emptyList())
-
-data class MissionUi(
-    val freshness: Freshness = Freshness(), val busy: Boolean = false, val enrolled: Boolean = false,
-    val connection: String = "REMOTE_DEPLOYMENT_BLOCKED", val task: JsonObject? = null,
-    val pending: String? = null, val archived: List<String> = emptyList(),
-    val missions: List<JsonObject> = emptyList(), val nextCursor: String? = null,
-    val agentTask: JsonObject? = null, val agentMissions: List<JsonObject> = emptyList(),
-    val pendingAgent: String? = null, val archivedAgents: List<String> = emptyList(),
-    val providers: JsonObject? = null,
-    val invite: PairingInvite? = null, val pairing: PairingRecord? = null,
-    val pairingState: String = "DISCONNECTED", val capabilities: JsonObject? = null, val bindingInvalid: Boolean = false,
-    val lastSignedResponseAt: Long? = null, // historical verified v1 proof time, memory only
-    val message: UiMessage = UiMessage(R.string.initial)
-)
-fun MissionUi.sessionUnavailable() = copy(enrolled=false)
-
 class MissionViewModel(app: Application) : AndroidViewModel(app) {
     private val prefs = app.getSharedPreferences("mobile-ui-v1",0)
     private val client = MobileClient(TransportIdentity())
@@ -93,7 +76,7 @@ class MissionViewModel(app: Application) : AndroidViewModel(app) {
         if (owner().reconcile()) {
             generation = generation.invalidate("STALE")
             ui = ui.copy(pairing=owner().record,bindingInvalid=owner().invalid,invite=null,enrolled=false,capabilities=null,lastSignedResponseAt=null,
-                freshness=generation,connection="STALE",pairingState="DISCONNECTED")
+                freshness=generation,readbacks=ui.readbacks.invalidate(),connection="STALE",pairingState="DISCONNECTED")
         }
     }
     fun deliverPacket(raw: String): Boolean {
@@ -117,7 +100,7 @@ class MissionViewModel(app: Application) : AndroidViewModel(app) {
         if (ui.busy || recoveryWork.busy) return
         val ticket=Any();recoveryWork.start(ticket)
         generation = generation.invalidate("STALE")
-        ui = ui.copy(busy=true,enrolled=false,freshness=generation)
+        ui = ui.copy(busy=true,enrolled=false,freshness=generation,readbacks=ui.readbacks.invalidate())
         pairingJob = viewModelScope.launch {
             try { transportMutex.withLock { owner().requireCurrent(); work(); owner().requireCurrent() } }
             catch (cancelled: CancellationException) { throw cancelled }
@@ -310,8 +293,9 @@ class MissionViewModel(app: Application) : AndroidViewModel(app) {
         recoveryWake.accepted()
         recoveryBlocked=false
         ui = ui.copy(enrolled=true,connection="SIGNED_SESSION",pairingState="CONNECTED",capabilities=client.capabilities,
-            freshness=generation,lastSignedResponseAt=observation.issuedAtEpochSeconds,message=UiMessage(R.string.connected_notice))
+            freshness=generation,readbacks=ui.readbacks.invalidate(),lastSignedResponseAt=observation.issuedAtEpochSeconds,message=UiMessage(R.string.connected_notice))
         acceptStatus(observation.data)
+        recordEvent(UiEventKind.SIGNED_READBACK,observation.issuedAtEpochSeconds)
         viewModelScope.launch {
             delay((observation.validUntilElapsedMs-Freshness.elapsedMs()).coerceAtLeast(0)+1)
             if (generation.generation == epoch) {
@@ -325,7 +309,7 @@ class MissionViewModel(app: Application) : AndroidViewModel(app) {
         try {
             owner().forget(); client.close(); generation = generation.invalidate("STALE")
             ui = ui.copy(pairing=null,invite=null,enrolled=false,capabilities=null,bindingInvalid=false,lastSignedResponseAt=null,pairingState="DISCONNECTED",
-                freshness=generation,connection="DISCONNECTED",message=UiMessage(R.string.forgot_notice))
+                freshness=generation,readbacks=ui.readbacks.invalidate(),connection="DISCONNECTED",message=UiMessage(R.string.forgot_notice))
         } catch (_: Exception) { ui = ui.copy(message=UiMessage(R.string.forget_failed)) }
     }
     fun supports(name: String) = ui.enrolled && ui.capabilities?.get(name)?.jsonPrimitive?.booleanOrNull == true
@@ -336,16 +320,16 @@ class MissionViewModel(app: Application) : AndroidViewModel(app) {
         val ticket=Any();recoveryWork.start(ticket)
         generation = generation.invalidate("STALE")
         val epoch = generation.generation
-        ui = ui.copy(freshness=generation,busy=true,message=UiMessage(R.string.waiting_readback))
+        ui = ui.copy(freshness=generation,readbacks=ui.readbacks.invalidate(),busy=true,message=UiMessage(R.string.waiting_readback))
         requestJob = viewModelScope.launch {
             try {
                 val observation = withContext(Dispatchers.IO) { transportMutex.withLock { owner().requireCurrent(); op().also { owner().requireCurrent() } } }
                 if (generation.generation == epoch) {
                     val validUntilElapsedMs = observation.validUntilElapsedMs
                     generation = generation.accept(epoch,validUntilElapsedMs)
-                    ui = ui.copy(freshness=generation,busy=false,connection="SIGNED_SESSION")
+                    ui = ui.copy(freshness=generation,busy=false,connection="SIGNED_SESSION",lastSignedResponseAt=observation.issuedAtEpochSeconds)
                     apply(observation.data)
-                    ui = ui.copy(lastSignedResponseAt=observation.issuedAtEpochSeconds)
+                    recordEvent(UiEventKind.SIGNED_READBACK,observation.issuedAtEpochSeconds)
                     viewModelScope.launch {
                         delay((validUntilElapsedMs-Freshness.elapsedMs()).coerceAtLeast(0)+1)
                         if (generation.generation == epoch) {
@@ -360,18 +344,21 @@ class MissionViewModel(app: Application) : AndroidViewModel(app) {
                 if (generation.generation == epoch) {
                     reconcileBinding()
                     ui = ui.copy(enrolled=false,busy=false,message=UiMessage(R.string.stale_owner))
+                    recordEvent(UiEventKind.LOCAL_SESSION_LOST)
                 }
             } catch (_: SessionUnavailable) {
                 if (generation.generation == epoch) {
                     generation = generation.invalidate("UNKNOWN")
                     ui = ui.sessionUnavailable().copy(freshness=generation,busy=false,connection="FRESH_ENROLLMENT_REQUIRED",
                         message=UiMessage(R.string.session_lost))
+                    recordEvent(UiEventKind.LOCAL_SESSION_LOST)
                 }
             } catch (_: Exception) {
                 if (generation.generation == epoch) {
                     generation = generation.invalidate("UNKNOWN")
                     ui = ui.copy(freshness=generation,busy=false,connection="OFFLINE_OR_DENIED",
                         message=UiMessage(R.string.unknown_notice))
+                    recordEvent(UiEventKind.LOCAL_UNKNOWN)
                 }
             }
         }
@@ -399,13 +386,21 @@ class MissionViewModel(app: Application) : AndroidViewModel(app) {
         val cursor = ui.nextCursor ?: return
         request({ client.statusPage(cursor) },::acceptStatus)
     }
-    fun selectTask(taskId: String) = request({ client.evidence(taskId) }) { acceptTask(it) }
+    fun selectTask(taskId: String) {
+        if(ui.busy || recoveryWork.busy || !supports("evidence"))return
+        ui=ui.requestTask(taskId,false)
+        request({ client.evidence(taskId) }) { acceptTask(it,taskId) }
+    }
+    fun retrySelectedReadback() {
+        val selected=ui.requestedTask
+        if(selected==null)status() else if(selected.agent)agentSelect(selected.id) else selectTask(selected.id)
+    }
     private fun acceptStatus(data: JsonObject) {
         val missions = data.getValue("missions").jsonArray
-        val current = ui.task?.let { Wire.text(it,"task_id") }
+        val current = ui.requestedTask?.takeUnless {it.agent}?.id ?: ui.task?.let { Wire.text(it,"task_id") }
         val selected = missions.map { it.jsonObject }.firstOrNull { current == null || Wire.text(it,"task_id") == current }
         ui = ui.copy(missions=missions.map { it.jsonObject },nextCursor=if(data["next_cursor"]==JsonNull) null else Wire.text(data,"next_cursor"))
-        val visible = selected ?: missions.firstOrNull()?.jsonObject
+        val visible = if(ui.requestedTask?.agent==false)selected else selected ?: missions.firstOrNull()?.jsonObject
         if (visible != null) acceptTask(visible) else ui = ui.copy(task=null,message=UiMessage(R.string.no_tasks))
     }
     fun preview(instruction: String) {
@@ -414,14 +409,14 @@ class MissionViewModel(app: Application) : AndroidViewModel(app) {
         // Opaque proposal ID only. Persist before the single POST; no token/code/content.
         if (!prefs.edit().putString("pending_proposal",proposal).commit()) return
         ui = ui.copy(pending=proposal)
-        request({ client.preview(proposal,instruction) }) { data -> acceptTask(data); clearPending() }
+        request({ client.preview(proposal,instruction) }) { data -> ui=ui.copy(requestedTask=null);acceptTask(data); clearPending() }
     }
     fun readback() {
         val proposal = ui.pending ?: return
         request({ client.readback(proposal) }) { data ->
             if (Wire.text(data,"state") == "UNKNOWN") {
                 ui = ui.copy(message=UiMessage(R.string.unknown_reconcile))
-            } else { acceptTask(data); clearPending() }
+            } else { ui=ui.copy(requestedTask=null);acceptTask(data); clearPending() }
         }
     }
     private fun clearPending() {
@@ -438,21 +433,21 @@ class MissionViewModel(app: Application) : AndroidViewModel(app) {
             }
         } catch (_: Exception) { ui = ui.copy(message=UiMessage(R.string.id_failed)) }
     }
-    private fun acceptTask(data: JsonObject) {
-        val previous = ui.task
-        if (previous != null && Wire.text(previous,"task_id") == Wire.text(data,"task_id")) {
-            require(Wire.text(previous,"task_digest") == Wire.text(data,"task_digest"))
-        }
-        ui = ui.copy(task=data,message=UiMessage(R.string.signed_state,listOf(Wire.text(data,"state"))))
+    private fun acceptTask(data: JsonObject, expectedId: String? = null) {
+        ui = ui.observeTask(data,false,expectedId).copy(message=UiMessage(R.string.signed_state,listOf(Wire.text(data,"state"))))
     }
     fun evidence() {
         val task = ui.task ?: return
-        request({ client.evidence(Wire.text(task,"task_id")) }) { acceptTask(it) }
+        selectTask(Wire.text(task,"task_id"))
     }
     fun stop() {
         val task = ui.task ?: return
-        if (!ui.freshness.canStop(Wire.text(task,"state")) || ui.busy) return
-        request({ client.stop(Wire.text(task,"task_id")) }) { acceptTask(it) }
+        stop(task)
+    }
+    fun stop(reviewed: JsonObject) {
+        val task = ui.task ?: return
+        if (task!=reviewed || ui.taskStopReason(false)!=null) return
+        request({ client.stop(Wire.text(task,"task_id")) }) { acceptTask(it,Wire.text(task,"task_id")) }
     }
     fun revoke() {
         if (ui.busy || recoveryWork.busy) return
@@ -466,7 +461,7 @@ class MissionViewModel(app: Application) : AndroidViewModel(app) {
             client.close()
             generation = generation.invalidate(); ui = MissionUi(freshness=generation,pending=ui.pending,archived=ui.archived,
                 pendingAgent=ui.pendingAgent,archivedAgents=ui.archivedAgents,pairing=ui.pairing,
-                connection="AUTO_RECOVERY_PAUSED",message=UiMessage(R.string.session_revoked))
+                connection="AUTO_RECOVERY_PAUSED",history=ui.history,message=UiMessage(R.string.session_revoked))
         }
     }
     fun agentStatus() = request({ client.agentStatus() }) { data ->
@@ -474,12 +469,13 @@ class MissionViewModel(app: Application) : AndroidViewModel(app) {
             message=UiMessage(R.string.agent_status))
     }
     fun agentProviders() = request({ client.agentProviders() }) { data -> ui = ui.copy(providers=data) }
-    fun agentSelect(taskId: String) = request({ client.agentEvidence(taskId) }) { data ->
-        val previous = ui.agentTask
-        if (previous != null && Wire.text(previous,"task_id") == Wire.text(data,"task_id")) {
-            require(Wire.text(previous,"task_digest") == Wire.text(data,"task_digest"))
-        }
-        ui = ui.copy(agentTask=data,message=UiMessage(R.string.agent_view))
+    fun agentSelect(taskId: String) {
+        if(ui.busy || recoveryWork.busy || !agentAvailable)return
+        ui=ui.requestTask(taskId,true)
+        request({ client.agentEvidence(taskId) }) { data -> acceptAgentTask(data,UiMessage(R.string.agent_view),taskId) }
+    }
+    private fun acceptAgentTask(data: JsonObject, message: UiMessage, expectedId: String? = null) {
+        ui = ui.observeTask(data,true,expectedId).copy(message=message)
     }
     private fun proposeAgent(sourceTask: String? = null) {
         if (!agentAvailable || ui.pendingAgent != null || !ui.freshness.isFresh() || !ui.enrolled || ui.busy) return
@@ -487,16 +483,19 @@ class MissionViewModel(app: Application) : AndroidViewModel(app) {
         if (!prefs.edit().putString("pending_agent_proposal",proposal).commit()) return
         ui = ui.copy(pendingAgent=proposal)
         request({ client.agentProposal(proposal,sourceTask) }) { data ->
-            prefs.edit().remove("pending_agent_proposal").apply()
-            ui = ui.copy(agentTask=data,pendingAgent=null,message=UiMessage(R.string.needs_approval))
+            ui=ui.copy(requestedTask=null)
+            acceptAgentTask(data,UiMessage(R.string.needs_approval))
+            prefs.edit().remove("pending_agent_proposal").apply();ui = ui.copy(pendingAgent=null)
         }
     }
     fun proposeSensorBridge() = proposeAgent()
     fun proposeGit() {
         val task = ui.agentTask ?: return
-        if (Wire.text(task,"state") != "AGENT_COMPLETED") return
-        val operation = task.getValue("operation").jsonObject
-        if (Wire.text(operation,"operation_class") != "SANDBOX_EXEC") return
+        proposeGit(task)
+    }
+    fun proposeGit(reviewed: JsonObject) {
+        val task = ui.agentTask ?: return
+        if (task!=reviewed || ui.gitPreviewReason()!=null) return
         proposeAgent(Wire.text(task,"task_id"))
     }
     fun agentReadback() {
@@ -504,8 +503,9 @@ class MissionViewModel(app: Application) : AndroidViewModel(app) {
         request({ client.agentReadback(proposal) }) { data ->
             if (data["task_id"] == null) ui = ui.copy(message=UiMessage(R.string.unknown_readback))
             else {
-                prefs.edit().remove("pending_agent_proposal").apply()
-                ui = ui.copy(agentTask=data,pendingAgent=null,message=UiMessage(R.string.proposal_readback))
+                ui=ui.copy(requestedTask=null)
+                acceptAgentTask(data,UiMessage(R.string.proposal_readback))
+                prefs.edit().remove("pending_agent_proposal").apply();ui = ui.copy(pendingAgent=null)
             }
         }
     }
@@ -527,23 +527,33 @@ class MissionViewModel(app: Application) : AndroidViewModel(app) {
     }
     fun agentStop() {
         val task = ui.agentTask ?: return
-        if (!ui.freshness.canStop(Wire.text(task,"state")) || ui.busy) return
+        agentStop(task)
+    }
+    fun agentStop(reviewed: JsonObject) {
+        val task = ui.agentTask ?: return
+        if (task!=reviewed || ui.taskStopReason(true)!=null) return
         request({ client.agentStop(Wire.text(task,"task_id")) }) { data ->
-            ui = ui.copy(agentTask=data,message=UiMessage(R.string.stop_observed))
+            acceptAgentTask(data,UiMessage(R.string.stop_observed),Wire.text(task,"task_id"))
         }
+    }
+    private fun recordEvent(kind: UiEventKind, at: Long = now()) {
+        val task=ui.task?.takeIf { ui.readbacks.isFresh(it,false) }
+            ?: ui.agentTask?.takeIf { ui.readbacks.isFresh(it,true) }
+        val identity=task?.let { Wire.text(it,"task_id") }
+        ui=ui.copy(history=appendUiHistory(ui.history,UiHistoryEvent(kind,at,identity)))
     }
     fun background() {
         foreground=false;recoveryWake.foreground(false)
         pairingJob?.cancel();requestJob?.cancel()
         generation = generation.invalidate("STALE"); client.cancel()
-        ui = ui.copy(freshness=generation,busy=false,connection="STALE",message=UiMessage(R.string.resume_readback))
+        ui = ui.copy(freshness=generation,readbacks=ui.readbacks.invalidate(),busy=false,connection="STALE",message=UiMessage(R.string.resume_readback))
     }
     fun resume() {
         foreground=true;recoveryWake.foreground(true)
         try { reconcileBinding() }
         catch (_: Exception) { client.close(); ui = ui.copy(enrolled=false,bindingInvalid=true) }
         generation = generation.invalidate("STALE")
-        ui = ui.copy(freshness=generation,message=if (ui.pending == null) UiMessage(R.string.fresh_status) else
+        ui = ui.copy(freshness=generation,readbacks=ui.readbacks.invalidate(),message=if (ui.pending == null) UiMessage(R.string.fresh_status) else
             UiMessage(R.string.unresolved_notice))
         automaticRecovery()
     }

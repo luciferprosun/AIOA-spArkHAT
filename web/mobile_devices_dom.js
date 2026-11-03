@@ -35,9 +35,45 @@
     }
   }
   function text(tag,value,parent) {const el=document.createElement(tag);el.textContent=value;parent.append(el);return el;}
+  function renderCore(state) {
+    const button=document.getElementById('cosmic-core-read');
+    if(button)button.disabled=!state || state.phase!=='READY' || !state.observed || state.busy;
+    const label=document.getElementById('cosmic-core-read-state');
+    const settings=document.getElementById('cosmic-core-settings');
+    const history=document.getElementById('cosmic-core-observations');
+    if(!label || !settings || !history)return;
+    settings.replaceChildren();history.replaceChildren();
+    const data=state?.coreStatus;
+    if(!data) {
+      label.textContent='Nie odczytano diagnostyki tego Core.';
+      text('p','Brak odczytu. Użyj odczytu profilu na stronie Główna.',history);
+      text('p','Klucze prywatne i tokeny pozostają na hoście.',settings);return;
+    }
+    label.textContent='Historyczny odczyt lokalnego kanału operatora: '+new Date(state.coreStatusAt*1000).toLocaleString()+
+      (state.phase==='READY'?'':' · bieżąca autoryzacja lub wynik niepotwierdzony.');
+    for(const [name,key] of [['Profil','profile'],['Host','origin'],['Source SHA','source_sha'],
+        ['Capsule digest','capsule_digest'],['TLS SPKI pin','tls_spki_pin'],['Publiczny SPKI hosta','host_spki'],
+        ['Uwierzytelnienie operatora','operator_authentication']]) {
+      const value=data[key];
+      text('h4',name,settings);text('p',value && typeof value==='object'?JSON.stringify(value):String(value || 'Nie odczytano'),settings).className='device-digest';
+    }
+    text('p','Wywołania modelu w tym profilu: '+data.model_calls+'. Czat i worker nie są podłączone.',settings);
+    if(!data.observations.length)text('p','Core nie zapisał odpowiedzi w odczytanym zakresie.',history);
+    for(const row of data.observations) {
+      const proof=row.proof || {};
+      const card=text('article','',history);card.className='device-card';
+      text('h4',String(proof.method || '—')+' '+String(proof.path || '—'),card);
+      text('p','Czas hosta: '+new Date(proof.issued_at*1000).toISOString()+' · '+
+        (proof.expires_at<=Math.floor(Date.now()/1000)?'podpisana obserwacja wygasła':'ważność obserwacji jeszcze nie upłynęła'),card);
+      text('p','Source: '+String(proof.source_sha || '—'),card).className='device-digest';
+      text('p','SHA-256 danych: '+String(proof.data_sha256 || '—'),card).className='device-digest';
+    }
+    if(data.history_truncated)text('p','Zakres skrócony do ośmiu wpisów; to nie jest pełny ledger.',history);
+  }
   function render() {
     const state=client?.snapshot();
     renderOverview(state);
+    renderCore(state);
     for (const id of ['add','refresh','lock']) node(id).disabled=!state || state.phase==='LOCKED' || state.busy;
     if (!state) return;
     node('add').disabled=state.phase!=='READY'||state.busy;
@@ -109,6 +145,7 @@
   node('add').addEventListener('click',()=>{showPage('devices');act(()=>client.invite());});
   node('refresh').addEventListener('click',()=>act(()=>client.refresh()));
   node('lock').addEventListener('click',()=>{client?.close();render();});
+  document.getElementById('cosmic-core-read')?.addEventListener('click',()=>act(()=>client.status()));
   window.addEventListener('pagehide',()=>{client?.close();render();});
   // Read-only polling while visible; never repeat a mutation or UNKNOWN operation.
   setInterval(()=>{

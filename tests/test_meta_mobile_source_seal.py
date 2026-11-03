@@ -15,7 +15,8 @@ class MobileSourceSealTests(unittest.TestCase):
                   'web/mobile_devices_dom.js','web/qr.js'}
         required.update('clients/android/app/src/main/java/eu/sparkhat/aioa/companion/'+name
             for name in ('PairingProtocol.kt','TrustedHostStore.kt','CosmicScreen.kt',
-                         'PairingProblem.kt','SessionRecovery.kt','RecoveryNetworkMonitor.kt'))
+                         'PairingProblem.kt','SessionRecovery.kt','RecoveryNetworkMonitor.kt',
+                         'CosmicComponents.kt','CosmicPresentation.kt','MissionUi.kt','TaskReadback.kt'))
         required.update('clients/android/app/src/main/res/'+name+'/strings.xml'
             for name in ('values','values-pl'))
         required.update({'web/cosmic_tokens.css','web/cosmic_manrope.ttf',

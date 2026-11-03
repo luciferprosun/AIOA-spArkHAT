@@ -30,7 +30,7 @@ def manifest():
     if 'distributionSha256Sum='+DISTRIBUTION not in props:raise ValueError('DISTRIBUTION_SHA_DENIED')
     return {'schema':'aioa.android.build-inputs.v1','status':'APK_BUILD_BLOCKED_TOOLCHAIN',
         'apk_built':False,'phone_installed':False,'package':'eu.sparkhat.aioa.companion',
-        'version_code':4,'version_name':'0.3.1-cosmic','source_baseline':'5d0fb00d5b7c68f3f9ea0698e4047829a2636654',
+        'version_code':4,'version_name':'0.3.1-cosmic','source_baseline':'4960ba2c56c55abfbf234909e7b8127beda06057',
         # Public certificate fingerprint of the physically installed Cosmic0.3.0.
         # A fresh ephemeral CI signer is not an acceptable update of that app.
         'update_signing_certificate_sha256':'75a539bc1cc1cf9ca9cde7fddf32f8dc82ceaee3fd2c8831d9e32a7a14ab6404',
@@ -45,7 +45,7 @@ def manifest():
             'verify Gradle8.13 cache before wrapper invocation; wrapper may otherwise download',
             'verify dependency cache, signing continuity and free RAM/disk',
             'owner decision required for any phone installation; no automatic ADB'],
-        'not_run':['Gradle','Kotlin/JVM','Android lint','assembleDebug','apksigner','physical device'],
+        'not_run':['Gradle testDebugUnitTest','Android lint','assembleDebug','apksigner','physical device'],
         'files':files}
 
 

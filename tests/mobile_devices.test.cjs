@@ -51,6 +51,39 @@ test('lost approval ACK stays UNKNOWN until explicit readback and never retries'
   await client.refresh();assert.equal(calls.length,3);
   assert.equal(client.snapshot().phase,'READY');
 });
+
+test('core history read requires registry readback and cannot resolve uncertain approval',async()=>{
+  const status={profile:'NATIVE_STATUS_READ_ONLY_V1',source_sha:'a'.repeat(40),capsule_digest:'b'.repeat(64),
+    origin:'https://host.invalid',tls_spki_pin:'sha256/public',host_spki:'public',model_calls:0,
+    operator_authentication:'OS_POLICYKIT',sessions:[],observations:[],history_truncated:false};
+  const {client,calls}=harness(v=>{
+    if(v.op==='pairing_list')return {pending:[pending],devices:[]};
+    if(v.op==='status')return status;
+    throw Error('lost ACK');
+  });
+  assert.equal(typeof client.status,'function');
+  await assert.rejects(client.status(),/READBACK_REQUIRED/);assert.equal(calls.length,0);
+  await client.refresh();await client.status();
+  assert.deepEqual(client.snapshot().coreStatus,status);
+  assert.equal(client.snapshot().coreStatusAt,100);
+  await assert.rejects(client.approve(pending.request_id,pending.request_digest),/UNKNOWN_READBACK_REQUIRED/);
+  await assert.rejects(client.status(),/READBACK_REQUIRED/);
+  assert.equal(calls.filter(c=>JSON.parse(c.options.body).op==='status').length,1);
+  assert.equal(client.snapshot().phase,'UNKNOWN');
+  // Keep previous public data as historical; never restore mutation availability.
+  assert.deepEqual(client.snapshot().coreStatus,status);
+  await client.refresh();await client.status();assert.equal(client.snapshot().phase,'READY');
+  client.close();assert.equal(client.snapshot().coreStatus,null);
+});
+
+test('malformed Core history cannot render as trusted observations or restore controls',async()=>{
+  const {client}=harness(v=>v.op==='pairing_list'?{pending:[],devices:[]}:{
+    profile:'NATIVE_STATUS_READ_ONLY_V1',model_calls:0,sessions:[],history_truncated:false,
+    observations:[{proof:{issued_at:'invalid',expires_at:200},signature:'unverified'}]});
+  await client.refresh();
+  await assert.rejects(client.status(),/UNKNOWN_READBACK_REQUIRED/);
+  assert.equal(client.snapshot().phase,'UNKNOWN');assert.equal(client.snapshot().coreStatus,null);
+});
 test('device revoke requires current reviewed device and does not accept arbitrary IDs',async()=>{
   const device={device_id:'b'.repeat(64),revoked:false};
   const {client,calls}=harness(v=>v.op==='pairing_list'?{pending:[],devices:[device]}:{device_id:device.device_id,revoked:true,revoked_sessions:1});

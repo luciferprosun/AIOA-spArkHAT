@@ -122,7 +122,7 @@ class AndroidSourceTests(unittest.TestCase):
 
     def test_agent_handoff_survives_ui_restart_and_session_revocation(self):
         vm=(SRC/'MissionViewModel.kt').read_text()
-        self.assertIn('val archivedAgents: List<String> = emptyList()',vm)
+        self.assertIn('val archivedAgents: List<String> = emptyList()', (SRC/'MissionUi.kt').read_text())
         self.assertIn('archivedAgents=prefs.getStringSet("unresolved_agent_proposals",emptySet())',vm)
         revoke=vm.split('fun revoke()',1)[1].split('fun agentStatus()',1)[0]
         self.assertIn('pendingAgent=ui.pendingAgent,archivedAgents=ui.archivedAgents',revoke)

@@ -1,4 +1,6 @@
 # Cosmic — gotowość integracji projektu i mapowanie
+Aktualizacja Master: kontynuacja4960ba2 jest opisana w COSMIC_MASTER_CAPABILITY_MATRIX.md i COSMIC_MASTER_CODE_REVIEW.md. Poniższy audyt historyczny zachowano; Master zmienia muted na#AAB7D2 oraz uzupełnia komponenty i mapowanie stanów. Wynik realnego wdrożenia Linux i blokada aktualizacji Androida są w lokalnym CODEX_COSMIC_FINAL_IMPLEMENTATION.md. Dostęp MCP do Figmy(17ramek), Canvy(12stron znalezionego ID) i MagicPath ponownie potwierdzono; nie zmieniano źródeł projektowych ani kont.
+
 Data kontroli: 2026-11-03. Tryb początkowy PREPARATION_ONLY; późniejsza wiadomość właściciela zezwala na lokalną implementację skórki i testy. Bez merge, płatnych operacji, zmian kluczy lub resetowania parowania.
 
 ## Fakty i zakres

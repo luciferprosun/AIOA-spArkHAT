@@ -35,3 +35,23 @@ class CosmicTokenTests(unittest.TestCase):
             file.write_text('operator edit')
             self.assertFalse(module.generate(root, value, check=True))
             self.assertEqual('operator edit', file.read_text())
+
+    def test_enabled_text_and_status_chip_colors_have_normal_text_contrast(self):
+        colors=json.loads((ROOT/'docs/design/cosmic.tokens.json').read_text())['colors']
+        def rgb(value):return [int(value[index:index+2],16)/255 for index in (1,3,5)]
+        def luminance(value):
+            linear=[v/12.92 if v<=.04045 else ((v+.055)/1.055)**2.4 for v in value]
+            return sum(a*b for a,b in zip(linear,(.2126,.7152,.0722)))
+        def contrast(fg,bg):
+            a,b=sorted((luminance(fg),luminance(bg)))
+            return (b+.05)/(a+.05)
+        for background in ('background','surface'):
+            bg=rgb(colors[background])
+            for name in ('text','muted','primary','success','warning','danger'):
+                fg=rgb(colors[name])
+                with self.subTest(background=background,text=name):
+                    self.assertGreaterEqual(contrast(fg,bg),4.5)
+                    # StatusChip paints a12% status tint beneath its full-color label.
+                    if name in ('primary','success','warning','danger'):
+                        chip=[.12*f+.88*b for f,b in zip(fg,bg)]
+                        self.assertGreaterEqual(contrast(fg,chip),4.5)

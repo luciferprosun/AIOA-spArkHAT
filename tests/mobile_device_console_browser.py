@@ -76,6 +76,11 @@ def worker():
             def synthetic_operation(value):
                 nonlocal reads
                 operations.append(value)
+                if value=={'op':'status'}:
+                    return {**self.app.public_settings(),'sessions':[],'history_truncated':False,
+                        'observations':[{'proof':{'method':'GET','path':'/api/mobile/v1/status',
+                            'issued_at':self.now,'expires_at':self.now+30,'source_sha':self.source[0],
+                            'data_sha256':'a'*64},'signature':'SYNTHETIC_NOT_LIVE'}]}
                 if value=={'op':'pairing_list'}:
                     reads+=1
                     if reads==8:raise OSError('Synthetic lost readback ACK')
@@ -86,8 +91,11 @@ def worker():
             prelude="""
             window.consoleProbeInitialURL=location.href;
             window.consoleProbeReads=0;
+            window.consoleProbeStatusReads=0;
             const originalFetch=window.fetch.bind(window);
-            window.fetch=async(...args)=>{const reply=await originalFetch(...args);window.consoleProbeReads++;return reply;};
+            window.fetch=async(...args)=>{const reply=await originalFetch(...args);
+              if(JSON.parse(args[1].body).op==='status')window.consoleProbeStatusReads++;else window.consoleProbeReads++;
+              return reply;};
             const originalInterval=window.setInterval.bind(window);
             window.setInterval=(fn,ms,...args)=>ms===5000?(window.consoleProbePoll=fn,0):originalInterval(fn,ms,...args);
             """
@@ -102,6 +110,13 @@ def worker():
               const trusted=()=>document.querySelector('#devices-trusted button');
               try {
                 await wait(1);
+                const statusButton=document.getElementById('cosmic-core-read');
+                statusButton.click();
+                for(let i=0;i<200&&(window.consoleProbeStatusReads<1||statusButton.disabled);i++)await new Promise(r=>setTimeout(r,20));
+                result.existing_core_status_read=window.consoleProbeStatusReads===1&&
+                  document.getElementById('cosmic-core-settings').textContent.includes('NATIVE_STATUS_READ_ONLY_V1')&&
+                  document.getElementById('cosmic-core-observations').textContent.includes('/api/mobile/v1/status')&&
+                  document.getElementById('cosmic-core-read-state').textContent.includes('Historyczny');
                 let navigationOK=true;
                 for (const button of document.querySelectorAll('.cosmic-rail [data-cosmic-target]')) {
                   button.click();
@@ -143,7 +158,13 @@ def worker():
                 await new Promise(r=>setTimeout(r,50));
                 result.unknown_suppresses_poll=window.consoleProbeReads===8&&pending().every(x=>x.disabled);
                 result.unknown_clears_cosmic_overview=document.getElementById('cosmic-trusted-count').textContent==='—'&&
-                  document.getElementById('cosmic-session-count').textContent==='—';
+                  document.getElementById('cosmic-session-count').textContent==='—'&&statusButton.disabled;
+                document.getElementById('devices-lock').click();
+                result.lock_clears_status_history=!document.getElementById('cosmic-core-settings').textContent.includes('NATIVE_STATUS_READ_ONLY_V1')&&
+                  !document.getElementById('cosmic-core-observations').textContent.includes('/api/mobile/v1/status');
+                result.empty_lists_and_locked_controls=document.getElementById('devices-pending').textContent.includes('Brak zgłoszeń')&&
+                  document.getElementById('devices-trusted').textContent.includes('Brak zapamiętanych')&&statusButton.disabled&&
+                  document.getElementById('devices-add').disabled;
               } catch(error) {result.error=error.message;}
               document.getElementById('devices-title').textContent='Cosmic · TEST OFFLINE';
               const output=document.createElement('pre');output.id='console-browser-result';
@@ -214,6 +235,15 @@ def worker():
                     capture_output=True,text=True,timeout=25)
                 self.assertEqual(0,preview.returncode,preview.stderr[-1000:])
                 self.assertTrue(Path('/out/cosmic-web-offline.png').is_file(),'Offline screenshot missing')
+                small=real_run([chrome,'--headless=new','--no-sandbox','--disable-dev-shm-usage',
+                    '--no-proxy-server','--host-resolver-rules=MAP host.example.org 127.0.0.1',
+                    '--ignore-certificate-errors-spki-list='+test_spki,
+                    '--disable-background-networking','--disable-component-update','--window-size=540,800',
+                    '--user-data-dir='+str(self.root/'chrome-small-profile'),
+                    '--screenshot=/out/cosmic-web-small-offline.png','--virtual-time-budget=3000',self.app.origin+'/devices'],
+                    capture_output=True,text=True,timeout=25)
+                self.assertEqual(0,small.returncode,small.stderr[-1000:])
+                self.assertTrue(Path('/out/cosmic-web-small-offline.png').is_file(),'Small-window screenshot missing')
                 # Chrome can retain the spent POST ticket in Sessions. It is
                 # deliberately distinct from the reusable, memory-only CSRF.
                 return result
@@ -232,7 +262,8 @@ def worker():
             self.assertTrue(all('?' not in path and '#' not in path for _,path,_ in capture))
             self.assertFalse(any(path=='/api/session' for _,path,_ in capture))
             for secret in (grant['delivery'],service.csrf_token):self.assertNotIn(secret,repr(capture))
-            self.assertEqual(8,len(operations));self.assertTrue(all(x=={'op':'pairing_list'} for x in operations))
+            self.assertEqual(9,len(operations));self.assertEqual(8,operations.count({'op':'pairing_list'}))
+            self.assertEqual(1,operations.count({'op':'status'}))
             found=re.search(r'<pre id="console-browser-result">(.*?)</pre>',outputs[0],re.S)
             self.assertIsNotNone(found,'Browser probe did not finish')
             result=json.loads(html.unescape(found[1]))
@@ -240,7 +271,8 @@ def worker():
                 'reordered_exact_focus','changed_digest_not_focused','removed_request_not_focused',
                 'deliberate_focus_preserved','unknown_suppresses_poll','revoked_reconnect_keeps_legacy_revoke',
                 'no_url_or_storage_credential','cosmic_navigation_read_only','local_fonts_loaded',
-                'large_text_no_outer_overflow','unknown_clears_cosmic_overview'),True),result)
+                'large_text_no_outer_overflow','unknown_clears_cosmic_overview','existing_core_status_read',
+                'lock_clears_status_history','empty_lists_and_locked_controls'),True),result)
 
     suite=unittest.TestSuite([BrowserConsoleTests('test_chrome_private_launcher_bootstrap_and_exact_control_focus')])
     result=unittest.TextTestRunner(verbosity=2).run(suite)

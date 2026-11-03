@@ -102,7 +102,7 @@ class WebRuntimeService:
         from runtime.mobile_gateway.pairing import OWNER_FIELDS
         if (not self.mobile_only or self._mobile_console_uid is None or
                 type(value) is not dict or type(value.get('op')) is not str or
-                value['op'] not in OWNER_FIELDS):
+                value['op'] not in {*OWNER_FIELDS, 'status'}):
             raise wire.MobileError(403)
         # Recheck actual authority, source, expiry and exact operation in Core.
         return self.meta_owner.operator_request(self._mobile_console_uid, value)

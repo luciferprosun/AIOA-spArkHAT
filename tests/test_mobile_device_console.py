@@ -99,6 +99,28 @@ class DeviceConsoleTests(unittest.TestCase):
         with self.assertRaises(AdmissionError):service.mobile_operator_request({'op':'pairing_list'})
         self.assertFalse(request({'op':'console'})['ok'])
 
+    def test_same_core_status_read_requires_current_kernel_grant_and_exact_payload(self):
+        service=self.service();request=self.tls(service);control=self.console_socket(service)
+        self.assertEqual(403,request('POST','/api/native-operator',{'op':'status'})[0])
+        token=self.activate(service,request,control)
+        headers={'X-AIOA-Session-Token':token,'Origin':self.app.origin}
+        before=self.app.operator_request(os.getuid(),{'op':'status'})
+        code,raw=request('POST','/api/native-operator',{'op':'status'},headers)
+        self.assertEqual(200,code,raw)
+        data=wire.strict_json(raw)['data']
+        self.assertEqual(before,data)
+        self.assertEqual('NATIVE_STATUS_READ_ONLY_V1',data['profile'])
+        self.assertEqual(0,data['model_calls'])
+        self.assertEqual([],data['observations'])
+        self.assertEqual([],data['sessions'])
+        for value in ({'op':'status','approved':True},{'op':'status','uid':os.getuid()},
+                {'op':'settings'},{'op':'enroll'}):
+            with self.subTest(value=value):
+                self.assertIn(request('POST','/api/native-operator',value,headers)[0],(400,403))
+        self.assertEqual(before,self.app.operator_request(os.getuid(),{'op':'status'}))
+        self.app._auth_deadline=0
+        self.assertEqual(403,request('POST','/api/native-operator',{'op':'status'},headers)[0])
+
     def test_console_cannot_bind_a_different_service(self):
         service=self.service();service.meta_owner=None
         with self.assertRaises(AdmissionError):make_mobile_operator_server(self.app,service=service)

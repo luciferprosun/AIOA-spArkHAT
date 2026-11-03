@@ -14,7 +14,7 @@
   function createDeviceConsole(credential, fetcher = root.fetch.bind(root), clock = () => Math.floor(Date.now()/1000)) {
     if (!/^[A-Za-z0-9_-]{43}$/.test(credential)) throw Error('LOCAL_OPERATOR_REQUIRED');
     let token = credential, busy = false, generation = 0;
-    let state = {phase:'READY', observed:false, pending:[], devices:[], invite:null, message:''};
+    let state = {phase:'READY', observed:false, pending:[], devices:[], invite:null, message:'',coreStatus:null,coreStatusAt:null};
     async function call(value, mutation, apply) {
       if (!token) throw Error('LOCAL_OPERATOR_REQUIRED');
       if (busy) throw Error('BUSY');
@@ -50,6 +50,23 @@
         if (!Array.isArray(data.pending) || !Array.isArray(data.devices) || data.pending.length>128 || data.devices.length>128) throw Error('INVALID_READBACK');
         state.pending=data.pending; state.devices=data.devices; state.observed=true;
       }),
+      status:async () => {
+        // An unrelated read must never resolve an uncertain pairing mutation.
+        if(state.phase!=='READY' || !state.observed) throw Error('READBACK_REQUIRED');
+        return call({op:'status'},false,data=>{
+          if(data.profile!=='NATIVE_STATUS_READ_ONLY_V1' || data.model_calls!==0 ||
+              !Array.isArray(data.sessions) || data.sessions.length>8 ||
+              !Array.isArray(data.observations) || data.observations.length>8 ||
+              typeof data.history_truncated!=='boolean') throw Error('INVALID_READBACK');
+          for(const row of data.observations) {
+            const p=row?.proof;
+            if(!p || !Number.isSafeInteger(p.issued_at) || !Number.isSafeInteger(p.expires_at) ||
+                p.issued_at<0 || p.expires_at<p.issued_at || p.expires_at>253402300799 ||
+                typeof row.signature!=='string') throw Error('INVALID_READBACK');
+          }
+          state.coreStatus=data;state.coreStatusAt=clock();
+        });
+      },
       invite:() => call({op:'pairing_invite'}, true, data => { state.invite=data; }),
       approve:async (requestId, reviewedDigest) => {
         if (busy) throw Error('BUSY');
@@ -68,7 +85,7 @@
           state.devices=state.devices.map(x=>x.device_id===deviceId ? {...x,revoked:true,active_sessions:0,pending_enrollments:0} : x);
         });
       },
-      close:() => { generation++; token=''; state={phase:'LOCKED',observed:false,pending:[],devices:[],invite:null,message:'LOCAL_OPERATOR_REQUIRED'}; }
+      close:() => { generation++; token=''; state={phase:'LOCKED',observed:false,pending:[],devices:[],invite:null,coreStatus:null,coreStatusAt:null,message:'LOCAL_OPERATOR_REQUIRED'}; }
     });
   }
   const api={createDeviceConsole,canRevokeDevice,presentation};

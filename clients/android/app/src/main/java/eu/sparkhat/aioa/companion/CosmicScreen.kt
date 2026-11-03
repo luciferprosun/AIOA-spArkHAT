@@ -1,7 +1,6 @@
 package eu.sparkhat.aioa.companion
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.horizontalScroll
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
@@ -9,20 +8,17 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
-import java.time.Instant
-import java.time.ZoneOffset
-import java.time.format.DateTimeFormatter
-import java.util.Locale
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import kotlinx.coroutines.delay
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -47,44 +43,23 @@ internal fun CosmicApp(incomingPacket: String?, consumed: () -> Unit, model: Mis
         lifecycle.addObserver(observer); onDispose { lifecycle.removeObserver(observer) }
     }
     var page by rememberSaveable { mutableStateOf("home") }
-    BackHandler(enabled=page!="home") { page="home" }
+    val savedPages=rememberSaveableStateHolder()
+    val imeVisible=WindowInsets.ime.getBottom(LocalDensity.current)>0
+    val focus=LocalFocusManager.current
+    val keyboard=LocalSoftwareKeyboardController.current
+    BackHandler(enabled=page!="home" && !imeVisible) { page="home" }
     LaunchedEffect(incomingPacket) {
         incomingPacket?.let { raw ->
             routePairingDelivery(raw,model::deliverPacket,showConfirmation={ page="devices" },consumed=consumed)
         }
     }
     CosmicTheme {
-        Surface(Modifier.fillMaxSize()) {
-            Column(Modifier.fillMaxSize().safeDrawingPadding().imePadding()) {
-                Text(stringResource(R.string.cosmic_brand),color=MaterialTheme.colorScheme.primary,
-                    style=MaterialTheme.typography.titleMedium,modifier=Modifier.padding(horizontal=20.dp,vertical=12.dp))
-                CosmicNavigation(page,listOf("devices","approvals","activity","providers","recovery","settings")) { page=it }
-                Box(Modifier.weight(1f)) {
-                    key(page) {
-                        when (page) {
-                            "devices","recovery","settings" -> CosmicPage(page,model) { page="advanced" }
-                            "advanced" -> LegacyMissionScreen(model,showConnection=true)
-                            else -> CosmicMissionPage(page,model) { page=it }
-                        }
-                    }
-                }
-                CosmicNavigation(page,listOf("home","chat","missions","critical","repositories")) { page=it }
-            }
-        }
-    }
-}
-
-/** Horizontal overflow keeps all destinations reachable at large system font sizes. */
-@Composable
-private fun CosmicNavigation(page: String, destinations: List<String>, select: (String) -> Unit) {
-    Surface(color=MaterialTheme.colorScheme.surface) {
-        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal=8.dp),
-            horizontalArrangement=Arrangement.spacedBy(4.dp)) {
-            destinations.forEach { destination ->
-                TextButton(onClick={ select(destination) },contentPadding=PaddingValues(8.dp),
-                    modifier=Modifier.widthIn(min=64.dp).heightIn(min=48.dp).semantics { selected=page==destination }) {
-                    Text(stringResource(pageLabel(destination)),style=MaterialTheme.typography.labelSmall,
-                        color=if(page==destination) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+        CosmicScaffold(page,navigate={ target -> focus.clearFocus();keyboard?.hide();page=target }) {
+            savedPages.SaveableStateProvider(page) {
+                when(page) {
+                    "devices","recovery","settings" -> CosmicPage(page,model) {page="advanced"}
+                    "advanced" -> LegacyMissionScreen(model,showConnection=true)
+                    else -> CosmicMissionPage(page,model) {target -> focus.clearFocus();keyboard?.hide();page=target}
                 }
             }
         }
@@ -112,9 +87,9 @@ private fun CosmicPage(page: String, model: MissionViewModel, advanced: () -> Un
     val pairingStatusReason = ui.primaryDisabledReason(PrimaryAction.PAIRING_STATUS,nowSeconds)
     val reconnectReason = ui.primaryDisabledReason(PrimaryAction.RECONNECT,nowSeconds)
     val statusReason = ui.primaryDisabledReason(PrimaryAction.STATUS,nowSeconds)
-    var manual by remember { mutableStateOf(false) }
-    var packet by remember { mutableStateOf("") }
-    var diagnostics by remember { mutableStateOf(false) }
+    var manual by rememberSaveable { mutableStateOf(false) }
+    var packet by rememberSaveable { mutableStateOf("") }
+    var diagnostics by rememberSaveable { mutableStateOf(false) }
     var forget by remember { mutableStateOf(false) }
     LaunchedEffect(ui.invite) {
         if (ui.invite != null) {
@@ -228,99 +203,7 @@ private fun CosmicPage(page: String, model: MissionViewModel, advanced: () -> Un
 @Composable
 internal fun UiMessage.localized(): String = stringResource(resource,*arguments.toTypedArray())
 
-internal fun pageLabel(page: String): Int = when(page) {
-    "home" -> R.string.nav_home
-    "chat" -> R.string.nav_chat
-    "missions" -> R.string.nav_missions
-    "critical" -> R.string.nav_critical
-    "repositories" -> R.string.nav_repositories
-    "devices" -> R.string.nav_devices
-    "approvals" -> R.string.nav_approvals
-    "details" -> R.string.nav_details
-    "activity" -> R.string.nav_activity
-    "providers" -> R.string.nav_providers
-    "recovery" -> R.string.nav_recovery
-    "settings" -> R.string.nav_settings
-    else -> R.string.advanced_enrollment
-}
-
-internal fun stateResource(state: String): Int = when(state) {
-    "REMOTE_DEPLOYMENT_BLOCKED" -> R.string.state_deployment_blocked
-    "DISCONNECTED" -> R.string.state_disconnected
-    "STALE" -> R.string.state_stale
-    "UNKNOWN","OFFLINE_OR_DENIED" -> R.string.state_unknown
-    "UNVERIFIED" -> R.string.state_unverified
-    "SIGNED_SESSION","CONNECTED" -> R.string.state_connected
-    "RECONNECTING" -> R.string.recovery_connecting
-    "WAITING_NETWORK" -> R.string.recovery_waiting_network
-    "SESSION_EXPIRED" -> R.string.recovery_session_expired
-    "MANUAL_RECOVERY" -> R.string.recovery_manual_required
-    "AUTO_RECOVERY_PAUSED" -> R.string.recovery_paused
-    "FRESH_ENROLLMENT_REQUIRED","RECOVERY_REQUIRED" -> R.string.state_recovery
-    "CONFIRM_HOST" -> R.string.state_confirm
-    "PENDING" -> R.string.state_pending
-    "APPROVED" -> R.string.state_approved
-    "COMPLETED" -> R.string.state_completed
-    "PAIRING_SAVED" -> R.string.state_pairing_saved
-    "REVOKED" -> R.string.state_revoked
-    "EXPIRED" -> R.string.state_expired
-    "BEGIN_UNCERTAIN" -> R.string.state_begin_uncertain
-    else -> R.string.state_unknown
-}
-
-
-/** Home distinguishes public pairing history from live, signed session evidence. */
-private fun MissionUi.currentConnectionState(now: Long): String = when {
-    connection in setOf("SIGNED_SESSION","CONNECTED") && (!enrolled || bindingInvalid) -> "RECOVERY_REQUIRED"
-    connection in setOf("SIGNED_SESSION","CONNECTED") && !freshness.isFresh(now) -> "STALE"
-    else -> connection
-}
-internal fun MissionUi.connectionLabel(now: Long = Freshness.elapsedMs()): Int = stateResource(currentConnectionState(now))
-internal fun MissionUi.pairingLabel(): Int = stateResource(if (pairingState == "CONNECTED") "PAIRING_SAVED" else pairingState)
-internal fun MissionUi.reconnectLabel(now: Long = Freshness.elapsedMs()): Int =
-    if (currentConnectionState(now) in setOf("SIGNED_SESSION","CONNECTED")) R.string.refresh_connection else R.string.recover_session
-
-
 @Composable
 private fun DisabledReason(reason: Int?) {
     if (reason != null) Text(stringResource(reason),style=MaterialTheme.typography.bodyMedium)
 }
-
-internal enum class PrimaryAction { CONNECT, CONFIRM, PAIRING_STATUS, RECONNECT, STATUS }
-
-/** The same state decision drives each primary control and its adjacent explanation. */
-internal fun MissionUi.primaryDisabledReason(action: PrimaryAction, nowSeconds: Long): Int? {
-    if (busy) return R.string.reason_busy
-    if (bindingInvalid) return R.string.reason_invalid_binding
-    return when(action) {
-        PrimaryAction.CONNECT -> null
-        PrimaryAction.CONFIRM -> when {
-            invite == null -> R.string.reason_no_invite
-            nowSeconds >= invite.expiresAt -> R.string.reason_expired
-            else -> null
-        }
-        PrimaryAction.PAIRING_STATUS -> when {
-            pairing == null -> R.string.reason_no_pairing
-            pairingState == "REVOKED" -> R.string.reason_revoked
-            enrolled -> R.string.reason_already_connected
-            pairingState == "EXPIRED" || nowSeconds >= pairing.expiresAt -> R.string.reason_expired
-            else -> null
-        }
-        PrimaryAction.RECONNECT -> when {
-            pairing == null -> R.string.reason_no_pairing
-            pairingState == "REVOKED" -> R.string.reason_revoked
-            pairing.trusted || pairing.completeAttempted -> null
-            pairingState == "EXPIRED" || nowSeconds >= pairing.expiresAt -> R.string.reason_expired
-            else -> R.string.reason_pairing_pending
-        }
-        PrimaryAction.STATUS -> when {
-            pairingState == "REVOKED" -> R.string.reason_revoked
-            !enrolled -> R.string.reason_no_session
-            else -> null
-        }
-    }
-}
-
-internal fun formatSignedHostTime(epochSeconds: Long): String =
-    DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss 'UTC'",Locale.ROOT)
-        .withZone(ZoneOffset.UTC).format(Instant.ofEpochSecond(epochSeconds))

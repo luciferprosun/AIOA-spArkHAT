@@ -138,6 +138,7 @@
                 </div>
                 <article class="panel"><h3>Wormhole · połączenie z Xiaomi</h3><p>Istniejące parowanie i podpisy pozostają zachowane. Odczytaj stan urządzeń lub dodaj telefon przez dokładne porównanie kodu.</p><button type="button" class="button button-ghost" data-cosmic-target="devices">Otwórz urządzenia</button></article>
                 <article class="panel"><h3>Critical · Twoja decyzja</h3><p>Oczekujące zatwierdzenia: <strong id="cosmic-approval-count">—</strong></p><p>Decyzja pozostaje na Linuxie. Niepewny wynik wymaga odczytu.</p><button type="button" class="button button-ghost" data-cosmic-target="approvals">Przejrzyj żądania</button></article>
+                <article class="panel"><h3>Ten Core · rzeczywisty odczyt</h3><p id="cosmic-core-read-state" role="status">Nie odczytano diagnostyki tego Core.</p><button id="cosmic-core-read" type="button" class="button button-ghost" disabled>Odczytaj profil i historię podpisów</button><p class="note">Odczyt wymaga aktywnego lokalnego operatora. Nie wydaje zgody na misję ani ponowienie niepewnego parowania.</p></article>
               </section>
               <section class="cosmic-page" data-cosmic-page="devices approvals" hidden aria-labelledby="cosmic-devices-title">
                 <h2 id="cosmic-devices-title" tabindex="-1">Urządzenia i zatwierdzenia</h2>
@@ -157,7 +158,7 @@
               </section>
               <section class="cosmic-page" data-cosmic-page="chat" hidden aria-labelledby="cosmic-chat-title">
                 <h2 id="cosmic-chat-title" tabindex="-1">Muse · przestrzeń do tworzenia</h2>
-                <article class="panel"><p>Czat jest niedostępny w tym profilu hosta. Ten ekran nie generuje odpowiedzi ani nie uruchamia płatnych modeli.</p><label>Wiadomość do Muse<textarea disabled aria-describedby="cosmic-chat-reason"></textarea></label><p id="cosmic-chat-reason">Czat niedostępny w profilu statusu.</p><button class="button button-primary" disabled>Wyślij</button></article>
+                <article class="panel"><p>Czat jest niedostępny w tym profilu hosta. Ten ekran nie generuje odpowiedzi ani nie uruchamia płatnych modeli.</p><label>Lokalny szkic wiadomości<textarea maxlength="2000" aria-describedby="cosmic-chat-reason"></textarea></label><p id="cosmic-chat-reason">Szkic pozostaje na tej stronie i nie jest wysyłany. Czat niedostępny w profilu statusu.</p><button class="button button-primary" disabled>Wyślij</button></article>
               </section>
               <section class="cosmic-page" data-cosmic-page="missions" hidden aria-labelledby="cosmic-missions-title">
                 <h2 id="cosmic-missions-title" tabindex="-1">Misje i wyniki</h2>
@@ -178,6 +179,7 @@
               <section class="cosmic-page" data-cosmic-page="activity" hidden aria-labelledby="cosmic-activity-title">
                 <h2 id="cosmic-activity-title" tabindex="-1">Odczyty i historia</h2>
                 <article class="panel"><p>Widok urządzeń pokazuje ostatni odczyt lokalnego rejestru Core. Liczba sesji nie jest dowodem aktualnego statusu online Androida. Nie załadowano pełnej historii audytu.</p></article>
+                <article class="panel"><h3>Odpowiedzi zapisane przez Core</h3><p>Istniejący journal: maksymalnie osiem ostatnich podpisanych odpowiedzi. Zapis nie dowodzi odbioru ani weryfikacji na telefonie. Ten widok nie weryfikuje kryptograficznie podpisów i nie jest receipt wykonania misji.</p><div id="cosmic-core-observations"><p>Brak odczytu. Użyj odczytu profilu na stronie Główna.</p></div></article>
               </section>
               <section class="cosmic-page" data-cosmic-page="providers" hidden aria-labelledby="cosmic-providers-title">
                 <h2 id="cosmic-providers-title" tabindex="-1">Dostawcy modeli</h2>
@@ -190,6 +192,7 @@
               <section class="cosmic-page" data-cosmic-page="settings" hidden aria-labelledby="cosmic-settings-title">
                 <h2 id="cosmic-settings-title" tabindex="-1">Ustawienia i zaufanie</h2>
                 <article class="panel"><p>Sesja panelu wymaga rzeczywistej autoryzacji lokalnego operatora. Po jej wygaśnięciu otwórz panel ponownie z Linuxa. Zablokuj panel usuwa jego uprawnienie z pamięci; odwołanie urządzenia odbywa się przy konkretnym wpisie na stronie Urządzenia.</p><p><a href="/cosmic_fonts_ofl.txt">Licencje lokalnych fontów OFL</a></p></article>
+                <article class="panel"><h3>Publiczna tożsamość tego hosta</h3><div id="cosmic-core-settings"><p>Nie odczytano. Klucze prywatne i tokeny nie są udostępniane przez ten widok.</p></div></article>
               </section>
             </div>
           </div>
