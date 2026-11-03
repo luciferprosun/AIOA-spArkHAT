@@ -66,4 +66,15 @@ class NativeChatTests(unittest.TestCase):
         for suffix in ('/chat/approve','/meta_spend','/run','/approve'):
             self.assertNotEqual(200,self.chat_call('POST',suffix,session,{'approved':True})[0])
 
+    def test_signed_pre_admission_denial_is_exact_but_conflict_stays_uncertain(self):
+        _,session=self.paired();body=self.payload()
+        status,response=self.chat_call('POST','/chat',session,{**body,'prompt':'x'*2001})
+        self.assertEqual(200,status,response)
+        self.assertIs(response['data'].get('admitted'),False)
+        self.assertEqual(body['request_id'],response['data']['request_id'])
+        self.assertEqual('CHAT_PROMPT_LIMIT',response['data']['error'])
+        self.assertEqual(200,self.chat_call('POST','/chat',session,body)[0])
+        _,conflict=self.chat_call('POST','/chat',session,{**body,'prompt':'different payload'})
+        self.assertNotIn('admitted',conflict['data'])
+
 if __name__=='__main__':unittest.main()

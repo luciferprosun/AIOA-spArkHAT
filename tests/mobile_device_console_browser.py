@@ -94,7 +94,7 @@ def worker():
             window.consoleProbeStatusReads=0;
             const originalFetch=window.fetch.bind(window);
             window.fetch=async(...args)=>{const reply=await originalFetch(...args);
-              if(JSON.parse(args[1].body).op==='status')window.consoleProbeStatusReads++;else window.consoleProbeReads++;
+              if(args[0]==='/api/native-operator'){if(JSON.parse(args[1].body).op==='status')window.consoleProbeStatusReads++;else window.consoleProbeReads++;}
               return reply;};
             const originalInterval=window.setInterval.bind(window);
             window.setInterval=(fn,ms,...args)=>ms===5000?(window.consoleProbePoll=fn,0):originalInterval(fn,ms,...args);
@@ -195,62 +195,77 @@ def worker():
             test_spki=base64.b64encode(hashlib.sha256(request.certificate_spki).digest()).decode('ascii')
             self.app.origin='https://host.example.org:'+str(request.server.server_address[1])
             grant=self.console_socket(service)({'op':'console'})['data']
-            real_run=subprocess.run;outputs=[];files=[]
-            def launch(argv,**kwargs):
-                self.assertEqual('/usr/bin/xdg-open',argv[0])
-                for secret in (grant['delivery'],service.csrf_token):
-                    self.assertNotIn(secret,str(argv));self.assertNotIn(secret,str(kwargs))
-                files.append(Path(argv[1].removeprefix('file://')))
-                result=real_run([chrome,'--headless=new','--no-sandbox','--disable-dev-shm-usage',
-                    '--window-size=1280,900',
-                    '--no-proxy-server','--host-resolver-rules=MAP host.example.org 127.0.0.1',
-                    '--ignore-certificate-errors-spki-list='+test_spki,
-                    '--disable-background-networking','--disable-component-update',
-                    '--user-data-dir='+str(self.root/'chrome-profile'),'--dump-dom','--virtual-time-budget=15000',argv[1]],
-                    capture_output=True,text=True,timeout=40)
-                outputs.append(result.stdout);self.assertEqual(0,result.returncode,result.stderr[-2000:])
-                persisted={'delivery':[],'csrf':[]}
-                for kind,secret in (('delivery',grant['delivery']),('csrf',service.csrf_token)):
-                    self.assertNotIn(secret,result.stdout);self.assertNotIn(secret,result.stderr)
-                    for path in (self.root/'chrome-profile').rglob('*'):
-                        if not path.is_file():continue
-                        with path.open('rb') as stream:
-                            previous=b''
-                            while chunk:=stream.read(65536):
-                                if secret.encode() in previous+chunk:
-                                    persisted[kind].append(str(path.relative_to(self.root/'chrome-profile')))
-                                    break
-                                previous=chunk[-42:]
-                print('CONSOLE_PROFILE_SCAN '+json.dumps(persisted,sort_keys=True),flush=True)
-                self.assertFalse(persisted['csrf'],'Reusable CSRF persisted in browser profile')
-                # Direct public navigation avoids capturing the spent launcher's
-                # blank POST handoff. This second client has no owner credential.
-                preview_mode[0]=True
-                preview=real_run([chrome,'--headless=new','--no-sandbox','--disable-dev-shm-usage',
-                    '--no-proxy-server','--host-resolver-rules=MAP host.example.org 127.0.0.1',
-                    '--ignore-certificate-errors-spki-list='+test_spki,
-                    '--disable-background-networking','--disable-component-update','--window-size=1280,900',
-                    '--user-data-dir='+str(self.root/'chrome-preview-profile'),
-                    '--screenshot=/out/cosmic-web-offline.png','--virtual-time-budget=3000',self.app.origin+'/devices'],
-                    capture_output=True,text=True,timeout=25)
-                self.assertEqual(0,preview.returncode,preview.stderr[-1000:])
-                self.assertTrue(Path('/out/cosmic-web-offline.png').is_file(),'Offline screenshot missing')
-                small=real_run([chrome,'--headless=new','--no-sandbox','--disable-dev-shm-usage',
-                    '--no-proxy-server','--host-resolver-rules=MAP host.example.org 127.0.0.1',
-                    '--ignore-certificate-errors-spki-list='+test_spki,
-                    '--disable-background-networking','--disable-component-update','--window-size=540,800',
-                    '--user-data-dir='+str(self.root/'chrome-small-profile'),
-                    '--screenshot=/out/cosmic-web-small-offline.png','--virtual-time-budget=3000',self.app.origin+'/devices'],
-                    capture_output=True,text=True,timeout=25)
-                self.assertEqual(0,small.returncode,small.stderr[-1000:])
-                self.assertTrue(Path('/out/cosmic-web-small-offline.png').is_file(),'Small-window screenshot missing')
-                # Chrome can retain the spent POST ticket in Sessions. It is
-                # deliberately distinct from the reusable, memory-only CSRF.
-                return result
-            with patch.object(service,'mobile_operator_request',side_effect=synthetic_operation),\
-                    patch('subprocess.run',side_effect=launch),patch('time.sleep'):
-                webapp._launch_mobile_console(grant,self.root)
-            self.assertFalse(files[0].exists())
+            from runtime.mobile_gateway.chrome_console import Pipe,cleanup_owned
+            real_run=subprocess.run;outputs=[]
+            # Use the same anonymous-pipe protocol as the real launcher. Only
+            # the already contained, networkless fixture uses headless Chrome
+            # and its synthetic TLS SPKI; production flags remain unchanged.
+            browser_read,parent_write=os.pipe();parent_read,browser_write=os.pipe()
+            args=[chrome,'--headless=new','--no-sandbox','--disable-dev-shm-usage','--remote-debugging-pipe',
+                '--window-size=1280,900','--no-proxy-server',
+                '--host-resolver-rules=MAP host.example.org 127.0.0.1',
+                '--ignore-certificate-errors-spki-list='+test_spki,
+                '--disable-background-networking','--disable-component-update',
+                '--user-data-dir='+str(self.root/'chrome-profile'),'about:blank']
+            command=['/bin/bash','-c','exec 3<&'+str(browser_read)+' 4>&'+str(browser_write)+'; exec "$@"','aioa-synthetic-pipe',*args]
+            for secret in (grant['delivery'],service.csrf_token):self.assertNotIn(secret,repr(command))
+            process=subprocess.Popen(command,pass_fds=(browser_read,browser_write),stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,start_new_session=True)
+            os.close(browser_read);os.close(browser_write);pipe=Pipe(parent_write,parent_read)
+            with patch.object(service,'mobile_operator_request',side_effect=synthetic_operation):
+                try:
+                    target=pipe.call('Target.createTarget',{'url':self.app.origin+'/devices'})['targetId']
+                    session=pipe.call('Target.attachToTarget',{'targetId':target,'flatten':True})['sessionId']
+                    for _ in range(100):
+                        ready=pipe.call('Runtime.evaluate',{'expression':'document.readyState','returnByValue':True},session)
+                        if ready.get('result',{}).get('value')=='complete':break
+                        time.sleep(.02)
+                    expression='fetch("/devices",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:'+json.dumps('delivery='+grant['delivery'])+'}).then(r=>r.status)'
+                    reply=pipe.call('Runtime.evaluate',{'expression':expression,'awaitPromise':True,'returnByValue':True},session)
+                    self.assertEqual(200,reply.get('result',{}).get('value'),'Private one-use POST was not accepted')
+                    pipe.call('Page.reload',{},session)
+                    for _ in range(300):
+                        result=pipe.call('Runtime.evaluate',{'expression':"document.getElementById('console-browser-result')?.textContent",'returnByValue':True},session)
+                        if result.get('result',{}).get('value'):break
+                        time.sleep(.02)
+                    dom=pipe.call('Runtime.evaluate',{'expression':'document.documentElement.outerHTML','returnByValue':True},session)
+                    outputs.append(dom['result']['value'])
+                finally:
+                    os.close(parent_write);os.close(parent_read);cleanup_owned(process,group=True,timeout=2)
+            persisted={'delivery':[],'csrf':[]}
+            for kind,secret in (('delivery',grant['delivery']),('csrf',service.csrf_token)):
+                self.assertNotIn(secret,outputs[0])
+                for path in (self.root/'chrome-profile').rglob('*'):
+                    if not path.is_file():continue
+                    with path.open('rb') as stream:
+                        previous=b''
+                        while chunk:=stream.read(65536):
+                            if secret.encode() in previous+chunk:
+                                persisted[kind].append(str(path.relative_to(self.root/'chrome-profile')));break
+                            previous=chunk[-42:]
+            print('CONSOLE_PROFILE_SCAN '+json.dumps(persisted,sort_keys=True),flush=True)
+            self.assertFalse(persisted['csrf'],'Reusable CSRF persisted in browser profile')
+            # Direct public navigation avoids capturing the spent launcher's
+            # blank POST handoff. This second client has no owner credential.
+            preview_mode[0]=True
+            preview=real_run([chrome,'--headless=new','--no-sandbox','--disable-dev-shm-usage',
+                '--no-proxy-server','--host-resolver-rules=MAP host.example.org 127.0.0.1',
+                '--ignore-certificate-errors-spki-list='+test_spki,
+                '--disable-background-networking','--disable-component-update','--window-size=1280,900',
+                '--user-data-dir='+str(self.root/'chrome-preview-profile'),
+                '--screenshot=/out/cosmic-web-offline.png','--virtual-time-budget=3000',self.app.origin+'/devices'],
+                capture_output=True,text=True,timeout=25)
+            self.assertEqual(0,preview.returncode,preview.stderr[-1000:])
+            self.assertTrue(Path('/out/cosmic-web-offline.png').is_file(),'Offline screenshot missing')
+            small=real_run([chrome,'--headless=new','--no-sandbox','--disable-dev-shm-usage',
+                '--no-proxy-server','--host-resolver-rules=MAP host.example.org 127.0.0.1',
+                '--ignore-certificate-errors-spki-list='+test_spki,
+                '--disable-background-networking','--disable-component-update','--window-size=540,800',
+                '--user-data-dir='+str(self.root/'chrome-small-profile'),
+                '--screenshot=/out/cosmic-web-small-offline.png','--virtual-time-budget=3000',self.app.origin+'/devices'],
+                capture_output=True,text=True,timeout=25)
+            self.assertEqual(0,small.returncode,small.stderr[-1000:])
+            self.assertTrue(Path('/out/cosmic-web-small-offline.png').is_file(),'Small-window screenshot missing')
             from urllib.parse import urlsplit
             code,raw=request('POST','/devices',('delivery='+grant['delivery']).encode(),
                 {**self.navigation,'Host':urlsplit(self.app.origin).netloc})
@@ -258,7 +273,7 @@ def worker():
             self.assertEqual('LOCAL_OPERATOR_REQUIRED',json.loads(raw)['error'])
             self.assertFalse(service.csrf_token.encode() in raw,'Replay exposed reusable credential')
             self.assertFalse(grant['delivery'].encode() in raw,'Replay echoed spent delivery ticket')
-            self.assertIn(('POST','/devices','cross-site'),capture)
+            self.assertIn(('POST','/devices','same-origin'),capture)
             self.assertTrue(all('?' not in path and '#' not in path for _,path,_ in capture))
             self.assertFalse(any(path=='/api/session' for _,path,_ in capture))
             for secret in (grant['delivery'],service.csrf_token):self.assertNotIn(secret,repr(capture))

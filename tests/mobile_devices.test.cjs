@@ -145,7 +145,8 @@ test('device panel renders revoked reconnect separately from active legacy acces
     AIOAMobileDevices:{...api,createDeviceConsole:token=>{
       assert.equal(token,'T'.repeat(43));assert.equal(credential.value,'');
       consumed=true;return client;
-    }},fetch:async()=>({ok:true,json:async()=>({ok:true,csrf_token:'T'.repeat(43)})}),
+    }},AIOAMobileChat:{mount:()=>assert.fail('status-only profile must not invoke chat APIs')},
+    fetch:async()=>({ok:true,json:async()=>({ok:true,csrf_token:'T'.repeat(43),profile:'NATIVE_STATUS_READ_ONLY_V1'})}),
     window:{addEventListener(){}},setInterval(){},Date,JSON});
   await new Promise(resolve=>setImmediate(resolve));
   assert.equal(consumed,true,'memory client must obtain anti-CSRF value through the cookie-authenticated JSON bootstrap');

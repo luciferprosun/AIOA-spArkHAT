@@ -3,6 +3,12 @@ from runtime.core_admission import Capability
 from runtime.meta_hackathon.mission_service import MissionError
 from . import wire
 
+# Only errors raised before a send intent is written may clear a client hint.
+# Conflicts, lost ACKs and all transaction failures deliberately remain UNKNOWN.
+PRE_ADMISSION_DENIALS=frozenset(('CHAT_THREAD_BUSY','CHAT_PROMPT_LIMIT','CHAT_MODEL_INVALID',
+    'CHAT_PAYLOAD_INVALID','CHAT_BUDGET_INVALID','CHAT_BUDGET_INSUFFICIENT','CHAT_AUTHORITY_REVOKED',
+    'CHAT_HISTORY_LIMIT','CHAT_NOT_CONFIGURED','CHAT_DEVICE_INVALID','CHAT_ID_INVALID'))
+
 def dispatch(gateway,action,identity,session,value):
     host=gateway.native_host
     if host is None or not host.chat_enabled:raise wire.MobileError(501)
@@ -18,5 +24,9 @@ def dispatch(gateway,action,identity,session,value):
             return gateway.missions.chat_stop(value['request_id'],reader,device_id=device)
     except MissionError as error:
         # Contract denials remain concrete but signed, without echoing text.
-        return {'schema':'aioa.mobile.chat-error.v1','error':error.code,'automatic_retry':False}
+        result={'schema':'aioa.mobile.chat-error.v1','error':error.code,'automatic_retry':False}
+        request_id=value.get('request_id') if type(value) is dict else None
+        if action=='chat_send' and error.code in PRE_ADMISSION_DENIALS and type(request_id) is str and wire.HEX32.fullmatch(request_id):
+            result.update(admitted=False,request_id=request_id)
+        return result
     raise wire.MobileError(400)

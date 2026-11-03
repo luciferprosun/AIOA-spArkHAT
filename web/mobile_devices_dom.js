@@ -152,10 +152,15 @@
   // anti-CSRF value exists only in this closure, never HTML/URL/storage.
   fetch('/api/native-operator/session',{credentials:'same-origin',redirect:'error',cache:'no-store'})
     .then(async response=>{if(!response.ok)throw Error('LOCAL_OPERATOR_REQUIRED');return response.json();})
-    .then(data=>{
+    .then(async data=>{
       if(data.ok!==true || !/^[A-Za-z0-9_-]{43}$/.test(data.csrf_token))throw Error('LOCAL_OPERATOR_REQUIRED');
       client=AIOAMobileDevices.createDeviceConsole(data.csrf_token);
-      if(typeof AIOAMobileChat!=='undefined') AIOAMobileChat.mount(value=>client.chatCall(value));
-      act(()=>client.refresh());
+      await act(()=>client.refresh());
+      if(data.profile==='NATIVE_ADVISORY_CHAT_V1' && client?.snapshot().phase==='READY' &&
+          typeof AIOAMobileChat!=='undefined') AIOAMobileChat.mount(value=>client.chatCall(value));
+      else {
+        const label=document.getElementById('native-chat-state');
+        if(label)label.textContent='Czat niedostępny w tym profilu hosta.';
+      }
     }).catch(()=>{client=null;render();});
 })();

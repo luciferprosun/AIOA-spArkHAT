@@ -51,4 +51,16 @@ class ChatStateTest {
         val exact=read.accept(view("a".repeat(32)),101)
         assertNull(exact.pendingId)
     }
+    @Test fun exactSignedUnadmittedDenialAllowsOnlyANewManualMessage() {
+        val id="a".repeat(32);val pending=ChatUi(threadId="b".repeat(32),pendingId=id,state="SENDING")
+        val data=buildJsonObject {put("schema","aioa.mobile.chat-error.v1");put("error","CHAT_THREAD_BUSY");put("request_id",id);put("admitted",false)}
+        val rejected=ChatUnadmitted.decode(data,id)!!
+        assertNull(pending.rejectUnadmitted(rejected).pendingId)
+        assertNull(ChatUnadmitted.decode(data,"c".repeat(32)))
+        assertNull(ChatUnadmitted.decode(JsonObject(data+("error" to JsonPrimitive("CHAT_REQUEST_CONFLICT"))),id))
+        assertNull(ChatUnadmitted.decode(JsonObject(data+("admitted" to JsonPrimitive(true))),id))
+        val linuxPending=ChatUi(threadId="b".repeat(32)).acceptThread(listOf(view(id,"PENDING_OWNER")),100)
+        assertEquals(id,linuxPending.pendingId)
+        assertFalse(linuxPending.canSend(true,true,false,"duplicate"))
+    }
 }

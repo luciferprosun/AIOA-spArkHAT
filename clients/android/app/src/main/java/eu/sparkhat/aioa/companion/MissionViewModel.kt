@@ -365,6 +365,10 @@ class MissionViewModel(app: Application) : AndroidViewModel(app) {
                 // A signed chat observation never refreshes status/task badges.
             } catch(cancelled:CancellationException) {
                 ui=ui.copy(chat=ui.chat.uncertain("CHAT_INTERRUPTED_READBACK_ONLY"));throw cancelled
+            } catch(denied:ChatUnadmitted) {
+                if(ui.chat.pendingId==denied.requestId && prefs.edit().remove("chat_pending").commit())
+                    ui=ui.copy(busy=false,chat=ui.chat.rejectUnadmitted(denied))
+                else ui=ui.copy(busy=false,chat=ui.chat.uncertain("LOCAL_BINDING_SAVE_FAILED"))
             } catch(_:SessionUnavailable) {
                 ui=ui.sessionUnavailable().copy(busy=false,chat=ui.chat.uncertain("CHAT_SESSION_RECOVERY_REQUIRED"))
             } catch(error:Exception) {

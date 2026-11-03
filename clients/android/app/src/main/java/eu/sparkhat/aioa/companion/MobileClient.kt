@@ -165,7 +165,11 @@ class MobileClient(private val identity: TransportIdentity) {
             when(Wire.text(data,"schema")) {
                 "aioa.mobile.chat-result.v1" -> ChatView.decode(data,device,
                     if(suffix.startsWith("/chat/requests/")) suffix.substringAfterLast('/') else payload?.get("request_id")?.jsonPrimitive?.content)
-                "aioa.mobile.chat-error.v1" -> error(Wire.text(data,"error"))
+                "aioa.mobile.chat-error.v1" -> {
+                    if(method=="POST" && suffix=="/chat")
+                        ChatUnadmitted.decode(data,payload?.get("request_id")?.jsonPrimitive?.content)?.let {throw it}
+                    error(Wire.text(data,"error"))
+                }
                 "aioa.mobile.chat-threads.v1" -> {
                     val rows=data.getValue("threads").jsonArray;require(rows.size<=24)
                     rows.forEach {require(Wire.hex32.matches(Wire.text(it.jsonObject,"thread_id")) && Wire.text(it.jsonObject,"device_id")==device)}

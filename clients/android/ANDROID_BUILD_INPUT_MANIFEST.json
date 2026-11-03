@@ -77,10 +77,10 @@
       "sha256": "5a6d34b24716ff0d326f387298a84a82a4b871a946dfe9b2ce1fdb92355f5059"
     },
     {
-      "bytes": 5462,
+      "bytes": 6832,
       "executable": false,
       "path": "clients/android/app/src/main/java/eu/sparkhat/aioa/companion/ChatView.kt",
-      "sha256": "63f57358c390f9c30dd44bd7428c9dc8469d88bd01074b024e21599ceff05121"
+      "sha256": "0235459e396256acdee4c63d2fd2e7cf7e97b27840dab8c487eb9291d7714396"
     },
     {
       "bytes": 11755,
@@ -131,16 +131,16 @@
       "sha256": "ec49bfbef5087fa3ca366e74eb5e2fece61e3dc616e58d5d61c013f79f23a546"
     },
     {
-      "bytes": 36581,
+      "bytes": 36907,
       "executable": false,
       "path": "clients/android/app/src/main/java/eu/sparkhat/aioa/companion/MissionViewModel.kt",
-      "sha256": "e81fb5239f611369677b93021ed7d87e14a68f0572886f725486a60fb4b2e099"
+      "sha256": "1af87ee236ccad879fbaff8eef31a0bf7e1f7749503e9bab0879b719443d162d"
     },
     {
-      "bytes": 22127,
+      "bytes": 22344,
       "executable": false,
       "path": "clients/android/app/src/main/java/eu/sparkhat/aioa/companion/MobileClient.kt",
-      "sha256": "e13ac4f336e6a33dba9a66f64181a8fa6545f97f6ac87f2fa08a5cc75de5adce"
+      "sha256": "c2d4f957ed0fd6083bb072bddb535687f4bb9b7e4ece171a0d2222eb15900de4"
     },
     {
       "bytes": 333,
@@ -263,10 +263,10 @@
       "sha256": "c57cef9fd4b760592ba42190a1b26ee6a3064f11c539305d8b4afe293ff759cc"
     },
     {
-      "bytes": 3203,
+      "bytes": 4160,
       "executable": false,
       "path": "clients/android/app/src/test/java/eu/sparkhat/aioa/companion/ChatStateTest.kt",
-      "sha256": "afe92f4bc7a663404ed074a73aed238f41edc1b106cd3b859f90bba82d1f7849"
+      "sha256": "026d70354412cbcc2d51a8302186ca98987ab2ca44434ec17b94409cc20e3079"
     },
     {
       "bytes": 7451,

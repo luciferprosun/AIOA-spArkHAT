@@ -58,6 +58,7 @@
       el('state').textContent=state.error || (state.catalog?.chat?'Meta · muse-spark-1.3 · osobna zgoda na każdą wiadomość':'Czat niedostępny w bieżącym profilu');
       el('send').disabled=!state.catalog?.chat || state.busy || !!state.pending;
       el('refresh').disabled=state.busy;el('stop').disabled=state.busy || !state.pending;
+      el('read').disabled=state.busy || !(state.pending || state.messages.length);
       el('threads').replaceChildren();
       for(const thread of state.threads) {
         const button=text('button','Rozmowa '+thread.thread_id.slice(0,12),el('threads'));button.className='button button-ghost';

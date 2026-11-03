@@ -2,6 +2,23 @@ package eu.sparkhat.aioa.companion
 
 import kotlinx.serialization.json.*
 
+/** Constructed only from an already signature-verified host error response. */
+class ChatUnadmitted private constructor(val requestId:String,val reason:String):IllegalStateException(reason) {
+    companion object {
+        private val codes=setOf("CHAT_THREAD_BUSY","CHAT_PROMPT_LIMIT","CHAT_MODEL_INVALID","CHAT_PAYLOAD_INVALID",
+            "CHAT_BUDGET_INVALID","CHAT_BUDGET_INSUFFICIENT","CHAT_AUTHORITY_REVOKED","CHAT_HISTORY_LIMIT",
+            "CHAT_NOT_CONFIGURED","CHAT_DEVICE_INVALID","CHAT_ID_INVALID")
+        fun decode(data:JsonObject,expectedId:String?):ChatUnadmitted? {
+            if(expectedId==null || !Wire.hex32.matches(expectedId) ||
+                data["schema"]?.jsonPrimitive?.content!="aioa.mobile.chat-error.v1" ||
+                data["admitted"]?.jsonPrimitive?.booleanOrNull!=false ||
+                data["request_id"]?.jsonPrimitive?.content!=expectedId)return null
+            val code=data["error"]?.jsonPrimitive?.content ?: return null
+            return if(code in codes) ChatUnadmitted(expectedId,code) else null
+        }
+    }
+}
+
 /** Only decoded after the existing client verifies the signed observation. */
 data class ChatView(val requestId:String,val threadId:String,val state:String,val prompt:String?,val reply:String?,
     val requestDigest:String,val sourceSha:String,val receipt:JsonObject?,val error:String?,val live:Boolean) {
@@ -53,6 +70,10 @@ data class ChatUi(val threadId:String?=null,val pendingId:String?=null,val messa
         pendingId==null && draft.isNotBlank() && draft.toByteArray(Charsets.UTF_8).size in 1..2000
     fun start(id:String):ChatUi {require(Wire.hex32.matches(id) && pendingId==null);return copy(pendingId=id,state="SENDING",error=null)}
     fun uncertain(code:String="CHAT_ACK_UNKNOWN")=copy(state="UNKNOWN",error=code)
+    fun rejectUnadmitted(denial:ChatUnadmitted):ChatUi {
+        require(pendingId==denial.requestId)
+        return copy(pendingId=null,state="FAILED",error=denial.reason)
+    }
     fun readbackPlan():List<ChatReadTarget> = buildList {
         pendingId?.let {add(ChatReadTarget("REQUEST",it))}
         threadId?.let {add(ChatReadTarget("THREAD",it))}
@@ -61,7 +82,8 @@ data class ChatUi(val threadId:String?=null,val pendingId:String?=null,val messa
         require(views.size<=20 && views.all {it.threadId==threadId})
         for(view in views)messages.find {it.requestId==view.requestId}?.let {require(it.requestDigest==view.requestDigest)}
         val exact=pendingId?.let {id->views.find {it.requestId==id}}
-        val pending=if(exact!=null && exact.state in setOf("SUCCEEDED","FAILED","STOPPED")) null else pendingId
+        val previous=if(exact!=null && exact.state in setOf("SUCCEEDED","FAILED","STOPPED")) null else pendingId
+        val pending=previous ?: views.lastOrNull {it.state in setOf("PENDING_OWNER","RUNNING","UNKNOWN")}?.requestId
         return copy(messages=views,pendingId=pending,lastSignedAt=at,
             state=if(pending!=null) exact?.state ?: state else views.lastOrNull()?.state ?: "IDLE",error=exact?.error)
     }
