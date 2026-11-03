@@ -16,9 +16,28 @@
     UNKNOWN_READBACK_REQUIRED:'Wynik nieznany. Odczytaj stan Core przed kolejną operacją. Nie ponowiono automatycznie.',
     READBACK_REQUIRED:'Najpierw odczytaj aktualny stan Core.',REVIEW_REQUIRED:'Stan urządzenia zmienił się. Odczytaj go ponownie.',
     BUSY:'Trwa jedna operacja. Poczekaj na jej wynik.'};
+  const menu=Array.from(document.querySelectorAll?.('[data-cosmic-target]') || []);
+  const pages=Array.from(document.querySelectorAll?.('[data-cosmic-page]') || []);
+  function showPage(name, focus=false) {
+    if (!pages.some(page=>page.dataset.cosmicPage.split(' ').includes(name))) return;
+    for (const page of pages) page.hidden=!page.dataset.cosmicPage.split(' ').includes(name);
+    for (const button of menu) button.setAttribute('aria-current',button.dataset.cosmicTarget===name?'page':'false');
+    if (focus) pages.find(page=>!page.hidden)?.querySelector('h2')?.focus();
+  }
+  for (const button of menu) button.addEventListener('click',()=>showPage(button.dataset.cosmicTarget,true));
+  function renderOverview(state) {
+    const view=AIOAMobileDevices.presentation(state);
+    const values={'cosmic-operator-state':view.operatorReady?'Odczyt rejestru Core potwierdzony':'Brak bieżącego odczytu operatora',
+      'cosmic-trusted-count':view.trustedDevices,'cosmic-session-count':view.activeSessions,'cosmic-approval-count':view.pendingApprovals};
+    for (const [id,value] of Object.entries(values)) {
+      const element=document.getElementById(id);
+      if(element) element.textContent=value===null?'—':String(value);
+    }
+  }
   function text(tag,value,parent) {const el=document.createElement(tag);el.textContent=value;parent.append(el);return el;}
   function render() {
     const state=client?.snapshot();
+    renderOverview(state);
     for (const id of ['add','refresh','lock']) node(id).disabled=!state || state.phase==='LOCKED' || state.busy;
     if (!state) return;
     node('add').disabled=state.phase!=='READY'||state.busy;
@@ -87,7 +106,7 @@
       }
     }
   }
-  node('add').addEventListener('click',()=>act(()=>client.invite()));
+  node('add').addEventListener('click',()=>{showPage('devices');act(()=>client.invite());});
   node('refresh').addEventListener('click',()=>act(()=>client.refresh()));
   node('lock').addEventListener('click',()=>{client?.close();render();});
   window.addEventListener('pagehide',()=>{client?.close();render();});

@@ -2,11 +2,19 @@
 (function (root) {
   'use strict';
   const copy = value => JSON.parse(JSON.stringify(value));
+  // Registry counts are not an Android liveness or signed-status assertion.
+  function presentation(state) {
+    const ready=state?.phase==='READY' && state.observed===true;
+    return {operatorReady:ready,
+      trustedDevices:ready?state.devices.filter(x=>x.revoked===false).length:null,
+      pendingApprovals:ready?state.pending.filter(x=>x.state==='PENDING').length:null,
+      activeSessions:ready?state.devices.reduce((sum,x)=>sum+(x.active_sessions || 0),0):null};
+  }
   const canRevokeDevice = row => row.revoked===false || row.active_sessions>0 || row.pending_enrollments>0;
   function createDeviceConsole(credential, fetcher = root.fetch.bind(root), clock = () => Math.floor(Date.now()/1000)) {
     if (!/^[A-Za-z0-9_-]{43}$/.test(credential)) throw Error('LOCAL_OPERATOR_REQUIRED');
     let token = credential, busy = false, generation = 0;
-    let state = {phase:'READY', pending:[], devices:[], invite:null, message:''};
+    let state = {phase:'READY', observed:false, pending:[], devices:[], invite:null, message:''};
     async function call(value, mutation, apply) {
       if (!token) throw Error('LOCAL_OPERATOR_REQUIRED');
       if (busy) throw Error('BUSY');
@@ -31,6 +39,7 @@
       } catch (error) {
         if (epoch !== generation || !token) throw Error('LOCAL_OPERATOR_REQUIRED');
         state.phase = 'UNKNOWN';
+        state.observed = false;
         state.message = error.message === 'LOCAL_OPERATOR_REQUIRED' ? error.message : 'UNKNOWN_READBACK_REQUIRED';
         throw Error(state.message);
       } finally { clearTimeout(timer); busy = false; }
@@ -39,7 +48,7 @@
       snapshot:() => copy({...state, busy}),
       refresh:() => call({op:'pairing_list'}, false, data => {
         if (!Array.isArray(data.pending) || !Array.isArray(data.devices) || data.pending.length>128 || data.devices.length>128) throw Error('INVALID_READBACK');
-        state.pending=data.pending; state.devices=data.devices;
+        state.pending=data.pending; state.devices=data.devices; state.observed=true;
       }),
       invite:() => call({op:'pairing_invite'}, true, data => { state.invite=data; }),
       approve:async (requestId, reviewedDigest) => {
@@ -59,10 +68,10 @@
           state.devices=state.devices.map(x=>x.device_id===deviceId ? {...x,revoked:true,active_sessions:0,pending_enrollments:0} : x);
         });
       },
-      close:() => { generation++; token=''; state={phase:'LOCKED',pending:[],devices:[],invite:null,message:'LOCAL_OPERATOR_REQUIRED'}; }
+      close:() => { generation++; token=''; state={phase:'LOCKED',observed:false,pending:[],devices:[],invite:null,message:'LOCAL_OPERATOR_REQUIRED'}; }
     });
   }
-  const api={createDeviceConsole,canRevokeDevice};
+  const api={createDeviceConsole,canRevokeDevice,presentation};
   if (typeof module !== 'undefined' && module.exports) module.exports=api;
   else root.AIOAMobileDevices=Object.freeze(api);
 })(typeof globalThis !== 'undefined' ? globalThis : this);

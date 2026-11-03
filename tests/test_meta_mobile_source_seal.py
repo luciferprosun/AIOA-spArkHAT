@@ -18,6 +18,12 @@ class MobileSourceSealTests(unittest.TestCase):
                          'PairingProblem.kt','SessionRecovery.kt','RecoveryNetworkMonitor.kt'))
         required.update('clients/android/app/src/main/res/'+name+'/strings.xml'
             for name in ('values','values-pl'))
+        required.update({'web/cosmic_tokens.css','web/cosmic_manrope.ttf',
+            'web/cosmic_space_grotesk.ttf','web/cosmic_ibm_plex_mono.ttf',
+            'clients/android/app/src/main/java/eu/sparkhat/aioa/companion/CosmicTheme.kt',
+            'clients/android/app/src/main/java/eu/sparkhat/aioa/companion/PairingDelivery.kt',
+            'clients/android/app/src/main/java/eu/sparkhat/aioa/companion/CosmicMissionPages.kt',
+            'clients/android/app/src/main/res/values/cosmic_colors.xml'})
         self.assertTrue(required <= set(getattr(runtime_adapter,'SOURCE_FILES',())))
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory)

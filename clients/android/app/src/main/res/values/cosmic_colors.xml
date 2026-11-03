@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generated from docs/design/cosmic.tokens.json -->
+<resources>
+    <color name="cosmic_background">#0B1023</color>
+    <color name="cosmic_surface">#151D33</color>
+    <color name="cosmic_primary">#55D9F6</color>
+    <color name="cosmic_secondary">#8A63FF</color>
+    <color name="cosmic_text">#F6F8FF</color>
+    <color name="cosmic_muted">#9DA9C6</color>
+    <color name="cosmic_warning">#FFC66D</color>
+    <color name="cosmic_success">#4AD8A0</color>
+    <color name="cosmic_danger">#FF647A</color>
+</resources>

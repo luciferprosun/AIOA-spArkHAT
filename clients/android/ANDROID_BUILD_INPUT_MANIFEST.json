@@ -42,16 +42,34 @@
       "sha256": "72a7943aa871159c78013b93821ea8f13cb922712ccec5c4f4666e0a70a49689"
     },
     {
+      "bytes": 13334,
+      "executable": false,
+      "path": "clients/android/app/src/main/assets/licenses/cosmic_fonts_ofl.txt",
+      "sha256": "3a71919e7c402745dee96ff7a5eb9d9697fd44e734de9a2ebe86cd6db6b407c6"
+    },
+    {
       "bytes": 3803,
       "executable": false,
       "path": "clients/android/app/src/main/java/eu/sparkhat/aioa/companion/AgentMissionView.kt",
       "sha256": "5a6d34b24716ff0d326f387298a84a82a4b871a946dfe9b2ce1fdb92355f5059"
     },
     {
-      "bytes": 18244,
+      "bytes": 15028,
+      "executable": false,
+      "path": "clients/android/app/src/main/java/eu/sparkhat/aioa/companion/CosmicMissionPages.kt",
+      "sha256": "65691a85ab4d0c41c41a1aea6a1557041ad986d1f03ee0f3705dc38a34293a44"
+    },
+    {
+      "bytes": 18723,
       "executable": false,
       "path": "clients/android/app/src/main/java/eu/sparkhat/aioa/companion/CosmicScreen.kt",
-      "sha256": "bfeabc4bc929954e6ce584bc395b7d30b0018f1ea26acc2f651ee0b276eada81"
+      "sha256": "7409aa7e7c458f465917a4e9a914d0c18f05a69e0167cfd41c6c952800566147"
+    },
+    {
+      "bytes": 3078,
+      "executable": false,
+      "path": "clients/android/app/src/main/java/eu/sparkhat/aioa/companion/CosmicTheme.kt",
+      "sha256": "059d8c86054b48859771bd702dea8650711b6b4df81b4dbfbfa14a8ca4897f18"
     },
     {
       "bytes": 1233,
@@ -76,6 +94,12 @@
       "executable": false,
       "path": "clients/android/app/src/main/java/eu/sparkhat/aioa/companion/MobileClient.kt",
       "sha256": "2c33c3685a3f35b9722059f28289279ec4afcd2e8bc03eb372bd8738e1237e98"
+    },
+    {
+      "bytes": 333,
+      "executable": false,
+      "path": "clients/android/app/src/main/java/eu/sparkhat/aioa/companion/PairingDelivery.kt",
+      "sha256": "9c92e100f7ac59428d4b3c713e83c1191ee99d466890d710ab2497ff499a8406"
     },
     {
       "bytes": 1404,
@@ -120,16 +144,40 @@
       "sha256": "81b9849ea4f3106b65151324eda30d8ac59c148a16120bb8cc0474dd3bbdb3ba"
     },
     {
-      "bytes": 14369,
+      "bytes": 135580,
       "executable": false,
-      "path": "clients/android/app/src/main/res/values/strings.xml",
-      "sha256": "f7d2857258e1ccc442b2f0c279a1075c8440be3eb7137dcc1ebd7bf222a1ce8d"
+      "path": "clients/android/app/src/main/res/font/cosmic_ibm_plex_mono.ttf",
+      "sha256": "6a3412f058c7d8dfd9170c41e85ade48e5156ecb89356110ca57a0a27734af46"
     },
     {
-      "bytes": 16155,
+      "bytes": 164700,
+      "executable": false,
+      "path": "clients/android/app/src/main/res/font/cosmic_manrope.ttf",
+      "sha256": "3ae11c49db0455a3cc33e37d380f20fdb8c7f8b41dc07625c177e3d87a9d6ae6"
+    },
+    {
+      "bytes": 136676,
+      "executable": false,
+      "path": "clients/android/app/src/main/res/font/cosmic_space_grotesk.ttf",
+      "sha256": "acad6de1fc93436f5c0f1f4137751ef04f1aea3063e7036535970ffcfbd79f72"
+    },
+    {
+      "bytes": 559,
+      "executable": false,
+      "path": "clients/android/app/src/main/res/values/cosmic_colors.xml",
+      "sha256": "4f34fd24d77d4b37264bc67c1b4f2b73ff127a931fd38998476a0dfca08edca7"
+    },
+    {
+      "bytes": 18407,
+      "executable": false,
+      "path": "clients/android/app/src/main/res/values/strings.xml",
+      "sha256": "8989ee594a2f043fd0a5c3fa0923a4939679972635896f0f1a032d0cd12cec1f"
+    },
+    {
+      "bytes": 20287,
       "executable": false,
       "path": "clients/android/app/src/main/res/values-pl/strings.xml",
-      "sha256": "56e4a4444bf424133616459f6c60c286145176bc375cd86c08ccc459f1e9b9ea"
+      "sha256": "cc4bda142f491ffea2664ac4d54668b0bcaf863f132c9b45cc270dd284763518"
     },
     {
       "bytes": 635,
@@ -237,8 +285,7 @@
   "gradle_distribution_sha256": "20f1b1176237254a6fc204d8434196fa11a4cfb387567519c61556e8710aed78",
   "gradle_wrapper_sha256": "81a82aaea5abcc8ff68b3dfcb58b3c3c429378efd98e7433460610fecd7ae45f",
   "not_run": [
-    "Gradle",
-    "Kotlin/JVM",
+    "Gradle testDebugUnitTest",
     "Android lint",
     "assembleDebug",
     "apksigner",
@@ -263,7 +310,7 @@
     "target_sdk": 36
   },
   "schema": "aioa.android.build-inputs.v1",
-  "source_baseline": "5d0fb00d5b7c68f3f9ea0698e4047829a2636654",
+  "source_baseline": "df1a13ece15f94cf19357f437dd54a73170087c0",
   "status": "APK_BUILD_BLOCKED_TOOLCHAIN",
   "update_signing_certificate_sha256": "75a539bc1cc1cf9ca9cde7fddf32f8dc82ceaee3fd2c8831d9e32a7a14ab6404",
   "verification_reference": "https://gradle.org/release-checksums/",

@@ -75,6 +75,17 @@ SOURCE_FILES += tuple('clients/android/app/src/main/java/eu/sparkhat/aioa/compan
                      'PairingProblem.kt','SessionRecovery.kt','RecoveryNetworkMonitor.kt'))
 SOURCE_FILES += tuple('clients/android/app/src/main/res/'+name+'/strings.xml'
         for name in ('values','values-pl'))
+SOURCE_FILES += ('web/cosmic_tokens.css',
+        'web/cosmic_space_grotesk.ttf','web/cosmic_manrope.ttf','web/cosmic_ibm_plex_mono.ttf',
+        'web/cosmic_fonts_ofl.txt',
+        'clients/android/app/src/main/java/eu/sparkhat/aioa/companion/CosmicTheme.kt',
+        'clients/android/app/src/main/java/eu/sparkhat/aioa/companion/PairingDelivery.kt',
+        'clients/android/app/src/main/java/eu/sparkhat/aioa/companion/CosmicMissionPages.kt',
+        'clients/android/app/src/main/res/values/cosmic_colors.xml',
+        'clients/android/app/src/main/res/font/cosmic_space_grotesk.ttf',
+        'clients/android/app/src/main/res/font/cosmic_manrope.ttf',
+        'clients/android/app/src/main/res/font/cosmic_ibm_plex_mono.ttf',
+        'clients/android/app/src/main/assets/licenses/cosmic_fonts_ofl.txt')
 
 
 def sealed_source_path(relative, *, root=None):

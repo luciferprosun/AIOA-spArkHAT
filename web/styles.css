@@ -726,3 +726,55 @@ body.devices-mode { --muted:#CED5E8; --accent-deep:#F1A75D; background:#080D1C; 
 #devices-qr { max-width:100%; height:auto; image-rendering:pixelated; }
 #devices-packet { width:100%; min-height:140px; background:#080D1C; color:#F4F7FF; }
 @media (prefers-reduced-motion:reduce) { .cosmic-devices * { animation:none!important; transition:none!important; } }
+
+/* Cosmic design system: existing native Mission Control, not a second frontend. */
+@font-face { font-family:CosmicHeading; src:url('/cosmic_space_grotesk.ttf') format('truetype'); font-weight:300 700; font-display:swap; }
+@font-face { font-family:CosmicBody; src:url('/cosmic_manrope.ttf') format('truetype'); font-weight:200 800; font-display:swap; }
+@font-face { font-family:CosmicMono; src:url('/cosmic_ibm_plex_mono.ttf') format('truetype'); font-weight:400; font-display:swap; }
+body.devices-mode {
+  --bg:var(--cosmic-background); --panel:var(--cosmic-surface); --panel-strong:var(--cosmic-surface);
+  --ink:var(--cosmic-text); --muted:var(--cosmic-muted); --accent:var(--cosmic-primary);
+  --accent-deep:var(--cosmic-primary); --line:rgba(157,169,198,.25); --radius:14px;
+  color:var(--cosmic-text); background:var(--cosmic-background); font-family:CosmicBody,system-ui,sans-serif; line-height:1.5;
+}
+.devices-mode .workspace { padding:0; }
+.devices-mode .cosmic-devices { max-width:1600px; }
+.cosmic-shell { display:grid; grid-template-columns:240px minmax(0,1fr); min-height:100vh; }
+.cosmic-rail { background:var(--cosmic-surface); padding:24px 16px; align-self:start; position:sticky; top:0; max-height:100vh; overflow:auto; }
+.cosmic-brand { font-family:CosmicHeading,system-ui,sans-serif; color:var(--cosmic-primary); font-weight:700; font-size:20px; margin:0 0 8px; }
+.cosmic-caption { color:var(--cosmic-muted); font:12px CosmicMono,monospace; letter-spacing:.05em; }
+.cosmic-rail nav { display:grid; gap:4px; margin:24px 0; }
+.cosmic-rail nav button { width:100%; text-align:left; border:1px solid transparent; border-radius:12px; color:var(--cosmic-muted); background:transparent; padding:12px 16px; }
+.cosmic-rail nav button[aria-current="page"] { color:var(--cosmic-primary); background:var(--cosmic-background); border-color:var(--line); font-weight:700; }
+.cosmic-rail nav button:hover { color:var(--cosmic-text); border-color:var(--cosmic-muted); }
+.cosmic-content { padding:32px; min-width:0; }
+.cosmic-header { margin-bottom:32px; }
+.cosmic-devices h1,.cosmic-devices h2,.cosmic-devices h3 { font-family:CosmicHeading,system-ui,sans-serif; overflow-wrap:anywhere; }
+.cosmic-devices h1 { font-size:clamp(28px,4vw,40px); line-height:1.25; margin:16px 0; }
+.cosmic-devices h2 { font-size:clamp(24px,3vw,32px); line-height:1.3; }
+.cosmic-devices h3 { font-size:20px; line-height:1.4; margin:0 0 12px; }
+.cosmic-devices p { overflow-wrap:anywhere; }
+.cosmic-devices .panel { background:var(--cosmic-surface); border:1px solid var(--line); border-radius:14px; margin:16px 0; padding:24px; box-shadow:none; }
+.cosmic-devices .eyebrow { color:var(--cosmic-primary); }
+.cosmic-devices .note { color:var(--cosmic-muted); }
+.cosmic-devices .button-primary { color:var(--cosmic-background); background:var(--cosmic-primary); }
+.cosmic-devices .button-ghost { color:var(--cosmic-text); border-color:var(--cosmic-primary); background:var(--cosmic-surface); }
+.cosmic-devices a { color:var(--cosmic-primary); }
+.cosmic-devices :focus-visible { outline:2px solid var(--cosmic-warning); outline-offset:4px; }
+.cosmic-kpis { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; }
+.cosmic-kpis .panel { margin:0; }
+.cosmic-kpis .panel > p:first-of-type { font-size:24px; font-weight:700; color:var(--cosmic-primary); }
+.device-digest,.device-sas { font-family:CosmicMono,monospace; }
+.device-card { border-color:var(--line); }
+.device-sas { color:var(--cosmic-primary); }
+.cosmic-devices textarea { width:100%; min-height:96px; color:var(--cosmic-text); background:var(--cosmic-background); border:1px solid var(--cosmic-muted); border-radius:12px; padding:12px; }
+.cosmic-devices button:disabled,.cosmic-devices textarea:disabled { opacity:.6; cursor:not-allowed; }
+@media (max-width:1000px) { .cosmic-kpis { grid-template-columns:1fr; } }
+@media (max-width:800px) {
+  .cosmic-shell { display:block; }
+  .cosmic-rail { position:static; max-height:none; padding:16px; }
+  .cosmic-rail nav { display:flex; overflow:auto; margin:12px 0 0; }
+  .cosmic-rail nav button { width:auto; flex:none; white-space:normal; max-width:12rem; }
+  .cosmic-rail > .note { display:none; }
+  .cosmic-content { padding:20px; }
+}

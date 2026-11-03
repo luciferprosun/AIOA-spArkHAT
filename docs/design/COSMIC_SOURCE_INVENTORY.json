@@ -1,0 +1,204 @@
+{
+  "schema": "aioa.cosmic.design-inventory.v1",
+  "retrieved_on": "2026-11-03",
+  "figma": {
+    "file_key": "odRmVoOW86gDN3Gm15JKJe",
+    "page_id": "0:1",
+    "variables": {},
+    "frames": [
+      {
+        "id": "1:85",
+        "name": "Cosmic Android — Home",
+        "width": 390,
+        "height": 844
+      },
+      {
+        "id": "1:105",
+        "name": "Cosmic Android — Chat",
+        "width": 390,
+        "height": 844
+      },
+      {
+        "id": "1:125",
+        "name": "Cosmic Android — Misje",
+        "width": 390,
+        "height": 844
+      },
+      {
+        "id": "1:145",
+        "name": "Cosmic Android — Critical",
+        "width": 390,
+        "height": 844
+      },
+      {
+        "id": "1:165",
+        "name": "Cosmic Android — GitHub",
+        "width": 390,
+        "height": 844
+      },
+      {
+        "id": "1:185",
+        "name": "Cosmic Android — Ustawienia",
+        "width": 390,
+        "height": 844
+      },
+      {
+        "id": "1:205",
+        "name": "Cosmic Linux — Mission Control",
+        "width": 1440,
+        "height": 900
+      },
+      {
+        "id": "1:238",
+        "name": "Cosmic Foundations",
+        "width": 2660,
+        "height": 110
+      },
+      {
+        "id": "2:2",
+        "name": "08 — Canva Foundations / Cosmic Tokens",
+        "width": 1450,
+        "height": 660
+      },
+      {
+        "id": "2:31",
+        "name": "09 — Canva Semantic States / UX",
+        "width": 1400,
+        "height": 660
+      },
+      {
+        "id": "2:53",
+        "name": "10 — Canva Navigation & User Flows",
+        "width": 2890,
+        "height": 500
+      },
+      {
+        "id": "6:2",
+        "name": "AIOA Cosmic 08 · Devices / Pairing",
+        "width": 390,
+        "height": 844
+      },
+      {
+        "id": "6:22",
+        "name": "AIOA Cosmic 09 · Approvals",
+        "width": 390,
+        "height": 844
+      },
+      {
+        "id": "6:42",
+        "name": "AIOA Cosmic 10 · Mission Details",
+        "width": 390,
+        "height": 844
+      },
+      {
+        "id": "6:62",
+        "name": "AIOA Cosmic 11 · Activity & Logs",
+        "width": 390,
+        "height": 844
+      },
+      {
+        "id": "6:82",
+        "name": "AIOA Cosmic 12 · Providers",
+        "width": 390,
+        "height": 844
+      },
+      {
+        "id": "6:102",
+        "name": "AIOA Cosmic 13 · Recovery & Errors",
+        "width": 390,
+        "height": 844
+      }
+    ]
+  },
+  "canva": {
+    "design_id": "DAHZ2xNq8Ig",
+    "title": "AIOA Cosmic Mission Control",
+    "pages": [
+      {
+        "number": 1,
+        "title": "AIOA CosmicMission Control",
+        "text": "AIOA CosmicMission Control\nSystem UI/UXi Zestaw Makiet\nAndroid Xiaomi 13T Pro & Linux Web\n\n3 listopada 2026\nAutor / Projektant: AIOA"
+      },
+      {
+        "number": 2,
+        "title": "Kosmos jako język interfejsu",
+        "text": "Kosmos jako język interfejsu\nKreacja, ochrona i połączenie — jeden spójny system.\nMuse / kreacja\nCritical / ochrona\nMisje / konstelacje\nWormhole / łączność\n\nGranat\n#0B1023\nTło\n\nGrafit\n#151D33\nPowierzchnie\n\nCyjan\n#55D9F6\nAkcje i fokus\n\nFiolet\n#8A63FF\nMuse / AI\n\nBiel\n#F6F8FF\nTreść\n\nBursztyn\n#FFC66D\nOstrzeżenia"
+      },
+      {
+        "number": 3,
+        "title": "Precyzja, która daje oddech",
+        "text": "Precyzja, która daje oddech\nSpace Grotesk + Manrope. IBM Plex Mono dla tokenów i statusów.\n\nAa  /  Misja\nNagłówek  ·  32 / 40\nTreść  ·  16 / 24\nPodpis  ·  14 / 20\n\nSIGNED  ·  IBM Plex Mono\nSkala UI w dp / sp; podgląd powiększony.\n\nJedna logika. Dwa ekrany.\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nAndroid · 4 kolumny\nLinux · 12 kolumn\n4  /  8  /  16  /  24  /  32\nMargines 16 dp / 32 px  •  cel dotyku ≥ 48 dp"
+      },
+      {
+        "number": 4,
+        "title": "Dwa urządzenia. Jedna orbita.",
+        "text": "Dwa urządzenia. Jedna orbita.\nHome łączy Android i Linux. Parowanie i signed status są potwierdzone.\n\n9:41\nAndroid\n\nMission Control\nSparowano  ·  signed\nSzybkie akcje\nMuse · plan\nMisje · plan\nBrak nowych powiadomień\n\nLinux / Mission Control\nsigned ✓\n\nAndroid\nLinux Web\nPołączenie\nParowaniepotwierdzone\nUrządzenie\nAkcje: planowane"
+      },
+      {
+        "number": 5,
+        "title": "Muse. Przestrzeń do tworzenia.",
+        "text": "Muse. Przestrzeń do tworzenia.\nDuży czat AI • LIVE i OFFLINE są planowane, nie aktywne.\n\nMuse / AI\nLIVE · planowane\nOFFLINE · planowane\n\n\nPomóż zaplanować nową misję.\nOd czego zaczynamy?\nPodgląd rozmowy. Odpowiedzi nie są generowane.\n\nWiadomość do Muse…\nWyślij · plan\nBiała dziura= kreacja"
+      },
+      {
+        "number": 6,
+        "title": "Misja pod kontrolą człowieka",
+        "text": "Misja pod kontrolą człowieka\nWykonanie, zatwierdzanie i STOP — funkcje planowane.\n\nMissions\nPLANOWANE\n\n✧  Orion\nPlan misji\nDo zatwierdzenia\n\n✧  Lyra\nPrzegląd zmian\nOczekuje\n\n✧  Cygnus\nSynchronizacja\nOczekuje\nEtap: plan → zgoda → wykonanie\n\nOrion\nNajpierw przegląd.Potem decyzja.\nPlan\nZgoda\nStart\nZatwierdź · plan\nSTOP · plan\nPodgląd, bez uruchomionej misji"
+      },
+      {
+        "number": 7,
+        "title": "Critical. Granica bezpieczeństwa.",
+        "text": "Critical. Granica bezpieczeństwa.\nCzarna dziura jako ochrona. Alert opisuje ryzyko, nie tylko kolor.\n\nCritical Security\nKoncepcja UI\n\n✓  signed status\nIstniejące · potwierdzone\n!  Wymagana decyzja użytkownika\nPrzykładowy alert. Nie nadawaj nowychuprawnień bez weryfikacji zakresu.\nPrzejrzyj zakres · plan"
+      },
+      {
+        "number": 8,
+        "title": "Repozytoria bez domysłów",
+        "text": "Repozytoria bez domysłów\nGitHub WRITE — planowany. Makieta nie deklaruje dostępu do zapisu.\n\n\nGitHub\nRepozytoria\nZmiany\nUprawnienia\nWRITEplanowany\nRepozytoria projektu\nSzukaj repozytorium…\n\naioa-android\nKotlin / Compose\nZapis · plan\n\naioa-linux-web\nPanel web\nZapis · plan\n\naioa-design-system\nTokeny / komponenty\nZapis · plan\nPrzykładowe repozytoria · dane demonstracyjne"
+      },
+      {
+        "number": 9,
+        "title": "Status, któremu można zaufać",
+        "text": "Status, któremu można zaufać\nParowanie + signed: istniejące. Obsługa ponowienia: proponowane UI.\n\n9:41\nAndroid\n\nUstawienia\nUrządzenie\nXiaomi 13T Pro\nParowanie\n✓ Potwierdzone\nsigned status\n✓ Istniejące\nStan zgodny z briefem\n\nPołączenie i odzyskiwanie\nAdres Linux Web\nhttps://linux.local\n!  Brak połączenia — stan przykładowy\nSprawdź sieć i adres. Parowanie pozostaje widoczne.\nPonów · plan\nAuto-łączenie  ○  plan"
+      },
+      {
+        "number": 10,
+        "title": "Linux. Pełny obraz misji.",
+        "text": "Linux. Pełny obraz misji.\nUkład desktopowy 12 kolumn. Kontrola i kontekst w jednym widoku.\n\nAIOA / Mission Control\nAndroid sparowany · signed\n\nHome\nMissions\nMuse / AI\nCritical\nGitHub\nSettings\n\nAndroid↔ Linux\nSparowano\n\nMissions\nOrion · do zatwierdzenia\nOtwórz · plan\n\nMuse\nCzym dziś się zajmiemy?\nLIVE · plan\nOFFLINE · plan\n\nCritical\nsigned ✓  /  potwierdzone"
+      },
+      {
+        "number": 11,
+        "title": "Każdy stan ma znaczenie",
+        "text": "Każdy stan ma znaczenie\nBiblioteka komponentów • czytelność nie może zależeć wyłącznie od koloru.\n\nNormalny\nOtwórz\nHover\nOtwórz\nAktywny / fokus\n✓ Wybrano\nNieaktywny\nNiedostępne\nBłędny\n! Ponów\nFokus: obrys 2 dp + odstęp 2 dp. Błąd: komunikat i symbol, nie sam bursztyn.\n\nKontrast\n≥ 4,5:1\nCel dla zwykłego tekstu\n\nDotyk\n≥ 48 dp\nWygodne cele na Androidzie\n\nSemantyka\nTalkBack\nEtykiety, rola i stan kontrolki"
+      },
+      {
+        "number": 12,
+        "title": "Od tokenów do działającej misji",
+        "text": "Od tokenów do działającej misji\nCodex + Jetpack Compose • wdrożenie przez małe, weryfikowalne kroki.\n01 / Tokeny\nKolor • typografiaspacing • motywy\n02 / Komponenty\nCompose + Linux webstany • semantyka\n03 / Integracja\nParowanie + signedregresja istniejącego\n04 / Funkcje\nMuse • GitHub WRITEmisje + STOP\n\nIstniejące\nParowaniesigned status\nZachować i przetestować regresję\n\nPlanowane\nMuse LIVE / OFFLINE • GitHub WRITEWykonanie misji • zatwierdzenie • STOP\nNastępny krok: komponenty → testy UI → integracja funkcji"
+      }
+    ],
+    "supplied_short_link_resolution": "LOGIN_REQUIRED_IN_BROWSER; MCP_GET_DESIGN_REJECTED_SHORT_LINK"
+  },
+  "magicpath": {
+    "private_project_id": "468340598617829376",
+    "public_preview": "https://designs.magicpath.ai/v1/ready-flood-7620",
+    "mcp_tools_available": true,
+    "preview_read": true,
+    "source_export": "EDITABLE_COMPONENT_SNAPSHOT",
+    "components": [
+      "Home",
+      "Chat",
+      "Misje",
+      "Critical",
+      "GitHub",
+      "Urządzenia",
+      "Zgody",
+      "Historia",
+      "Dostawcy",
+      "Ustawienia"
+    ],
+    "live_claims": false,
+    "component_id": "468341358789300224",
+    "revision_id": "468345348532875264",
+    "generated_name": "ready-flood-7620",
+    "license": "UNKNOWN"
+  }
+}

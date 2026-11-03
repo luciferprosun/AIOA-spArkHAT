@@ -1,6 +1,8 @@
 package eu.sparkhat.aioa.companion
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.horizontalScroll
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
@@ -13,7 +15,6 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlinx.coroutines.delay
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -21,6 +22,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -29,11 +31,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions
 import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
-
-private val CosmicColors = darkColorScheme(
-    background=Color(0xFF080D1C),surface=Color(0xFF13203B),primary=Color(0xFF63D9FF),
-    secondary=Color(0xFFA58CF5),tertiary=Color(0xFFF1A75D),onBackground=Color(0xFFF4F7FF),
-    onSurface=Color(0xFFF4F7FF),onPrimary=Color(0xFF080D1C),onSecondary=Color(0xFF080D1C))
 
 /** Static layout: no decorative motion. Text wraps and all pages scroll at 200% font size. */
 @Composable
@@ -50,27 +47,44 @@ internal fun CosmicApp(incomingPacket: String?, consumed: () -> Unit, model: Mis
         lifecycle.addObserver(observer); onDispose { lifecycle.removeObserver(observer) }
     }
     var page by rememberSaveable { mutableStateOf("home") }
+    BackHandler(enabled=page!="home") { page="home" }
     LaunchedEffect(incomingPacket) {
         incomingPacket?.let { raw ->
-            routePairingDelivery(raw,model::deliverPacket,showConfirmation={ page="home" },consumed=consumed)
+            routePairingDelivery(raw,model::deliverPacket,showConfirmation={ page="devices" },consumed=consumed)
         }
     }
-    MaterialTheme(colorScheme=CosmicColors) {
+    CosmicTheme {
         Surface(Modifier.fillMaxSize()) {
             Column(Modifier.fillMaxSize().safeDrawingPadding().imePadding()) {
-                // Two rows avoid clipped four-way navigation at accessibility font scales.
-                listOf(listOf("home","missions"),listOf("repositories","settings")).forEach { row ->
-                    Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-                        row.forEach { title ->
-                            OutlinedButton(onClick={ page=title },modifier=Modifier.weight(1f).heightIn(min=48.dp)) {
-                                Text(if(page == title) stringResource(R.string.selected_page,stringResource(pageLabel(title))) else stringResource(pageLabel(title)))
-                            }
+                Text(stringResource(R.string.cosmic_brand),color=MaterialTheme.colorScheme.primary,
+                    style=MaterialTheme.typography.titleMedium,modifier=Modifier.padding(horizontal=20.dp,vertical=12.dp))
+                CosmicNavigation(page,listOf("devices","approvals","activity","providers","recovery","settings")) { page=it }
+                Box(Modifier.weight(1f)) {
+                    key(page) {
+                        when (page) {
+                            "devices","recovery","settings" -> CosmicPage(page,model) { page="advanced" }
+                            "advanced" -> LegacyMissionScreen(model,showConnection=true)
+                            else -> CosmicMissionPage(page,model) { page=it }
                         }
                     }
                 }
-                Box(Modifier.weight(1f)) {
-                    if (page == "missions" || page == "advanced") LegacyMissionScreen(model,showConnection=page == "advanced")
-                    else CosmicPage(page,model) { page="advanced" }
+                CosmicNavigation(page,listOf("home","chat","missions","critical","repositories")) { page=it }
+            }
+        }
+    }
+}
+
+/** Horizontal overflow keeps all destinations reachable at large system font sizes. */
+@Composable
+private fun CosmicNavigation(page: String, destinations: List<String>, select: (String) -> Unit) {
+    Surface(color=MaterialTheme.colorScheme.surface) {
+        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal=8.dp),
+            horizontalArrangement=Arrangement.spacedBy(4.dp)) {
+            destinations.forEach { destination ->
+                TextButton(onClick={ select(destination) },contentPadding=PaddingValues(8.dp),
+                    modifier=Modifier.widthIn(min=64.dp).heightIn(min=48.dp).semantics { selected=page==destination }) {
+                    Text(stringResource(pageLabel(destination)),style=MaterialTheme.typography.labelSmall,
+                        color=if(page==destination) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
@@ -115,10 +129,9 @@ private fun CosmicPage(page: String, model: MissionViewModel, advanced: () -> Un
         confirmButton={ TextButton(onClick={ model.forgetHost(); forget=false }) { Text(stringResource(R.string.forget_confirm)) } },
         dismissButton={ TextButton(onClick={ forget=false }) { Text(stringResource(R.string.cancel)) } })
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),verticalArrangement=Arrangement.spacedBy(16.dp)) {
-        Text(stringResource(R.string.app_name),style=MaterialTheme.typography.headlineLarge,modifier=Modifier.semantics { heading() })
-        Text(stringResource(pageLabel(page)),style=MaterialTheme.typography.titleLarge)
+        Text(stringResource(pageLabel(page)),style=MaterialTheme.typography.headlineLarge,modifier=Modifier.semantics { heading() })
         when(page) {
-            "home" -> {
+            "devices","recovery" -> {
                 Text(stringResource(R.string.home_title),style=MaterialTheme.typography.headlineSmall)
                 Text(stringResource(R.string.connection_value,stringResource(ui.connectionLabel())))
                 Text(ui.message.localized())
@@ -185,10 +198,6 @@ private fun CosmicPage(page: String, model: MissionViewModel, advanced: () -> Un
                 }
                 Text(stringResource(R.string.chat_unavailable))
             }
-            "repositories" -> {
-                Text(stringResource(R.string.repositories_unavailable))
-                Text(stringResource(R.string.repositories_explanation))
-            }
             "settings" -> {
                 Text(stringResource(R.string.trust_title),style=MaterialTheme.typography.titleLarge)
                 Text(ui.message.localized())
@@ -221,8 +230,16 @@ internal fun UiMessage.localized(): String = stringResource(resource,*arguments.
 
 internal fun pageLabel(page: String): Int = when(page) {
     "home" -> R.string.nav_home
+    "chat" -> R.string.nav_chat
     "missions" -> R.string.nav_missions
+    "critical" -> R.string.nav_critical
     "repositories" -> R.string.nav_repositories
+    "devices" -> R.string.nav_devices
+    "approvals" -> R.string.nav_approvals
+    "details" -> R.string.nav_details
+    "activity" -> R.string.nav_activity
+    "providers" -> R.string.nav_providers
+    "recovery" -> R.string.nav_recovery
     "settings" -> R.string.nav_settings
     else -> R.string.advanced_enrollment
 }
@@ -251,13 +268,6 @@ internal fun stateResource(state: String): Int = when(state) {
     else -> R.string.state_unknown
 }
 
-
-/** A delivery event reveals accepted confirmation; ordinary recomposition never changes navigation. */
-internal fun routePairingDelivery(raw: String, deliver: (String) -> Boolean,
-    showConfirmation: () -> Unit, consumed: () -> Unit) {
-    if (deliver(raw)) showConfirmation()
-    consumed()
-}
 
 /** Home distinguishes public pairing history from live, signed session evidence. */
 private fun MissionUi.currentConnectionState(now: Long): String = when {

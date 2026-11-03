@@ -16,7 +16,11 @@ class AndroidSourceTests(unittest.TestCase):
     def test_package_revision_and_pinned_build_inputs(self):
         build=(ANDROID/'app/build.gradle.kts').read_text()
         for value in ['eu.sparkhat.aioa.companion','compileSdk = 36','minSdk = 26','targetSdk = 36',
-                      'versionCode = 3','jvmToolchain(17)']:self.assertIn(value,build)
+                      'jvmToolchain(17)']:self.assertIn(value,build)
+        manifest=json.loads((ANDROID/'ANDROID_BUILD_INPUT_MANIFEST.json').read_text())
+        self.assertEqual(manifest['version_code'],int(re.search(r'versionCode\s*=\s*(\d+)',build)[1]))
+        self.assertGreater(manifest['version_code'],3) # installed Cosmic 0.3.0
+        self.assertEqual(manifest['version_name'],re.search(r'versionName\s*=\s*"([^"]+)"',build)[1])
         props=(ANDROID/'gradle/wrapper/gradle-wrapper.properties').read_text()
         self.assertIn('gradle-8.13-bin.zip',props)
         self.assertIn('20f1b1176237254a6fc204d8434196fa11a4cfb387567519c61556e8710aed78',props)

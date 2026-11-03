@@ -50,6 +50,18 @@ class DeviceConsoleTests(unittest.TestCase):
         service=self.service()
         with self.assertRaises(wire.MobileError):service.mobile_operator_request({'op':'pairing_list'})
 
+    def test_cosmic_public_assets_load_without_granting_operator_authority(self):
+        service=self.service()
+        request=self.tls(service)
+        for asset in ('/cosmic_tokens.css','/cosmic_space_grotesk.ttf',
+                '/cosmic_manrope.ttf','/cosmic_ibm_plex_mono.ttf','/cosmic_fonts_ofl.txt'):
+            with self.subTest(asset=asset):
+                code,raw=request('GET',asset)
+                self.assertEqual(200,code)
+                self.assertTrue(raw)
+        self.assertNotEqual(200,request('GET','/host-signing-key.pem')[0])
+        self.assertEqual(403,request('POST','/api/native-operator',b'{"op":"pairing_list"}')[0])
+
     def test_mobile_tls_responses_explicitly_close_connections(self):
         # OkHttp pools a framed HTTP/1.0 response without an explicit close
         # header. With retries disabled, the following pairing POST then sees

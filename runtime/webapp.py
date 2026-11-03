@@ -42,7 +42,9 @@ PERSONAL_AI_OPERATOR_INTENT = "personal-ai-prepare-v1"
 PERSONAL_AI_APPROVAL_INTENT = "personal-ai-approve-exact-v1"
 PERSONAL_AI_RESUME_INTENT = "personal-ai-resume-v1"
 MOBILE_CONSOLE_ASSETS = frozenset(('/devices','/styles.css','/app.js','/meta_mission.js',
-    '/agent_mission.js','/mobile_devices.js','/mobile_devices_dom.js','/qr.js'))
+    '/agent_mission.js','/mobile_devices.js','/mobile_devices_dom.js','/qr.js',
+    '/cosmic_tokens.css','/cosmic_space_grotesk.ttf','/cosmic_manrope.ttf',
+    '/cosmic_ibm_plex_mono.ttf','/cosmic_fonts_ofl.txt'))
 
 
 class WebRuntimeService:

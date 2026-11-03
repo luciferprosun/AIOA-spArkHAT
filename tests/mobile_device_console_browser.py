@@ -31,7 +31,7 @@ def require_prerequisites():
 
 
 def browser_command(output,source_sha):
-    command=sandbox_command(output,390,844,source_sha)
+    command=sandbox_command(output,1280,900,source_sha)
     command=command[:command.index('--')]
     for name in ('test_mobile_device_console.py','test_mobile_pairing.py','mobile_device_console_browser.py'):
         command+=['--ro-bind',str(ROOT/'tests'/name),'/app/tests/'+name]
@@ -102,6 +102,20 @@ def worker():
               const trusted=()=>document.querySelector('#devices-trusted button');
               try {
                 await wait(1);
+                let navigationOK=true;
+                for (const button of document.querySelectorAll('.cosmic-rail [data-cosmic-target]')) {
+                  button.click();
+                  const shown=Array.from(document.querySelectorAll('[data-cosmic-page]')).filter(x=>!x.hidden);
+                  navigationOK=navigationOK&&shown.length===1&&shown[0].dataset.cosmicPage.split(' ').includes(button.dataset.cosmicTarget)&&
+                    document.activeElement===shown[0].querySelector('h2');
+                }
+                result.cosmic_navigation_read_only=navigationOK&&window.consoleProbeReads===1;
+                document.querySelector('[data-cosmic-target="devices"]').click();
+                await document.fonts.ready;
+                result.local_fonts_loaded=['CosmicBody','CosmicHeading','CosmicMono'].every(name=>
+                  Array.from(document.fonts).some(font=>font.family===name&&font.status==='loaded'));
+                document.documentElement.style.fontSize='200%';
+                result.large_text_no_outer_overflow=document.documentElement.scrollWidth<=document.documentElement.clientWidth+1;
                 result.bootstrap=location.pathname==='/devices'&&location.hash===''&&location.search===''&&pending().length===2;
                 result.no_url_or_storage_credential=window.consoleProbeInitialURL===location.origin+'/devices'&&
                   document.referrer===''&&localStorage.length===0&&sessionStorage.length===0&&
@@ -128,11 +142,15 @@ def worker():
                 window.consoleProbePoll();await wait(8);window.consoleProbePoll();
                 await new Promise(r=>setTimeout(r,50));
                 result.unknown_suppresses_poll=window.consoleProbeReads===8&&pending().every(x=>x.disabled);
+                result.unknown_clears_cosmic_overview=document.getElementById('cosmic-trusted-count').textContent==='—'&&
+                  document.getElementById('cosmic-session-count').textContent==='—';
               } catch(error) {result.error=error.message;}
+              document.getElementById('devices-title').textContent='Cosmic · TEST OFFLINE';
               const output=document.createElement('pre');output.id='console-browser-result';
               output.textContent=JSON.stringify(result);document.body.append(output);
             })();
             """
+            preview_mode=[False]
             class BrowserHandler(webapp.AOIAWebHandler):
                 def do_GET(handler):
                     capture.append(('GET',handler.path,handler.headers.get('Sec-Fetch-Site')))
@@ -144,6 +162,9 @@ def worker():
                     # Test-only scripts reuse allowed asset paths. All document and
                     # owner POST admission checks remain the real handler's checks.
                     script={'/qr.js':prelude,'/meta_mission.js':driver}.get(handler.path)
+                    if preview_mode[0]:
+                        script=("document.getElementById('devices-title').textContent='Cosmic · TEST OFFLINE';"
+                            if handler.path=='/qr.js' else None)
                     if script is None:return super().send_head()
                     body=script.encode();handler.send_response(200)
                     handler.send_header('Content-Type','text/javascript');handler.send_header('Content-Length',str(len(body)))
@@ -160,6 +181,7 @@ def worker():
                     self.assertNotIn(secret,str(argv));self.assertNotIn(secret,str(kwargs))
                 files.append(Path(argv[1].removeprefix('file://')))
                 result=real_run([chrome,'--headless=new','--no-sandbox','--disable-dev-shm-usage',
+                    '--window-size=1280,900',
                     '--no-proxy-server','--host-resolver-rules=MAP host.example.org 127.0.0.1',
                     '--ignore-certificate-errors-spki-list='+test_spki,
                     '--disable-background-networking','--disable-component-update',
@@ -180,6 +202,18 @@ def worker():
                                 previous=chunk[-42:]
                 print('CONSOLE_PROFILE_SCAN '+json.dumps(persisted,sort_keys=True),flush=True)
                 self.assertFalse(persisted['csrf'],'Reusable CSRF persisted in browser profile')
+                # Direct public navigation avoids capturing the spent launcher's
+                # blank POST handoff. This second client has no owner credential.
+                preview_mode[0]=True
+                preview=real_run([chrome,'--headless=new','--no-sandbox','--disable-dev-shm-usage',
+                    '--no-proxy-server','--host-resolver-rules=MAP host.example.org 127.0.0.1',
+                    '--ignore-certificate-errors-spki-list='+test_spki,
+                    '--disable-background-networking','--disable-component-update','--window-size=1280,900',
+                    '--user-data-dir='+str(self.root/'chrome-preview-profile'),
+                    '--screenshot=/out/cosmic-web-offline.png','--virtual-time-budget=3000',self.app.origin+'/devices'],
+                    capture_output=True,text=True,timeout=25)
+                self.assertEqual(0,preview.returncode,preview.stderr[-1000:])
+                self.assertTrue(Path('/out/cosmic-web-offline.png').is_file(),'Offline screenshot missing')
                 # Chrome can retain the spent POST ticket in Sessions. It is
                 # deliberately distinct from the reusable, memory-only CSRF.
                 return result
@@ -205,7 +239,8 @@ def worker():
             self.assertEqual(dict.fromkeys(('bootstrap','busy_controls_disabled','pending_focus','device_focus',
                 'reordered_exact_focus','changed_digest_not_focused','removed_request_not_focused',
                 'deliberate_focus_preserved','unknown_suppresses_poll','revoked_reconnect_keeps_legacy_revoke',
-                'no_url_or_storage_credential'),True),result)
+                'no_url_or_storage_credential','cosmic_navigation_read_only','local_fonts_loaded',
+                'large_text_no_outer_overflow','unknown_clears_cosmic_overview'),True),result)
 
     suite=unittest.TestSuite([BrowserConsoleTests('test_chrome_private_launcher_bootstrap_and_exact_control_focus')])
     result=unittest.TextTestRunner(verbosity=2).run(suite)
