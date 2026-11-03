@@ -20,19 +20,20 @@ else:
     import verify_apk
 
 
-def command(cache,init):
+def command(cache,init, *, channel=None):
+    is_cosmic4=verify_apk.cosmic4.validate(channel)
     return ['./gradlew','--no-daemon','--max-workers=1','--offline',
         '--project-cache-dir',str(cache/'project'),'--init-script',str(init),
         '-Dorg.gradle.jvmargs=-Xmx1024m -XX:MaxMetaspaceSize=384m -Dfile.encoding=UTF-8',
         '-Pkotlin.compiler.execution.strategy=in-process','-Pkotlin.project.persistent.dir='+str(cache/'kotlin'),
-        'testDebugUnitTest','lintDebug','assembleDebug']
+        *(['testCosmic4UnitTest','lintCosmic4','assembleCosmic4'] if is_cosmic4 else ['testDebugUnitTest','lintDebug','assembleDebug'])]
 
 
-def init_script(output):
+def init_script(output, *, channel=None):
     # Only a native-owned, constrained output path is interpolated; never a model
     # instruction or workflow input. JSON quotes the fixed path for Groovy.
     build=json.dumps(str(output/'builds'));key=json.dumps(str(output/'debug.keystore'))
-    return '''allprojects { p ->
+    text='''allprojects { p ->
   p.layout.buildDirectory.set(new File(%s, p.path == ':' ? 'root' : p.path.replace(':','_')))
   p.plugins.withId('com.android.application') {
     def signing = p.android.signingConfigs.getByName('debug')
@@ -44,6 +45,12 @@ def init_script(output):
   }
 }
 ''' % (build,key)
+    if verify_apk.cosmic4.validate(channel):
+        text=text.replace("signing.storeType = 'JKS'","signing.storeType = 'PKCS12'")
+        text=text.replace("signing.keyAlias = 'androiddebugkey'","signing.keyAlias = 'cosmic4'")
+        text=text.replace("signing.storePassword = 'android'","signing.storePassword = System.getenv('AIOA_COSMIC4_PASSWORD')")
+        text=text.replace("signing.keyPassword = 'android'","signing.keyPassword = System.getenv('AIOA_COSMIC4_PASSWORD')")
+    return text
 
 
 def prepare_debug_signer(output,jdk,environment):
@@ -134,14 +141,14 @@ def run_logged(argv,*,cwd,environment,log,timeout=1800):
     return process.returncode
 
 
-def _bind_controlled_build(evidence,source_sha,output,argv):
+def _bind_controlled_build(evidence,source_sha,output,argv, *, channel=None):
     """Called only after this trusted process's successful controlled build.
 
 No CLI option/imported receipt can upgrade standalone artifact verification.
 This is a local process-origin record, not a third-party build attestation.
 """
     assert_debug_signer(evidence,output)
-    verify_apk.assert_source_identity(evidence)
+    verify_apk.assert_source_identity(evidence,channel=channel)
     invocation=lib.private_json(output/'BUILD_INVOCATION.json')
     lib.require(evidence['status']=='DEBUG_APK_VALID_SOURCE_UNBOUND'
         and invocation['source_sha']==source_sha and invocation['command']==argv

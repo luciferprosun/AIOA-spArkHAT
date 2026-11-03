@@ -9,6 +9,17 @@
     "lintDebug",
     "assembleDebug"
   ],
+  "channels": {
+    "COSMIC4_USB_V1": {
+      "old_identity_migrated": false,
+      "old_package_preserved": true,
+      "package": "eu.sparkhat.aioa.companion.cosmic4",
+      "update_signing_certificate_sha256": "3aa33eda63d3516010ddbf0fe0ff8de6b6dab6f6fc48088ee2592bde3b627bc4",
+      "variant": "cosmic4",
+      "version_code": 400,
+      "version_name": "4.0.0-cosmic"
+    }
+  },
   "command_cwd": "clients/android",
   "files": [
     {
@@ -30,10 +41,22 @@
       "sha256": "c7586a8350c2f720606dd809821a873fa4e7b5b632691caf2545a59e05523ffd"
     },
     {
-      "bytes": 1443,
+      "bytes": 2170,
       "executable": false,
       "path": "clients/android/app/build.gradle.kts",
-      "sha256": "f6f7e549cab7603ab422429010678195137987a4ad59f947a29dcb30c2a08dc0"
+      "sha256": "9a11d07af42d845d4d55060eba2c5798415a0be78bb728a45ab7afb7c56a4755"
+    },
+    {
+      "bytes": 556,
+      "executable": false,
+      "path": "clients/android/app/src/cosmic4/AndroidManifest.xml",
+      "sha256": "ee6ad6c1947a37cdcd587e48d17e3364698405d43e06cb13ff6ec415ae79453e"
+    },
+    {
+      "bytes": 4207,
+      "executable": false,
+      "path": "clients/android/app/src/cosmic4/java/eu/sparkhat/aioa/companion/UsbProvisioningProvider.kt",
+      "sha256": "9f8c0ab14cea4687f4293c1369a3a30796c005c938a304afd618c4bb42eb9f96"
     },
     {
       "bytes": 1261,
@@ -102,16 +125,16 @@
       "sha256": "284deacac76485327163bef06ea402065ff735a304be69598a27a5bf3fa2d317"
     },
     {
-      "bytes": 30440,
+      "bytes": 32525,
       "executable": false,
       "path": "clients/android/app/src/main/java/eu/sparkhat/aioa/companion/MissionViewModel.kt",
-      "sha256": "b356c17b9f6c459e92b5017b209172797293d169a2d336b409a21ff419b69fbf"
+      "sha256": "8d03c1a4362dbb9df5572a189b400011008a276d95e129921770262331e63c0d"
     },
     {
-      "bytes": 19401,
+      "bytes": 19505,
       "executable": false,
       "path": "clients/android/app/src/main/java/eu/sparkhat/aioa/companion/MobileClient.kt",
-      "sha256": "2c33c3685a3f35b9722059f28289279ec4afcd2e8bc03eb372bd8738e1237e98"
+      "sha256": "6331d795b029d9194b9af494d5c7f643c1aa98c07e0b3354480de22edea007a5"
     },
     {
       "bytes": 333,
@@ -150,16 +173,28 @@
       "sha256": "c1460605ddede2862ca713101dbe3bb7948a7713c50379fc03442bfc1bdf5150"
     },
     {
-      "bytes": 1414,
+      "bytes": 1491,
       "executable": false,
       "path": "clients/android/app/src/main/java/eu/sparkhat/aioa/companion/TransportIdentity.kt",
-      "sha256": "35196f93e6220fe1544c05e0b606aead1a5f5030eb32a11c394fab8903cad14f"
+      "sha256": "ee03be50cac5b6590f596e48f5089f9e9f9774d3b937a7755b3178c84ec4cfe0"
     },
     {
       "bytes": 3196,
       "executable": false,
       "path": "clients/android/app/src/main/java/eu/sparkhat/aioa/companion/TrustedHostStore.kt",
       "sha256": "2162f6f9475b7a01ff334f1db0eff977304fe61860a02f7166928d1714181f13"
+    },
+    {
+      "bytes": 5522,
+      "executable": false,
+      "path": "clients/android/app/src/main/java/eu/sparkhat/aioa/companion/UsbProvisioning.kt",
+      "sha256": "dc2be8928e369fbd7b241826c1d63bd8404a81e1a533f62f3a38436deeef16c9"
+    },
+    {
+      "bytes": 1383,
+      "executable": false,
+      "path": "clients/android/app/src/main/java/eu/sparkhat/aioa/companion/UsbProvisioningStore.kt",
+      "sha256": "0a0adcb3bd9c30d80901353bc9f96d465f0ca23d19f8de8e8b888d0eb133a4b2"
     },
     {
       "bytes": 5466,
@@ -262,6 +297,12 @@
       "executable": false,
       "path": "clients/android/app/src/test/java/eu/sparkhat/aioa/companion/TaskReadbackTest.kt",
       "sha256": "52bd87cc9b27f0da6d8294c8d16a5bd9f17fdd6957eaeecafe07329b81ece964"
+    },
+    {
+      "bytes": 7264,
+      "executable": false,
+      "path": "clients/android/app/src/test/java/eu/sparkhat/aioa/companion/UsbProvisioningTest.kt",
+      "sha256": "e5fa4238ed6633e5eac026709a063ee06a8ec6b8ce8dceec27286c25a51e2da2"
     },
     {
       "bytes": 4331,

@@ -65,7 +65,8 @@ jobs:
       contents: read
     if: >-
       github.repository == 'luciferprosun/AIOA-spArkHAT' &&
-      github.ref == 'refs/heads/main' &&
+      (github.ref == 'refs/heads/main' ||
+       (github.ref == 'refs/heads/feat/cosmic4-usb-20261103' && !inputs.enable_codeql)) &&
       github.actor == 'luciferprosun' && github.triggering_actor == 'luciferprosun' &&
       github.run_attempt == '1' && inputs.expected_source_sha == github.sha &&
       inputs.approve_run && inputs.sdk_license_ack && inputs.artifact_exposure_ack
@@ -83,6 +84,7 @@ jobs:
       AIOA_CODEQL_REQUESTED: ${{ inputs.enable_codeql }}
       AIOA_CODEQL_ACK: ${{ inputs.codeql_settings_ack }}
       AIOA_CODEQL_PROFILE: ${{ vars.AIOA_CODEQL_PROFILE }}
+      AIOA_APK_CHANNEL: ${{ github.ref == 'refs/heads/feat/cosmic4-usb-20261103' && 'COSMIC4_USB_V1' || '' }}
     steps:
       - name: Reject unreviewed image before checkout or tool setup
         id: image_check
@@ -185,6 +187,8 @@ jobs:
         id: controlled_build
         env:
           AIOA_IMAGE_SNAPSHOT: ${{ steps.image_check.outputs.snapshot }}
+          AIOA_COSMIC4_STORE_B64: ${{ github.ref == 'refs/heads/feat/cosmic4-usb-20261103' && secrets.AIOA_COSMIC4_STORE_B64 || '' }}
+          AIOA_COSMIC4_PASSWORD: ${{ github.ref == 'refs/heads/feat/cosmic4-usb-20261103' && secrets.AIOA_COSMIC4_PASSWORD || '' }}
         shell: bash
         run: |
           set -euo pipefail

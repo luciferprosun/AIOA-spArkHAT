@@ -15,10 +15,30 @@ android {
         versionCode = 4
         versionName = "0.3.1-cosmic"
     }
-    buildFeatures { compose = true }
+    buildFeatures { compose = true; buildConfig = true }
+    defaultConfig {
+        val source = providers.environmentVariable("AIOA_BUILD_SOURCE_SHA").orElse("UNBOUND").get()
+        require(source == "UNBOUND" || Regex("[0-9a-f]{40}").matches(source))
+        buildConfigField("String", "AIOA_SOURCE_SHA", "\"$source\"")
+    }
+    buildTypes {
+        create("cosmic4") {
+            initWith(getByName("debug"))
+            applicationIdSuffix = ".cosmic4"
+            matchingFallbacks += listOf("debug")
+        }
+    }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+    }
+}
+androidComponents {
+    onVariants(selector().withBuildType("cosmic4")) { variant ->
+        variant.outputs.forEach { output ->
+            output.versionCode.set(400)
+            output.versionName.set("4.0.0-cosmic")
+        }
     }
 }
 kotlin { jvmToolchain(17) }

@@ -74,7 +74,7 @@ class MissionViewModel(app: Application) : AndroidViewModel(app) {
     private fun owner() = bindingOwner ?: error("HOST_BINDING_INVALID")
     private fun reconcileBinding() {
         if (owner().reconcile()) {
-            generation = generation.invalidate("STALE")
+            UsbReadback.clear(); generation = generation.invalidate("STALE")
             ui = ui.copy(pairing=owner().record,bindingInvalid=owner().invalid,invite=null,enrolled=false,capabilities=null,lastSignedResponseAt=null,
                 freshness=generation,readbacks=ui.readbacks.invalidate(),connection="STALE",pairingState="DISCONNECTED")
         }
@@ -99,7 +99,7 @@ class MissionViewModel(app: Application) : AndroidViewModel(app) {
     private fun pairingFlow(work: suspend () -> Unit) {
         if (ui.busy || recoveryWork.busy) return
         val ticket=Any();recoveryWork.start(ticket)
-        generation = generation.invalidate("STALE")
+        UsbReadback.clear(); generation = generation.invalidate("STALE")
         ui = ui.copy(busy=true,enrolled=false,freshness=generation,readbacks=ui.readbacks.invalidate())
         pairingJob = viewModelScope.launch {
             try { transportMutex.withLock { owner().requireCurrent(); work(); owner().requireCurrent() } }
@@ -277,7 +277,7 @@ class MissionViewModel(app: Application) : AndroidViewModel(app) {
         if (!foreground || ui.pairing?.trusted != true) return
         if (!available) {
             pairingJob?.cancel();requestJob?.cancel();client.cancel()
-            generation = generation.invalidate("STALE")
+            UsbReadback.clear(); generation = generation.invalidate("STALE")
             ui = ui.copy(freshness=generation,connection="WAITING_NETWORK",message=UiMessage(R.string.recovery_waiting_network))
         } else automaticRecovery()
     }
@@ -295,11 +295,12 @@ class MissionViewModel(app: Application) : AndroidViewModel(app) {
         ui = ui.copy(enrolled=true,connection="SIGNED_SESSION",pairingState="CONNECTED",capabilities=client.capabilities,
             freshness=generation,readbacks=ui.readbacks.invalidate(),lastSignedResponseAt=observation.issuedAtEpochSeconds,message=UiMessage(R.string.connected_notice))
         acceptStatus(observation.data)
+        UsbReadback.accept(observation)
         recordEvent(UiEventKind.SIGNED_READBACK,observation.issuedAtEpochSeconds)
         viewModelScope.launch {
             delay((observation.validUntilElapsedMs-Freshness.elapsedMs()).coerceAtLeast(0)+1)
             if (generation.generation == epoch) {
-                generation = generation.invalidate("STALE")
+                UsbReadback.clear(); generation = generation.invalidate("STALE")
                 ui = ui.copy(freshness=generation,connection="STALE")
             }
         }
@@ -307,7 +308,7 @@ class MissionViewModel(app: Application) : AndroidViewModel(app) {
     fun forgetHost() {
         if (ui.busy || recoveryWork.busy) return
         try {
-            owner().forget(); client.close(); generation = generation.invalidate("STALE")
+            owner().forget(); client.close(); UsbReadback.clear(); generation = generation.invalidate("STALE")
             ui = ui.copy(pairing=null,invite=null,enrolled=false,capabilities=null,bindingInvalid=false,lastSignedResponseAt=null,pairingState="DISCONNECTED",
                 freshness=generation,readbacks=ui.readbacks.invalidate(),connection="DISCONNECTED",message=UiMessage(R.string.forgot_notice))
         } catch (_: Exception) { ui = ui.copy(message=UiMessage(R.string.forget_failed)) }
@@ -318,7 +319,7 @@ class MissionViewModel(app: Application) : AndroidViewModel(app) {
     private fun request(op: () -> MobileObservation, apply: (JsonObject) -> Unit) {
         if (ui.busy || recoveryWork.busy) return
         val ticket=Any();recoveryWork.start(ticket)
-        generation = generation.invalidate("STALE")
+        UsbReadback.clear(); generation = generation.invalidate("STALE")
         val epoch = generation.generation
         ui = ui.copy(freshness=generation,readbacks=ui.readbacks.invalidate(),busy=true,message=UiMessage(R.string.waiting_readback))
         requestJob = viewModelScope.launch {
@@ -329,11 +330,12 @@ class MissionViewModel(app: Application) : AndroidViewModel(app) {
                     generation = generation.accept(epoch,validUntilElapsedMs)
                     ui = ui.copy(freshness=generation,busy=false,connection="SIGNED_SESSION",lastSignedResponseAt=observation.issuedAtEpochSeconds)
                     apply(observation.data)
+                    UsbReadback.accept(observation)
                     recordEvent(UiEventKind.SIGNED_READBACK,observation.issuedAtEpochSeconds)
                     viewModelScope.launch {
                         delay((validUntilElapsedMs-Freshness.elapsedMs()).coerceAtLeast(0)+1)
                         if (generation.generation == epoch) {
-                            generation = generation.invalidate("STALE")
+                            UsbReadback.clear(); generation = generation.invalidate("STALE")
                             ui = ui.copy(freshness=generation,connection="STALE",message=UiMessage(R.string.proof_expired))
                         }
                     }
@@ -348,14 +350,14 @@ class MissionViewModel(app: Application) : AndroidViewModel(app) {
                 }
             } catch (_: SessionUnavailable) {
                 if (generation.generation == epoch) {
-                    generation = generation.invalidate("UNKNOWN")
+                    UsbReadback.clear(); generation = generation.invalidate("UNKNOWN")
                     ui = ui.sessionUnavailable().copy(freshness=generation,busy=false,connection="FRESH_ENROLLMENT_REQUIRED",
                         message=UiMessage(R.string.session_lost))
                     recordEvent(UiEventKind.LOCAL_SESSION_LOST)
                 }
             } catch (_: Exception) {
                 if (generation.generation == epoch) {
-                    generation = generation.invalidate("UNKNOWN")
+                    UsbReadback.clear(); generation = generation.invalidate("UNKNOWN")
                     ui = ui.copy(freshness=generation,busy=false,connection="OFFLINE_OR_DENIED",
                         message=UiMessage(R.string.unknown_notice))
                     recordEvent(UiEventKind.LOCAL_UNKNOWN)
@@ -459,7 +461,7 @@ class MissionViewModel(app: Application) : AndroidViewModel(app) {
         }
         request({ client.revoke() }) {
             client.close()
-            generation = generation.invalidate(); ui = MissionUi(freshness=generation,pending=ui.pending,archived=ui.archived,
+            UsbReadback.clear(); generation = generation.invalidate(); ui = MissionUi(freshness=generation,pending=ui.pending,archived=ui.archived,
                 pendingAgent=ui.pendingAgent,archivedAgents=ui.archivedAgents,pairing=ui.pairing,
                 connection="AUTO_RECOVERY_PAUSED",history=ui.history,message=UiMessage(R.string.session_revoked))
         }
@@ -543,19 +545,45 @@ class MissionViewModel(app: Application) : AndroidViewModel(app) {
         ui=ui.copy(history=appendUiHistory(ui.history,UiHistoryEvent(kind,at,identity)))
     }
     fun background() {
+        UsbReadback.clear()
         foreground=false;recoveryWake.foreground(false)
         pairingJob?.cancel();requestJob?.cancel()
-        generation = generation.invalidate("STALE"); client.cancel()
+        UsbReadback.clear(); generation = generation.invalidate("STALE"); client.cancel()
         ui = ui.copy(freshness=generation,readbacks=ui.readbacks.invalidate(),busy=false,connection="STALE",message=UiMessage(R.string.resume_readback))
     }
     fun resume() {
+        UsbReadback.clear()
         foreground=true;recoveryWake.foreground(true)
         try { reconcileBinding() }
         catch (_: Exception) { client.close(); ui = ui.copy(enrolled=false,bindingInvalid=true) }
-        generation = generation.invalidate("STALE")
+        UsbReadback.clear(); generation = generation.invalidate("STALE")
         ui = ui.copy(freshness=generation,readbacks=ui.readbacks.invalidate(),message=if (ui.pending == null) UiMessage(R.string.fresh_status) else
             UiMessage(R.string.unresolved_notice))
-        automaticRecovery()
+        if (!consumeUsbProvisioning()) automaticRecovery()
     }
-    override fun onCleared() { network.close(); client.close(); super.onCleared() }
+    private fun consumeUsbProvisioning(): Boolean {
+        if (BuildConfig.BUILD_TYPE!="cosmic4" || ui.busy || recoveryWork.busy || ui.bindingInvalid || owner().record!=null) return false
+        return try {
+            @Suppress("DEPRECATION")
+            val signatures=getApplication<Application>().packageManager.getPackageInfo(
+                getApplication<Application>().packageName,android.content.pm.PackageManager.GET_SIGNATURES).signatures!!
+            require(signatures.size==1)
+            val identity=UsbIdentity(getApplication<Application>().packageName,Wire.sha(signatures.single().toByteArray()),
+                BuildConfig.AIOA_SOURCE_SHA,client.publicSpki)
+            val transfer=androidUsbProvisioningStore(getApplication()).claim(identity,now()) ?: return false
+            // Claim is durable BEFORE import/confirmHost. Any crash leaves readback, never another BEGIN.
+            val archived=(ui.archived+transfer.archived).distinct().take(128)
+            val agents=(ui.archivedAgents+transfer.archivedAgents).distinct().take(128)
+            check(prefs.edit().putStringSet("unresolved_proposals",archived.toSet())
+                .putStringSet("unresolved_agent_proposals",agents.toSet()).commit()) { "LOCAL_BINDING_SAVE_FAILED" }
+            ui=ui.copy(archived=archived,archivedAgents=agents)
+            check(importPacket(Wire.canonical(transfer.invite.envelope).toString(Charsets.UTF_8)))
+            confirmHost()
+            true
+        } catch (_: Exception) {
+            ui=ui.copy(connection="UNKNOWN",message=UiMessage(R.string.connection_uncertain))
+            true
+        }
+    }
+    override fun onCleared() { UsbReadback.clear(); network.close(); client.close(); super.onCleared() }
 }

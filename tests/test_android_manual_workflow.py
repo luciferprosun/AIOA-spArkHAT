@@ -37,7 +37,16 @@ class AndroidManualWorkflowTests(unittest.TestCase):
         upload=next(step for step in actions if step['uses'].startswith('actions/upload-artifact@'))
         self.assertEqual(1,upload['with']['retention-days'])
         self.assertNotIn('always()',upload.get('if',''))
-        self.assertNotIn('secrets.',path.read_text())
+        # Cosmic4 owns a durable, purpose-specific APK signer. Original main
+        # builds still receive neither secret; no provider/production secret.
+        import re
+        self.assertEqual(['AIOA_COSMIC4_STORE_B64','AIOA_COSMIC4_PASSWORD'],
+            re.findall(r'secrets\.([A-Z0-9_]+)',path.read_text()))
+        controlled=next(s for s in job['steps'] if s.get('id')=='controlled_build')
+        for name in ('AIOA_COSMIC4_STORE_B64','AIOA_COSMIC4_PASSWORD'):
+            self.assertEqual("${{ github.ref == 'refs/heads/feat/cosmic4-usb-20261103' && secrets."+name+" || '' }}",controlled['env'][name])
+        for step in job['steps']:
+            if step is not controlled:self.assertNotIn('secrets.',str(step))
         for step in job['steps']:
             if 'run' in step:self.assertNotIn('${{',step['run'])
         for name in ('approve_run','sdk_license_ack','artifact_exposure_ack'):
