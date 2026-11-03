@@ -50,6 +50,22 @@ class DeviceConsoleTests(unittest.TestCase):
         service=self.service()
         with self.assertRaises(wire.MobileError):service.mobile_operator_request({'op':'pairing_list'})
 
+    def test_mobile_tls_responses_explicitly_close_connections(self):
+        # OkHttp pools a framed HTTP/1.0 response without an explicit close
+        # header. With retries disabled, the following pairing POST then sees
+        # EOF instead of reaching Core. Cover success and pre-dispatch denials.
+        request=self.tls(self.service())
+        cases=(('GET','/api/mobile/v1/capabilities',None,
+                {'X-AIOA-Challenge':'a'*64},200),
+               ('GET','/devices',None,{},200),
+               ('POST','/api/mobile/v1/pairing/begin',{}, {},400),
+               ('POST','/api/native-operator',{'op':'pairing_list'}, {},403),
+               ('GET','/api/session',None,{},404))
+        for method,path,body,headers,expected in cases:
+            with self.subTest(method=method,path=path):
+                self.assertEqual(expected,request(method,path,body,headers)[0])
+                self.assertEqual('close',request.response_headers.get('Connection'))
+
     def test_kernel_bootstrap_enables_only_pairing_ops_and_rotates_transport(self):
         service=self.service();request=self.console_socket(service)
         first=request({'op':'console'})

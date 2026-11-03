@@ -335,6 +335,12 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
         return True
 
     def end_headers(self) -> None:
+        if getattr(self.runtime_service, 'mobile_only', False):
+            # This bounded listener closes every response. Tell pooled clients
+            # before they try to send the next signed request on a dead socket.
+            self.close_connection = True
+            if not any(h.lower().startswith(b'connection:') for h in getattr(self, '_headers_buffer', ())):
+                self.send_header('Connection', 'close')
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Referrer-Policy", "no-referrer")
         self.send_header("Cache-Control", "no-store")
