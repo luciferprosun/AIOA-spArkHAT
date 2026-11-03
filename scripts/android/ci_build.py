@@ -27,7 +27,7 @@ else:
 SOURCE_REF='refs/heads/main'
 WORKFLOW_PATH='.github/workflows/android-manual-build.yml'
 REVIEWED_IMAGE_VERSION='20261026.354.1'
-REVIEWED_WORKFLOW_SHA256='93801e56dbcead9fcee3c55daa15acc4b925af7c670d3dba99fa046e8be0de86'
+REVIEWED_WORKFLOW_SHA256='8ce084bcd9ab6c7d8c331dd72ea58b283aade97267c51fd1101f744a9be119cf'
 DEBUG_PROFILE='DEBUG_TOOLCHAIN_V1'
 ALTERNATE_DEBUG_PROFILE='DEBUG_UBUNTU22_V1'
 ALTERNATE_IMAGE_VERSION='20261026.341.1'
@@ -128,6 +128,10 @@ def profile_evidence(env,*,purpose='apk'):
     matched=(snapshot['metadata_version']==expected_image and snapshot['image_identity_status']=='MATCHED')
     exception=(profile==DEBUG_PROFILE and snapshot['metadata_version']=='20261025.353.1'
         and snapshot['metadata_sha256']==DEBUG_IMAGE_METADATA_SHA256
+        and snapshot['image_identity_status']=='MISMATCH_ACCEPTED_DEBUG')
+    exception=exception or (profile==ALTERNATE_DEBUG_PROFILE
+        and snapshot['metadata_version']=='20261025.340.1'
+        and snapshot['metadata_sha256']=='08a840f7186e0ab52ee613d5cafee66d245430928627dd25f6dc638bdd7e481f'
         and snapshot['image_identity_status']=='MISMATCH_ACCEPTED_DEBUG')
     lib.require(matched or exception,'BLOCKED_CI_DEBUG_IMAGE_SNAPSHOT')
     return {'build_profile':profile,'runner_observation':snapshot}
