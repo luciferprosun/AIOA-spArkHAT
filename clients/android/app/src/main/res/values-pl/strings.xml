@@ -1,5 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="pairing_checking_host">Sprawdzanie bezpiecznego połączenia i tożsamości hosta…</string>
+    <string name="pairing_sending_request">Wysyłanie żądania parowania. Poczekaj na potwierdzenie w Linuksie.</string>
+    <string name="pairing_dns_failed">Nie można rozpoznać prywatnego adresu AIOA. Sprawdź, czy Tailscale jest połączony na obu urządzeniach. Nie ponowiono automatycznie.</string>
+    <string name="pairing_network_failed">Nie można połączyć się z Linuksem. Sprawdź Tailscale, host i dostęp do portu TCP 443. Nie ponowiono automatycznie.</string>
+    <string name="pairing_timeout">Przekroczono czas bezpiecznego połączenia. Sprawdź Tailscale i zezwolenie na port TCP 443 Linuksa. Jeżeli zapisano już żądanie parowania, odczytaj jego stan przed kolejną próbą.</string>
+    <string name="pairing_tls_failed">Odrzucono certyfikat TLS lub przypiętą tożsamość hosta. Sprawdź host Linux i zegar telefonu; pozostaw sprawdzanie certyfikatów włączone.</string>
+    <string name="pairing_source_changed">Kod hosta zmienił się od wydania zaproszenia. Pobierz świeże zaproszenie z zaufanego panelu Linuksa.</string>
+    <string name="pairing_proof_failed">Nie można zweryfikować podpisanej odpowiedzi hosta. Parowanie zatrzymano; sprawdź host w Linuksie.</string>
+    <string name="pairing_host_denied">Linux odmówił wykonania operacji. Sprawdź żądanie i zgodę w panelu urządzeń; nie ponowiono automatycznie.</string>
     <string name="welcome">Połącz się ze swoim AIOA lub ponownie połącz zapisany host.</string>
     <string name="initial">Wymagane zweryfikowane HTTPS i nowe parowanie; właściciel NOT_BOUND.</string>
     <string name="binding_invalid">Zapisane dane hosta są nieprawidłowe. Usuń powiązanie w Ustawieniach i zeskanuj kod z zaufanego ekranu Linuksa.</string>
@@ -121,4 +130,9 @@
     <string name="reason_revoked">Linux cofnął lub zastąpił to żądanie parowania. Wymagany jest nowy QR i zatwierdzenie dokładnego żądania w Linuksie.</string>
     <string name="reason_already_connected">Sesja jest już dostępna. Użyj opcji Odśwież podpisany stan, aby odczytać jej aktualny stan.</string>
     <string name="reason_packet_required">Aby włączyć odczyt, wklej podpisany pakiet JSON lub odnośnik parowania.</string>
+    <string name="recovery_connecting">Bezpieczne ponowne łączenie z Twoim AIOA…</string>
+    <string name="recovery_waiting_network">Czekam na sieć prywatną. Sprawdź Tailscale i spróbuj połączyć ponownie. Zapisane zatwierdzenie urządzenia jest zachowane.</string>
+    <string name="recovery_session_expired">Krótka sesja wygasła. Połącz ponownie przez zapisane zatwierdzenie urządzenia; nowe zaproszenie nie jest potrzebne.</string>
+    <string name="recovery_manual_required">Wynik poprzedniego żądania sesji jest niepewny. Automatyczne ponawianie zatrzymano. Użyj opcji Połącz ponownie, aby jawnie rozpocząć świeże odzyskanie sesji.</string>
+    <string name="recovery_paused">Automatyczne łączenie wstrzymano po Twoim żądaniu odwołania sesji. Użyj opcji Połącz ponownie, aby jawnie rozpocząć nową sesję. Zapisane zatwierdzenie urządzenia jest zachowane.</string>
 </resources>

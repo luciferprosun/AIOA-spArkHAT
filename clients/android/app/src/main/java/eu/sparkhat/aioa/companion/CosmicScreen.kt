@@ -15,6 +15,8 @@ import kotlinx.coroutines.delay
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.contentDescription
@@ -79,6 +81,8 @@ internal fun CosmicApp(incomingPacket: String?, consumed: () -> Unit, model: Mis
 private fun CosmicPage(page: String, model: MissionViewModel, advanced: () -> Unit) {
     val ui = model.ui
     val context = LocalContext.current
+    val focusManager = LocalFocusManager.current
+    val keyboard = LocalSoftwareKeyboardController.current
     // Used only for invitation expiry controls, never as the displayed host response time.
     var expiryRefresh by remember { mutableIntStateOf(0) }
     val nowSeconds = remember(ui,expiryRefresh) { System.currentTimeMillis()/1000 }
@@ -98,6 +102,14 @@ private fun CosmicPage(page: String, model: MissionViewModel, advanced: () -> Un
     var packet by remember { mutableStateOf("") }
     var diagnostics by remember { mutableStateOf(false) }
     var forget by remember { mutableStateOf(false) }
+    LaunchedEffect(ui.invite) {
+        if (ui.invite != null) {
+            manual = false
+            packet = ""
+            focusManager.clearFocus()
+            keyboard?.hide()
+        }
+    }
     if (forget) AlertDialog(onDismissRequest={ forget=false },title={ Text(stringResource(R.string.forget_title)) },
         text={ Text(stringResource(R.string.forget_explanation)) },
         confirmButton={ TextButton(onClick={ model.forgetHost(); forget=false }) { Text(stringResource(R.string.forget_confirm)) } },
@@ -142,27 +154,35 @@ private fun CosmicPage(page: String, model: MissionViewModel, advanced: () -> Un
                             Text(stringResource(R.string.confirm_explanation))
                             Button(onClick=model::confirmHost,enabled=confirmReason == null,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)) { Text(stringResource(R.string.confirm_action)) }
                             DisabledReason(confirmReason)
+                            Text(ui.message.localized())
                         }
                     }
                 }
                 ui.pairing?.let { record ->
                     Text(stringResource(R.string.host_value,record.host.origin))
                     Text(stringResource(R.string.pairing_value,stringResource(ui.pairingLabel())))
-                    if (ui.pairingState in setOf("PENDING","APPROVED","BEGIN_UNCERTAIN","RECOVERY_REQUIRED")) {
-                        val spokenCode = stringResource(R.string.sas_value,PairingProtocol.sas(record.requestDigest).toList().joinToString(" "))
-                        SelectionContainer { Text(stringResource(R.string.sas_value,PairingProtocol.sas(record.requestDigest)),style=MaterialTheme.typography.headlineMedium,modifier=Modifier.semantics { contentDescription=spokenCode }) }
-                        Text(stringResource(R.string.sas_explanation))
-                    }
+                    Text(ui.message.localized())
                 }
-                Button(onClick=model::readPairingStatus,enabled=pairingStatusReason == null,
-                    modifier=Modifier.heightIn(min=48.dp)) { Text(stringResource(R.string.read_pairing)) }
-                DisabledReason(pairingStatusReason)
+                // Recovery is the primary action for a remembered device. It
+                // stays before expired-invitation diagnostics at large fonts.
                 Button(onClick=model::reconnect,enabled=reconnectReason == null,modifier=Modifier.heightIn(min=48.dp)) {
                     Text(stringResource(ui.reconnectLabel()))
                 }
                 DisabledReason(reconnectReason)
                 Button(onClick=model::status,enabled=statusReason == null,modifier=Modifier.heightIn(min=48.dp)) { Text(stringResource(R.string.refresh_status)) }
                 DisabledReason(statusReason)
+                ui.pairing?.let { record ->
+                    if (!record.trusted && ui.pairingState in setOf("PENDING","APPROVED","BEGIN_UNCERTAIN","RECOVERY_REQUIRED")) {
+                        val spokenCode = stringResource(R.string.sas_value,PairingProtocol.sas(record.requestDigest).toList().joinToString(" "))
+                        SelectionContainer { Text(stringResource(R.string.sas_value,PairingProtocol.sas(record.requestDigest)),style=MaterialTheme.typography.headlineMedium,modifier=Modifier.semantics { contentDescription=spokenCode }) }
+                        Text(stringResource(R.string.sas_explanation))
+                    }
+                }
+                if (ui.pairing?.trusted != true) {
+                    Button(onClick=model::readPairingStatus,enabled=pairingStatusReason == null,
+                        modifier=Modifier.heightIn(min=48.dp)) { Text(stringResource(R.string.read_pairing)) }
+                    DisabledReason(pairingStatusReason)
+                }
                 Text(stringResource(R.string.chat_unavailable))
             }
             "repositories" -> {
@@ -214,6 +234,11 @@ internal fun stateResource(state: String): Int = when(state) {
     "UNKNOWN","OFFLINE_OR_DENIED" -> R.string.state_unknown
     "UNVERIFIED" -> R.string.state_unverified
     "SIGNED_SESSION","CONNECTED" -> R.string.state_connected
+    "RECONNECTING" -> R.string.recovery_connecting
+    "WAITING_NETWORK" -> R.string.recovery_waiting_network
+    "SESSION_EXPIRED" -> R.string.recovery_session_expired
+    "MANUAL_RECOVERY" -> R.string.recovery_manual_required
+    "AUTO_RECOVERY_PAUSED" -> R.string.recovery_paused
     "FRESH_ENROLLMENT_REQUIRED","RECOVERY_REQUIRED" -> R.string.state_recovery
     "CONFIRM_HOST" -> R.string.state_confirm
     "PENDING" -> R.string.state_pending

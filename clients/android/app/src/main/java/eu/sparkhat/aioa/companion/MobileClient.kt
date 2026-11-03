@@ -9,7 +9,7 @@ import okhttp3.RequestBody.Companion.toRequestBody
 
 /** Host owns model credentials and Core authority. This client has no Run port. */
 class PairingFailure(val reason: String) : IllegalStateException(reason)
-class SessionUnavailable : IllegalStateException("FRESH_ENROLLMENT_REQUIRED")
+class SessionUnavailable : ExpiredTransportSession()
 data class MobileObservation(val data: JsonObject, val validUntilElapsedMs: Long, val issuedAtEpochSeconds: Long)
 
 class MobileClient(private val identity: TransportIdentity) {
@@ -29,6 +29,7 @@ class MobileClient(private val identity: TransportIdentity) {
     private var expiresAt = 0L
     private val device get() = Wire.sha(Wire.decode(identity.spki))
     val publicSpki get() = identity.spki
+    fun hasSession() = token != null && http != null && now() < expiresAt
     private fun now() = System.currentTimeMillis()/1000
     private fun nonce(size: Int = 16): String = ByteArray(size).also { SecureRandom().nextBytes(it) }
         .joinToString("") { "%02x".format(it.toInt() and 255) }

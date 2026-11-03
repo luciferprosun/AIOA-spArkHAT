@@ -141,6 +141,7 @@ No CLI option/imported receipt can upgrade standalone artifact verification.
 This is a local process-origin record, not a third-party build attestation.
 """
     assert_debug_signer(evidence,output)
+    verify_apk.assert_source_identity(evidence)
     invocation=lib.private_json(output/'BUILD_INVOCATION.json')
     lib.require(evidence['status']=='DEBUG_APK_VALID_SOURCE_UNBOUND'
         and invocation['source_sha']==source_sha and invocation['command']==argv

@@ -388,6 +388,7 @@ def execute(env,source_sha,image,*,purpose='apk',stages=None):
 
 def verified_artifact(apk,root,evidence,*,sdk,jdk,source_sha,environment):
     """Bounded copy, then independent aapt/apksigner/report readback of the copy."""
+    verify_apk.assert_source_identity(evidence)
     artifact=lib.safe_path(root/'artifact');artifact.mkdir(mode=0o700)
     source=lib.safe_path(apk);target=artifact/'aioa-companion-debug.apk'
     fd=os.open(source,os.O_RDONLY|os.O_NOFOLLOW|os.O_CLOEXEC)

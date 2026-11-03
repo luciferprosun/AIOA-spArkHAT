@@ -12,8 +12,8 @@ android {
         applicationId = "eu.sparkhat.aioa.companion"
         minSdk = 26
         targetSdk = 36
-        versionCode = 3
-        versionName = "0.3.0-cosmic"
+        versionCode = 4
+        versionName = "0.3.1-cosmic"
     }
     buildFeatures { compose = true }
     compileOptions {

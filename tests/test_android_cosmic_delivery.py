@@ -86,12 +86,12 @@ class CosmicDeliveryTests(unittest.TestCase):
     def test_cosmic_apk_identity_matches_current_build_manifest_and_rejects_n1(self):
         manifest = json.loads((Path(__file__).resolve().parents[1] /
             'clients/android/ANDROID_BUILD_INPUT_MANIFEST.json').read_text())
-        raw = ("package: name='eu.sparkhat.aioa.companion' versionCode='3' versionName='0.3.0-cosmic'\n"
+        raw = (f"package: name='eu.sparkhat.aioa.companion' versionCode='{manifest['version_code']}' versionName='{manifest['version_name']}'\n"
             "sdkVersion:'26'\ntargetSdkVersion:'36'\nuses-permission: name='android.permission.INTERNET'\n")
         value = verify_apk.parse_badging(raw)
         self.assertEqual(manifest['version_code'], value['version_code'])
         self.assertEqual(manifest['version_name'], value['version_name'])
-        for bad in [raw.replace("versionCode='3'", "versionCode='2'"),
-                raw.replace('0.3.0-cosmic', '0.2.0-n1')]:
+        for bad in [raw.replace(f"versionCode='{manifest['version_code']}'", "versionCode='2'"),
+                raw.replace(manifest['version_name'], '0.2.0-n1')]:
             with self.subTest(bad=bad), self.assertRaises(verify_apk.lib.Blocked):
                 verify_apk.parse_badging(bad)

@@ -59,7 +59,7 @@ object Wire {
     fun verify(spki: String, signature: String, value: JsonObject) {
         val verifier = Signature.getInstance("SHA256withECDSA")
         verifier.initVerify(publicKey(spki)); verifier.update(canonical(value))
-        require(verifier.verify(decode(signature)))
+        require(verifier.verify(decode(signature))) { "INVALID_SIGNATURE" }
     }
     private fun quote(s: String): String = buildString {
         append('"')

@@ -71,7 +71,8 @@ SOURCE_FILES += ('runtime/meta_hackathon/web_agent.py','web/agent_mission.js',
         'clients/android/ANDROID_BUILD_INPUT_MANIFEST.json')
 SOURCE_FILES += ('web/mobile_devices.js','web/mobile_devices_dom.js','web/qr.js')
 SOURCE_FILES += tuple('clients/android/app/src/main/java/eu/sparkhat/aioa/companion/'+name
-        for name in ('PairingProtocol.kt','TrustedHostStore.kt','CosmicScreen.kt'))
+        for name in ('PairingProtocol.kt','TrustedHostStore.kt','CosmicScreen.kt',
+                     'PairingProblem.kt','SessionRecovery.kt','RecoveryNetworkMonitor.kt'))
 SOURCE_FILES += tuple('clients/android/app/src/main/res/'+name+'/strings.xml'
         for name in ('values','values-pl'))
 

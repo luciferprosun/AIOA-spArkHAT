@@ -1,5 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="pairing_checking_host">Checking the secure connection and host identity…</string>
+    <string name="pairing_sending_request">Sending the pairing request. Wait for confirmation on Linux.</string>
+    <string name="pairing_dns_failed">The private AIOA address cannot be resolved. Check that Tailscale is connected on both devices. No automatic retry was made.</string>
+    <string name="pairing_network_failed">The Linux host cannot be reached. Check Tailscale, the host and access to TCP port 443. No automatic retry was made.</string>
+    <string name="pairing_timeout">The secure connection timed out. Check Tailscale and permission to reach Linux TCP port 443. If a pairing request is already saved, read its status before trying again.</string>
+    <string name="pairing_tls_failed">The TLS certificate or pinned host identity was rejected. Check the Linux host and phone clock; keep certificate verification enabled.</string>
+    <string name="pairing_source_changed">The host source changed since this invitation was issued. Obtain a fresh invitation from the trusted Linux panel.</string>
+    <string name="pairing_proof_failed">The signed host response could not be verified. Pairing stopped; verify the host on Linux.</string>
+    <string name="pairing_host_denied">Linux denied this operation. Check the request and approval in its device panel; no automatic retry was made.</string>
     <string name="welcome">Connect to your AIOA or reconnect a saved host.</string>
     <string name="initial">Verified HTTPS and fresh enrollment required; owner NOT_BOUND.</string>
     <string name="binding_invalid">Saved host metadata is invalid. Forget it in Settings and scan your trusted Linux display.</string>
@@ -121,4 +130,9 @@
     <string name="reason_revoked">Linux revoked or replaced this pairing request. A fresh QR and exact Linux approval are required.</string>
     <string name="reason_already_connected">A session is already available. Use Refresh signed status to read its current state.</string>
     <string name="reason_packet_required">Paste the signed JSON packet or pairing link to enable reading it.</string>
+    <string name="recovery_connecting">Reconnecting securely to your AIOA…</string>
+    <string name="recovery_waiting_network">Waiting for the private network. Check Tailscale and try reconnecting. The saved device approval is preserved.</string>
+    <string name="recovery_session_expired">The short session expired. Reconnect using the saved device approval; a new invitation is not required.</string>
+    <string name="recovery_manual_required">The previous session request has an uncertain result. Automatic repetition is stopped. Use Reconnect for an explicit fresh recovery.</string>
+    <string name="recovery_paused">Automatic reconnect is paused after your session revocation request. Use Reconnect to start a new session explicitly. Saved device approval is preserved.</string>
 </resources>

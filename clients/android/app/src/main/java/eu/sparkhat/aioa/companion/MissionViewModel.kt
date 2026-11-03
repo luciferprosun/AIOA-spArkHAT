@@ -42,7 +42,40 @@ class MissionViewModel(app: Application) : AndroidViewModel(app) {
     private var bindingOwner: BindingOwner? = null
     private val transportMutex = Mutex()
     private var pairingJob: Job? = null
+    private var requestJob: Job? = null
     private var pairingPolls = 0
+    private var foreground = false
+    private val recoveryWork = RecoveryWorkQueue()
+    private var recoveryBlocked = false
+    private val recoveryWake = RecoveryWakeGate()
+    private val recoveryHints = object : RecoveryCheckpoint {
+        override fun pending(binding: String) = prefs.getString("pending_reconnect_binding",null) == binding
+        override fun mark(binding: String) {
+            check(prefs.edit().putString("pending_reconnect_binding",binding).commit()) { "LOCAL_BINDING_SAVE_FAILED" }
+        }
+        override fun clear(binding: String) {
+            if (pending(binding)) check(prefs.edit().remove("pending_reconnect_binding").commit()) { "LOCAL_BINDING_SAVE_FAILED" }
+        }
+        override fun paused(binding: String) = prefs.getString("paused_recovery_binding",null) == binding
+        override fun pause(binding: String) {
+            check(prefs.edit().putString("paused_recovery_binding",binding).commit()) { "LOCAL_BINDING_SAVE_FAILED" }
+        }
+        override fun resume(binding: String) {
+            if (paused(binding)) check(prefs.edit().remove("paused_recovery_binding").commit()) { "LOCAL_BINDING_SAVE_FAILED" }
+        }
+    }
+    private val recovery = SessionRecovery(object : SessionRecoveryPort<MobileObservation> {
+        override fun hasSession() = client.hasSession()
+        override suspend fun prepare(host: TrustedHost) = pairingIo { client.preparePairing(host) }
+        override suspend fun reconnect() = pairingIo { client.reconnectSession() }
+        override suspend fun status() = pairingIo { client.status() }
+    },recoveryHints,guard={
+        owner().requireCurrent()
+        if (!foreground) throw CancellationException("BACKGROUND_READBACK_STALE")
+    })
+    private val network = RecoveryNetworkMonitor(app) { available ->
+        viewModelScope.launch { networkChanged(available) }
+    }
     private fun now() = System.currentTimeMillis()/1000
     val publicSpki get() = client.publicSpki
     var ui by mutableStateOf(MissionUi(pending=prefs.getString("pending_proposal",null),
@@ -64,13 +97,13 @@ class MissionViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
     fun deliverPacket(raw: String): Boolean {
-        if (ui.busy) return false
+        if (ui.busy || recoveryWork.busy) return false
         return try { reconcileBinding(); owner().deliver(raw,::importPacket) }
         catch (_: Exception) { ui = ui.copy(bindingInvalid=true); false }
     }
     fun scannerMessage(resource: Int) { ui = ui.copy(message=UiMessage(resource)) }
     fun importPacket(raw: String): Boolean {
-        if (ui.busy) return false
+        if (ui.busy || recoveryWork.busy) return false
         return try {
             owner().requireCurrent()
             check(!ui.bindingInvalid) { "HOST_BINDING_INVALID" }
@@ -81,7 +114,8 @@ class MissionViewModel(app: Application) : AndroidViewModel(app) {
         } catch (_: Exception) { ui = ui.copy(invite=null,message=UiMessage(R.string.packet_invalid)); false }
     }
     private fun pairingFlow(work: suspend () -> Unit) {
-        if (ui.busy || pairingJob?.isActive == true) return
+        if (ui.busy || recoveryWork.busy) return
+        val ticket=Any();recoveryWork.start(ticket)
         generation = generation.invalidate("STALE")
         ui = ui.copy(busy=true,enrolled=false,freshness=generation)
         pairingJob = viewModelScope.launch {
@@ -90,16 +124,46 @@ class MissionViewModel(app: Application) : AndroidViewModel(app) {
             catch (failure: Exception) {
                 client.close()
                 if (failure is StaleBindingOwner) reconcileBinding()
-                ui = ui.copy(enrolled=false,connection="UNKNOWN",pairingState="RECOVERY_REQUIRED",
+                val problem = PairingProblem.from(failure)
+                if (problem in setOf(PairingProblem.TLS,PairingProblem.PROOF,PairingProblem.BINDING_CHANGED,
+                        PairingProblem.SOURCE_CHANGED,PairingProblem.DENIED) || failure is StaleBindingOwner || failure is PairingFailure) recoveryBlocked=true
+                val state = when {
+                    failure is RecoveryNeedsManual -> "MANUAL_RECOVERY"
+                    failure is SessionUnavailable -> "SESSION_EXPIRED"
+                    failure is RecoveryNetworkUnavailable || problem in setOf(PairingProblem.DNS,PairingProblem.NETWORK,PairingProblem.TIMEOUT) -> "WAITING_NETWORK"
+                    else -> "UNKNOWN"
+                }
+                ui = ui.copy(enrolled=false,connection=state,pairingState="RECOVERY_REQUIRED",
                     message=when {
                         failure is StaleBindingOwner -> UiMessage(R.string.stale_owner)
                         failure is PairingFailure -> UiMessage(R.string.rate_limited)
                         failure is SessionUnavailable -> UiMessage(R.string.session_unavailable)
-                        failure.message == "INVITE_EXPIRED" -> UiMessage(R.string.expired_recovery)
-                        failure.message == "HOST_BINDING_CHANGED" -> UiMessage(R.string.binding_changed)
-                        else -> UiMessage(R.string.connection_uncertain)
+                        failure is RecoveryNeedsManual -> UiMessage(R.string.recovery_manual_required)
+                        failure is RecoveryNetworkUnavailable -> UiMessage(R.string.recovery_waiting_network)
+                        else -> UiMessage(when (PairingProblem.from(failure)) {
+                            PairingProblem.DNS -> R.string.pairing_dns_failed
+                            PairingProblem.NETWORK -> R.string.pairing_network_failed
+                            PairingProblem.TIMEOUT -> R.string.pairing_timeout
+                            PairingProblem.TLS -> R.string.pairing_tls_failed
+                            PairingProblem.EXPIRED -> R.string.expired_recovery
+                            PairingProblem.BINDING_CHANGED -> R.string.binding_changed
+                            PairingProblem.SOURCE_CHANGED -> R.string.pairing_source_changed
+                            PairingProblem.PROOF -> R.string.pairing_proof_failed
+                            PairingProblem.DENIED -> R.string.pairing_host_denied
+                            PairingProblem.UNKNOWN -> R.string.connection_uncertain
+                        })
                     })
-            } finally { ui = ui.copy(busy=false) }
+            }
+        }
+        pairingJob?.let { trackTransport(it,ticket) }
+    }
+    private fun trackTransport(job: Job, ticket: Any) {
+        job.invokeOnCompletion {
+            viewModelScope.launch {
+                val wake = recoveryWork.finish(ticket)
+                if (!recoveryWork.busy) ui = ui.copy(busy=false)
+                if (wake) automaticRecovery()
+            }
         }
     }
     private suspend fun <T> pairingIo(work: () -> T): T = withContext(Dispatchers.IO) {
@@ -109,9 +173,10 @@ class MissionViewModel(app: Application) : AndroidViewModel(app) {
     fun confirmHost() {
         val invite = ui.invite ?: return
         pairingFlow {
-            require(now() < invite.expiresAt)
+            require(now() < invite.expiresAt) { "INVITE_EXPIRED" }
+            ui = ui.copy(message=UiMessage(R.string.pairing_checking_host))
             val host = pairingIo { client.preparePairing(invite.host) }
-            require(host.source == invite.host.source && host.capsule == invite.host.capsule)
+            require(host.source == invite.host.source && host.capsule == invite.host.capsule) { "HOST_SOURCE_CHANGED" }
             val id = UUID.randomUUID().toString().replace("-","")
             val body = client.pairingRequest("/pairing/begin",buildJsonObject {
                 put("invite",invite.envelope); put("request_id",id); put("device_name","AIOA Android")
@@ -119,7 +184,8 @@ class MissionViewModel(app: Application) : AndroidViewModel(app) {
             val record = PairingRecord(host,id,client.beginDigest(body),invite.expiresAt,false,false)
             // Atomic public host + exact request digest precedes the only begin attempt.
             owner().save(record)
-            ui = ui.copy(pairing=record,invite=null,pairingState="BEGIN_UNCERTAIN",capabilities=client.capabilities)
+            ui = ui.copy(pairing=record,invite=null,pairingState="BEGIN_UNCERTAIN",capabilities=client.capabilities,
+                message=UiMessage(R.string.pairing_sending_request))
             pairingPolls = 0
             val data = pairingIo { client.pairingExchange("/pairing/begin",body) }
             PairingProtocol.validateStatus(data,record,client.deviceId)
@@ -186,22 +252,63 @@ class MissionViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
     fun reconnect() {
+        recoverSession(manual=true)
+    }
+    private fun recoverSession(manual: Boolean) {
         val record = ui.pairing ?: return
         if (!record.trusted && !record.completeAttempted) return
+        if (manual) recoveryBlocked=false
         pairingFlow {
-            val host = pairingIo { client.preparePairing(record.host) }
-            pairingIo { client.reconnectSession() }
-            val updated = record.copy(host=host,trusted=true)
+            ui = ui.copy(connection="RECONNECTING",message=UiMessage(R.string.recovery_connecting))
+            val result = recovery.recover(record,manual,network.available)
+            owner().requireCurrent()
+            val updated = record.copy(host=result.host,trusted=true)
             owner().save(updated); ui = ui.copy(pairing=updated)
-            acceptConnectedStatus()
+            acceptObservation(result.observation)
+            recovery.accept(result)
         }
+    }
+    private fun automaticRecovery() {
+        val record = ui.pairing ?: return
+        if (!foreground || !record.trusted || ui.bindingInvalid || ui.pairingState == "REVOKED" || recoveryBlocked) return
+        if (recoveryHints.paused(SessionRecovery.binding(record))) {
+            ui = ui.copy(connection="AUTO_RECOVERY_PAUSED",message=UiMessage(R.string.recovery_paused))
+            return
+        }
+        if (ui.busy || recoveryWork.busy) {
+            recoveryWork.defer()
+            return
+        }
+        val uncertain = recoveryHints.pending(SessionRecovery.binding(record)) && !client.hasSession()
+        if (uncertain) {
+            ui = ui.copy(connection="MANUAL_RECOVERY",message=UiMessage(R.string.recovery_manual_required))
+            return
+        }
+        if (!network.available) {
+            ui = ui.copy(connection="WAITING_NETWORK",message=UiMessage(R.string.recovery_waiting_network))
+            return
+        }
+        if (recoveryWake.claim(record.trusted,true,recoveryWork.busy,false)) recoverSession(false)
+    }
+    private fun networkChanged(available: Boolean) {
+        if (!foreground || ui.pairing?.trusted != true) return
+        if (!available) {
+            pairingJob?.cancel();requestJob?.cancel();client.cancel()
+            generation = generation.invalidate("STALE")
+            ui = ui.copy(freshness=generation,connection="WAITING_NETWORK",message=UiMessage(R.string.recovery_waiting_network))
+        } else automaticRecovery()
     }
     private suspend fun acceptConnectedStatus() {
         owner().requireCurrent()
         val observation = pairingIo { client.status() }
+        acceptObservation(observation)
+    }
+    private fun acceptObservation(observation: MobileObservation) {
         owner().requireCurrent()
         val epoch = generation.generation
         generation = generation.accept(epoch,observation.validUntilElapsedMs)
+        recoveryWake.accepted()
+        recoveryBlocked=false
         ui = ui.copy(enrolled=true,connection="SIGNED_SESSION",pairingState="CONNECTED",capabilities=client.capabilities,
             freshness=generation,lastSignedResponseAt=observation.issuedAtEpochSeconds,message=UiMessage(R.string.connected_notice))
         acceptStatus(observation.data)
@@ -214,7 +321,7 @@ class MissionViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
     fun forgetHost() {
-        if (ui.busy || pairingJob?.isActive == true) return
+        if (ui.busy || recoveryWork.busy) return
         try {
             owner().forget(); client.close(); generation = generation.invalidate("STALE")
             ui = ui.copy(pairing=null,invite=null,enrolled=false,capabilities=null,bindingInvalid=false,lastSignedResponseAt=null,pairingState="DISCONNECTED",
@@ -225,11 +332,12 @@ class MissionViewModel(app: Application) : AndroidViewModel(app) {
     val agentAvailable get() = ui.enrolled && ui.capabilities?.get("profile")?.jsonPrimitive?.content == "OFFLINE_FIXTURE"
 
     private fun request(op: () -> MobileObservation, apply: (JsonObject) -> Unit) {
-        if (ui.busy || pairingJob?.isActive == true) return
+        if (ui.busy || recoveryWork.busy) return
+        val ticket=Any();recoveryWork.start(ticket)
         generation = generation.invalidate("STALE")
         val epoch = generation.generation
         ui = ui.copy(freshness=generation,busy=true,message=UiMessage(R.string.waiting_readback))
-        viewModelScope.launch {
+        requestJob = viewModelScope.launch {
             try {
                 val observation = withContext(Dispatchers.IO) { transportMutex.withLock { owner().requireCurrent(); op().also { owner().requireCurrent() } } }
                 if (generation.generation == epoch) {
@@ -246,7 +354,8 @@ class MissionViewModel(app: Application) : AndroidViewModel(app) {
                         }
                     }
                 }
-            } catch (_: StaleBindingOwner) {
+            } catch (cancelled: CancellationException) { throw cancelled }
+            catch (_: StaleBindingOwner) {
                 client.close()
                 if (generation.generation == epoch) {
                     reconcileBinding()
@@ -266,9 +375,10 @@ class MissionViewModel(app: Application) : AndroidViewModel(app) {
                 }
             }
         }
+        requestJob?.let { trackTransport(it,ticket) }
     }
     fun connect(origin: String, tlsPin: String, hostKey: String, code: String) {
-        if (ui.busy) return
+        if (ui.busy || recoveryWork.busy) return
         ui = ui.copy(enrolled=false,lastSignedResponseAt=null,task=null,missions=emptyList(),nextCursor=null,agentTask=null,
             agentMissions=emptyList(),providers=null,connection="UNVERIFIED")
         request({
@@ -344,10 +454,20 @@ class MissionViewModel(app: Application) : AndroidViewModel(app) {
         if (!ui.freshness.canStop(Wire.text(task,"state")) || ui.busy) return
         request({ client.stop(Wire.text(task,"task_id")) }) { acceptTask(it) }
     }
-    fun revoke() = request({ client.revoke() }) {
-        generation = generation.invalidate(); ui = MissionUi(freshness=generation,pending=ui.pending,archived=ui.archived,
-            pendingAgent=ui.pendingAgent,archivedAgents=ui.archivedAgents,pairing=ui.pairing,
-            message=UiMessage(R.string.session_revoked))
+    fun revoke() {
+        if (ui.busy || recoveryWork.busy) return
+        try {
+            owner().requireCurrent()
+            ui.pairing?.let { recoveryHints.pause(SessionRecovery.binding(it)) }
+        } catch (_: Exception) {
+            ui = ui.copy(message=UiMessage(R.string.connection_uncertain));return
+        }
+        request({ client.revoke() }) {
+            client.close()
+            generation = generation.invalidate(); ui = MissionUi(freshness=generation,pending=ui.pending,archived=ui.archived,
+                pendingAgent=ui.pendingAgent,archivedAgents=ui.archivedAgents,pairing=ui.pairing,
+                connection="AUTO_RECOVERY_PAUSED",message=UiMessage(R.string.session_revoked))
+        }
     }
     fun agentStatus() = request({ client.agentStatus() }) { data ->
         ui = ui.copy(agentMissions=data.getValue("missions").jsonArray.map { it.jsonObject },
@@ -413,16 +533,19 @@ class MissionViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
     fun background() {
-        pairingJob?.cancel()
+        foreground=false;recoveryWake.foreground(false)
+        pairingJob?.cancel();requestJob?.cancel()
         generation = generation.invalidate("STALE"); client.cancel()
         ui = ui.copy(freshness=generation,busy=false,connection="STALE",message=UiMessage(R.string.resume_readback))
     }
     fun resume() {
+        foreground=true;recoveryWake.foreground(true)
         try { reconcileBinding() }
         catch (_: Exception) { client.close(); ui = ui.copy(enrolled=false,bindingInvalid=true) }
         generation = generation.invalidate("STALE")
         ui = ui.copy(freshness=generation,message=if (ui.pending == null) UiMessage(R.string.fresh_status) else
             UiMessage(R.string.unresolved_notice))
+        automaticRecovery()
     }
-    override fun onCleared() { client.close(); super.onCleared() }
+    override fun onCleared() { network.close(); client.close(); super.onCleared() }
 }
