@@ -27,7 +27,7 @@ class AndroidManualWorkflowTests(unittest.TestCase):
         self.assertEqual({'workflow_dispatch'},set(value['on']))
         self.assertEqual({'contents':'read'},value['permissions'])
         job=value['jobs']['debug-apk']
-        self.assertEqual("${{ inputs.build_profile == 'DEBUG_UBUNTU22_V1' && 'ubuntu-22.04' || 'ubuntu-24.04' }}",job['runs-on']);self.assertLessEqual(job['timeout-minutes'],35)
+        self.assertEqual("${{ (inputs.build_profile == 'DEBUG_UBUNTU22_V1' || inputs.build_profile == 'DEBUG_UBUNTU22_V2') && 'ubuntu-22.04' || 'ubuntu-24.04' }}",job['runs-on']);self.assertLessEqual(job['timeout-minutes'],35)
         actions=[step for step in job['steps'] if 'uses' in step]
         expected={'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1',
             'actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9'}
