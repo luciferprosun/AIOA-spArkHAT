@@ -24,8 +24,11 @@ def parse_badging(text):
     lib.require(p is not None and minimum is not None and target is not None,'BLOCKED_APK_METADATA')
     lib.require(p.groups()==('eu.sparkhat.aioa.companion','3','0.3.0-cosmic'),'BLOCKED_APK_IDENTITY')
     lib.require(minimum.group(1)=='26' and target.group(1)=='36','BLOCKED_APK_SDK')
-    lib.require(permissions in ({'android.permission.INTERNET'},
-        {'android.permission.INTERNET',RECEIVER_PERMISSION}),'BLOCKED_APK_PERMISSIONS')
+    # Google's existing code-scanner dependency reads connectivity state.
+    # Neither network changes nor camera/location access are allowed here.
+    lib.require('android.permission.INTERNET' in permissions and permissions <= {
+        'android.permission.INTERNET','android.permission.ACCESS_NETWORK_STATE',
+        RECEIVER_PERMISSION},'BLOCKED_APK_PERMISSIONS')
     return {'package':p.group(1),'version_code':3,'version_name':p.group(3),'min_sdk':26,'target_sdk':36,
         'permissions':sorted(permissions),'debuggable':'application-debuggable' in text}
 
