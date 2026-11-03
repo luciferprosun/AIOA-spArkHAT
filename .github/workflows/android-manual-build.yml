@@ -19,7 +19,7 @@ name: Android DEBUG (manual owner review)
         required: true
         type: string
       expected_runner_image:
-        description: "Exact published ImageVersion for the selected profile: Noble 20261026.354.1 or Jammy 20261026.341.1 / V2 20261101.347.1"
+        description: "Exact image for STRICT/v1; V2 explicitly requires reviewed rollout set 20261026.341.1|20261101.347.1"
         required: true
         type: string
       expected_workflow_revision:
@@ -77,6 +77,7 @@ jobs:
       AIOA_DEBUG_ENVIRONMENT_ACK: ${{ inputs.debug_environment_ack }}
       AIOA_SOURCE_SHA: ${{ inputs.expected_source_sha }}
       AIOA_RUNNER_IMAGE: ${{ inputs.expected_runner_image }}
+      AIOA_APPROVED_RUNNER_IMAGES: ${{ inputs.expected_runner_image }}
       AIOA_WORKFLOW_REVISION: ${{ inputs.expected_workflow_revision }}
       AIOA_APPROVE_RUN: ${{ inputs.approve_run }}
       AIOA_SDK_LICENSE_ACK: ${{ inputs.sdk_license_ack }}
@@ -124,7 +125,7 @@ jobs:
                   raise SystemExit('BLOCKED_CI_BUILD_PROFILE')
               if profile in ('DEBUG_TOOLCHAIN_V1', 'DEBUG_UBUNTU22_V1', 'DEBUG_UBUNTU22_V2') and (environment.get('AIOA_DEBUG_ENVIRONMENT_ACK') != 'true' or environment.get('AIOA_CODEQL_REQUESTED') != 'false'):
                   raise SystemExit('BLOCKED_CI_DEBUG_PROFILE_CONSENT')
-              expected_image = '20261101.347.1' if profile == 'DEBUG_UBUNTU22_V2' else '20261026.341.1' if profile == 'DEBUG_UBUNTU22_V1' else EXPECTED_IMAGE
+              expected_image = environment.get('ImageVersion', '') if profile == 'DEBUG_UBUNTU22_V2' else '20261026.341.1' if profile == 'DEBUG_UBUNTU22_V1' else EXPECTED_IMAGE
               expected_os = 'ubuntu-22.04' if profile in ('DEBUG_UBUNTU22_V1', 'DEBUG_UBUNTU22_V2') else 'ubuntu-24.04'
               try:
                   data = json.loads(raw)
@@ -143,13 +144,16 @@ jobs:
                   mismatch = images != [expected_os] or observed != expected_image or environment.get('ImageVersion') != observed
                   exception = (profile == 'DEBUG_TOOLCHAIN_V1' and images == ['ubuntu-24.04'] and observed == '20261025.353.1' and declared == EXPECTED_IMAGE
                       and snapshot['metadata_sha256'] == '6d35057ab003af4dc74998526957d7bde2e5526e1da06b4ed93201f6fa82e8ba')
-                  exception = exception or (profile == 'DEBUG_UBUNTU22_V1' and images == ['ubuntu-22.04']
+                  exception = exception or (profile in ('DEBUG_UBUNTU22_V1', 'DEBUG_UBUNTU22_V2') and images == ['ubuntu-22.04']
                       and observed == '20261025.340.1' and declared == '20261026.341.1'
                       and snapshot['metadata_sha256'] == '08a840f7186e0ab52ee613d5cafee66d245430928627dd25f6dc638bdd7e481f')
                   snapshot.update(build_profile=profile, image_identity_status='MISMATCH_ACCEPTED_DEBUG' if mismatch and exception else 'MISMATCH' if mismatch else 'MATCHED')
                   print(json.dumps(snapshot, sort_keys=True), flush=True)
-                  if profile == 'DEBUG_UBUNTU22_V2' and (mismatch or snapshot['metadata_sha256'] != '29096352b00e4ed83a17ca7c04e54650ea3197842d07e95901ff1a82a21817b3'):
-                      raise SystemExit('BLOCKED_CI_MATCHED_IMAGE_PIN')
+                  if profile == 'DEBUG_UBUNTU22_V2':
+                      approved = {'20261026.341.1': ('20261025.340.1', '08a840f7186e0ab52ee613d5cafee66d245430928627dd25f6dc638bdd7e481f'),
+                          '20261101.347.1': ('20261101.347.1', '29096352b00e4ed83a17ca7c04e54650ea3197842d07e95901ff1a82a21817b3')}
+                      if environment.get('AIOA_APPROVED_RUNNER_IMAGES') != '20261026.341.1|20261101.347.1' or approved.get(declared) != (observed, snapshot['metadata_sha256']):
+                          raise SystemExit('BLOCKED_CI_MATCHED_IMAGE_PIN')
                   if mismatch and not exception:
                       raise SystemExit('BLOCKED_CI_IMAGE_METADATA_MISMATCH observed=' + observed)
                   return snapshot
@@ -160,9 +164,12 @@ jobs:
               snapshot = check_image(read_image(), os.environ)
               with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as output:
                   output.write('snapshot=' + json.dumps(snapshot, sort_keys=True) + '\n')
+              if snapshot['build_profile'] == 'DEBUG_UBUNTU22_V2':
+                  with open(os.environ['GITHUB_ENV'], 'a', encoding='utf-8') as selected:
+                      selected.write('AIOA_RUNNER_IMAGE=' + snapshot['declared_version'] + '\n')
           PY
           if [[ "$AIOA_BUILD_PROFILE" == 'DEBUG_UBUNTU22_V2' ]]; then
-            test "$ImageVersion" = '20261101.347.1'
+            [[ "$ImageVersion" = '20261101.347.1' || "$ImageVersion" = '20261026.341.1' ]]
           elif [[ "$AIOA_BUILD_PROFILE" == 'DEBUG_UBUNTU22_V1' ]]; then
             test "$ImageVersion" = '20261026.341.1'
           else

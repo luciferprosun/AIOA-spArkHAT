@@ -27,13 +27,14 @@ else:
 SOURCE_REF='refs/heads/main'
 WORKFLOW_PATH='.github/workflows/android-manual-build.yml'
 REVIEWED_IMAGE_VERSION='20261026.354.1'
-REVIEWED_WORKFLOW_SHA256='6e29adc2b3181f5793816b3a8638fc3ed93d913f8e7eff46f25e71703c0e5936'
+REVIEWED_WORKFLOW_SHA256='077ae6e58c15cc9f4328f1b86c21df3049847e49e3ece31ad4a166db7d8c8a3d'
 DEBUG_PROFILE='DEBUG_TOOLCHAIN_V1'
 ALTERNATE_DEBUG_PROFILE='DEBUG_UBUNTU22_V1'
 ALTERNATE_IMAGE_VERSION='20261026.341.1'
 MATCHED_DEBUG_PROFILE='DEBUG_UBUNTU22_V2'
 MATCHED_IMAGE_VERSION='20261101.347.1'
 MATCHED_IMAGE_METADATA_SHA256='29096352b00e4ed83a17ca7c04e54650ea3197842d07e95901ff1a82a21817b3'
+APPROVED_ROLLOUT_IMAGES='20261026.341.1|20261101.347.1'
 DEBUG_IMAGE_METADATA_SHA256='6d35057ab003af4dc74998526957d7bde2e5526e1da06b4ed93201f6fa82e8ba'
 # Observed on the first authorized run41322536413, not a publisher SDK digest.
 DEBUG_SDK_INVENTORY_SHA256='9f81aed02ae39189e55282cd66a561969590f2c032a868beaa1afc7e3b51e793'
@@ -118,7 +119,7 @@ def profile_evidence(env,*,purpose='apk'):
     if profile=='STRICT':return {'build_profile':profile}
     lib.require(purpose=='apk' and env.get('AIOA_DEBUG_ENVIRONMENT_ACK')=='true'
         and env.get('AIOA_CODEQL_REQUESTED')=='false','BLOCKED_CI_DEBUG_PROFILE_CONSENT')
-    expected_image=MATCHED_IMAGE_VERSION if profile==MATCHED_DEBUG_PROFILE else ALTERNATE_IMAGE_VERSION if profile==ALTERNATE_DEBUG_PROFILE else REVIEWED_IMAGE_VERSION
+    expected_image=env.get('ImageVersion') if profile==MATCHED_DEBUG_PROFILE else ALTERNATE_IMAGE_VERSION if profile==ALTERNATE_DEBUG_PROFILE else REVIEWED_IMAGE_VERSION
     raw=env.get('AIOA_IMAGE_SNAPSHOT','')
     lib.require(type(raw) is str and 0<len(raw)<=2048,'BLOCKED_CI_DEBUG_IMAGE_SNAPSHOT')
     snapshot=lib.strict_json(raw.encode())
@@ -132,13 +133,17 @@ def profile_evidence(env,*,purpose='apk'):
     exception=(profile==DEBUG_PROFILE and snapshot['metadata_version']=='20261025.353.1'
         and snapshot['metadata_sha256']==DEBUG_IMAGE_METADATA_SHA256
         and snapshot['image_identity_status']=='MISMATCH_ACCEPTED_DEBUG')
-    exception=exception or (profile==ALTERNATE_DEBUG_PROFILE
+    exception=exception or (profile in (ALTERNATE_DEBUG_PROFILE,MATCHED_DEBUG_PROFILE)
         and snapshot['metadata_version']=='20261025.340.1'
         and snapshot['metadata_sha256']=='08a840f7186e0ab52ee613d5cafee66d245430928627dd25f6dc638bdd7e481f'
         and snapshot['image_identity_status']=='MISMATCH_ACCEPTED_DEBUG')
     lib.require(matched or exception,'BLOCKED_CI_DEBUG_IMAGE_SNAPSHOT')
     if profile==MATCHED_DEBUG_PROFILE:
-        lib.require(matched and snapshot['metadata_sha256']==MATCHED_IMAGE_METADATA_SHA256,'BLOCKED_CI_MATCHED_IMAGE_PIN')
+        approved={ALTERNATE_IMAGE_VERSION:('20261025.340.1','08a840f7186e0ab52ee613d5cafee66d245430928627dd25f6dc638bdd7e481f'),
+            MATCHED_IMAGE_VERSION:(MATCHED_IMAGE_VERSION,MATCHED_IMAGE_METADATA_SHA256)}
+        lib.require(env.get('AIOA_APPROVED_RUNNER_IMAGES')==APPROVED_ROLLOUT_IMAGES and
+            approved.get(snapshot['declared_version'])==(snapshot['metadata_version'],snapshot['metadata_sha256']),
+            'BLOCKED_CI_MATCHED_IMAGE_PIN')
     return {'build_profile':profile,'runner_observation':snapshot}
 
 
@@ -162,7 +167,7 @@ def context_check(env,source_sha,image,*,purpose='apk'):
     lib.require(all(env.get(k)==v for k,v in expected.items()),'BLOCKED_CI_OWNER_OR_RUNNER_CONTEXT')
     lib.require(type(source_sha) is str and re.fullmatch(r'[0-9a-f]{40}',source_sha)
         and env.get('GITHUB_SHA')==env.get('GITHUB_WORKFLOW_SHA')==source_sha,'BLOCKED_CI_SOURCE')
-    expected_image=MATCHED_IMAGE_VERSION if env.get('AIOA_BUILD_PROFILE')==MATCHED_DEBUG_PROFILE else ALTERNATE_IMAGE_VERSION if env.get('AIOA_BUILD_PROFILE')==ALTERNATE_DEBUG_PROFILE else REVIEWED_IMAGE_VERSION
+    expected_image=env.get('ImageVersion') if env.get('AIOA_BUILD_PROFILE')==MATCHED_DEBUG_PROFILE else ALTERNATE_IMAGE_VERSION if env.get('AIOA_BUILD_PROFILE')==ALTERNATE_DEBUG_PROFILE else REVIEWED_IMAGE_VERSION
     lib.require(image==env.get('ImageVersion')==expected_image,'BLOCKED_CI_IMAGE_DRIFT')
     lib.require(env.get('AIOA_WORKFLOW_REVISION')==REVIEWED_WORKFLOW_SHA256,'BLOCKED_CI_WORKFLOW_REVISION')
     lib.require(all(re.fullmatch(r'[0-9]{1,20}',env.get(k,''))
