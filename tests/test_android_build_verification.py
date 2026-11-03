@@ -29,6 +29,23 @@ class AndroidBuildVerificationTests(unittest.TestCase):
         with self.assertRaises(self.verify.lib.Blocked):self.verify.parse_signature(raw.replace('CN=Android Debug','CN=Private Owner'))
         with self.assertRaises(self.verify.lib.Blocked):self.verify.parse_signature('DOES NOT VERIFY')
 
+    def test_scanner_network_state_permission_is_bounded_and_reported(self):
+        raw=("package: name='eu.sparkhat.aioa.companion' versionCode='3' versionName='0.3.0-cosmic'\n"
+            "sdkVersion:'26'\ntargetSdkVersion:'36'\nuses-permission: name='android.permission.INTERNET'\n"
+            "uses-permission: name='android.permission.ACCESS_NETWORK_STATE'\n")
+        value=self.verify.parse_badging(raw)
+        self.assertEqual(['android.permission.ACCESS_NETWORK_STATE','android.permission.INTERNET'],value['permissions'])
+        combined=raw+"uses-permission: name='"+self.verify.RECEIVER_PERMISSION+"'\n"
+        self.assertEqual(3,len(self.verify.parse_badging(combined)['permissions']))
+        for permission in ('android.permission.CAMERA','android.permission.READ_SMS',
+                'android.permission.ACCESS_FINE_LOCATION','android.permission.CHANGE_NETWORK_STATE',
+                'android.permission.WAKE_LOCK','android.permission.RECEIVE_BOOT_COMPLETED',
+                'com.google.android.gms.permission.AD_ID'):
+            with self.subTest(permission=permission),self.assertRaises(self.verify.lib.Blocked):
+                self.verify.parse_badging(raw+"uses-permission: name='"+permission+"'\n")
+        with self.assertRaises(self.verify.lib.Blocked):
+            self.verify.parse_badging(raw.replace("uses-permission: name='android.permission.INTERNET'\n",''))
+
     def test_androidx_permission_requires_its_exact_signature_definition_in_the_apk(self):
         # AAPT-format fixture, not an actual APK or Android build claim.
         permission='eu.sparkhat.aioa.companion.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION'
