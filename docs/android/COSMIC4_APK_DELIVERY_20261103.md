@@ -36,7 +36,7 @@ Nowy pakiet jest konieczny po utracie prywatnego podpisu starego APK. Zachowanie
 - `APK_INDEPENDENT_VERIFY`:PASS.
 - `ORIGINAL_DATA_PRESERVED`:PASS w wykonanym porównaniu.
 - `USB_INSTALL`:BLOCKED — rzeczywisty Android zwrócił `INSTALL_FAILED_USER_RESTRICTED: Install canceled by user`; nowy pakiet nie został zainstalowany podczas tej próby. Bez automatycznego retry.
-- `CORE_OWNER_ADMISSION`:EXPIRED — istniejący Native Core odmawia; sesja Linuxc2 jest nieaktywna, ekran logowania aktywny. Wymagana rzeczywista sesja lokalna/PolicyKit.
+- `CORE_OWNER_ADMISSION`:PASS — po odblokowaniu Linuxa rzeczywisty PolicyKit uwierzytelnił lokalnego operatora; Native PID1178571. Ten sam source5fae310, capsule, host/TLS, store i nieodwołane oryginalne urządzenie zostały niezależnie sprawdzone. Porty4314/4316/4321 bez zmian.
 - `COSMIC4_PAIRING`:NOT_RUN, nie PASS.
 - `COSMIC4_SIGNED_STATUS`:NOT_RUN, nie PASS.
 - `COSMIC4_RECONNECT`:NOT_RUN, nie PASS.
@@ -46,17 +46,19 @@ LinuxCore pozostaje przy5fae31002031ab0eb0aa94b9e57e8f6fbb3b6e01 i zachowanym ka
 ## Dokładne czynności właściciela
 
 1. Na Xiaomi otworzyć Pobrane i powyższy APK, zaakceptować zwykłą instalację **AIOA Cosmic4.0**. Alternatywnie umożliwić instalację USB. Starego AIOA nie odinstalowywać.
-2. Odblokować lokalny ekran Linuxa. Jeżeli pojawi się PolicyKit, zatwierdzić hasłem wyłącznie w systemowym oknie.
+2. Linux został już odblokowany i autoryzowany. Pozostawić sesję aktywną; późniejsze wygaśnięcie wymaga rzeczywistego PolicyKit, z hasłem wyłącznie w systemowym oknie.
 3. Pozostawić telefon połączony przez USB oraz Tailscale online. Wykonawca zweryfikuje zainstalowane bajty APK i nowy proof klucza, przeniesie publiczny host z oryginału i przeprowadzi istniejący protokół Core, bez ponowień niepewnych efektów.
 
 Przygotowane publiczne dane transferu, backup, klucz APK i dowody znajdują się w prywatnych katalogach właściciela. Do APK ani Git nie włożono gotowej sesji lub tokenu. Nie utworzono invite na zapas, więc nie ma wygasającego kodu oczekującego w raporcie.
 
 ## Dokończenie i rollback
 
-Po uzyskaniu obu zgód systemowych: odczyt tożsamości nowej instalacji → prawdziwy invite → pojedynczy BEGIN przez istniejący ViewModel → porównanie dokładnego urządzenia/request digest/SAS przez USB i Core → istniejący owner approval → pojedynczy COMPLETE → porównanie tego samego świeżego proof statusu w aplikacji i Core → restart/reconnect bez QR.
+Po zakończeniu instalacji Androida, przy nadal ważnej autoryzacji Linuxa: odczyt tożsamości nowej instalacji → prawdziwy invite → pojedynczy BEGIN przez istniejący ViewModel → porównanie dokładnego urządzenia/request digest/SAS przez USB i Core → istniejący owner approval → pojedynczy COMPLETE → porównanie tego samego świeżego proof statusu w aplikacji i Core → restart/reconnect bez QR.
 
 Rollback zachowuje oryginał i jego dane. Nie przywracać starego snapshotu Core, nie czyścić danych i nie powtarzać APPROVE/BEGIN/COMPLETE po UNKNOWN. Nową instalację można pozostawić nieaktywną do odczytu stanu. Do czasu odbioru fizycznego nie deklarować automatycznego sparowania.
 
 Aktualny Native profil obsługuje podpisany status READ. Gotowy APK ani ta bramka nie oznaczają Muse LIVE, GitHub WRITE lub AGENT_READY.
 
 Źródła ograniczeń platformy: [Android signing](https://developer.android.com/studio/publish/app-signing), [Android Keystore](https://developer.android.com/privacy-and-security/keystore), [Android applicationId](https://developer.android.com/build/configure-app-module).
+
+Aktualizacja narzędzia hosta po realnym buildzie:12 targeted Python tests PASS. Dla nowej pustej instalacji helper wymusza świeży lifecycle Activity przed STAGE, żeby ręczne otwarcie aplikacji po instalacji nie ominęło ON_RESUME. Najpierw odmawia przy dowolnym pending/UNKNOWN/powiązaniu i weryfikuje utrzymanie tego samego klucza. Nie wymaga to nowego APK; kod Androida/bajty artefaktu pozostają dokładnie6e018c8.

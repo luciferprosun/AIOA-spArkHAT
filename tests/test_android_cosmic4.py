@@ -125,6 +125,23 @@ class UsbHostContractTests(unittest.TestCase):
             with patch.object(delivery,'installed_bytes',return_value=b'repacked different APK'):
                 with self.assertRaises(ValueError):delivery.verify_installation()
 
+    def test_first_usb_stage_starts_from_idle_process_even_if_activity_is_already_open(self):
+        from pathlib import Path
+        from unittest.mock import patch
+        p=self.helper();delivery=p.UsbDelivery('C6QWKF4P7DFEUCQ4','a'*40,Path('/state'),Path('/out'),Path('/apk'))
+        spki='public-key-fixture'
+        empty={'pairing':None,'binding_invalid':False,'device_spki':spki,'apk_source_sha':'a'*40,'delivery':{'delivery':'EMPTY'}}
+        events=[]
+        with patch.object(delivery,'call',side_effect=lambda op: events.append('read') or empty), \
+            patch.object(delivery,'adb',side_effect=lambda *args: events.append(args)):
+            delivery.prepare_idle_installation(spki)
+        self.assertEqual(['read',('shell','am','force-stop','eu.sparkhat.aioa.companion.cosmic4'),'read'],events)
+        for bad in [{**empty,'pairing':{'request_id':'uncertain'}}, {**empty,'delivery':{'delivery':'STARTED_NO_AUTOMATIC_RETRY'}},
+                    {**empty,'device_spki':'substituted'},{**empty,'binding_invalid':True}]:
+            with patch.object(delivery,'call',return_value=bad),patch.object(delivery,'adb') as mutate:
+                with self.assertRaises(ValueError):delivery.prepare_idle_installation(spki)
+                mutate.assert_not_called()
+
     def test_approval_claim_survives_restart_and_ack_loss(self):
         import tempfile
         from pathlib import Path
