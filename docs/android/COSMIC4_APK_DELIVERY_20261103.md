@@ -26,7 +26,7 @@
 
 ## Zachowanie oryginału
 
-Cosmic0.3.0 pozostaje zainstalowany pod dotychczasowym pakietem. Jego APK zachował SHA-256 `43ca92f447f89a31d37ddd91481ff2d627a5921a10798db002a3922294d7a537`. Wszystkie11 wpisów inwentarza danych aplikacji są identyczne przed/po próbie instalacji. Zaszyfrowana kopia danych została niezależnie odszyfrowana i sprawdzona w prywatnym workspace właściciela. Nie eksportowano klucza Android Keystore, nie usunięto aplikacji ani danych, nie odwołano starego zaufania.
+Cosmic0.3.0 pozostaje zainstalowany pod dotychczasowym pakietem. Jego APK zachował SHA-256 `43ca92f447f89a31d37ddd91481ff2d627a5921a10798db002a3922294d7a537`. Wszystkie11 wpisów inwentarza danych aplikacji są identyczne także po rzeczywistej instalacji Cosmic4 i teście restartu; ponownie sprawdzono2026-11-03T18:31:15UTC. Zaszyfrowana kopia danych została niezależnie odszyfrowana i sprawdzona w prywatnym workspace właściciela. Nie eksportowano klucza Android Keystore, nie usunięto aplikacji ani danych, nie odwołano starego zaufania.
 
 Nowy pakiet jest konieczny po utracie prywatnego podpisu starego APK. Zachowanie starej instalacji nie oznacza przeniesienia jej nieeksportowalnego klucza. Cosmic4 wytwarza własną tożsamość i uzyskuje zgodę tego samego Core. To nie jest drugi Core ani nowe repozytorium.
 
@@ -35,27 +35,27 @@ Nowy pakiet jest konieczny po utracie prywatnego podpisu starego APK. Zachowanie
 - `APK_BUILD`:PASS.
 - `APK_INDEPENDENT_VERIFY`:PASS.
 - `ORIGINAL_DATA_PRESERVED`:PASS w wykonanym porównaniu.
-- `USB_INSTALL`:BLOCKED — rzeczywisty Android zwrócił `INSTALL_FAILED_USER_RESTRICTED: Install canceled by user`; nowy pakiet nie został zainstalowany podczas tej próby. Bez automatycznego retry.
+- `ANDROID_INSTALL`:PASS — rzeczywista instalacja została później potwierdzona przez ADB. Bajty zainstalowanego APK są identyczne z niezależnie zweryfikowanym artefaktem6e018c8. Wcześniejsza odmowa USB `INSTALL_FAILED_USER_RESTRICTED` pozostaje historycznym dowodem; nie powtarzano jej automatycznie.
 - `CORE_OWNER_ADMISSION`:PASS — po odblokowaniu Linuxa rzeczywisty PolicyKit uwierzytelnił lokalnego operatora; Native PID1178571. Ten sam source5fae310, capsule, host/TLS, store i nieodwołane oryginalne urządzenie zostały niezależnie sprawdzone. Porty4314/4316/4321 bez zmian.
-- `COSMIC4_PAIRING`:NOT_RUN, nie PASS.
-- `COSMIC4_SIGNED_STATUS`:NOT_RUN, nie PASS.
-- `COSMIC4_RECONNECT`:NOT_RUN, nie PASS.
+- `COSMIC4_PAIRING`:PASS — telefon i ten sam Core przechowują identyczne request ID/digest oraz stan COMPLETED; urządzenie jest zaufane i nieodwołane.
+- `COSMIC4_SIGNED_STATUS`:PASS —2026-11-03T18:30:35UTC aplikacja przyjęła świeży podpisany status. Podpis ECDSA, device ID, session, nonce, source/capsule i data SHA sprawdzono niezależnie; dokładnie ten sam proof/signature występuje w bieżącym Core.
+- `COSMIC4_RECONNECT`:PASS — pojedynczy force-stop i start wyłącznie Cosmic4 spowodował automatyczne połączenie oraz rotację sesji. Ten sam klucz i rekord parowania; zero nowego QR, BEGIN i owner approval. Lista żądań Core nie zmieniła się.
 
 LinuxCore pozostaje przy5fae31002031ab0eb0aa94b9e57e8f6fbb3b6e01 i zachowanym katalogu stanu. Przygotowany launcher odnowienia sprawdza rzeczywistą aktywną sesję i dokładny poprzedni PID/czas startu/source, korzysta z PolicyKit i nie zatrzymuje portów4314/4316/4321. Nie używa fikcyjnego ownera ani `approved=True`.
 
-## Dokładne czynności właściciela
+## Bieżąca obsługa
 
-1. Na Xiaomi otworzyć Pobrane i powyższy APK, zaakceptować zwykłą instalację **AIOA Cosmic4.0**. Alternatywnie umożliwić instalację USB. Starego AIOA nie odinstalowywać.
-2. Linux został już odblokowany i autoryzowany. Pozostawić sesję aktywną; późniejsze wygaśnięcie wymaga rzeczywistego PolicyKit, z hasłem wyłącznie w systemowym oknie.
-3. Pozostawić telefon połączony przez USB oraz Tailscale online. Wykonawca zweryfikuje zainstalowane bajty APK i nowy proof klucza, przeniesie publiczny host z oryginału i przeprowadzi istniejący protokół Core, bez ponowień niepewnych efektów.
+Aplikacja4.0 jest zainstalowana i sparowana. Nie instalować ponownie ani nie tworzyć nowego QR dla tego odbioru. Zachować Tailscale online i działający Linux Core. Po wygaśnięciu krótkiego dowodu statusu użyć „Odśwież podpisany stan”; wygaśnięcie dowodu nie usuwa trwałego parowania.
 
-Przygotowane publiczne dane transferu, backup, klucz APK i dowody znajdują się w prywatnych katalogach właściciela. Do APK ani Git nie włożono gotowej sesji lub tokenu. Nie utworzono invite na zapas, więc nie ma wygasającego kodu oczekującego w raporcie.
+Przy sprawdzeniu telefon miał już prawdziwe zakończone parowanie. Przygotowanego helpera PROVISION_01 nie uruchamiano, nie generowano dodatkowego invite i nie powtarzano BEGIN/APPROVE/COMPLETE. Akceptację wykonano odczytem istniejącego stanu i jednym kontrolowanym restartem klienta.
+
+Prywatne dowody: `CURRENT_PAIRING_VERIFIED.json`, `PRE_RESTART_HISTORICAL_STATUS_VERIFIED.json`, `RECONNECT_ACCEPTANCE_VERIFIED.json`, `ORIGINAL_PRESERVATION_AFTER_REAL_INSTALL.json` w katalogu `/home/l/projects/AIOA_COSMIC4_PRIVATE_20261103`. Bez bearerów i kluczy prywatnych w raporcie/Git.
 
 ## Dokończenie i rollback
 
-Po zakończeniu instalacji Androida, przy nadal ważnej autoryzacji Linuxa: odczyt tożsamości nowej instalacji → prawdziwy invite → pojedynczy BEGIN przez istniejący ViewModel → porównanie dokładnego urządzenia/request digest/SAS przez USB i Core → istniejący owner approval → pojedynczy COMPLETE → porównanie tego samego świeżego proof statusu w aplikacji i Core → restart/reconnect bez QR.
+Odbiór fizyczny parowania, statusu i reconnect zakończony PASS. Nie ma pozostałego wymogu instalacji lub nowej zgody na parowanie. Brak sieci i revocation mają pokrycie regresyjne; w tym fizycznym teście nie wyłączano sieci ani nie odwoływano działającego urządzenia.
 
-Rollback zachowuje oryginał i jego dane. Nie przywracać starego snapshotu Core, nie czyścić danych i nie powtarzać APPROVE/BEGIN/COMPLETE po UNKNOWN. Nową instalację można pozostawić nieaktywną do odczytu stanu. Do czasu odbioru fizycznego nie deklarować automatycznego sparowania.
+Rollback zachowuje oryginał i jego dane. Nie przywracać starego snapshotu Core, nie czyścić danych i nie powtarzać APPROVE/BEGIN/COMPLETE po UNKNOWN. Nie odwołano starego ani nowego urządzenia.
 
 Aktualny Native profil obsługuje podpisany status READ. Gotowy APK ani ta bramka nie oznaczają Muse LIVE, GitHub WRITE lub AGENT_READY.
 
