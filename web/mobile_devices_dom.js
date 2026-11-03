@@ -5,13 +5,8 @@
   document.body.classList.add('devices-mode');
   const node = id => document.getElementById('devices-'+id);
   document.getElementById('devices-view').hidden=false;
-  const carrier=document.getElementById('aioa-console-credential');
-  let credential=carrier?.value || '';
-  if(carrier) {carrier.value='';carrier.remove();}
   history.replaceState(null,'','/devices');
   let client=null;
-  if (/^[A-Za-z0-9_-]{43}$/.test(credential)) client=AIOAMobileDevices.createDeviceConsole(credential);
-  credential='';
   const errors={LOCAL_OPERATOR_REQUIRED:'Lokalna sesja operatora jest wymagana. Otwórz panel ponownie z Linuxa.',
     UNKNOWN_READBACK_REQUIRED:'Wynik nieznany. Odczytaj stan Core przed kolejną operacją. Nie ponowiono automatycznie.',
     READBACK_REQUIRED:'Najpierw odczytaj aktualny stan Core.',REVIEW_REQUIRED:'Stan urządzenia zmienił się. Odczytaj go ponownie.',
@@ -57,7 +52,7 @@
       const value=data[key];
       text('h4',name,settings);text('p',value && typeof value==='object'?JSON.stringify(value):String(value || 'Nie odczytano'),settings).className='device-digest';
     }
-    text('p','Wywołania modelu w tym profilu: '+data.model_calls+'. Czat i worker nie są podłączone.',settings);
+    text('p','Zapisane próby modelu: '+data.model_calls+'. Worker: BLOCKED_NATIVE_WORKER_NOT_BOUND.',settings);
     if(!data.observations.length)text('p','Core nie zapisał odpowiedzi w odczytanym zakresie.',history);
     for(const row of data.observations) {
       const proof=row.proof || {};
@@ -152,5 +147,15 @@
     const state=client?.snapshot();
     if (document.visibilityState==='visible' && state?.phase==='READY' && !state.busy) act(()=>client.refresh());
   },5000);
-  render();if(client)act(()=>client.refresh());
+  render();
+  // The HttpOnly cookie was delivered through the private OS launcher. The
+  // anti-CSRF value exists only in this closure, never HTML/URL/storage.
+  fetch('/api/native-operator/session',{credentials:'same-origin',redirect:'error',cache:'no-store'})
+    .then(async response=>{if(!response.ok)throw Error('LOCAL_OPERATOR_REQUIRED');return response.json();})
+    .then(data=>{
+      if(data.ok!==true || !/^[A-Za-z0-9_-]{43}$/.test(data.csrf_token))throw Error('LOCAL_OPERATOR_REQUIRED');
+      client=AIOAMobileDevices.createDeviceConsole(data.csrf_token);
+      if(typeof AIOAMobileChat!=='undefined') AIOAMobileChat.mount(value=>client.chatCall(value));
+      act(()=>client.refresh());
+    }).catch(()=>{client=null;render();});
 })();

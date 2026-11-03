@@ -1,6 +1,6 @@
 """Real local Core transactions; all provider HTTP is synthetic and patched."""
 from dataclasses import replace
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import importlib
 import json
 from pathlib import Path
@@ -121,6 +121,19 @@ class MetaChatServiceTests(unittest.TestCase):
         self.propose();result=self.service.chat_stop('3'*32,self.p(),device_id='d'*64)
         self.assertEqual('STOPPED',result['state'])
         with self.assertRaises(ValueError):self.approve()
+
+    def test_expired_unapproved_request_finishes_without_any_cost(self):
+        self.propose();self.now+=timedelta(minutes=6)
+        self.assertEqual('FAILED',self.read()['state'])
+        with patch('runtime.providers.meta_model_api._https_once') as http:
+            with self.assertRaises(ValueError):self.approve()
+            http.assert_not_called()
+
+    def test_governor_veto_never_loads_key_or_dispatches(self):
+        self.propose();self.gov.set_kill(self.p(Capability.MANAGE),True)
+        with patch('runtime.providers.meta_model_api.load_private_key') as key,patch('runtime.providers.meta_model_api._https_once') as http:
+            with self.assertRaises(ValueError):self.approve()
+            key.assert_not_called();http.assert_not_called()
 
     def test_payload_scope_budget_and_utf8_are_closed(self):
         for updates in ({'prompt':'😀'*501},{'max_budget_usd':'0.051'},{'model_id':'gpt'}, {'approved':True}):

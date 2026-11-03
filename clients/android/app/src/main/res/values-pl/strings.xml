@@ -230,4 +230,10 @@
     <string name="master_active_proposal">Najpierw odczytaj stan bieżącej aktywnej propozycji.</string>
     <string name="master_selected_task_pending">Nie odczytano wybranego zadania. Starszy dowód nie aktywuje jego kontrolek.</string>
     <string name="master_requested_task">Wybrane zadanie · dokładny odczyt</string>
+    <string name="chat_owner_gate">Każda wiadomość wymaga dokładnej zgody na koszt w Linuksie. Telefon nie zatwierdza wydatków.</string>
+    <string name="chat_native_unavailable">Połącz ponownie z profilem czatu na Linuksie. Niedostępny czat nie wywołuje modelu.</string>
+    <string name="chat_ephemeral">Zapis wiedzy: WYŁĄCZONY. Tekst wygasa po 15 minutach lub restarcie hosta. Potwierdzenia pozostają w Core.</string>
+    <string name="chat_you">Ty</string>
+    <string name="chat_estimate">Szacowany koszt użycia, bez faktury:</string>
+    <string name="chat_readback">Sprawdź wynik — bez ponowienia</string>
 </resources>

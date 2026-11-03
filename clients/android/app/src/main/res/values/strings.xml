@@ -230,4 +230,10 @@
     <string name="master_active_proposal">Reconcile the current active proposal first.</string>
     <string name="master_selected_task_pending">The selected task has not been read back. Older evidence cannot authorize controls for it.</string>
     <string name="master_requested_task">Selected task · exact readback</string>
+    <string name="chat_owner_gate">Each message requires exact cost approval on Linux. The phone cannot approve spending.</string>
+    <string name="chat_native_unavailable">Reconnect to the Linux chat profile. No model calls are made while unavailable.</string>
+    <string name="chat_ephemeral">Save knowledge: OFF. Text expires after 15 minutes or host restart. Receipts remain in Core.</string>
+    <string name="chat_you">You</string>
+    <string name="chat_estimate">Usage cost estimate, not invoice:</string>
+    <string name="chat_readback">Read result — no retry</string>
 </resources>

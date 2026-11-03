@@ -47,11 +47,11 @@ internal fun CosmicMissionPage(page: String, model: MissionViewModel, navigate: 
                     TextButton(onClick={navigate("activity")},modifier=Modifier.heightIn(min=48.dp)) {Text(stringResource(R.string.nav_activity))}
                 }
                 CosmicCard(stringResource(R.string.cosmic_muse_title)) {
-                    Text(stringResource(R.string.chat_unavailable))
+                    Text(stringResource(if(model.chatAvailable) R.string.chat_owner_gate else R.string.chat_native_unavailable))
                     TextButton(onClick={navigate("chat")},modifier=Modifier.heightIn(min=48.dp)) {Text(stringResource(R.string.nav_chat))}
                 }
             }
-            "chat" -> ChatPage(ui)
+            "chat" -> ChatPage(model)
             "missions" -> MissionList(model,navigate)
             "details" -> MissionDetails(model)
             "critical" -> CosmicCard(stringResource(R.string.cosmic_authority)) {
@@ -64,9 +64,14 @@ internal fun CosmicMissionPage(page: String, model: MissionViewModel, navigate: 
             "approvals" -> ApprovalList(model,navigate)
             "activity" -> ActivityPage(ui)
             "providers" -> CosmicCard(stringResource(R.string.cosmic_muse_title)) {
-                ProviderPicker(ui.agentTask?.display("provider_id"),R.string.master_provider_reason)
+                if(model.supports("chat")) {
+                    Text("Meta Model API · muse-spark-1.3")
+                    Text(stringResource(R.string.chat_owner_gate))
+                    Text(stringResource(R.string.chat_ephemeral))
+                    ui.chat.messages.lastOrNull {it.live}?.let {Text("LIVE receipt · ${it.requestId} · ${it.sourceSha}")}
+                } else ProviderPicker(ui.agentTask?.display("provider_id"),R.string.master_provider_reason)
                 Text(stringResource(R.string.cosmic_profile,ui.capabilities?.display("profile") ?: stringResource(R.string.no_host_proof)))
-                Text(stringResource(R.string.cosmic_providers_unavailable))
+                if(!model.supports("chat")) Text(stringResource(R.string.cosmic_providers_unavailable))
                 Button(onClick=model::agentProviders,enabled=model.agentAvailable && !ui.busy,modifier=Modifier.heightIn(min=48.dp)) {
                     Text(stringResource(R.string.cosmic_read_providers))
                 }
@@ -78,17 +83,37 @@ internal fun CosmicMissionPage(page: String, model: MissionViewModel, navigate: 
 }
 
 @Composable
-private fun ChatPage(ui: MissionUi) {
+private fun ChatPage(model: MissionViewModel) {
+    val ui=model.ui
     var draft by rememberSaveable {mutableStateOf("")}
     CosmicCard(stringResource(R.string.cosmic_muse_title)) {
-        ProviderPicker(ui.agentTask?.display("provider_id"),R.string.master_provider_reason)
-        StatusChip(stringResource(R.string.cosmic_not_available),CosmicPhase.DISABLED)
-        Text(stringResource(R.string.chat_unavailable))
-        Text(stringResource(R.string.master_chat_history_empty))
+        Text("Meta · muse-spark-1.3",style=MaterialTheme.typography.titleMedium)
+        Text(stringResource(if(model.chatAvailable) R.string.chat_owner_gate else R.string.chat_native_unavailable))
+        Text(stringResource(R.string.chat_ephemeral))
+        Text("${ui.chat.state} · ${ui.chat.lastSignedAt ?: "—"}")
+        if(ui.chat.messages.isEmpty()) Text(stringResource(R.string.master_chat_history_empty))
+        ui.chat.messages.forEach { message ->
+            message.prompt?.let {ChatBubble(stringResource(R.string.chat_you),it)}
+            message.reply?.let {ChatBubble("Muse Spark 1.3",it)}
+            Text("${message.state} · ${message.requestId.take(12)} · ${message.sourceSha.take(12)}")
+            message.receipt?.let {receipt ->
+                Text("${stringResource(R.string.chat_estimate)} ${receipt["cost_estimate_usd"]?.jsonPrimitive?.content ?: "—"} USD")
+                Text("SHA-256: ${receipt["response_sha256"]?.jsonPrimitive?.content ?: "—"}",style=MaterialTheme.typography.bodySmall)
+            }
+        }
+        ui.chat.error?.let {Text(it,color=MaterialTheme.colorScheme.error)}
         OutlinedTextField(draft,{if(it.toByteArray(Charsets.UTF_8).size<=2000)draft=it},
             enabled=!ui.busy,label={Text(stringResource(R.string.cosmic_message))},modifier=Modifier.fillMaxWidth())
-        Text(stringResource(R.string.master_chat_draft),style=MaterialTheme.typography.bodyMedium)
-        Button(onClick={},enabled=false,modifier=Modifier.heightIn(min=48.dp)) {Text(stringResource(R.string.cosmic_send))}
+        Text("${draft.toByteArray(Charsets.UTF_8).size}/2000 B",style=MaterialTheme.typography.bodySmall)
+        Button(onClick={model.chatSend(draft);draft=""},enabled=ui.chat.canSend(model.chatAvailable,model.supports("chat"),ui.busy,draft),
+            modifier=Modifier.heightIn(min=48.dp)) {Text(stringResource(R.string.cosmic_send))}
+        OutlinedButton(onClick=model::chatRefresh,enabled=model.chatAvailable && !ui.busy &&
+            (ui.chat.pendingId!=null || ui.chat.messages.isNotEmpty()),modifier=Modifier.heightIn(min=48.dp)) {
+            Text(stringResource(R.string.chat_readback))
+        }
+        OutlinedButton(onClick=model::chatStop,enabled=model.chatAvailable && !ui.busy && ui.chat.pendingId!=null &&
+            ui.chat.state in setOf("PENDING_OWNER","RUNNING"),modifier=Modifier.heightIn(min=48.dp)) {Text("STOP")}
+        if(!ui.enrolled) OutlinedButton(onClick=model::reconnect,enabled=!ui.busy) {Text(stringResource(R.string.recover_session))}
     }
     if(draft.isNotBlank()) ChatBubble(stringResource(R.string.master_local_draft_bubble),draft)
 }

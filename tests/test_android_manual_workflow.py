@@ -44,7 +44,7 @@ class AndroidManualWorkflowTests(unittest.TestCase):
             re.findall(r'secrets\.([A-Z0-9_]+)',path.read_text()))
         controlled=next(s for s in job['steps'] if s.get('id')=='controlled_build')
         for name in ('AIOA_COSMIC4_STORE_B64','AIOA_COSMIC4_PASSWORD'):
-            self.assertEqual("${{ github.ref == 'refs/heads/feat/cosmic4-usb-20261103' && secrets."+name+" || '' }}",controlled['env'][name])
+            self.assertEqual("${{ github.ref == 'refs/heads/feat/cosmic4-muse-chat-20261103' && secrets."+name+" || '' }}",controlled['env'][name])
         for step in job['steps']:
             if step is not controlled:self.assertNotIn('secrets.',str(step))
         for step in job['steps']:

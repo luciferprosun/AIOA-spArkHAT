@@ -27,6 +27,7 @@ from runtime.providers.exact import CancellationToken
 from runtime.providers.meta_model_api import MetaChatTask,MetaChatRequest,MetaLiveBinding,MetaAPIError,MODEL,PROVIDER,spend_operation
 from runtime.providers.meta_receipts import MetaReceiptView
 from .mission_service import require,plain,utc
+from .contracts import utc_timestamp
 
 KIND='aioa.mission.chat.v1'
 STATES=('PENDING_OWNER','RUNNING','SUCCEEDED','FAILED','UNKNOWN','STOPPED')
@@ -140,6 +141,13 @@ def request(service,request_id,reader,*,device_id=None):
     with service._lock:
         _prune(service);row=_get(service,request_id,device_id);data=plain(row.payload)
         content=service._chat_payloads.get(request_id);reply=service._chat_results.get(request_id)
+        if data['state']=='CHAT_PENDING_OWNER' and service.ledger.clock()>=utc_timestamp(data['binding']['deadline']):
+            data=_change(service,row.record_id,('PENDING_OWNER',),'FAILED',{'error':'CHAT_APPROVAL_EXPIRED'})
+        if data['state']=='CHAT_PENDING_OWNER' and content is None:
+            data.update(state='CHAT_UNKNOWN',error='CHAT_PENDING_ACK_UNKNOWN')
+        worker=service._workers.get(row.record_id)
+        if data['state']=='CHAT_RUNNING' and (worker is None or not worker.is_alive()):
+            data.update(state='CHAT_UNKNOWN',error='CHAT_WORKER_READBACK_UNKNOWN')
         data.update(schema='aioa.mobile.chat-result.v1',state=data['state'].removeprefix('CHAT_'),
             prompt=content[1].prompt if content else None,reply=reply[1] if reply else None,
             text_state='AVAILABLE' if content else 'HISTORY_EXPIRED',save_knowledge=False,
@@ -161,8 +169,10 @@ def thread(service,thread_id,reader,*,device_id=None):
     service.core.require(reader,Capability.READ,scope=service.scope);_id(thread_id)
     rows=sorted((r for r in _rows(service) if r.payload['thread_id']==thread_id),key=lambda r:r.payload['created_order'])
     require(rows and all(device_id is None or r.payload['device_id']==device_id for r in rows),'CHAT_NOT_FOUND')
+    messages=[request(service,r.payload['request_id'],reader,device_id=device_id) for r in rows][-20:]
+    while len(canonical_json_bytes(messages))>48000:messages.pop(0)
     return {'schema':'aioa.mobile.chat-thread.v1','thread_id':thread_id,'save_knowledge':False,
-        'messages':[request(service,r.payload['request_id'],reader,device_id=device_id) for r in rows][-20:]}
+        'messages':messages,'history_truncated':len(messages)<len(rows)}
 
 def review(service,request_id,reader):
     data=request(service,request_id,reader)
@@ -170,10 +180,10 @@ def review(service,request_id,reader):
     req=service._chat_payloads[request_id][1]
     require(service.source_probe()==(req.task.source_sha,req.capsule_digest),'CHAT_SOURCE_CHANGED')
     require(service._chat_authority(req.task),'CHAT_AUTHORITY_REVOKED')
-    require(service.ledger.clock()<__import__('runtime.meta_hackathon.contracts',fromlist=['utc_timestamp']).utc_timestamp(req.task.deadline_utc),'CHAT_APPROVAL_EXPIRED')
+    require(service.ledger.clock()<utc_timestamp(req.task.deadline_utc),'CHAT_APPROVAL_EXPIRED')
     epoch=service._chat_governor.inspect(reader)['epoch']
     result={**data,'policy_epoch':epoch,'endpoint':'https://api.meta.ai/v1/chat/completions','max_attempts':1,
-        'billing_status':'OWNER_CONFIRMATION_REQUIRED','review_digest':None}
+        'billing_status':'OWNER_CONFIRMATION_REQUIRED','request_payload':req.payload(),'review_digest':None}
     result['review_digest']=canonical_sha256({k:result[k] for k in ('request_digest','source_sha','capsule_digest','max_budget_usd','policy_epoch','endpoint','max_attempts')})
     return result
 
@@ -192,7 +202,7 @@ def approve(service,request_id,review_digest,owner_principal):
         reserve=ReservationRequest('chat-spend-'+request_id,req.task.task_id,PROVIDER,MODEL,canonical_sha256(operation),amount,1)
         authority=AuthorityScope(operation_classes=(operation['operation_class'],),target_scope=operation['target_fingerprint'],
             risk_ceiling=RiskLevel.MODERATE,monetary_ceiling=Money(Decimal(req.budget_usd),'USD'),not_before=now,
-            expires_at=__import__('runtime.meta_hackathon.contracts',fromlist=['utc_timestamp']).utc_timestamp(req.task.deadline_utc),
+            expires_at=utc_timestamp(req.task.deadline_utc),
             owner_scope=req.task.owner_scope_digest,task_scope=req.task.task_id)
         warrant=EffectWarrant(warrant_id='chat-warrant-'+request_id,task_id=req.task.task_id,owner_scope=req.task.owner_scope_digest,
             operation_class=operation['operation_class'],operation_hash='sha256:'+canonical_sha256(operation),
@@ -204,7 +214,10 @@ def approve(service,request_id,review_digest,owner_principal):
         try:
             governor.reserve(commit,reserve,warrant.lease_epoch)
             service.ledger.approve(owner_principal,warrant)
-            binding=MetaLiveBinding(service.ledger,governor,commit,warrant,reserve,True,True,source_reader=service.source_probe)
+            def admitted_source():
+                require(service._chat_authority(req.task),'CHAT_AUTHORITY_REVOKED')
+                return service.source_probe()
+            binding=MetaLiveBinding(service.ledger,governor,commit,warrant,reserve,True,True,source_reader=admitted_source)
             binding.check(req)
             _change(service,req.task.task_id,('PENDING_OWNER',),'RUNNING',{'warrant_digest':warrant.digest(),
                 'reserved_bound_usd':format(Decimal(amount)/10**9,'f'),'policy_epoch':warrant.lease_epoch})

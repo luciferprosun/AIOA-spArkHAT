@@ -81,7 +81,13 @@ class MobileClient(private val identity: TransportIdentity) {
             Wire.text(proof,"host_spki") == hostSpki && Wire.text(proof,"capabilities_sha256") == Wire.sha(Wire.canonical(caps)))
         val newSource = Wire.text(proof,"source_sha"); val newCapsule = Wire.text(proof,"capsule_digest")
         val newScope = Wire.text(proof,"owner_scope_digest")
-        if (token != null) require(newSource == source && newCapsule == capsule && newScope == ownerScope)
+        if (token != null) {
+            require(newScope==ownerScope) {"HOST_OWNER_SCOPE_CHANGED"}
+            if(newSource!=source || newCapsule!=capsule) {
+                token=null;session="";expiresAt=0;capabilities=null
+                throw SessionUnavailable() // existing pinned-host prepare/reconnect, never a paid POST retry
+            }
+        }
         source = newSource; capsule = newCapsule; ownerScope = newScope
         require(Wire.sha40.matches(source) && Wire.hex64.matches(capsule) && Wire.hex64.matches(ownerScope))
         // Test identities must never become production phone pairing.
@@ -133,7 +139,10 @@ class MobileClient(private val identity: TransportIdentity) {
     }
     private fun request(method: String, suffix: String, payload: JsonObject? = null, apiBase: String = Wire.BASE): MobileObservation {
         require(apiBase in setOf(Wire.BASE,Wire.VIEW_BASE))
-        if (apiBase == Wire.VIEW_BASE) check(capabilities?.get("profile")?.jsonPrimitive?.content == "OFFLINE_FIXTURE") { "CAPABILITY_UNAVAILABLE" }
+        val chatRequest=apiBase==Wire.VIEW_BASE && (suffix=="/chat" || suffix.startsWith("/chat/"))
+        if (apiBase == Wire.VIEW_BASE) check(if(chatRequest) supports("chat") &&
+            capabilities?.get("profile")?.jsonPrimitive?.content=="NATIVE_ADVISORY_CHAT_V1"
+            else capabilities?.get("profile")?.jsonPrimitive?.content=="OFFLINE_FIXTURE") {"CAPABILITY_UNAVAILABLE"}
         val credential = token ?: throw SessionUnavailable()
         if (now() >= expiresAt) { token = null; session = ""; throw SessionUnavailable() }
         verifyHostProof() // no credential release to an unproven host
@@ -152,7 +161,23 @@ class MobileClient(private val identity: TransportIdentity) {
         if (method == "GET") builder.get() else builder.post(body.toRequestBody("application/json".toMediaType()))
         val observation = verifyObservation(exchange(builder.build()),n,method,path)
         val data = observation.data
-        if (data["task_id"] != null) {
+        if(chatRequest) {
+            when(Wire.text(data,"schema")) {
+                "aioa.mobile.chat-result.v1" -> ChatView.decode(data,device,
+                    if(suffix.startsWith("/chat/requests/")) suffix.substringAfterLast('/') else payload?.get("request_id")?.jsonPrimitive?.content)
+                "aioa.mobile.chat-error.v1" -> error(Wire.text(data,"error"))
+                "aioa.mobile.chat-threads.v1" -> {
+                    val rows=data.getValue("threads").jsonArray;require(rows.size<=24)
+                    rows.forEach {require(Wire.hex32.matches(Wire.text(it.jsonObject,"thread_id")) && Wire.text(it.jsonObject,"device_id")==device)}
+                }
+                "aioa.mobile.chat-thread.v1" -> {
+                    require(Wire.text(data,"thread_id")==suffix.substringAfterLast('/'))
+                    val rows=data.getValue("messages").jsonArray;require(rows.size<=20)
+                    rows.forEach {ChatView.decode(it.jsonObject,device)}
+                }
+                else -> error("CHAT_SCHEMA_INVALID")
+            }
+        } else if (data["task_id"] != null) {
             if (apiBase == Wire.VIEW_BASE) AgentMissionView.decode(data,source,capsule,ownerScope) else validateMission(data)
         }
         if (apiBase == Wire.BASE && (suffix == "/status" || suffix.startsWith("/status/pages/"))) {
@@ -295,6 +320,18 @@ class MobileClient(private val identity: TransportIdentity) {
         return request("POST","/stop",buildJsonObject { put("task_id",task) },apiBase=Wire.VIEW_BASE)
     }
     fun agentProviders() = request("GET","/providers",apiBase=Wire.VIEW_BASE)
+
+    fun chatSend(thread:String,id:String,prompt:String):MobileObservation {
+        require(Wire.hex32.matches(thread) && Wire.hex32.matches(id) && prompt.isNotBlank() && prompt.toByteArray(Charsets.UTF_8).size<=2000)
+        return request("POST","/chat",buildJsonObject {
+            put("schema","aioa.mobile.chat-send.v1");put("thread_id",thread);put("request_id",id)
+            put("model_id","muse-spark-1.3");put("prompt",prompt);put("max_budget_usd","0.05")
+        },apiBase=Wire.VIEW_BASE)
+    }
+    fun chatRead(id:String):MobileObservation {require(Wire.hex32.matches(id));return request("GET","/chat/requests/$id",apiBase=Wire.VIEW_BASE)}
+    fun chatThread(id:String):MobileObservation {require(Wire.hex32.matches(id));return request("GET","/chat/threads/$id",apiBase=Wire.VIEW_BASE)}
+    fun chatThreads()=request("GET","/chat/threads",apiBase=Wire.VIEW_BASE)
+    fun chatStop(id:String):MobileObservation {require(Wire.hex32.matches(id));return request("POST","/chat/stop",buildJsonObject {put("request_id",id)},apiBase=Wire.VIEW_BASE)}
     fun cancel() { http?.dispatcher?.cancelAll() }
     fun close() { capabilities = null; cancel(); token = null; session = ""; expiresAt = 0; http?.connectionPool?.evictAll(); http = null }
 }

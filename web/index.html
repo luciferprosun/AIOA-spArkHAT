@@ -158,7 +158,15 @@
               </section>
               <section class="cosmic-page" data-cosmic-page="chat" hidden aria-labelledby="cosmic-chat-title">
                 <h2 id="cosmic-chat-title" tabindex="-1">Muse · przestrzeń do tworzenia</h2>
-                <article class="panel"><p>Czat jest niedostępny w tym profilu hosta. Ten ekran nie generuje odpowiedzi ani nie uruchamia płatnych modeli.</p><label>Lokalny szkic wiadomości<textarea maxlength="2000" aria-describedby="cosmic-chat-reason"></textarea></label><p id="cosmic-chat-reason">Szkic pozostaje na tej stronie i nie jest wysyłany. Czat niedostępny w profilu statusu.</p><button class="button button-primary" disabled>Wyślij</button></article>
+                <article class="panel"><p id="native-chat-state">Oczekiwanie na lokalny kanał operatora.</p>
+                  <p>Zapis wiedzy: WYŁĄCZONY. Tekst pozostaje w pamięci maksymalnie 15 minut. Każda płatna wiadomość wymaga osobnej zgody na Linuksie.</p>
+                  <div id="native-chat-threads"></div><div id="native-chat-messages" aria-live="polite"></div>
+                  <label>Wiadomość do Muse<textarea id="native-chat-prompt" maxlength="2000"></textarea></label>
+                  <button id="native-chat-send" class="button button-primary" disabled>Wyślij</button>
+                  <button id="native-chat-read" class="button button-ghost">Sprawdź wynik bez ponowienia</button>
+                  <button id="native-chat-refresh" class="button button-ghost">Odczytaj rozmowy Core</button>
+                  <button id="native-chat-stop" class="button button-danger" disabled>STOP</button>
+                </article>
               </section>
               <section class="cosmic-page" data-cosmic-page="missions" hidden aria-labelledby="cosmic-missions-title">
                 <h2 id="cosmic-missions-title" tabindex="-1">Misje i wyniki</h2>
@@ -585,6 +593,7 @@
 
     <script src="/qr.js"></script>
     <script src="/mobile_devices.js"></script>
+    <script src="/mobile_chat.js"></script>
     <script src="/mobile_devices_dom.js"></script>
     <script src="/meta_mission.js"></script>
     <script src="/agent_mission.js"></script>

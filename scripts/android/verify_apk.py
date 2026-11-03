@@ -45,7 +45,7 @@ def parse_badging(text, *, channel=None):
     permissions=set(re.findall(r"^uses-permission(?:-sdk-[0-9]+)?: name='([^']+)'",text,re.M))
     lib.require(p is not None and minimum is not None and target is not None,'BLOCKED_APK_METADATA')
     # Retain inventory of the delivered v3; allow only the reviewed v4 pair.
-    identities=({(cosmic4.PACKAGE,'400',cosmic4.VERSION_NAME)} if is_cosmic4 else {
+    identities=({(cosmic4.PACKAGE,str(cosmic4.VERSION_CODE),cosmic4.VERSION_NAME)} if is_cosmic4 else {
         ('eu.sparkhat.aioa.companion','3','0.3.0-cosmic'),('eu.sparkhat.aioa.companion','4','0.3.1-cosmic')})
     lib.require(p.groups() in identities,'BLOCKED_APK_IDENTITY')
     lib.require(minimum.group(1)=='26' and target.group(1)=='36','BLOCKED_APK_SDK')

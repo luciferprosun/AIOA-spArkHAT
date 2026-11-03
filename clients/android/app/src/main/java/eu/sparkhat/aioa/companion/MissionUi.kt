@@ -16,6 +16,7 @@ data class MissionUi(
     val agentTask: JsonObject? = null, val agentMissions: List<JsonObject> = emptyList(),
     val pendingAgent: String? = null, val archivedAgents: List<String> = emptyList(),
     val providers: JsonObject? = null,
+    val chat: ChatUi = ChatUi(),
     val readbacks: TaskReadbacks = TaskReadbacks(), val history: List<UiHistoryEvent> = emptyList(),
     val requestedTask: RequestedTask? = null,
     val invite: PairingInvite? = null, val pairing: PairingRecord? = null,

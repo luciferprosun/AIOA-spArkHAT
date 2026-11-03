@@ -316,6 +316,55 @@ class MissionViewModel(app: Application) : AndroidViewModel(app) {
     fun supports(name: String) = ui.enrolled && ui.capabilities?.get(name)?.jsonPrimitive?.booleanOrNull == true
     val agentAvailable get() = ui.enrolled && ui.capabilities?.get("profile")?.jsonPrimitive?.content == "OFFLINE_FIXTURE"
 
+    val chatAvailable get() = ui.enrolled && client.hasSession() && supports("chat") &&
+        ui.capabilities?.get("profile")?.jsonPrimitive?.content=="NATIVE_ADVISORY_CHAT_V1"
+    private fun chatBinding()=ui.pairing?.host?.let { Wire.sha((it.origin+"|"+it.tlsPin+"|"+it.spki+"|"+it.ownerScope).toByteArray(Charsets.UTF_8)) }
+    fun chatSend(prompt:String) {
+        if(!foreground || !ui.chat.canSend(chatAvailable,supports("chat"),ui.busy || recoveryWork.busy,prompt))return
+        val id=UUID.randomUUID().toString().replace("-","")
+        val thread=ui.chat.threadId ?: UUID.randomUUID().toString().replace("-","")
+        val binding=chatBinding() ?: return
+        // Public immutable IDs only, committed before the one POST. Never save
+        // the prompt, bearer or a replay instruction in preferences.
+        if(!prefs.edit().putString("chat_pending",id).putString("chat_thread",thread).putString("chat_binding",binding).commit()) {
+            ui=ui.copy(chat=ui.chat.uncertain("LOCAL_BINDING_SAVE_FAILED"));return
+        }
+        ui=ui.copy(chat=ui.chat.start(id).copy(threadId=thread))
+        chatRequest({client.chatSend(thread,id,prompt)},id)
+    }
+    fun chatRefresh() {
+        val id=ui.chat.pendingId ?: ui.chat.messages.lastOrNull()?.requestId ?: return
+        chatRequest({client.chatRead(id)},id)
+    }
+    fun chatStop() {
+        val id=ui.chat.pendingId ?: return
+        if(ui.chat.state !in setOf("PENDING_OWNER","RUNNING"))return
+        chatRequest({client.chatStop(id)},id)
+    }
+    private fun chatRequest(op:()->MobileObservation,id:String) {
+        if(!foreground || ui.busy || recoveryWork.busy || !chatAvailable)return
+        val ticket=Any();recoveryWork.start(ticket)
+        ui=ui.copy(busy=true,chat=ui.chat.copy(error=null))
+        requestJob=viewModelScope.launch {
+            try {
+                val observation=withContext(Dispatchers.IO) {transportMutex.withLock {owner().requireCurrent();op().also {owner().requireCurrent()}}}
+                if(!foreground)throw CancellationException("BACKGROUND_CHAT_READBACK")
+                val view=ChatView.decode(observation.data,client.deviceId,id)
+                ui=ui.copy(busy=false,chat=ui.chat.accept(view,observation.issuedAtEpochSeconds))
+                if(ui.chat.pendingId==null)check(prefs.edit().remove("chat_pending").commit())
+                // A signed chat observation never refreshes status/task badges.
+            } catch(cancelled:CancellationException) {
+                ui=ui.copy(chat=ui.chat.uncertain("CHAT_INTERRUPTED_READBACK_ONLY"));throw cancelled
+            } catch(_:SessionUnavailable) {
+                ui=ui.sessionUnavailable().copy(busy=false,chat=ui.chat.uncertain("CHAT_SESSION_RECOVERY_REQUIRED"))
+            } catch(error:Exception) {
+                val code=error.message?.takeIf {Regex("[A-Z][A-Z0-9_]{1,100}").matches(it)} ?: "CHAT_READBACK_UNKNOWN"
+                ui=ui.copy(busy=false,chat=ui.chat.uncertain(code))
+            }
+        }
+        requestJob?.let {trackTransport(it,ticket)}
+    }
+
     private fun request(op: () -> MobileObservation, apply: (JsonObject) -> Unit) {
         if (ui.busy || recoveryWork.busy) return
         val ticket=Any();recoveryWork.start(ticket)
@@ -556,6 +605,11 @@ class MissionViewModel(app: Application) : AndroidViewModel(app) {
         foreground=true;recoveryWake.foreground(true)
         try { reconcileBinding() }
         catch (_: Exception) { client.close(); ui = ui.copy(enrolled=false,bindingInvalid=true) }
+        if(prefs.getString("chat_binding",null)==chatBinding()) {
+            val pending=prefs.getString("chat_pending",null)?.takeIf {Wire.hex32.matches(it)}
+            val thread=prefs.getString("chat_thread",null)?.takeIf {Wire.hex32.matches(it)}
+            ui=ui.copy(chat=ui.chat.copy(threadId=thread,pendingId=pending,state=if(pending!=null) "UNKNOWN" else ui.chat.state))
+        }
         UsbReadback.clear(); generation = generation.invalidate("STALE")
         ui = ui.copy(freshness=generation,readbacks=ui.readbacks.invalidate(),message=if (ui.pending == null) UiMessage(R.string.fresh_status) else
             UiMessage(R.string.unresolved_notice))

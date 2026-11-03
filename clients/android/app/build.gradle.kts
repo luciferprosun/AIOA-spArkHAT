@@ -36,8 +36,8 @@ android {
 androidComponents {
     onVariants(selector().withBuildType("cosmic4")) { variant ->
         variant.outputs.forEach { output ->
-            output.versionCode.set(400)
-            output.versionName.set("4.0.0-cosmic")
+            output.versionCode.set(401)
+            output.versionName.set("4.1.0-cosmic")
         }
     }
 }

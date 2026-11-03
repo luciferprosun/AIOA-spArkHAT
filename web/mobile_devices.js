@@ -25,7 +25,7 @@
       const timer = setTimeout(() => controller.abort(), 8000);
       try {
         const response = await fetcher('/api/native-operator', {
-          method:'POST', credentials:'omit', redirect:'error', cache:'no-store', signal:controller.signal,
+          method:'POST', credentials:'same-origin', redirect:'error', cache:'no-store', signal:controller.signal,
           headers:{'Content-Type':'application/json', 'X-AIOA-Session-Token':token},
           body:JSON.stringify(value)
         });
@@ -45,6 +45,10 @@
       } finally { clearTimeout(timer); busy = false; }
     }
     return Object.freeze({
+      chatCall:value=>{
+        if(!value || !['chat_catalog','chat_threads','chat_thread','chat_request','chat_review','chat_propose','chat_stop'].includes(value.op))return Promise.reject(Error('LOCAL_OPERATOR_REQUIRED'));
+        return call(value,['chat_propose','chat_stop'].includes(value.op),()=>{});
+      },
       snapshot:() => copy({...state, busy}),
       refresh:() => call({op:'pairing_list'}, false, data => {
         if (!Array.isArray(data.pending) || !Array.isArray(data.devices) || data.pending.length>128 || data.devices.length>128) throw Error('INVALID_READBACK');
@@ -54,7 +58,9 @@
         // An unrelated read must never resolve an uncertain pairing mutation.
         if(state.phase!=='READY' || !state.observed) throw Error('READBACK_REQUIRED');
         return call({op:'status'},false,data=>{
-          if(data.profile!=='NATIVE_STATUS_READ_ONLY_V1' || data.model_calls!==0 ||
+          if(!['NATIVE_STATUS_READ_ONLY_V1','NATIVE_ADVISORY_CHAT_V1'].includes(data.profile) ||
+              !Number.isSafeInteger(data.model_calls) || data.model_calls<0 ||
+              data.profile==='NATIVE_STATUS_READ_ONLY_V1' && data.model_calls!==0 ||
               !Array.isArray(data.sessions) || data.sessions.length>8 ||
               !Array.isArray(data.observations) || data.observations.length>8 ||
               typeof data.history_truncated!=='boolean') throw Error('INVALID_READBACK');
