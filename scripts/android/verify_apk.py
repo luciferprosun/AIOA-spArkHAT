@@ -22,11 +22,11 @@ def parse_badging(text):
     target=re.search(r"^targetSdkVersion:'([0-9]+)'",text,re.M)
     permissions=set(re.findall(r"^uses-permission(?:-sdk-[0-9]+)?: name='([^']+)'",text,re.M))
     lib.require(p is not None and minimum is not None and target is not None,'BLOCKED_APK_METADATA')
-    lib.require(p.groups()==('eu.sparkhat.aioa.companion','2','0.2.0-n1'),'BLOCKED_APK_IDENTITY')
+    lib.require(p.groups()==('eu.sparkhat.aioa.companion','3','0.3.0-cosmic'),'BLOCKED_APK_IDENTITY')
     lib.require(minimum.group(1)=='26' and target.group(1)=='36','BLOCKED_APK_SDK')
     lib.require(permissions in ({'android.permission.INTERNET'},
         {'android.permission.INTERNET',RECEIVER_PERMISSION}),'BLOCKED_APK_PERMISSIONS')
-    return {'package':p.group(1),'version_code':2,'version_name':p.group(3),'min_sdk':26,'target_sdk':36,
+    return {'package':p.group(1),'version_code':3,'version_name':p.group(3),'min_sdk':26,'target_sdk':36,
         'permissions':sorted(permissions),'debuggable':'application-debuggable' in text}
 
 

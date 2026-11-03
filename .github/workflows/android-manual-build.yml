@@ -4,10 +4,10 @@ name: Android DEBUG (manual owner review)
   workflow_dispatch:
     inputs:
       build_profile:
-        description: STRICT preserves exact image identity; DEBUG_TOOLCHAIN_V1 permits only the documented bounded DEBUG exception
+        description: STRICT preserves exact image identity; DEBUG_TOOLCHAIN_V1 is the bounded Noble exception; DEBUG_UBUNTU22_V1 requires the published Jammy image
         required: true
         type: choice
-        options: [STRICT, DEBUG_TOOLCHAIN_V1]
+        options: [STRICT, DEBUG_TOOLCHAIN_V1, DEBUG_UBUNTU22_V1]
         default: STRICT
       debug_environment_ack:
         description: I accept the documented DEBUG image mismatch and runner-provided SDK trust for this single build
@@ -19,7 +19,7 @@ name: Android DEBUG (manual owner review)
         required: true
         type: string
       expected_runner_image:
-        description: Owner-reviewed ubuntu24 ImageVersion from official actions/runner-images release
+        description: "Exact published ImageVersion for the selected profile: Noble 20261026.354.1 or Jammy 20261026.341.1"
         required: true
         type: string
       expected_workflow_revision:
@@ -69,7 +69,7 @@ jobs:
       github.actor == 'luciferprosun' && github.triggering_actor == 'luciferprosun' &&
       github.run_attempt == '1' && inputs.expected_source_sha == github.sha &&
       inputs.approve_run && inputs.sdk_license_ack && inputs.artifact_exposure_ack
-    runs-on: ubuntu-24.04
+    runs-on: ${{ inputs.build_profile == 'DEBUG_UBUNTU22_V1' && 'ubuntu-22.04' || 'ubuntu-24.04' }}
     timeout-minutes: 35
     env:
       AIOA_BUILD_PROFILE: ${{ inputs.build_profile }}
@@ -118,10 +118,12 @@ jobs:
 
           def check_image(raw, environment):
               profile = environment.get('AIOA_BUILD_PROFILE', 'STRICT')
-              if profile not in ('STRICT', 'DEBUG_TOOLCHAIN_V1'):
+              if profile not in ('STRICT', 'DEBUG_TOOLCHAIN_V1', 'DEBUG_UBUNTU22_V1'):
                   raise SystemExit('BLOCKED_CI_BUILD_PROFILE')
-              if profile == 'DEBUG_TOOLCHAIN_V1' and (environment.get('AIOA_DEBUG_ENVIRONMENT_ACK') != 'true' or environment.get('AIOA_CODEQL_REQUESTED') != 'false'):
+              if profile in ('DEBUG_TOOLCHAIN_V1', 'DEBUG_UBUNTU22_V1') and (environment.get('AIOA_DEBUG_ENVIRONMENT_ACK') != 'true' or environment.get('AIOA_CODEQL_REQUESTED') != 'false'):
                   raise SystemExit('BLOCKED_CI_DEBUG_PROFILE_CONSENT')
+              expected_image = '20261026.341.1' if profile == 'DEBUG_UBUNTU22_V1' else EXPECTED_IMAGE
+              expected_os = 'ubuntu-22.04' if profile == 'DEBUG_UBUNTU22_V1' else 'ubuntu-24.04'
               try:
                   data = json.loads(raw)
                   if type(data) is not list or not 0 < len(data) <= 16 or any(type(row) is not dict for row in data):
@@ -136,7 +138,7 @@ jobs:
                   declared = environment.get('ImageVersion', '')
                   if not re.fullmatch(r'[0-9]{8}\.[0-9]{1,4}\.[0-9]{1,4}', declared):declared = 'INVALID'
                   snapshot = {'metadata_version': observed, 'declared_version': declared, 'metadata_sha256': hashlib.sha256(raw).hexdigest()}
-                  mismatch = images != ['ubuntu-24.04'] or observed != EXPECTED_IMAGE or environment.get('ImageVersion') != observed
+                  mismatch = images != [expected_os] or observed != expected_image or environment.get('ImageVersion') != observed
                   exception = (profile == 'DEBUG_TOOLCHAIN_V1' and images == ['ubuntu-24.04'] and observed == '20261025.353.1' and declared == EXPECTED_IMAGE
                       and snapshot['metadata_sha256'] == '6d35057ab003af4dc74998526957d7bde2e5526e1da06b4ed93201f6fa82e8ba')
                   snapshot.update(build_profile=profile, image_identity_status='MISMATCH_ACCEPTED_DEBUG' if mismatch and exception else 'MISMATCH' if mismatch else 'MATCHED')
@@ -152,7 +154,11 @@ jobs:
               with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as output:
                   output.write('snapshot=' + json.dumps(snapshot, sort_keys=True) + '\n')
           PY
-          test "$ImageVersion" = '20261026.354.1'
+          if [[ "$AIOA_BUILD_PROFILE" == 'DEBUG_UBUNTU22_V1' ]]; then
+            test "$ImageVersion" = '20261026.341.1'
+          else
+            test "$ImageVersion" = '20261026.354.1'
+          fi
       - name: Checkout exact dispatched commit without persistent credentials
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1, node24
         with:

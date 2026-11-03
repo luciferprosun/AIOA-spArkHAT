@@ -165,7 +165,7 @@ class AndroidReviewRegressions(unittest.TestCase):
             self.assertEqual(before,signal.getsignal(signal.SIGTERM))
 
     def test_artifact_reuse_under_new_sha_cannot_gain_new_source_provenance(self):
-        badging="package: name='eu.sparkhat.aioa.companion' versionCode='2' versionName='0.2.0-n1'\nsdkVersion:'26'\ntargetSdkVersion:'36'\nuses-permission: name='android.permission.INTERNET'\napplication-debuggable\n"
+        badging="package: name='eu.sparkhat.aioa.companion' versionCode='3' versionName='0.3.0-cosmic'\nsdkVersion:'26'\ntargetSdkVersion:'36'\nuses-permission: name='android.permission.INTERNET'\napplication-debuggable\n"
         signature='Verified using v2 scheme (APK Signature Scheme v2): true\nSigner #1 certificate DN: CN=Android Debug\nSigner #1 certificate SHA-256 digest: '+'a'*64+'\n'
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory);old=root/'old';old.mkdir();(old/'app-debug.apk').write_bytes(b'old-artifact-fixture')

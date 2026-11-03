@@ -14,10 +14,10 @@ class AndroidBuildVerificationTests(unittest.TestCase):
         self.build=importlib.import_module('scripts.android.build_apk')
 
     def test_metadata_requires_exact_package_version_sdk_and_permissions(self):
-        good="package: name='eu.sparkhat.aioa.companion' versionCode='2' versionName='0.2.0-n1'\nsdkVersion:'26'\ntargetSdkVersion:'36'\nuses-permission: name='android.permission.INTERNET'\n"
+        good="package: name='eu.sparkhat.aioa.companion' versionCode='3' versionName='0.3.0-cosmic'\nsdkVersion:'26'\ntargetSdkVersion:'36'\nuses-permission: name='android.permission.INTERNET'\n"
         value=self.verify.parse_badging(good)
         self.assertEqual('eu.sparkhat.aioa.companion',value['package'])
-        for bad in [good.replace("versionCode='2'","versionCode='1'"),good.replace("sdkVersion:'26'","sdkVersion:'25'"),
+        for bad in [good.replace("versionCode='3'","versionCode='1'"),good.replace("sdkVersion:'26'","sdkVersion:'25'"),
                     good.replace('eu.sparkhat.aioa.companion','other.package'),good+"uses-permission: name='android.permission.READ_SMS'\n"]:
             with self.assertRaises(self.verify.lib.Blocked):self.verify.parse_badging(bad)
 
@@ -32,7 +32,7 @@ class AndroidBuildVerificationTests(unittest.TestCase):
     def test_androidx_permission_requires_its_exact_signature_definition_in_the_apk(self):
         # AAPT-format fixture, not an actual APK or Android build claim.
         permission='eu.sparkhat.aioa.companion.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION'
-        badging="package: name='eu.sparkhat.aioa.companion' versionCode='2' versionName='0.2.0-n1'\nsdkVersion:'26'\ntargetSdkVersion:'36'\nuses-permission: name='android.permission.INTERNET'\nuses-permission: name='"+permission+"'\napplication-debuggable\n"
+        badging="package: name='eu.sparkhat.aioa.companion' versionCode='3' versionName='0.3.0-cosmic'\nsdkVersion:'26'\ntargetSdkVersion:'36'\nuses-permission: name='android.permission.INTERNET'\nuses-permission: name='"+permission+"'\napplication-debuggable\n"
         declaration=('    E: permission (line=10)\n'
             '      A: android:name(0x01010003)="'+permission+'" (Raw: "'+permission+'")\n'
             '      A: android:protectionLevel(0x01010009)=(type 0x11)0x2\n')
@@ -67,7 +67,7 @@ class AndroidBuildVerificationTests(unittest.TestCase):
 
     def test_extra_or_foreign_permission_is_never_granted_by_androidx_compatibility(self):
         permission='eu.sparkhat.aioa.companion.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION'
-        good="package: name='eu.sparkhat.aioa.companion' versionCode='2' versionName='0.2.0-n1'\nsdkVersion:'26'\ntargetSdkVersion:'36'\nuses-permission: name='android.permission.INTERNET'\nuses-permission: name='"+permission+"'\n"
+        good="package: name='eu.sparkhat.aioa.companion' versionCode='3' versionName='0.3.0-cosmic'\nsdkVersion:'26'\ntargetSdkVersion:'36'\nuses-permission: name='android.permission.INTERNET'\nuses-permission: name='"+permission+"'\n"
         self.assertEqual(['android.permission.INTERNET',permission],self.verify.parse_badging(good)['permissions'])
         for bad in [good+"uses-permission: name='android.permission.READ_SMS'\n",
             good.replace(permission,'other.app.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION')]:
