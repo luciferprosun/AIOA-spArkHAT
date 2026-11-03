@@ -66,6 +66,21 @@ def make_admission(
 
 class LocalCoreRecordAdapterTests(unittest.TestCase):
     """Real SQLite storage with the test's explicitly synthetic Core principal."""
+    def test_fixture_adapter_filters_operation_kind_before_limit(self):
+        from runtime.personal_ai_fixture import FakeFactory as DemoFactory
+        core=make_admission();principal=core.local_operator(Capability.COMMIT)
+        runner=TransactionRunner(core,DemoFactory())
+        self.addCleanup(runner.close)
+        write=TransactionContext(principal,Capability.COMMIT)
+        def insert(tx):
+            for identity,kind in (('a-unrelated','transport'),('z-governor','governor')):
+                tx.insert(StoredRecord(RecordKind.OPERATION,identity,principal.scope,1,
+                    {'state':'TEST','operation_kind':kind}))
+        runner.run(write,insert)
+        read=TransactionContext(core.local_operator(Capability.READ),Capability.READ)
+        records=runner.run(read,lambda tx:tx.scan(RecordKind.OPERATION,limit=1,operation_kind='governor'))
+        self.assertEqual(['z-governor'],[record.record_id for record in records])
+
     def test_commit_cas_rollback_and_reopen_use_one_native_record_store(self):
         from runtime.memory_patch.persistence.ports import LocalCoreRecordFactory
         with tempfile.TemporaryDirectory() as directory:

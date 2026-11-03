@@ -1,6 +1,7 @@
 """Isolated owned-process lifecycle; no Chrome/network/real owner started."""
-import io,json,subprocess,tempfile,unittest
+import io,json,stat,subprocess,tempfile,unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 from runtime.mobile_gateway import chrome_console
 
@@ -27,7 +28,14 @@ class ChromeLifecycleTests(unittest.TestCase):
             def wait(self,timeout=None):self.waits.append(timeout);return -15
             def kill(self):self.stopped=True
         process=Process()
-        with tempfile.TemporaryDirectory() as directory,patch.object(Path,'home',return_value=Path(directory)),patch('subprocess.Popen',return_value=process) as popen,patch.object(chrome_console.Pipe,'call',side_effect=ValueError('CDP_STALLED')) as cdp:
+        actual_stat=Path.stat
+        def fixture_stat(path,*args,**kwargs):
+            if str(path)=='/usr/bin/google-chrome':
+                return SimpleNamespace(st_uid=0,st_mode=stat.S_IFREG|0o755)
+            return actual_stat(path,*args,**kwargs)
+        # The child/CDP are synthetic; never depend on a host Chrome install.
+        # All private profile directory checks still use the real filesystem.
+        with tempfile.TemporaryDirectory() as directory,patch.object(Path,'home',return_value=Path(directory)),patch.object(Path,'stat',fixture_stat),patch('subprocess.Popen',return_value=process) as popen,patch.object(chrome_console.Pipe,'call',side_effect=ValueError('CDP_STALLED')) as cdp:
             with self.assertRaises(ValueError):chrome_console.run({'url':'https://host.example.org/devices','delivery':'A'*43})
             self.assertEqual(1,popen.call_count)
             self.assertEqual(1,cdp.call_count) # No fetch/delivery and no retry.

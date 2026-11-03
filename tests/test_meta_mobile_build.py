@@ -29,6 +29,12 @@ class BuildHandoffTests(unittest.TestCase):
                 (root/'clients/android/app/src/main/AndroidManifest.xml').write_text('changed fixture')
                 self.assertNotEqual(before,self.module.manifest())
 
+    def test_manifest_order_uses_portable_posix_strings(self):
+        # pathlib compares path segments differently between Python3.11/3.12.
+        # The serialized source manifest must have one version-independent order.
+        paths=[item['path'] for item in self.module.manifest()['files']]
+        self.assertEqual(sorted(paths),paths)
+
     def test_unverified_wrapper_is_not_a_build_input(self):
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory);shutil.copytree(self.module.ROOT/'clients/android',root/'clients/android')

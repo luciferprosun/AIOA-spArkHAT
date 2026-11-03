@@ -14,7 +14,7 @@ NAME = 'clients/android/ANDROID_BUILD_INPUT_MANIFEST.json'
 def manifest():
     directory=ROOT/'clients/android'
     files=[]
-    for path in sorted(directory.rglob('*')):
+    for path in sorted(directory.rglob('*'),key=lambda value:value.relative_to(ROOT).as_posix()):
         relative=path.relative_to(ROOT).as_posix()
         if relative==NAME or any(p in ('build','.gradle','.kotlin','__pycache__') for p in path.parts):continue
         if path.is_symlink():raise ValueError('BUILD_INPUT_SYMLINK_DENIED')
