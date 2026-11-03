@@ -161,7 +161,7 @@ class AndroidDebugProfileTests(unittest.TestCase):
         inputs = workflow['on']['workflow_dispatch']['inputs']
         self.assertIn('build_profile', inputs)
         self.assertEqual('STRICT', inputs['build_profile']['default'])
-        self.assertEqual(['STRICT', PROFILE], inputs['build_profile']['options'])
+        self.assertEqual(['STRICT', PROFILE, 'DEBUG_UBUNTU22_V1'], inputs['build_profile']['options'])
         self.assertIn('debug_environment_ack', inputs)
         self.assertFalse(inputs['debug_environment_ack']['default'])
         self.assertFalse(inputs['enable_codeql']['default'])

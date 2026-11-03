@@ -59,7 +59,7 @@ class ControlledDebugSignerTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory);apk=root/'app.apk';apk.write_bytes(b'fixture-apk')
             evidence={'apk_sha256':build.lib.sha(apk),'certificate_sha256':'a'*64,'package':'eu.sparkhat.aioa.companion',
-                'bytes':apk.stat().st_size,'version_code':2,'version_name':'0.2.0-n1','min_sdk':26,'target_sdk':36,
+                'bytes':apk.stat().st_size,'version_code':3,'version_name':'0.3.0-cosmic','min_sdk':26,'target_sdk':36,
                 'permissions':['android.permission.INTERNET'],'signature_permissions':{},'junit_pass':10,'junit_fail':0,'junit_skip':0,
                 'lint_errors':0,'report_digests':[],'debuggable':True,'kind':'DEBUG',
                 'inspected_checkout_sha':'a'*40}
@@ -101,7 +101,7 @@ class ControlledDebugSignerTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory);apk=root/'app.apk';apk.write_bytes(b'fixture-apk')
             evidence={'apk_sha256':ci.lib.sha(apk),'certificate_sha256':'a'*64,'package':'eu.sparkhat.aioa.companion',
-                'bytes':apk.stat().st_size,'version_code':2,'version_name':'0.2.0-n1','min_sdk':26,'target_sdk':36,
+                'bytes':apk.stat().st_size,'version_code':3,'version_name':'0.3.0-cosmic','min_sdk':26,'target_sdk':36,
                 'permissions':['android.permission.INTERNET'],'signature_permissions':{},'junit_pass':10,'junit_fail':0,'junit_skip':0,
                 'lint_errors':0,'report_digests':[],'debuggable':True,'kind':'DEBUG','inspected_checkout_sha':'a'*40}
             with patch.object(ci.verify_apk,'verify',return_value=evidence),\
