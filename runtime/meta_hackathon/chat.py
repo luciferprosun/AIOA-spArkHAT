@@ -5,9 +5,10 @@ bounded process memory, expires after 15 minutes and is never a knowledge base.
 No function in this module authenticates an operator or resolves a credential.
 """
 from dataclasses import replace
-from datetime import timedelta
+from datetime import datetime,timedelta,timezone
 from decimal import Decimal, ROUND_CEILING
 import hashlib
+import json
 import re
 import threading
 import time
@@ -36,17 +37,39 @@ TTL=900
 
 def initialize(service):
     service._chat_payloads={};service._chat_results={};service._chat_governor=None
-    service._chat_authority=None
+    service._chat_authority=None;service._chat_context_probe=None;service._chat_credit_probe=None
     for row in _rows(service):
         if row.payload['state'] in ('CHAT_PENDING_OWNER','CHAT_RUNNING'):
             _change(service,row.record_id,('PENDING_OWNER','RUNNING'),'UNKNOWN',{'error':'CHAT_RESTART_READBACK_REQUIRED'})
 
-def bind(service,governor,authority_probe):
+def bind(service,governor,authority_probe,*,read_context_probe=None,credit_balance_probe=None):
     from runtime.mission.governor import CoreDualGovernor
     require(type(governor) is CoreDualGovernor and governor.core is service.core
         and governor.runner is service.runner and governor.policy.scope==service.scope
         and callable(authority_probe),'CHAT_NATIVE_BINDING_REQUIRED')
     service._chat_governor=governor;service._chat_authority=authority_probe
+    require(read_context_probe is None or callable(read_context_probe),'CHAT_CONTEXT_BINDING_REQUIRED')
+    service._chat_context_probe=read_context_probe
+    require(credit_balance_probe is None or callable(credit_balance_probe),'CHAT_CREDIT_BINDING_REQUIRED')
+    service._chat_credit_probe=credit_balance_probe
+
+def budget_status(service,reader):
+    governor=service._chat_governor;require(governor is not None,'CHAT_NOT_CONFIGURED');state=governor.inspect(reader)
+    limits=state.get('money_policy',{}).get('limits',{})
+    cap=limits.get('task_limit',governor.policy.task_limit.money_nano)
+    total=limits.get('global_limit',governor.policy.global_limit.money_nano)
+    credit_ready=callable(service._chat_credit_probe) and service._chat_credit_probe(None) is True
+    return {'max_budget_usd':format(Decimal(cap)/10**9,'f'),
+        'allocation_usd':format(Decimal(total)/10**9,'f'),
+        'local_exposure_usd':format(Decimal(state['exposure']['global']['money_nano'])/10**9,'f'),
+        'provider_balance_status':'OWNER_ATTESTED' if credit_ready else 'UNVERIFIED','credit_only':bool(state.get('money_policy')),
+        'credit_binding_available':credit_ready}
+
+def _check_context(service,req):
+    context=json.loads(req.context_json).get('read_context')
+    if context is not None:
+        require(callable(service._chat_context_probe),'CHAT_CONTEXT_NOT_BOUND')
+        require(service._chat_context_probe(context['request_id'])==context,'CHAT_CONTEXT_CHANGED')
 
 def _id(value):require(type(value) is str and re.fullmatch('[0-9a-f]{32}',value),'CHAT_ID_INVALID');return value
 def _device(value):require(type(value) is str and re.fullmatch('[0-9a-f]{64}',value),'CHAT_DEVICE_INVALID');return value
@@ -87,16 +110,17 @@ def _prune(service):
         for key,value in tuple(cache.items()):
             if now-value[0]>TTL:del cache[key]
 
-def propose(service,payload,reader,*,device_id,session_id,nonce,actor='ANDROID'):
+def propose(service,payload,reader,*,device_id,session_id,nonce,actor='ANDROID',read_context=None):
     service.core.require(reader,Capability.READ,scope=service.scope)
     require(type(payload) is dict and set(payload)=={'schema','thread_id','request_id','model_id','prompt','max_budget_usd'},'CHAT_PAYLOAD_INVALID')
     require(payload['schema']=='aioa.mobile.chat-send.v1' and payload['model_id']==MODEL,'CHAT_MODEL_INVALID')
     device_id=_device(device_id);request_id=_id(payload['request_id']);thread_id=_id(payload['thread_id'])
     _id(session_id);_id(nonce)
     require(type(payload['prompt']) is str and payload['prompt'].strip() and 1<=len(payload['prompt'].encode())<=2000,'CHAT_PROMPT_LIMIT')
-    require(type(payload['max_budget_usd']) is str and re.fullmatch(r'0\.0[0-5][0-9]{0,2}|0\.05',payload['max_budget_usd']),'CHAT_BUDGET_INVALID')
-    require(0<Decimal(payload['max_budget_usd'])<=Decimal('.05'),'CHAT_BUDGET_INVALID')
-    submission=canonical_sha256({'payload':payload,'device_id':device_id})
+    require(type(payload['max_budget_usd']) is str and re.fullmatch(r'(?:0|[1-9][0-9]{0,2})(?:\.[0-9]{1,9})?',payload['max_budget_usd']),'CHAT_BUDGET_INVALID')
+    ceiling=Decimal('.05') if actor=='ANDROID' else Decimal('148')
+    require(0<Decimal(payload['max_budget_usd'])<=min(ceiling,Decimal(budget_status(service,reader)['max_budget_usd'])),'CHAT_BUDGET_INVALID')
+    submission=canonical_sha256({'payload':payload,'device_id':device_id,**({'read_context':read_context} if read_context is not None else {})})
     with service._lock:
         require(not service._closed and service._chat_governor is not None,'CHAT_NOT_CONFIGURED')
         _prune(service)
@@ -116,12 +140,18 @@ def propose(service,payload,reader,*,device_id,session_id,nonce,actor='ANDROID')
                 history.extend((('user',source[1].prompt),('assistant',result[1])))
         while len(history)>20 or sum(len(text.encode()) for _,text in history)>12000:history=history[2:]
         sha,capsule=service.source_probe();now=service.ledger.clock()
-        task=MetaChatTask('chat-'+request_id,canonical_sha256(service.scope),sha,utc(now+timedelta(minutes=5)),
+        deadline=now+timedelta(minutes=5)
+        if read_context is not None:
+            require(actor=='LINUX_OWNER' and type(read_context) is dict,'CHAT_CONTEXT_NOT_BOUND')
+            require(callable(service._chat_context_probe) and service._chat_context_probe(read_context.get('request_id'))==read_context,'CHAT_CONTEXT_CHANGED')
+            deadline=min(deadline,datetime.fromtimestamp(read_context['expires_at'],timezone.utc))
+        task=MetaChatTask('chat-'+request_id,canonical_sha256(service.scope),sha,utc(deadline),
             device_id,thread_id,request_id,session_id,nonce,actor)
         require(service._chat_authority(task),'CHAT_AUTHORITY_REVOKED')
         context={'schema':'aioa.chat.core-context.v1','core':'ADMITTED','profile':'NATIVE_ADVISORY_CHAT_V1',
             'source_sha':sha,'capsule_digest':capsule,'native_execute':False,'github_write':False,'save_knowledge':False,
             'mission_read':'BLOCKED_NATIVE_WORKER_NOT_BOUND'}
+        if read_context is not None:context.update(schema='aioa.chat.core-context.v2',read_context=read_context)
         req=MetaChatRequest(task,payload['prompt'],canonical_json_bytes(context).decode(),history=tuple(history),
             budget_usd=payload['max_budget_usd'],capsule_digest=capsule)
         req.payload();require(req.estimate()<=Decimal(req.budget_usd),'CHAT_BUDGET_INSUFFICIENT')
@@ -158,11 +188,15 @@ def threads(service,reader,*,device_id=None):
     service.core.require(reader,Capability.READ,scope=service.scope)
     if device_id is not None:_device(device_id)
     with service._lock:
-        latest={}
+        _prune(service);latest={};source=tuple(service.source_probe())
         for row in sorted(_rows(service),key=lambda r:r.payload['created_order']):
             data=row.payload
             if device_id is None or data['device_id']==device_id:
-                latest[data['thread_id']]={k:data[k] for k in ('thread_id','device_id','request_id','created_at','model_id')}
+                summary={k:data[k] for k in ('thread_id','device_id','request_id','created_at','model_id','source_sha','capsule_digest')}
+                summary.update(state=data['state'].removeprefix('CHAT_'),
+                    current_source=(data['source_sha'],data['capsule_digest'])==source,
+                    text_available=data['request_id'] in service._chat_payloads and data['request_id'] in service._chat_results)
+                latest.pop(data['thread_id'],None);latest[data['thread_id']]=summary
         return {'schema':'aioa.mobile.chat-threads.v1','threads':list(latest.values())[-24:],'save_knowledge':False}
 
 def thread(service,thread_id,reader,*,device_id=None):
@@ -180,6 +214,7 @@ def review(service,request_id,reader):
     req=service._chat_payloads[request_id][1]
     require(service.source_probe()==(req.task.source_sha,req.capsule_digest),'CHAT_SOURCE_CHANGED')
     require(service._chat_authority(req.task),'CHAT_AUTHORITY_REVOKED')
+    _check_context(service,req)
     require(service.ledger.clock()<utc_timestamp(req.task.deadline_utc),'CHAT_APPROVAL_EXPIRED')
     epoch=service._chat_governor.inspect(reader)['epoch']
     result={**data,'policy_epoch':epoch,'endpoint':'https://api.meta.ai/v1/chat/completions','max_attempts':1,
@@ -196,6 +231,11 @@ def approve(service,request_id,review_digest,owner_principal):
         require(current['review_digest']==review_digest,'CHAT_REVIEW_CHANGED')
         require(not any(r.payload['state']=='CHAT_RUNNING' for r in _rows(service)),'CHAT_PROVIDER_BUSY')
         req=service._chat_payloads[request_id][1];governor=service._chat_governor
+        credit_required=bool(governor.inspect(service.core.local_operator(Capability.READ)).get('money_policy'))
+        def credit_check():
+            if credit_required:
+                require(callable(service._chat_credit_probe) and service._chat_credit_probe(req) is True,'CREDIT_BALANCE_NOT_BOUND')
+        credit_check()  # No reservation, key read or transport before this gate.
         operation=spend_operation(req.digest,req.public_binding());now=service.ledger.clock()
         from runtime.mission.governor import ReservationRequest
         amount=int((req.estimate()*10**9).to_integral_value(rounding=ROUND_CEILING))
@@ -216,6 +256,7 @@ def approve(service,request_id,review_digest,owner_principal):
             service.ledger.approve(owner_principal,warrant)
             def admitted_source():
                 require(service._chat_authority(req.task),'CHAT_AUTHORITY_REVOKED')
+                credit_check()  # Trusted probe must be pure; never a Core/HTTP callback.
                 return service.source_probe()
             binding=MetaLiveBinding(service.ledger,governor,commit,warrant,reserve,True,True,source_reader=admitted_source)
             binding.check(req)
@@ -232,6 +273,7 @@ def approve(service,request_id,review_digest,owner_principal):
 def _execute(service,req,binding,cancel):
     try:
         require(service._chat_authority(req.task),'CHAT_AUTHORITY_REVOKED')
+        _check_context(service,req)
         result=service.manager.generate_meta_chat(req,cancel,live_binding=binding)
         receipt=MetaReceiptView(service.ledger,governor=binding.governor,source_reader=service.source_probe).readback(req.digest)
         require(result.live_verified and receipt['response_sha256']==hashlib.sha256(result.text.encode()).hexdigest(),'CHAT_RECEIPT_UNKNOWN')

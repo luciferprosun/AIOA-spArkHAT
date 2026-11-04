@@ -1083,6 +1083,16 @@ def make_mobile_operator_server(owner, *, service=None):
                         delivery=secrets.token_urlsafe(32)
                         service._mobile_console_delivery=(delivery,time.monotonic()+30,uid)
                         data={'delivery':delivery,'url':owner.origin+'/devices'}
+                elif value.get('op')=='operator_renew' and service is not None:
+                    if not service.lock.acquire(timeout=1):raise wire.MobileError(409)
+                    try:
+                        def invalidate():
+                            service._mobile_console_uid=None
+                            service._mobile_console_cookie=None
+                            service._mobile_console_delivery=None
+                            service.csrf_token=secrets.token_urlsafe(32)
+                        data=owner.operator_request(uid,value,invalidate_console=invalidate)
+                    finally:service.lock.release()
                 else:data=owner.operator_request(uid,value)
                 result={'ok':True,'data':data}
                 if len(wire.canonical(result))>wire.RESPONSE_LIMIT:raise wire.MobileError(413)
@@ -1102,7 +1112,8 @@ def mobile_operator_client(root,value):
             or not stat.S_ISSOCK(info.st_mode) or info.st_uid!=os.getuid() or info.st_mode&0o077):
         raise ValueError('NATIVE_OPERATOR_SOCKET_DENIED')
     with socket.socket(socket.AF_UNIX,socket.SOCK_STREAM) as peer:
-        peer.settimeout(30 if type(value) is dict and value.get('op')=='tool_read' else 10)
+        op=value.get('op') if type(value) is dict else None
+        peer.settimeout(140 if op=='operator_renew' else 30 if op=='tool_read' else 10)
         peer.connect(str(path))
         _,uid,_=struct.unpack('3i',peer.getsockopt(socket.SOL_SOCKET,socket.SO_PEERCRED,12))
         if uid!=os.getuid():raise ValueError('NATIVE_OPERATOR_PEER_DENIED')
@@ -1116,14 +1127,19 @@ def make_server(
     host: str = HOST,
     port: int = PORT,
     service: WebRuntimeService | None = None,
-    *,tls_certificate=None,tls_key=None,
+    *,tls_certificate=None,tls_key=None,reserved_server=None,
 ) -> ThreadingHTTPServer:
     """Create the single local AOIA-Core server."""
 
     if host not in LOOPBACK_HOSTS:
         raise ValueError("AOIA-Core web UI may bind only to a loopback interface")
     handler = partial(AOIAWebHandler, service=service)
-    server = ThreadingHTTPServer((host, port), handler)
+    if reserved_server is not None:
+        if (type(reserved_server) is not ThreadingHTTPServer or not getattr(service,'mobile_only',False)
+                or reserved_server.server_address[0] not in LOOPBACK_HOSTS
+                or port and reserved_server.server_address[1]!=port):raise ValueError('NATIVE_LISTENER_BINDING_REQUIRED')
+        server=reserved_server;server.RequestHandlerClass=handler
+    else:server = ThreadingHTTPServer((host, port), handler)
     server.daemon_threads = True
     if getattr(service,'mobile_only',False):
         import ssl,stat
@@ -1149,6 +1165,15 @@ def _launch_mobile_console(data, runtime_dir):
     return launch(data,runtime_dir)
 
 
+def _open_mobile_console(data):
+    runtime_dir=Path('/run/user')/str(os.getuid())
+    import subprocess
+    check=subprocess.run(['/usr/bin/findmnt','--noheadings','--output','FSTYPE','--target',str(runtime_dir)],
+        capture_output=True,text=True,timeout=5,check=True)
+    if check.stdout.strip()!='tmpfs':raise ValueError('PRIVATE_RAM_RUNTIME_REQUIRED')
+    _launch_mobile_console(data,runtime_dir)
+
+
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Run the local AIOA spArkHAT web interface (formerly AOIA-Core).")
     mode = parser.add_mutually_exclusive_group()
@@ -1157,12 +1182,15 @@ def _parser() -> argparse.ArgumentParser:
     mode.add_argument('--meta-offline', action='store_true', help='One existing UI, isolated Meta fixture, zero spend')
     mode.add_argument('--unified-offline', action='store_true', help='One app: Core-gated local recipes, MCP and signed mobile fixture; no paid calls')
     mode.add_argument('--mobile-native',action='store_true',help='System-authenticated private mobile status only; no model, task execution or fixture')
-    mode.add_argument('--mobile-operator',choices=('settings','enroll','status','revoke','console','chat-review','chat-approve'),help='Private native operator socket; code stays local')
+    mode.add_argument('--mobile-operator',choices=('settings','enroll','status','revoke','console','desktop','auth-status','renew','budget-review','budget-approve','chat-review','chat-approve'),help='Private native operator socket; code stays local')
     mode.add_argument('--meta-live-one-shot', action='store_true', help='Inspect the explicit one-shot LIVE gate; never implies owner GO')
     parser.add_argument('--state-dir', help='Private state directory for the explicit Meta offline profile')
     parser.add_argument('--mobile-origin')
     parser.add_argument('--mobile-chat',action='store_true',help='Explicit advisory Meta chat with separate exact local financial approval')
+    parser.add_argument('--mobile-existing-profile',action='store_true',help='Require initialized Native history and preserve its exact file through admission')
     parser.add_argument('--chat-request-id',help='Public exact chat request ID for local financial review')
+    parser.add_argument('--budget-usd',default='148',help='Proposed total local allocation; configuration never approves paid calls')
+    parser.add_argument('--observed-credit-usd',help='Fresh credit value personally read by the operator in the Meta dashboard; never inferred from model output')
     parser.add_argument('--mobile-tls-certificate')
     parser.add_argument('--mobile-tls-key')
     parser.add_argument('--device-spki',help='Exact public phone SPKI for native enrollment/revocation')
@@ -1175,6 +1203,24 @@ def main() -> None:
     args = _parser().parse_args()
     if args.mobile_operator:
         if not args.state_dir:raise SystemExit('NATIVE_STATE_REQUIRED')
+        if args.mobile_operator in ('budget-review','budget-approve'):
+            from runtime.mobile_gateway.operator_chat import financial_budget_review
+            financial_budget_review(args.state_dir,args.budget_usd,approve=args.mobile_operator=='budget-approve',observed_credit_usd=args.observed_credit_usd);return
+        if args.mobile_operator=='desktop':
+            from runtime.mobile_gateway.desktop import open_desktop
+            try:open_desktop(args)
+            except Exception as error:
+                code=error.args[0] if error.args else 'DESKTOP_OPEN_FAILED'
+                raise SystemExit(code if type(code) is str and code.isupper() else 'DESKTOP_OPEN_FAILED_CHECK_PRIVATE_LOG') from None
+            print('AIOA_MISSION_CONTROL_OPENED',flush=True);return
+        if args.mobile_operator in ('auth-status','renew'):
+            status=mobile_operator_client(args.state_dir,{'op':'operator_auth_status'})
+            if args.mobile_operator=='renew':
+                if status.get('ok') is not True:raise SystemExit('AUTH_STATUS_REQUIRED')
+                data=status['data']
+                status=mobile_operator_client(args.state_dir,{'op':'operator_renew','request_id':secrets.token_hex(16),
+                    **{k:data[k] for k in ('source_sha','capsule_digest','core_instance_id','admission_revision')}})
+            print(json.dumps(status),flush=True);return
         if args.mobile_operator in ('chat-review','chat-approve'):
             from runtime.mobile_gateway.operator_chat import financial_review
             financial_review(args.state_dir,args.chat_request_id,approve=args.mobile_operator=='chat-approve')
@@ -1187,12 +1233,7 @@ def main() -> None:
         if args.mobile_operator=='console':
             if not result.get('ok'):raise SystemExit('LOCAL_OPERATOR_REQUIRED')
             try:
-                import subprocess
-                runtime_dir=Path('/run/user')/str(os.getuid())
-                check=subprocess.run(['/usr/bin/findmnt','--noheadings','--output','FSTYPE','--target',str(runtime_dir)],
-                    capture_output=True,text=True,timeout=5,check=True)
-                if check.stdout.strip()!='tmpfs':raise ValueError('PRIVATE_RAM_RUNTIME_REQUIRED')
-                _launch_mobile_console(result['data'],runtime_dir)
+                _open_mobile_console(result['data'])
             except Exception:raise SystemExit('CONSOLE_OPEN_FAILED_NO_AUTOMATIC_RETRY') from None
             print('AIOA_DEVICE_CONSOLE_OPENED',flush=True)
             return
@@ -1203,22 +1244,32 @@ def main() -> None:
         from runtime.meta_hackathon.runtime_adapter import NativeMobileComposition
         if not all((args.state_dir,args.mobile_origin,args.mobile_tls_certificate,args.mobile_tls_key)):
             raise SystemExit('NATIVE_STATE_OR_TLS_CONFIG_REQUIRED')
-        owner=NativeMobileComposition(args.state_dir,origin=args.mobile_origin,chat=args.mobile_chat)
-        server=control=None
+        owner=server=control=None;http_started=control_started=False
         try:
+            if args.host not in LOOPBACK_HOSTS:raise ValueError('NATIVE_LOOPBACK_REQUIRED')
+            # Reserve the exact listener before PolicyKit/Core admission. An
+            # occupied port cannot change an existing journal or policy epoch.
+            server=ThreadingHTTPServer((args.host,args.port),AOIAWebHandler)
+            owner=NativeMobileComposition(args.state_dir,origin=args.mobile_origin,chat=args.mobile_chat,existing_profile=args.mobile_existing_profile)
             service=WebRuntimeService(runtime=owner.runtime,meta_missions=owner.missions,meta_owner=owner,mobile_gateway=owner.mobile)
-            server=make_server(args.host,args.port,service,tls_certificate=Path(args.mobile_tls_certificate),tls_key=Path(args.mobile_tls_key))
-            worker=threading.Thread(target=server.serve_forever,daemon=True);worker.start()
+            server=make_server(args.host,args.port,service,tls_certificate=Path(args.mobile_tls_certificate),tls_key=Path(args.mobile_tls_key),reserved_server=server)
+            worker=threading.Thread(target=server.serve_forever,daemon=True);worker.start();http_started=True
             owner.qualify_tls(server.server_address[1])
             control=make_mobile_operator_server(owner,service=service)
             threading.Thread(target=control.serve_forever,daemon=True).start()
-            print(json.dumps({'status':'NATIVE_MOBILE_HOST_READY',**owner.public_settings()}),flush=True)
+            control_started=True
+            print(json.dumps({'status':'NATIVE_MOBILE_HOST_READY','profile':owner.profile,
+                'source_sha':owner.source[0],'capsule_digest':owner.source[1]}),flush=True)
             threading.Event().wait()
         except KeyboardInterrupt:pass
         finally:
-            if control is not None:control.shutdown();control.server_close()
-            if server is not None:server.shutdown();server.server_close()
-            owner.close()
+            if control is not None:
+                if control_started:control.shutdown()
+                control.server_close()
+            if server is not None:
+                if http_started:server.shutdown()
+                server.server_close()
+            if owner is not None:owner.close()
         return
     if args.meta_live_one_shot:
         from runtime.providers.meta_model_api import MetaModelProvider

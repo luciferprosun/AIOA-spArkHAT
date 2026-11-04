@@ -95,6 +95,7 @@ SOURCE_FILES += ('runtime/meta_hackathon/chat.py','runtime/mobile_gateway/chat_v
         'protocol/mobile_chat_v1.json','web/mobile_chat.js',
         'clients/android/app/src/main/java/eu/sparkhat/aioa/companion/ChatView.kt')
 SOURCE_FILES += ('runtime/mcp_bridge/native_read.py','runtime/meta_hackathon/native_tools.py')
+SOURCE_FILES += ('runtime/mobile_gateway/desktop.py','runtime/critical_loop/preset.py','web/white-hole.svg')
 
 
 def sealed_source_path(relative, *, root=None):
@@ -240,12 +241,19 @@ class NativeMobileComposition:
     persistent record adapter carries all mobile records and native audit/outbox.
     This is neither OfflineMetaComposition nor a promotion of its fixture data.
     """
-    def __init__(self,root,*,origin,source_probe=current_source,chat=False,key_path=None):
+    def __init__(self,root,*,origin,source_probe=current_source,chat=False,key_path=None,existing_profile=False):
         import time
         from runtime.mobile_gateway import wire
         self.origin=wire.origin(origin)
         if self.origin=='https://fixture.invalid':raise AdmissionError()
+        from runtime.mobile_gateway.desktop import validate_existing_profile,signing_key_identity
+        if type(existing_profile) is not bool:raise AdmissionError()
+        self._existing_profile=validate_existing_profile(root) if existing_profile else None
+        self._existing_host_key=signing_key_identity(root) if existing_profile else None
         self.uid,self.operator_authentication=_desktop_operator_uid()
+        if self._existing_profile is not None and (validate_existing_profile(root)!=self._existing_profile
+                or signing_key_identity(root)!=self._existing_host_key):
+            raise AdmissionError()
         if type(chat) is not bool:raise AdmissionError()
         from runtime.providers.meta_model_api import KEY_FILE,key_metadata
         self.chat_enabled=chat
@@ -254,6 +262,11 @@ class NativeMobileComposition:
         self.profile='NATIVE_ADVISORY_CHAT_V1' if chat else 'NATIVE_STATUS_READ_ONLY_V1'
         self.source_probe,self.source=source_probe,tuple(source_probe())
         self._auth_deadline=time.monotonic()+3600
+        import threading
+        self._operator_renew_lock=threading.Lock()
+        self._operator_renew_attempts=set()
+        self._credit_observation=None
+        self._credit_policy_binding=None
         self.root=Path(root).absolute()
         self.root.mkdir(mode=0o700,parents=True,exist_ok=True)
         info=self.root.lstat()
@@ -266,10 +279,16 @@ class NativeMobileComposition:
         try:fcntl.flock(self._lease,fcntl.LOCK_EX|fcntl.LOCK_NB)
         except OSError:os.close(self._lease);raise AdmissionError() from None
         self._closed=False
-        try:self._initialize()
+        try:
+            if self._existing_profile is not None and (validate_existing_profile(root)!=self._existing_profile
+                    or signing_key_identity(root)!=self._existing_host_key):raise AdmissionError()
+            self._initialize()
         except BaseException:self.close();raise
 
     def _initialize(self):
+        if self._existing_profile is not None:
+            from runtime.mobile_gateway.desktop import signing_key_identity
+            if signing_key_identity(self.root)!=self._existing_host_key:raise AdmissionError()
         from main import create_runtime
         from runtime.memory_patch.persistence.ports import LocalCoreRecordFactory
         from runtime.mobile_gateway import wire
@@ -287,7 +306,8 @@ class NativeMobileComposition:
         self.instance_id=self.core.local_operator(Capability.READ).actor_session_id
         self.runtime=create_runtime(inspection_only=True)
         self.runtime._memory_patch_admission=self.core
-        self.runner=TransactionRunner(self.core,LocalCoreRecordFactory(self.root/'core-records.sqlite3',self.core))
+        self.runner=TransactionRunner(self.core,LocalCoreRecordFactory(self.root/'core-records.sqlite3',self.core,
+            expected_file=self._existing_profile))
         self.ledger=CoreWarrantLedger(self.core,self.runner,scope)
         self.manager=None
         if self.chat_enabled:
@@ -300,9 +320,14 @@ class NativeMobileComposition:
             if (not stat.S_ISREG(info.st_mode) or info.st_uid!=self.uid or info.st_nlink!=1
                     or info.st_mode&0o077 or info.st_size>1024):raise AdmissionError()
             fd=os.open(path,os.O_RDONLY|os.O_NOFOLLOW)
-            try:key=serialization.load_pem_private_key(os.read(fd,1025),password=None)
+            try:
+                opened=os.fstat(fd)
+                if self._existing_host_key is not None and (opened.st_dev,opened.st_ino,opened.st_size,opened.st_mtime_ns)!=self._existing_host_key:
+                    raise AdmissionError()
+                key=serialization.load_pem_private_key(os.read(fd,1025),password=None)
             finally:os.close(fd)
         else:
+            if self._existing_profile is not None:raise AdmissionError()
             key=ec.generate_private_key(ec.SECP256R1())
             data=key.private_bytes(serialization.Encoding.PEM,serialization.PrivateFormat.PKCS8,serialization.NoEncryption())
             fd=os.open(path,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)
@@ -315,7 +340,10 @@ class NativeMobileComposition:
             limits=Limits(50000000,20)
             self.chat_governor=CoreDualGovernor(self.core,self.runner,GovernorPolicy(scope,'native-mobile-chat-v1',limits,limits,limits,max_clock_step_seconds=3600))
             self.chat_governor.start_epoch(self.core.local_operator(Capability.MANAGE))
-            self.missions.bind_chat(self.chat_governor,self._chat_authority)
+            from .native_tools import chat_read_context
+            self.missions.bind_chat(self.chat_governor,self._chat_authority,
+                read_context_probe=lambda request_id:chat_read_context(self,request_id),
+                credit_balance_probe=self._chat_credit_authority)
         now=int(datetime.now(timezone.utc).timestamp())
         self.mobile._run(Capability.COMMIT,lambda tx:self.mobile._record(tx,
             'mobile-operator-'+self.instance_id,{'state':'MOBILE_OPERATOR_ADMISSION',
@@ -344,6 +372,27 @@ class NativeMobileComposition:
                 and r.payload.get('core_instance_id')==self.instance_id and r.payload.get('revoked') is False
                 and r.payload['expires_at']>time.time() and r.payload.get('source_sha')==self.source[0]
                 and r.payload.get('capsule_digest')==self.source[1] for r in rows)
+        except Exception:return False
+
+    def _chat_credit_authority(self,request):
+        """Pure projection of a committed native OWNER dashboard attestation.
+
+        This is explicitly human-observed credit, not an invented billing API.
+        No model/file/env assertion can populate this projection. It expires,
+        binds the exact configured key metadata, source and current instance.
+        """
+        import time
+        try:
+            self._require_qualified_operator();value=self._credit_observation
+            if value is None:return False
+            info=self._meta_key_path.lstat()
+            key=canonical_sha256((info.st_dev,info.st_ino,info.st_size,info.st_mtime_ns))
+            if not (value['issued_at']<=time.time()<value['expires_at']
+                    and value['core_instance_id']==self.instance_id
+                    and (value['source_sha'],value['capsule_digest'])==self.source
+                    and value['key_metadata_digest']==key
+                    and (value['policy_epoch'],value['policy_request_id'])==self._credit_policy_binding):return False
+            return request is None or request.estimate()*10**9<=value['credit_nano']
         except Exception:return False
 
     def qualify_tls(self,port):
@@ -404,15 +453,101 @@ class NativeMobileComposition:
         from runtime.memory_patch.persistence.ports import RecordKind
         return self.mobile._run(Capability.READ,lambda tx:len(tx.scan(RecordKind.OPERATION,limit=128,states=FILTER)))
 
-    def operator_request(self,peer_uid,value):
+    def operator_auth_status(self):
+        """Private socket metadata, including when the OS admission lease expired."""
+        import time
+        if self._closed or os.getuid()!=self.uid:raise AdmissionError()
+        row=self.mobile._get('mobile-operator-'+self.instance_id)
+        if row is None:raise AdmissionError()
+        current=tuple(self.source_probe())==self.source
+        ready=current and self.tls_verified and time.time()<self._tls_expires and time.monotonic()<self._auth_deadline
+        return {'schema':'aioa.operator-auth-status.v1','state':'READY' if ready else 'AUTH_REQUIRED',
+            'source_sha':self.source[0],'capsule_digest':self.source[1],'core_instance_id':self.instance_id,
+            'admission_revision':row.revision,'current_source':current,'automatic_retry':False}
+
+    def renew_operator(self,value,invalidate_console):
+        """Native local PolicyKit takeover, never accepted from HTTP/model data.
+
+        The socket server holds its existing web lock before this method takes
+        the mission lock. Epoch and admission use separate Core transactions:
+        uncertainty in either leaves the RAM lease closed, without retry.
+        """
+        import time
+        from runtime.mobile_gateway import wire
+        if not callable(invalidate_console):raise AdmissionError()
+        if set(value)!={'op','request_id','source_sha','capsule_digest','core_instance_id','admission_revision'}:
+            raise wire.MobileError(400)
+        if (type(value['request_id']) is not str or not wire.HEX32.fullmatch(value['request_id'])
+                or type(value['admission_revision']) is not int):raise wire.MobileError(400)
+        if not self._operator_renew_lock.acquire(timeout=1):raise wire.MobileError(409)
+        try:
+            status=self.operator_auth_status()
+            target=('source_sha','capsule_digest','core_instance_id')
+            if (not status['current_source'] or any(value[k]!=status[k] for k in target)
+                    or not self.tls_verified or time.time()>=self._tls_expires):raise AdmissionError()
+            identity='mobile-operator-renew-'+value['request_id']
+            prior=self.mobile._get(identity)
+            if prior is not None:
+                if prior.payload.get('request_digest')!=canonical_sha256(value):raise AdmissionError()
+                return dict(status,renewal='READBACK_ONLY')
+            if value['admission_revision']!=status['admission_revision']:raise AdmissionError()
+            if value['request_id'] in self._operator_renew_attempts or len(self._operator_renew_attempts)>=128:
+                raise wire.MobileError(409)
+            if not self.missions._lock.acquire(timeout=1):raise wire.MobileError(409)
+            try:
+                if any(worker.is_alive() for worker in self.missions._workers.values()):raise wire.MobileError(409)
+                self._operator_renew_attempts.add(value['request_id'])
+                uid,authentication=_desktop_operator_uid()
+                # Fence access before any durable takeover or uncertainty.
+                self._auth_deadline=0
+                self._credit_observation=None
+                self._credit_policy_binding=None
+                if (uid!=self.uid or authentication.get('uid')!=self.uid
+                        or self._closed or tuple(self.source_probe())!=self.source
+                        or time.time()>=self._tls_expires):raise AdmissionError()
+                epoch=None
+                if self.chat_enabled:
+                    epoch=self.chat_governor.start_epoch(self.core.local_operator(Capability.MANAGE))
+                now=int(time.time())
+                def record(tx):
+                    from runtime.memory_patch.persistence.ports import RecordKind
+                    key='mobile-operator-'+self.instance_id
+                    old=tx.get(RecordKind.OPERATION,key)
+                    if old is None or old.revision!=value['admission_revision']:raise AdmissionError()
+                    self.mobile._record(tx,key,{'state':'MOBILE_OPERATOR_ADMISSION','authentication':authentication,
+                        'source_sha':self.source[0],'capsule_digest':self.source[1],
+                        'core_instance_id':self.instance_id,'policy_epoch':epoch},old,at=now)
+                    self.mobile._record(tx,identity,{'state':'MOBILE_OPERATOR_RENEW_AUTHENTICATED',
+                        'request_digest':canonical_sha256(value),'source_sha':self.source[0],
+                        'capsule_digest':self.source[1],'core_instance_id':self.instance_id,
+                        'policy_epoch':epoch},at=now)
+                self.mobile._run(Capability.COMMIT,record)
+                # Native callback only, under the existing service lock. Old
+                # cookies, delivery grants and CSRF cannot survive takeover.
+                invalidate_console()
+                if tuple(self.source_probe())!=self.source or time.time()>=self._tls_expires:raise AdmissionError()
+                self.operator_authentication=authentication
+                status=self.operator_auth_status()
+                if not status['current_source'] or time.time()>=self._tls_expires:raise AdmissionError()
+                self._auth_deadline=time.monotonic()+3600
+                return dict(status,state='READY',renewal='AUTHENTICATED')
+            finally:self.missions._lock.release()
+        finally:self._operator_renew_lock.release()
+
+    def operator_request(self,peer_uid,value,*,invalidate_console=None):
         """Called only by the private socket after kernel SO_PEERCRED lookup."""
         from runtime.mobile_gateway import wire
         from runtime.mobile_gateway.service import plain
         from runtime.memory_patch.persistence.ports import RecordKind
         if peer_uid!=self.uid:raise AdmissionError()
-        owner=self.operator_principal()
         if type(value) is not dict or type(value.get('op')) is not str:raise wire.MobileError(400)
         op=value['op']
+        if value=={'op':'operator_auth_status'}:return self.operator_auth_status()
+        if op=='operator_renew':return self.renew_operator(value,invalidate_console)
+        owner=self.operator_principal()
+        if op in ('budget_review','budget_approve'):
+            from runtime.mobile_gateway.operator_chat import budget_dispatch
+            return budget_dispatch(self,owner,value)
         if op in ('tool_read','tool_readback','tool_proposal'):
             from .native_tools import dispatch
             return dispatch(self,owner,value)

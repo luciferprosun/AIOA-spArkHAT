@@ -1,5 +1,100 @@
 const test=require('node:test');const assert=require('node:assert/strict');const fs=require('node:fs');
 const path=require('node:path').join(__dirname,'../web/mobile_chat.js');const api=fs.existsSync(path)?require(path):{};
+test('initial selection prefers current successful text over historical UNKNOWN and preserves manual history',async()=>{
+  const fresh='1'.repeat(32),old='2'.repeat(32);let selected;
+  const client=api.createChat(async v=>{
+    if(v.op==='chat_catalog')return {chat:true,model_id:'muse-spark-1.3'};
+    if(v.op==='chat_threads')return {threads:[
+      {thread_id:fresh,state:'SUCCEEDED',current_source:true,text_available:true},
+      {thread_id:old,state:'UNKNOWN',current_source:false,text_available:false}]};
+    if(v.op==='chat_thread'){selected=v.thread_id;return {schema:'aioa.mobile.chat-thread.v1',thread_id:v.thread_id,messages:[]};}
+    assert.fail('unexpected mutation');
+  });
+  await client.refresh();assert.equal(selected,fresh);
+  await client.select(old);await client.refresh();assert.equal(client.snapshot().thread,old);
+});
+test('slow background refresh never blocks a new send or replaces its selected conversation',async()=>{
+  let finish,serial=0;
+  const client=api.createChat(async v=>{
+    if(v.op==='chat_catalog')return {chat:true,model_id:'muse-spark-1.3'};
+    if(v.op==='chat_threads')return serial?new Promise(resolve=>{finish=resolve;}):{threads:[]};
+    if(v.op==='chat_propose')return {schema:'aioa.mobile.chat-result.v1',request_id:v.payload.request_id,
+      thread_id:v.payload.thread_id,provider_id:'meta_model_api',model_id:'muse-spark-1.3',save_knowledge:false,state:'PENDING_OWNER'};
+    assert.fail('unexpected thread switch');
+  },()=>{},()=>String(++serial).padStart(32,'0'));
+  await client.refresh();serial=1;
+  const refresh=client.refresh({background:true});await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(client.snapshot().busy,false);
+  await client.send('a separate exact owner approval is still required');const thread=client.snapshot().thread;
+  finish({threads:[{thread_id:'f'.repeat(32)}]});await refresh;
+  assert.equal(client.snapshot().thread,thread);assert.ok(client.snapshot().pending);
+});
+test('explicit separate conversation supersedes a late background historical read',async()=>{
+  const old={schema:'aioa.mobile.chat-result.v1',request_id:'a'.repeat(32),thread_id:'b'.repeat(32),
+    provider_id:'meta_model_api',model_id:'muse-spark-1.3',save_knowledge:false,state:'UNKNOWN'};
+  let finish,defer=false;
+  const client=api.createChat(async v=>{
+    if(v.op==='chat_catalog')return {chat:true,model_id:'muse-spark-1.3'};
+    if(v.op==='chat_threads')return {threads:[{thread_id:old.thread_id}]};
+    const reply={schema:'aioa.mobile.chat-thread.v1',thread_id:old.thread_id,messages:[old]};
+    return defer?new Promise(resolve=>{finish=()=>resolve(reply);}):reply;
+  },()=>{},()=> 'f'.repeat(32));
+  await client.refresh();defer=true;const refresh=client.refresh({background:true});
+  await new Promise(resolve=>setImmediate(resolve));client.newConversation(true);finish();await refresh;
+  assert.equal(client.snapshot().thread,'f'.repeat(32));assert.equal(client.snapshot().draft,true);
+  assert.equal(client.snapshot().pending,null);
+});
+test('proven local refusal before dispatch does not leave a phantom pending request',async()=>{
+  const client=api.createChat(async v=>{
+    if(v.op==='chat_catalog')return {chat:true,model_id:'muse-spark-1.3'};
+    if(v.op==='chat_threads')return {threads:[]};
+    const error=Error('READBACK_REQUIRED');error.notDispatched=true;throw error;
+  },()=>{},()=> 'a'.repeat(32));
+  await client.refresh();await assert.rejects(client.send('hello'));
+  assert.equal(client.snapshot().pending,null);
+});
+test('wrong response identity cannot clear the exact uncertain request or switch its thread',async()=>{
+  const pending={schema:'aioa.mobile.chat-result.v1',request_id:'a'.repeat(32),thread_id:'b'.repeat(32),
+    provider_id:'meta_model_api',model_id:'muse-spark-1.3',save_knowledge:false,state:'PENDING_OWNER'};
+  for(const operation of ['send','read','stop']) {
+    const client=api.createChat(async v=>{
+      if(v.op==='chat_catalog')return {chat:true,model_id:'muse-spark-1.3'};
+      if(v.op==='chat_threads')return {threads:[]};
+      if(v.op==='chat_propose' && operation!=='send')return {...pending,thread_id:v.payload.thread_id};
+      return {...pending,request_id:'f'.repeat(32),state:'FAILED'};
+    },()=>{},()=> 'a'.repeat(32));
+    await client.refresh();
+    if(operation==='send')await assert.rejects(client.send('hello'),/CHAT_RESPONSE_MISMATCH/);
+    else {await client.send('hello');await assert.rejects(client[operation](),/CHAT_RESPONSE_MISMATCH/);}
+    assert.equal(client.snapshot().pending,'a'.repeat(32));
+    assert.equal(client.snapshot().messages.some(x=>x.request_id==='f'.repeat(32)),false);
+  }
+});
+test('confirmed operator denial disables chat while a read timeout does not log out',async()=>{
+  let failure=null;
+  const client=api.createChat(async v=>{
+    if(failure)throw Error(failure);
+    return v.op==='chat_catalog'?{chat:true,model_id:'muse-spark-1.3'}:{threads:[]};
+  });
+  await client.refresh();failure='UNKNOWN_READBACK_REQUIRED';await assert.rejects(client.refresh());
+  assert.equal(client.snapshot().catalog.chat,true);
+  failure='LOCAL_OPERATOR_REQUIRED';await assert.rejects(client.refresh());
+  assert.equal(client.snapshot().catalog,null);
+  await assert.rejects(client.send('hello'),/CHAT_NOT_AVAILABLE/);
+});
+test('explicit READ attachment forwards only its existing receipt reference and never fetches or approves',async()=>{
+  const calls=[];
+  const client=api.createChat(async v=>{
+    calls.push(v);
+    if(v.op==='chat_catalog')return {chat:true,model_id:'muse-spark-1.3'};
+    if(v.op==='chat_threads')return {threads:[]};
+    return {schema:'aioa.mobile.chat-result.v1',request_id:v.payload.request_id,thread_id:v.payload.thread_id,
+      provider_id:'meta_model_api',model_id:'muse-spark-1.3',save_knowledge:false,state:'PENDING_OWNER'};
+  },()=>{},()=> 'a'.repeat(32));
+  await client.refresh();await client.send('Explain the attached observation','b'.repeat(32));
+  assert.equal(calls.at(-1).read_request_id,'b'.repeat(32));
+  assert.equal(calls.some(v=>['tool_read','chat_approve'].includes(v.op)),false);
+});
 test('chat never approves cost and duplicate send cannot repeat uncertain POST',async()=>{
   assert.equal(typeof api.createChat,'function');let sends=0;
   const client=api.createChat(async value=>{

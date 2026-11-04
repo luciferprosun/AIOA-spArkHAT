@@ -116,7 +116,9 @@ class ChromeProcessTests(unittest.TestCase):
         pid=int(pid_file.read_text())
         for _ in range(50):
             p=Path('/proc')/str(pid)/'stat'
-            if not p.exists() or p.read_text().split()[2]=='Z':break
+            try:state=p.read_text().split()[2]
+            except FileNotFoundError:break  # Owned child exited between observations.
+            if state=='Z':break
             time.sleep(.01)
         else:self.fail('owned descendant remains running after STOP')
 

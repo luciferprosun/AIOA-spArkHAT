@@ -50,6 +50,13 @@ def cost(value):
     return amount
 
 
+def declared_budget(value,*,chat):
+    if not chat:return cost(value)
+    require(type(value) is str and re.fullmatch(r'(?:0|[1-9][0-9]{0,2})(?:\.[0-9]{1,9})?',value))
+    amount=Decimal(value);require(0<amount<=Decimal('148'))
+    return amount
+
+
 def hex_digest(value,size=64,prefix=''):
     require(type(value) is str and re.fullmatch(re.escape(prefix)+'[a-f0-9]{'+str(size)+'}',value))
 
@@ -69,7 +76,8 @@ def public_binding(value,scope):
     require(type(value['max_output_tokens']) is int and 1<=value['max_output_tokens']<=512
         and type(value['timeout_seconds']) is int and 1<=value['timeout_seconds']<=15
         and type(value['input_token_bound']) is int and 1<=value['input_token_bound']<=16896)
-    utc_timestamp(value['deadline']);require(cost(value['budget_usd'])>0)
+    utc_timestamp(value['deadline'])
+    require(declared_budget(value['budget_usd'],chat=chat and value['actor']=='LINUX_OWNER')>0)
     if chat:
         from runtime.providers.meta_model_api import MetaChatTask
         for name in ('device_id','history_digest','prompt_sha256','context_sha256'):hex_digest(value[name])

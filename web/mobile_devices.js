@@ -13,13 +13,18 @@
   const canRevokeDevice = row => row.revoked===false || row.active_sessions>0 || row.pending_enrollments>0;
   function createDeviceConsole(credential, fetcher = root.fetch.bind(root), clock = () => Math.floor(Date.now()/1000)) {
     if (!/^[A-Za-z0-9_-]{43}$/.test(credential)) throw Error('LOCAL_OPERATOR_REQUIRED');
-    let token = credential, busy = false, generation = 0;
+    let token = credential, busy = false, generation = 0,registryRevision=0,polling=false;
     let state = {phase:'READY', observed:false, pending:[], devices:[], invite:null, message:'',coreStatus:null,coreStatusAt:null,toolResult:null,toolRequest:null,toolState:'NOT_RUN',toolError:null,toolProposal:null};
-    async function call(value, mutation, apply) {
-      if (!token) throw Error('LOCAL_OPERATOR_REQUIRED');
-      if (busy) throw Error('BUSY');
-      if (mutation && state.phase !== 'READY') throw Error('READBACK_REQUIRED');
-      busy = true;
+    async function call(value, mutation, apply,backgroundRead=false) {
+      const chat=value.op.startsWith('chat_');
+      const background=chat || backgroundRead;
+      const refuse=message=>{const error=Error(message);error.notDispatched=true;throw error;};
+      if (!token) refuse('LOCAL_OPERATOR_REQUIRED');
+      if (!background && busy) refuse('BUSY');
+      if (mutation && state.phase !== 'READY') refuse('READBACK_REQUIRED');
+      if(!background)busy = true;
+      if(value.op.startsWith('pairing_') && mutation)registryRevision++;
+      const registryTicket=registryRevision;
       const epoch = generation;
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), value.op==='tool_read'?30000:8000);
@@ -33,16 +38,23 @@
         const envelope = await response.json();
         if (epoch !== generation || !token) throw Error('LOCAL_OPERATOR_REQUIRED');
         if (!envelope || envelope.ok !== true || !envelope.data || typeof envelope.data !== 'object') throw Error('UNKNOWN_READBACK_REQUIRED');
+        if(backgroundRead && registryTicket!==registryRevision)return copy(envelope.data);
         apply(copy(envelope.data));
-        state.phase = 'READY'; state.message = '';
+        // Only pairing registry readback can resolve an uncertain pairing
+        // mutation. Background chat traffic is a separate read-only lane.
+        if(!background && (value.op==='pairing_list' || state.phase!=='UNKNOWN')) {
+          state.phase = 'READY'; state.message = '';
+        }
         return copy(envelope.data);
       } catch (error) {
         if (epoch !== generation || !token) throw Error('LOCAL_OPERATOR_REQUIRED');
-        state.phase = 'UNKNOWN';
-        state.observed = false;
-        state.message = error.message === 'LOCAL_OPERATOR_REQUIRED' ? error.message : 'UNKNOWN_READBACK_REQUIRED';
-        throw Error(state.message);
-      } finally { clearTimeout(timer); busy = false; }
+        const message=error.message === 'LOCAL_OPERATOR_REQUIRED' ? error.message : 'UNKNOWN_READBACK_REQUIRED';
+        if(backgroundRead && registryTicket!==registryRevision && message!=='LOCAL_OPERATOR_REQUIRED')return;
+        if(!chat || message==='LOCAL_OPERATOR_REQUIRED') {
+          state.phase = 'UNKNOWN';state.observed = false;state.message=message;
+        }
+        throw Error(message);
+      } finally { clearTimeout(timer); if(!background)busy = false; }
     }
     return Object.freeze({
       readTool:async(operation,requestId)=>{
@@ -81,11 +93,15 @@
         if(!value || !['chat_catalog','chat_threads','chat_thread','chat_request','chat_review','chat_propose','chat_stop'].includes(value.op))return Promise.reject(Error('LOCAL_OPERATOR_REQUIRED'));
         return call(value,['chat_propose','chat_stop'].includes(value.op),()=>{});
       },
-      snapshot:() => copy({...state, busy}),
-      refresh:() => call({op:'pairing_list'}, false, data => {
+      snapshot:() => copy({...state, busy,polling}),
+      refresh:async({background=false}={}) => {
+        if(background && (polling || busy || state.phase!=='READY'))return;
+        if(background)polling=true;
+        try{return await call({op:'pairing_list'}, false, data => {
         if (!Array.isArray(data.pending) || !Array.isArray(data.devices) || data.pending.length>128 || data.devices.length>128) throw Error('INVALID_READBACK');
         state.pending=data.pending; state.devices=data.devices; state.observed=true;
-      }),
+        },background);}finally{if(background)polling=false;}
+      },
       status:async () => {
         // An unrelated read must never resolve an uncertain pairing mutation.
         if(state.phase!=='READY' || !state.observed) throw Error('READBACK_REQUIRED');

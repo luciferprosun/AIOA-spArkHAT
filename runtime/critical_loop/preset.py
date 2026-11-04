@@ -15,6 +15,18 @@ OBSERVER_MODELS = (
 MODELS = (PRIMARY_MODEL, *OBSERVER_MODELS)
 
 
+def build_native_cpl_preview() -> dict:
+    """Pure existing-contract projection; no service/provider/trace construction."""
+    from .policy import CONTRACT_VERSION
+    return {'schema':'aioa.cpl-native-preview.v1','contract':CONTRACT_VERSION,
+        'roles':list(SUPPORTED_ROLES),
+        'sequence':['DRAFTING','REVIEWING_1','REVIEWING_2','REVIEWING_3','REVISING'],
+        'expected_generation_requests':5,'provider_calls':0,'execution_authorized':False,
+        'authority':'ADVISORY_ONLY','status':'BLOCKED_NATIVE_CPL_NOT_BOUND',
+        'blocking_reasons':['NATIVE_AUTHORITY_BINDING_REQUIRED','EXACT_COST_APPROVAL_REQUIRED'],
+        'automatic_retry':False}
+
+
 def _positive_money(value: object) -> bool:
     try:
         return Decimal(str(value)) > 0

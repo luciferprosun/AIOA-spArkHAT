@@ -810,9 +810,39 @@ body.devices-mode {
   color:var(--cosmic-text); background:var(--cosmic-background); padding:14px; border-radius:10px; font:12px/1.6 CosmicMono,monospace; }
 .devices-mode input { width:100%; min-height:44px; background:var(--cosmic-background); color:var(--cosmic-text);
   border:1px solid var(--cosmic-muted); border-radius:10px; padding:10px; margin:10px 0; }
-.devices-mode #native-chat-prompt { min-height:130px; }
+.devices-mode #native-chat-prompt { min-height:72px; max-height:160px; resize:vertical; }
+.devices-mode [data-cosmic-active="chat"] .cosmic-content { height:100dvh; display:grid;
+  grid-template-rows:auto minmax(0,1fr); min-height:0; }
+.devices-mode [data-cosmic-active="chat"] [data-cosmic-page="chat"] { display:grid;
+  grid-template-rows:auto minmax(0,1fr); min-height:0; }
+.devices-mode [data-cosmic-active="chat"] #cosmic-chat-title { margin:0 0 8px; }
+.devices-mode [data-cosmic-active="chat"] .cosmic-header h1,
+.devices-mode [data-cosmic-active="chat"] .cosmic-header .eyebrow,
+.devices-mode [data-cosmic-active="chat"] .cosmic-header .cosmic-caption { display:none; }
+.devices-mode [data-cosmic-active="chat"] #devices-message { margin:0 0 8px; font-size:.875rem; }
+.devices-mode .native-chat-workspace { display:flex; flex-direction:column; min-height:0;
+  height:auto; max-height:none; margin:0; padding:16px; gap:8px; }
+.devices-mode #native-chat-messages { flex:1 1 0; min-height:96px; overflow-y:auto; overflow-wrap:anywhere;
+  overscroll-behavior:contain; scrollbar-gutter:stable; }
+.devices-mode #native-chat-threads { display:flex; gap:8px; overflow:auto; flex-shrink:0; max-height:100px; }
+.devices-mode #native-chat-threads button { flex-shrink:0; font-size:12px; }
+.devices-mode .native-chat-composer { flex:none; position:static; background:var(--cosmic-surface); }
+.devices-mode .native-chat-context { display:flex; align-items:center; gap:8px; font-size:12px; }
+.devices-mode .native-chat-context input { width:20px; min-height:20px; flex-shrink:0; }
+.devices-mode .native-chat-composer .button { min-height:44px; font-size:13px; margin:4px 2px; }
+.devices-mode .native-chat-workspace>p { margin:0; font-size:13px; }
+.devices-mode .cosmic-header { margin-bottom:12px; padding-bottom:12px; }
+.devices-mode .cosmic-header h1 { font-size:26px; margin:6px 0; }
 .devices-mode #native-chat-messages .panel { border-left:3px solid var(--cosmic-primary); }
-@media(max-width:1250px) {
+.devices-mode [data-cosmic-layout="flow"][data-cosmic-active="chat"] .cosmic-content,
+.devices-mode [data-cosmic-layout="flow"][data-cosmic-active="chat"] [data-cosmic-page="chat"] { height:auto; display:block; }
+.devices-mode [data-cosmic-layout="flow"] #native-chat-messages { flex:none; block-size:45dvh; }
+@media(max-width:800px),(max-height:640px) {
+  .devices-mode [data-cosmic-active="chat"] .cosmic-content,
+  .devices-mode [data-cosmic-active="chat"] [data-cosmic-page="chat"] { height:auto; display:block; }
+  .devices-mode #native-chat-messages { flex:none; block-size:45dvh; }
+}
+@media(max-width:1500px) {
   .devices-mode .cosmic-shell { grid-template-columns:180px minmax(0,1fr); }
   .devices-mode .cosmic-evidence { position:static; max-height:none; grid-column:2; border-left:0; border-top:1px solid var(--line); }
 }

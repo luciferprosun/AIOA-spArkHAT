@@ -314,7 +314,8 @@ class NebiusRoutingTests(unittest.TestCase):
                 "AIOA_NEBIUS_USD_CEILING": "0.01",
             }
             output = io.StringIO()
-            with patch.dict(os.environ, environment, clear=True), contextlib.redirect_stdout(output):
+            with patch.dict(os.environ, environment, clear=True), contextlib.redirect_stdout(output), \
+                    patch('runtime.mission.lite_cli.load_api_environment'):
                 result = run_lite_cli(
                     ["doctor", "--manifest", str(manifest_path), "--tenant", "tenant",
                      "--owner", "owner", "--space", "space", "--slot", "slot",
