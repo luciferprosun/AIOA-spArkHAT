@@ -105,5 +105,38 @@ class MoneyPolicyTests(unittest.TestCase):
         self.assertTrue(gov.apply_money_policy(self.principal(Capability.MANAGE),review)['readback_only'])
         self.assertEqual(current,gov.inspect(self.principal(Capability.READ)))
 
+    def test_explicit_unlimited_money_policy_retains_unknown_risk_and_history(self):
+        self.reserve();self.dispatch()
+        self.gov.mark_unknown(self.principal(),'r1',self.epoch,canonical_sha256('unknown'))
+        before=self.inspect();old_rows=json.loads(self.path.read_text())
+        review=self.review(None,request_id='unlimited-chat')
+        self.assertEqual('aioa.governor.money-review.v3',review['schema'])
+        self.apply(review);after=self.inspect()
+        self.assertEqual(before['reservations'],after['reservations'])
+        self.assertEqual(before['exposure'],after['exposure'])
+        self.assertEqual(before['circuits'],after['circuits'])
+        self.assertEqual(before['policy_digest'],after['policy_digest'])
+        self.assertEqual({key:None for key in review['limits']},after['money_policy']['limits'])
+        self.assertTrue(all(row in json.loads(self.path.read_text()) for row in old_rows))
+        restored=self.Governor(self.core,self.runner,self.policy,clock=lambda:self.now)
+        self.assertEqual(after,restored.inspect(self.principal(Capability.READ)))
+        with self.assertRaises(ValueError):self.apply(self.review(1,request_id='too-low'))
+
+    def test_unlimited_is_explicit_and_does_not_accept_partial_or_boolean_limits(self):
+        for amount in (False,True,-1,'unlimited'):
+            with self.subTest(amount=amount),self.assertRaises(ValueError):self.review(amount)
+        with self.assertRaises(ValueError):
+            self.gov.money_policy_review(self.principal(Capability.READ),
+                {'task_limit':None,'owner_provider_limit':1,'global_limit':None},request_id='mixed')
+
+    def test_unlimited_money_does_not_remove_risk_or_kill_gates(self):
+        self.apply(self.review(None));self.epoch=self.inspect()['epoch']
+        self.reserve(self.request(money=10**12,risk=1))
+        with self.assertRaisesRegex(ValueError,'BUDGET_EXCEEDED'):
+            self.reserve(self.request('excess-risk',money=1,risk=20))
+        self.gov.set_kill(self.principal(Capability.MANAGE),True)
+        with self.assertRaisesRegex(ValueError,'KILL_SWITCH'):
+            self.reserve(self.request('after-stop',money=1,risk=1))
+
 
 if __name__=='__main__':unittest.main()

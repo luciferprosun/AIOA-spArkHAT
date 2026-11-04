@@ -163,16 +163,17 @@
               <section class="cosmic-page" data-cosmic-page="chat" hidden aria-labelledby="cosmic-chat-title">
                 <h2 id="cosmic-chat-title" tabindex="-1">Chat with Muse Spark 1.3</h2>
                 <article class="panel native-chat-workspace"><p id="native-chat-state">Waiting for the local operator channel.</p>
-                  <p>Save knowledge: Off. Text stays in memory for up to 15 minutes. Every paid message requires separate approval on Linux.</p>
+                  <p>Messages use your Meta API account. Text stays in memory for up to 15 minutes. Save knowledge: Off.</p>
                   <div id="native-chat-threads"></div><div id="native-chat-messages" aria-live="polite"></div>
                   <div class="native-chat-composer"><label>Message to Muse<textarea id="native-chat-prompt" maxlength="2000"></textarea></label>
-                  <label class="native-chat-context"><input id="native-chat-attach-read" type="checkbox"> Attach my latest verified repository READ · untrusted data, separate cost approval</label>
+                  <label class="native-chat-context"><input id="native-chat-attach-read" type="checkbox"> Attach my latest verified repository READ</label>
                   <button id="native-chat-send" class="button button-primary" disabled>Send</button>
                   <button id="native-chat-read" class="button button-ghost" disabled>Check result without retry</button>
                   <button id="native-chat-stop" class="button button-danger" disabled>STOP</button>
                   <details class="native-chat-recovery"><summary>History and recovery</summary>
                   <button id="native-chat-refresh" class="button button-ghost" disabled>Refresh shared conversations</button>
-                  <button id="native-chat-new" class="button button-ghost" disabled>Start a separate conversation</button>
+                  <button id="native-chat-new" class="button button-ghost" disabled>New conversation</button>
+                  <button id="native-chat-end-session" class="button button-ghost" disabled>End chat session</button>
                   <p class="note">A separate conversation preserves any old UNKNOWN result and held cost. It never retries or approves a message.</p>
                   </details>
                   </div>

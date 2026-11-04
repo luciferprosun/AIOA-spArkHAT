@@ -90,7 +90,7 @@ SOURCE_FILES += ('web/cosmic_tokens.css',
         'clients/android/app/src/main/res/font/cosmic_manrope.ttf',
         'clients/android/app/src/main/res/font/cosmic_ibm_plex_mono.ttf',
         'clients/android/app/src/main/assets/licenses/cosmic_fonts_ofl.txt')
-SOURCE_FILES += ('runtime/meta_hackathon/chat.py','runtime/mobile_gateway/chat_views.py',
+SOURCE_FILES += ('runtime/meta_hackathon/chat.py','runtime/meta_hackathon/chat_session.py','runtime/mobile_gateway/chat_views.py',
         'runtime/mobile_gateway/operator_chat.py','runtime/mobile_gateway/chrome_console.py',
         'protocol/mobile_chat_v1.json','web/mobile_chat.js',
         'clients/android/app/src/main/java/eu/sparkhat/aioa/companion/ChatView.kt')
@@ -507,6 +507,7 @@ class NativeMobileComposition:
                         or time.time()>=self._tls_expires):raise AdmissionError()
                 epoch=None
                 if self.chat_enabled:
+                    self.missions._chat_session=None
                     epoch=self.chat_governor.start_epoch(self.core.local_operator(Capability.MANAGE))
                 now=int(time.time())
                 def record(tx):

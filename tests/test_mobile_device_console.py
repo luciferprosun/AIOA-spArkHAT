@@ -261,7 +261,7 @@ class DeviceConsoleTests(unittest.TestCase):
         self.assertNotIn(token.encode(),request('GET','/devices')[1])
         for value in ({'op':'console'},{'op':'enroll'},{'op':'pairing_list','uid':os.getuid()}):
             with self.subTest(value=value):self.assertIn(request('POST','/api/native-operator',value,headers)[0],(400,403))
-        for op in ('budget_review','budget_approve','operator_renew','chat_approve'):
+        for op in ('budget_review','budget_approve','operator_renew','chat_approve','chat_session_start'):
             with self.subTest(private_op=op):
                 self.assertEqual(403,request('POST','/api/native-operator',{'op':op},headers)[0])
         for changed in ({'Origin':'https://evil.example.org'},{'Origin':''},{'X-AIOA-Session-Token':'forged'},
