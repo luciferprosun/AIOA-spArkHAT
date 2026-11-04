@@ -38,6 +38,12 @@ CHAT_OPERATION = 'META_CHAT_TEXT_V1'
 CHAT_BINDING = 'aioa.meta.chat-binding.v1'
 
 
+def session_chat_warrant(warrant):
+    return warrant.operation_class==CHAT_OPERATION and any(
+        ref.evidence_id=='owner-chat-session' and ref.kind=='authorization' and ref.source_version=='v1'
+        for ref in warrant.decision_dependency_root.evidence_refs)
+
+
 def spend_operation(request_digest, binding):
     """V2 seals the redacted readback as well as the private request digest.
 
@@ -324,6 +330,7 @@ class MetaLiveBinding:
     billing_confirmed: bool = False
     key_type_confirmed: bool = False
     source_reader: object = field(default=None, repr=False)
+    session_dispatch: bool = False
 
     def check(self, request):
         from runtime.mission.governor import CoreDualGovernor, ReservationRequest
@@ -347,6 +354,9 @@ class MetaLiveBinding:
                 and self.governor.policy.scope == self.ledger.scope, 'META_NATIVE_AUTHORITY_NOT_BOUND')
         operation = spend_operation(request.digest, request.public_binding())
         w, r = self.warrant, self.reservation
+        require(type(self.session_dispatch) is bool and (not self.session_dispatch or
+            type(request) is MetaChatRequest and request.task.actor=='LINUX_OWNER' and session_chat_warrant(w)),
+            'META_NATIVE_AUTHORITY_NOT_BOUND')
         require(w.authority_scope.monetary_ceiling.currency == 'USD', 'META_SPEND_CURRENCY_MISMATCH')
         require(w.task_id == request.task.task_id and w.operation_class == operation['operation_class']
             and w.operation_hash == 'sha256:'+canonical_sha256(operation)
@@ -387,8 +397,22 @@ class MetaLiveBinding:
         self.ledger.consume(self.principal, self.warrant)
         marker = self.governor.dispatch_commit(self.principal, self.reservation.request_id, self.warrant.lease_epoch)
         require(marker['dispatch_now'], 'META_REQUEST_ALREADY_CONSUMED')
-        self.governor.mark_unknown(self.principal, self.reservation.request_id, self.warrant.lease_epoch,
-                                  canonical_sha256(('meta-api', request.digest)))
+        if not self.session_dispatch:
+            self.governor.mark_unknown(self.principal, self.reservation.request_id, self.warrant.lease_epoch,
+                                      canonical_sha256(('meta-api', request.digest)))
+
+    def note_uncertain_session_dispatch(self,request):
+        """DISPATCHED already holds both budgets and denies replay.
+
+        Count an actual uncertain outcome as a failure, not every healthy send.
+        Failed bookkeeping ACKs retain the original held reservation.
+        """
+        if not self.session_dispatch:return
+        state=self.governor.inspect(self.ledger.core.local_operator(Capability.READ))
+        entry=state['reservations'].get(self.reservation.request_id)
+        if entry is not None and entry['state']=='DISPATCHED':
+            self.governor.mark_unknown(self.principal,self.reservation.request_id,self.warrant.lease_epoch,
+                canonical_sha256(('meta-api',request.digest)))
 
     def save_receipt(self, result):
         record = StoredRecord(RecordKind.RECEIPT, 'meta-api-'+result.request_digest,
@@ -542,6 +566,8 @@ class MetaModelProvider:
                     'META_STOPPED' if cancel.cancelled else
                     'META_NETWORK_UNKNOWN' if isinstance(error, OSError) else 'META_RESPONSE_INVALID_UNKNOWN')
             if records is not None:
+                try:live_binding.note_uncertain_session_dispatch(request)
+                except Exception:pass  # DISPATCHED remains held and cannot be replayed.
                 state = 'STOPPED' if code == 'META_STOPPED' else 'FAILED' if status in (400,401,402,403,429) or type(status) is int and status >= 500 else 'UNKNOWN'
                 try: records.change(request, state, http_status=status, error_code=code)
                 except Exception: pass  # Durable pending record projects UNKNOWN; never resend.

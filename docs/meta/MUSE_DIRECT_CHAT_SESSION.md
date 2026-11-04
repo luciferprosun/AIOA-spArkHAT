@@ -79,6 +79,14 @@ attempt stopped between the durable proposal and dispatch. There are no paid
 automatic retries. The session grants no GitHub WRITE, command execution,
 knowledge save, device pairing, or tool approval.
 
+Session sends remain `DISPATCHED` until their response and durable receipt are
+validated. That state holds both reservations and bars replay. A genuinely
+uncertain result becomes `UNKNOWN` and counts toward the existing failure
+circuit. Successful messages no longer count as failures merely because they
+were dispatched. Recovery of an already-open circuit still requires its normal
+cooldown and two separately verified probe responses; it does not resolve any
+older UNKNOWN reservation. Legacy exact-approval transport semantics are retained.
+
 ## Deployment and rollback
 
 Publish and run the repository's existing CI before controlled deployment.

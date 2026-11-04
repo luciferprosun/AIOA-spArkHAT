@@ -77,6 +77,50 @@ class NativeChatSessionTests(unittest.TestCase):
         self.assertEqual(format(req.estimate(),'f'),req.budget_usd)
         self.assertTrue(second['live_verified']);self.assertFalse(second['save_knowledge'])
 
+    def test_successful_conversation_does_not_open_the_failure_circuit_after_three_messages(self):
+        self.begin()
+        with patch('runtime.providers.meta_model_api._https_once',return_value=self.response()) as http:
+            for index in range(6):
+                request_id=format(index+10,'032x')
+                self.send(request_id,'Kontynuuj rozmowę.')
+                self.assertEqual('SUCCEEDED',self.wait(request_id)['state'])
+            self.assertEqual(6,http.call_count)
+        state=self.app.chat_governor.inspect(self.app.core.local_operator(Capability.READ))
+        self.assertEqual('CLOSED',state['circuits']['meta_model_api']['state'])
+        self.assertEqual(0,state['circuits']['meta_model_api']['failures'])
+
+    def test_actual_uncertain_calls_still_open_the_circuit_and_retain_every_hold(self):
+        self.begin()
+        with patch('runtime.providers.meta_model_api._https_once',side_effect=TimeoutError()) as http:
+            for index in range(3):
+                request_id=format(index+10,'032x');self.send(request_id)
+                self.assertEqual('UNKNOWN',self.wait(request_id)['state'])
+            with self.assertRaises(ValueError):self.send('f'*32)
+            self.assertEqual(3,http.call_count)
+        state=self.app.chat_governor.inspect(self.app.core.local_operator(Capability.READ))
+        self.assertEqual('OPEN',state['circuits']['meta_model_api']['state'])
+        self.assertEqual(3,len(state['reservations']))
+        self.assertTrue(all(r['state']=='UNKNOWN' for r in state['reservations'].values()))
+
+    def test_two_verified_probe_messages_recover_circuit_without_resolving_old_unknown(self):
+        gov=self.app.chat_governor;reader=self.app.core.local_operator(Capability.READ)
+        commit=self.app.core.local_operator(Capability.COMMIT);epoch=gov.inspect(reader)['epoch']
+        for index in range(3):
+            request=ReservationRequest('old-'+str(index),'old-task-'+str(index),
+                'meta_model_api','muse-spark-1.3',canonical_sha256(index),1,1)
+            gov.reserve(commit,request,epoch);gov.dispatch_commit(commit,request.request_id,epoch)
+            gov.mark_unknown(commit,request.request_id,epoch,canonical_sha256(('old-unknown',index)))
+        before=gov.inspect(reader)['reservations'];self.begin()
+        with patch.object(gov,'clock',side_effect=lambda:time.time()+31), \
+                patch('runtime.providers.meta_model_api._https_once',return_value=self.response()) as http:
+            self.send();self.assertEqual('SUCCEEDED',self.wait()['state'])
+            self.assertEqual('HALF_OPEN',gov.inspect(reader)['circuits']['meta_model_api']['state'])
+            self.send('4'*32);self.assertEqual('SUCCEEDED',self.wait('4'*32)['state'])
+            self.assertEqual(2,http.call_count)
+            after=gov.inspect(reader)
+        self.assertEqual('CLOSED',after['circuits']['meta_model_api']['state'])
+        self.assertEqual(before,{key:value for key,value in after['reservations'].items() if key in before})
+
     def test_no_session_rejected_and_http_cannot_create_financial_session(self):
         from runtime.webapp import WebRuntimeService
         from runtime.mobile_gateway import wire

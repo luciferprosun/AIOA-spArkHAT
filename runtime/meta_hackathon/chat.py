@@ -288,7 +288,8 @@ def approve(service,request_id,review_digest,owner_principal,*,session_authoriza
                 session_check()
                 credit_check()  # Trusted probe must be pure; never a Core/HTTP callback.
                 return service.source_probe()
-            binding=MetaLiveBinding(service.ledger,governor,commit,warrant,reserve,True,True,source_reader=admitted_source)
+            binding=MetaLiveBinding(service.ledger,governor,commit,warrant,reserve,True,True,source_reader=admitted_source,
+                session_dispatch=session_authorization is not None)
             binding.check(req)
             _change(service,req.task.task_id,('PENDING_OWNER',),'RUNNING',{'warrant_digest':warrant.digest(),
                 'reserved_bound_usd':format(Decimal(amount)/10**9,'f'),'policy_epoch':warrant.lease_epoch})

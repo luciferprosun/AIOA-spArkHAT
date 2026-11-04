@@ -164,7 +164,7 @@ class MetaReceiptView:
         self.ledger, self.governor, self.source_reader = ledger, governor, source_reader
 
     def _validate(self,row,receipt,approval,reader,governor,current_source,active_attempt_id,*,historical=False):
-        from runtime.providers.meta_model_api import spend_operation, INPUT_PRICE, OUTPUT_PRICE
+        from runtime.providers.meta_model_api import spend_operation, INPUT_PRICE, OUTPUT_PRICE,session_chat_warrant
         from runtime.meta_hackathon.contracts import utc_timestamp
         data=plain(row.payload);binding=public_binding(data['binding'],self.ledger.scope)
         hex_digest(data['request_digest']);hex_digest(data['operation_digest']);hex_digest(data['nonce_digest'])
@@ -201,7 +201,10 @@ class MetaReceiptView:
             'last_attempt':{k:data[k] for k in ('attempt_id','attempt','request_digest','policy_epoch','http_status','error_code','created_at')}}
         value=None
         if state=='COMPLETED':
-            require(receipt is not None and approval_data['consumption'] is not None and entry['state'] in ('UNKNOWN','COMMITTED'))
+            session_pending=(binding.get('schema')=='aioa.meta.chat-binding.v1' and binding['actor']=='LINUX_OWNER'
+                and session_chat_warrant(warrant) and entry['state']=='DISPATCHED')
+            require(receipt is not None and approval_data['consumption'] is not None
+                and (entry['state'] in ('UNKNOWN','COMMITTED') or session_pending))
             chat=binding.get('schema')=='aioa.meta.chat-binding.v1'
             fields=CHAT_RECEIPT_FIELDS if chat else RECEIPT_FIELDS
             value=plain(receipt.payload);require(set(value)==fields)

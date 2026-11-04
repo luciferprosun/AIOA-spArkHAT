@@ -41,7 +41,7 @@
         if(backgroundRead && registryTicket!==registryRevision)return copy(envelope.data);
         apply(copy(envelope.data));
         // Only pairing registry readback can resolve an uncertain pairing
-        // mutation. Background chat traffic is a separate read-only lane.
+        // mutation. Chat traffic cannot resolve a pairing mutation.
         if(!background && (value.op==='pairing_list' || state.phase!=='UNKNOWN')) {
           state.phase = 'READY'; state.message = '';
         }
