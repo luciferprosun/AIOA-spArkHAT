@@ -54,4 +54,34 @@ class BrowserGateTests(unittest.TestCase):
             launch.assert_not_called()
 
 
+    def test_startup_counters_do_not_read_command_or_environment(self):
+        import io
+        from types import SimpleNamespace
+        gate=self.gate();opened=[]
+        payload={'stat':'42 (chrome) S 1 2 3 0 0 0 11 0 2 0 13 7 0 0 20 0 4 0 12345 0 0',
+                 'schedstat':'111 222 3\n','wchan':'futex_wait_queue\n'}
+        def read_only(path,*args,**kwargs):
+            opened.append(str(path));return io.StringIO(payload[path.name])
+        with patch.object(gate.Path,'open',read_only):
+            result=gate.startup_process_state(SimpleNamespace(pid=42,poll=lambda:None))
+        self.assertEqual({'state':'S','minor_faults':11,'major_faults':2,'user_ticks':13,
+                          'system_ticks':7,'schedstat':[111,222,3],'wchan':'futex_wait_queue'},result)
+        self.assertEqual(['/proc/42/stat','/proc/42/schedstat','/proc/42/wchan'],opened)
+
+    def test_failed_startup_counters_never_mask_original_failure(self):
+        from types import SimpleNamespace
+        gate=self.gate()
+        with patch.object(gate.Path,'open',side_effect=PermissionError()):
+            self.assertEqual({'state':'UNAVAILABLE','schedstat':'UNAVAILABLE','wchan':'UNAVAILABLE'},
+                             gate.startup_process_state(SimpleNamespace(pid=42,poll=lambda:None)))
+
+    def test_exited_owned_browser_does_not_inspect_a_reused_pid(self):
+        from types import SimpleNamespace
+        gate=self.gate()
+        with patch.object(gate.Path,'open') as opened:
+            self.assertEqual({'state':'EXITED','returncode':-9},
+                             gate.startup_process_state(SimpleNamespace(pid=42,poll=lambda:-9)))
+        opened.assert_not_called()
+
+
 if __name__=='__main__':unittest.main()
