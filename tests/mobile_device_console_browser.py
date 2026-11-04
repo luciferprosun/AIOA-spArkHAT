@@ -195,7 +195,7 @@ def worker():
             test_spki=base64.b64encode(hashlib.sha256(request.certificate_spki).digest()).decode('ascii')
             self.app.origin='https://host.example.org:'+str(request.server.server_address[1])
             grant=self.console_socket(service)({'op':'console'})['data']
-            from runtime.mobile_gateway.chrome_console import Pipe,cleanup_owned
+            from runtime.mobile_gateway.chrome_console import Pipe,cleanup_owned,wait_for_document
             real_run=subprocess.run;outputs=[]
             # Use the same anonymous-pipe protocol as the real launcher. Only
             # the already contained, networkless fixture uses headless Chrome
@@ -216,10 +216,7 @@ def worker():
                 try:
                     target=pipe.call('Target.createTarget',{'url':self.app.origin+'/devices'})['targetId']
                     session=pipe.call('Target.attachToTarget',{'targetId':target,'flatten':True})['sessionId']
-                    for _ in range(100):
-                        ready=pipe.call('Runtime.evaluate',{'expression':'document.readyState','returnByValue':True},session)
-                        if ready.get('result',{}).get('value')=='complete':break
-                        time.sleep(.02)
+                    wait_for_document(pipe,session,self.app.origin+'/devices')
                     expression='fetch("/devices",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:'+json.dumps('delivery='+grant['delivery'])+'}).then(r=>r.status)'
                     reply=pipe.call('Runtime.evaluate',{'expression':expression,'awaitPromise':True,'returnByValue':True},session)
                     self.assertEqual(200,reply.get('result',{}).get('value'),'Private one-use POST was not accepted')

@@ -6,6 +6,32 @@ from unittest.mock import patch
 from runtime.mobile_gateway import chrome_console
 
 class ChromeLifecycleTests(unittest.TestCase):
+    def test_about_blank_complete_cannot_receive_owner_delivery(self):
+        from unittest.mock import Mock
+        url='https://host.example.org/devices'
+        pipe=Mock()
+        pipe.call.side_effect=[
+            {'result':{'value':{'href':'about:blank','origin':'null','state':'complete','secure':False}}},
+            {'result':{'value':{'href':url,'origin':'https://host.example.org','state':'complete','secure':True}}}]
+        with patch.object(chrome_console.time,'sleep'):
+            chrome_console.wait_for_document(pipe,'session',url)
+        self.assertEqual(2,pipe.call.call_count)
+        self.assertTrue(all(call.args[0]=='Runtime.evaluate' for call in pipe.call.call_args_list))
+        self.assertTrue(all('fetch(' not in call.args[1]['expression'] for call in pipe.call.call_args_list))
+
+    def test_wrong_document_or_insecure_context_never_becomes_ready(self):
+        from unittest.mock import Mock
+        url='https://host.example.org/devices'
+        for state in (
+            {'href':url,'origin':'https://other.example.org','state':'complete','secure':True},
+            {'href':url,'origin':'https://host.example.org','state':'complete','secure':False},
+            {'href':url+'/other','origin':'https://host.example.org','state':'complete','secure':True}):
+            pipe=Mock();pipe.call.return_value={'result':{'value':state}}
+            with patch.object(chrome_console.time,'sleep'),self.assertRaisesRegex(ValueError,'CONSOLE_DOCUMENT_NOT_READY_NO_DELIVERY'):
+                chrome_console.wait_for_document(pipe,'session',url)
+            self.assertEqual(50,pipe.call.call_count)
+            self.assertTrue(all('fetch(' not in call.args[1]['expression'] for call in pipe.call.call_args_list))
+
     def test_launcher_timeout_reaps_only_its_own_helper(self):
         class Process:
             pid=123456789

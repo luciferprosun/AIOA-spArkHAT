@@ -77,6 +77,16 @@ class Pipe:
             if len(self.buffer)>2*1024*1024:raise ValueError('CHROME_PIPE_LIMIT')
         raise ValueError('CHROME_COMMAND_UNKNOWN')
 
+def wait_for_document(pipe,session,url):
+    """A new target may initially report a complete, insecure about:blank page."""
+    parsed=urlsplit(url)
+    expected={'href':url,'origin':parsed.scheme+'://'+parsed.netloc,'state':'complete','secure':True}
+    for _ in range(50):
+        value=pipe.call('Runtime.evaluate',{'expression':'({href:location.href,origin:location.origin,state:document.readyState,secure:isSecureContext})','returnByValue':True},session)
+        if value.get('result',{}).get('value')==expected:return
+        time.sleep(.2)
+    raise ValueError('CONSOLE_DOCUMENT_NOT_READY_NO_DELIVERY')
+
 def run(data):
     parsed=validate(data);os.umask(0o077)
     executable=Path('/usr/bin/google-chrome')
@@ -100,10 +110,7 @@ def run(data):
         try:
             target=pipe.call('Target.createTarget',{'url':data['url']})['targetId']
             session=pipe.call('Target.attachToTarget',{'targetId':target,'flatten':True})['sessionId']
-            for _ in range(30):
-                value=pipe.call('Runtime.evaluate',{'expression':'document.readyState','returnByValue':True},session)
-                if value.get('result',{}).get('value')=='complete':break
-                time.sleep(.2)
+            wait_for_document(pipe,session,data['url'])
             # Nothing is inserted into DOM, location, storage or console logs.
             expression='fetch("/devices",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:'+json.dumps('delivery='+data['delivery'])+'}).then(r=>r.status)'
             value=pipe.call('Runtime.evaluate',{'expression':expression,'awaitPromise':True,'returnByValue':True},session)
