@@ -147,7 +147,8 @@ class MetaChatProviderTests(unittest.TestCase):
             with self.assertRaises(ValueError):provider.chat_text(req,CancellationToken(),live_binding=binding)
             key.assert_not_called();http.assert_not_called()
         req,binding=self.binding()
-        for bad in (replace(binding,billing_confirmed=False),replace(binding,source_reader=lambda:('f'*40,req.capsule_digest))):
+        for bad in (replace(binding,billing_confirmed=False),replace(binding,session_dispatch=True),
+                replace(binding,source_reader=lambda:('f'*40,req.capsule_digest))):
             with patch.object(self.api,'load_private_key') as key,patch.object(self.api,'_https_once') as http:
                 with self.assertRaises(ValueError):provider.chat_text(req,CancellationToken(),live_binding=bad)
                 key.assert_not_called();http.assert_not_called()
