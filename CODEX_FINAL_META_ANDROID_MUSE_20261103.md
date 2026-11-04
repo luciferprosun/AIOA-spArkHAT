@@ -1,5 +1,8 @@
 # AIOA Cosmic4 — Meta Muse Android/Linux: raport końcowy,2026-11-03
 
+> Aktualizacja 2026-11-04: APK4.1 zainstalowano bez utraty Keystore i parowania; wykonano rzeczywisty reconnect i podpisany status. Native działa na tym samym state po autentycznym PolicyKit; panel Chrome otwarto. Muse LIVE nadal BLOCKED — brak świeżej wiadomości i osobnej dokładnej zgody kosztu. [Aktualny odbiór fizyczny](CODEX_REAL_ANDROID_LINUX_ACCEPTANCE_20261104.md). Poniższy raport bazowy opisuje stan z3listopada, sprzed tej aktualizacji.
+
+
 ## Wynik i granice dowodu
 
 Kod integracji, rzeczywisty APK, testy Gradle oraz wymagane CI: PASS.
