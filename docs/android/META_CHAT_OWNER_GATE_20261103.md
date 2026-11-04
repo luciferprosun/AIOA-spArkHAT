@@ -11,3 +11,15 @@
 - NATIVE WORKER/GITHUB WRITE: **NOT_AUTHORIZED / NOT_BOUND**. P1 pozostaje BLOCKED, jeżeli istniejąca natywna ścieżka READ nie spełnia kontraktu.
 
 Nie są to twierdzenia o zakończeniu kompilacji, aktualizacji telefonu lub LIVE. Dowody należy dopisać po faktycznym wykonaniu.
+
+## Uzupełnienie zgody — naprawa czatu i APK 4.1.1, 2026-11-04
+
+Rzeczywiste polecenia właściciela w tej sesji: „nie film ja wykonam pozniej […] napraw tylko chat i pozniej dam nowy prompt” oraz „w takim razie daj mi ostatnia narazie wersje apk i wtedy przejdziemy dalej”. Obowiązuje wcześniejsza rozszerzona zgoda na niezbędne poprawki aplikacji, bezpłatny kontrolowany CI, ten sam signer i dostarczenie APK. Film i dalsze funkcje są wyłączone z bieżącego etapu.
+
+- UPDATE: wyłącznie Cosmic4, 402/4.1.1-cosmic, ten sam package i certyfikat. Nie zmieniać Keystore, zapisanych danych parowania, TLS, Tailscale ani PolicyKit.
+- REPAIR: po podpisanym odczycie UNKNOWN użytkownik może świadomie rozpocząć pustą, osobną rozmowę. Poprzedni rekord i finansowy UNKNOWN pozostają w Core, a publiczny identyfikator zostaje zachowany lokalnie. Ta akcja nie wysyła wiadomości, nie ponawia POST i nie udziela zgody finansowej.
+- BUILD: istniejący `DEBUG_UBUNTU22_V2` i uprzednio zweryfikowany dokładny zestaw `20261026.341.1|20261101.347.1`, niezmieniony przypięty SDK, hash workflow, JDK17/Gradle, standardowy publiczny runner, 35 minut, APK do128MiB, retencja1dzień. Inny obraz lub SDK oznacza odmowę. Bez akceptacji nowych licencji, zmiany CodeQL, płatnego runnera lub nowych usług.
+- HOST: poprawka języka i minimalnego reasoning została osobno zweryfikowana na b7f4002; nowy APK nie oznacza automatycznego nowego wdrożenia hosta ani fizycznego odbioru aktualizacji.
+- FINANCE / MERGE / FILM: brak nowej zgody na płatną próbę modelu, merge do main, publikację filmu lub formalne submission. Każdy późniejszy płatny test wymaga własnego dokładnego zatwierdzenia w istniejącym natywnym kanale.
+
+Wyniki rzeczywistej kompilacji i sumy gotowego APK należy przekazać w oddzielnym raporcie wydania; ten zapis zgody nie jest wynikiem testu.

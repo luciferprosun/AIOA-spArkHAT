@@ -236,4 +236,7 @@
     <string name="chat_you">You</string>
     <string name="chat_estimate">Usage cost estimate, not invoice:</string>
     <string name="chat_readback">Read result — no retry</string>
+    <string name="chat_separate_conversation">Start a separate conversation</string>
+    <string name="chat_separate_explanation">The previous attempt stays UNKNOWN in Core and may have incurred a charge. Its public request ID is retained on this phone. This starts an empty conversation and does not retry the previous message. Each new message still needs separate cost approval on Linux.</string>
+    <string name="chat_unresolved_retained">Unresolved attempts retained in Core: %1$d. Their outcome and cost remain unverified.</string>
 </resources>

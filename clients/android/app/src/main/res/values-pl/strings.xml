@@ -236,4 +236,7 @@
     <string name="chat_you">Ty</string>
     <string name="chat_estimate">Szacowany koszt użycia, bez faktury:</string>
     <string name="chat_readback">Sprawdź wynik — bez ponowienia</string>
+    <string name="chat_separate_conversation">Rozpocznij osobną rozmowę</string>
+    <string name="chat_separate_explanation">Poprzednia próba pozostaje UNKNOWN w Core i mogła spowodować naliczenie opłaty. Jej publiczny identyfikator pozostaje zapisany na tym telefonie. Powstanie pusta rozmowa, bez ponowienia poprzedniej wiadomości. Każda nowa wiadomość nadal wymaga osobnej zgody na koszt w Linuksie.</string>
+    <string name="chat_unresolved_retained">Nierozliczone próby zachowane w Core: %1$d. Ich wynik i koszt pozostają niezweryfikowane.</string>
 </resources>

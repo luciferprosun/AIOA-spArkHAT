@@ -338,6 +338,26 @@ class MissionViewModel(app: Application) : AndroidViewModel(app) {
             if(target.kind=="REQUEST") client.chatRead(target.id) else client.chatThread(target.id)
         }})
     }
+    fun chatSeparateConversation():Boolean {
+        if(!foreground || ui.busy || recoveryWork.busy || !ui.chat.canStartSeparateConversation)return false
+        return try {
+            owner().requireCurrent()
+            check(prefs.getString("chat_binding",null)==chatBinding() &&
+                prefs.getString("chat_pending",null)==ui.chat.pendingId &&
+                prefs.getString("chat_thread",null)==ui.chat.threadId &&
+                prefs.getStringSet("chat_unresolved",emptySet()).orEmpty().toSet()==ui.chat.unresolvedRequestIds)
+            val next=ui.chat.separateConversation()
+            // Preserve public unresolved IDs before releasing the current hint.
+            // The original Core record, warrant and financial UNKNOWN are unchanged.
+            check(prefs.edit().putStringSet("chat_unresolved",next.unresolvedRequestIds)
+                .remove("chat_pending").remove("chat_thread").commit()) {"LOCAL_BINDING_SAVE_FAILED"}
+            ui=ui.copy(chat=next)
+            true
+        } catch(_:Exception) {
+            ui=ui.copy(chat=ui.chat.copy(error="LOCAL_BINDING_SAVE_FAILED"))
+            false
+        }
+    }
     fun chatStop() {
         val id=ui.chat.pendingId ?: return
         if(ui.chat.state !in setOf("PENDING_OWNER","RUNNING"))return
@@ -620,9 +640,15 @@ class MissionViewModel(app: Application) : AndroidViewModel(app) {
         try { reconcileBinding() }
         catch (_: Exception) { client.close(); ui = ui.copy(enrolled=false,bindingInvalid=true) }
         if(prefs.getString("chat_binding",null)==chatBinding()) {
-            val pending=prefs.getString("chat_pending",null)?.takeIf {Wire.hex32.matches(it)}
-            val thread=prefs.getString("chat_thread",null)?.takeIf {Wire.hex32.matches(it)}
-            ui=ui.copy(chat=ui.chat.copy(threadId=thread,pendingId=pending,state=if(pending!=null) "UNKNOWN" else ui.chat.state))
+            try {
+                val pending=prefs.getString("chat_pending",null)?.takeIf {Wire.hex32.matches(it)}
+                val thread=prefs.getString("chat_thread",null)?.takeIf {Wire.hex32.matches(it)}
+                val unresolved=prefs.getStringSet("chat_unresolved",emptySet()).orEmpty().toSet()
+                ui=ui.copy(chat=ui.chat.copy(threadId=thread,pendingId=pending,
+                    unresolvedRequestIds=unresolved,state=if(pending!=null) "UNKNOWN" else ui.chat.state))
+            } catch(_:Exception) {
+                ui=ui.copy(chat=ChatUi(state="UNKNOWN",error="CHAT_LOCAL_HISTORY_INVALID"))
+            }
         }
         UsbReadback.clear(); generation = generation.invalidate("STALE")
         ui = ui.copy(freshness=generation,readbacks=ui.readbacks.invalidate(),message=if (ui.pending == null) UiMessage(R.string.fresh_status) else

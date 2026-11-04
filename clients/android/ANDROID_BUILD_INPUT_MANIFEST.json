@@ -16,8 +16,8 @@
       "package": "eu.sparkhat.aioa.companion.cosmic4",
       "update_signing_certificate_sha256": "3aa33eda63d3516010ddbf0fe0ff8de6b6dab6f6fc48088ee2592bde3b627bc4",
       "variant": "cosmic4",
-      "version_code": 401,
-      "version_name": "4.1.0-cosmic"
+      "version_code": 402,
+      "version_name": "4.1.1-cosmic"
     }
   },
   "command_cwd": "clients/android",

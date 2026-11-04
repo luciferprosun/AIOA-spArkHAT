@@ -15,8 +15,8 @@ CHANNEL='COSMIC4_USB_V1'
 SOURCE_REF='refs/heads/feat/cosmic4-muse-chat-20261103'
 PACKAGE='eu.sparkhat.aioa.companion.cosmic4'
 CERTIFICATE='3aa33eda63d3516010ddbf0fe0ff8de6b6dab6f6fc48088ee2592bde3b627bc4'
-VERSION_CODE=401
-VERSION_NAME='4.1.0-cosmic'
+VERSION_CODE=402
+VERSION_NAME='4.1.1-cosmic'
 
 
 def validate(channel):

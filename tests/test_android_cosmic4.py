@@ -12,7 +12,7 @@ class Cosmic4ChannelTests(unittest.TestCase):
 
     def metadata(self):
         c=self.channel()
-        return {'package':c.PACKAGE,'version_code':401,'version_name':'4.1.0-cosmic',
+        return {'package':c.PACKAGE,'version_code':402,'version_name':'4.1.1-cosmic',
                 'certificate_sha256':c.CERTIFICATE}
 
     def test_cosmic4_exact_identity_and_old_channel_are_disjoint(self):
@@ -28,7 +28,7 @@ class Cosmic4ChannelTests(unittest.TestCase):
 
     def test_apk_metadata_channel_does_not_allow_foreign_permissions(self):
         c=self.channel()
-        raw=(f"package: name='{c.PACKAGE}' versionCode='401' versionName='4.1.0-cosmic'\n"
+        raw=(f"package: name='{c.PACKAGE}' versionCode='402' versionName='4.1.1-cosmic'\n"
              "sdkVersion:'26'\ntargetSdkVersion:'36'\nuses-permission: name='android.permission.INTERNET'\napplication-debuggable\n")
         self.assertEqual(c.PACKAGE,verify_apk.parse_badging(raw,channel=c.CHANNEL)['package'])
         with self.assertRaises(verify_apk.lib.Blocked):verify_apk.parse_badging(raw)

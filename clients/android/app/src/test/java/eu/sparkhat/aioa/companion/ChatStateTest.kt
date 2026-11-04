@@ -63,4 +63,43 @@ class ChatStateTest {
         assertEquals(id,linuxPending.pendingId)
         assertFalse(linuxPending.canSend(true,true,false,"duplicate"))
     }
+
+    @Test fun separateConversationRequiresAnExactSignedUnknownReadback() {
+        val id="a".repeat(32)
+        val local=ChatUi(threadId="b".repeat(32),pendingId=id,state="UNKNOWN")
+        assertFalse(local.canStartSeparateConversation)
+        assertThrows(Exception::class.java) {local.separateConversation()}
+        val running=local.accept(view(id,"RUNNING"),100)
+        assertFalse(running.canStartSeparateConversation)
+        val confirmed=local.accept(view(id,"UNKNOWN"),101)
+        assertTrue(confirmed.canStartSeparateConversation)
+        assertFalse(confirmed.canSend(true,true,false,"retry"))
+        val separate=confirmed.separateConversation()
+        assertNull(separate.pendingId);assertNull(separate.threadId)
+        assertTrue(separate.messages.isEmpty())
+        assertEquals(setOf(id),separate.unresolvedRequestIds)
+        assertTrue(separate.readbackPlan().isEmpty())
+        assertTrue(separate.canSend(true,true,false,"a separate manually written message"))
+        assertEquals("UNKNOWN",confirmed.messages.single().state)
+    }
+
+    @Test fun separateConversationRetainsPublicUnknownIdsAcrossRestartAndNewSend() {
+        val old="c".repeat(32);val id="a".repeat(32)
+        val confirmed=ChatUi(threadId="b".repeat(32),pendingId=id,
+            unresolvedRequestIds=setOf(old)).accept(view(id,"UNKNOWN"),100)
+        val separate=confirmed.separateConversation()
+        val restored=ChatUi(unresolvedRequestIds=separate.unresolvedRequestIds)
+        assertEquals(setOf(old,id),restored.unresolvedRequestIds)
+        assertTrue(restored.readbackPlan().isEmpty())
+        val next=restored.start("d".repeat(32))
+        assertEquals("d".repeat(32),next.pendingId)
+        assertEquals(setOf(old,id),next.unresolvedRequestIds)
+    }
+
+    @Test fun malformedOrExcessiveUnresolvedIdsFailClosed() {
+        assertThrows(Exception::class.java) {ChatUi(unresolvedRequestIds=setOf("not-an-id"))}
+        val tooMany=(0..128).map {it.toString(16).padStart(32,'0')}.toSet()
+        assertThrows(Exception::class.java) {ChatUi(unresolvedRequestIds=tooMany)}
+        assertFalse(ChatUi(state="UNKNOWN",error="CHAT_LOCAL_HISTORY_INVALID").canSend(true,true,false,"message"))
+    }
 }

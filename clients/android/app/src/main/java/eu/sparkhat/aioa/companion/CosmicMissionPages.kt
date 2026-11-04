@@ -86,11 +86,14 @@ internal fun CosmicMissionPage(page: String, model: MissionViewModel, navigate: 
 private fun ChatPage(model: MissionViewModel) {
     val ui=model.ui
     var draft by rememberSaveable {mutableStateOf("")}
+    var separateDialog by remember {mutableStateOf(false)}
     CosmicCard(stringResource(R.string.cosmic_muse_title)) {
         Text("Meta · muse-spark-1.3",style=MaterialTheme.typography.titleMedium)
         Text(stringResource(if(model.chatAvailable) R.string.chat_owner_gate else R.string.chat_native_unavailable))
         Text(stringResource(R.string.chat_ephemeral))
         Text("${ui.chat.state} · ${ui.chat.lastSignedAt ?: "—"}")
+        if(ui.chat.unresolvedRequestIds.isNotEmpty())
+            Text(stringResource(R.string.chat_unresolved_retained,ui.chat.unresolvedRequestIds.size))
         if(ui.chat.messages.isEmpty()) Text(stringResource(R.string.master_chat_history_empty))
         ui.chat.messages.forEach { message ->
             message.prompt?.let {ChatBubble(stringResource(R.string.chat_you),it)}
@@ -102,6 +105,10 @@ private fun ChatPage(model: MissionViewModel) {
             }
         }
         ui.chat.error?.let {Text(it,color=MaterialTheme.colorScheme.error)}
+        if(ui.chat.canStartSeparateConversation) OutlinedButton(onClick={separateDialog=true},
+            enabled=model.chatAvailable && !ui.busy,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)) {
+            Text(stringResource(R.string.chat_separate_conversation))
+        }
         OutlinedTextField(draft,{if(it.toByteArray(Charsets.UTF_8).size<=2000)draft=it},
             enabled=!ui.busy,label={Text(stringResource(R.string.cosmic_message))},modifier=Modifier.fillMaxWidth())
         Text("${draft.toByteArray(Charsets.UTF_8).size}/2000 B",style=MaterialTheme.typography.bodySmall)
@@ -115,6 +122,16 @@ private fun ChatPage(model: MissionViewModel) {
             ui.chat.state in setOf("PENDING_OWNER","RUNNING"),modifier=Modifier.heightIn(min=48.dp)) {Text("STOP")}
         if(!ui.enrolled) OutlinedButton(onClick=model::reconnect,enabled=!ui.busy) {Text(stringResource(R.string.recover_session))}
     }
+    if(separateDialog) AlertDialog(onDismissRequest={separateDialog=false},
+        title={Text(stringResource(R.string.chat_separate_conversation))},
+        text={Text(stringResource(R.string.chat_separate_explanation))},
+        confirmButton={TextButton(onClick={
+            if(model.chatSeparateConversation())draft=""
+            separateDialog=false
+        },enabled=model.chatAvailable && !ui.busy && ui.chat.canStartSeparateConversation) {
+            Text(stringResource(R.string.chat_separate_conversation))
+        }},
+        dismissButton={TextButton(onClick={separateDialog=false}) {Text(stringResource(R.string.cancel))}})
     if(draft.isNotBlank()) ChatBubble(stringResource(R.string.master_local_draft_bubble),draft)
 }
 

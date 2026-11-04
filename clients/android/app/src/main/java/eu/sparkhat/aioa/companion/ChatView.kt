@@ -64,10 +64,20 @@ data class ChatReadTarget(val kind:String,val id:String) {
     init {require(kind in setOf("REQUEST","THREAD") && Wire.hex32.matches(id))}
 }
 data class ChatUi(val threadId:String?=null,val pendingId:String?=null,val messages:List<ChatView> = emptyList(),
-    val state:String="IDLE",val error:String?=null,val lastSignedAt:Long?=null) {
+    val state:String="IDLE",val error:String?=null,val lastSignedAt:Long?=null,
+    val unresolvedRequestIds:Set<String> = emptySet()) {
+    init {require(unresolvedRequestIds.size<=128 && unresolvedRequestIds.all {Wire.hex32.matches(it)})}
     val readbackOnly get()=pendingId!=null
     fun canSend(session:Boolean,capability:Boolean,busy:Boolean,draft:String)=session && capability && !busy &&
-        pendingId==null && draft.isNotBlank() && draft.toByteArray(Charsets.UTF_8).size in 1..2000
+        pendingId==null && error!="CHAT_LOCAL_HISTORY_INVALID" && draft.isNotBlank() && draft.toByteArray(Charsets.UTF_8).size in 1..2000
+    val canStartSeparateConversation get()=pendingId!=null && state=="UNKNOWN" && lastSignedAt!=null &&
+        unresolvedRequestIds.size<128 && messages.any {it.requestId==pendingId && it.state=="UNKNOWN"}
+    fun separateConversation():ChatUi {
+        require(canStartSeparateConversation) {"CHAT_SIGNED_UNKNOWN_READBACK_REQUIRED"}
+        val id=pendingId ?: error("CHAT_SIGNED_UNKNOWN_READBACK_REQUIRED")
+        // This is a new local draft, never a retry or a settlement of UNKNOWN.
+        return ChatUi(unresolvedRequestIds=unresolvedRequestIds+id)
+    }
     fun start(id:String):ChatUi {require(Wire.hex32.matches(id) && pendingId==null);return copy(pendingId=id,state="SENDING",error=null)}
     fun uncertain(code:String="CHAT_ACK_UNKNOWN")=copy(state="UNKNOWN",error=code)
     fun rejectUnadmitted(denial:ChatUnadmitted):ChatUi {
