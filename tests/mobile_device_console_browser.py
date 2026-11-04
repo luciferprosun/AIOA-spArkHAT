@@ -116,7 +116,7 @@ def worker():
                 result.existing_core_status_read=window.consoleProbeStatusReads===1&&
                   document.getElementById('cosmic-core-settings').textContent.includes('NATIVE_STATUS_READ_ONLY_V1')&&
                   document.getElementById('cosmic-core-observations').textContent.includes('/api/mobile/v1/status')&&
-                  document.getElementById('cosmic-core-read-state').textContent.includes('Historyczny');
+                  document.getElementById('cosmic-core-read-state').textContent.includes('Historical local operator readback');
                 let navigationOK=true;
                 for (const button of document.querySelectorAll('.cosmic-rail [data-cosmic-target]')) {
                   button.click();
