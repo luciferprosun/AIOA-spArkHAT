@@ -22,6 +22,9 @@ RECEIPT_FIELDS = frozenset(('schema','provider_id','model_id','request_digest','
 BINDING_FIELDS = frozenset(('task_id','task_digest','owner_scope_digest','source_sha','provider_id',
     'model_id','deadline','budget_usd','allowed_origins','correlation_id','capsule_digest','stopped',
     'max_output_tokens','timeout_seconds','input_token_bound','max_attempts'))
+CHAT_BINDING_FIELDS=(BINDING_FIELDS-{'allowed_origins'})|{'schema','device_id','thread_id','request_id',
+    'session_id','nonce','actor','history_digest','prompt_sha256','context_sha256'}
+CHAT_RECEIPT_FIELDS=(RECEIPT_FIELDS-{'tool_call_id'})|{'provider_request_id','response_sha256'}
 ERROR_CODES = frozenset(('META_AUTH_DENIED','META_BILLING_OWNER_CHECK_REQUIRED','META_BILLING_UNAVAILABLE',
     'META_BUDGET_DENIED','META_BUDGET_EXCEEDED_UNKNOWN','META_CREDENTIAL_ECHO_DENIED','META_CREDENTIAL_IN_PAYLOAD',
     'META_EXACT_HUMAN_APPROVAL_REQUIRED','META_GOVERNOR_NOT_ACTIVE','META_INCOMPLETE_UNKNOWN',
@@ -30,7 +33,7 @@ ERROR_CODES = frozenset(('META_AUTH_DENIED','META_BILLING_OWNER_CHECK_REQUIRED',
     'META_REQUEST_DENIED','META_RESERVATION_BINDING_MISMATCH','META_RESPONSE_INVALID_UNKNOWN',
     'META_RESPONSE_LIMIT_UNKNOWN','META_SOURCE_BINDING_REQUIRED','META_SPEND_BINDING_MISMATCH',
     'META_SPEND_CURRENCY_MISMATCH','META_STOPPED','META_TASK_EXPIRED','META_TIMEOUT_UNKNOWN','META_UNAVAILABLE',
-    'META_USAGE_DENIED'))
+    'META_USAGE_DENIED','META_CONTRACT_REJECTED','META_CHAT_RESPONSE_INVALID_UNKNOWN','META_ADMISSION_ACK_UNKNOWN'))
 
 
 def plain(value):
@@ -54,7 +57,8 @@ def hex_digest(value,size=64,prefix=''):
 def public_binding(value,scope):
     from runtime.browser_agent.chrome_read_adapter import public_url
     from runtime.meta_hackathon.contracts import utc_timestamp
-    require(type(value) is dict and set(value)==BINDING_FIELDS)
+    chat=type(value) is dict and value.get('schema')=='aioa.meta.chat-binding.v1'
+    require(type(value) is dict and set(value)==(CHAT_BINDING_FIELDS if chat else BINDING_FIELDS))
     for name in ('task_digest','owner_scope_digest','capsule_digest'):hex_digest(value[name])
     hex_digest(value['source_sha'],40)
     for name in ('task_id','correlation_id'):
@@ -66,9 +70,17 @@ def public_binding(value,scope):
         and type(value['timeout_seconds']) is int and 1<=value['timeout_seconds']<=15
         and type(value['input_token_bound']) is int and 1<=value['input_token_bound']<=16896)
     utc_timestamp(value['deadline']);require(cost(value['budget_usd'])>0)
-    origins=value['allowed_origins']
-    require(type(origins) is list and 1<=len(origins)<=3 and len(set(origins))==len(origins))
-    for origin in origins:public_url(origin+'/',tuple(origins))
+    if chat:
+        from runtime.providers.meta_model_api import MetaChatTask
+        for name in ('device_id','history_digest','prompt_sha256','context_sha256'):hex_digest(value[name])
+        for name in ('thread_id','request_id','session_id','nonce'):hex_digest(value[name],32)
+        task=MetaChatTask(value['task_id'],value['owner_scope_digest'],value['source_sha'],value['deadline'],
+            value['device_id'],value['thread_id'],value['request_id'],value['session_id'],value['nonce'],value['actor'])
+        require(task.digest==value['task_digest'] and value['correlation_id']==value['request_id'])
+    else:
+        origins=value['allowed_origins']
+        require(type(origins) is list and 1<=len(origins)<=3 and len(set(origins))==len(origins))
+        for origin in origins:public_url(origin+'/',tuple(origins))
     return value
 
 
@@ -143,7 +155,7 @@ class MetaReceiptView:
                     and governor.runner is ledger.runner and governor.policy.scope == ledger.scope)
         self.ledger, self.governor, self.source_reader = ledger, governor, source_reader
 
-    def _validate(self,row,receipt,approval,reader,governor,current_source,active_attempt_id):
+    def _validate(self,row,receipt,approval,reader,governor,current_source,active_attempt_id,*,historical=False):
         from runtime.providers.meta_model_api import spend_operation, INPUT_PRICE, OUTPUT_PRICE
         from runtime.meta_hackathon.contracts import utc_timestamp
         data=plain(row.payload);binding=public_binding(data['binding'],self.ledger.scope)
@@ -153,7 +165,7 @@ class MetaReceiptView:
             and type(data['attempt']) is int and data['attempt']==1 and data['state'] in FILTER
             and type(data['sequence']) is int and 1<=data['sequence']<=1023
             and type(data['policy_epoch']) is int and data['policy_epoch']>0
-            and current_source==(binding['source_sha'],binding['capsule_digest'])
+            and (historical or current_source==(binding['source_sha'],binding['capsule_digest']))
             and binding['model_id'] in reader.model_binding_ids)
         require(data['http_status'] is None or type(data['http_status']) is int and 100<=data['http_status']<=599)
         require(data['error_code'] is None or data['error_code'] in ERROR_CODES)
@@ -166,7 +178,7 @@ class MetaReceiptView:
         operation=spend_operation(data['request_digest'],binding)
         require(canonical_sha256(operation)==data['operation_digest'])
         entry=governor['reservations'].get(data['reservation_id'])
-        require(governor['epoch']==data['policy_epoch'] and entry is not None
+        require((governor['epoch']>=data['policy_epoch'] if historical else governor['epoch']==data['policy_epoch']) and entry is not None
             and entry['epoch']==data['policy_epoch'] and entry['task_id']==binding['task_id']
             and entry['provider_id']==binding['provider_id'] and entry['model_id']==binding['model_id']
             and entry['request_digest']==data['operation_digest'])
@@ -182,25 +194,53 @@ class MetaReceiptView:
         value=None
         if state=='COMPLETED':
             require(receipt is not None and approval_data['consumption'] is not None and entry['state'] in ('UNKNOWN','COMMITTED'))
-            value=plain(receipt.payload);require(set(value)==RECEIPT_FIELDS)
-            require(value['schema']=='aioa.meta.api-receipt.v1' and value['request_digest']==data['request_digest']
+            chat=binding.get('schema')=='aioa.meta.chat-binding.v1'
+            fields=CHAT_RECEIPT_FIELDS if chat else RECEIPT_FIELDS
+            value=plain(receipt.payload);require(set(value)==fields)
+            require(value['schema']==('aioa.meta.chat-receipt.v1' if chat else 'aioa.meta.api-receipt.v1') and value['request_digest']==data['request_digest']
                 and value['binding']==binding and type(value['policy_epoch']) is int
                 and value['policy_epoch']==data['policy_epoch'] and type(value['attempt']) is int
                 and value['attempt_id']==data['attempt_id'] and value['attempt']==1
                 and value['warrant_digest']==data['warrant_digest'] and value['nonce_digest']==data['nonce_digest']
                 and value['model_id']==binding['model_id'] and value['provider_id']==binding['provider_id']
                 and value['environment']=='META_API_LIVE_VERIFIED' and value['live_verified'] is True
-                and value['authority']=='ADVISORY_ONLY' and value['fallback'] is False
+                and value['authority']==('ADVISORY_TEXT_ONLY' if chat else 'ADVISORY_ONLY') and value['fallback'] is False
                 and value['cost_kind']=='ESTIMATE_NOT_INVOICE')
-            require(type(value['tool_call_id']) is str and re.fullmatch(r'[A-Za-z0-9_-]{1,128}',value['tool_call_id']))
+            if chat:
+                hex_digest(value['response_sha256'])
+                require(value['provider_request_id'] is None or type(value['provider_request_id']) is str
+                    and re.fullmatch('[A-Za-z0-9_.:/-]{1,200}',value['provider_request_id']))
+            else:require(type(value['tool_call_id']) is str and re.fullmatch(r'[A-Za-z0-9_-]{1,128}',value['tool_call_id']))
             usage=value['usage']
             require(type(usage) is dict and set(usage)=={'prompt_tokens','completion_tokens','total_tokens'}
                 and all(type(n) is int and n>=0 for n in usage.values())
                 and usage['total_tokens']==usage['prompt_tokens']+usage['completion_tokens']
                 and usage['prompt_tokens']<=data['input_bound'] and usage['completion_tokens']<=data['output_bound'])
             require(cost(value['cost_estimate_usd'])==(Decimal(usage['prompt_tokens'])*INPUT_PRICE+Decimal(usage['completion_tokens'])*OUTPUT_PRICE)/1000000)
-            value={k:value[k] for k in sorted(RECEIPT_FIELDS)}
+            value={k:value[k] for k in sorted(fields)}
         return projected,value
+
+    def readback(self, request_digest, *, historical=False):
+        """Immutable result inspection, never a dispatch or renewed authority.
+
+        Historical mode verifies the original source/warrant/ledger binding;
+        it deliberately does not demand that an old source is the current one.
+        New calls still use MetaLiveBinding.check and the strict snapshot.
+        """
+        from lab.archaioa.warrant import EffectWarrant
+        hex_digest(request_digest);require(type(historical) is bool and self.governor is not None)
+        reader=self.ledger.core.local_operator(Capability.READ)
+        def read(tx):
+            row=tx.get(RecordKind.OPERATION,'meta-api-attempt-'+request_digest)
+            require(row is not None and row.payload.get('schema')==KIND)
+            approval=tx.get(RecordKind.OPERATION,row.payload['approval_record_id']);require(approval is not None)
+            warrant=EffectWarrant.from_dict(plain(approval.payload)['active'])
+            _,data,active=self.ledger._load(tx,warrant)
+            return row,tx.get(RecordKind.RECEIPT,'meta-api-'+request_digest),(active,data)
+        row,receipt,approval=self.ledger._run(reader,Capability.READ,read)
+        _,value=self._validate(row,receipt,approval,reader,self.governor.inspect(reader),self.source_reader(),None,historical=historical)
+        require(value is not None)
+        return {**value,'historical':historical,'current_authority':False}
 
     def snapshot(self, *, active_attempt_id=None):
         output={'call_state':'NOT_ATTEMPTED','last_live_receipt':None,'last_attempt':None,

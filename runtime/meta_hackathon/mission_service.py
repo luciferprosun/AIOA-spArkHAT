@@ -108,6 +108,40 @@ class MissionService:
                 self._change(row.record_id, ACTIVE, 'UNKNOWN', {'error': 'RESTART_READBACK_REQUIRED'})
         from . import agent_operations
         agent_operations.recover(self)
+        from . import chat
+        chat.initialize(self)
+
+    def bind_chat(self, governor, authority_probe):
+        from . import chat
+        return chat.bind(self,governor,authority_probe)
+
+    def chat_propose(self, payload, reader, **identity):
+        from . import chat
+        return chat.propose(self,payload,reader,**identity)
+
+    def chat_request(self, request_id, reader, **scope):
+        from . import chat
+        return chat.request(self,request_id,reader,**scope)
+
+    def chat_threads(self, reader, **scope):
+        from . import chat
+        return chat.threads(self,reader,**scope)
+
+    def chat_thread(self, thread_id, reader, **scope):
+        from . import chat
+        return chat.thread(self,thread_id,reader,**scope)
+
+    def chat_review(self, request_id, reader):
+        from . import chat
+        return chat.review(self,request_id,reader)
+
+    def chat_approve(self, request_id, review_digest, owner_principal):
+        from . import chat
+        return chat.approve(self,request_id,review_digest,owner_principal)
+
+    def chat_stop(self, request_id, reader, **scope):
+        from . import chat
+        return chat.stop(self,request_id,reader,**scope)
 
     def bind_agent_tools(self, config, owner_principal):
         from . import agent_operations

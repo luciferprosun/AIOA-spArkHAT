@@ -1,5 +1,26 @@
 # AIOA spArkHAT 🐾
 
+## Cosmic Native Linux — integration candidate, 4 November2026
+
+The existing private `/devices` Mission Control uses real local PolicyKit
+admission, the same Core/store and preserved Android pairing. Its Linux-only
+integration adds five fixed READ recipes: GitHub repository/main and latest
+issues, plus local Git status/log/branches. Successful reads retain a signed
+source-bound Core receipt; lost ACKs require readback rather than redispatch.
+No Android source, package, signer or pairing data is changed by this slice.
+
+Muse Spark1.3 remains advisory and requires exact, separate native cost approval
+for each paid message. A strict current-response issue proposal grants no
+execution authority. **Remote WRITE is blocked**: the previously incomplete
+model call remains UNKNOWN, and a reviewed remote START binding is absent.
+**Native CPL is blocked**; its five-call contract preview is not a live run.
+Historical successful model evidence does not certify a new source or response.
+
+This is the explicitly scoped READ fallback, not acceptance of the complete
+GitHub mutation demo. See the [integration report](docs/meta/ULTRA_INTEGRATION_REPORT_20261104.md),
+[architecture and gates](docs/meta/ULTRA_FINAL_ARCHITECTURE_20261104.md) and
+[English operator runbook](docs/meta/ULTRA_FINAL_DEMO_RUNBOOK_EN.md).
+
 ## One local Mission Control
 
 From this source checkout, start the unified local profile:

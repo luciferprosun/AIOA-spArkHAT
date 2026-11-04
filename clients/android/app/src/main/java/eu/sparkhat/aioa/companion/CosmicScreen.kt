@@ -1,20 +1,20 @@
 package eu.sparkhat.aioa.companion
 
 import androidx.compose.foundation.layout.*
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
-import java.time.Instant
-import java.time.ZoneOffset
-import java.time.format.DateTimeFormatter
-import java.util.Locale
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import kotlinx.coroutines.delay
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.contentDescription
@@ -27,11 +27,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions
 import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
-
-private val CosmicColors = darkColorScheme(
-    background=Color(0xFF080D1C),surface=Color(0xFF13203B),primary=Color(0xFF63D9FF),
-    secondary=Color(0xFFA58CF5),tertiary=Color(0xFFF1A75D),onBackground=Color(0xFFF4F7FF),
-    onSurface=Color(0xFFF4F7FF),onPrimary=Color(0xFF080D1C),onSecondary=Color(0xFF080D1C))
 
 /** Static layout: no decorative motion. Text wraps and all pages scroll at 200% font size. */
 @Composable
@@ -48,27 +43,23 @@ internal fun CosmicApp(incomingPacket: String?, consumed: () -> Unit, model: Mis
         lifecycle.addObserver(observer); onDispose { lifecycle.removeObserver(observer) }
     }
     var page by rememberSaveable { mutableStateOf("home") }
+    val savedPages=rememberSaveableStateHolder()
+    val imeVisible=WindowInsets.ime.getBottom(LocalDensity.current)>0
+    val focus=LocalFocusManager.current
+    val keyboard=LocalSoftwareKeyboardController.current
+    BackHandler(enabled=page!="home" && !imeVisible) { page="home" }
     LaunchedEffect(incomingPacket) {
         incomingPacket?.let { raw ->
-            routePairingDelivery(raw,model::deliverPacket,showConfirmation={ page="home" },consumed=consumed)
+            routePairingDelivery(raw,model::deliverPacket,showConfirmation={ page="devices" },consumed=consumed)
         }
     }
-    MaterialTheme(colorScheme=CosmicColors) {
-        Surface(Modifier.fillMaxSize()) {
-            Column(Modifier.fillMaxSize().safeDrawingPadding().imePadding()) {
-                // Two rows avoid clipped four-way navigation at accessibility font scales.
-                listOf(listOf("home","missions"),listOf("repositories","settings")).forEach { row ->
-                    Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-                        row.forEach { title ->
-                            OutlinedButton(onClick={ page=title },modifier=Modifier.weight(1f).heightIn(min=48.dp)) {
-                                Text(if(page == title) stringResource(R.string.selected_page,stringResource(pageLabel(title))) else stringResource(pageLabel(title)))
-                            }
-                        }
-                    }
-                }
-                Box(Modifier.weight(1f)) {
-                    if (page == "missions" || page == "advanced") LegacyMissionScreen(model,showConnection=page == "advanced")
-                    else CosmicPage(page,model) { page="advanced" }
+    CosmicTheme {
+        CosmicScaffold(page,navigate={ target -> focus.clearFocus();keyboard?.hide();page=target }) {
+            savedPages.SaveableStateProvider(page) {
+                when(page) {
+                    "devices","recovery","settings" -> CosmicPage(page,model) {page="advanced"}
+                    "advanced" -> LegacyMissionScreen(model,showConnection=true)
+                    else -> CosmicMissionPage(page,model) {target -> focus.clearFocus();keyboard?.hide();page=target}
                 }
             }
         }
@@ -79,6 +70,8 @@ internal fun CosmicApp(incomingPacket: String?, consumed: () -> Unit, model: Mis
 private fun CosmicPage(page: String, model: MissionViewModel, advanced: () -> Unit) {
     val ui = model.ui
     val context = LocalContext.current
+    val focusManager = LocalFocusManager.current
+    val keyboard = LocalSoftwareKeyboardController.current
     // Used only for invitation expiry controls, never as the displayed host response time.
     var expiryRefresh by remember { mutableIntStateOf(0) }
     val nowSeconds = remember(ui,expiryRefresh) { System.currentTimeMillis()/1000 }
@@ -94,19 +87,26 @@ private fun CosmicPage(page: String, model: MissionViewModel, advanced: () -> Un
     val pairingStatusReason = ui.primaryDisabledReason(PrimaryAction.PAIRING_STATUS,nowSeconds)
     val reconnectReason = ui.primaryDisabledReason(PrimaryAction.RECONNECT,nowSeconds)
     val statusReason = ui.primaryDisabledReason(PrimaryAction.STATUS,nowSeconds)
-    var manual by remember { mutableStateOf(false) }
-    var packet by remember { mutableStateOf("") }
-    var diagnostics by remember { mutableStateOf(false) }
+    var manual by rememberSaveable { mutableStateOf(false) }
+    var packet by rememberSaveable { mutableStateOf("") }
+    var diagnostics by rememberSaveable { mutableStateOf(false) }
     var forget by remember { mutableStateOf(false) }
+    LaunchedEffect(ui.invite) {
+        if (ui.invite != null) {
+            manual = false
+            packet = ""
+            focusManager.clearFocus()
+            keyboard?.hide()
+        }
+    }
     if (forget) AlertDialog(onDismissRequest={ forget=false },title={ Text(stringResource(R.string.forget_title)) },
         text={ Text(stringResource(R.string.forget_explanation)) },
         confirmButton={ TextButton(onClick={ model.forgetHost(); forget=false }) { Text(stringResource(R.string.forget_confirm)) } },
         dismissButton={ TextButton(onClick={ forget=false }) { Text(stringResource(R.string.cancel)) } })
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),verticalArrangement=Arrangement.spacedBy(16.dp)) {
-        Text(stringResource(R.string.app_name),style=MaterialTheme.typography.headlineLarge,modifier=Modifier.semantics { heading() })
-        Text(stringResource(pageLabel(page)),style=MaterialTheme.typography.titleLarge)
+        Text(stringResource(pageLabel(page)),style=MaterialTheme.typography.headlineLarge,modifier=Modifier.semantics { heading() })
         when(page) {
-            "home" -> {
+            "devices","recovery" -> {
                 Text(stringResource(R.string.home_title),style=MaterialTheme.typography.headlineSmall)
                 Text(stringResource(R.string.connection_value,stringResource(ui.connectionLabel())))
                 Text(ui.message.localized())
@@ -142,32 +142,36 @@ private fun CosmicPage(page: String, model: MissionViewModel, advanced: () -> Un
                             Text(stringResource(R.string.confirm_explanation))
                             Button(onClick=model::confirmHost,enabled=confirmReason == null,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)) { Text(stringResource(R.string.confirm_action)) }
                             DisabledReason(confirmReason)
+                            Text(ui.message.localized())
                         }
                     }
                 }
                 ui.pairing?.let { record ->
                     Text(stringResource(R.string.host_value,record.host.origin))
                     Text(stringResource(R.string.pairing_value,stringResource(ui.pairingLabel())))
-                    if (ui.pairingState in setOf("PENDING","APPROVED","BEGIN_UNCERTAIN","RECOVERY_REQUIRED")) {
-                        val spokenCode = stringResource(R.string.sas_value,PairingProtocol.sas(record.requestDigest).toList().joinToString(" "))
-                        SelectionContainer { Text(stringResource(R.string.sas_value,PairingProtocol.sas(record.requestDigest)),style=MaterialTheme.typography.headlineMedium,modifier=Modifier.semantics { contentDescription=spokenCode }) }
-                        Text(stringResource(R.string.sas_explanation))
-                    }
+                    Text(ui.message.localized())
                 }
-                Button(onClick=model::readPairingStatus,enabled=pairingStatusReason == null,
-                    modifier=Modifier.heightIn(min=48.dp)) { Text(stringResource(R.string.read_pairing)) }
-                DisabledReason(pairingStatusReason)
+                // Recovery is the primary action for a remembered device. It
+                // stays before expired-invitation diagnostics at large fonts.
                 Button(onClick=model::reconnect,enabled=reconnectReason == null,modifier=Modifier.heightIn(min=48.dp)) {
                     Text(stringResource(ui.reconnectLabel()))
                 }
                 DisabledReason(reconnectReason)
                 Button(onClick=model::status,enabled=statusReason == null,modifier=Modifier.heightIn(min=48.dp)) { Text(stringResource(R.string.refresh_status)) }
                 DisabledReason(statusReason)
+                ui.pairing?.let { record ->
+                    if (!record.trusted && ui.pairingState in setOf("PENDING","APPROVED","BEGIN_UNCERTAIN","RECOVERY_REQUIRED")) {
+                        val spokenCode = stringResource(R.string.sas_value,PairingProtocol.sas(record.requestDigest).toList().joinToString(" "))
+                        SelectionContainer { Text(stringResource(R.string.sas_value,PairingProtocol.sas(record.requestDigest)),style=MaterialTheme.typography.headlineMedium,modifier=Modifier.semantics { contentDescription=spokenCode }) }
+                        Text(stringResource(R.string.sas_explanation))
+                    }
+                }
+                if (ui.pairing?.trusted != true) {
+                    Button(onClick=model::readPairingStatus,enabled=pairingStatusReason == null,
+                        modifier=Modifier.heightIn(min=48.dp)) { Text(stringResource(R.string.read_pairing)) }
+                    DisabledReason(pairingStatusReason)
+                }
                 Text(stringResource(R.string.chat_unavailable))
-            }
-            "repositories" -> {
-                Text(stringResource(R.string.repositories_unavailable))
-                Text(stringResource(R.string.repositories_explanation))
             }
             "settings" -> {
                 Text(stringResource(R.string.trust_title),style=MaterialTheme.typography.titleLarge)
@@ -199,93 +203,7 @@ private fun CosmicPage(page: String, model: MissionViewModel, advanced: () -> Un
 @Composable
 internal fun UiMessage.localized(): String = stringResource(resource,*arguments.toTypedArray())
 
-internal fun pageLabel(page: String): Int = when(page) {
-    "home" -> R.string.nav_home
-    "missions" -> R.string.nav_missions
-    "repositories" -> R.string.nav_repositories
-    "settings" -> R.string.nav_settings
-    else -> R.string.advanced_enrollment
-}
-
-internal fun stateResource(state: String): Int = when(state) {
-    "REMOTE_DEPLOYMENT_BLOCKED" -> R.string.state_deployment_blocked
-    "DISCONNECTED" -> R.string.state_disconnected
-    "STALE" -> R.string.state_stale
-    "UNKNOWN","OFFLINE_OR_DENIED" -> R.string.state_unknown
-    "UNVERIFIED" -> R.string.state_unverified
-    "SIGNED_SESSION","CONNECTED" -> R.string.state_connected
-    "FRESH_ENROLLMENT_REQUIRED","RECOVERY_REQUIRED" -> R.string.state_recovery
-    "CONFIRM_HOST" -> R.string.state_confirm
-    "PENDING" -> R.string.state_pending
-    "APPROVED" -> R.string.state_approved
-    "COMPLETED" -> R.string.state_completed
-    "PAIRING_SAVED" -> R.string.state_pairing_saved
-    "REVOKED" -> R.string.state_revoked
-    "EXPIRED" -> R.string.state_expired
-    "BEGIN_UNCERTAIN" -> R.string.state_begin_uncertain
-    else -> R.string.state_unknown
-}
-
-
-/** A delivery event reveals accepted confirmation; ordinary recomposition never changes navigation. */
-internal fun routePairingDelivery(raw: String, deliver: (String) -> Boolean,
-    showConfirmation: () -> Unit, consumed: () -> Unit) {
-    if (deliver(raw)) showConfirmation()
-    consumed()
-}
-
-/** Home distinguishes public pairing history from live, signed session evidence. */
-private fun MissionUi.currentConnectionState(now: Long): String = when {
-    connection in setOf("SIGNED_SESSION","CONNECTED") && (!enrolled || bindingInvalid) -> "RECOVERY_REQUIRED"
-    connection in setOf("SIGNED_SESSION","CONNECTED") && !freshness.isFresh(now) -> "STALE"
-    else -> connection
-}
-internal fun MissionUi.connectionLabel(now: Long = Freshness.elapsedMs()): Int = stateResource(currentConnectionState(now))
-internal fun MissionUi.pairingLabel(): Int = stateResource(if (pairingState == "CONNECTED") "PAIRING_SAVED" else pairingState)
-internal fun MissionUi.reconnectLabel(now: Long = Freshness.elapsedMs()): Int =
-    if (currentConnectionState(now) in setOf("SIGNED_SESSION","CONNECTED")) R.string.refresh_connection else R.string.recover_session
-
-
 @Composable
 private fun DisabledReason(reason: Int?) {
     if (reason != null) Text(stringResource(reason),style=MaterialTheme.typography.bodyMedium)
 }
-
-internal enum class PrimaryAction { CONNECT, CONFIRM, PAIRING_STATUS, RECONNECT, STATUS }
-
-/** The same state decision drives each primary control and its adjacent explanation. */
-internal fun MissionUi.primaryDisabledReason(action: PrimaryAction, nowSeconds: Long): Int? {
-    if (busy) return R.string.reason_busy
-    if (bindingInvalid) return R.string.reason_invalid_binding
-    return when(action) {
-        PrimaryAction.CONNECT -> null
-        PrimaryAction.CONFIRM -> when {
-            invite == null -> R.string.reason_no_invite
-            nowSeconds >= invite.expiresAt -> R.string.reason_expired
-            else -> null
-        }
-        PrimaryAction.PAIRING_STATUS -> when {
-            pairing == null -> R.string.reason_no_pairing
-            pairingState == "REVOKED" -> R.string.reason_revoked
-            enrolled -> R.string.reason_already_connected
-            pairingState == "EXPIRED" || nowSeconds >= pairing.expiresAt -> R.string.reason_expired
-            else -> null
-        }
-        PrimaryAction.RECONNECT -> when {
-            pairing == null -> R.string.reason_no_pairing
-            pairingState == "REVOKED" -> R.string.reason_revoked
-            pairing.trusted || pairing.completeAttempted -> null
-            pairingState == "EXPIRED" || nowSeconds >= pairing.expiresAt -> R.string.reason_expired
-            else -> R.string.reason_pairing_pending
-        }
-        PrimaryAction.STATUS -> when {
-            pairingState == "REVOKED" -> R.string.reason_revoked
-            !enrolled -> R.string.reason_no_session
-            else -> null
-        }
-    }
-}
-
-internal fun formatSignedHostTime(epochSeconds: Long): String =
-    DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss 'UTC'",Locale.ROOT)
-        .withZone(ZoneOffset.UTC).format(Instant.ofEpochSecond(epochSeconds))

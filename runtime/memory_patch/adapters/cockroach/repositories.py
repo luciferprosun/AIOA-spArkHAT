@@ -100,7 +100,7 @@ class ScopedSQLRepository:
             raise MemoryPatchError(ErrorCode.INTEGRITY_FAILED)
         return record
 
-    def scan(self, kind, *, limit, states):
+    def scan(self, kind, *, limit, states, operation_kind=None):
         table = self._table(kind)
         if (
             type(limit) is not int
@@ -116,6 +116,11 @@ class ScopedSQLRepository:
             + " WHERE tenant_id=%s AND owner_id=%s AND space_id=%s AND slot_id=%s"
         )
         args = list(self._scope)
+        if operation_kind is not None:
+            if kind is not RecordKind.OPERATION or type(operation_kind) is not str or not 1 <= len(operation_kind) <= 64:
+                raise MemoryPatchError(ErrorCode.INVALID_REQUEST)
+            query += " AND payload->>'operation_kind' = %s"
+            args.append(operation_kind)
         if states:
             query += " AND payload->>'state' = ANY(%s::STRING[])"
             args.append(list(states))

@@ -14,13 +14,72 @@ function harness(handler) {
   },()=>100);
   return {client,calls};
 }
+test('only bounded READ dispatch gets the enclosing 30-second transport budget',async()=>{
+  const original=global.setTimeout,delays=[];
+  global.setTimeout=(fn,ms)=>{delays.push(ms);return original(fn,ms);};
+  try {
+    const {client}=harness(v=>v.op==='pairing_list'?{pending:[],devices:[]}:{
+      receipt:{schema:'aioa.native-tool-read-receipt.v1',effect:'READ',request_id:'a'.repeat(32),operation:'git.status'},data:{}});
+    await client.refresh();await client.readTool('git.status','a'.repeat(32));
+    assert.deepEqual(delays,[8000,30000]);
+  } finally {global.setTimeout=original;}
+});
+test('explicit uncertain READ readback displays its fixed timeout code and cannot redispatch',async()=>{
+  const {client,calls}=harness(v=>{
+    if(v.op==='pairing_list')return {pending:[],devices:[]};
+    if(v.op==='tool_read')throw Error('lost ACK');
+    return {state:'UNKNOWN',request_id:'a'.repeat(32),error_code:'TOOL_READ_TIMEOUT',automatic_retry:false};
+  });
+  await client.refresh();await assert.rejects(client.readTool('git.status','a'.repeat(32)));
+  await client.readToolResult();
+  assert.equal(client.snapshot().toolError,'TOOL_READ_TIMEOUT');
+  assert.equal(client.snapshot().toolState,'UNKNOWN');
+  assert.equal(calls.filter(c=>JSON.parse(c.options.body).op==='tool_read').length,1);
+});
+test('fixed READ goes through same console, rejects WRITE and keeps exact public receipt',async()=>{
+  const result={receipt:{schema:'aioa.native-tool-read-receipt.v1',effect:'READ',request_id:'a'.repeat(32),
+    operation:'github.repository'},data:{repository:'luciferprosun/AIOA-spArkHAT'},signature:'public-fixture'};
+  const {client,calls}=harness(v=>v.op==='pairing_list'?{pending:[],devices:[]}:result);
+  assert.equal(typeof client.readTool,'function','same-Core READ control is absent');
+  await client.refresh();
+  await assert.rejects(client.readTool('issue.create'),/TOOL_OPERATION_DENIED/);
+  assert.equal(calls.length,1);
+  await client.readTool('github.repository','a'.repeat(32));
+  assert.deepEqual(JSON.parse(calls[1].options.body),{op:'tool_read',request_id:'a'.repeat(32),operation:'github.repository'});
+  assert.deepEqual(client.snapshot().toolResult,result);
+  assert.equal(JSON.stringify(client.snapshot()).includes('T'.repeat(43)),false);
+});
+test('lost newer READ ACK and UNKNOWN readback never present the old result as current',async()=>{
+  let fail=false;
+  const {client}=harness(v=>{
+    if(v.op==='pairing_list')return {pending:[],devices:[]};
+    if(v.op==='tool_readback')return {state:'UNKNOWN',request_id:'b'.repeat(32),automatic_retry:false};
+    if(fail)throw Error('lost ACK');
+    return {receipt:{schema:'aioa.native-tool-read-receipt.v1',effect:'READ',request_id:'a'.repeat(32),operation:'github.repository'},data:{}};
+  });
+  await client.refresh();await client.readTool('github.repository','a'.repeat(32));fail=true;
+  await assert.rejects(client.readTool('github.repository','b'.repeat(32)));
+  assert.equal(client.snapshot().toolResult,null);
+  await client.readToolResult();
+  assert.equal(client.snapshot().toolState,'UNKNOWN');
+  assert.equal(client.snapshot().toolResult,null);
+});
+test('duplicate READ while busy cannot replace the request awaiting its ACK',async()=>{
+  let complete;
+  const {client}=harness(v=>v.op==='pairing_list'?{pending:[],devices:[]}:new Promise(r=>{complete=r;}));
+  await client.refresh();const first=client.readTool('git.status','a'.repeat(32));
+  await assert.rejects(client.readTool('git.log','b'.repeat(32)),/BUSY/);
+  assert.equal(client.snapshot().toolRequest,'a'.repeat(32));
+  complete({receipt:{schema:'aioa.native-tool-read-receipt.v1',effect:'READ',request_id:'a'.repeat(32),operation:'git.status'},data:{}});
+  await first;
+});
 test('owner transport holds credential only in request header, not public state or body', async()=>{
   const {client,calls}=harness(()=>({pending:[pending],devices:[]}));
   await client.refresh();
   assert.equal(calls[0].url,'/api/native-operator');
   assert.equal(calls[0].options.headers['X-AIOA-Session-Token'],'T'.repeat(43));
   assert.equal(calls[0].options.redirect,'error');
-  assert.equal(calls[0].options.credentials,'omit');
+  assert.equal(calls[0].options.credentials,'same-origin');
   assert.equal(JSON.stringify(client.snapshot()).includes('T'.repeat(43)),false);
   assert.deepEqual(JSON.parse(calls[0].options.body),{op:'pairing_list'});
 });
@@ -50,6 +109,39 @@ test('lost approval ACK stays UNKNOWN until explicit readback and never retries'
   await assert.rejects(client.invite(),/READBACK_REQUIRED/);assert.equal(calls.length,2);
   await client.refresh();assert.equal(calls.length,3);
   assert.equal(client.snapshot().phase,'READY');
+});
+
+test('core history read requires registry readback and cannot resolve uncertain approval',async()=>{
+  const status={profile:'NATIVE_STATUS_READ_ONLY_V1',source_sha:'a'.repeat(40),capsule_digest:'b'.repeat(64),
+    origin:'https://host.invalid',tls_spki_pin:'sha256/public',host_spki:'public',model_calls:0,
+    operator_authentication:'OS_POLICYKIT',sessions:[],observations:[],history_truncated:false};
+  const {client,calls}=harness(v=>{
+    if(v.op==='pairing_list')return {pending:[pending],devices:[]};
+    if(v.op==='status')return status;
+    throw Error('lost ACK');
+  });
+  assert.equal(typeof client.status,'function');
+  await assert.rejects(client.status(),/READBACK_REQUIRED/);assert.equal(calls.length,0);
+  await client.refresh();await client.status();
+  assert.deepEqual(client.snapshot().coreStatus,status);
+  assert.equal(client.snapshot().coreStatusAt,100);
+  await assert.rejects(client.approve(pending.request_id,pending.request_digest),/UNKNOWN_READBACK_REQUIRED/);
+  await assert.rejects(client.status(),/READBACK_REQUIRED/);
+  assert.equal(calls.filter(c=>JSON.parse(c.options.body).op==='status').length,1);
+  assert.equal(client.snapshot().phase,'UNKNOWN');
+  // Keep previous public data as historical; never restore mutation availability.
+  assert.deepEqual(client.snapshot().coreStatus,status);
+  await client.refresh();await client.status();assert.equal(client.snapshot().phase,'READY');
+  client.close();assert.equal(client.snapshot().coreStatus,null);
+});
+
+test('malformed Core history cannot render as trusted observations or restore controls',async()=>{
+  const {client}=harness(v=>v.op==='pairing_list'?{pending:[],devices:[]}:{
+    profile:'NATIVE_STATUS_READ_ONLY_V1',model_calls:0,sessions:[],history_truncated:false,
+    observations:[{proof:{issued_at:'invalid',expires_at:200},signature:'unverified'}]});
+  await client.refresh();
+  await assert.rejects(client.status(),/UNKNOWN_READBACK_REQUIRED/);
+  assert.equal(client.snapshot().phase,'UNKNOWN');assert.equal(client.snapshot().coreStatus,null);
 });
 test('device revoke requires current reviewed device and does not accept arbitrary IDs',async()=>{
   const device={device_id:'b'.repeat(64),revoked:false};
@@ -104,21 +196,23 @@ test('device panel renders revoked reconnect separately from active legacy acces
   const ids=new Map();const get=id=>{if(!ids.has(id))ids.set(id,new Element());return ids.get(id);};
   const device={device_id:'b'.repeat(64),device_name:'Phone',revoked:true,active_sessions:1,pending_enrollments:1};
   const document={body:new Element('body'),getElementById:get,createElement:tag=>new Element(tag)};
-  const credential=get('aioa-console-credential');credential.value='T'.repeat(43);
+  const credential=get('aioa-console-credential');credential.value='';
   let consumed=false;
   const client={snapshot:()=>({phase:'READY',pending:[],devices:[device],busy:false}),refresh:async()=>{}};
   vm.runInNewContext(fs.readFileSync(require('node:path').join(__dirname,'../web/mobile_devices_dom.js'),'utf8'),{
     location:{pathname:'/devices',hash:'',search:''},history:{replaceState(){}},document,
     AIOAMobileDevices:{...api,createDeviceConsole:token=>{
-      assert.equal(token,'T'.repeat(43));assert.equal(credential.removed,true);assert.equal(credential.value,'');
+      assert.equal(token,'T'.repeat(43));assert.equal(credential.value,'');
       consumed=true;return client;
-    }},window:{addEventListener(){}},setInterval(){},Date,JSON});
-  await Promise.resolve();
-  assert.equal(consumed,true,'memory client must consume and remove the POST document carrier');
+    }},AIOAMobileChat:{mount:()=>assert.fail('status-only profile must not invoke chat APIs')},
+    fetch:async()=>({ok:true,json:async()=>({ok:true,csrf_token:'T'.repeat(43),profile:'NATIVE_STATUS_READ_ONLY_V1'})}),
+    window:{addEventListener(){}},setInterval(){},Date,JSON});
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(consumed,true,'memory client must obtain anti-CSRF value through the cookie-authenticated JSON bootstrap');
   const card=get('devices-trusted').children[0];
-  assert.match(card.text(),/Ponowne łączenie odwołane/);
-  assert.match(card.text(),/Aktywne sesje: 1/);
-  assert.match(card.text(),/Oczekujące kody: 1/);
+  assert.match(card.text(),/Reconnect revoked/);
+  assert.match(card.text(),/Active sessions: 1/);
+  assert.match(card.text(),/Pending codes: 1/);
   const button=card.children.find(x=>x.tag==='button');
   assert.ok(button,'fresh legacy access must retain a revoke action');
   assert.equal(button.disabled,false);
@@ -128,5 +222,5 @@ test('device panel renders revoked reconnect separately from active legacy acces
     location:{pathname:'/devices',hash:'#operator='+'T'.repeat(43)},history:{replaceState(){}},
     document:{...document,getElementById:id=>id==='aioa-console-credential'?null:get(id)},
     AIOAMobileDevices:{...api,createDeviceConsole:()=>assert.fail('URL credential accepted')},
-    window:{addEventListener(){}},setInterval(){},Date,JSON});
+    fetch:async()=>({ok:false}),window:{addEventListener(){}},setInterval(){},Date,JSON});
 });

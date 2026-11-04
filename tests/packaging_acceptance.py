@@ -135,12 +135,13 @@ class InstalledAcceptanceTransaction:
         assert not self.closed
         return self.records.get(self.key(kind, record_id))
 
-    def scan(self, kind, *, limit, states):
+    def scan(self, kind, *, limit, states, operation_kind=None):
         assert not self.closed
         # Scope BEFORE filtering, sorting and limiting.
         rows = [row for (scope_binding, row_kind, _), row in self.records.items()
                 if scope_binding == self.context.scope.binding() and row_kind is kind]
         rows = [row for row in rows if not states or row.payload.get('state') in states]
+        rows = [row for row in rows if operation_kind is None or row.payload.get('operation_kind') == operation_kind]
         return tuple(sorted(rows, key=lambda row: row.record_id)[:limit])
 
     def checked_key(self, record):

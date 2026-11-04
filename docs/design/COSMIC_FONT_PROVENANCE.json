@@ -1,0 +1,36 @@
+{
+  "repository": "https://github.com/google/fonts",
+  "commit": "2fe1e8c6b137fb13041a7cfca6fdcd8a910ea4dc",
+  "license": "SIL Open Font License 1.1",
+  "fonts": [
+    {
+      "family": "spacegrotesk",
+      "font": "SpaceGrotesk[wght].ttf",
+      "resource": "cosmic_space_grotesk.ttf",
+      "source_path": "ofl/spacegrotesk/SpaceGrotesk[wght].ttf",
+      "bytes": 136676,
+      "sha256": "acad6de1fc93436f5c0f1f4137751ef04f1aea3063e7036535970ffcfbd79f72",
+      "license_sha256": "564ce565c371c5e5bbf286006565a7c9aa55a9f56e7ca58d56e05d649dd61a72"
+    },
+    {
+      "family": "manrope",
+      "font": "Manrope[wght].ttf",
+      "resource": "cosmic_manrope.ttf",
+      "source_path": "ofl/manrope/Manrope[wght].ttf",
+      "bytes": 164700,
+      "sha256": "3ae11c49db0455a3cc33e37d380f20fdb8c7f8b41dc07625c177e3d87a9d6ae6",
+      "license_sha256": "58172e0c0fac2cda8a37b348164bb55e44b0e69051e557e92b1d3f6910141f7b"
+    },
+    {
+      "family": "ibmplexmono",
+      "font": "IBMPlexMono-Regular.ttf",
+      "resource": "cosmic_ibm_plex_mono.ttf",
+      "source_path": "ofl/ibmplexmono/IBMPlexMono-Regular.ttf",
+      "bytes": 135580,
+      "sha256": "6a3412f058c7d8dfd9170c41e85ade48e5156ecb89356110ca57a0a27734af46",
+      "license_sha256": "7e6b2818edbd8f6a01ae80641cc8f16a51080d08fb4e532be3a0b6f74adb07da"
+    }
+  ],
+  "bundled_license_sha256": "3a71919e7c402745dee96ff7a5eb9d9697fd44e734de9a2ebe86cd6db6b407c6",
+  "license_text_normalization": "LF, trailing whitespace removed; wording and notices retained"
+}

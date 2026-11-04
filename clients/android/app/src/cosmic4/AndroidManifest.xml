@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
+    <application android:label="AIOA Cosmic 4.0" tools:replace="android:label">
+        <!-- No grants/file APIs; every call verifies the actual kernel shell UID. -->
+        <provider android:name="eu.sparkhat.aioa.companion.UsbProvisioningProvider"
+            android:authorities="${applicationId}.usb" android:exported="true" android:grantUriPermissions="false" />
+    </application>
+</manifest>

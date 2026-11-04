@@ -69,6 +69,15 @@ class DualGovernorTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'BUDGET_EXCEEDED'):
             self.reserve(self.request('r2', money=1, risk=0))
 
+    def test_unrelated_mobile_observations_do_not_exhaust_governor_history(self):
+        def noise(tx):
+            for index in range(1025):
+                tx.insert(StoredRecord(RecordKind.OPERATION,'mobile-noise-'+str(index),SCOPE,1,
+                    {'schema':'fixture-mobile-observation','state':'OBSERVED'}))
+        self.runner.run(TransactionContext(self.principal(),Capability.COMMIT),noise)
+        self.reserve()
+        self.assertEqual('RESERVED',self.inspect()['reservations']['r1']['state'])
+
     def test_negative_boolean_and_overflow_amounts_cannot_reserve(self):
         for amount in (-1, True, 2**63, 1.5):
             for field in ('money_nano', 'risk_units'):
@@ -337,7 +346,7 @@ class DualGovernorTests(unittest.TestCase):
     def test_complete_scan_quota_fails_closed_instead_of_forgetting_exposure(self):
         factory=FakeFactory();runner=TransactionRunner(self.core,factory);self.addCleanup(runner.close)
         for n in range(1024):
-            record=StoredRecord(RecordKind.OPERATION,str(n),SCOPE,1,{'state':'unrelated'})
+            record=StoredRecord(RecordKind.OPERATION,str(n),SCOPE,1,{'operation_kind':'aioa-dual-governor-v1'})
             factory.state[(SCOPE.binding(),record.kind,record.record_id)]=record
         gov=self.Governor(self.core,runner,self.policy,clock=lambda:self.now)
         with self.assertRaisesRegex(ValueError,'HISTORY_QUOTA'):

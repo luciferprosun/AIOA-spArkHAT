@@ -287,6 +287,8 @@ class MobileGateway:
         if self.native_host is not None:
             capabilities.update(profile='NATIVE_STATUS_READ_ONLY_V1',preview=False,evidence=False,stop=False,
                 remote_deployment='TLS_HOST_VERIFIED' if self.native_host.tls_verified else 'TLS_QUALIFICATION_PENDING')
+            if self.native_host.chat_enabled:
+                capabilities.update(profile='NATIVE_ADVISORY_CHAT_V1',chat=True,stop=True)
         now=int(self.clock())
         proof={'schema':'aioa.mobile.host-proof.v1','challenge':challenge,'origin':self.origin,
             'audience':self.identity.audience,'host_spki':self.identity.spki,'issued_at':now,'expires_at':now+30,
@@ -354,6 +356,9 @@ class MobileGateway:
         return self._project(record)
 
     def _dispatch(self, action, identity, session, value):
+        if action.startswith('chat_'):
+            from .chat_views import dispatch
+            return dispatch(self,action,identity,session,value)
         if action.startswith('agent_'):
             from .views_v2 import dispatch
             return dispatch(self,action,identity,session,value)
@@ -412,7 +417,7 @@ class MobileGateway:
                 require(type(body) is bytes and len(body)<=wire.BODY_LIMIT,413)
                 action,identity=wire.route(method,path)
                 self._ready(allow_pending_tls=action=='capabilities')
-                if self.native_host is not None:require(action in {'capabilities','redeem','status','status_page','revoke','pairing_begin','pairing_status','pairing_complete','session_challenge','session_reconnect'},501)
+                if self.native_host is not None:require(action in {'capabilities','redeem','status','status_page','revoke','pairing_begin','pairing_status','pairing_complete','session_challenge','session_reconnect'} or self.native_host.chat_enabled and action.startswith('chat_'),501)
                 if method=='GET':require(not body,400)
                 value=wire.strict_json(body) if method=='POST' else {}
                 if action=='capabilities':return 200,self._host_proof(headers)

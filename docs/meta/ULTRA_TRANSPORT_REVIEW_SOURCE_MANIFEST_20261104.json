@@ -1,0 +1,19 @@
+{
+  "base_sha": "9e7dd3f1ea7f03a61b7aac9e67e93f605b74e7e1",
+  "files": {
+    "runtime/mcp_bridge/native_read.py": "7024961c1292ee51d5cdab769f8477670e0c819b842b8684e2578ad7807b5960",
+    "runtime/meta_hackathon/native_tools.py": "c6925348ed69027da1efdad87b1845069839f3f66e692bc0ba27ab762e7947cb",
+    "runtime/mobile_gateway/chrome_console.py": "9fc48844331dcf0654c0adb33d5d02275c5a81c6b228d4d51b75a29a814ea94b",
+    "runtime/webapp.py": "a5e2497f3c4abd593eafa35a0c51f766e24c2188c3c38387915870c0738b3425",
+    "tests/mobile_device_console_browser.py": "c6451bdf78b027f978c731ee459bee589b06774eb6c355b824a71b65dd4abe26",
+    "tests/mobile_devices.test.cjs": "1595f67024c104a9ed8ed3f3afaf81081a603b390b65b483ac42c8de0c94eadf",
+    "tests/test_chrome_console_lifecycle.py": "23610b69290874cb0f4d3cab070fb001be58bf17b118ede0f6c73417057e0c0f",
+    "tests/test_mobile_device_console.py": "418931f78d219df0faa5c6ecd29f4ec1f24d5ae69912834c84c6827b6cdfa551",
+    "tests/test_native_tools.py": "f59cc546c24df7fb2f0f512e2a3015f0bd41dc36bcfc475cf500d39d4d329654",
+    "web/mobile_devices.js": "cf07a0e7947873b2cbfc18353773d36810c2df1b944d33ab98a71d754644e0d0",
+    "web/mobile_devices_dom.js": "1a9e38774a5ab2e5edb147a2691bfa6c458a5c503ced06355d92cdc7c9f4c69c"
+  },
+  "schema": "aioa.reviewed-source-manifest.v1",
+  "scope": "11 independently reviewed transport source/test files; active runtime untouched",
+  "snapshot_sha256": "5621643fee6d1602b196220b70b220ac6f023cf79765f504f141f2cc857e14a6"
+}

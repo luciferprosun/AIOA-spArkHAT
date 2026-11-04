@@ -1,0 +1,34 @@
+{
+  "schema": "aioa.cosmic.tokens.v1",
+  "source": {
+    "figma_file": "odRmVoOW86gDN3Gm15JKJe",
+    "node": "2:2",
+    "canva_design": "DAHZ2xNq8Ig",
+    "muted_override": "AIOA_COSMIC_SKIN_IMPLEMENTATION_MASTER_CODEX_2026-11-03.pdf"
+  },
+  "colors": {
+    "background": "#0B1023",
+    "surface": "#151D33",
+    "primary": "#55D9F6",
+    "secondary": "#8A63FF",
+    "text": "#F6F8FF",
+    "muted": "#AAB7D2",
+    "warning": "#FFC66D",
+    "success": "#4AD8A0",
+    "danger": "#FF647A"
+  },
+  "spacing": [
+    4,
+    8,
+    16,
+    24,
+    32
+  ],
+  "card_radius": 14,
+  "touch_target": 48,
+  "fonts": {
+    "heading": "Space Grotesk",
+    "body": "Manrope",
+    "code": "IBM Plex Mono"
+  }
+}

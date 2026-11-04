@@ -14,7 +14,7 @@ NAME = 'clients/android/ANDROID_BUILD_INPUT_MANIFEST.json'
 def manifest():
     directory=ROOT/'clients/android'
     files=[]
-    for path in sorted(directory.rglob('*')):
+    for path in sorted(directory.rglob('*'),key=lambda value:value.relative_to(ROOT).as_posix()):
         relative=path.relative_to(ROOT).as_posix()
         if relative==NAME or any(p in ('build','.gradle','.kotlin','__pycache__') for p in path.parts):continue
         if path.is_symlink():raise ValueError('BUILD_INPUT_SYMLINK_DENIED')
@@ -28,9 +28,14 @@ def manifest():
     if wrapper['sha256'] != WRAPPER:raise ValueError('WRAPPER_SHA_DENIED')
     props=(directory/'gradle/wrapper/gradle-wrapper.properties').read_text()
     if 'distributionSha256Sum='+DISTRIBUTION not in props:raise ValueError('DISTRIBUTION_SHA_DENIED')
+    from scripts.android.cosmic4_channel import CHANNEL, manifest_identity
     return {'schema':'aioa.android.build-inputs.v1','status':'APK_BUILD_BLOCKED_TOOLCHAIN',
         'apk_built':False,'phone_installed':False,'package':'eu.sparkhat.aioa.companion',
-        'version_code':3,'version_name':'0.3.0-cosmic','source_baseline':'5d0fb00d5b7c68f3f9ea0698e4047829a2636654',
+        'version_code':4,'version_name':'0.3.1-cosmic','source_baseline':'4960ba2c56c55abfbf234909e7b8127beda06057',
+        # Public certificate fingerprint of the physically installed Cosmic0.3.0.
+        # A fresh ephemeral CI signer is not an acceptable update of that app.
+        'update_signing_certificate_sha256':'75a539bc1cc1cf9ca9cde7fddf32f8dc82ceaee3fd2c8831d9e32a7a14ab6404',
+        'channels':{CHANNEL:manifest_identity()},
         'required_toolchain':{'jdk':17,'gradle':'8.13','android_gradle_plugin':'8.11.1',
             'kotlin':'2.2.21','compile_sdk':36,'build_tools':'35.0.0','min_sdk':26,'target_sdk':36},
         'gradle_wrapper_sha256':WRAPPER,'gradle_distribution_sha256':DISTRIBUTION,
@@ -42,7 +47,7 @@ def manifest():
             'verify Gradle8.13 cache before wrapper invocation; wrapper may otherwise download',
             'verify dependency cache, signing continuity and free RAM/disk',
             'owner decision required for any phone installation; no automatic ADB'],
-        'not_run':['Gradle','Kotlin/JVM','Android lint','assembleDebug','apksigner','physical device'],
+        'not_run':['Gradle testDebugUnitTest','Android lint','assembleDebug','apksigner','physical device'],
         'files':files}
 
 

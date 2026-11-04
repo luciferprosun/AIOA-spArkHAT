@@ -31,7 +31,7 @@ def require_prerequisites():
 
 
 def browser_command(output,source_sha):
-    command=sandbox_command(output,390,844,source_sha)
+    command=sandbox_command(output,1280,900,source_sha)
     command=command[:command.index('--')]
     for name in ('test_mobile_device_console.py','test_mobile_pairing.py','mobile_device_console_browser.py'):
         command+=['--ro-bind',str(ROOT/'tests'/name),'/app/tests/'+name]
@@ -76,6 +76,11 @@ def worker():
             def synthetic_operation(value):
                 nonlocal reads
                 operations.append(value)
+                if value=={'op':'status'}:
+                    return {**self.app.public_settings(),'sessions':[],'history_truncated':False,
+                        'observations':[{'proof':{'method':'GET','path':'/api/mobile/v1/status',
+                            'issued_at':self.now,'expires_at':self.now+30,'source_sha':self.source[0],
+                            'data_sha256':'a'*64},'signature':'SYNTHETIC_NOT_LIVE'}]}
                 if value=={'op':'pairing_list'}:
                     reads+=1
                     if reads==8:raise OSError('Synthetic lost readback ACK')
@@ -86,8 +91,14 @@ def worker():
             prelude="""
             window.consoleProbeInitialURL=location.href;
             window.consoleProbeReads=0;
+            window.consoleProbeStatusReads=0;
+            window.consoleProbeDeliveryFetches=0;
             const originalFetch=window.fetch.bind(window);
-            window.fetch=async(...args)=>{const reply=await originalFetch(...args);window.consoleProbeReads++;return reply;};
+            window.fetch=async(...args)=>{
+              if(String(args[0]).endsWith('/devices'))window.consoleProbeDeliveryFetches++;
+              const reply=await originalFetch(...args);
+              if(args[0]==='/api/native-operator'){if(JSON.parse(args[1].body).op==='status')window.consoleProbeStatusReads++;else window.consoleProbeReads++;}
+              return reply;};
             const originalInterval=window.setInterval.bind(window);
             window.setInterval=(fn,ms,...args)=>ms===5000?(window.consoleProbePoll=fn,0):originalInterval(fn,ms,...args);
             """
@@ -102,6 +113,27 @@ def worker():
               const trusted=()=>document.querySelector('#devices-trusted button');
               try {
                 await wait(1);
+                const statusButton=document.getElementById('cosmic-core-read');
+                statusButton.click();
+                for(let i=0;i<200&&(window.consoleProbeStatusReads<1||statusButton.disabled);i++)await new Promise(r=>setTimeout(r,20));
+                result.existing_core_status_read=window.consoleProbeStatusReads===1&&
+                  document.getElementById('cosmic-core-settings').textContent.includes('NATIVE_STATUS_READ_ONLY_V1')&&
+                  document.getElementById('cosmic-core-observations').textContent.includes('/api/mobile/v1/status')&&
+                  document.getElementById('cosmic-core-read-state').textContent.includes('Historical local operator readback');
+                let navigationOK=true;
+                for (const button of document.querySelectorAll('.cosmic-rail [data-cosmic-target]')) {
+                  button.click();
+                  const shown=Array.from(document.querySelectorAll('[data-cosmic-page]')).filter(x=>!x.hidden);
+                  navigationOK=navigationOK&&shown.length===1&&shown[0].dataset.cosmicPage.split(' ').includes(button.dataset.cosmicTarget)&&
+                    document.activeElement===shown[0].querySelector('h2');
+                }
+                result.cosmic_navigation_read_only=navigationOK&&window.consoleProbeReads===1;
+                document.querySelector('[data-cosmic-target="devices"]').click();
+                await document.fonts.ready;
+                result.local_fonts_loaded=['CosmicBody','CosmicHeading','CosmicMono'].every(name=>
+                  Array.from(document.fonts).some(font=>font.family===name&&font.status==='loaded'));
+                document.documentElement.style.fontSize='200%';
+                result.large_text_no_outer_overflow=document.documentElement.scrollWidth<=document.documentElement.clientWidth+1;
                 result.bootstrap=location.pathname==='/devices'&&location.hash===''&&location.search===''&&pending().length===2;
                 result.no_url_or_storage_credential=window.consoleProbeInitialURL===location.origin+'/devices'&&
                   document.referrer===''&&localStorage.length===0&&sessionStorage.length===0&&
@@ -109,7 +141,7 @@ def worker():
                   !document.documentElement.outerHTML.includes('name="delivery"');
                 const saved=document.getElementById('devices-trusted').textContent;
                 result.revoked_reconnect_keeps_legacy_revoke=!!trusted()&&!trusted().disabled&&
-                  saved.includes('Ponowne łączenie odwołane')&&saved.includes('Aktywne sesje: 1')&&saved.includes('Oczekujące kody: 1');
+                  saved.includes('Reconnect revoked')&&saved.includes('Active sessions: 1')&&saved.includes('Pending codes: 1');
                 pending()[0].focus();window.consoleProbePoll();
                 result.busy_controls_disabled=pending().every(x=>x.disabled)&&trusted().disabled;
                 await wait(2);
@@ -128,11 +160,21 @@ def worker():
                 window.consoleProbePoll();await wait(8);window.consoleProbePoll();
                 await new Promise(r=>setTimeout(r,50));
                 result.unknown_suppresses_poll=window.consoleProbeReads===8&&pending().every(x=>x.disabled);
+                result.unknown_clears_cosmic_overview=document.getElementById('cosmic-trusted-count').textContent==='—'&&
+                  document.getElementById('cosmic-session-count').textContent==='—'&&statusButton.disabled;
+                document.getElementById('devices-lock').click();
+                result.lock_clears_status_history=!document.getElementById('cosmic-core-settings').textContent.includes('NATIVE_STATUS_READ_ONLY_V1')&&
+                  !document.getElementById('cosmic-core-observations').textContent.includes('/api/mobile/v1/status');
+                result.empty_lists_and_locked_controls=document.getElementById('devices-pending').textContent.includes('No pending requests')&&
+                  document.getElementById('devices-trusted').textContent.includes('No remembered devices')&&statusButton.disabled&&
+                  document.getElementById('devices-add').disabled;
               } catch(error) {result.error=error.message;}
+              document.getElementById('devices-title').textContent='Cosmic · TEST OFFLINE';
               const output=document.createElement('pre');output.id='console-browser-result';
               output.textContent=JSON.stringify(result);document.body.append(output);
             })();
             """
+            preview_mode=[False]
             class BrowserHandler(webapp.AOIAWebHandler):
                 def do_GET(handler):
                     capture.append(('GET',handler.path,handler.headers.get('Sec-Fetch-Site')))
@@ -144,6 +186,9 @@ def worker():
                     # Test-only scripts reuse allowed asset paths. All document and
                     # owner POST admission checks remain the real handler's checks.
                     script={'/qr.js':prelude,'/meta_mission.js':driver}.get(handler.path)
+                    if preview_mode[0]:
+                        script=("document.getElementById('devices-title').textContent='Cosmic · TEST OFFLINE';"
+                            if handler.path=='/qr.js' else None)
                     if script is None:return super().send_head()
                     body=script.encode();handler.send_response(200)
                     handler.send_header('Content-Type','text/javascript');handler.send_header('Content-Length',str(len(body)))
@@ -153,40 +198,76 @@ def worker():
             test_spki=base64.b64encode(hashlib.sha256(request.certificate_spki).digest()).decode('ascii')
             self.app.origin='https://host.example.org:'+str(request.server.server_address[1])
             grant=self.console_socket(service)({'op':'console'})['data']
-            real_run=subprocess.run;outputs=[];files=[]
-            def launch(argv,**kwargs):
-                self.assertEqual('/usr/bin/xdg-open',argv[0])
-                for secret in (grant['delivery'],service.csrf_token):
-                    self.assertNotIn(secret,str(argv));self.assertNotIn(secret,str(kwargs))
-                files.append(Path(argv[1].removeprefix('file://')))
-                result=real_run([chrome,'--headless=new','--no-sandbox','--disable-dev-shm-usage',
-                    '--no-proxy-server','--host-resolver-rules=MAP host.example.org 127.0.0.1',
-                    '--ignore-certificate-errors-spki-list='+test_spki,
-                    '--disable-background-networking','--disable-component-update',
-                    '--user-data-dir='+str(self.root/'chrome-profile'),'--dump-dom','--virtual-time-budget=15000',argv[1]],
-                    capture_output=True,text=True,timeout=40)
-                outputs.append(result.stdout);self.assertEqual(0,result.returncode,result.stderr[-2000:])
-                persisted={'delivery':[],'csrf':[]}
-                for kind,secret in (('delivery',grant['delivery']),('csrf',service.csrf_token)):
-                    self.assertNotIn(secret,result.stdout);self.assertNotIn(secret,result.stderr)
-                    for path in (self.root/'chrome-profile').rglob('*'):
-                        if not path.is_file():continue
-                        with path.open('rb') as stream:
-                            previous=b''
-                            while chunk:=stream.read(65536):
-                                if secret.encode() in previous+chunk:
-                                    persisted[kind].append(str(path.relative_to(self.root/'chrome-profile')))
-                                    break
-                                previous=chunk[-42:]
-                print('CONSOLE_PROFILE_SCAN '+json.dumps(persisted,sort_keys=True),flush=True)
-                self.assertFalse(persisted['csrf'],'Reusable CSRF persisted in browser profile')
-                # Chrome can retain the spent POST ticket in Sessions. It is
-                # deliberately distinct from the reusable, memory-only CSRF.
-                return result
-            with patch.object(service,'mobile_operator_request',side_effect=synthetic_operation),\
-                    patch('subprocess.run',side_effect=launch),patch('time.sleep'):
-                webapp._launch_mobile_console(grant,self.root)
-            self.assertFalse(files[0].exists())
+            from runtime.mobile_gateway.chrome_console import Pipe,cleanup_owned,open_document,deliver_once
+            real_run=subprocess.run;outputs=[]
+            # Use the same anonymous-pipe protocol as the real launcher. Only
+            # the already contained, networkless fixture uses headless Chrome
+            # and its synthetic TLS SPKI; production flags remain unchanged.
+            browser_read,parent_write=os.pipe();parent_read,browser_write=os.pipe()
+            args=[chrome,'--headless=new','--no-sandbox','--disable-dev-shm-usage','--remote-debugging-pipe',
+                '--window-size=1280,900','--no-proxy-server',
+                '--host-resolver-rules=MAP host.example.org 127.0.0.1',
+                '--ignore-certificate-errors-spki-list='+test_spki,
+                '--disable-background-networking','--disable-component-update',
+                '--user-data-dir='+str(self.root/'chrome-profile'),'about:blank']
+            command=['/bin/bash','-c','exec 3<&'+str(browser_read)+' 4>&'+str(browser_write)+'; exec "$@"','aioa-synthetic-pipe',*args]
+            for secret in (grant['delivery'],service.csrf_token):self.assertNotIn(secret,repr(command))
+            process=subprocess.Popen(command,pass_fds=(browser_read,browser_write),stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,start_new_session=True)
+            os.close(browser_read);os.close(browser_write);pipe=Pipe(parent_write,parent_read)
+            with patch.object(service,'mobile_operator_request',side_effect=synthetic_operation):
+                try:
+                    session=open_document(pipe,self.app.origin+'/devices')
+                    # Invalid canary, never an owner grant: a changed document
+                    # must be rejected before fetch is called at all.
+                    with self.assertRaisesRegex(ValueError,'CONSOLE_DELIVERY_UNKNOWN_NO_RETRY'):
+                        deliver_once(pipe,session,'https://other.example.invalid/devices','Z'*43)
+                    calls=pipe.call('Runtime.evaluate',{'expression':'window.consoleProbeDeliveryFetches','returnByValue':True},session)
+                    self.assertEqual(0,calls['result']['value'],'Changed-document guard invoked fetch')
+                    deliver_once(pipe,session,self.app.origin+'/devices',grant['delivery'])
+                    pipe.call('Page.reload',{},session)
+                    for _ in range(300):
+                        result=pipe.call('Runtime.evaluate',{'expression':"document.getElementById('console-browser-result')?.textContent",'returnByValue':True},session)
+                        if result.get('result',{}).get('value'):break
+                        time.sleep(.02)
+                    dom=pipe.call('Runtime.evaluate',{'expression':'document.documentElement.outerHTML','returnByValue':True},session)
+                    outputs.append(dom['result']['value'])
+                finally:
+                    os.close(parent_write);os.close(parent_read);cleanup_owned(process,group=True,timeout=2)
+            persisted={'delivery':[],'csrf':[]}
+            for kind,secret in (('delivery',grant['delivery']),('csrf',service.csrf_token)):
+                self.assertNotIn(secret,outputs[0])
+                for path in (self.root/'chrome-profile').rglob('*'):
+                    if not path.is_file():continue
+                    with path.open('rb') as stream:
+                        previous=b''
+                        while chunk:=stream.read(65536):
+                            if secret.encode() in previous+chunk:
+                                persisted[kind].append(str(path.relative_to(self.root/'chrome-profile')));break
+                            previous=chunk[-42:]
+            print('CONSOLE_PROFILE_SCAN '+json.dumps(persisted,sort_keys=True),flush=True)
+            self.assertFalse(persisted['csrf'],'Reusable CSRF persisted in browser profile')
+            # Direct public navigation avoids capturing the spent launcher's
+            # blank POST handoff. This second client has no owner credential.
+            preview_mode[0]=True
+            preview=real_run([chrome,'--headless=new','--no-sandbox','--disable-dev-shm-usage',
+                '--no-proxy-server','--host-resolver-rules=MAP host.example.org 127.0.0.1',
+                '--ignore-certificate-errors-spki-list='+test_spki,
+                '--disable-background-networking','--disable-component-update','--window-size=1280,900',
+                '--user-data-dir='+str(self.root/'chrome-preview-profile'),
+                '--screenshot=/out/cosmic-web-offline.png','--virtual-time-budget=3000',self.app.origin+'/devices'],
+                capture_output=True,text=True,timeout=25)
+            self.assertEqual(0,preview.returncode,preview.stderr[-1000:])
+            self.assertTrue(Path('/out/cosmic-web-offline.png').is_file(),'Offline screenshot missing')
+            small=real_run([chrome,'--headless=new','--no-sandbox','--disable-dev-shm-usage',
+                '--no-proxy-server','--host-resolver-rules=MAP host.example.org 127.0.0.1',
+                '--ignore-certificate-errors-spki-list='+test_spki,
+                '--disable-background-networking','--disable-component-update','--window-size=540,800',
+                '--user-data-dir='+str(self.root/'chrome-small-profile'),
+                '--screenshot=/out/cosmic-web-small-offline.png','--virtual-time-budget=3000',self.app.origin+'/devices'],
+                capture_output=True,text=True,timeout=25)
+            self.assertEqual(0,small.returncode,small.stderr[-1000:])
+            self.assertTrue(Path('/out/cosmic-web-small-offline.png').is_file(),'Small-window screenshot missing')
             from urllib.parse import urlsplit
             code,raw=request('POST','/devices',('delivery='+grant['delivery']).encode(),
                 {**self.navigation,'Host':urlsplit(self.app.origin).netloc})
@@ -194,18 +275,21 @@ def worker():
             self.assertEqual('LOCAL_OPERATOR_REQUIRED',json.loads(raw)['error'])
             self.assertFalse(service.csrf_token.encode() in raw,'Replay exposed reusable credential')
             self.assertFalse(grant['delivery'].encode() in raw,'Replay echoed spent delivery ticket')
-            self.assertIn(('POST','/devices','cross-site'),capture)
+            self.assertIn(('POST','/devices','same-origin'),capture)
             self.assertTrue(all('?' not in path and '#' not in path for _,path,_ in capture))
             self.assertFalse(any(path=='/api/session' for _,path,_ in capture))
             for secret in (grant['delivery'],service.csrf_token):self.assertNotIn(secret,repr(capture))
-            self.assertEqual(8,len(operations));self.assertTrue(all(x=={'op':'pairing_list'} for x in operations))
+            self.assertEqual(9,len(operations));self.assertEqual(8,operations.count({'op':'pairing_list'}))
+            self.assertEqual(1,operations.count({'op':'status'}))
             found=re.search(r'<pre id="console-browser-result">(.*?)</pre>',outputs[0],re.S)
             self.assertIsNotNone(found,'Browser probe did not finish')
             result=json.loads(html.unescape(found[1]))
             self.assertEqual(dict.fromkeys(('bootstrap','busy_controls_disabled','pending_focus','device_focus',
                 'reordered_exact_focus','changed_digest_not_focused','removed_request_not_focused',
                 'deliberate_focus_preserved','unknown_suppresses_poll','revoked_reconnect_keeps_legacy_revoke',
-                'no_url_or_storage_credential'),True),result)
+                'no_url_or_storage_credential','cosmic_navigation_read_only','local_fonts_loaded',
+                'large_text_no_outer_overflow','unknown_clears_cosmic_overview','existing_core_status_read',
+                'lock_clears_status_history','empty_lists_and_locked_controls'),True),result)
 
     suite=unittest.TestSuite([BrowserConsoleTests('test_chrome_private_launcher_bootstrap_and_exact_control_focus')])
     result=unittest.TextTestRunner(verbosity=2).run(suite)

@@ -13,6 +13,38 @@ class AndroidBuildVerificationTests(unittest.TestCase):
         self.verify=importlib.import_module('scripts.android.verify_apk')
         self.build=importlib.import_module('scripts.android.build_apk')
 
+    def test_recovery_version_four_has_exact_reviewed_identity_and_keeps_legacy_inventory(self):
+        raw="package: name='eu.sparkhat.aioa.companion' versionCode='4' versionName='0.3.1-cosmic'\nsdkVersion:'26'\ntargetSdkVersion:'36'\nuses-permission: name='android.permission.INTERNET'\n"
+        try:value=self.verify.parse_badging(raw)
+        except self.verify.lib.Blocked as error:self.fail('Reviewed recovery APK identity refused: '+error.code)
+        self.assertEqual((4,'0.3.1-cosmic'),(value['version_code'],value['version_name']))
+        legacy=raw.replace("versionCode='4'","versionCode='3'").replace('0.3.1-cosmic','0.3.0-cosmic')
+        self.assertEqual(3,self.verify.parse_badging(legacy)['version_code'])
+        for bad in (raw.replace('0.3.1-cosmic','0.3.0-cosmic'),raw.replace("versionCode='4'","versionCode='3'"),
+                    raw.replace("versionCode='4'","versionCode='5'")):
+            with self.subTest(bad=bad),self.assertRaises(self.verify.lib.Blocked):self.verify.parse_badging(bad)
+
+    def test_delivery_requires_exact_inspected_source_version_not_legacy_inventory(self):
+        self.assertTrue(hasattr(self.verify,'assert_source_identity'),'Missing source-specific APK identity gate')
+        source={'version_code':4,'version_name':'0.3.1-cosmic','package':'eu.sparkhat.aioa.companion',
+                'update_signing_certificate_sha256':'a'*64}
+        metadata={**source,'certificate_sha256':'a'*64}
+        self.verify.assert_source_identity(metadata,source)
+        for delta in ({'version_code':3,'version_name':'0.3.0-cosmic'},
+                      {'version_code':4,'version_name':'0.3.0-cosmic'},{'package':'other.app'}):
+            with self.subTest(delta=delta),self.assertRaises(self.verify.lib.Blocked):
+                self.verify.assert_source_identity({**metadata,**delta},source)
+
+    def test_recovery_delivery_requires_existing_apk_signer_not_a_fresh_ci_key(self):
+        source={'package':'eu.sparkhat.aioa.companion','version_code':4,'version_name':'0.3.1-cosmic',
+                'update_signing_certificate_sha256':'a'*64}
+        metadata={k:source[k] for k in ('package','version_code','version_name')}
+        metadata['certificate_sha256']='a'*64
+        self.verify.assert_source_identity(metadata,source)
+        for actual in ('b'*64,None):
+            with self.subTest(certificate=actual),self.assertRaises(self.verify.lib.Blocked):
+                self.verify.assert_source_identity({**metadata,'certificate_sha256':actual},source)
+
     def test_metadata_requires_exact_package_version_sdk_and_permissions(self):
         good="package: name='eu.sparkhat.aioa.companion' versionCode='3' versionName='0.3.0-cosmic'\nsdkVersion:'26'\ntargetSdkVersion:'36'\nuses-permission: name='android.permission.INTERNET'\n"
         value=self.verify.parse_badging(good)

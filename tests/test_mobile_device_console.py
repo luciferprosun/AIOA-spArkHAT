@@ -50,6 +50,80 @@ class DeviceConsoleTests(unittest.TestCase):
         service=self.service()
         with self.assertRaises(wire.MobileError):service.mobile_operator_request({'op':'pairing_list'})
 
+    def test_busy_http_read_lock_is_bounded_before_core_dispatch(self):
+        service=self.service();request=self.tls(service);control=self.console_socket(service)
+        token=self.activate(service,request,control)
+        headers={'X-AIOA-Session-Token':token,'Origin':self.app.origin}
+        service.lock.acquire()
+        try:
+            with patch.object(service,'mobile_operator_request') as dispatch:
+                code,raw=request('POST','/api/native-operator',{
+                    'op':'tool_read','request_id':'c'*32,'operation':'github.repository'},headers)
+                self.assertEqual(409,code,raw)
+                self.assertFalse(wire.strict_json(raw)['automatic_retry'])
+                dispatch.assert_not_called()
+        finally:service.lock.release()
+        self.assertIsNone(self.app.mobile._get('native-tool-read-'+'c'*32))
+
+    def test_http_read_timeout_has_durable_unknown_readback_without_dispatch_retry(self):
+        service=self.service();request=self.tls(service);control=self.console_socket(service)
+        token=self.activate(service,request,control)
+        headers={'X-AIOA-Session-Token':token,'Origin':self.app.origin}
+        with patch('runtime.mcp_bridge.native_read.read',side_effect=ValueError('TOOL_READ_TIMEOUT')) as read:
+            code,raw=request('POST','/api/native-operator',{
+                'op':'tool_read','request_id':'c'*32,'operation':'github.repository'},headers)
+            self.assertEqual(503,code,raw)
+            self.assertFalse(wire.strict_json(raw)['automatic_retry'])
+            code,raw=request('POST','/api/native-operator',{'op':'tool_readback','request_id':'c'*32},headers)
+            self.assertEqual(200,code,raw)
+            data=wire.strict_json(raw)['data']
+            self.assertEqual('UNKNOWN',data['state'])
+            self.assertEqual('TOOL_READ_TIMEOUT',data['error_code'])
+            self.assertNotIn('receipt',data)
+            self.assertEqual(1,read.call_count)
+
+    def test_private_socket_uses_longer_deadline_only_for_bounded_tool_read(self):
+        service=self.service();control=self.console_socket(service)
+        actual=socket.socket;peers=[];test_thread=threading.get_ident()
+        def tracked(*args,**kwargs):
+            peer=actual(*args,**kwargs)
+            if threading.get_ident()==test_thread:peers.append(peer)
+            return peer
+        with patch.object(socket,'socket',side_effect=tracked),patch('runtime.mcp_bridge.native_read.read',return_value={
+                'operation':'git.status','data':{'text':''},'transport':'FIXTURE_NOT_LIVE'}):
+            self.assertTrue(control({'op':'status'})['ok'])
+            self.assertTrue(control({'op':'tool_read','request_id':'c'*32,'operation':'git.status'})['ok'])
+            self.assertTrue(control({'op':'tool_readback','request_id':'c'*32})['ok'])
+        self.assertEqual([10,30,10],[peer.gettimeout() for peer in peers])
+
+    def test_cosmic_public_assets_load_without_granting_operator_authority(self):
+        service=self.service()
+        request=self.tls(service)
+        for asset in ('/cosmic_tokens.css','/cosmic_space_grotesk.ttf',
+                '/cosmic_manrope.ttf','/cosmic_ibm_plex_mono.ttf','/cosmic_fonts_ofl.txt'):
+            with self.subTest(asset=asset):
+                code,raw=request('GET',asset)
+                self.assertEqual(200,code)
+                self.assertTrue(raw)
+        self.assertNotEqual(200,request('GET','/host-signing-key.pem')[0])
+        self.assertEqual(403,request('POST','/api/native-operator',b'{"op":"pairing_list"}')[0])
+
+    def test_mobile_tls_responses_explicitly_close_connections(self):
+        # OkHttp pools a framed HTTP/1.0 response without an explicit close
+        # header. With retries disabled, the following pairing POST then sees
+        # EOF instead of reaching Core. Cover success and pre-dispatch denials.
+        request=self.tls(self.service())
+        cases=(('GET','/api/mobile/v1/capabilities',None,
+                {'X-AIOA-Challenge':'a'*64},200),
+               ('GET','/devices',None,{},200),
+               ('POST','/api/mobile/v1/pairing/begin',{}, {},400),
+               ('POST','/api/native-operator',{'op':'pairing_list'}, {},403),
+               ('GET','/api/session',None,{},404))
+        for method,path,body,headers,expected in cases:
+            with self.subTest(method=method,path=path):
+                self.assertEqual(expected,request(method,path,body,headers)[0])
+                self.assertEqual('close',request.response_headers.get('Connection'))
+
     def test_kernel_bootstrap_enables_only_pairing_ops_and_rotates_transport(self):
         service=self.service();request=self.console_socket(service)
         first=request({'op':'console'})
@@ -71,9 +145,50 @@ class DeviceConsoleTests(unittest.TestCase):
         with self.assertRaises(AdmissionError):service.mobile_operator_request({'op':'pairing_list'})
         self.assertFalse(request({'op':'console'})['ok'])
 
+    def test_same_core_status_read_requires_current_kernel_grant_and_exact_payload(self):
+        service=self.service();request=self.tls(service);control=self.console_socket(service)
+        self.assertEqual(403,request('POST','/api/native-operator',{'op':'status'})[0])
+        token=self.activate(service,request,control)
+        headers={'X-AIOA-Session-Token':token,'Origin':self.app.origin}
+        before=self.app.operator_request(os.getuid(),{'op':'status'})
+        code,raw=request('POST','/api/native-operator',{'op':'status'},headers)
+        self.assertEqual(200,code,raw)
+        data=wire.strict_json(raw)['data']
+        self.assertEqual(before,data)
+        self.assertEqual('NATIVE_STATUS_READ_ONLY_V1',data['profile'])
+        self.assertEqual(0,data['model_calls'])
+        self.assertEqual([],data['observations'])
+        self.assertEqual([],data['sessions'])
+        for value in ({'op':'status','approved':True},{'op':'status','uid':os.getuid()},
+                {'op':'settings'},{'op':'enroll'}):
+            with self.subTest(value=value):
+                self.assertIn(request('POST','/api/native-operator',value,headers)[0],(400,403))
+        self.assertEqual(before,self.app.operator_request(os.getuid(),{'op':'status'}))
+        self.app._auth_deadline=0
+        self.assertEqual(403,request('POST','/api/native-operator',{'op':'status'},headers)[0])
+
     def test_console_cannot_bind_a_different_service(self):
         service=self.service();service.meta_owner=None
         with self.assertRaises(AdmissionError):make_mobile_operator_server(self.app,service=service)
+
+    def test_native_read_uses_existing_cookie_csrf_and_cannot_forward_write_approval(self):
+        service=self.service();request=self.tls(service);control=self.console_socket(service)
+        payload={'op':'tool_read','request_id':'c'*32,'operation':'github.repository'}
+        self.assertEqual(403,request('POST','/api/native-operator',payload)[0])
+        token=self.activate(service,request,control)
+        headers={'X-AIOA-Session-Token':token,'Origin':self.app.origin}
+        with patch('runtime.mcp_bridge.native_read.read',return_value={
+                'operation':'github.repository','data':{'repository':'luciferprosun/AIOA-spArkHAT'},
+                'transport':'FIXTURE_NOT_LIVE'}) as read:
+            code,raw=request('POST','/api/native-operator',payload,headers)
+            self.assertEqual(200,code,raw)
+            receipt=wire.strict_json(raw)['data']
+            wire.verify(self.app.identity.spki,receipt['signature'],receipt['receipt'])
+            self.assertEqual(1,read.call_count)
+            for value in ({**payload,'operation':'issue.create'},{**payload,'approved':True},
+                    {'op':'github_approve'},{'op':'chat_approve'},{'op':'cpl_start'}):
+                self.assertIn(request('POST','/api/native-operator',value,headers)[0],(400,403))
+            self.assertEqual(1,read.call_count)
 
     def tls(self,service):
         key=ec.generate_private_key(ec.SECP256R1())
@@ -90,6 +205,7 @@ class DeviceConsoleTests(unittest.TestCase):
         server=make_server('127.0.0.1',0,service,tls_certificate=certificate,tls_key=private)
         worker=threading.Thread(target=server.serve_forever,daemon=True);worker.start()
         self.addCleanup(worker.join,3);self.addCleanup(server.server_close);self.addCleanup(server.shutdown)
+        cookie={}
         def request(method,path,body=None,headers=None):
             context=ssl.create_default_context(cadata=pem.decode())
             context.minimum_version=context.maximum_version=ssl.TLSVersion.TLSv1_3
@@ -103,8 +219,9 @@ class DeviceConsoleTests(unittest.TestCase):
                     connection.endheaders(raw)
                 else:
                     connection.request(method,path,body=raw,
-                        headers={'Host':'host.example.org','Content-Type':'application/json',**(headers or {})})
+                        headers={'Host':'host.example.org','Content-Type':'application/json',**cookie,**(headers or {})})
                 response=connection.getresponse();request.response_headers=dict(response.getheaders())
+                if request.response_headers.get('Set-Cookie'):cookie['Cookie']=request.response_headers['Set-Cookie'].split(';')[0]
                 return response.status,response.read()
             finally:connection.close()
         request.server=server
@@ -133,26 +250,17 @@ class DeviceConsoleTests(unittest.TestCase):
 
     def test_browser_bootstrap_never_passes_token_to_process_arguments(self):
         import runtime.webapp as webapp
-        from pathlib import Path
-        token='A'*43;seen=[]
-        def launch(argv,**kwargs):
-            self.assertNotIn(token,str(argv));self.assertNotIn(token,str(kwargs))
-            page=Path(argv[1].removeprefix('file://'))
-            self.assertEqual(0o600,page.stat().st_mode&0o777)
-            self.assertEqual(0o700,page.parent.stat().st_mode&0o777)
-            content=page.read_text()
-            self.assertIn('method="post"',content)
-            self.assertIn('name="delivery" value="'+token+'"',content)
-            self.assertIn('action="'+self.app.origin+'/devices"',content)
-            self.assertNotIn('#',content);self.assertNotIn('?',content)
-            self.assertNotIn('refresh',content)
-            self.assertNotIn('localStorage',content);self.assertNotIn('sessionStorage',content)
-            seen.append(page)
-            class Process:returncode=0
-            return Process()
-        with patch('subprocess.run',side_effect=launch),patch('time.sleep'):
+        token='A'*43
+        # The launcher receives the bounded grant in memory; the Chrome helper
+        # owns stdin/anonymous-pipe delivery, never a credential-bearing file.
+        with patch('runtime.mobile_gateway.chrome_console.launch') as launch:
             webapp._launch_mobile_console({'url':self.app.origin+'/devices','delivery':token},self.root)
-        self.assertEqual(1,len(seen));self.assertFalse(seen[0].exists())
+            launch.assert_called_once_with({'url':self.app.origin+'/devices','delivery':token},self.root)
+        source=__import__('inspect').getsource(__import__('runtime.mobile_gateway.chrome_console',fromlist=['launch']))
+        self.assertNotIn('localStorage',source)
+        self.assertNotIn('--remote-debugging-port',source)
+        self.assertNotIn('--no-sandbox',source)
+        self.assertNotIn('--ignore-certificate-errors',source)
 
     def test_file_launcher_allows_only_exact_public_document_navigation(self):
         service=self.service();request=self.tls(service)
@@ -192,9 +300,12 @@ class DeviceConsoleTests(unittest.TestCase):
         self.assertEqual(200,code,raw)
         self.assertEqual('no-store',request.response_headers['Cache-Control'])
         self.assertEqual('no-referrer',request.response_headers['Referrer-Policy'])
-        self.assertNotIn('Set-Cookie',request.response_headers)
+        self.assertIn('HttpOnly',request.response_headers.get('Set-Cookie',''))
+        self.assertIn('Secure',request.response_headers.get('Set-Cookie',''))
+        self.assertIn('SameSite=Strict',request.response_headers.get('Set-Cookie',''))
         self.assertNotIn('Location',request.response_headers)
-        self.assertIn(('id="aioa-console-credential" value="'+token+'"').encode(),raw)
+        self.assertNotIn(token.encode(),raw)
+        self.assertNotIn(b'aioa-console-credential',raw)
         self.assertNotIn(grant['delivery'].encode(),raw)
         self.assertEqual([],service.mobile_operator_request({'op':'pairing_list'})['devices'])
         public=wire.canonical(service.mobile_operator_request({'op':'pairing_invite'}))
@@ -254,8 +365,15 @@ class DeviceConsoleTests(unittest.TestCase):
         with patch('struct.unpack',return_value=(1,os.getuid()+1,1)):
             with socket.socket(socket.AF_UNIX,socket.SOCK_STREAM) as peer:
                 peer.connect(str(self.app.root/'operator.sock'))
-                peer.sendall(b'{"op":"console"}\n')
-                with peer.makefile('rb') as stream:result=wire.strict_json(stream.readline())
+                try:
+                    peer.sendall(b'{"op":"console"}\n')
+                    with peer.makefile('rb') as stream:result=wire.strict_json(stream.readline())
+                except (BrokenPipeError,ConnectionResetError):
+                    # Early kernel-peer rejection may close before any bytes
+                    # are accepted. No grant or admission may have been issued.
+                    result={'ok':False}
             self.assertFalse(result['ok'])
             self.assertNotIn('data',result)
+            self.assertIsNone(service._mobile_console_uid)
+            self.assertIsNone(service._mobile_console_delivery)
         with self.assertRaises(wire.MobileError):service.mobile_operator_request({'op':'pairing_list'})

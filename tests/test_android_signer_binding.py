@@ -7,6 +7,8 @@ from unittest.mock import patch
 
 from scripts.android import build_apk as build,ci_build as ci
 
+# Public installed-app certificate fingerprint; no private signing material.
+UPDATE_CERT='75a539bc1cc1cf9ca9cde7fddf32f8dc82ceaee3fd2c8831d9e32a7a14ab6404'
 
 class ControlledDebugSignerTests(unittest.TestCase):
     def generated(self,root):
@@ -58,8 +60,8 @@ class ControlledDebugSignerTests(unittest.TestCase):
     def test_verified_artifact_copy_checks_hash_signer_and_metadata_independently(self):
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory);apk=root/'app.apk';apk.write_bytes(b'fixture-apk')
-            evidence={'apk_sha256':build.lib.sha(apk),'certificate_sha256':'a'*64,'package':'eu.sparkhat.aioa.companion',
-                'bytes':apk.stat().st_size,'version_code':3,'version_name':'0.3.0-cosmic','min_sdk':26,'target_sdk':36,
+            evidence={'apk_sha256':build.lib.sha(apk),'certificate_sha256':UPDATE_CERT,'package':'eu.sparkhat.aioa.companion',
+                'bytes':apk.stat().st_size,'version_code':4,'version_name':'0.3.1-cosmic','min_sdk':26,'target_sdk':36,
                 'permissions':['android.permission.INTERNET'],'signature_permissions':{},'junit_pass':10,'junit_fail':0,'junit_skip':0,
                 'lint_errors':0,'report_digests':[],'debuggable':True,'kind':'DEBUG',
                 'inspected_checkout_sha':'a'*40}
@@ -100,8 +102,8 @@ class ControlledDebugSignerTests(unittest.TestCase):
     def test_independent_sha256sum_mismatch_blocks_artifact(self):
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory);apk=root/'app.apk';apk.write_bytes(b'fixture-apk')
-            evidence={'apk_sha256':ci.lib.sha(apk),'certificate_sha256':'a'*64,'package':'eu.sparkhat.aioa.companion',
-                'bytes':apk.stat().st_size,'version_code':3,'version_name':'0.3.0-cosmic','min_sdk':26,'target_sdk':36,
+            evidence={'apk_sha256':ci.lib.sha(apk),'certificate_sha256':UPDATE_CERT,'package':'eu.sparkhat.aioa.companion',
+                'bytes':apk.stat().st_size,'version_code':4,'version_name':'0.3.1-cosmic','min_sdk':26,'target_sdk':36,
                 'permissions':['android.permission.INTERNET'],'signature_permissions':{},'junit_pass':10,'junit_fail':0,'junit_skip':0,
                 'lint_errors':0,'report_digests':[],'debuggable':True,'kind':'DEBUG','inspected_checkout_sha':'a'*40}
             with patch.object(ci.verify_apk,'verify',return_value=evidence),\

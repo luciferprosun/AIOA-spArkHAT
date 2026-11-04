@@ -61,8 +61,8 @@ def canonical(value):
         raise MobileError() from None
 
 
-def strict_json(raw):
-    if len(raw) > BODY_LIMIT:
+def strict_json(raw,*,limit=BODY_LIMIT):
+    if type(limit) is not int or limit not in (BODY_LIMIT,RESPONSE_LIMIT) or len(raw) > limit:
         raise MobileError(413)
     def pairs(items):
         result = {}
@@ -167,6 +167,12 @@ def origin(value):
 
 def route(method, path):
     if path.startswith(VIEW_BASE+'/'):
+        suffix=path[len(VIEW_BASE):]
+        chat_fixed={('POST','/chat'):'chat_send',('GET','/chat/threads'):'chat_threads',('POST','/chat/stop'):'chat_stop'}
+        if (method,suffix) in chat_fixed:return chat_fixed[(method,suffix)],None
+        for prefix,name in (('/chat/requests/','chat_request'),('/chat/threads/','chat_thread')):
+            if method=='GET' and suffix.startswith(prefix) and HEX32.fullmatch(suffix[len(prefix):]):
+                return name,suffix[len(prefix):]
         fixed={('GET','/status'):'agent_status',('POST','/propose'):'agent_propose',
             ('POST','/stop'):'agent_stop',('GET','/providers'):'agent_providers',
             ('POST','/install-proposal'):'agent_install'}

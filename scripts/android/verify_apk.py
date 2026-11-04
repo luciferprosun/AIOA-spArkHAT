@@ -7,33 +7,58 @@ import subprocess
 import xml.etree.ElementTree as ET
 
 if __package__:
-    from . import installer,toolchain_lib as lib
+    from . import installer,toolchain_lib as lib,cosmic4_channel as cosmic4
 else:
     import installer
     import toolchain_lib as lib
+    import cosmic4_channel as cosmic4
 
 
 RECEIVER_PERMISSION='eu.sparkhat.aioa.companion.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION'
 
 
-def parse_badging(text):
+def assert_source_identity(metadata, inputs=None, *, channel=None):
+    """Legacy inventory is not acceptance of an APK for newly inspected source."""
+    if inputs is None:
+        inputs=lib.strict_json((lib.REPO/'clients/android/ANDROID_BUILD_INPUT_MANIFEST.json').read_bytes())
+    if cosmic4.validate(channel):
+        expected=inputs.get('channels',{}).get(channel)
+        lib.require(expected==cosmic4.manifest_identity() and all(metadata.get(k)==expected[k]
+            for k in ('package','version_code','version_name')),'BLOCKED_APK_SOURCE_VERSION')
+        lib.require(metadata.get('certificate_sha256')==cosmic4.CERTIFICATE,'BLOCKED_APK_UPDATE_SIGNER')
+        return
+    lib.require(inputs.get('package')=='eu.sparkhat.aioa.companion' and
+        type(inputs.get('version_code')) is int and inputs['version_code'] in (3,4) and
+        all(metadata.get(name)==inputs.get(name) for name in
+        ('package','version_code','version_name')),'BLOCKED_APK_SOURCE_VERSION')
+    if inputs['version_code'] >= 4:
+        expected=inputs.get('update_signing_certificate_sha256')
+        lib.require(type(expected) is str and re.fullmatch(r'[0-9a-f]{64}',expected) is not None and
+            metadata.get('certificate_sha256')==expected,'BLOCKED_APK_UPDATE_SIGNER')
+
+
+def parse_badging(text, *, channel=None):
+    is_cosmic4=cosmic4.validate(channel)
     p=re.search(r"^package: name='([^']+)' versionCode='([^']+)' versionName='([^']+)'",text,re.M)
     minimum=re.search(r"^sdkVersion:'([0-9]+)'",text,re.M)
     target=re.search(r"^targetSdkVersion:'([0-9]+)'",text,re.M)
     permissions=set(re.findall(r"^uses-permission(?:-sdk-[0-9]+)?: name='([^']+)'",text,re.M))
     lib.require(p is not None and minimum is not None and target is not None,'BLOCKED_APK_METADATA')
-    lib.require(p.groups()==('eu.sparkhat.aioa.companion','3','0.3.0-cosmic'),'BLOCKED_APK_IDENTITY')
+    # Retain inventory of the delivered v3; allow only the reviewed v4 pair.
+    identities=({(cosmic4.PACKAGE,str(cosmic4.VERSION_CODE),cosmic4.VERSION_NAME)} if is_cosmic4 else {
+        ('eu.sparkhat.aioa.companion','3','0.3.0-cosmic'),('eu.sparkhat.aioa.companion','4','0.3.1-cosmic')})
+    lib.require(p.groups() in identities,'BLOCKED_APK_IDENTITY')
     lib.require(minimum.group(1)=='26' and target.group(1)=='36','BLOCKED_APK_SDK')
     # Google's existing code-scanner dependency reads connectivity state.
     # Neither network changes nor camera/location access are allowed here.
     lib.require('android.permission.INTERNET' in permissions and permissions <= {
         'android.permission.INTERNET','android.permission.ACCESS_NETWORK_STATE',
-        RECEIVER_PERMISSION},'BLOCKED_APK_PERMISSIONS')
-    return {'package':p.group(1),'version_code':3,'version_name':p.group(3),'min_sdk':26,'target_sdk':36,
+        cosmic4.PACKAGE+'.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION' if is_cosmic4 else RECEIVER_PERMISSION},'BLOCKED_APK_PERMISSIONS')
+    return {'package':p.group(1),'version_code':int(p.group(2)),'version_name':p.group(3),'min_sdk':26,'target_sdk':36,
         'permissions':sorted(permissions),'debuggable':'application-debuggable' in text}
 
 
-def parse_receiver_permission(text,permissions):
+def parse_receiver_permission(text,permissions, *, channel=None):
     """Check the actual compiled manifest, not just the uses-permission name.
 
     AndroidX adds this app-private signature permission for non-exported
@@ -41,6 +66,7 @@ def parse_receiver_permission(text,permissions):
     name, normal/dangerous level, extra flag or duplicate declaration.
     """
     code='BLOCKED_APK_RECEIVER_PERMISSION'
+    permission=cosmic4.PACKAGE+'.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION' if cosmic4.validate(channel) else RECEIVER_PERMISSION
     lines=text.splitlines()
     roots=[re.fullmatch(r'( *)E: manifest \(line=[0-9]+\)',line) for line in lines]
     roots=[match for match in roots if match]
@@ -61,9 +87,9 @@ def parse_receiver_permission(text,permissions):
         names=[match[1] for match in names if match]
         levels=[value for value in attributes if re.fullmatch(
             r'A: android:protectionLevel\(0x01010009\)=\(type 0x1[01]\)0x2',value)]
-        lib.require(len(attributes)==2 and names==[RECEIVER_PERMISSION] and len(levels)==1,code)
+        lib.require(len(attributes)==2 and names==[permission] and len(levels)==1,code)
         definitions.append(names[0])
-    expected=[RECEIVER_PERMISSION] if RECEIVER_PERMISSION in permissions else []
+    expected=[permission] if permission in permissions else []
     lib.require(definitions==expected,code)
     return {name:'signature' for name in definitions}
 
@@ -100,7 +126,8 @@ def test_evidence(junit_files,lint_file):
     return {'junit_pass':count,'junit_fail':0,'junit_skip':0,'lint_errors':0}
 
 
-def verify(apk,build_root,*,sdk,jdk,source_sha,environment):
+def verify(apk,build_root,*,sdk,jdk,source_sha,environment,channel=None):
+    is_cosmic4=cosmic4.validate(channel)
     apk=lib.safe_path(apk);build_root=lib.safe_path(build_root)
     lib.require(apk.is_relative_to(build_root) and apk.is_file() and apk.stat().st_size<=128*1024*1024,'BLOCKED_APK_PATH')
     tools=lib.safe_path(sdk/'build-tools/35.0.0')
@@ -109,19 +136,21 @@ def verify(apk,build_root,*,sdk,jdk,source_sha,environment):
                               capture_output=True,text=True,timeout=45)
         lib.require(result.returncode==0 and len(result.stdout)+len(result.stderr)<=1024*1024,'BLOCKED_APK_TOOL')
         return result.stdout
-    metadata=parse_badging(call('aapt',['dump','badging',str(apk)]))
+    metadata=parse_badging(call('aapt',['dump','badging',str(apk)]),channel=channel)
     lib.require(metadata['debuggable'],'BLOCKED_NOT_DEBUG_APK')
     metadata['signature_permissions']=parse_receiver_permission(
-        call('aapt',['dump','xmltree',str(apk),'AndroidManifest.xml']),metadata['permissions'])
+        call('aapt',['dump','xmltree',str(apk),'AndroidManifest.xml']),metadata['permissions'],channel=channel)
     signature=parse_signature(call('apksigner',['verify','--verbose','--print-certs',str(apk)]))
-    junit=list((build_root/'builds/_app/test-results/testDebugUnitTest').glob('TEST-*.xml'))
-    lint=build_root/'builds/_app/reports/lint-results-debug.xml'
+    variant='Cosmic4' if is_cosmic4 else 'Debug'
+    junit=list((build_root/('builds/_app/test-results/test'+variant+'UnitTest')).glob('TEST-*.xml'))
+    lint=build_root/('builds/_app/reports/lint-results-'+variant.lower()+'.xml')
     reports=test_evidence(junit,lint)
     report_digests=[{'path':p.relative_to(build_root).as_posix(),'sha256':lib.sha(p)} for p in sorted([*junit,lint])]
     return {'schema':'aioa.android.apk-evidence.v1','status':'DEBUG_APK_VALID_SOURCE_UNBOUND',
         'source_sha':None,'inspected_checkout_sha':source_sha,'source_binding':'UNKNOWN',
         'report_digests':report_digests,'apk_sha256':lib.sha(apk),'bytes':apk.stat().st_size,
-        **metadata,**signature,**reports,'android_e2e_verified':False,'meta_live_verified':False}
+        **metadata,**signature,**reports,'android_e2e_verified':False,'meta_live_verified':False,
+        **({'apk_channel':channel} if is_cosmic4 else {})}
 
 
 def main():

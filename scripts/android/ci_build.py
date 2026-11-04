@@ -27,10 +27,14 @@ else:
 SOURCE_REF='refs/heads/main'
 WORKFLOW_PATH='.github/workflows/android-manual-build.yml'
 REVIEWED_IMAGE_VERSION='20261026.354.1'
-REVIEWED_WORKFLOW_SHA256='8ce084bcd9ab6c7d8c331dd72ea58b283aade97267c51fd1101f744a9be119cf'
+REVIEWED_WORKFLOW_SHA256='077ae6e58c15cc9f4328f1b86c21df3049847e49e3ece31ad4a166db7d8c8a3d'
 DEBUG_PROFILE='DEBUG_TOOLCHAIN_V1'
 ALTERNATE_DEBUG_PROFILE='DEBUG_UBUNTU22_V1'
 ALTERNATE_IMAGE_VERSION='20261026.341.1'
+MATCHED_DEBUG_PROFILE='DEBUG_UBUNTU22_V2'
+MATCHED_IMAGE_VERSION='20261101.347.1'
+MATCHED_IMAGE_METADATA_SHA256='29096352b00e4ed83a17ca7c04e54650ea3197842d07e95901ff1a82a21817b3'
+APPROVED_ROLLOUT_IMAGES='20261026.341.1|20261101.347.1'
 DEBUG_IMAGE_METADATA_SHA256='6d35057ab003af4dc74998526957d7bde2e5526e1da06b4ed93201f6fa82e8ba'
 # Observed on the first authorized run41322536413, not a publisher SDK digest.
 DEBUG_SDK_INVENTORY_SHA256='9f81aed02ae39189e55282cd66a561969590f2c032a868beaa1afc7e3b51e793'
@@ -83,9 +87,9 @@ def gradle_stages(text,stages):
         match=re.fullmatch(r'> Task :app:([A-Za-z0-9]+)(?: (FAILED|UP-TO-DATE|FROM-CACHE|SKIPPED|NO-SOURCE))?',line.strip())
         if not match:continue
         name,outcome=match.groups()
-        stage=('JVM_TESTS' if name=='testDebugUnitTest' else 'LINT' if name in
-            ('lintDebug','lintReportDebug','lintAnalyzeDebug') else 'ASSEMBLE' if name in
-            ('assembleDebug','packageDebug','validateSigningDebug') else 'GRADLE_BOOTSTRAP')
+        stage=('JVM_TESTS' if name in ('testDebugUnitTest','testCosmic4UnitTest') else 'LINT' if name in
+            ('lintDebug','lintReportDebug','lintAnalyzeDebug','lintCosmic4','lintReportCosmic4','lintAnalyzeCosmic4') else 'ASSEMBLE' if name in
+            ('assembleDebug','packageDebug','validateSigningDebug','assembleCosmic4','packageCosmic4','validateSigningCosmic4') else 'GRADLE_BOOTSTRAP')
         stages[stage]='FAIL' if outcome=='FAILED' else 'SKIPPED' if outcome else 'PASS'
         if outcome=='FAILED' and failed is None:failed=stage
     return failed
@@ -111,11 +115,11 @@ def check_jdk(root,jdk,scoped,stages=None):
 
 def profile_evidence(env,*,purpose='apk'):
     profile=env.get('AIOA_BUILD_PROFILE','STRICT')
-    lib.require(profile in ('STRICT',DEBUG_PROFILE,ALTERNATE_DEBUG_PROFILE),'BLOCKED_CI_BUILD_PROFILE')
+    lib.require(profile in ('STRICT',DEBUG_PROFILE,ALTERNATE_DEBUG_PROFILE,MATCHED_DEBUG_PROFILE),'BLOCKED_CI_BUILD_PROFILE')
     if profile=='STRICT':return {'build_profile':profile}
     lib.require(purpose=='apk' and env.get('AIOA_DEBUG_ENVIRONMENT_ACK')=='true'
         and env.get('AIOA_CODEQL_REQUESTED')=='false','BLOCKED_CI_DEBUG_PROFILE_CONSENT')
-    expected_image=ALTERNATE_IMAGE_VERSION if profile==ALTERNATE_DEBUG_PROFILE else REVIEWED_IMAGE_VERSION
+    expected_image=env.get('ImageVersion') if profile==MATCHED_DEBUG_PROFILE else ALTERNATE_IMAGE_VERSION if profile==ALTERNATE_DEBUG_PROFILE else REVIEWED_IMAGE_VERSION
     raw=env.get('AIOA_IMAGE_SNAPSHOT','')
     lib.require(type(raw) is str and 0<len(raw)<=2048,'BLOCKED_CI_DEBUG_IMAGE_SNAPSHOT')
     snapshot=lib.strict_json(raw.encode())
@@ -129,31 +133,41 @@ def profile_evidence(env,*,purpose='apk'):
     exception=(profile==DEBUG_PROFILE and snapshot['metadata_version']=='20261025.353.1'
         and snapshot['metadata_sha256']==DEBUG_IMAGE_METADATA_SHA256
         and snapshot['image_identity_status']=='MISMATCH_ACCEPTED_DEBUG')
-    exception=exception or (profile==ALTERNATE_DEBUG_PROFILE
+    exception=exception or (profile in (ALTERNATE_DEBUG_PROFILE,MATCHED_DEBUG_PROFILE)
         and snapshot['metadata_version']=='20261025.340.1'
         and snapshot['metadata_sha256']=='08a840f7186e0ab52ee613d5cafee66d245430928627dd25f6dc638bdd7e481f'
         and snapshot['image_identity_status']=='MISMATCH_ACCEPTED_DEBUG')
     lib.require(matched or exception,'BLOCKED_CI_DEBUG_IMAGE_SNAPSHOT')
+    if profile==MATCHED_DEBUG_PROFILE:
+        approved={ALTERNATE_IMAGE_VERSION:('20261025.340.1','08a840f7186e0ab52ee613d5cafee66d245430928627dd25f6dc638bdd7e481f'),
+            MATCHED_IMAGE_VERSION:(MATCHED_IMAGE_VERSION,MATCHED_IMAGE_METADATA_SHA256)}
+        lib.require(env.get('AIOA_APPROVED_RUNNER_IMAGES')==APPROVED_ROLLOUT_IMAGES and
+            approved.get(snapshot['declared_version'])==(snapshot['metadata_version'],snapshot['metadata_sha256']),
+            'BLOCKED_CI_MATCHED_IMAGE_PIN')
     return {'build_profile':profile,'runner_observation':snapshot}
 
 
 def context_check(env,source_sha,image,*,purpose='apk'):
     lib.require(purpose in ('apk','codeql'),'BLOCKED_CI_PURPOSE')
     profile_evidence(env,purpose=purpose)
+    channel=env.get('AIOA_APK_CHANNEL') or None
+    cosmic=verify_apk.cosmic4.validate(channel)
+    source_ref=verify_apk.cosmic4.SOURCE_REF if cosmic else SOURCE_REF
+    if cosmic:lib.require(purpose=='apk' and env.get('AIOA_CODEQL_REQUESTED','false')=='false','BLOCKED_CI_COSMIC4_PURPOSE')
     expected={'GITHUB_ACTIONS':'true','GITHUB_EVENT_NAME':'workflow_dispatch',
         'GITHUB_REPOSITORY':'luciferprosun/AIOA-spArkHAT',
         'GITHUB_REPOSITORY_OWNER':'luciferprosun','GITHUB_ACTOR':'luciferprosun',
-        'GITHUB_TRIGGERING_ACTOR':'luciferprosun','GITHUB_REF':SOURCE_REF,
-        'GITHUB_WORKFLOW_REF':'luciferprosun/AIOA-spArkHAT/'+WORKFLOW_PATH+'@'+SOURCE_REF,
+        'GITHUB_TRIGGERING_ACTOR':'luciferprosun','GITHUB_REF':source_ref,
+        'GITHUB_WORKFLOW_REF':'luciferprosun/AIOA-spArkHAT/'+WORKFLOW_PATH+'@'+source_ref,
         'GITHUB_JOB':'debug-apk' if purpose=='apk' else 'codeql-kotlin','GITHUB_RUN_ATTEMPT':'1',
         'RUNNER_ENVIRONMENT':'github-hosted','RUNNER_ARCH':'X64',
-        'ImageOS':'ubuntu22' if env.get('AIOA_BUILD_PROFILE')==ALTERNATE_DEBUG_PROFILE else 'ubuntu24',
+        'ImageOS':'ubuntu22' if env.get('AIOA_BUILD_PROFILE') in (ALTERNATE_DEBUG_PROFILE,MATCHED_DEBUG_PROFILE) else 'ubuntu24',
         'RUNNER_TEMP':'/home/runner/work/_temp','AIOA_APPROVE_RUN':'true',
         'AIOA_SDK_LICENSE_ACK':'true','AIOA_ARTIFACT_ACK':'true'}
     lib.require(all(env.get(k)==v for k,v in expected.items()),'BLOCKED_CI_OWNER_OR_RUNNER_CONTEXT')
     lib.require(type(source_sha) is str and re.fullmatch(r'[0-9a-f]{40}',source_sha)
         and env.get('GITHUB_SHA')==env.get('GITHUB_WORKFLOW_SHA')==source_sha,'BLOCKED_CI_SOURCE')
-    expected_image=ALTERNATE_IMAGE_VERSION if env.get('AIOA_BUILD_PROFILE')==ALTERNATE_DEBUG_PROFILE else REVIEWED_IMAGE_VERSION
+    expected_image=env.get('ImageVersion') if env.get('AIOA_BUILD_PROFILE')==MATCHED_DEBUG_PROFILE else ALTERNATE_IMAGE_VERSION if env.get('AIOA_BUILD_PROFILE')==ALTERNATE_DEBUG_PROFILE else REVIEWED_IMAGE_VERSION
     lib.require(image==env.get('ImageVersion')==expected_image,'BLOCKED_CI_IMAGE_DRIFT')
     lib.require(env.get('AIOA_WORKFLOW_REVISION')==REVIEWED_WORKFLOW_SHA256,'BLOCKED_CI_WORKFLOW_REVISION')
     lib.require(all(re.fullmatch(r'[0-9]{1,20}',env.get(k,''))
@@ -173,14 +187,15 @@ def workflow_check(env):
         'BLOCKED_CI_WORKFLOW_REVISION')
 
 
-def branch_head_check(source_sha):
+def branch_head_check(source_sha, *, channel=None):
     # Anonymous fixed Git READ. No ambient credential helper, config or token.
     environment={'PATH':'/usr/bin:/bin','LANG':'C.UTF-8','GIT_TERMINAL_PROMPT':'0',
         'GIT_CONFIG_GLOBAL':'/dev/null','GIT_CONFIG_NOSYSTEM':'1'}
+    source_ref=verify_apk.cosmic4.SOURCE_REF if verify_apk.cosmic4.validate(channel) else SOURCE_REF
     response=subprocess.run(['git','-c','credential.helper=','ls-remote','--exit-code','--refs',
-        'https://github.com/luciferprosun/AIOA-spArkHAT.git',SOURCE_REF],
+        'https://github.com/luciferprosun/AIOA-spArkHAT.git',source_ref],
         capture_output=True,text=True,timeout=20,env=environment,stdin=subprocess.DEVNULL)
-    lib.require(response.returncode==0 and response.stdout.splitlines()==[source_sha+'\t'+SOURCE_REF],
+    lib.require(response.returncode==0 and response.stdout.splitlines()==[source_sha+'\t'+source_ref],
         'BLOCKED_CI_BRANCH_DRIFT')
 
 
@@ -226,8 +241,8 @@ def environment(root,jdk,sdk):
         'JDK_JAVA_OPTIONS':'-Xmx128m -Duser.home='+str(root/'java-user')+' -Djava.io.tmpdir='+str(root/'tmp')}
 
 
-def command(cache,init):
-    result=[part for part in build_apk.command(cache,init) if part!='--offline']
+def command(cache,init, *, channel=None):
+    result=[part for part in build_apk.command(cache,init,channel=channel) if part!='--offline']
     return result[:1]+['-Pandroid.builder.sdkDownload=false',
         '-Dorg.gradle.java.installations.auto-download=false']+result[1:]
 
@@ -266,6 +281,7 @@ def check_sdkmanager_version(text,options):
 
 def prepare(env,source_sha,image,*,purpose='apk',stages=None):
     stages=stages if stages is not None else new_stages()
+    channel=env.get('AIOA_APK_CHANNEL') or None
     with phase(stages,'IMAGE_CHECK','PROJECT_SOURCE'):
         lib.source_check(source_sha)
         lib.require(Path(env.get('GITHUB_WORKSPACE',''))==lib.REPO
@@ -274,7 +290,7 @@ def prepare(env,source_sha,image,*,purpose='apk',stages=None):
         sdk=lib.safe_path(env.get('ANDROID_SDK_ROOT',''))
         lib.require(sdk==Path('/usr/local/lib/android/sdk'),'BLOCKED_CI_VENDOR_PATH')
         before=sdk_inventory(sdk)
-        lib.require(env.get('AIOA_BUILD_PROFILE','STRICT') not in (DEBUG_PROFILE,ALTERNATE_DEBUG_PROFILE)
+        lib.require(env.get('AIOA_BUILD_PROFILE','STRICT') not in (DEBUG_PROFILE,ALTERNATE_DEBUG_PROFILE,MATCHED_DEBUG_PROFILE)
             or before['inventory_sha256']==DEBUG_SDK_INVENTORY_SHA256,'BLOCKED_CI_DEBUG_SDK_INVENTORY')
     wrapper=lib.REPO/'clients/android/gradle/wrapper'
     with phase(stages,'JDK_PREPARE','JDK_ARCHIVE'):lock=installer.catalog()
@@ -294,6 +310,7 @@ def prepare(env,source_sha,image,*,purpose='apk',stages=None):
         jdk=lib.safe_path(acquire(jdk_artifact,root))
         lib.require(jdk==root/'jdk-17','BLOCKED_CI_JDK_SOURCE')
     scoped=environment(root,jdk,sdk)
+    scoped['AIOA_BUILD_SOURCE_SHA']=source_sha
     check_jdk(root,jdk,scoped,stages)
     gradle=next(a for a in lock['artifacts'] if a['id']=='gradle')
     manager=next(a for a in lock['artifacts'] if a['id']=='cmdline-tools')
@@ -307,8 +324,8 @@ def prepare(env,source_sha,image,*,purpose='apk',stages=None):
         manager_probe=check_sdkmanager_version((root/'sdkmanager-version.log').read_text(),scoped['JDK_JAVA_OPTIONS'])
         if manager_probe['vendor_notice']=='SDKMANAGER_DEPRECATED':
             print('SDKMANAGER_DEPRECATED: pinned22.0 verified; vendor informational notice retained.',file=sys.stderr,flush=True)
-    init=root/'redirect.gradle';init.write_text(build_apk.init_script(root));init.chmod(0o600)
-    argv=(command(root/'gradle-cache',init) if purpose=='apk'
+    init=root/'redirect.gradle';init.write_text(build_apk.init_script(root,channel=channel));init.chmod(0o600)
+    argv=(command(root/'gradle-cache',init,channel=channel) if purpose=='apk'
         else codeql_command(env,root/'gradle-cache',init))
     installer.private_write(root/'BUILD_INVOCATION.json',{'schema':'aioa.android.controlled-build.v1',
         'source_sha':source_sha,'command':argv,'init_sha256':lib.sha(init),'started_at':lib.utc(),
@@ -329,8 +346,12 @@ def prepare(env,source_sha,image,*,purpose='apk',stages=None):
 def execute(env,source_sha,image,*,purpose='apk',stages=None):
     stages=stages if stages is not None else new_stages()
     root,jdk,sdk,before,scoped,init,argv=prepare(env,source_sha,image,purpose=purpose,stages=stages)
+    channel=env.get('AIOA_APK_CHANNEL') or None
+    variant='cosmic4' if verify_apk.cosmic4.validate(channel) else 'debug'
     if purpose=='apk':
-        with phase(stages,'JDK_PREPARE','DEBUG_SIGNER'):build_apk.prepare_debug_signer(root,jdk,scoped)
+        with phase(stages,'JDK_PREPARE','DEBUG_SIGNER'):
+            if channel:verify_apk.cosmic4.prepare_signer(root,jdk,scoped,env)
+            else:build_apk.prepare_debug_signer(root,jdk,scoped)
     if purpose=='codeql':
         tool,_=codeql_tool_check(env)
         # The CLI installs its own tracer into its child. Do not inherit ambient
@@ -367,10 +388,11 @@ def execute(env,source_sha,image,*,purpose='apk',stages=None):
             'server_upload_verified':False,'model_calls':0,'apk_built':False}
         installer.private_write(root/'CODEQL_BUILD_EVIDENCE.json',evidence)
         return evidence
-    apk=root/'builds/_app/outputs/apk/debug/app-debug.apk'
+    apk=root/('builds/_app/outputs/apk/'+variant+'/app-'+variant+'.apk')
     with phase(stages,'SIGNATURE_VERIFY','APK'):
-        evidence=verify_apk.verify(apk,root,sdk=sdk,jdk=jdk,source_sha=source_sha,environment=scoped)
-        evidence=build_apk._bind_controlled_build(evidence,source_sha,root,argv)
+        options={'channel':channel} if channel else {}
+        evidence=verify_apk.verify(apk,root,sdk=sdk,jdk=jdk,source_sha=source_sha,environment=scoped,**options)
+        evidence=build_apk._bind_controlled_build(evidence,source_sha,root,argv,**options)
     for name in ('JVM_TESTS','LINT','ASSEMBLE'):stages[name]='PASS'
     evidence.update(ci_profile='GITHUB_HOSTED_MANUAL_V2',runner_image=image,
         **profile_evidence(env,purpose=purpose),
@@ -381,13 +403,14 @@ def execute(env,source_sha,image,*,purpose='apk',stages=None):
         model_calls=0,workflow_run_id=env['GITHUB_RUN_ID'],workflow_run_attempt=env['GITHUB_RUN_ATTEMPT'],
         stage_statuses=dict(stages))
     with phase(stages,'SIGNATURE_VERIFY','COPIED_APK'):
-        artifact=verified_artifact(apk,root,evidence,sdk=sdk,jdk=jdk,source_sha=source_sha,environment=scoped)
+        artifact=verified_artifact(apk,root,evidence,sdk=sdk,jdk=jdk,source_sha=source_sha,environment=scoped,**options)
     installer.private_write(artifact/'APK_EVIDENCE.json',evidence)
     return evidence
 
 
-def verified_artifact(apk,root,evidence,*,sdk,jdk,source_sha,environment):
+def verified_artifact(apk,root,evidence,*,sdk,jdk,source_sha,environment,channel=None):
     """Bounded copy, then independent aapt/apksigner/report readback of the copy."""
+    verify_apk.assert_source_identity(evidence,channel=channel)
     artifact=lib.safe_path(root/'artifact');artifact.mkdir(mode=0o700)
     source=lib.safe_path(apk);target=artifact/'aioa-companion-debug.apk'
     fd=os.open(source,os.O_RDONLY|os.O_NOFOLLOW|os.O_CLOEXEC)
@@ -416,7 +439,8 @@ def verified_artifact(apk,root,evidence,*,sdk,jdk,source_sha,environment):
     lib.require(checksum.returncode==0 and not checksum.stderr
         and checksum.stdout==evidence['apk_sha256']+'  '+str(target)+'\n',
         'BLOCKED_CI_ARTIFACT_INDEPENDENT_HASH')
-    observed=verify_apk.verify(target,root,sdk=sdk,jdk=jdk,source_sha=source_sha,environment=environment)
+    options={'channel':channel} if channel else {}
+    observed=verify_apk.verify(target,root,sdk=sdk,jdk=jdk,source_sha=source_sha,environment=environment,**options)
     fields=('apk_sha256','bytes','certificate_sha256','package','version_code','version_name',
         'min_sdk','target_sdk','permissions','signature_permissions','debuggable','kind','inspected_checkout_sha',
         'junit_pass','junit_fail','junit_skip','lint_errors','report_digests')
@@ -430,12 +454,13 @@ def preflight(env,source_sha,image,*,purpose='apk'):
     context_check(env,source_sha,image,purpose=purpose)
     lib.source_check(source_sha)
     workflow_check(env)
-    branch_head_check(source_sha)
+    options={'channel':env['AIOA_APK_CHANNEL']} if env.get('AIOA_APK_CHANNEL') else {}
+    branch_head_check(source_sha,**options)
     sdk=lib.safe_path(env.get('ANDROID_SDK_ROOT',''))
     lib.require(sdk==Path('/usr/local/lib/android/sdk'),'BLOCKED_CI_VENDOR_PATH')
     observation=sdk_inventory(sdk)
     profile=profile_evidence(env,purpose=purpose)
-    lib.require(profile['build_profile'] not in (DEBUG_PROFILE,ALTERNATE_DEBUG_PROFILE)
+    lib.require(profile['build_profile'] not in (DEBUG_PROFILE,ALTERNATE_DEBUG_PROFILE,MATCHED_DEBUG_PROFILE)
         or observation['inventory_sha256']==DEBUG_SDK_INVENTORY_SHA256,'BLOCKED_CI_DEBUG_SDK_INVENTORY')
     return {'status':'CI_PREFLIGHT_VERIFIED','source_sha':source_sha,'runner_image':image,
         **profile,
@@ -449,7 +474,8 @@ def build(env,source_sha,image,*,purpose='apk'):
     try:
         if purpose=='codeql':codeql_tool_check(env)
         result=execute(env,source_sha,image,purpose=purpose,stages=stages)
-        branch_head_check(source_sha)
+        options={'channel':env['AIOA_APK_CHANNEL']} if env.get('AIOA_APK_CHANNEL') else {}
+        branch_head_check(source_sha,**options)
         return result
     except (lib.Blocked,OSError,ValueError,TypeError,KeyError,subprocess.SubprocessError) as error:
         # Preserve the original nonzero outcome even if diagnostics cannot be
@@ -484,7 +510,7 @@ def record_failure(env,source_sha,image,error,*,purpose='apk'):
         and row['path'].endswith(('.kt','.java'))}
     tasks=set();locations=[]
     for line in raw.decode('utf-8','replace').splitlines():
-        task=re.fullmatch(r'> Task :app:(compileDebugKotlin|testDebugUnitTest|lintDebug|assembleDebug) FAILED',line)
+        task=re.fullmatch(r'> Task :app:((?:compile(?:Debug|Cosmic4)Kotlin)|test(?:Debug|Cosmic4)UnitTest|lint(?:Debug|Cosmic4)|assemble(?:Debug|Cosmic4)) FAILED',line)
         if task:tasks.add(':app:'+task[1])
         match=re.match(r'^e: (?:file://)?(.+\.(?:kt|java)):(\d{1,6}):(\d{1,4})\s+(.+)$',line)
         if not match or len(locations)>=16:continue

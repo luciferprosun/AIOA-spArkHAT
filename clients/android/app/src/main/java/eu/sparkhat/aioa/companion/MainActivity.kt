@@ -136,10 +136,8 @@ internal fun LegacyMissionScreen(model: MissionViewModel, showConnection: Boolea
                 SelectionContainer { Text(Wire.text(value.jsonObject,"text")) }
             }
             Button(enabled=model.agentAvailable && !ui.busy,onClick=model::agentEvidence) { Text("Signed readback") }
-            Button(enabled=model.agentAvailable && !ui.busy && ui.freshness.canStop(agentState),onClick=model::agentStop) { Text("STOP agent task") }
-            val sourceOperation = Wire.text(agent.getValue("operation").jsonObject,"operation_class")
-            Button(enabled=model.agentAvailable && !ui.busy && ui.freshness.isFresh() && ui.pendingAgent==null &&
-                agentState=="AGENT_COMPLETED" && sourceOperation=="SANDBOX_EXEC",onClick=model::proposeGit) {
+            Button(enabled=ui.taskStopReason(true)==null,onClick={model.agentStop(agent)}) { Text("STOP agent task") }
+            Button(enabled=ui.gitPreviewReason()==null,onClick={model.proposeGit(agent)}) {
                 Text("Preview local commit of verified files")
             }
             Text("Install / remote push / PR / owner approval: disabled on this phone.")
@@ -179,7 +177,7 @@ internal fun LegacyMissionScreen(model: MissionViewModel, showConnection: Boolea
             } }
         } else Text("Last receipt: none; no execution evidence")
         Button(enabled=model.supports("evidence") && !ui.busy && task!=null,onClick=model::evidence) { Text("Evidence") }
-        Button(enabled=model.supports("stop") && !ui.busy && ui.freshness.canStop(state),onClick=model::stop) { Text("STOP your mission") }
+        Button(enabled=ui.taskStopReason(false)==null,onClick={task?.let {model.stop(it)}}) { Text("STOP your mission") }
         Text("Chat: Not yet available in this bounded profile.")
         Text("Transport does not grant owner pairing. Reinstallation requires fresh enrollment.")
     }

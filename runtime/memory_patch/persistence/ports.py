@@ -102,7 +102,7 @@ class RepositoryTransaction(Protocol):
 
     def get(self, kind: RecordKind, record_id: str) -> StoredRecord | None: ...
     def scan(
-        self, kind: RecordKind, *, limit: int, states: tuple[str, ...]
+        self, kind: RecordKind, *, limit: int, states: tuple[str, ...], operation_kind: str | None = None
     ) -> tuple[StoredRecord, ...]: ...
     def insert(self, record: StoredRecord) -> None: ...
     def replace(self, record: StoredRecord, *, expected_revision: int) -> None: ...
@@ -188,6 +188,7 @@ class TransactionView:
         *,
         limit: int = 128,
         states: tuple[str, ...] = (),
+        operation_kind: str | None = None,
     ) -> tuple[StoredRecord, ...]:
         self._check(kind)
         if (
@@ -199,12 +200,18 @@ class TransactionView:
             raise MemoryPatchError(ErrorCode.INVALID_REQUEST)
         if any(type(state) is not str or not 1 <= len(state) <= 64 for state in states):
             raise MemoryPatchError(ErrorCode.INVALID_REQUEST)
-        records = self._adapter.scan(kind, limit=limit, states=states)
+        if operation_kind is not None and (kind is not RecordKind.OPERATION
+                or type(operation_kind) is not str or not 1 <= len(operation_kind) <= 64):
+            raise MemoryPatchError(ErrorCode.INVALID_REQUEST)
+        filters = {} if operation_kind is None else {'operation_kind': operation_kind}
+        records = self._adapter.scan(kind, limit=limit, states=states, **filters)
         if type(records) is not tuple or len(records) > limit:
             raise MemoryPatchError(ErrorCode.INTEGRITY_FAILED)
         for record in records:
             self._record(record, kind)
             if states and record.payload.get("state") not in states:
+                raise MemoryPatchError(ErrorCode.INTEGRITY_FAILED)
+            if operation_kind is not None and record.payload.get('operation_kind') != operation_kind:
                 raise MemoryPatchError(ErrorCode.INTEGRITY_FAILED)
         if len({record.record_id for record in records}) != len(records):
             raise MemoryPatchError(ErrorCode.INTEGRITY_FAILED)
@@ -412,12 +419,16 @@ class LocalCoreTransaction:
             'WHERE scope_key=? AND kind=? AND record_id=?',(self.scope_key,kind.value,record_id)).fetchone()
         return self._read(row,kind)
 
-    def scan(self,kind,*,limit=128,states=()):
+    def scan(self,kind,*,limit=128,states=(),operation_kind=None):
         self._check(kind)
         where='' if not states else " AND json_extract(record_json,'$.payload.state') IN ("+','.join('?' for _ in states)+')'
+        args=(self.scope_key,kind.value,*states)
+        if operation_kind is not None:
+            where+=" AND json_extract(record_json,'$.payload.operation_kind')=?"
+            args+= (operation_kind,)
         rows=self.factory.db.execute('SELECT record_json,record_digest FROM core_records_v1 '
             'WHERE scope_key=? AND kind=?'+where+' ORDER BY record_id LIMIT ?',
-            (self.scope_key,kind.value,*states,limit)).fetchall()
+            (*args,limit)).fetchall()
         return tuple(self._read(row,kind) for row in rows)
 
     def _write(self,record):

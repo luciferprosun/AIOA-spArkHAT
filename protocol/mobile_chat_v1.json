@@ -1,0 +1,25 @@
+{
+  "schema": "aioa.mobile.chat-contract.v1",
+  "transport": "existing aioa.mobile.request-proof.v1 and observation.v1",
+  "profile": "NATIVE_ADVISORY_CHAT_V1",
+  "model_id": "muse-spark-1.3",
+  "provider_id": "meta_model_api",
+  "routes": {
+    "POST /api/mobile/v2/chat": "one proposal; never financial approval",
+    "GET /api/mobile/v2/chat/requests/{request_id}": "readback only",
+    "GET /api/mobile/v2/chat/threads": "authenticated device scope",
+    "GET /api/mobile/v2/chat/threads/{thread_id}": "bounded authenticated device history",
+    "POST /api/mobile/v2/chat/stop": "cancel; uncertain spend is not refunded"
+  },
+  "states": ["PENDING_OWNER", "RUNNING", "SUCCEEDED", "FAILED", "UNKNOWN", "STOPPED"],
+  "maximum_prompt_utf8_bytes": 2000,
+  "maximum_reply_utf8_bytes": 8192,
+  "maximum_request_budget_usd": "0.05",
+  "maximum_paid_attempts": 1,
+  "history_ttl_seconds": 900,
+  "save_knowledge": false,
+  "financial_approval_transport": "existing UID-authenticated private operator socket after exact native human confirmation",
+  "native_execution": false,
+  "github_write": false,
+  "automatic_post_retry": false
+}
