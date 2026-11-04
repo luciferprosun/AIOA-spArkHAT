@@ -1,0 +1,18 @@
+{
+  "schema": "aioa.reviewed-source.v1",
+  "base_sha": "613737fc2b012594525e51664b24593f040e7a4a",
+  "scope": "READ_ONLY_CANDIDATE",
+  "full_write_acceptance": false,
+  "files_sha256": {
+    "runtime/mcp_bridge/native_read.py": "e5104449645f4c42e0849ff0ecbdd7cb7cee893640a78a4ad9b0eb1263fbc32c",
+    "runtime/meta_hackathon/native_tools.py": "605b403f8778d18de395334ddd3c08c420bb27430d3d7eb32edac3616afe578b",
+    "runtime/meta_hackathon/runtime_adapter.py": "625cba6918ca072874bcee268e4efd4568ea66af235feed67a9230c0fce5eb26",
+    "runtime/webapp.py": "a9db924276d0efdcf34d8b01c2190c9186834088059f2a22a33ac96a66f2b68e",
+    "web/mobile_chat.js": "b6044b775da23a633c9b3e92dab3d50fa07055d0f89f9d33e855c8a3c1ba2163",
+    "web/mobile_devices.js": "ecf2c0aaba0007bfd5763327f0ec3425516ac56be13ed40b0a40666fe8fbcf19",
+    "web/mobile_devices_dom.js": "1a2473779a845d3c0223a2960cf8f0d5316d4036c7e1646214482ca425029e78"
+  },
+  "targeted_pass": 19,
+  "javascript_pass": 38,
+  "contained_chrome_pass": 1
+}

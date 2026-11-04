@@ -3,7 +3,7 @@
   'use strict';
   const copy=x=>JSON.parse(JSON.stringify(x));
   function createChat(call,changed=()=>{},id=()=>Array.from(root.crypto.getRandomValues(new Uint8Array(16)),x=>x.toString(16).padStart(2,'0')).join('')) {
-    let state={catalog:null,threads:[],thread:null,messages:[],pending:null,busy:false,error:null};
+    let state={catalog:null,threads:[],thread:null,messages:[],pending:null,busy:false,error:null,draft:false};
     const emit=()=>changed(copy(state));
     async function work(fn) {
       if(state.busy)throw Error('CHAT_BUSY');state.busy=true;state.error=null;emit();
@@ -23,7 +23,9 @@
       if(!/^[a-f0-9]{32}$/.test(thread))throw Error('CHAT_ID_INVALID');
       const value=await call({op:'chat_thread',thread_id:thread});
       if(value.schema!=='aioa.mobile.chat-thread.v1' || value.thread_id!==thread || !Array.isArray(value.messages) || value.messages.length>20)throw Error('CHAT_SCHEMA_INVALID');
-      state.messages=[];state.pending=null;state.thread=thread;for(const message of value.messages)accept(message);
+      if(state.pending && !value.messages.some(x=>x.request_id===state.pending) &&
+          !state.messages.some(x=>x.request_id===state.pending && x.state==='UNKNOWN'))throw Error('CHAT_READBACK_ONLY');
+      state.messages=[];state.pending=null;state.thread=thread;state.draft=false;for(const message of value.messages)accept(message);
       return copy(value);
     };
     return Object.freeze({snapshot:()=>copy(state),
@@ -31,14 +33,19 @@
         state.catalog=await call({op:'chat_catalog'});
         const value=await call({op:'chat_threads'});if(!Array.isArray(value.threads) || value.threads.length>24)throw Error('CHAT_SCHEMA_INVALID');
         state.threads=value.threads;
-        if(state.thread || value.threads.length)await select(state.thread || value.threads[value.threads.length-1].thread_id);
+        if(!state.draft && (state.thread || value.threads.length))await select(state.thread || value.threads[value.threads.length-1].thread_id);
       }),
+      newConversation:confirmed=>{
+        if(state.busy || confirmed!==true || !state.pending ||
+            !state.messages.some(x=>x.request_id===state.pending && x.state==='UNKNOWN'))throw Error('CHAT_READBACK_ONLY');
+        state.thread=id();state.messages=[];state.pending=null;state.draft=true;state.error=null;emit();
+      },
       select:thread=>work(()=>select(thread)),
       send:prompt=>work(async()=>{
         if(!state.catalog?.chat || state.catalog.model_id!=='muse-spark-1.3')throw Error('CHAT_NOT_AVAILABLE');
         if(state.pending)throw Error('CHAT_READBACK_ONLY');
         if(typeof prompt!=='string' || !prompt.trim() || new TextEncoder().encode(prompt).length>2000)throw Error('CHAT_PROMPT_LIMIT');
-        const request=id();state.thread=state.thread || id();state.pending=request;emit();
+        const request=id();state.thread=state.thread || id();state.pending=request;state.draft=false;emit();
         return accept(await call({op:'chat_propose',payload:{schema:'aioa.mobile.chat-send.v1',thread_id:state.thread,
           request_id:request,model_id:'muse-spark-1.3',prompt,max_budget_usd:'0.05'}}));
       }),
@@ -59,6 +66,7 @@
       el('send').disabled=!state.catalog?.chat || state.busy || !!state.pending;
       el('refresh').disabled=state.busy;el('stop').disabled=state.busy || !state.pending;
       el('read').disabled=state.busy || !(state.pending || state.messages.length);
+      if(el('new'))el('new').disabled=state.busy || !state.messages.some(x=>x.request_id===state.pending && x.state==='UNKNOWN');
       el('threads').replaceChildren();
       for(const thread of state.threads) {
         const button=text('button','Conversation '+thread.thread_id.slice(0,12),el('threads'));button.className='button button-ghost';
@@ -70,7 +78,7 @@
         if(message.prompt)text('p','You: '+message.prompt,card);
         if(message.reply)text('p','Muse Spark 1.3: '+message.reply,card);
         text('p',message.state+' · task '+message.task_id+' · source '+message.source_sha,card).className='device-digest';
-        if(message.receipt)text('p','LIVE · SHA-256 '+message.receipt.response_sha256+' · estimated usage '+message.receipt.cost_estimate_usd+' USD (not an invoice)',card).className='device-digest';
+        if(message.receipt)text('p','Recorded LIVE receipt · SHA-256 '+message.receipt.response_sha256+' · estimated usage '+message.receipt.cost_estimate_usd+' USD (not an invoice)',card).className='device-digest';
         if(message.state==='PENDING_OWNER') {
           text('p','Cost approval stays in the local Linux channel. The model is not called before approval.',card);
           text('code','python3 -B -m runtime.webapp --mobile-operator chat-approve --state-dir /home/l/.local/state/aioa-mobile-native-main-20261102 --chat-request-id '+message.request_id,card);
@@ -83,6 +91,9 @@
     el('send').onclick=()=>{const value=el('prompt').value;client.send(value).then(()=>{el('prompt').value='';}).catch(()=>{});};
     el('stop').onclick=()=>client.stop().catch(()=>{});
     el('read').onclick=()=>client.read().catch(()=>{});
+    if(el('new'))el('new').onclick=()=>{
+      if(root.confirm('Start a separate conversation? The old UNKNOWN result and its held budget stay unresolved. No message will be resent or approved.'))client.newConversation(true);
+    };
     client.refresh().catch(()=>{});
     setInterval(()=>{if(document.visibilityState==='visible' && !client.snapshot().busy)client.refresh().catch(()=>{});},8000);
   }

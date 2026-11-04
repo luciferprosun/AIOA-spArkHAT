@@ -94,6 +94,7 @@ SOURCE_FILES += ('runtime/meta_hackathon/chat.py','runtime/mobile_gateway/chat_v
         'runtime/mobile_gateway/operator_chat.py','runtime/mobile_gateway/chrome_console.py',
         'protocol/mobile_chat_v1.json','web/mobile_chat.js',
         'clients/android/app/src/main/java/eu/sparkhat/aioa/companion/ChatView.kt')
+SOURCE_FILES += ('runtime/mcp_bridge/native_read.py','runtime/meta_hackathon/native_tools.py')
 
 
 def sealed_source_path(relative, *, root=None):
@@ -385,10 +386,14 @@ class NativeMobileComposition:
             self.tls_verified=True
         finally:peer.close()
 
-    def public_settings(self):
+    def _require_qualified_operator(self):
+        """No transaction or model ledger reads: safe inside a Core callback."""
         import time
         self.operator_principal()
         if not self.tls_verified or time.time()>=self._tls_expires:raise AdmissionError()
+
+    def public_settings(self):
+        self._require_qualified_operator()
         return {'profile':self.profile,'origin':self.origin,'tls_spki_pin':self.tls_pin,
             'host_spki':self.identity.spki,'source_sha':self.source[0],'capsule_digest':self.source[1],
             'operator_authentication':self.operator_authentication,'model_calls':self.model_calls()}
@@ -408,6 +413,9 @@ class NativeMobileComposition:
         owner=self.operator_principal()
         if type(value) is not dict or type(value.get('op')) is not str:raise wire.MobileError(400)
         op=value['op']
+        if op in ('tool_read','tool_readback','tool_proposal'):
+            from .native_tools import dispatch
+            return dispatch(self,owner,value)
         if op.startswith('chat_'):
             from runtime.mobile_gateway.operator_chat import dispatch
             return dispatch(self,owner,value)
@@ -444,7 +452,8 @@ class NativeMobileComposition:
                 for r in sessions[:8]],'history_truncated':len(sessions)>8 or len(observations)>8,
                 'observations':[{'proof':plain(r.payload['proof']),'signature':r.payload['signature']}
                     for r in observations[:8]]}
-        return {**self.public_settings(),**self.mobile._run(Capability.READ,inspect)}
+        from .native_tools import registry
+        return {**self.public_settings(),**self.mobile._run(Capability.READ,inspect), 'components':registry(self)}
 
     def close(self):
         if self._closed:return

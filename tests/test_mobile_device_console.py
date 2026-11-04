@@ -125,6 +125,25 @@ class DeviceConsoleTests(unittest.TestCase):
         service=self.service();service.meta_owner=None
         with self.assertRaises(AdmissionError):make_mobile_operator_server(self.app,service=service)
 
+    def test_native_read_uses_existing_cookie_csrf_and_cannot_forward_write_approval(self):
+        service=self.service();request=self.tls(service);control=self.console_socket(service)
+        payload={'op':'tool_read','request_id':'c'*32,'operation':'github.repository'}
+        self.assertEqual(403,request('POST','/api/native-operator',payload)[0])
+        token=self.activate(service,request,control)
+        headers={'X-AIOA-Session-Token':token,'Origin':self.app.origin}
+        with patch('runtime.mcp_bridge.native_read.read',return_value={
+                'operation':'github.repository','data':{'repository':'luciferprosun/AIOA-spArkHAT'},
+                'transport':'FIXTURE_NOT_LIVE'}) as read:
+            code,raw=request('POST','/api/native-operator',payload,headers)
+            self.assertEqual(200,code,raw)
+            receipt=wire.strict_json(raw)['data']
+            wire.verify(self.app.identity.spki,receipt['signature'],receipt['receipt'])
+            self.assertEqual(1,read.call_count)
+            for value in ({**payload,'operation':'issue.create'},{**payload,'approved':True},
+                    {'op':'github_approve'},{'op':'chat_approve'},{'op':'cpl_start'}):
+                self.assertIn(request('POST','/api/native-operator',value,headers)[0],(400,403))
+            self.assertEqual(1,read.call_count)
+
     def tls(self,service):
         key=ec.generate_private_key(ec.SECP256R1())
         name=x509.Name([x509.NameAttribute(NameOID.COMMON_NAME,'host.example.org')])

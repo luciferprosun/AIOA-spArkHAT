@@ -14,6 +14,43 @@ function harness(handler) {
   },()=>100);
   return {client,calls};
 }
+test('fixed READ goes through same console, rejects WRITE and keeps exact public receipt',async()=>{
+  const result={receipt:{schema:'aioa.native-tool-read-receipt.v1',effect:'READ',request_id:'a'.repeat(32),
+    operation:'github.repository'},data:{repository:'luciferprosun/AIOA-spArkHAT'},signature:'public-fixture'};
+  const {client,calls}=harness(v=>v.op==='pairing_list'?{pending:[],devices:[]}:result);
+  assert.equal(typeof client.readTool,'function','same-Core READ control is absent');
+  await client.refresh();
+  await assert.rejects(client.readTool('issue.create'),/TOOL_OPERATION_DENIED/);
+  assert.equal(calls.length,1);
+  await client.readTool('github.repository','a'.repeat(32));
+  assert.deepEqual(JSON.parse(calls[1].options.body),{op:'tool_read',request_id:'a'.repeat(32),operation:'github.repository'});
+  assert.deepEqual(client.snapshot().toolResult,result);
+  assert.equal(JSON.stringify(client.snapshot()).includes('T'.repeat(43)),false);
+});
+test('lost newer READ ACK and UNKNOWN readback never present the old result as current',async()=>{
+  let fail=false;
+  const {client}=harness(v=>{
+    if(v.op==='pairing_list')return {pending:[],devices:[]};
+    if(v.op==='tool_readback')return {state:'UNKNOWN',request_id:'b'.repeat(32),automatic_retry:false};
+    if(fail)throw Error('lost ACK');
+    return {receipt:{schema:'aioa.native-tool-read-receipt.v1',effect:'READ',request_id:'a'.repeat(32),operation:'github.repository'},data:{}};
+  });
+  await client.refresh();await client.readTool('github.repository','a'.repeat(32));fail=true;
+  await assert.rejects(client.readTool('github.repository','b'.repeat(32)));
+  assert.equal(client.snapshot().toolResult,null);
+  await client.readToolResult();
+  assert.equal(client.snapshot().toolState,'UNKNOWN');
+  assert.equal(client.snapshot().toolResult,null);
+});
+test('duplicate READ while busy cannot replace the request awaiting its ACK',async()=>{
+  let complete;
+  const {client}=harness(v=>v.op==='pairing_list'?{pending:[],devices:[]}:new Promise(r=>{complete=r;}));
+  await client.refresh();const first=client.readTool('git.status','a'.repeat(32));
+  await assert.rejects(client.readTool('git.log','b'.repeat(32)),/BUSY/);
+  assert.equal(client.snapshot().toolRequest,'a'.repeat(32));
+  complete({receipt:{schema:'aioa.native-tool-read-receipt.v1',effect:'READ',request_id:'a'.repeat(32),operation:'git.status'},data:{}});
+  await first;
+});
 test('owner transport holds credential only in request header, not public state or body', async()=>{
   const {client,calls}=harness(()=>({pending:[pending],devices:[]}));
   await client.refresh();

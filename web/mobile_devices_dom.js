@@ -30,6 +30,25 @@
     }
   }
   function text(tag,value,parent) {const el=document.createElement(tag);el.textContent=value;parent.append(el);return el;}
+  function renderTools(state) {
+    const ready=state?.phase==='READY' && state.observed && !state.busy;
+    for(const button of document.querySelectorAll?.('[data-tool-read]') || [])button.disabled=!ready;
+    const readback=document.getElementById('cosmic-tool-readback');
+    if(readback)readback.disabled=!state?.toolRequest || state.busy || state.phase==='LOCKED';
+    const parse=document.getElementById('cosmic-proposal-parse');if(parse)parse.disabled=!ready;
+    const result=state?.toolResult, receipt=result?.receipt;
+    const value=document.getElementById('cosmic-tool-result'),summary=document.getElementById('cosmic-receipt-summary');
+    if(value)value.textContent=result?JSON.stringify(result,null,2):'No repository evidence yet.';
+    if(summary)summary.textContent=receipt?receipt.operation+' · '+receipt.transport+'\n'+receipt.task_id+'\n'+
+      new Date(receipt.observed_at*1000).toISOString()+'\nSHA-256 '+receipt.data_sha256:
+      (state?.toolState || 'NOT_RUN')+(state?.toolRequest?' · '+state.toolRequest:'');
+    const status=document.getElementById('cosmic-tool-state');
+    if(status)status.textContent=state?.message || (receipt?'Recorded READ · '+receipt.transport+' · no WRITE performed.':
+      state?.toolState==='NOT_FOUND'?'No READ record found for this request. No automatic retry.':
+      state?.toolRequest?'READ result not confirmed. Check last receipt; no automatic retry.':'No tool result read.');
+    const proposal=document.getElementById('cosmic-proposal-result');
+    if(proposal && state?.toolProposal)proposal.textContent=JSON.stringify(state.toolProposal,null,2);
+  }
   function renderCore(state) {
     const button=document.getElementById('cosmic-core-read');
     if(button)button.disabled=!state || state.phase!=='READY' || !state.observed || state.busy;
@@ -39,6 +58,24 @@
     if(!label || !settings || !history)return;
     settings.replaceChildren();history.replaceChildren();
     const data=state?.coreStatus;
+    const registry=document.getElementById('cosmic-module-registry');
+    const evidence=document.getElementById('cosmic-evidence-state');
+    if(registry) {
+      registry.replaceChildren();
+      if(data?.components)for(const [name,item] of Object.entries(data.components)) {
+        const row=text('article','',registry);row.className='cosmic-module';
+        text('h3',name.replaceAll('_',' '),row);
+        text('p',String(item.status),row);
+        if(item.observed_at)text('p','Observed '+new Date(item.observed_at*1000).toISOString(),row);
+      }
+      else text('p','No current binding readback. Nothing is implicitly LIVE.',registry);
+    }
+    if(evidence)evidence.textContent=data?'Source '+data.source_sha+' · operator observation '+
+      new Date(state.coreStatusAt*1000).toISOString()+(state.phase==='READY'?'':' · historical, authorization not confirmed'):
+      'Waiting for an authenticated Core observation.';
+    const cpl=document.getElementById('cosmic-cpl-state'),write=document.getElementById('cosmic-github-write-state');
+    if(cpl)cpl.textContent=data?.components?.cpl?.status || 'No current binding readback.';
+    if(write)write.textContent='REMOTE_WRITE_BLOCKED · '+(data?.components?.github_write?.status || 'No current authority readback.');
     if(!data) {
       label.textContent='No diagnostic readback from this Core yet.';
       text('p','No readback yet. Read the profile from Overview.',history);
@@ -69,6 +106,7 @@
     const state=client?.snapshot();
     renderOverview(state);
     renderCore(state);
+    renderTools(state);
     for (const id of ['add','refresh','lock']) node(id).disabled=!state || state.phase==='LOCKED' || state.busy;
     if (!state) return;
     node('add').disabled=state.phase!=='READY'||state.busy;
@@ -141,6 +179,9 @@
   node('refresh').addEventListener('click',()=>act(()=>client.refresh()));
   node('lock').addEventListener('click',()=>{client?.close();render();});
   document.getElementById('cosmic-core-read')?.addEventListener('click',()=>act(()=>client.status()));
+  for(const button of document.querySelectorAll?.('[data-tool-read]') || [])button.addEventListener('click',()=>act(()=>client.readTool(button.dataset.toolRead)));
+  document.getElementById('cosmic-tool-readback')?.addEventListener('click',()=>act(()=>client.readToolResult()));
+  document.getElementById('cosmic-proposal-parse')?.addEventListener('click',()=>act(()=>client.proposeTool(document.getElementById('cosmic-proposal-chat').value.trim())));
   window.addEventListener('pagehide',()=>{client?.close();render();});
   // Read-only polling while visible; never repeat a mutation or UNKNOWN operation.
   setInterval(()=>{
@@ -157,7 +198,9 @@
       client=AIOAMobileDevices.createDeviceConsole(data.csrf_token);
       await act(()=>client.refresh());
       if(data.profile==='NATIVE_ADVISORY_CHAT_V1' && client?.snapshot().phase==='READY' &&
-          typeof AIOAMobileChat!=='undefined') AIOAMobileChat.mount(value=>client.chatCall(value));
+          typeof AIOAMobileChat!=='undefined') {
+        AIOAMobileChat.mount(value=>client.chatCall(value));showPage('chat');
+      }
       else {
         const label=document.getElementById('native-chat-state');
         if(label)label.textContent='Chat is unavailable in this host profile.';

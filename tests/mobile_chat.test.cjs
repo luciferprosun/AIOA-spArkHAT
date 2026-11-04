@@ -18,6 +18,57 @@ test('unavailable profile cannot send a model prompt',async()=>{
   const client=api.createChat(async()=>{calls++;return {chat:false};},()=>{},()=> 'a'.repeat(32));
   await assert.rejects(client.send('hello'));assert.equal(calls,0);
 });
+
+test('separate conversation requires authoritative UNKNOWN and survives refresh without retry',async()=>{
+  const calls=[];let serial=0;
+  const old={schema:'aioa.mobile.chat-result.v1',request_id:'a'.repeat(32),thread_id:'b'.repeat(32),
+    provider_id:'meta_model_api',model_id:'muse-spark-1.3',save_knowledge:false,state:'UNKNOWN'};
+  const client=api.createChat(async value=>{
+    calls.push(value);
+    if(value.op==='chat_catalog')return {chat:true,model_id:'muse-spark-1.3'};
+    if(value.op==='chat_threads')return {threads:[{thread_id:old.thread_id}]};
+    if(value.op==='chat_thread')return {schema:'aioa.mobile.chat-thread.v1',thread_id:old.thread_id,messages:[old]};
+    assert.fail('recovery must not POST or approve');
+  },()=>{},()=> (++serial).toString(16).padStart(32,'0'));
+  await client.refresh();assert.equal(client.snapshot().pending,old.request_id);
+  assert.equal(typeof client.newConversation,'function','explicit UNKNOWN recovery is missing');
+  assert.throws(()=>client.newConversation(false));
+  const before=calls.length;client.newConversation(true);
+  assert.equal(calls.length,before);assert.equal(client.snapshot().pending,null);
+  assert.notEqual(client.snapshot().thread,old.thread_id);const fresh=client.snapshot().thread;
+  await client.refresh();assert.equal(client.snapshot().thread,fresh);assert.deepEqual(client.snapshot().messages,[]);
+  await client.select(old.thread_id);assert.equal(client.snapshot().pending,old.request_id);
+});
+
+test('local lost ACK alone cannot unlock another conversation',async()=>{
+  const client=api.createChat(async v=>{
+    if(v.op==='chat_catalog')return {chat:true,model_id:'muse-spark-1.3'};
+    if(v.op==='chat_threads')return {threads:[]};
+    throw Error('lost ACK');
+  },()=>{},()=> 'a'.repeat(32));
+  await client.refresh();await assert.rejects(client.send('hello'));
+  assert.equal(typeof client.newConversation,'function');
+  assert.throws(()=>client.newConversation(true),/CHAT_READBACK_ONLY/);
+  assert.equal(client.snapshot().pending,'a'.repeat(32));
+  await assert.rejects(client.refresh());
+  assert.equal(client.snapshot().pending,'a'.repeat(32),'background refresh must retain the uncertain request');
+});
+
+test('refresh of older successful message cannot erase an uncertain newer POST',async()=>{
+  const thread='b'.repeat(32),lost='c'.repeat(32);
+  const previous={schema:'aioa.mobile.chat-result.v1',request_id:'a'.repeat(32),thread_id:thread,
+    provider_id:'meta_model_api',model_id:'muse-spark-1.3',save_knowledge:false,state:'FAILED'};
+  const client=api.createChat(async v=>{
+    if(v.op==='chat_catalog')return {chat:true,model_id:'muse-spark-1.3'};
+    if(v.op==='chat_threads')return {threads:[{thread_id:thread}]};
+    if(v.op==='chat_thread')return {schema:'aioa.mobile.chat-thread.v1',thread_id:thread,messages:[previous]};
+    throw Error('lost ACK');
+  },()=>{},()=>lost);
+  await client.refresh();await assert.rejects(client.send('new prompt'));
+  await assert.rejects(client.refresh(),/CHAT_READBACK_ONLY/);
+  assert.equal(client.snapshot().pending,lost);
+  await assert.rejects(client.send('new prompt'),/CHAT_READBACK_ONLY/);
+});
 test('model HTML and approval instructions remain literal text without a mutation',async()=>{
   const vm=require('node:vm');
   class Element {

@@ -104,7 +104,7 @@ class WebRuntimeService:
         from runtime.mobile_gateway.operator_chat import READ_OPS
         if (not self.mobile_only or self._mobile_console_uid is None or
                 type(value) is not dict or type(value.get('op')) is not str or
-                value['op'] not in {*OWNER_FIELDS, 'status',*READ_OPS}):
+                value['op'] not in {*OWNER_FIELDS, 'status','tool_read','tool_readback','tool_proposal',*READ_OPS}):
             raise wire.MobileError(403)
         # Recheck actual authority, source, expiry and exact operation in Core.
         return self.meta_owner.operator_request(self._mobile_console_uid, value)
