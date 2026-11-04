@@ -1,5 +1,9 @@
 # ULTRA Linux integration — acceptance in progress
 
+Historical implementation-stage snapshot. Current owner handoff and exact
+source/runtime distinctions are in [`ONE_SYSTEM_RELEASE_STATUS.md`](../../ONE_SYSTEM_RELEASE_STATUS.md).
+The status below is preserved as evidence of the earlier stage.
+
 This report records a READ fallback under section4 of the owner brief. It is not
 full issue.create acceptance or production certification.
 
