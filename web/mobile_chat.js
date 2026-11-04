@@ -55,28 +55,28 @@
     const el=id=>document.getElementById('native-chat-'+id);if(!el('send'))return;
     const text=(tag,value,parent)=>{const item=document.createElement(tag);item.textContent=value;parent.append(item);return item;};
     const client=createChat(call,state=>{
-      el('state').textContent=state.error || (state.catalog?.chat?'Meta · muse-spark-1.3 · osobna zgoda na każdą wiadomość':'Czat niedostępny w bieżącym profilu');
+      el('state').textContent=state.error || (state.catalog?.chat?'Meta · muse-spark-1.3 · owner approval required for every message':'Chat is unavailable in the current profile');
       el('send').disabled=!state.catalog?.chat || state.busy || !!state.pending;
       el('refresh').disabled=state.busy;el('stop').disabled=state.busy || !state.pending;
       el('read').disabled=state.busy || !(state.pending || state.messages.length);
       el('threads').replaceChildren();
       for(const thread of state.threads) {
-        const button=text('button','Rozmowa '+thread.thread_id.slice(0,12),el('threads'));button.className='button button-ghost';
+        const button=text('button','Conversation '+thread.thread_id.slice(0,12),el('threads'));button.className='button button-ghost';
         button.disabled=state.busy;button.onclick=()=>client.select(thread.thread_id).catch(()=>{});
       }
       el('messages').replaceChildren();
       for(const message of state.messages) {
         const card=text('article','',el('messages'));card.className='panel';
-        if(message.prompt)text('p','Ty: '+message.prompt,card);
+        if(message.prompt)text('p','You: '+message.prompt,card);
         if(message.reply)text('p','Muse Spark 1.3: '+message.reply,card);
         text('p',message.state+' · task '+message.task_id+' · source '+message.source_sha,card).className='device-digest';
-        if(message.receipt)text('p','LIVE · SHA-256 '+message.receipt.response_sha256+' · szacunek użycia '+message.receipt.cost_estimate_usd+' USD (bez faktury)',card).className='device-digest';
+        if(message.receipt)text('p','LIVE · SHA-256 '+message.receipt.response_sha256+' · estimated usage '+message.receipt.cost_estimate_usd+' USD (not an invoice)',card).className='device-digest';
         if(message.state==='PENDING_OWNER') {
-          text('p','Zgoda na koszt pozostaje w lokalnym kanale Linuxa. Przed zgodą model nie jest wywoływany.',card);
+          text('p','Cost approval stays in the local Linux channel. The model is not called before approval.',card);
           text('code','python3 -B -m runtime.webapp --mobile-operator chat-approve --state-dir /home/l/.local/state/aioa-mobile-native-main-20261102 --chat-request-id '+message.request_id,card);
         }
         if(message.error)text('p',message.error,card);
-        if(!message.prompt)text('p','Tekst wygasł; zachowano metadane i potwierdzenie Core.',card);
+        if(!message.prompt)text('p','Text expired; metadata and the Core receipt are retained.',card);
       }
     });
     el('refresh').onclick=()=>client.refresh().catch(()=>{});

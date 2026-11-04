@@ -151,9 +151,9 @@ test('device panel renders revoked reconnect separately from active legacy acces
   await new Promise(resolve=>setImmediate(resolve));
   assert.equal(consumed,true,'memory client must obtain anti-CSRF value through the cookie-authenticated JSON bootstrap');
   const card=get('devices-trusted').children[0];
-  assert.match(card.text(),/Ponowne łączenie odwołane/);
-  assert.match(card.text(),/Aktywne sesje: 1/);
-  assert.match(card.text(),/Oczekujące kody: 1/);
+  assert.match(card.text(),/Reconnect revoked/);
+  assert.match(card.text(),/Active sessions: 1/);
+  assert.match(card.text(),/Pending codes: 1/);
   const button=card.children.find(x=>x.tag==='button');
   assert.ok(button,'fresh legacy access must retain a revoke action');
   assert.equal(button.disabled,false);

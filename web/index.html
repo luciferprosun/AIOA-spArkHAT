@@ -97,110 +97,110 @@
       </aside>
 
       <main class="workspace">
-        <section id="devices-view" class="cosmic-devices" lang="pl" hidden aria-labelledby="devices-title">
+        <section id="devices-view" class="cosmic-devices" lang="en" hidden aria-labelledby="devices-title">
           <div class="cosmic-shell">
             <aside class="cosmic-rail">
               <p class="cosmic-brand">✦ AIOA spArkHAT</p>
               <p class="cosmic-caption">COSMIC · MISSION CONTROL</p>
               <nav aria-label="Cosmic Mission Control">
                 <button type="button" data-cosmic-target="home" aria-current="page">Overview</button>
-                <button type="button" data-cosmic-target="chat" aria-current="false">Chat & Muse</button>
-                <button type="button" data-cosmic-target="missions" aria-current="false">Misje</button>
+                <button type="button" data-cosmic-target="chat" aria-current="false">Chat with Muse</button>
+                <button type="button" data-cosmic-target="missions" aria-current="false">Missions</button>
                 <button type="button" data-cosmic-target="critical" aria-current="false">Critical</button>
                 <button type="button" data-cosmic-target="repositories" aria-current="false">GitHub</button>
-                <button type="button" data-cosmic-target="devices" aria-current="false">Urządzenia</button>
-                <button type="button" data-cosmic-target="approvals" aria-current="false">Zatwierdzenia</button>
-                <button type="button" data-cosmic-target="details" aria-current="false">Szczegóły misji</button>
-                <button type="button" data-cosmic-target="activity" aria-current="false">Historia</button>
-                <button type="button" data-cosmic-target="providers" aria-current="false">Dostawcy</button>
-                <button type="button" data-cosmic-target="recovery" aria-current="false">Odzyskiwanie</button>
-                <button type="button" data-cosmic-target="settings" aria-current="false">Ustawienia</button>
+                <button type="button" data-cosmic-target="devices" aria-current="false">Devices</button>
+                <button type="button" data-cosmic-target="approvals" aria-current="false">Approvals</button>
+                <button type="button" data-cosmic-target="details" aria-current="false">Mission details</button>
+                <button type="button" data-cosmic-target="activity" aria-current="false">Activity</button>
+                <button type="button" data-cosmic-target="providers" aria-current="false">Providers</button>
+                <button type="button" data-cosmic-target="recovery" aria-current="false">Recovery</button>
+                <button type="button" data-cosmic-target="settings" aria-current="false">Settings</button>
               </nav>
-              <p class="note">Jeden Core.<br>Twoje urządzenia.<br>Twoje decyzje.</p>
+              <p class="note">One Core.<br>Your devices.<br>Your decisions.</p>
             </aside>
             <div class="cosmic-content">
               <header class="cosmic-header">
-                <p class="eyebrow">PRYWATNY HOST LINUX · PROFIL STATUSU</p>
-                <h1 id="devices-title">Linux Mission Control</h1>
-                <p id="devices-message" role="status" aria-live="polite">Otwórz panel z lokalnego konta operatora.</p>
+                <p class="eyebrow">PRIVATE LINUX HOST · NATIVE CORE PROFILE</p>
+                <h1 id="devices-title">AIOA Mission Control</h1>
+                <p id="devices-message" role="status" aria-live="polite">Open this panel from the local operator account.</p>
                 <div class="device-actions">
-                  <button id="devices-add" class="button button-primary" disabled>Dodaj telefon</button>
-                  <button id="devices-refresh" class="button button-ghost" disabled>Odczytaj stan Core</button>
-                  <button id="devices-lock" class="button button-ghost" disabled>Zablokuj panel</button>
+                  <button id="devices-add" class="button button-primary" disabled>Add phone</button>
+                  <button id="devices-refresh" class="button button-ghost" disabled>Refresh Core status</button>
+                  <button id="devices-lock" class="button button-ghost" disabled>Lock panel</button>
                 </div>
               </header>
               <section class="cosmic-page" data-cosmic-page="home" aria-labelledby="cosmic-overview-title">
-                <h2 id="cosmic-overview-title" tabindex="-1">Twoje urządzenia. Jedna orbita.</h2>
+                <h2 id="cosmic-overview-title" tabindex="-1">Your devices. One orbit.</h2>
                 <div class="cosmic-kpis">
-                  <article class="panel"><h3>Lokalny operator</h3><p id="cosmic-operator-state">Brak bieżącego odczytu</p></article>
-                  <article class="panel"><h3>Zaufane urządzenia</h3><p id="cosmic-trusted-count">—</p><p class="note">Zapisane zatwierdzenia w Core; nie status online.</p></article>
-                  <article class="panel"><h3>Sesje w rejestrze Core</h3><p id="cosmic-session-count">—</p><p class="note">Podpisany status sprawdź na telefonie.</p></article>
+                  <article class="panel"><h3>Local operator</h3><p id="cosmic-operator-state">No current readback</p></article>
+                  <article class="panel"><h3>Trusted devices</h3><p id="cosmic-trusted-count">—</p><p class="note">Saved Core approvals; not an online indicator.</p></article>
+                  <article class="panel"><h3>Sessions in the Core registry</h3><p id="cosmic-session-count">—</p><p class="note">Verify signed status on the phone.</p></article>
                 </div>
-                <article class="panel"><h3>Wormhole · połączenie z Xiaomi</h3><p>Istniejące parowanie i podpisy pozostają zachowane. Odczytaj stan urządzeń lub dodaj telefon przez dokładne porównanie kodu.</p><button type="button" class="button button-ghost" data-cosmic-target="devices">Otwórz urządzenia</button></article>
-                <article class="panel"><h3>Critical · Twoja decyzja</h3><p>Oczekujące zatwierdzenia: <strong id="cosmic-approval-count">—</strong></p><p>Decyzja pozostaje na Linuxie. Niepewny wynik wymaga odczytu.</p><button type="button" class="button button-ghost" data-cosmic-target="approvals">Przejrzyj żądania</button></article>
-                <article class="panel"><h3>Ten Core · rzeczywisty odczyt</h3><p id="cosmic-core-read-state" role="status">Nie odczytano diagnostyki tego Core.</p><button id="cosmic-core-read" type="button" class="button button-ghost" disabled>Odczytaj profil i historię podpisów</button><p class="note">Odczyt wymaga aktywnego lokalnego operatora. Nie wydaje zgody na misję ani ponowienie niepewnego parowania.</p></article>
+                <article class="panel"><h3>Secure connection to Xiaomi</h3><p>Existing pairing and signatures are preserved. Refresh devices, or add a phone by comparing the exact code.</p><button type="button" class="button button-ghost" data-cosmic-target="devices">Open devices</button></article>
+                <article class="panel"><h3>Critical · your decision</h3><p>Pending approvals: <strong id="cosmic-approval-count">—</strong></p><p>Approval stays on Linux. An uncertain result requires readback.</p><button type="button" class="button button-ghost" data-cosmic-target="approvals">Review requests</button></article>
+                <article class="panel"><h3>This Core · actual readback</h3><p id="cosmic-core-read-state" role="status">No diagnostic readback from this Core yet.</p><button id="cosmic-core-read" type="button" class="button button-ghost" disabled>Read profile and signed history</button><p class="note">Readback requires an active local operator. It does not approve a mission or authorize retrying uncertain pairing.</p></article>
               </section>
               <section class="cosmic-page" data-cosmic-page="devices approvals" hidden aria-labelledby="cosmic-devices-title">
-                <h2 id="cosmic-devices-title" tabindex="-1">Urządzenia i zatwierdzenia</h2>
-                <p>Porównaj kod na obu ekranach i zatwierdź wyłącznie dokładnie zgodne żądanie.</p>
+                <h2 id="cosmic-devices-title" tabindex="-1">Devices and approvals</h2>
+                <p>Compare the code on both screens and approve only the exact matching request.</p>
                 <section id="devices-invite" class="panel" hidden>
-                  <h3>Zeskanuj w aplikacji AIOA</h3>
-                  <canvas id="devices-qr" aria-label="Podpisane publiczne zaproszenie do parowania"></canvas>
+                  <h3>Scan in the AIOA app</h3>
+                  <canvas id="devices-qr" aria-label="Signed public pairing invitation"></canvas>
                   <p id="devices-expiry"></p>
-                  <details><summary>Alternatywnie: publiczny pakiet parowania</summary>
-                    <p>Wklej cały pakiet w opcji importu zaproszenia na telefonie. Pakiet nie zawiera tokenu sesji ani klucza prywatnego.</p>
-                    <textarea id="devices-packet" readonly aria-label="Podpisany publiczny pakiet parowania"></textarea>
+                  <details><summary>Alternative: public pairing packet</summary>
+                    <p>Paste the complete packet into the invitation import on your phone. It contains no session token or private key.</p>
+                    <textarea id="devices-packet" readonly aria-label="Signed public pairing packet"></textarea>
                   </details>
                 </section>
-                <section class="panel"><h3>Oczekujące urządzenia</h3><div id="devices-pending"></div></section>
-                <section class="panel"><h3>Zapamiętane urządzenia</h3><div id="devices-trusted"></div></section>
-                <p class="note">Parowanie udostępnia podpisany status. Nie daje zgody na WRITE, wykonanie misji ani płatne modele.</p>
+                <section class="panel"><h3>Pending devices</h3><div id="devices-pending"></div></section>
+                <section class="panel"><h3>Remembered devices</h3><div id="devices-trusted"></div></section>
+                <p class="note">Pairing provides signed status. It does not approve WRITE, mission execution or model spending.</p>
               </section>
               <section class="cosmic-page" data-cosmic-page="chat" hidden aria-labelledby="cosmic-chat-title">
-                <h2 id="cosmic-chat-title" tabindex="-1">Muse · przestrzeń do tworzenia</h2>
-                <article class="panel"><p id="native-chat-state">Oczekiwanie na lokalny kanał operatora.</p>
-                  <p>Zapis wiedzy: WYŁĄCZONY. Tekst pozostaje w pamięci maksymalnie 15 minut. Każda płatna wiadomość wymaga osobnej zgody na Linuksie.</p>
+                <h2 id="cosmic-chat-title" tabindex="-1">Chat with Muse Spark 1.3</h2>
+                <article class="panel"><p id="native-chat-state">Waiting for the local operator channel.</p>
+                  <p>Save knowledge: Off. Text stays in memory for up to 15 minutes. Every paid message requires separate approval on Linux.</p>
                   <div id="native-chat-threads"></div><div id="native-chat-messages" aria-live="polite"></div>
-                  <label>Wiadomość do Muse<textarea id="native-chat-prompt" maxlength="2000"></textarea></label>
-                  <button id="native-chat-send" class="button button-primary" disabled>Wyślij</button>
-                  <button id="native-chat-read" class="button button-ghost" disabled>Sprawdź wynik bez ponowienia</button>
-                  <button id="native-chat-refresh" class="button button-ghost" disabled>Odczytaj rozmowy Core</button>
+                  <label>Message to Muse<textarea id="native-chat-prompt" maxlength="2000"></textarea></label>
+                  <button id="native-chat-send" class="button button-primary" disabled>Send</button>
+                  <button id="native-chat-read" class="button button-ghost" disabled>Check result without retry</button>
+                  <button id="native-chat-refresh" class="button button-ghost" disabled>Refresh shared conversations</button>
                   <button id="native-chat-stop" class="button button-danger" disabled>STOP</button>
                 </article>
               </section>
               <section class="cosmic-page" data-cosmic-page="missions" hidden aria-labelledby="cosmic-missions-title">
-                <h2 id="cosmic-missions-title" tabindex="-1">Misje i wyniki</h2>
-                <article class="panel"><p>Uruchomiony profil udostępnia parowanie i status. Nie udostępnia API wykonywania misji. Brak odczytanych misji i receipts; nie pokazujemy przykładowych zadań jako wykonanych.</p></article>
+                <h2 id="cosmic-missions-title" tabindex="-1">Missions and results</h2>
+                <article class="panel"><p>This profile supports pairing, signed status and advisory chat when enabled. Native mission execution is unavailable. No executed mission receipts have been read.</p></article>
               </section>
               <section class="cosmic-page" data-cosmic-page="critical" hidden aria-labelledby="cosmic-critical-title">
-                <h2 id="cosmic-critical-title" tabindex="-1">Critical · kontrola człowieka</h2>
-                <article class="panel"><p>TLS, podpisy, wygaśnięcie i odwołanie pozostają egzekwowane przez istniejący Core. Parowanie nie daje uprawnień WRITE, EXEC ani dostępu do płatnych modeli.</p></article>
+                <h2 id="cosmic-critical-title" tabindex="-1">Critical · human control</h2>
+                <article class="panel"><p>The existing Core enforces TLS, signatures, expiry and revocation. Pairing does not grant WRITE, EXEC or model spending.</p></article>
               </section>
               <section class="cosmic-page" data-cosmic-page="repositories" hidden aria-labelledby="cosmic-repositories-title">
-                <h2 id="cosmic-repositories-title" tabindex="-1">Repozytoria · GitHub</h2>
-                <article class="panel"><p>Ten profil nie udostępnia sterowania repozytoriami. Nie wykonano GitHub WRITE, commitu, push ani PR. Dowody repozytorium pojawią się dopiero przez obsługiwany kontrakt Core.</p></article>
+                <h2 id="cosmic-repositories-title" tabindex="-1">GitHub Preview · unavailable</h2>
+                <article class="panel"><p>Repository control is unavailable in this profile. No agent GitHub WRITE, commit, push or PR was performed. Repository evidence requires a supported Core contract.</p></article>
               </section>
               <section class="cosmic-page" data-cosmic-page="details" hidden aria-labelledby="cosmic-details-title">
-                <h2 id="cosmic-details-title" tabindex="-1">Szczegóły misji</h2>
-                <article class="panel"><p>Nie odczytano misji w tym profilu. Plan, testy, pliki i receipt wymagają rzeczywistych danych Core. STOP misji nie jest dostępny bez właściwego aktywnego zadania.</p></article>
+                <h2 id="cosmic-details-title" tabindex="-1">Mission details</h2>
+                <article class="panel"><p>No mission has been read in this profile. Plans, tests, files and receipts require actual Core data. Mission STOP requires a supported active task.</p></article>
               </section>
               <section class="cosmic-page" data-cosmic-page="activity" hidden aria-labelledby="cosmic-activity-title">
-                <h2 id="cosmic-activity-title" tabindex="-1">Odczyty i historia</h2>
-                <article class="panel"><p>Widok urządzeń pokazuje ostatni odczyt lokalnego rejestru Core. Liczba sesji nie jest dowodem aktualnego statusu online Androida. Nie załadowano pełnej historii audytu.</p></article>
-                <article class="panel"><h3>Odpowiedzi zapisane przez Core</h3><p>Istniejący journal: maksymalnie osiem ostatnich podpisanych odpowiedzi. Zapis nie dowodzi odbioru ani weryfikacji na telefonie. Ten widok nie weryfikuje kryptograficznie podpisów i nie jest receipt wykonania misji.</p><div id="cosmic-core-observations"><p>Brak odczytu. Użyj odczytu profilu na stronie Główna.</p></div></article>
+                <h2 id="cosmic-activity-title" tabindex="-1">Readback and activity</h2>
+                <article class="panel"><p>The device view shows the last local Core registry readback. A session count does not prove current Android connectivity. The full audit history is not loaded.</p></article>
+                <article class="panel"><h3>Evidence and receipts · Core observations</h3><p>The existing journal shows up to eight recent signed responses. A record does not prove phone receipt or verification. This view does not verify signatures itself and is not a mission execution receipt.</p><div id="cosmic-core-observations"><p>No readback yet. Read the profile from Overview.</p></div></article>
               </section>
               <section class="cosmic-page" data-cosmic-page="providers" hidden aria-labelledby="cosmic-providers-title">
-                <h2 id="cosmic-providers-title" tabindex="-1">Dostawcy modeli</h2>
-                <article class="panel"><p>Profil parowania nie uruchamia modelu. Muse LIVE i lokalne LLM pozostają niedostępne w tym widoku; nie ma tu kluczy API ani przełącznika pozorującego ich aktywację.</p></article>
+                <h2 id="cosmic-providers-title" tabindex="-1">Model providers</h2>
+                <article class="panel"><p>Model activation and spending stay on Linux. Verified LIVE receipts appear in Chat after exact owner approval. This page does not store API keys or activate a model.</p></article>
               </section>
               <section class="cosmic-page" data-cosmic-page="recovery" hidden aria-labelledby="cosmic-recovery-title">
-                <h2 id="cosmic-recovery-title" tabindex="-1">Wormhole · odzyskiwanie</h2>
-                <article class="panel"><p>Na Androidzie wybierz Połącz ponownie lub Odśwież podpisany stan. Zapisane zatwierdzenie urządzenia pozostaje w Core. Nowy QR jest potrzebny dopiero, gdy rzeczywisty stan zaufania tego wymaga. Nie ponawiaj niepewnego żądania automatycznie.</p></article>
+                <h2 id="cosmic-recovery-title" tabindex="-1">Secure connection · recovery</h2>
+                <article class="panel"><p>On Android, choose Reconnect or Refresh signed status. Saved device approval stays in Core. A new QR is needed only when the actual trust state requires it. Never retry an uncertain request automatically.</p></article>
               </section>
               <section class="cosmic-page" data-cosmic-page="settings" hidden aria-labelledby="cosmic-settings-title">
-                <h2 id="cosmic-settings-title" tabindex="-1">Ustawienia i zaufanie</h2>
-                <article class="panel"><p>Sesja panelu wymaga rzeczywistej autoryzacji lokalnego operatora. Po jej wygaśnięciu otwórz panel ponownie z Linuxa. Zablokuj panel usuwa jego uprawnienie z pamięci; odwołanie urządzenia odbywa się przy konkretnym wpisie na stronie Urządzenia.</p><p><a href="/cosmic_fonts_ofl.txt">Licencje lokalnych fontów OFL</a></p></article>
-                <article class="panel"><h3>Publiczna tożsamość tego hosta</h3><div id="cosmic-core-settings"><p>Nie odczytano. Klucze prywatne i tokeny nie są udostępniane przez ten widok.</p></div></article>
+                <h2 id="cosmic-settings-title" tabindex="-1">Settings and trust</h2>
+                <article class="panel"><p>The panel requires authentic local operator authorization. After expiry, reopen it from Linux. Lock panel removes its in-memory grant; revoke a specific device from Devices.</p><p><a href="/cosmic_fonts_ofl.txt">Local font licenses · OFL</a></p></article>
+                <article class="panel"><h3>Public host identity</h3><div id="cosmic-core-settings"><p>Not read yet. Private keys and tokens are not exposed by this view.</p></div></article>
               </section>
             </div>
           </div>

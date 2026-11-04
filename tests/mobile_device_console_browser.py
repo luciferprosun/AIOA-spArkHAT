@@ -138,7 +138,7 @@ def worker():
                   !document.documentElement.outerHTML.includes('name="delivery"');
                 const saved=document.getElementById('devices-trusted').textContent;
                 result.revoked_reconnect_keeps_legacy_revoke=!!trusted()&&!trusted().disabled&&
-                  saved.includes('Ponowne łączenie odwołane')&&saved.includes('Aktywne sesje: 1')&&saved.includes('Oczekujące kody: 1');
+                  saved.includes('Reconnect revoked')&&saved.includes('Active sessions: 1')&&saved.includes('Pending codes: 1');
                 pending()[0].focus();window.consoleProbePoll();
                 result.busy_controls_disabled=pending().every(x=>x.disabled)&&trusted().disabled;
                 await wait(2);
@@ -162,8 +162,8 @@ def worker():
                 document.getElementById('devices-lock').click();
                 result.lock_clears_status_history=!document.getElementById('cosmic-core-settings').textContent.includes('NATIVE_STATUS_READ_ONLY_V1')&&
                   !document.getElementById('cosmic-core-observations').textContent.includes('/api/mobile/v1/status');
-                result.empty_lists_and_locked_controls=document.getElementById('devices-pending').textContent.includes('Brak zgłoszeń')&&
-                  document.getElementById('devices-trusted').textContent.includes('Brak zapamiętanych')&&statusButton.disabled&&
+                result.empty_lists_and_locked_controls=document.getElementById('devices-pending').textContent.includes('No pending requests')&&
+                  document.getElementById('devices-trusted').textContent.includes('No remembered devices')&&statusButton.disabled&&
                   document.getElementById('devices-add').disabled;
               } catch(error) {result.error=error.message;}
               document.getElementById('devices-title').textContent='Cosmic · TEST OFFLINE';

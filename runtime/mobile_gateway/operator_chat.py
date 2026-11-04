@@ -53,13 +53,13 @@ def financial_review(state_dir,request_id,*,approve=False):
     if not approve:
         print(json.dumps(public,ensure_ascii=False,indent=2));return
     _desktop_operator_uid()
-    text=('AIOA — JEDNA PŁATNA WIADOMOŚĆ META\n\n'+json.dumps(public,ensure_ascii=False,indent=2)+
-        '\n\nPotwierdzasz użycie standardowego Meta Model API z maksymalnym kosztem 0.05 USD. '
-        'Stan rozliczeń konta pozostaje UNVERIFIED. Jedna próba, bez automatycznego ponowienia. '
-        'To nie jest zgoda na narzędzia, GitHub WRITE ani dalsze wiadomości.')
-    completed=subprocess.run(['/usr/bin/zenity','--text-info','--title=AIOA: dokładna zgoda na koszt Muse',
-        '--width=850','--height=650','--checkbox=Zatwierdzam tylko tę wiadomość i jej limit kosztu',
-        '--ok-label=Zatwierdź jedną próbę','--cancel-label=Anuluj','--timeout=180'],
+    text=('AIOA — ONE PAID META MESSAGE\n\n'+json.dumps(public,ensure_ascii=False,indent=2)+
+        '\n\nYou are approving standard Meta Model API usage with a maximum cost of USD 0.05. '
+        'Account billing remains UNVERIFIED. One attempt, without automatic retry. '
+        'This does not approve tools, GitHub WRITE or further messages.')
+    completed=subprocess.run(['/usr/bin/zenity','--text-info','--title=AIOA: exact Muse cost approval',
+        '--width=850','--height=650','--checkbox=I approve only this message and its cost ceiling',
+        '--ok-label=Approve one attempt','--cancel-label=Cancel','--timeout=180'],
         input=text,text=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,timeout=190,check=False)
     if completed.returncode!=0:raise SystemExit('CHAT_OWNER_CANCELLED_NO_CALL')
     result=mobile_operator_client(state_dir,{'op':'chat_approve','request_id':request_id,'review_digest':review['review_digest']})
