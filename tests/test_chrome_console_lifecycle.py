@@ -6,6 +6,51 @@ from unittest.mock import patch
 from runtime.mobile_gateway import chrome_console
 
 class ChromeLifecycleTests(unittest.TestCase):
+    def test_delivery_rechecks_exact_document_in_same_evaluation_and_never_retries(self):
+        from unittest.mock import Mock
+        url='https://host.example.org/devices';grant='A'*43
+        pipe=Mock();pipe.call.return_value={'result':{'value':200}}
+        chrome_console.deliver_once(pipe,'session',url,grant)
+        self.assertEqual(1,pipe.call.call_count)
+        expression=pipe.call.call_args.args[1]['expression']
+        self.assertIn('location.href',expression)
+        self.assertIn('location.origin',expression)
+        self.assertIn('isSecureContext',expression)
+        self.assertLess(expression.index('location.href'),expression.index('fetch('))
+        self.assertIn('mode:"cors"',expression) # Existing closed Sec-Fetch-Mode contract.
+        self.assertIn('redirect:"error"',expression)
+        pipe.reset_mock();pipe.call.side_effect=ValueError('CHROME_COMMAND_UNKNOWN')
+        with self.assertRaises(ValueError):chrome_console.deliver_once(pipe,'session',url,grant)
+        self.assertEqual(1,pipe.call.call_count)
+
+    def test_private_document_navigation_waits_for_ready_blank_target(self):
+        from unittest.mock import Mock, call
+        url='https://host.example.org/devices'
+        pipe=Mock()
+        pipe.call.side_effect=[{'product':'Chrome/test'}, {'targetId':'target'},
+                               {'sessionId':'session'}, {'frameId':'frame'}]
+        with patch.object(chrome_console,'wait_for_document') as ready:
+            self.assertEqual('session',chrome_console.open_document(pipe,url))
+        self.assertEqual([
+            call('Browser.getVersion'),
+            call('Target.createTarget',{'url':'about:blank'}),
+            call('Target.attachToTarget',{'targetId':'target','flatten':True}),
+            call('Page.navigate',{'url':url},'session')],pipe.call.call_args_list)
+        ready.assert_called_once_with(pipe,'session',url)
+
+    def test_failed_navigation_never_checks_document_or_delivers_owner_grant(self):
+        from unittest.mock import Mock
+        for navigation in ({'errorText':'net::ERR_CERT_AUTHORITY_INVALID'},{'isDownload':True}):
+            with self.subTest(navigation=navigation):
+                pipe=Mock()
+                pipe.call.side_effect=[{}, {'targetId':'target'}, {'sessionId':'session'}, navigation]
+                with patch.object(chrome_console,'wait_for_document') as ready:
+                    with self.assertRaisesRegex(ValueError,'CONSOLE_NAVIGATION_FAILED_NO_DELIVERY'):
+                        chrome_console.open_document(pipe,'https://host.example.org/devices')
+                ready.assert_not_called()
+                self.assertEqual(4,pipe.call.call_count)
+                self.assertFalse(any(c.args[0]=='Runtime.evaluate' for c in pipe.call.call_args_list))
+
     def test_about_blank_complete_cannot_receive_owner_delivery(self):
         from unittest.mock import Mock
         url='https://host.example.org/devices'

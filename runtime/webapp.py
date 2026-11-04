@@ -852,9 +852,16 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
         if payload is None:return
         try:
             # Serialize grant rotation with admission and mutation dispatch.
-            with service.lock:
-                if not self._check_token():return
-                data=service.mobile_operator_request(payload)
+            if type(payload) is dict and payload.get('op')=='tool_read':
+                if not service.lock.acquire(timeout=1):raise wire.MobileError(409)
+                try:
+                    if not self._check_token():return
+                    data=service.mobile_operator_request(payload)
+                finally:service.lock.release()
+            else:
+                with service.lock:
+                    if not self._check_token():return
+                    data=service.mobile_operator_request(payload)
             self._write_json(200,{'ok':True,'data':data})
         except wire.MobileError as error:
             self._write_json(error.status,{'ok':False,'error':error.code,'automatic_retry':False})
@@ -1095,7 +1102,8 @@ def mobile_operator_client(root,value):
             or not stat.S_ISSOCK(info.st_mode) or info.st_uid!=os.getuid() or info.st_mode&0o077):
         raise ValueError('NATIVE_OPERATOR_SOCKET_DENIED')
     with socket.socket(socket.AF_UNIX,socket.SOCK_STREAM) as peer:
-        peer.settimeout(10);peer.connect(str(path))
+        peer.settimeout(30 if type(value) is dict and value.get('op')=='tool_read' else 10)
+        peer.connect(str(path))
         _,uid,_=struct.unpack('3i',peer.getsockopt(socket.SOL_SOCKET,socket.SO_PEERCRED,12))
         if uid!=os.getuid():raise ValueError('NATIVE_OPERATOR_PEER_DENIED')
         peer.sendall(wire.canonical(value)+b'\n')

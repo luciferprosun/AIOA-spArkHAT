@@ -87,6 +87,30 @@ def wait_for_document(pipe,session,url):
         time.sleep(.2)
     raise ValueError('CONSOLE_DOCUMENT_NOT_READY_NO_DELIVERY')
 
+def open_document(pipe,url):
+    """Separate browser startup from private HTTPS navigation; never retry it."""
+    pipe.call('Browser.getVersion')
+    target=pipe.call('Target.createTarget',{'url':'about:blank'})['targetId']
+    session=pipe.call('Target.attachToTarget',{'targetId':target,'flatten':True})['sessionId']
+    result=pipe.call('Page.navigate',{'url':url},session)
+    if result.get('errorText') or result.get('isDownload'):
+        raise ValueError('CONSOLE_NAVIGATION_FAILED_NO_DELIVERY')
+    wait_for_document(pipe,session,url)
+    return session
+
+def deliver_once(pipe,session,url,delivery):
+    """Check the current document in the same evaluation as the one-use POST."""
+    parsed=urlsplit(url)
+    expected_origin=parsed.scheme+'://'+parsed.netloc
+    expression=('(()=>{if(location.href!=='+json.dumps(url)+'||location.origin!=='+
+        json.dumps(expected_origin)+'||!isSecureContext)throw Error("CONSOLE_DOCUMENT_CHANGED");'
+        'return fetch('+json.dumps(url)+',{method:"POST",credentials:"same-origin",mode:"cors",'
+        'redirect:"error",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:'+
+        json.dumps('delivery='+delivery)+'}).then(r=>r.status)})()')
+    value=pipe.call('Runtime.evaluate',{'expression':expression,'awaitPromise':True,'returnByValue':True},session)
+    if value.get('result',{}).get('value')!=200:
+        raise ValueError('CONSOLE_DELIVERY_UNKNOWN_NO_RETRY')
+
 def run(data):
     parsed=validate(data);os.umask(0o077)
     executable=Path('/usr/bin/google-chrome')
@@ -108,14 +132,10 @@ def run(data):
         os.close(browser_read);os.close(browser_write)
         pipe=Pipe(parent_write,parent_read)
         try:
-            target=pipe.call('Target.createTarget',{'url':data['url']})['targetId']
-            session=pipe.call('Target.attachToTarget',{'targetId':target,'flatten':True})['sessionId']
-            wait_for_document(pipe,session,data['url'])
+            session=open_document(pipe,data['url'])
             # Nothing is inserted into DOM, location, storage or console logs.
-            expression='fetch("/devices",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:'+json.dumps('delivery='+data['delivery'])+'}).then(r=>r.status)'
-            value=pipe.call('Runtime.evaluate',{'expression':expression,'awaitPromise':True,'returnByValue':True},session)
-            data.clear();expression=None
-            if value.get('result',{}).get('value')!=200:raise ValueError('CONSOLE_DELIVERY_UNKNOWN_NO_RETRY')
+            deliver_once(pipe,session,data['url'],data['delivery'])
+            data.clear()
             pipe.call('Page.reload',{},session)
             print(json.dumps({'status':'AIOA_CHROME_CONSOLE_OPENED'}),flush=True)
             # Hold the anonymous pipe while the owner's Chrome window is open.

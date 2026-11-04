@@ -14,7 +14,7 @@
   function createDeviceConsole(credential, fetcher = root.fetch.bind(root), clock = () => Math.floor(Date.now()/1000)) {
     if (!/^[A-Za-z0-9_-]{43}$/.test(credential)) throw Error('LOCAL_OPERATOR_REQUIRED');
     let token = credential, busy = false, generation = 0;
-    let state = {phase:'READY', observed:false, pending:[], devices:[], invite:null, message:'',coreStatus:null,coreStatusAt:null,toolResult:null,toolRequest:null,toolState:'NOT_RUN',toolProposal:null};
+    let state = {phase:'READY', observed:false, pending:[], devices:[], invite:null, message:'',coreStatus:null,coreStatusAt:null,toolResult:null,toolRequest:null,toolState:'NOT_RUN',toolError:null,toolProposal:null};
     async function call(value, mutation, apply) {
       if (!token) throw Error('LOCAL_OPERATOR_REQUIRED');
       if (busy) throw Error('BUSY');
@@ -22,7 +22,7 @@
       busy = true;
       const epoch = generation;
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 8000);
+      const timer = setTimeout(() => controller.abort(), value.op==='tool_read'?30000:8000);
       try {
         const response = await fetcher('/api/native-operator', {
           method:'POST', credentials:'same-origin', redirect:'error', cache:'no-store', signal:controller.signal,
@@ -51,7 +51,7 @@
         if(state.phase!=='READY' || !state.observed)throw Error('READBACK_REQUIRED');
         requestId=requestId || Array.from(root.crypto.getRandomValues(new Uint8Array(16)),x=>x.toString(16).padStart(2,'0')).join('');
         if(!/^[a-f0-9]{32}$/.test(requestId))throw Error('TOOL_OPERATION_DENIED');
-        state.toolRequest=requestId;state.toolResult=null;state.toolState='PENDING';
+        state.toolRequest=requestId;state.toolResult=null;state.toolState='PENDING';state.toolError=null;
         return call({op:'tool_read',request_id:requestId,operation},false,data=>{
           if(data.receipt?.schema!=='aioa.native-tool-read-receipt.v1' || data.receipt.effect!=='READ' ||
              data.receipt.request_id!==requestId || data.receipt.operation!==operation)throw Error('INVALID_READBACK');
@@ -62,9 +62,10 @@
         if(!state.toolRequest)return Promise.reject(Error('READBACK_REQUIRED'));
         return call({op:'tool_readback',request_id:state.toolRequest},false,data=>{
           if(data.receipt?.schema==='aioa.native-tool-read-receipt.v1' && data.receipt.effect==='READ' && data.receipt.request_id===state.toolRequest) {
-            state.toolResult=data;state.toolState='VERIFIED';
+            state.toolResult=data;state.toolState='VERIFIED';state.toolError=null;
           } else if(['UNKNOWN','NOT_FOUND'].includes(data.state) && data.request_id===state.toolRequest) {
             state.toolState=data.state;state.toolResult=null;
+            state.toolError=data.error_code==='TOOL_READ_TIMEOUT'?'TOOL_READ_TIMEOUT':null;
           } else throw Error('INVALID_READBACK');
         });
       },
@@ -122,7 +123,7 @@
           state.devices=state.devices.map(x=>x.device_id===deviceId ? {...x,revoked:true,active_sessions:0,pending_enrollments:0} : x);
         });
       },
-      close:() => { generation++; token=''; state={phase:'LOCKED',observed:false,pending:[],devices:[],invite:null,coreStatus:null,coreStatusAt:null,toolResult:null,toolRequest:null,toolState:'NOT_RUN',toolProposal:null,message:'LOCAL_OPERATOR_REQUIRED'}; }
+      close:() => { generation++; token=''; state={phase:'LOCKED',observed:false,pending:[],devices:[],invite:null,coreStatus:null,coreStatusAt:null,toolResult:null,toolRequest:null,toolState:'NOT_RUN',toolError:null,toolProposal:null,message:'LOCAL_OPERATOR_REQUIRED'}; }
     });
   }
   const api={createDeviceConsole,canRevokeDevice,presentation};

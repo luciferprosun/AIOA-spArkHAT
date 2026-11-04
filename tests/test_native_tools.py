@@ -23,6 +23,49 @@ def module(test):
 
 
 class NativeReadTests(unittest.TestCase):
+    def test_two_five_second_gets_share_budget_and_use_longer_get_cap(self):
+        m=module(self);now=[100.0];caps=[];deadlines=[]
+        repo={'id':m.REPOSITORY_ID,'full_name':m.REPOSITORY,'default_branch':'main'}
+        branch={'name':'main','commit':{'sha':'a'*40}}
+        def child(argv,**kwargs):
+            caps.append(kwargs.get('timeout',4));deadlines.append(kwargs['deadline'])
+            if argv[1]=='config':now[0]+=.1;return b''
+            now[0]+=5
+            return json.dumps(branch if '/branches/' in argv[-1] else repo).encode()
+        with tempfile.TemporaryDirectory() as tmp:
+            config=Path(tmp)/'config.yml';config.write_text('version: 1\n');config.chmod(0o600)
+            with patch.object(m.time,'monotonic',side_effect=lambda:now[0]),patch.object(m,'_qualified_gh'),\
+                    patch.object(m,'_environment',return_value={'GH_CONFIG_DIR':tmp}),patch.object(m,'_bounded_command',side_effect=child):
+                result=m.read('github.repository',Path('/tmp'))
+        self.assertEqual('a'*40,result['data']['commit_sha'])
+        self.assertEqual([4,4,8,4,4,8],caps)
+        self.assertEqual([120.0]*6,deadlines)
+
+    def test_parent_deadline_caps_actual_child_even_with_larger_child_timeout(self):
+        m=module(self)
+        with self.assertRaisesRegex(ValueError,'TOOL_READ_TIMEOUT'):
+            m._bounded_command(['/usr/bin/python3','-I','-c','import time;time.sleep(2)'],
+                cwd=Path('/tmp'),env={'PATH':'/usr/bin:/bin'},timeout=2,deadline=m.time.monotonic()+.05)
+
+    def test_entire_github_recipe_shares_one_deadline_and_stops_before_next_get(self):
+        m=module(self);now=[100.0]
+        repo={'id':m.REPOSITORY_ID,'full_name':m.REPOSITORY,'default_branch':'main'}
+        def slow_first(*args,**kwargs):
+            self.assertEqual(120.0,kwargs['deadline'])
+            now[0]=120.01
+            return repo
+        with patch.object(m.time,'monotonic',side_effect=lambda:now[0]),patch.object(m,'_github_json',side_effect=slow_first) as transport:
+            with self.assertRaisesRegex(ValueError,'TOOL_READ_TIMEOUT'):
+                m.read('github.repository',Path('/tmp'))
+            self.assertEqual(1,transport.call_count)
+
+    def test_expired_operation_deadline_starts_no_child(self):
+        m=module(self)
+        with patch.object(m.time,'monotonic',return_value=100),patch.object(m.subprocess,'Popen') as child:
+            with self.assertRaisesRegex(ValueError,'TOOL_READ_TIMEOUT'):
+                m._bounded_command(['/usr/bin/gh'],cwd=Path('/tmp'),env={},deadline=99)
+            child.assert_not_called()
+
     def test_repository_is_numeric_identity_bound_and_projects_only_public_fields(self):
         m = module(self)
         repo = {'id': 1247349659, 'full_name': 'luciferprosun/AIOA-spArkHAT',
@@ -155,6 +198,48 @@ class NativeToolCoreTests(unittest.TestCase):
     def invoke(self, request='c' * 32, operation='github.repository', **extra):
         return self.app.operator_request(os.getuid(), dict(op='tool_read', request_id=request, operation=operation, **extra))
 
+    def test_busy_core_lock_is_bounded_and_creates_no_read_intent(self):
+        from unittest.mock import Mock
+        m=module(self);lock=Mock();lock.acquire.return_value=False
+        with patch.object(self.app.missions,'_lock',lock),patch.object(m,'read') as read:
+            with self.assertRaises(wire.MobileError):self.invoke()
+            read.assert_not_called()
+            self.assertLessEqual(lock.acquire.call_args.kwargs['timeout'],1)
+            lock.release.assert_not_called()
+        self.assertIsNone(self.app.mobile._get('native-tool-read-'+'c'*32))
+
+    def test_completion_ack_loss_is_not_reclassified_or_overwritten_by_timeout_diagnostic(self):
+        from runtime.memory_patch.errors import CommitOutcomeUnknown
+        from runtime.meta_hackathon import native_tools
+        m=module(self);original=self.app.mobile._run
+        def lost(purpose,callback,*args,**kwargs):
+            value=original(purpose,callback,*args,**kwargs)
+            if callback.__name__=='complete':
+                error=CommitOutcomeUnknown();error.__cause__=ValueError('TOOL_READ_TIMEOUT')
+                raise error
+            return value
+        with patch.object(m,'read',return_value={'operation':'git.status','data':{'text':''},'transport':'FIXTURE_NOT_LIVE'}) as read,\
+                patch.object(self.app.mobile,'_run',side_effect=lost),patch.object(native_tools,'_record_timeout') as diagnostic:
+            with self.assertRaises(CommitOutcomeUnknown):self.invoke(operation='git.status')
+            diagnostic.assert_not_called()
+            result=self.app.operator_request(os.getuid(),{'op':'tool_readback','request_id':'c'*32})
+            self.assertEqual('READ',result['receipt']['effect'])
+            self.assertEqual(result,self.invoke(operation='git.status'))
+            self.assertEqual(1,read.call_count)
+
+    def test_recipe_deadline_expiry_after_signing_never_commits_verified(self):
+        m=module(self);now=[m.time.monotonic()];original=wire.Identity.sign
+        def expire(identity,value):
+            signature=original(identity,value);now[0]+=21
+            return signature
+        with patch.object(m.time,'monotonic',side_effect=lambda:now[0]),patch.object(m,'read',return_value={
+                'operation':'github.repository','data':{},'transport':'FIXTURE_NOT_LIVE'}),patch.object(wire.Identity,'sign',autospec=True,side_effect=expire):
+            with self.assertRaises(MemoryPatchError) as rejected:self.invoke()
+            self.assertEqual('TOOL_READ_TIMEOUT',str(rejected.exception.__cause__))
+        self.assertEqual('TOOL_READ_PENDING',self.app.mobile._get('native-tool-read-'+'c'*32).payload['state'])
+        result=self.app.operator_request(os.getuid(),{'op':'tool_readback','request_id':'c'*32})
+        self.assertEqual('TOOL_READ_TIMEOUT',result['error_code'])
+
     def test_core_receipt_is_signed_durable_and_replay_does_not_repeat_network(self):
         m = module(self)
         with patch.object(m, 'read', return_value={'operation': 'github.repository', 'data': {'commit_sha': 'd' * 40}, 'transport': 'FIXTURE_NOT_LIVE'}) as read:
@@ -249,6 +334,27 @@ class NativeChatToolTests(unittest.TestCase):
             self.assertEqual('UNKNOWN', pending['state'])
             with self.assertRaises(wire.MobileError): self.invoke()
             self.assertEqual(1, read.call_count)
+
+    def test_timeout_readback_preserves_fixed_diagnostic_without_retry_or_false_receipt(self):
+        m=module(self)
+        with patch.object(m,'read',side_effect=ValueError('TOOL_READ_TIMEOUT')) as read:
+            with self.assertRaisesRegex(ValueError,'TOOL_READ_TIMEOUT'):self.invoke()
+            pending=self.app.mobile._get('native-tool-read-'+'c'*32)
+            self.assertEqual('TOOL_READ_PENDING',pending.payload['state'])
+            result=self.app.operator_request(os.getuid(),{'op':'tool_readback','request_id':'c'*32})
+            self.assertEqual('UNKNOWN',result['state'])
+            self.assertEqual('TOOL_READ_TIMEOUT',result['error_code'])
+            self.assertFalse(result['automatic_retry'])
+            self.assertNotIn('receipt',result)
+            with self.assertRaises(wire.MobileError):self.invoke()
+            self.assertEqual(1,read.call_count)
+        self.app.close();self.start()
+        with patch.object(m,'read') as read:
+            result=self.app.operator_request(os.getuid(),{'op':'tool_readback','request_id':'c'*32})
+            self.assertEqual('UNKNOWN',result['state'])
+            self.assertEqual('TOOL_READ_TIMEOUT',result['error_code'])
+            with self.assertRaises(wire.MobileError):self.invoke()
+            read.assert_not_called()
 
     def test_proposal_requires_real_current_chat_receipt_and_never_executes(self):
         module(self)

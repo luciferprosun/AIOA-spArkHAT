@@ -92,8 +92,11 @@ def worker():
             window.consoleProbeInitialURL=location.href;
             window.consoleProbeReads=0;
             window.consoleProbeStatusReads=0;
+            window.consoleProbeDeliveryFetches=0;
             const originalFetch=window.fetch.bind(window);
-            window.fetch=async(...args)=>{const reply=await originalFetch(...args);
+            window.fetch=async(...args)=>{
+              if(String(args[0]).endsWith('/devices'))window.consoleProbeDeliveryFetches++;
+              const reply=await originalFetch(...args);
               if(args[0]==='/api/native-operator'){if(JSON.parse(args[1].body).op==='status')window.consoleProbeStatusReads++;else window.consoleProbeReads++;}
               return reply;};
             const originalInterval=window.setInterval.bind(window);
@@ -195,7 +198,7 @@ def worker():
             test_spki=base64.b64encode(hashlib.sha256(request.certificate_spki).digest()).decode('ascii')
             self.app.origin='https://host.example.org:'+str(request.server.server_address[1])
             grant=self.console_socket(service)({'op':'console'})['data']
-            from runtime.mobile_gateway.chrome_console import Pipe,cleanup_owned,wait_for_document
+            from runtime.mobile_gateway.chrome_console import Pipe,cleanup_owned,open_document,deliver_once
             real_run=subprocess.run;outputs=[]
             # Use the same anonymous-pipe protocol as the real launcher. Only
             # the already contained, networkless fixture uses headless Chrome
@@ -214,12 +217,14 @@ def worker():
             os.close(browser_read);os.close(browser_write);pipe=Pipe(parent_write,parent_read)
             with patch.object(service,'mobile_operator_request',side_effect=synthetic_operation):
                 try:
-                    target=pipe.call('Target.createTarget',{'url':self.app.origin+'/devices'})['targetId']
-                    session=pipe.call('Target.attachToTarget',{'targetId':target,'flatten':True})['sessionId']
-                    wait_for_document(pipe,session,self.app.origin+'/devices')
-                    expression='fetch("/devices",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:'+json.dumps('delivery='+grant['delivery'])+'}).then(r=>r.status)'
-                    reply=pipe.call('Runtime.evaluate',{'expression':expression,'awaitPromise':True,'returnByValue':True},session)
-                    self.assertEqual(200,reply.get('result',{}).get('value'),'Private one-use POST was not accepted')
+                    session=open_document(pipe,self.app.origin+'/devices')
+                    # Invalid canary, never an owner grant: a changed document
+                    # must be rejected before fetch is called at all.
+                    with self.assertRaisesRegex(ValueError,'CONSOLE_DELIVERY_UNKNOWN_NO_RETRY'):
+                        deliver_once(pipe,session,'https://other.example.invalid/devices','Z'*43)
+                    calls=pipe.call('Runtime.evaluate',{'expression':'window.consoleProbeDeliveryFetches','returnByValue':True},session)
+                    self.assertEqual(0,calls['result']['value'],'Changed-document guard invoked fetch')
+                    deliver_once(pipe,session,self.app.origin+'/devices',grant['delivery'])
                     pipe.call('Page.reload',{},session)
                     for _ in range(300):
                         result=pipe.call('Runtime.evaluate',{'expression':"document.getElementById('console-browser-result')?.textContent",'returnByValue':True},session)

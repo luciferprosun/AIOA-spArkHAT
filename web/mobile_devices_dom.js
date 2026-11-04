@@ -44,6 +44,7 @@
       (state?.toolState || 'NOT_RUN')+(state?.toolRequest?' · '+state.toolRequest:'');
     const status=document.getElementById('cosmic-tool-state');
     if(status)status.textContent=state?.message || (receipt?'Recorded READ · '+receipt.transport+' · no WRITE performed.':
+      state?.toolError==='TOOL_READ_TIMEOUT'?'GitHub/Git READ exceeded its time budget. The request remains UNKNOWN. No automatic retry.':
       state?.toolState==='NOT_FOUND'?'No READ record found for this request. No automatic retry.':
       state?.toolRequest?'READ result not confirmed. Check last receipt; no automatic retry.':'No tool result read.');
     const proposal=document.getElementById('cosmic-proposal-result');

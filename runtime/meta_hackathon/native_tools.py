@@ -5,9 +5,11 @@ and local network-OFF execution contracts are deliberately unchanged.
 """
 import time
 import json
+from contextlib import contextmanager
 
 from runtime.core_admission import Capability
 from runtime.memory_patch.persistence.ports import RecordKind
+from runtime.memory_patch.errors import MemoryPatchError, ErrorCode
 from runtime.mobile_gateway import wire
 from runtime.mobile_gateway.service import plain
 from runtime.mcp_bridge import native_read
@@ -46,7 +48,16 @@ def registry(host):
     }
 
 
+@contextmanager
+def _read_lock(lock, deadline):
+    if not lock.acquire(timeout=min(1, native_read._remaining(deadline))):
+        raise wire.MobileError(409)
+    try:yield
+    finally:lock.release()
+
+
 def dispatch(host, owner, value):
+    deadline=time.monotonic()+native_read.READ_TIMEOUT_SECONDS
     host.core.require(owner, Capability.OWNER_APPROVAL, scope=host.missions.scope)
     host._require_qualified_operator()
     if value['op'] == 'tool_proposal':
@@ -58,8 +69,11 @@ def dispatch(host, owner, value):
         if row is None:
             return {'state': 'NOT_FOUND', 'request_id': value['request_id'], 'automatic_retry': False}
         data = plain(row.payload)
-        return data['result'] if data['state'] == 'TOOL_READ_VERIFIED' else {
-            'state': 'UNKNOWN', 'request_id': value['request_id'], 'automatic_retry': False}
+        if data['state']=='TOOL_READ_VERIFIED':return data['result']
+        result={'state':'UNKNOWN','request_id':value['request_id'],'automatic_retry':False}
+        if data.get('failure',{}).get('code')=='TOOL_READ_TIMEOUT':
+            result['error_code']='TOOL_READ_TIMEOUT'
+        return result
     if set(value) != {'op', 'request_id', 'operation'}:
         raise wire.MobileError(400)
     request, operation = value['request_id'], value['operation']
@@ -69,7 +83,33 @@ def dispatch(host, owner, value):
     key = 'native-tool-read-'+request
     binding = {'request_id': request, 'operation': operation,
                'source_sha': host.source[0], 'capsule_digest': host.source[1]}
-    with host.missions._lock:
+    try:
+        return _perform_read(host,key,binding,operation,deadline)
+    except (ValueError,MemoryPatchError) as error:
+        cause=error.__cause__ if isinstance(error,MemoryPatchError) and error.code==ErrorCode.TRANSACTION_FAILED else error
+        if type(cause) is ValueError and cause.args==('TOOL_READ_TIMEOUT',):
+            _record_timeout(host,key,binding)
+        raise
+
+
+def _record_timeout(host,key,binding):
+    """Same uncertain request/AUDIT/OUTBOX; never change VERIFIED or retry IO."""
+    def failed(tx):
+        host._require_qualified_operator()
+        row=tx.get(RecordKind.OPERATION,key)
+        if row is not None and row.payload['state']=='TOOL_READ_PENDING' and plain(row.payload['binding'])==binding:
+            at=int(time.time())
+            payload=plain(row.payload);payload.pop('schema',None)
+            host.mobile._record(tx,key,{**payload,'failure':{
+                'code':'TOOL_READ_TIMEOUT','stage':'BOUNDED_READ_RECIPE',
+                'observed_at':at,'automatic_retry':False}},row,at=at)
+    # Recheck native authority, but not the intentionally expired IO deadline.
+    # An uncertain diagnostic commit is retained as UNKNOWN without retry here.
+    host.mobile._run(Capability.COMMIT,failed)
+
+
+def _perform_read(host,key,binding,operation,deadline):
+    with _read_lock(host.missions._lock,deadline):
         host.operator_principal()
         def reserve(tx):
             prior = tx.get(RecordKind.OPERATION, key)
@@ -86,12 +126,14 @@ def dispatch(host, owner, value):
         if prior is not None:
             return prior  # Historical observation, never repeat an external GET.
         from .runtime_adapter import ROOT
-        value = native_read.read(operation, ROOT, check=host._require_qualified_operator)  # Never inside retryable transaction.
+        value = native_read.read(operation, ROOT, check=host._require_qualified_operator,
+                                 deadline=deadline)  # Never inside retryable transaction.
         host._require_qualified_operator()  # Recheck expiry, qualified TLS and exact source after IO.
+        native_read._remaining(deadline)
         wire.canonical(value)
         now = int(time.time())
         receipt = {'schema': 'aioa.native-tool-read-receipt.v1', **binding,
-                   'task_id': 'read-'+request, 'effect': 'READ', 'authority': 'LOCAL_NATIVE_OWNER_READ',
+                   'task_id': 'read-'+binding['request_id'], 'effect': 'READ', 'authority': 'LOCAL_NATIVE_OWNER_READ',
                    'core_instance_id': host.instance_id, 'owner_scope_digest': host.mobile.owner_scope_digest,
                    'observed_at': now, 'data_sha256': wire.digest(wire.canonical(value['data'])),
                    'transport': value['transport'], 'automatic_retry': False}
@@ -100,6 +142,7 @@ def dispatch(host, owner, value):
             raise wire.MobileError(413)
         def complete(tx):
             host._require_qualified_operator()
+            native_read._remaining(deadline)
             row = tx.get(RecordKind.OPERATION, key)
             if row is None or row.payload['state'] != 'TOOL_READ_PENDING' or plain(row.payload['binding']) != binding:
                 raise wire.MobileError(409)

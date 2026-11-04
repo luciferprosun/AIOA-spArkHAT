@@ -14,6 +14,28 @@ function harness(handler) {
   },()=>100);
   return {client,calls};
 }
+test('only bounded READ dispatch gets the enclosing 30-second transport budget',async()=>{
+  const original=global.setTimeout,delays=[];
+  global.setTimeout=(fn,ms)=>{delays.push(ms);return original(fn,ms);};
+  try {
+    const {client}=harness(v=>v.op==='pairing_list'?{pending:[],devices:[]}:{
+      receipt:{schema:'aioa.native-tool-read-receipt.v1',effect:'READ',request_id:'a'.repeat(32),operation:'git.status'},data:{}});
+    await client.refresh();await client.readTool('git.status','a'.repeat(32));
+    assert.deepEqual(delays,[8000,30000]);
+  } finally {global.setTimeout=original;}
+});
+test('explicit uncertain READ readback displays its fixed timeout code and cannot redispatch',async()=>{
+  const {client,calls}=harness(v=>{
+    if(v.op==='pairing_list')return {pending:[],devices:[]};
+    if(v.op==='tool_read')throw Error('lost ACK');
+    return {state:'UNKNOWN',request_id:'a'.repeat(32),error_code:'TOOL_READ_TIMEOUT',automatic_retry:false};
+  });
+  await client.refresh();await assert.rejects(client.readTool('git.status','a'.repeat(32)));
+  await client.readToolResult();
+  assert.equal(client.snapshot().toolError,'TOOL_READ_TIMEOUT');
+  assert.equal(client.snapshot().toolState,'UNKNOWN');
+  assert.equal(calls.filter(c=>JSON.parse(c.options.body).op==='tool_read').length,1);
+});
 test('fixed READ goes through same console, rejects WRITE and keeps exact public receipt',async()=>{
   const result={receipt:{schema:'aioa.native-tool-read-receipt.v1',effect:'READ',request_id:'a'.repeat(32),
     operation:'github.repository'},data:{repository:'luciferprosun/AIOA-spArkHAT'},signature:'public-fixture'};

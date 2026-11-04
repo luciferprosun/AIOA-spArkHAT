@@ -50,6 +50,52 @@ class DeviceConsoleTests(unittest.TestCase):
         service=self.service()
         with self.assertRaises(wire.MobileError):service.mobile_operator_request({'op':'pairing_list'})
 
+    def test_busy_http_read_lock_is_bounded_before_core_dispatch(self):
+        service=self.service();request=self.tls(service);control=self.console_socket(service)
+        token=self.activate(service,request,control)
+        headers={'X-AIOA-Session-Token':token,'Origin':self.app.origin}
+        service.lock.acquire()
+        try:
+            with patch.object(service,'mobile_operator_request') as dispatch:
+                code,raw=request('POST','/api/native-operator',{
+                    'op':'tool_read','request_id':'c'*32,'operation':'github.repository'},headers)
+                self.assertEqual(409,code,raw)
+                self.assertFalse(wire.strict_json(raw)['automatic_retry'])
+                dispatch.assert_not_called()
+        finally:service.lock.release()
+        self.assertIsNone(self.app.mobile._get('native-tool-read-'+'c'*32))
+
+    def test_http_read_timeout_has_durable_unknown_readback_without_dispatch_retry(self):
+        service=self.service();request=self.tls(service);control=self.console_socket(service)
+        token=self.activate(service,request,control)
+        headers={'X-AIOA-Session-Token':token,'Origin':self.app.origin}
+        with patch('runtime.mcp_bridge.native_read.read',side_effect=ValueError('TOOL_READ_TIMEOUT')) as read:
+            code,raw=request('POST','/api/native-operator',{
+                'op':'tool_read','request_id':'c'*32,'operation':'github.repository'},headers)
+            self.assertEqual(503,code,raw)
+            self.assertFalse(wire.strict_json(raw)['automatic_retry'])
+            code,raw=request('POST','/api/native-operator',{'op':'tool_readback','request_id':'c'*32},headers)
+            self.assertEqual(200,code,raw)
+            data=wire.strict_json(raw)['data']
+            self.assertEqual('UNKNOWN',data['state'])
+            self.assertEqual('TOOL_READ_TIMEOUT',data['error_code'])
+            self.assertNotIn('receipt',data)
+            self.assertEqual(1,read.call_count)
+
+    def test_private_socket_uses_longer_deadline_only_for_bounded_tool_read(self):
+        service=self.service();control=self.console_socket(service)
+        actual=socket.socket;peers=[];test_thread=threading.get_ident()
+        def tracked(*args,**kwargs):
+            peer=actual(*args,**kwargs)
+            if threading.get_ident()==test_thread:peers.append(peer)
+            return peer
+        with patch.object(socket,'socket',side_effect=tracked),patch('runtime.mcp_bridge.native_read.read',return_value={
+                'operation':'git.status','data':{'text':''},'transport':'FIXTURE_NOT_LIVE'}):
+            self.assertTrue(control({'op':'status'})['ok'])
+            self.assertTrue(control({'op':'tool_read','request_id':'c'*32,'operation':'git.status'})['ok'])
+            self.assertTrue(control({'op':'tool_readback','request_id':'c'*32})['ok'])
+        self.assertEqual([10,30,10],[peer.gettimeout() for peer in peers])
+
     def test_cosmic_public_assets_load_without_granting_operator_authority(self):
         service=self.service()
         request=self.tls(service)

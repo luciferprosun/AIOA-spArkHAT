@@ -20,6 +20,7 @@ from .read_ops import validate_read_payload
 REPOSITORY = 'luciferprosun/AIOA-spArkHAT'
 REPOSITORY_ID = 1247349659
 OPERATIONS = frozenset(('github.repository', 'github.issues', 'git.status', 'git.log', 'git.branches'))
+READ_TIMEOUT_SECONDS = 20
 
 
 def _require(condition, code='TOOL_READ_INVALID'):
@@ -27,12 +28,20 @@ def _require(condition, code='TOOL_READ_INVALID'):
         raise ValueError(code)
 
 
-def _bounded_command(argv, *, cwd, env, timeout=4, max_bytes=65536):
+def _remaining(deadline):
+    remaining = deadline-time.monotonic()
+    _require(remaining > 0, 'TOOL_READ_TIMEOUT')
+    return remaining
+
+
+def _bounded_command(argv, *, cwd, env, timeout=4, max_bytes=65536, deadline=None):
     """Kill only this child on timeout/overflow; never retain stderr/credentials."""
+    now = time.monotonic()
+    deadline = min(now+timeout, deadline) if deadline is not None else now+timeout
+    _remaining(deadline)  # Expired recipes must not start another child.
     child = subprocess.Popen(argv, cwd=cwd, env=env, stdin=subprocess.DEVNULL,
                              stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, shell=False)
     data = bytearray()
-    deadline = time.monotonic() + timeout
     selector = selectors.DefaultSelector()
     try:
         selector.register(child.stdout, selectors.EVENT_READ)
@@ -111,7 +120,9 @@ def _preferences(raw):
         raise ValueError('GITHUB_CONFIG_VERSION_UNVERIFIED') from None
 
 
-def _github_json(endpoint, *, check=lambda: None):
+def _github_json(endpoint, *, check=lambda: None, deadline=None):
+    if deadline is None:deadline=time.monotonic()+READ_TIMEOUT_SECONDS
+    _remaining(deadline)
     _binary('/usr/bin/gh')
     # This is an internal closed recipe, never an endpoint taken from a model.
     prefix = 'repos/' + REPOSITORY
@@ -147,13 +158,13 @@ def _github_json(endpoint, *, check=lambda: None):
             check()
             _require(identity(config.lstat()) == identity(info), 'GITHUB_CONFIG_CHANGED')
             setting = _bounded_command(['/usr/bin/gh', 'config', 'get', 'http_unix_socket', *args],
-                                       cwd=directory, env=env, max_bytes=1024)
+                                       cwd=directory, env=env, max_bytes=1024, deadline=deadline)
             check()
             _require(not setting.strip(), 'GITHUB_TRANSPORT_OVERRIDE_DENIED')
         _require(identity(config.lstat()) == identity(info), 'GITHUB_CONFIG_CHANGED')
     check()
     raw = _bounded_command(['/usr/bin/gh', 'api', '--hostname', 'github.com', '--method', 'GET', endpoint],
-                           cwd=directory, env=env)
+                           cwd=directory, env=env, timeout=8, deadline=deadline)
     check()
     try:
         return json.loads(raw)
@@ -161,9 +172,9 @@ def _github_json(endpoint, *, check=lambda: None):
         raise ValueError('GITHUB_READ_INVALID_JSON') from None
 
 
-def _repository(check):
+def _repository(check, deadline):
     check()
-    data = _github_json('repos/'+REPOSITORY, check=check)
+    data = _github_json('repos/'+REPOSITORY, check=check, deadline=deadline)
     check()
     _require(type(data) is dict and data.get('id') == REPOSITORY_ID
              and type(data.get('id')) is int and data.get('full_name') == REPOSITORY,
@@ -173,17 +184,23 @@ def _repository(check):
     return data, branch
 
 
-def read(operation, project_root, *, check=lambda: None):
+def read(operation, project_root, *, check=lambda: None, deadline=None):
     """One of five fixed READ recipes; all data remains untrusted display text."""
     _require(type(operation) is str and operation in OPERATIONS, 'TOOL_OPERATION_DENIED')
+    if deadline is None:deadline=time.monotonic()+READ_TIMEOUT_SECONDS
+    authority_check=check
+    def check():
+        _remaining(deadline)
+        authority_check()
+        _remaining(deadline)
     check()
     if operation.startswith('github.'):
-        repo, branch = _repository(check)
+        repo, branch = _repository(check, deadline)
         data = {'repository': REPOSITORY, 'repository_id': REPOSITORY_ID,
                 'url': 'https://github.com/'+REPOSITORY, 'branch': branch}
         if operation == 'github.repository':
             check()
-            revision = _github_json('repos/'+REPOSITORY+'/branches/'+quote(branch, safe=''), check=check)
+            revision = _github_json('repos/'+REPOSITORY+'/branches/'+quote(branch, safe=''), check=check, deadline=deadline)
             check()
             _require(type(revision) is dict and revision.get('name') == branch
                      and type(revision.get('commit')) is dict
@@ -192,7 +209,7 @@ def read(operation, project_root, *, check=lambda: None):
             data['commit_sha'] = revision['commit']['sha']
         else:
             check()
-            rows = _github_json('repos/'+REPOSITORY+'/issues?state=all&per_page=5', check=check)
+            rows = _github_json('repos/'+REPOSITORY+'/issues?state=all&per_page=5', check=check, deadline=deadline)
             check()
             _require(type(rows) is list and len(rows) <= 5)
             issues = []
@@ -217,6 +234,6 @@ def read(operation, project_root, *, check=lambda: None):
     output = _bounded_command(['/usr/bin/git', '--no-optional-locks', '-c', 'core.fsmonitor=false',
                               '-c', 'credential.helper=', '-c', 'protocol.allow=never',
                               '-c', 'core.untrackedCache=false', '-c', 'core.pager=cat', *recipes[operation]],
-                             cwd=root, env=_environment(), max_bytes=32768)
+                             cwd=root, env=_environment(), max_bytes=32768, deadline=deadline)
     check()
     return {'operation': operation, 'data': {'text': output.decode('utf-8', 'replace')}, 'transport': 'LOCAL_GIT_READ'}
