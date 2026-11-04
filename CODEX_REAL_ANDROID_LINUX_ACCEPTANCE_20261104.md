@@ -1,5 +1,27 @@
 # Cosmic4 — rzeczywisty odbiór Android/Linux, 2026-11-04
 
+## Zakończony rzeczywisty test Muse LIVE — 2026-11-04
+
+**P0_CHAT_ACCEPTANCE / CHAT_READY: PASS w lokalnym profilu demonstracyjnym.** Telefon wysłał prawdziwe pytanie. Właściciel osobno potwierdził koszt w lokalnym oknie, Core wydał i skonsumował exact warrant, a Meta odpowiedziało przez rzeczywiste API. Następnie telefon wykonał podpisany GET wyniku i rozmowy; oba SHA danych odpowiadają dokładnie odczytowi Core. Właściciel potwierdził odebranie odpowiedzi. Ten sam wynik i receipt zostały wyświetlone w rzeczywistym Chrome na Linuxie.
+
+- Request `89c750cf10f643798858a60de5fa7aaf`; task `chat-89c750cf10f643798858a60de5fa7aaf`; thread `6b9e092798b7477ba6930c3bc116cbd6`.
+- Stan `SUCCEEDED`, actor `ANDROID`, model potwierdzony przez API: `muse-spark-1.3`, provider `meta_model_api`, environment `META_API_LIVE_VERIFIED`, fallback=false.
+- Dokładnie 1 próba i 1 model_call. Użycie:229 prompt +301 completion =530 tokenów.
+- Estymata użycia `0.0015655 USD`, **nie faktura**. Zatwierdzony limit0.05USD; konserwatywna rezerwacja/rozliczenie governor oparte na bound0.00392975USD, bez podnoszenia globalnego limitu.
+- SHA-256 odpowiedzi `7f3bbcbb075fdcd54d5674bc400f4f548aa9d01fe1ca377a361c9ae48d2e0b27` — niezależnie przeliczone na hoście i zgodne z receipt. Odpowiedź: „Stan Core: ADMITTED.”
+- Review digest `aa91682cdfb4e64700514323c3063e9eb600c2a2ae0079a2b105b83fe291d0b0`; warrant `sha256:f4e4c9097ea3be219b9c33ea5b5e0a68cb89284a92555024b02d6e9f74a6b897`; policy epoch2. Warrant dotyczył wyłącznie tej jednej wiadomości.
+- Podpisany odczyt aplikacji: `GET /api/mobile/v2/chat/requests/89c750cf10f643798858a60de5fa7aaf`, SHA danych `aa2149c6b37be7f344e308e4ff514f660bb2ea03149f8d9cc0eccc8b1d2c3fe0`; odczyt thread `a614dadddcc9b614341829c833e7a63ecfbda677edadd51456b9b5b725d5b24c`. Podpis hosta zweryfikowany; Core zachował identyczne obserwacje. Odczyty nie zwiększyły liczby wywołań modelu.
+- Linux: rzeczywisty panel pokazał tę samą rozmowę, odpowiedź, SUCCEEDED, source0b3f48e i receipt SHA. Prywatny kontrolowany zrzut `LINUX_REAL_MUSE_CHAT_OWN_WINDOW.png`.
+
+**Granice:** DEMO_READY dotyczy tego odebranego demonstratora czatu, nie produkcyjnego Core M12 ani pełnego agenta. `AGENT_READY` nie jest deklarowane. `MISSION_READ=BLOCKED_NATIVE_WORKER_NOT_BOUND`; Native profile ma run/native_execute/github_write=false i nie wiąże Workera wykonawczego. Nie uruchamiano kolejnej płatnej misji ani Github WRITE.
+
+Sesja operatora Native jest ograniczona do jednej godziny od rzeczywistego admission; jej wygaśnięcie blokuje API i wymaga ponownej autentycznej autoryzacji. Tekst czatu pozostaje w pamięci maksymalnie15minut; Save knowledge=OFF, trwałe są metadane i receipt. To ograniczenia bieżącego profilu, nie obietnica stałego działania bez obsługi właściciela. Panel może chwilowo pokazywać BUSY przy nakładających się odczytach urządzeń i czatu; nie wykonuje z tego powodu nowego płatnego POST. Jedna odmowa startu Chrome oraz cleanup ENOTEMPTY pozostają opisane niżej jako nieudane próby, nie PASS. Wideo nie było nagrywane w tym wznowieniu.
+
+Dowody prywatne: `REAL_MUSE_LIVE_BACKEND_VERIFIED.json`, `REAL_ANDROID_MUSE_SIGNED_READBACK.json`, `FINAL_REAL_META_ANDROID_LINUX_ACCEPTANCE.json`, kontrolowany zrzut Linuxa. Dane powyżej dotyczą konkretnego rzeczywistego testu; historyczny odczyt nie nadaje nowej authority. Każde następne płatne pytanie wymaga nowej exact zgody. Nie zakłada się aktualnego salda Meta na podstawie tego jednego sukcesu.
+
+## Wcześniejszy odbiór przed zgodą na Muse — zapis historyczny
+
+
 APK 4.1.0 zostało zainstalowane na Xiaomi przez `adb install -r`. To ten sam pakiet i signer; podpisany proof urządzenia oraz zapis parowania są identyczne przed i po aktualizacji. Nowy QR, uninstall, clear i migracja Keystore nie były potrzebne.
 
 | Bramka | Dowód i wynik |
