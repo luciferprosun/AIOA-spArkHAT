@@ -111,6 +111,57 @@ test('lost approval ACK stays UNKNOWN until explicit readback and never retries'
   assert.equal(client.snapshot().phase,'READY');
 });
 
+test('successful background chat reads cannot resolve an uncertain pairing approval',async()=>{
+  const {client,calls}=harness(v=>{
+    if(v.op==='pairing_list')return {pending:[pending],devices:[]};
+    if(v.op==='chat_catalog')return {models:[]};
+    throw Error('lost approval ACK');
+  });
+  await client.refresh();
+  await assert.rejects(client.approve(pending.request_id,pending.request_digest));
+  await client.chatCall({op:'chat_catalog'});
+  assert.equal(client.snapshot().phase,'UNKNOWN');
+  assert.equal(client.snapshot().observed,false);
+  await assert.rejects(client.invite(),/READBACK_REQUIRED/);
+  assert.equal(calls.filter(c=>JSON.parse(c.options.body).op==='pairing_invite').length,0);
+  await client.refresh();
+  assert.equal(client.snapshot().phase,'READY');
+});
+
+test('background chat read neither takes nor releases a foreground mutation lock',async()=>{
+  let finishRead,finishInvite;
+  const {client,calls}=harness(v=>{
+    if(v.op==='pairing_list')return {pending:[],devices:[]};
+    if(v.op==='chat_catalog')return new Promise(resolve=>{finishRead=resolve;});
+    if(v.op==='pairing_invite')return new Promise(resolve=>{finishInvite=resolve;});
+    assert.fail('unexpected operation');
+  });
+  await client.refresh();const read=client.chatCall({op:'chat_catalog'});
+  assert.equal(client.snapshot().busy,false);
+  const invite=client.invite();assert.equal(client.snapshot().busy,true);
+  finishRead({chat:true});await read;
+  assert.equal(client.snapshot().busy,true);
+  await assert.rejects(client.invite(),/BUSY/);
+  finishInvite({invite:'synthetic'});await invite;
+  assert.equal(client.snapshot().busy,false);
+  assert.equal(calls.filter(c=>JSON.parse(c.options.body).op==='pairing_invite').length,1);
+});
+test('background registry polling cannot block chat or overwrite a newer device approval',async()=>{
+  let finish,defer=false;
+  const {client}=harness(v=>{
+    if(v.op==='pairing_list')return defer?new Promise(resolve=>{finish=resolve;}):{pending:[pending],devices:[]};
+    if(v.op==='chat_propose')return {state:'PENDING_OWNER'};
+    if(v.op==='pairing_approve')return {...pending,state:'APPROVED'};
+    assert.fail('unexpected operation');
+  });
+  await client.refresh();defer=true;const poll=client.refresh({background:true});
+  assert.equal(client.snapshot().busy,false);
+  await client.chatCall({op:'chat_propose',payload:{}});
+  await client.approve(pending.request_id,pending.request_digest);
+  finish({pending:[pending],devices:[]});await poll;
+  assert.equal(client.snapshot().pending[0].state,'APPROVED');
+});
+
 test('core history read requires registry readback and cannot resolve uncertain approval',async()=>{
   const status={profile:'NATIVE_STATUS_READ_ONLY_V1',source_sha:'a'.repeat(40),capsule_digest:'b'.repeat(64),
     origin:'https://host.invalid',tls_spki_pin:'sha256/public',host_spki:'public',model_calls:0,

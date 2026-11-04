@@ -104,11 +104,12 @@
               <p class="cosmic-caption">COSMIC · MISSION CONTROL</p>
               <nav aria-label="Cosmic Mission Control">
                 <button type="button" data-cosmic-target="home" aria-current="page">Overview</button>
-                <button type="button" data-cosmic-target="chat" aria-current="false">Chat with Muse</button>
-                <button type="button" data-cosmic-target="missions" aria-current="false">Missions</button>
-                <button type="button" data-cosmic-target="critical" aria-current="false">Critical</button>
-                <button type="button" data-cosmic-target="repositories" aria-current="false">GitHub</button>
-                <button type="button" data-cosmic-target="devices" aria-current="false">Devices</button>
+                <button type="button" data-cosmic-target="chat" aria-current="false">Muse Chat</button>
+                <button type="button" data-cosmic-target="repositories" aria-current="false">GitHub Tools</button>
+                <button type="button" data-cosmic-target="critical" aria-current="false">Critical Prompt Loop</button>
+                <button type="button" data-cosmic-target="missions" aria-current="false">Mission Worker</button>
+                <button type="button" data-cosmic-target="memory" aria-current="false">Memory</button>
+                <button type="button" data-cosmic-target="devices" aria-current="false">Android Link</button>
                 <button type="button" data-cosmic-target="approvals" aria-current="false">Approvals</button>
                 <button type="button" data-cosmic-target="activity" aria-current="false">Evidence</button>
                 <button type="button" data-cosmic-target="settings" aria-current="false">Settings</button>
@@ -138,8 +139,8 @@
                 <article class="panel"><h3>Critical · your decision</h3><p>Pending approvals: <strong id="cosmic-approval-count">—</strong></p><p>Approval stays on Linux. An uncertain result requires readback.</p><button type="button" class="button button-ghost" data-cosmic-target="approvals">Review requests</button></article>
                 <article class="panel"><h3>This Core · actual readback</h3><p id="cosmic-core-read-state" role="status">No diagnostic readback from this Core yet.</p><button id="cosmic-core-read" type="button" class="button button-ghost" disabled>Read profile and signed history</button><p class="note">Readback requires an active local operator. It does not approve a mission or authorize retrying uncertain pairing.</p></article>
               </section>
-              <section class="cosmic-page" data-cosmic-page="devices approvals" hidden aria-labelledby="cosmic-devices-title">
-                <h2 id="cosmic-devices-title" tabindex="-1">Devices and approvals</h2>
+              <section class="cosmic-page" data-cosmic-page="devices" hidden aria-labelledby="cosmic-devices-title">
+                <h2 id="cosmic-devices-title" tabindex="-1">Android Link</h2>
                 <p>Compare the code on both screens and approve only the exact matching request.</p>
                 <section id="devices-invite" class="panel" hidden>
                   <h3>Scan in the AIOA app</h3>
@@ -150,22 +151,31 @@
                     <textarea id="devices-packet" readonly aria-label="Signed public pairing packet"></textarea>
                   </details>
                 </section>
-                <section class="panel"><h3>Pending devices</h3><div id="devices-pending"></div></section>
                 <section class="panel"><h3>Remembered devices</h3><div id="devices-trusted"></div></section>
+                <button type="button" class="button button-ghost" data-cosmic-target="approvals">Device awaiting approval? Compare codes in Approvals</button>
                 <p class="note">Pairing provides signed status. It does not approve WRITE, mission execution or model spending.</p>
+              </section>
+              <section class="cosmic-page" data-cosmic-page="approvals" hidden aria-labelledby="cosmic-approvals-title">
+                <h2 id="cosmic-approvals-title" tabindex="-1">Approvals</h2>
+                <p>Compare all six digits on both screens before approving a phone. Model cost approval remains in the trusted local Linux dialog.</p>
+                <section class="panel"><h3>Pending devices</h3><div id="devices-pending"></div></section>
               </section>
               <section class="cosmic-page" data-cosmic-page="chat" hidden aria-labelledby="cosmic-chat-title">
                 <h2 id="cosmic-chat-title" tabindex="-1">Chat with Muse Spark 1.3</h2>
-                <article class="panel"><p id="native-chat-state">Waiting for the local operator channel.</p>
+                <article class="panel native-chat-workspace"><p id="native-chat-state">Waiting for the local operator channel.</p>
                   <p>Save knowledge: Off. Text stays in memory for up to 15 minutes. Every paid message requires separate approval on Linux.</p>
                   <div id="native-chat-threads"></div><div id="native-chat-messages" aria-live="polite"></div>
-                  <label>Message to Muse<textarea id="native-chat-prompt" maxlength="2000"></textarea></label>
+                  <div class="native-chat-composer"><label>Message to Muse<textarea id="native-chat-prompt" maxlength="2000"></textarea></label>
+                  <label class="native-chat-context"><input id="native-chat-attach-read" type="checkbox"> Attach my latest verified repository READ · untrusted data, separate cost approval</label>
                   <button id="native-chat-send" class="button button-primary" disabled>Send</button>
                   <button id="native-chat-read" class="button button-ghost" disabled>Check result without retry</button>
-                  <button id="native-chat-refresh" class="button button-ghost" disabled>Refresh shared conversations</button>
                   <button id="native-chat-stop" class="button button-danger" disabled>STOP</button>
+                  <details class="native-chat-recovery"><summary>History and recovery</summary>
+                  <button id="native-chat-refresh" class="button button-ghost" disabled>Refresh shared conversations</button>
                   <button id="native-chat-new" class="button button-ghost" disabled>Start a separate conversation</button>
                   <p class="note">A separate conversation preserves any old UNKNOWN result and held cost. It never retries or approves a message.</p>
+                  </details>
+                  </div>
                 </article>
               </section>
               <section class="cosmic-page" data-cosmic-page="missions" hidden aria-labelledby="cosmic-missions-title">
@@ -177,7 +187,16 @@
                 <article class="panel"><p id="cosmic-cpl-state">No current binding readback.</p>
                   <p>Contract preview: draft → Logic &amp; Claims → Safety &amp; Authority → Evidence &amp; Consistency → revision.</p>
                   <p class="note">Five sequential model calls, not independent consensus. No plan recorded, no budget reserved, no loop started.</p>
+                  <details><summary>Preview existing contract · no model call</summary><pre id="cosmic-cpl-preview">Read Core status to inspect the contract.</pre></details>
                   <button class="button button-ghost" disabled>Run CPL · native binding required</button>
+                </article>
+              </section>
+              <section class="cosmic-page" data-cosmic-page="memory" hidden aria-labelledby="cosmic-memory-title">
+                <h2 id="cosmic-memory-title" tabindex="-1">Memory</h2>
+                <article class="panel"><h3>Persistence and knowledge</h3><pre id="cosmic-memory-state">Read Core status to inspect configured persistence.</pre>
+                  <p>Core records preserve approvals, audit and receipts. They are separate from semantic knowledge. Save knowledge is Off; CockroachDB is not bound to this Native host.</p>
+                  <button class="button button-ghost" disabled aria-describedby="cosmic-memory-disabled">Save knowledge</button>
+                  <p id="cosmic-memory-disabled" class="note">Requires a configured memory adapter and a separate explicit opt-in.</p>
                 </article>
               </section>
               <section class="cosmic-page" data-cosmic-page="repositories" hidden aria-labelledby="cosmic-repositories-title">

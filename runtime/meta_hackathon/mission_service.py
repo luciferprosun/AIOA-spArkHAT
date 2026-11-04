@@ -111,9 +111,9 @@ class MissionService:
         from . import chat
         chat.initialize(self)
 
-    def bind_chat(self, governor, authority_probe):
+    def bind_chat(self, governor, authority_probe, **context_binding):
         from . import chat
-        return chat.bind(self,governor,authority_probe)
+        return chat.bind(self,governor,authority_probe,**context_binding)
 
     def chat_propose(self, payload, reader, **identity):
         from . import chat

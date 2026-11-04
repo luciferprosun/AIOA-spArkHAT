@@ -32,7 +32,7 @@ runtime = ["prompts/*.txt", "adaptive_routing/*.json", "adaptive_routing/environ
 "runtime.memory_patch" = ["LICENSE-MEMORY-PATCH.txt", "sql/*.sql", "sql/manifest.json", "sql/manifest-learning-v1.json"]
 
 [tool.setuptools.data-files]
-"share/aioa-sparkhat/web" = ["web/index.html", "web/app.js", "web/styles.css", "web/meta_mission.js", "web/agent_mission.js", "web/mobile_devices.js", "web/mobile_devices_dom.js", "web/mobile_chat.js", "web/qr.js", "web/cosmic_tokens.css", "web/cosmic_space_grotesk.ttf", "web/cosmic_manrope.ttf", "web/cosmic_ibm_plex_mono.ttf", "web/cosmic_fonts_ofl.txt"]
+"share/aioa-sparkhat/web" = ["web/index.html", "web/app.js", "web/styles.css", "web/meta_mission.js", "web/agent_mission.js", "web/mobile_devices.js", "web/mobile_devices_dom.js", "web/mobile_chat.js", "web/qr.js", "web/white-hole.svg", "web/cosmic_tokens.css", "web/cosmic_space_grotesk.ttf", "web/cosmic_manrope.ttf", "web/cosmic_ibm_plex_mono.ttf", "web/cosmic_fonts_ofl.txt"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

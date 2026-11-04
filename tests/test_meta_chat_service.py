@@ -66,6 +66,27 @@ class MetaChatServiceTests(unittest.TestCase):
         self.assertNotIn(self.body['prompt'],json.dumps(dict(raw.payload),default=str))
         self.assertTrue(self.service.chat_threads(self.p(),device_id='d'*64)['threads'])
 
+    def test_thread_summary_separates_current_text_from_expired_and_old_source_history(self):
+        self.propose()
+        with patch('runtime.providers.meta_model_api._https_once',return_value=self.response()):
+            self.approve();self.assertEqual('SUCCEEDED',self.wait()['state'])
+        row=self.service.chat_threads(self.p())['threads'][0]
+        self.assertEqual('SUCCEEDED',row['state']);self.assertTrue(row['current_source'])
+        self.assertTrue(row['text_available']);self.assertEqual(self.source[0],row['source_sha'])
+        self.source[0]='f'*40
+        self.assertFalse(self.service.chat_threads(self.p())['threads'][0]['current_source'])
+        with patch('runtime.meta_hackathon.chat.time.monotonic',return_value=time.monotonic()+901):
+            self.assertFalse(self.service.chat_threads(self.p())['threads'][0]['text_available'])
+        self.assertEqual('SUCCEEDED',self.read()['state'])
+
+    def test_thread_summaries_are_ordered_by_latest_message_not_first_creation(self):
+        with patch('runtime.providers.meta_model_api._https_once',return_value=self.response()):
+            for request,thread in (('3'*32,'2'*32),('6'*32,'7'*32),('8'*32,'2'*32)):
+                self.body.update(request_id=request,thread_id=thread)
+                self.propose();self.approve();self.assertEqual('SUCCEEDED',self.wait()['state'])
+        rows=self.service.chat_threads(self.p())['threads']
+        self.assertEqual(['7'*32,'2'*32],[r['thread_id'] for r in rows])
+
     def test_exact_owner_approval_produces_one_shared_receipt_and_text(self):
         self.propose()
         with patch('runtime.providers.meta_model_api._https_once',return_value=self.response()) as http:
@@ -81,6 +102,62 @@ class MetaChatServiceTests(unittest.TestCase):
         first=self.propose();again=self.propose()
         self.assertEqual(first['request_digest'],again['request_digest'])
         with self.assertRaises(ValueError):self.propose(prompt='changed')
+
+    def test_read_context_uses_existing_exact_approval_and_is_rechecked_without_extra_calls(self):
+        from runtime.memory_patch.contracts.serialization import canonical_sha256
+        observed=int(self.now.timestamp())
+        context={'schema':'aioa.chat.read-context.v1','trust':'UNTRUSTED_READ_DATA','request_id':'a'*32,
+            'operation':'github.repository','observed_at':observed,'expires_at':observed+300,
+            'source_sha':self.source[0],'capsule_digest':self.source[1],
+            'data_sha256':canonical_sha256({'repository':'public-fixture'}),'receipt_sha256':'e'*64,
+            'data':{'repository':'public-fixture'}}
+        current=[context]
+        self.service.bind_chat(self.gov,lambda task:self.valid,read_context_probe=lambda request_id:current[0])
+        identity={**self.identity,'actor':'LINUX_OWNER'}
+        first=self.service.chat_propose(self.body,self.p(),**identity,read_context=context)
+        review=self.service.chat_review(self.body['request_id'],self.p())
+        self.assertEqual(first['request_digest'],review['request_digest'])
+        self.assertIn('UNTRUSTED_READ_DATA',review['request_payload']['messages'][-2]['content'])
+        with self.assertRaises(ValueError):
+            self.service.chat_propose(self.body,self.p(),**identity,read_context={**context,'receipt_sha256':'f'*64})
+        current[0]={**context,'receipt_sha256':'f'*64}
+        with patch('runtime.providers.meta_model_api._https_once') as transport:
+            with self.assertRaises(ValueError):self.approve(review)
+            transport.assert_not_called()
+
+    def test_configurable_total_148_preserves_history_and_unknown_credit_blocks_paid_calls(self):
+        self.identity['actor']='LINUX_OWNER'
+        review=self.gov.money_policy_review(self.p(),{k:148000000000 for k in
+            ('task_limit','owner_provider_limit','global_limit')},request_id='hackathon-budget')
+        self.gov.apply_money_policy(self.p(Capability.MANAGE),review)
+        pending=self.propose(max_budget_usd='148')
+        self.assertEqual('PENDING_OWNER',pending['state'])
+        with patch('runtime.providers.meta_model_api._https_once') as http:
+            with self.assertRaisesRegex(ValueError,'CREDIT_BALANCE_NOT_BOUND'):self.approve()
+            http.assert_not_called()
+        self.assertEqual({},self.gov.inspect(self.p())['reservations'])
+
+    def test_148_ceiling_with_trusted_credit_settles_synthetic_response_and_exact_receipt(self):
+        self.identity['actor']='LINUX_OWNER'
+        review=self.gov.money_policy_review(self.p(),{k:148000000000 for k in
+            ('task_limit','owner_provider_limit','global_limit')},request_id='budget-positive')
+        self.gov.apply_money_policy(self.p(Capability.MANAGE),review)
+        self.service.bind_chat(self.gov,lambda task:self.valid,credit_balance_probe=lambda req:True)
+        self.propose(max_budget_usd='148')
+        with patch('runtime.providers.meta_model_api._https_once',return_value=self.response()) as transport:
+            self.approve();result=self.wait()
+        self.assertEqual('SUCCEEDED',result['state']);self.assertEqual(1,transport.call_count)
+        self.assertEqual('148',result['receipt']['binding']['budget_usd'])
+        self.assertEqual('COMMITTED',self.gov.inspect(self.p())['reservations']['chat-spend-'+self.body['request_id']]['state'])
+
+    def test_android_v1_ceiling_does_not_expand_with_linux_owner_allocation(self):
+        review=self.gov.money_policy_review(self.p(),{k:148000000000 for k in
+            ('task_limit','owner_provider_limit','global_limit')},request_id='budget-android')
+        self.gov.apply_money_policy(self.p(Capability.MANAGE),review)
+        with patch('runtime.providers.meta_model_api._https_once') as transport:
+            with self.assertRaisesRegex(ValueError,'CHAT_BUDGET_INVALID'):self.propose(max_budget_usd='0.051')
+            transport.assert_not_called()
+        self.assertEqual([],self.service.chat_threads(self.p())['threads'])
 
     def test_forged_owner_and_review_digest_do_not_reach_http(self):
         self.propose()

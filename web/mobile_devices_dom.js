@@ -13,13 +13,21 @@
     BUSY:'An operation is in progress. Wait for its result.'};
   const menu=Array.from(document.querySelectorAll?.('[data-cosmic-target]') || []);
   const pages=Array.from(document.querySelectorAll?.('[data-cosmic-page]') || []);
+  function updateLayout() {
+    const view=document.getElementById('devices-view');
+    const large=typeof getComputedStyle==='function' && parseFloat(getComputedStyle(document.documentElement).fontSize)>20;
+    view.dataset.cosmicLayout=large?'flow':'fit';
+  }
   function showPage(name, focus=false) {
     if (!pages.some(page=>page.dataset.cosmicPage.split(' ').includes(name))) return;
     for (const page of pages) page.hidden=!page.dataset.cosmicPage.split(' ').includes(name);
     for (const button of menu) button.setAttribute('aria-current',button.dataset.cosmicTarget===name?'page':'false');
+    document.getElementById('devices-view').dataset.cosmicActive=name;updateLayout();
     if (focus) pages.find(page=>!page.hidden)?.querySelector('h2')?.focus();
   }
   for (const button of menu) button.addEventListener('click',()=>showPage(button.dataset.cosmicTarget,true));
+  window.addEventListener('resize',updateLayout);
+  if(typeof ResizeObserver==='function')new ResizeObserver(updateLayout).observe(document.documentElement);
   function renderOverview(state) {
     const view=AIOAMobileDevices.presentation(state);
     const values={'cosmic-operator-state':view.operatorReady?'Core registry readback confirmed':'No current operator readback',
@@ -76,6 +84,9 @@
       'Waiting for an authenticated Core observation.';
     const cpl=document.getElementById('cosmic-cpl-state'),write=document.getElementById('cosmic-github-write-state');
     if(cpl)cpl.textContent=data?.components?.cpl?.status || 'No current binding readback.';
+    const preview=document.getElementById('cosmic-cpl-preview'),memory=document.getElementById('cosmic-memory-state');
+    if(preview)preview.textContent=data?.components?.cpl?.preview?JSON.stringify(data.components.cpl.preview,null,2):'Read Core status to inspect the contract.';
+    if(memory)memory.textContent=data?.components?.memory?JSON.stringify(data.components.memory,null,2):'Read Core status to inspect configured persistence.';
     if(write)write.textContent='REMOTE_WRITE_BLOCKED · '+(data?.components?.github_write?.status || 'No current authority readback.');
     if(!data) {
       label.textContent='No diagnostic readback from this Core yet.';
@@ -85,11 +96,13 @@
     label.textContent='Historical local operator readback: '+new Date(state.coreStatusAt*1000).toLocaleString()+
       (state.phase==='READY'?'':' · current authorization or result not confirmed.');
     for(const [name,key] of [['Profile','profile'],['Host','origin'],['Source SHA','source_sha'],
-        ['Capsule digest','capsule_digest'],['TLS SPKI pin','tls_spki_pin'],['Host public SPKI','host_spki'],
-        ['Operator authentication','operator_authentication']]) {
+        ['Capsule digest','capsule_digest']]) {
       const value=data[key];
       text('h4',name,settings);text('p',value && typeof value==='object'?JSON.stringify(value):String(value || 'Not read'),settings).className='device-digest';
     }
+    text('h4','Operator authentication',settings);
+    text('p',String(data.operator_authentication?.method || 'Not read'),settings);
+    text('p','TLS and saved host identity are checked by this Native host. Keys and pairing material are not displayed here.',settings);
     text('p','Recorded model attempts: '+data.model_calls+'. Worker: BLOCKED_NATIVE_WORKER_NOT_BOUND.',settings);
     if(!data.observations.length)text('p','No Core responses in the observed range.',history);
     for(const row of data.observations) {
@@ -105,6 +118,8 @@
   }
   function render() {
     const state=client?.snapshot();
+    node('pending').setAttribute?.('aria-busy',state?.polling?'true':'false');
+    node('trusted').setAttribute?.('aria-busy',state?.polling?'true':'false');
     renderOverview(state);
     renderCore(state);
     renderTools(state);
@@ -187,7 +202,7 @@
   // Read-only polling while visible; never repeat a mutation or UNKNOWN operation.
   setInterval(()=>{
     const state=client?.snapshot();
-    if (document.visibilityState==='visible' && state?.phase==='READY' && !state.busy) act(()=>client.refresh());
+    if (document.visibilityState==='visible' && state?.phase==='READY' && !state.busy)act(()=>client.refresh({background:true}));
   },5000);
   render();
   // The HttpOnly cookie was delivered through the private OS launcher. The
@@ -200,7 +215,12 @@
       await act(()=>client.refresh());
       if(data.profile==='NATIVE_ADVISORY_CHAT_V1' && client?.snapshot().phase==='READY' &&
           typeof AIOAMobileChat!=='undefined') {
-        AIOAMobileChat.mount(value=>client.chatCall(value));showPage('chat');
+        AIOAMobileChat.mount(value=>client.chatCall(value),()=>{
+          const snapshot=client.snapshot(),receipt=snapshot.toolResult?.receipt;
+          return snapshot.toolState==='VERIFIED' && receipt?.operation==='github.repository' &&
+            receipt.transport==='LIVE_GITHUB_GET' && Number.isSafeInteger(receipt.observed_at) &&
+            receipt.observed_at<=Date.now()/1000 && Date.now()/1000<receipt.observed_at+300?receipt.request_id:null;
+        });showPage('chat');
       }
       else {
         const label=document.getElementById('native-chat-state');

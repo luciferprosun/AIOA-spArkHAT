@@ -15,8 +15,42 @@ from runtime.mobile_gateway.service import plain
 from runtime.mcp_bridge import native_read
 
 
+def chat_read_context(host,request_id):
+    """Resolve an exact existing receipt, never caller-supplied tool output.
+
+    This deliberately supports only public repository identity/main metadata.
+    Source text is untrusted data even though Core verified its provenance.
+    """
+    host._require_qualified_operator()
+    native_read._require(type(request_id) is str and wire.HEX32.fullmatch(request_id),'CHAT_READ_REFERENCE_INVALID')
+    row=host.mobile._get('native-tool-read-'+request_id)
+    native_read._require(row is not None and row.payload.get('state')=='TOOL_READ_VERIFIED','CHAT_READ_NOT_VERIFIED')
+    result=plain(row.payload['result']);receipt=result['receipt'];data=result['data']
+    wire.verify(host.identity.spki,result['signature'],receipt)
+    expected={'schema':'aioa.native-tool-read-receipt.v1','request_id':request_id,'operation':'github.repository',
+        'effect':'READ','authority':'LOCAL_NATIVE_OWNER_READ','transport':'LIVE_GITHUB_GET',
+        'source_sha':host.source[0],'capsule_digest':host.source[1],'core_instance_id':host.instance_id,
+        'owner_scope_digest':host.mobile.owner_scope_digest,'automatic_retry':False}
+    native_read._require(all(receipt.get(k)==v for k,v in expected.items()),'CHAT_READ_BINDING_MISMATCH')
+    observed=receipt.get('observed_at');now=int(time.time())
+    native_read._require(type(observed) is int and observed<=now<observed+300,'CHAT_READ_EXPIRED')
+    native_read._require(type(data) is dict and set(data)=={'repository','repository_id','url','branch','commit_sha'}
+        and data['repository']==native_read.REPOSITORY and type(data['repository_id']) is int
+        and data['repository_id']==native_read.REPOSITORY_ID
+        and data['url']=='https://github.com/'+native_read.REPOSITORY and data['branch']=='main'
+        and type(data['commit_sha']) is str and len(data['commit_sha'])==40
+        and all(c in '0123456789abcdef' for c in data['commit_sha'])
+        and wire.digest(wire.canonical(data))==receipt.get('data_sha256'),'CHAT_READ_DATA_MISMATCH')
+    return {'schema':'aioa.chat.read-context.v1','trust':'UNTRUSTED_READ_DATA','request_id':request_id,
+        'operation':'github.repository','observed_at':observed,'expires_at':observed+300,
+        'source_sha':host.source[0],'capsule_digest':host.source[1],
+        'data_sha256':receipt['data_sha256'],'receipt_sha256':wire.digest(wire.canonical(receipt)),'data':data}
+
+
 def registry(host):
     host.operator_principal()
+    from runtime.critical_loop.preset import build_native_cpl_preview
+    memory=host.runtime.memory_patch_status()
     unknown = 0
     governor = getattr(host.missions, '_chat_governor', None)
     if governor is not None:
@@ -42,9 +76,13 @@ def registry(host):
         'github_write': {'status': 'BLOCKED_OWNER_LIABILITY_UNKNOWN' if unknown else 'BLOCKED_REMOTE_START_NOT_BOUND',
                          'enabled': False, 'unknown_liabilities': unknown},
         'worker': {'status': 'BLOCKED_NATIVE_WORKER_NOT_BOUND', 'enabled': False},
+        'memory': {'status':'CORE_RECORDS_ONLY','enabled':False,
+            'core_records':{'status':'CORE_RECORDS_SQLITE','persistent':True},
+            'semantic_memory':{'enabled':memory['enabled'],'status':memory['backend_status']},
+            'cockroach':{'status':'NOT_BOUND','enabled':False},'save_knowledge':False},
         'cpl': {'status': 'BLOCKED_NATIVE_CPL_NOT_BOUND', 'enabled': False, 'provider_calls': 0,
                 'contract': 'cpl-1plus3plus1-v1', 'expected_generation_requests': 5,
-                'authority': 'ADVISORY_ONLY', 'automatic_retry': False},
+                'authority': 'ADVISORY_ONLY', 'automatic_retry': False,'preview':build_native_cpl_preview()},
     }
 
 

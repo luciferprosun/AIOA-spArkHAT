@@ -339,7 +339,7 @@ class LocalCoreRecordFactory:
     assignment, credentials, principal issuer or effect dispatcher lives here.
     """
 
-    def __init__(self, path, core):
+    def __init__(self, path, core, *, expected_file=None):
         import os
         from pathlib import Path
         import sqlite3
@@ -350,24 +350,29 @@ class LocalCoreRecordFactory:
         if (parent.is_symlink() or parent.resolve()!=parent or parent.stat().st_uid!=os.getuid()
                 or parent.stat().st_mode&0o077 or type(core) is not CoreAdmission):
             raise MemoryPatchError(ErrorCode.ADMISSION_DENIED)
-        fd=os.open(self.path,os.O_RDWR|os.O_CREAT|os.O_NOFOLLOW,0o600)
+        fd=os.open(self.path,os.O_RDWR|os.O_NOFOLLOW|(0 if expected_file is not None else os.O_CREAT),0o600)
         try:
             info=os.fstat(fd)
+            if expected_file is not None and (info.st_dev,info.st_ino,info.st_size,info.st_mtime_ns)!=tuple(expected_file):
+                raise MemoryPatchError(ErrorCode.INTEGRITY_FAILED)
             if (not stat.S_ISREG(info.st_mode) or info.st_uid!=os.getuid() or info.st_nlink!=1
                     or info.st_mode&0o077 or info.st_size>32*1024*1024):
                 raise MemoryPatchError(ErrorCode.ADMISSION_DENIED)
-            self.db=sqlite3.connect(self.path,check_same_thread=False,isolation_level=None,timeout=5)
+            target=self.path.as_uri()+'?mode=rw' if expected_file is not None else self.path
+            self.db=sqlite3.connect(target,uri=expected_file is not None,check_same_thread=False,isolation_level=None,timeout=5)
             after=self.path.lstat()
-            if (info.st_dev,info.st_ino)!=(after.st_dev,after.st_ino):
+            if ((info.st_dev,info.st_ino)!=(after.st_dev,after.st_ino)
+                    or expected_file is not None and (after.st_dev,after.st_ino,after.st_size,after.st_mtime_ns)!=tuple(expected_file)):
                 self.db.close();raise MemoryPatchError(ErrorCode.INTEGRITY_FAILED)
         finally:os.close(fd)
         self.db.row_factory=sqlite3.Row
         self._identity=(info.st_dev,info.st_ino)
         self.db.execute('PRAGMA trusted_schema=OFF')
         self.db.execute('PRAGMA synchronous=FULL')
-        self.db.execute('CREATE TABLE IF NOT EXISTS core_records_v1 ('
-            'scope_key TEXT NOT NULL,kind TEXT NOT NULL,record_id TEXT NOT NULL,revision INTEGER NOT NULL,'
-            'record_json TEXT NOT NULL,record_digest TEXT NOT NULL,PRIMARY KEY(scope_key,kind,record_id))')
+        if expected_file is None:
+            self.db.execute('CREATE TABLE IF NOT EXISTS core_records_v1 ('
+                'scope_key TEXT NOT NULL,kind TEXT NOT NULL,record_id TEXT NOT NULL,revision INTEGER NOT NULL,'
+                'record_json TEXT NOT NULL,record_digest TEXT NOT NULL,PRIMARY KEY(scope_key,kind,record_id))')
         self.core,self.lock,self.closed=core,threading.RLock(),False
 
     def _file_check(self):

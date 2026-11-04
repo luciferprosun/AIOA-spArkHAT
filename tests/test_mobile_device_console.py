@@ -145,6 +145,25 @@ class DeviceConsoleTests(unittest.TestCase):
         with self.assertRaises(AdmissionError):service.mobile_operator_request({'op':'pairing_list'})
         self.assertFalse(request({'op':'console'})['ok'])
 
+    def test_private_policykit_renewal_rotates_all_browser_grants_and_is_unavailable_over_http(self):
+        service=self.service();control=self.console_socket(service);request=self.tls(service)
+        token=self.activate(service,request,control);old_cookie=service._mobile_console_cookie
+        self.app._auth_deadline=0
+        status=control({'op':'operator_auth_status'})['data']
+        value={'op':'operator_renew','request_id':'e'*32,**{k:status[k] for k in
+            ('source_sha','capsule_digest','core_instance_id','admission_revision')}}
+        with patch('runtime.meta_hackathon.runtime_adapter._desktop_operator_uid',
+                return_value=(os.getuid(),{'uid':os.getuid(),'test_only':True})) as authenticate:
+            self.assertTrue(control(value)['ok']);authenticate.assert_called_once()
+        self.assertIsNone(service._mobile_console_uid);self.assertIsNone(service._mobile_console_cookie)
+        self.assertIsNone(service._mobile_console_delivery);self.assertNotEqual(token,service.csrf_token)
+        self.assertEqual(403,request('POST','/api/native-operator',{'op':'status'},
+            {'Origin':self.app.origin,'X-AIOA-Session-Token':token,'Cookie':'__Host-aioa-console='+old_cookie})[0])
+        token=self.activate(service,request,control)
+        for operation in ({'op':'operator_auth_status'},value):
+            self.assertEqual(403,request('POST','/api/native-operator',operation,
+                {'Origin':self.app.origin,'X-AIOA-Session-Token':token})[0])
+
     def test_same_core_status_read_requires_current_kernel_grant_and_exact_payload(self):
         service=self.service();request=self.tls(service);control=self.console_socket(service)
         self.assertEqual(403,request('POST','/api/native-operator',{'op':'status'})[0])
@@ -242,6 +261,9 @@ class DeviceConsoleTests(unittest.TestCase):
         self.assertNotIn(token.encode(),request('GET','/devices')[1])
         for value in ({'op':'console'},{'op':'enroll'},{'op':'pairing_list','uid':os.getuid()}):
             with self.subTest(value=value):self.assertIn(request('POST','/api/native-operator',value,headers)[0],(400,403))
+        for op in ('budget_review','budget_approve','operator_renew','chat_approve'):
+            with self.subTest(private_op=op):
+                self.assertEqual(403,request('POST','/api/native-operator',{'op':op},headers)[0])
         for changed in ({'Origin':'https://evil.example.org'},{'Origin':''},{'X-AIOA-Session-Token':'forged'},
                         {'Sec-Fetch-Site':'cross-site'},{'X-Forwarded-Host':'host.example.org'}):
             with self.subTest(changed=changed):self.assertEqual(403,request('POST','/api/native-operator',{'op':'pairing_list'},{**headers,**changed})[0])

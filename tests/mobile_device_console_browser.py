@@ -106,7 +106,8 @@ def worker():
             (async()=>{
               const result={};
               const wait=async(n)=>{for(let i=0;i<200;i++){
-                if(window.consoleProbeReads>=n&&!document.getElementById('devices-refresh').disabled)return;
+                if(window.consoleProbeReads>=n&&!document.getElementById('devices-refresh').disabled&&
+                    document.getElementById('devices-pending').getAttribute('aria-busy')!=='true')return;
                 await new Promise(r=>setTimeout(r,20));
               }throw Error('readback timeout '+n);};
               const pending=()=>Array.from(document.querySelectorAll('#devices-pending button'));
@@ -128,7 +129,7 @@ def worker():
                     document.activeElement===shown[0].querySelector('h2');
                 }
                 result.cosmic_navigation_read_only=navigationOK&&window.consoleProbeReads===1;
-                document.querySelector('[data-cosmic-target="devices"]').click();
+                document.querySelector('[data-cosmic-target="approvals"]').click();
                 await document.fonts.ready;
                 result.local_fonts_loaded=['CosmicBody','CosmicHeading','CosmicMono'].every(name=>
                   Array.from(document.fonts).some(font=>font.family===name&&font.status==='loaded'));
@@ -143,11 +144,13 @@ def worker():
                 result.revoked_reconnect_keeps_legacy_revoke=!!trusted()&&!trusted().disabled&&
                   saved.includes('Reconnect revoked')&&saved.includes('Active sessions: 1')&&saved.includes('Pending codes: 1');
                 pending()[0].focus();window.consoleProbePoll();
-                result.busy_controls_disabled=pending().every(x=>x.disabled)&&trusted().disabled;
+                result.background_controls_available=pending().every(x=>!x.disabled)&&!trusted().disabled;
                 await wait(2);
                 result.pending_focus=document.activeElement===pending()[0];
+                document.querySelector('[data-cosmic-target="devices"]').click();
                 trusted().focus();window.consoleProbePoll();await wait(3);
                 result.device_focus=document.activeElement===trusted();
+                document.querySelector('[data-cosmic-target="approvals"]').click();
                 pending()[0].focus();window.consoleProbePoll();await wait(4);
                 result.reordered_exact_focus=document.activeElement===pending()[1];
                 window.consoleProbePoll();await wait(5);
@@ -232,6 +235,40 @@ def worker():
                         time.sleep(.02)
                     dom=pipe.call('Runtime.evaluate',{'expression':'document.documentElement.outerHTML','returnByValue':True},session)
                     outputs.append(dom['result']['value'])
+                    # Layout fixtures use the same real markup/styles. They do
+                    # not assert LIVE content or issue a model/tool operation.
+                    geometry=[]
+                    for width,height in ((945,720),(1280,720),(1366,768),(1920,1080)):
+                        pipe.call('Emulation.setDeviceMetricsOverride',{'width':width,'height':height,
+                            'deviceScaleFactor':1,'mobile':False},session)
+                        for font in (100,200):
+                            expression="""(()=>{
+                              document.documentElement.style.fontSize=FONT+'%';
+                              document.querySelector('[data-cosmic-target="chat"]').click();
+                              const box=document.getElementById('native-chat-messages');box.replaceChildren();
+                              for(let n=0;n<30;n++){const p=document.createElement('p');
+                                p.textContent='TEST_ONLY layout fixture — '+n+' '+('long-source-'.repeat(20));box.append(p);}
+                              window.scrollTo(0,0);
+                              const log=box.getBoundingClientRect(),composer=document.querySelector('.native-chat-composer').getBoundingClientRect();
+                              const control=document.getElementById('native-chat-stop');control.scrollIntoView({block:'nearest'});
+                              const button=control.getBoundingClientRect();
+                              return {width:innerWidth,height:innerHeight,font:FONT,
+                                no_overflow:document.documentElement.scrollWidth<=innerWidth+1,
+                                log_height:log.height,independent_scroll:box.scrollHeight>box.clientHeight,
+                                no_overlap:log.bottom<=composer.top+1,
+                                composer_visible:composer.bottom<=innerHeight+1,
+                                control_reachable:button.top>=0&&button.bottom<=innerHeight+1,
+                                pages:Array.from(document.querySelectorAll('[data-cosmic-page]')).filter(x=>!x.hidden).length};
+                            })()""".replace('FONT',str(font))
+                            result=pipe.call('Runtime.evaluate',{'expression':expression,'returnByValue':True},session)['result']['value']
+                            geometry.append(result)
+                            self.assertTrue(result['no_overflow'],result);self.assertTrue(result['independent_scroll'],result)
+                            self.assertTrue(result['no_overlap'],result);self.assertTrue(result['control_reachable'],result)
+                            self.assertEqual(1,result['pages']);self.assertGreaterEqual(result['log_height'],96)
+                            if font==100:self.assertTrue(result['composer_visible'],result)
+                            shot=pipe.call('Page.captureScreenshot',{'format':'png'},session)
+                            Path('/out/cosmic-test-layout-'+str(width)+'-'+str(font)+'.png').write_bytes(base64.b64decode(shot['data']))
+                    Path('/out/cosmic-test-geometry.json').write_text(json.dumps(geometry,indent=2))
                 finally:
                     os.close(parent_write);os.close(parent_read);cleanup_owned(process,group=True,timeout=2)
             persisted={'delivery':[],'csrf':[]}
@@ -279,12 +316,13 @@ def worker():
             self.assertTrue(all('?' not in path and '#' not in path for _,path,_ in capture))
             self.assertFalse(any(path=='/api/session' for _,path,_ in capture))
             for secret in (grant['delivery'],service.csrf_token):self.assertNotIn(secret,repr(capture))
-            self.assertEqual(9,len(operations));self.assertEqual(8,operations.count({'op':'pairing_list'}))
-            self.assertEqual(1,operations.count({'op':'status'}))
             found=re.search(r'<pre id="console-browser-result">(.*?)</pre>',outputs[0],re.S)
             self.assertIsNotNone(found,'Browser probe did not finish')
             result=json.loads(html.unescape(found[1]))
-            self.assertEqual(dict.fromkeys(('bootstrap','busy_controls_disabled','pending_focus','device_focus',
+            self.assertNotIn('error',result,result)
+            self.assertEqual(9,len(operations));self.assertEqual(8,operations.count({'op':'pairing_list'}))
+            self.assertEqual(1,operations.count({'op':'status'}))
+            self.assertEqual(dict.fromkeys(('bootstrap','background_controls_available','pending_focus','device_focus',
                 'reordered_exact_focus','changed_digest_not_focused','removed_request_not_focused',
                 'deliberate_focus_preserved','unknown_suppresses_poll','revoked_reconnect_keeps_legacy_revoke',
                 'no_url_or_storage_credential','cosmic_navigation_read_only','local_fonts_loaded',

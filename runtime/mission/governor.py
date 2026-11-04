@@ -182,17 +182,24 @@ commit or refund it. A lost marker ACK never gives send permission on replay.
                 continue
             _deny(set(record.payload) == {'operation_kind','payload_digest','outcome'}, 'GOVERNOR_INTEGRITY')
             outcome=record.payload['outcome']
-            _deny(set(outcome) == {'state','prior_digest'}, 'GOVERNOR_INTEGRITY')
+            _deny(set(outcome) in ({'state','prior_digest'},{'state','prior_digest','policy_transition'}), 'GOVERNOR_INTEGRITY')
             _deny(record.payload['payload_digest'] == canonical_sha256(outcome), 'GOVERNOR_INTEGRITY')
             state=outcome['state']
             _deny(state.get('policy_digest') == self.policy.digest, 'POLICY_BINDING')
-            _deny(set(state) == set(self._initial()) and state['schema'] == KIND, 'GOVERNOR_INTEGRITY')
+            _deny(set(state) in (set(self._initial()),set(self._initial())|{'money_policy'}) and state['schema'] == KIND, 'GOVERNOR_INTEGRITY')
             _deny(type(state['version']) is int and 1 <= state['version'] <= 1023, 'GOVERNOR_INTEGRITY')
             _deny(record.record_id == self._key(state['version']) and record.revision == 1, 'GOVERNOR_INTEGRITY')
             selected.append((state['version'],outcome))
-        current=self._initial()
+        current=self._initial();money_requests=set()
         for index,outcome in sorted(selected):
             _deny(index == current['version']+1 and outcome['prior_digest'] == canonical_sha256(current), 'GOVERNOR_INTEGRITY')
+            proposed=_plain(outcome['state']);transition=outcome.get('policy_transition')
+            if proposed.get('money_policy')!=current.get('money_policy'):
+                self._validate_money_transition(current,proposed,_plain(transition) if transition is not None else None)
+                identity=transition['request_id']
+                _deny(identity not in money_requests,'GOVERNOR_INTEGRITY')
+                money_requests.add(identity)
+            else:_deny('policy_transition' not in outcome,'GOVERNOR_INTEGRITY')
             current=_plain(outcome['state'])
             self._validate(current)
         return current
@@ -232,11 +239,12 @@ commit or refund it. A lost marker ACK never gives send permission on replay.
 
     def _budgets(self, state):
         exposure=_exposure(state['reservations'])
-        for limits,buckets in ((self.policy.global_limit,(exposure['global'],)),
-                              (self.policy.task_limit,exposure['tasks'].values()),
-                              (self.policy.owner_provider_limit,exposure['owner_providers'].values())):
+        override=state.get('money_policy',{}).get('limits',{})
+        for name,limits,buckets in (('global_limit',self.policy.global_limit,(exposure['global'],)),
+                              ('task_limit',self.policy.task_limit,exposure['tasks'].values()),
+                              ('owner_provider_limit',self.policy.owner_provider_limit,exposure['owner_providers'].values())):
             for bucket in buckets:
-                _deny(bucket['money_nano'] <= limits.money_nano and bucket['risk_units'] <= limits.risk_units,
+                _deny(bucket['money_nano'] <= override.get(name,limits.money_nano) and bucket['risk_units'] <= limits.risk_units,
                       'BUDGET_EXCEEDED')
 
     def _clock(self, state, now):
@@ -246,10 +254,13 @@ commit or refund it. A lost marker ACK never gives send permission on replay.
     def _epoch(self, state, epoch):
         _deny(type(epoch) is int and epoch == state['epoch'] and epoch > 0, 'STALE_EPOCH')
 
-    def _write(self, tx, before, state, now):
+    def _write(self, tx, before, state, now, *, policy_transition=None):
         state['version']=before['version']+1;state['last_now']=now
         self._validate(state)
         outcome={'state':state,'prior_digest':canonical_sha256(before)}
+        if policy_transition is not None:
+            self._validate_money_transition(before,state,policy_transition)
+            outcome['policy_transition']=policy_transition
         binding=OperationBinding.bind(self._key(state['version']),KIND,outcome)
         def append():
             append_domain_event(tx,binding,event_id='governor-'+binding.idempotency_key,
@@ -283,6 +294,66 @@ commit or refund it. A lost marker ACK never gives send permission on replay.
             return {**state,'authority':'NONE','global_scope':'SINGLE_OWNER_CORE_NAMESPACE',
                     'exposure':_exposure(state['reservations'])}
         return self.runner.run(TransactionContext(principal,Capability.READ),read)
+
+    def _money_review(self,state,limits,request_id):
+        _identity(request_id)
+        _deny(type(limits) is dict and set(limits)=={'task_limit','owner_provider_limit','global_limit'},'INVALID_GOVERNOR_POLICY')
+        for value in limits.values():_amount(value)
+        body={'schema':'aioa.governor.money-review.v2','request_id':request_id,
+            'bootstrap_policy_digest':self.policy.digest,'expected_version':state['version'],
+            'expected_epoch':state['epoch'],'limits':dict(limits)}
+        return {**body,'review_digest':canonical_sha256(body)}
+
+    def money_policy_review(self,principal,limits,*,request_id):
+        self._require(principal,Capability.READ)
+        return self.runner.run(TransactionContext(principal,Capability.READ),
+            lambda tx:self._money_review(self._load(tx),limits,request_id))
+
+    def _validate_money_transition(self,before,after,review):
+        _deny(type(review) is dict and set(review)=={'schema','request_id','bootstrap_policy_digest',
+            'expected_version','expected_epoch','limits','review_digest'},'GOVERNOR_INTEGRITY')
+        expected=self._money_review(before,review['limits'],review['request_id'])
+        _deny(canonical_json_bytes(review)==canonical_json_bytes(expected),'POLICY_BINDING')
+        _deny(type(after['last_now']) is int and (before['last_now'] is None
+            or after['last_now']>=before['last_now']),'CLOCK_UNSAFE')
+        policy={'schema':'aioa.governor.money-policy.v2','limits':review['limits'],
+            'request_id':review['request_id'],'review_digest':review['review_digest']}
+        unchanged=_plain(before)
+        unchanged.update(money_policy=policy,epoch=before['epoch']+1,version=before['version']+1,last_now=after['last_now'])
+        _deny(canonical_json_bytes(after)==canonical_json_bytes(unchanged),'GOVERNOR_INTEGRITY')
+
+    def apply_money_policy(self,principal,review,*,authority_check=None):
+        """Exact native MANAGE transition in the SAME immutable state chain.
+
+        Bootstrap policy identity and v1 prior hashes remain unchanged. Only
+        financial limits change; risk, reservations, UNKNOWN and kill survive.
+        This allocates local capacity; it neither verifies provider credit nor
+        authorizes any paid request.
+        """
+        self._require(principal,Capability.MANAGE)
+        _deny(type(review) is dict,'GOVERNOR_INTEGRITY')
+        _deny(authority_check is None or callable(authority_check),'INVALID_GOVERNOR_BINDINGS')
+        now=self._now()
+        def apply(tx):
+            if authority_check is not None:authority_check()
+            before=self._load(tx)
+            # Duplicate receipts survive later policy changes and restart.
+            for row in tx.scan(RecordKind.OPERATION,limit=1024,operation_kind=KIND):
+                prior=row.payload['outcome'].get('policy_transition')
+                if prior is not None and prior['request_id']==review.get('request_id'):
+                    _deny(canonical_json_bytes(prior)==canonical_json_bytes(review),'IDEMPOTENCY_CONFLICT')
+                    return {'readback_only':True,'epoch':before['epoch'],'version':before['version']}
+            expected=self._money_review(before,review.get('limits'),review.get('request_id'))
+            _deny(canonical_json_bytes(review)==canonical_json_bytes(expected),'POLICY_BINDING')
+            _deny(before['last_now'] is None or now>=before['last_now'],'CLOCK_UNSAFE')
+            state=_plain(before)
+            state.update(epoch=before['epoch']+1,money_policy={'schema':'aioa.governor.money-policy.v2',
+                'limits':review['limits'],'request_id':review['request_id'],'review_digest':review['review_digest']})
+            self._budgets(state)
+            if authority_check is not None:authority_check()
+            self._write(tx,before,state,max(now,before['last_now'] or 0),policy_transition=review)
+            return {'readback_only':False,'epoch':state['epoch'],'version':state['version']}
+        return self.runner.run(TransactionContext(principal,Capability.MANAGE),apply)
 
     def start_epoch(self, principal):
         """Explicit Core operator takeover; never automatic at construction."""
