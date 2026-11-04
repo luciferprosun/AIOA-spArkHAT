@@ -1,5 +1,33 @@
 const test=require('node:test');const assert=require('node:assert/strict');const fs=require('node:fs');
 const path=require('node:path').join(__dirname,'../web/mobile_chat.js');const api=fs.existsSync(path)?require(path):{};
+test('an owner session sends directly without a cost approval or a browser-supplied budget',async()=>{
+  const calls=[];let serial=0;
+  const client=api.createChat(async value=>{
+    calls.push(value);
+    if(value.op==='chat_catalog')return {chat:true,model_id:'muse-spark-1.3',mode:'LIVE_OWNER_SESSION'};
+    if(value.op==='chat_threads')return {threads:[]};
+    assert.equal(value.op,'chat_send');
+    return {schema:'aioa.mobile.chat-result.v1',request_id:value.payload.request_id,thread_id:value.payload.thread_id,
+      provider_id:'meta_model_api',model_id:'muse-spark-1.3',save_knowledge:false,state:'RUNNING'};
+  },()=>{},()=> (++serial).toString(16).padStart(32,'0'));
+  await client.refresh();await client.send('Cześć!');
+  assert.equal(calls.at(-1).payload.schema,'aioa.mobile.chat-send.v2');
+  assert.equal('max_budget_usd' in calls.at(-1).payload,false);
+  assert.equal(calls.some(v=>['chat_approve','chat_session_start','budget_approve'].includes(v.op)),false);
+  await assert.rejects(client.send('same again'),/CHAT_READBACK_ONLY/);
+});
+test('new ordinary conversation clears context locally without a confirmation or remote mutation',async()=>{
+  const calls=[];let serial=0;
+  const client=api.createChat(async value=>{
+    calls.push(value);
+    if(value.op==='chat_catalog')return {chat:true,model_id:'muse-spark-1.3',mode:'LIVE_OWNER_SESSION'};
+    if(value.op==='chat_threads')return {threads:[]};
+    assert.fail('new conversation must not spend or approve');
+  },()=>{},()=> (++serial).toString(16).padStart(32,'0'));
+  await client.refresh();const before=calls.length;
+  client.newConversation(true);assert.equal(client.snapshot().draft,true);
+  assert.equal(calls.length,before);
+});
 test('initial selection prefers current successful text over historical UNKNOWN and preserves manual history',async()=>{
   const fresh='1'.repeat(32),old='2'.repeat(32);let selected;
   const client=api.createChat(async v=>{
