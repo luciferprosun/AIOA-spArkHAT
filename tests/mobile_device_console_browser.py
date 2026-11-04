@@ -49,6 +49,31 @@ def verify_isolation():
         raise RuntimeError('CONSOLE_BROWSER_ISOLATION_REQUIRED')
 
 
+def startup_process_state(process):
+    """Bounded counters for our synthetic Chrome; no cmdline or environment."""
+    code=process.poll()
+    if code is not None:return {'state':'EXITED','returncode':code}
+    root=Path('/proc')/str(process.pid)
+    result={}
+    try:
+        with (root/'stat').open() as stream:fields=stream.read(1024).rsplit(')',1)[1].split()
+        result.update(state=fields[0],minor_faults=int(fields[7]),major_faults=int(fields[9]),
+                      user_ticks=int(fields[11]),system_ticks=int(fields[12]))
+    except (OSError,ValueError,IndexError):result['state']='UNAVAILABLE'
+    for name in ('schedstat','wchan'):
+        try:
+            with (root/name).open() as stream:value=stream.read(1024).strip()
+            if name=='schedstat':
+                values=[int(x) for x in value.split()]
+                if len(values)!=3:raise ValueError()
+                result[name]=values
+            else:
+                if not re.fullmatch('[A-Za-z0-9_.]{1,128}',value):raise ValueError()
+                result[name]=value
+        except (OSError,ValueError):result[name]='UNAVAILABLE'
+    return result
+
+
 def worker():
     verify_isolation()
     import test_mobile_device_console as console
@@ -234,7 +259,7 @@ def worker():
                         print('CONSOLE_BROWSER_STARTUP_DIAGNOSTIC '+json.dumps({
                             'elapsed_seconds':round(time.monotonic()-started,3),
                             'returncode':process.poll(),'command_id':pipe.sequence,
-                            'buffered_bytes':len(pipe.buffer),'stderr_tail':tail}),file=sys.stderr,flush=True)
+                            'buffered_bytes':len(pipe.buffer),'process':startup_process_state(process),'stderr_tail':tail}),file=sys.stderr,flush=True)
                         raise
                     # Invalid canary, never an owner grant: a changed document
                     # must be rejected before fetch is called at all.
