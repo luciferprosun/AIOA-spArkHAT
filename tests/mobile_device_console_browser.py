@@ -215,12 +215,27 @@ def worker():
                 '--user-data-dir='+str(self.root/'chrome-profile'),'about:blank']
             command=['/bin/bash','-c','exec 3<&'+str(browser_read)+' 4>&'+str(browser_write)+'; exec "$@"','aioa-synthetic-pipe',*args]
             for secret in (grant['delivery'],service.csrf_token):self.assertNotIn(secret,repr(command))
+            # Synthetic, networkless Chrome only. Keep a bounded diagnostic
+            # tail on bootstrap failure instead of discarding its start log.
+            chrome_stderr=tempfile.TemporaryFile()
+            self.addCleanup(chrome_stderr.close)
             process=subprocess.Popen(command,pass_fds=(browser_read,browser_write),stdin=subprocess.DEVNULL,
-                stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,start_new_session=True)
+                stdout=subprocess.DEVNULL,stderr=chrome_stderr,start_new_session=True)
             os.close(browser_read);os.close(browser_write);pipe=Pipe(parent_write,parent_read)
             with patch.object(service,'mobile_operator_request',side_effect=synthetic_operation):
                 try:
-                    session=open_document(pipe,self.app.origin+'/devices')
+                    started=time.monotonic()
+                    try:session=open_document(pipe,self.app.origin+'/devices')
+                    except Exception:
+                        chrome_stderr.seek(0,os.SEEK_END)
+                        chrome_stderr.seek(max(0,chrome_stderr.tell()-8192))
+                        tail=chrome_stderr.read(8192).decode('utf-8','replace')
+                        for secret in (grant['delivery'],service.csrf_token):tail=tail.replace(secret,'[REDACTED]')
+                        print('CONSOLE_BROWSER_STARTUP_DIAGNOSTIC '+json.dumps({
+                            'elapsed_seconds':round(time.monotonic()-started,3),
+                            'returncode':process.poll(),'command_id':pipe.sequence,
+                            'buffered_bytes':len(pipe.buffer),'stderr_tail':tail}),file=sys.stderr,flush=True)
+                        raise
                     # Invalid canary, never an owner grant: a changed document
                     # must be rejected before fetch is called at all.
                     with self.assertRaisesRegex(ValueError,'CONSOLE_DELIVERY_UNKNOWN_NO_RETRY'):

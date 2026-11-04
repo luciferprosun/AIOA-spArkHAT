@@ -1,9 +1,63 @@
 """Isolated owned-process lifecycle; no Chrome/network/real owner started."""
-import io,json,stat,subprocess,tempfile,unittest
+import io,json,os,stat,subprocess,tempfile,unittest
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 from runtime.mobile_gateway import chrome_console
+
+class ChromePipeTests(unittest.TestCase):
+    def setUp(self):
+        self.browser_read,self.writer=os.pipe()
+        self.reader,self.browser_write=os.pipe()
+        for fd in (self.browser_read,self.writer,self.reader,self.browser_write):
+            self.addCleanup(os.close,fd)
+        self.pipe=chrome_console.Pipe(self.writer,self.reader)
+
+    def assert_one_command(self):
+        raw=os.read(self.browser_read,4096)
+        self.assertEqual(1,raw.count(b'\0'))
+        self.assertEqual({'id':1,'method':'Browser.getVersion','params':{}},json.loads(raw[:-1]))
+
+    def test_complete_reply_read_before_deadline_is_parsed_after_scheduler_delay(self):
+        os.write(self.browser_write,b'{"id":1,"result":{"product":"Chrome/test"}}\0')
+        clock=[0.0];real_read=os.read
+        def delayed_read(fd,size):
+            reply=real_read(fd,size)
+            clock[0]=15.001 # Descheduled after a successful read, before parsing.
+            return reply
+        with patch.object(chrome_console.time,'monotonic',side_effect=lambda:clock[0]),patch.object(chrome_console.os,'read',side_effect=delayed_read):
+            self.assertEqual({'product':'Chrome/test'},self.pipe.call('Browser.getVersion'))
+        self.assert_one_command()
+
+    def test_fragmented_events_and_other_ids_do_not_replace_the_exact_reply(self):
+        os.write(self.browser_write,b'{"method":"Target.targetCreated"}\0{"id":99,"result":{}}\0{"id":1,"result":{"product":"Chrome/test"}}\0')
+        real_read=os.read
+        with patch.object(chrome_console.os,'read',side_effect=lambda fd,size:real_read(fd,min(size,7))):
+            self.assertEqual({'product':'Chrome/test'},self.pipe.call('Browser.getVersion'))
+        self.assert_one_command()
+
+    def test_partial_reply_or_event_at_deadline_remains_unknown_without_retry(self):
+        for reply in (b'{"id":1,"result":{}',b'{"method":"Target.targetCreated"}\0'):
+            with self.subTest(reply=reply):
+                self.pipe.sequence=0;self.pipe.buffer=b''
+                os.write(self.browser_write,reply)
+                clock=[0.0];real_read=os.read
+                def delayed_read(fd,size):
+                    value=real_read(fd,size);clock[0]=15.001;return value
+                with patch.object(chrome_console.time,'monotonic',side_effect=lambda:clock[0]),patch.object(chrome_console.os,'read',side_effect=delayed_read),patch.object(chrome_console.select,'select',wraps=chrome_console.select.select) as wait:
+                    with self.assertRaisesRegex(ValueError,'^CHROME_COMMAND_UNKNOWN$'):
+                        self.pipe.call('Browser.getVersion')
+                self.assertEqual(1,wait.call_count)
+                self.assert_one_command()
+
+    def test_wait_never_extends_the_remaining_command_deadline(self):
+        now=iter((0.0,14.999,14.999))
+        with patch.object(chrome_console.time,'monotonic',side_effect=lambda:next(now)),patch.object(chrome_console.select,'select',return_value=([],[],[])) as wait:
+            with self.assertRaisesRegex(ValueError,'^CHROME_COMMAND_UNKNOWN$'):
+                self.pipe.call('Browser.getVersion')
+        self.assertEqual(1,wait.call_count)
+        self.assertAlmostEqual(.001,wait.call_args.args[3],places=6)
+        self.assert_one_command()
 
 class ChromeLifecycleTests(unittest.TestCase):
     def test_delivery_rechecks_exact_document_in_same_evaluation_and_never_retries(self):

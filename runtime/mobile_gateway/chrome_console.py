@@ -63,14 +63,19 @@ class Pipe:
         raw=json.dumps(command).encode()+b'\0';sent=0
         while sent<len(raw):sent+=os.write(self.writer,raw[sent:])
         deadline=time.monotonic()+15
-        while time.monotonic()<deadline:
+        while True:
+            # A ready pipe can be read just before the deadline, then this
+            # process can be descheduled. Parse that reply before timing out;
+            # never wait longer or send the command again.
             while b'\0' in self.buffer:
                 raw,self.buffer=self.buffer.split(b'\0',1)
                 value=json.loads(raw)
                 if value.get('id')==identity:
                     if 'error' in value:raise ValueError('CHROME_COMMAND_FAILED')
                     return value.get('result',{})
-            if not select.select([self.reader],[],[],max(.01,deadline-time.monotonic()))[0]:break
+            remaining=deadline-time.monotonic()
+            if remaining<=0:break
+            if not select.select([self.reader],[],[],remaining)[0]:break
             chunk=os.read(self.reader,65536)
             if not chunk:raise ValueError('CHROME_PIPE_CLOSED')
             self.buffer+=chunk
