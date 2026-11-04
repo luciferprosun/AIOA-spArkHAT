@@ -70,7 +70,7 @@ All 17 local heads are ancestors of/equal to the candidate. Forty remote heads a
 | `integration/one-aioa-core-muse-mobile-20261101` | `ff9550fd88ea786273fc899bc3e9f8f2bccd0196` | IN_CANDIDATE |
 | `integration/owner-approved-20261011` | `bb3cd0426dc5e7c0d9871fbf0a19c9accf1ab1d2` | IN_CANDIDATE |
 | `launch/product-hunt-evidence-gates-20261013` | `36089a24458fe1a55ffe4a172f5e4159b73d4c50` | UNIQUE_REQUIRES_REVIEW |
-| `main` | `bda9d3126150b7c44f94d923ed236e10de5dba59` | PROTECTED_MAIN |
+| `main` | `bda9d3126150b7c44f94d923ed236e10de5dba59` | CANONICAL_MAIN_OWNER_RETAINED |
 | `nebius-final-candidate-20261009` | `cd1419f0062bb5ea5ca3da06254fce0daa1cd4d5` | IN_CANDIDATE |
 | `nebius-personal-ai` | `944590c4837629d5fe3b5b193a7ec75364e99eec` | IN_CANDIDATE |
 | `nvidia/reviewer-hardening-20260922` | `9f4edbeb8ca1fc844223f4af302a3b13320923a1` | IN_CANDIDATE |

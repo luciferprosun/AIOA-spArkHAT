@@ -84,7 +84,7 @@ data. A typed `issue.create` proposal grants no approval or execution authority.
 |---|---|---|
 | Native Core — `runtime/core_admission.py`, `runtime/meta_hackathon/runtime_adapter.py` | One real PolicyKit admission; source/TLS/lease checks; lease currently refused | IMPLEMENTED; CURRENT ADMISSION BLOCKED |
 | Persistence — `runtime/memory_patch/persistence/ports.py` | Same TransactionRunner, CAS, AUDIT, OUTBOX and existing `core-records.sqlite3` | INTEGRATED; no second store |
-| Authority — `runtime/mission/warrant.py`, `intent.py`, `governor.py`, `liability.py`, `runtime/service_guard/` | Existing exact approval/warrant/UNKNOWN boundaries reused | INTEGRATED; unresolved liability preserved |
+| Authority — `runtime/mission/warrant.py`, `intent.py`, `governor.py`, `liability.py`, `runtime/service_guard/` | Native binds the existing warrant ledger, chat governor and MetaLiveBinding; UNKNOWN is preserved. Effect journal/liability/ServiceGuard contracts remain in the repository; Native worker does not bind them | WARRANT/GOVERNOR INTEGRATED; EFFECT START NOT_BOUND |
 | Muse — `runtime/providers/meta_model_api.py`, `config.py`, `meta_hackathon/chat.py` | Meta-only `muse-spark-1.3`; historical real receipt; every new message needs exact native cost approval | HISTORICAL LIVE; FRESH SOURCE TEST BLOCKED |
 | Human approval — `runtime/mobile_gateway/operator_chat.py` | UID-authenticated socket, real PolicyKit and native checkbox; HTTP/Android cannot approve cost | INTEGRATED; no approval bypass |
 | Linux Mission Control — `web/index.html`, `styles.css`, `mobile_devices*.js`, `mobile_chat.js` | Existing English White Hole layout, navigation, device/chat evidence; real9e7 render plus contained browser tests | IMPLEMENTED; renewed current operator required |
