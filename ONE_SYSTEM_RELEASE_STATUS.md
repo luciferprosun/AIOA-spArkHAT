@@ -143,7 +143,7 @@ retry or financial release was made; account billing remains UNVERIFIED.
 | Independent review | **PASS** for reviewed bounded slice | Two read-only reviewers; three isolated runtime repros independently passed; sealed11-file manifest |
 | Android inventory | **PASS** | Existing58-file source inventory; no APK build or installation |
 | Prior9e7 full CI | **PASS** | Core/packaging3.11/3.12, MCP3.11/3.12, default CodeQL |
-| Reviewed7f full CI | **IN_PROGRESS** at document preparation | Must all succeed before PR40 becomes ready for final merge review |
+| Reviewed7f full CI | **PASS** | Core/packaging3.11/3.12 four jobs, MCP3.11/3.12 two jobs, default CodeQL four languages |
 | Fresh Native current-source Muse/READ | **NOT_RUN** | Active host9e7 preserved; native admission expired |
 | Physical Android signed status/reconnect | **NOT_RUN** | ADB currently reports no connected device |
 
@@ -280,6 +280,6 @@ protection, running process bindings and dirty workspaces before proposing any
 cleanup. All branches/worktrees are currently retained; unique/historical/frozen
 sources and operator files are preserved.
 
-**Exact next step:** finish current PR40 CI and present its final HEAD for owner
+**Exact next step:** finish the documentation-successor PR40 CI and present its final HEAD for owner
 review. Do not merge or interrupt the active host automatically. Full demo PASS
 requires the subsequent genuine authority and physical readbacks above.
