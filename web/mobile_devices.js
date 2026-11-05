@@ -90,8 +90,9 @@
         });
       },
       chatCall:value=>{
-        if(!value || !['chat_catalog','chat_threads','chat_thread','chat_request','chat_review','chat_propose','chat_stop'].includes(value.op))return Promise.reject(Error('LOCAL_OPERATOR_REQUIRED'));
-        return call(value,['chat_propose','chat_stop'].includes(value.op),()=>{});
+        if(!value || !['chat_catalog','chat_threads','chat_thread','chat_request','chat_review','chat_propose','chat_stop',
+          'chat_send','chat_session_status','chat_session_stop'].includes(value.op))return Promise.reject(Error('LOCAL_OPERATOR_REQUIRED'));
+        return call(value,['chat_propose','chat_send','chat_stop','chat_session_stop'].includes(value.op),()=>{});
       },
       snapshot:() => copy({...state, busy,polling}),
       refresh:async({background=false}={}) => {
