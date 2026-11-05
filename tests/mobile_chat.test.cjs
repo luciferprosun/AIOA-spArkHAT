@@ -1,5 +1,53 @@
 const test=require('node:test');const assert=require('node:assert/strict');const fs=require('node:fs');
 const path=require('node:path').join(__dirname,'../web/mobile_chat.js');const api=fs.existsSync(path)?require(path):{};
+test('owner conversation crosses the actual console transport and can end its session',async()=>{
+  const {createDeviceConsole}=require('../web/mobile_devices.js');
+  const calls=[];let serial=0,active=true,latest;
+  const consoleClient=createDeviceConsole('T'.repeat(43),async(url,options)=>{
+    assert.equal(url,'/api/native-operator');
+    assert.equal(options.headers['X-AIOA-Session-Token'],'T'.repeat(43));
+    assert.equal(options.credentials,'same-origin');
+    const value=JSON.parse(options.body);calls.push(value);
+    let data;
+    if(value.op==='chat_catalog')data={chat:active,model_id:'muse-spark-1.3',mode:active?'LIVE_OWNER_SESSION':'LIVE_PENDING_EXACT_OWNER_APPROVAL'};
+    else if(value.op==='chat_threads')data={threads:[]};
+    else if(value.op==='chat_send'){
+      assert.equal(value.payload.schema,'aioa.mobile.chat-send.v2');
+      assert.equal('max_budget_usd' in value.payload,false);
+      latest={schema:'aioa.mobile.chat-result.v1',request_id:value.payload.request_id,thread_id:value.payload.thread_id,
+        provider_id:'meta_model_api',model_id:'muse-spark-1.3',save_knowledge:false,state:'RUNNING'};
+      data=latest;
+    } else if(value.op==='chat_request')data={...latest,state:'SUCCEEDED',live_verified:true,reply:'Synthetic reply',request_digest:'a'.repeat(64),
+      receipt:{schema:'aioa.meta.chat-receipt.v1',request_digest:'a'.repeat(64)}};
+    else if(value.op==='chat_session_stop'){active=false;data={state:'INACTIVE'};}
+    else assert.fail('Unexpected operation: '+value.op);
+    return {ok:true,status:200,json:async()=>({ok:true,data})};
+  });
+  const chat=api.createChat(consoleClient.chatCall,()=>{},()=> (++serial).toString(16).padStart(32,'0'));
+  await chat.refresh();await chat.send('First message');await chat.read();
+  assert.equal(chat.snapshot().messages[0].reply,'Synthetic reply');
+  const thread=chat.snapshot().thread;
+  await chat.send('Second message');await chat.read();
+  assert.equal(chat.snapshot().thread,thread);assert.equal(chat.snapshot().pending,null);
+  assert.equal(calls.filter(x=>x.op==='chat_send').length,2);
+  await chat.endSession();await assert.rejects(chat.send('Session ended'),/CHAT_NOT_AVAILABLE/);
+  assert.equal(calls.some(x=>['chat_approve','chat_session_start','budget_approve'].includes(x.op)),false);
+});
+test('lost session send ACK through console transport retains the request and never retries',async()=>{
+  const {createDeviceConsole}=require('../web/mobile_devices.js');
+  let sends=0;
+  const transport=createDeviceConsole('T'.repeat(43),async(url,options)=>{
+    const value=JSON.parse(options.body);
+    if(value.op==='chat_send'){sends++;throw Error('lost ACK');}
+    const data=value.op==='chat_catalog'?{chat:true,model_id:'muse-spark-1.3',mode:'LIVE_OWNER_SESSION'}:{threads:[]};
+    return {ok:true,status:200,json:async()=>({ok:true,data})};
+  });
+  const chat=api.createChat(transport.chatCall,()=>{},()=> 'a'.repeat(32));
+  await chat.refresh();await assert.rejects(chat.send('One attempt'),/UNKNOWN_READBACK_REQUIRED/);
+  assert.equal(chat.snapshot().pending,'a'.repeat(32));
+  await assert.rejects(chat.send('One attempt'),/CHAT_READBACK_ONLY/);
+  assert.equal(sends,1);
+});
 test('an owner session sends directly without a cost approval or a browser-supplied budget',async()=>{
   const calls=[];let serial=0;
   const client=api.createChat(async value=>{

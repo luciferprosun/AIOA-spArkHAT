@@ -14,6 +14,25 @@ function harness(handler) {
   },()=>100);
   return {client,calls};
 }
+test('chat transport cannot enable spending authority or forward private approvals',async()=>{
+  const {client,calls}=harness(()=>assert.fail('Private authority must never reach HTTP'));
+  for(const op of ['chat_session_start','chat_approve','budget_approve','operator_renew'])
+    await assert.rejects(client.chatCall({op}),/LOCAL_OPERATOR_REQUIRED/);
+  assert.equal(calls.length,0);
+});
+test('session reads preserve uncertain pairing while session mutations require current console readback',async()=>{
+  const {client,calls}=harness(value=>{
+    if(value.op==='pairing_list')return {pending:[pending],devices:[]};
+    if(value.op==='chat_session_status')return {state:'ACTIVE'};
+    throw Error('lost pairing approval ACK');
+  });
+  await client.refresh();await assert.rejects(client.approve(pending.request_id,pending.request_digest));
+  assert.equal((await client.chatCall({op:'chat_session_status'})).state,'ACTIVE');
+  assert.equal(client.snapshot().phase,'UNKNOWN');
+  for(const op of ['chat_send','chat_session_stop'])
+    await assert.rejects(client.chatCall({op}),error=>error.message==='READBACK_REQUIRED' && error.notDispatched===true);
+  assert.equal(calls.filter(x=>['chat_send','chat_session_stop'].includes(JSON.parse(x.options.body).op)).length,0);
+});
 test('only bounded READ dispatch gets the enclosing 30-second transport budget',async()=>{
   const original=global.setTimeout,delays=[];
   global.setTimeout=(fn,ms)=>{delays.push(ms);return original(fn,ms);};
