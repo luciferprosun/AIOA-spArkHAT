@@ -377,3 +377,17 @@ test('device panel renders revoked reconnect separately from active legacy acces
     AIOAMobileDevices:{...api,createDeviceConsole:()=>assert.fail('URL credential accepted')},
     fetch:async()=>({ok:false}),window:{addEventListener(){}},setInterval(){},Date,JSON});
 });
+test('local advisory preview uses existing console and cannot claim execution or send permission',async()=>{
+  const calls=[];
+  const client=api.createDeviceConsole('a'.repeat(43),async(url,options)=>{
+    const request=JSON.parse(options.body);calls.push(request);
+    return {ok:true,json:async()=>({ok:true,data:request.op==='pairing_list'?{pending:[],devices:[]}:{
+      data:{status:'DRAFT_PREVIEW_ONLY'},receipt:{schema:'aioa.native-advisory-receipt.v1',
+        request_id:request.request_id,operation:request.op,effect:'ADVISORY_PREVIEW',
+        execution_authorized:false,provider_calls:0,external_calls:0,automatic_retry:false}}})};
+  });
+  await client.refresh();await client.preview('mail_preview',{subject:'Literal <script> text'},'b'.repeat(32));
+  assert.equal(client.snapshot().advisoryPreview.receipt.execution_authorized,false);
+  const count=calls.length;await assert.rejects(client.preview('mail_send',{},'c'.repeat(32)));
+  assert.equal(calls.length,count);assert.deepEqual(calls.map(x=>x.op),['pairing_list','mail_preview']);
+});

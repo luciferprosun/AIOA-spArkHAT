@@ -69,6 +69,19 @@
       if(data.review)state.toolProposal=data;
     }
     return Object.freeze({
+      preview:(operation,payload,requestId)=>{
+        if(!['command_advice','mail_preview'].includes(operation))return Promise.reject(Error('REVIEW_REQUIRED'));
+        if(state.phase!=='READY' || !state.observed)return Promise.reject(Error('READBACK_REQUIRED'));
+        requestId=requestId || Array.from(root.crypto.getRandomValues(new Uint8Array(16)),x=>x.toString(16).padStart(2,'0')).join('');
+        if(!/^[a-f0-9]{32}$/.test(requestId))return Promise.reject(Error('REVIEW_REQUIRED'));
+        return call({op:operation,request_id:requestId,payload},false,data=>{
+          const receipt=data.receipt;
+          if(receipt?.schema!=='aioa.native-advisory-receipt.v1' || receipt.request_id!==requestId ||
+              receipt.operation!==operation || receipt.effect!=='ADVISORY_PREVIEW' || receipt.execution_authorized!==false ||
+              receipt.provider_calls!==0 || receipt.external_calls!==0 || receipt.automatic_retry!==false)throw Error('INVALID_READBACK');
+          state.advisoryPreview=data;
+        });
+      },
       readTool:async(operation,requestId)=>{
         if(busy)throw Error('BUSY');
         if(!['github.repository','github.issues','git.status','git.log','git.branches'].includes(operation))throw Error('TOOL_OPERATION_DENIED');

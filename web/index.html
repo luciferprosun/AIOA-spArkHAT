@@ -215,6 +215,21 @@
                   <p id="cosmic-tool-state" role="status">No tool result read.</p>
                   <pre id="cosmic-tool-result">No repository evidence yet.</pre>
                 </article>
+                <article class="panel"><h3>Command advice</h3>
+                  <p>Check a Linux command's structure locally. Advice never authorizes or runs the command.</p>
+                  <label for="cosmic-command-input">Command to inspect</label>
+                  <input id="cosmic-command-input" maxlength="2000" autocomplete="off" spellcheck="false">
+                  <button id="cosmic-command-preview" class="button button-ghost" disabled>Check command structure</button>
+                </article>
+                <article class="panel"><h3>Email draft preview</h3>
+                  <p>Validate a plain-text draft locally and record its fingerprint in Core. Sending and Gmail account connection are unavailable.</p>
+                  <label for="cosmic-mail-sender">From</label><input id="cosmic-mail-sender" type="email" maxlength="254" autocomplete="off">
+                  <label for="cosmic-mail-to">To · comma-separated addresses</label><input id="cosmic-mail-to" maxlength="2048" autocomplete="off">
+                  <label for="cosmic-mail-subject">Subject</label><input id="cosmic-mail-subject" maxlength="512" autocomplete="off">
+                  <label for="cosmic-mail-body">Message</label><textarea id="cosmic-mail-body" maxlength="8192"></textarea>
+                  <button id="cosmic-mail-preview" class="button button-ghost" disabled>Preview draft fingerprint</button>
+                </article>
+                <article class="panel"><h3>Local preview receipt</h3><pre id="cosmic-advisory-result">No preview recorded.</pre></article>
                 <article class="panel"><h3>Muse proposal · exact owner review</h3>
                   <p>Validate a completed Muse JSON response. Code proposals create new files on a new branch and a draft PR in luciferprosun/AIOA-spArkHAT-Meta-Hackathon-2026. Review every file and the target below before approving.</p>
                   <label for="cosmic-proposal-chat">Verified chat request ID</label>

@@ -32,7 +32,7 @@ class NativeGitHubWriteTests(unittest.TestCase):
             return self.app.operator_request(os.getuid(),{'op':'tool_proposal','request_id':'d'*32,'chat_request_id':'a'*32})
 
     def test_failed_preflight_is_terminal_sanitized_and_cannot_retry_or_approve(self):
-        result=self.proposal(ValueError('Authorization: Bearer SYNTHETIC_DO_NOT_ECHO'))
+        result=self.proposal(ValueError('Authorization: '+'Bearer '+'SYNTHETIC_DO_NOT_ECHO'))
         self.assertEqual('GITHUB_PROPOSAL_FAILED',result['status'])
         self.assertEqual('GITHUB_PROPOSAL_READ_FAILED',result['error'])
         self.assertNotIn('SYNTHETIC_DO_NOT_ECHO',json.dumps(result))

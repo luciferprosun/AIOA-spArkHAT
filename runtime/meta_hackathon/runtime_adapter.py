@@ -97,6 +97,9 @@ SOURCE_FILES += ('runtime/meta_hackathon/chat.py','runtime/meta_hackathon/chat_s
         'clients/android/app/src/main/java/eu/sparkhat/aioa/companion/ChatView.kt')
 SOURCE_FILES += ('runtime/mcp_bridge/native_read.py','runtime/meta_hackathon/native_tools.py')
 SOURCE_FILES += ('runtime/mobile_gateway/desktop.py','runtime/critical_loop/preset.py','web/white-hole.svg')
+SOURCE_FILES += ('runtime/meta_hackathon/advisory.py','runtime/tools/command_grammar.py',
+        'runtime/knowledge/grammar/command_patterns.json','runtime/communication/contracts.py',
+        'runtime/communication/canonical_mime.py','runtime/communication/__init__.py')
 
 
 def sealed_source_path(relative, *, root=None):
@@ -547,6 +550,8 @@ class NativeMobileComposition:
         if value=={'op':'operator_auth_status'}:return self.operator_auth_status()
         if op=='operator_renew':return self.renew_operator(value,invalidate_console)
         owner=self.operator_principal()
+        from .advisory import OPS as ADVISORY_OPS,dispatch as advisory_dispatch
+        if op in ADVISORY_OPS:return advisory_dispatch(self,owner,value)
         if op.startswith('github_'):
             from .github_write import dispatch
             return dispatch(self,owner,value)

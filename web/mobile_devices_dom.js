@@ -81,6 +81,11 @@
   }
   function renderTools(state) {
     const ready=state?.phase==='READY' && state.observed && !state.busy;
+    for(const id of ['cosmic-command-preview','cosmic-mail-preview']) {
+      const button=document.getElementById(id);if(button)button.disabled=!ready;
+    }
+    const advisory=document.getElementById('cosmic-advisory-result');
+    if(advisory)advisory.textContent=state?.advisoryPreview?JSON.stringify(state.advisoryPreview,null,2):'No preview recorded.';
     for(const button of document.querySelectorAll?.('[data-tool-read]') || [])button.disabled=!ready;
     const readback=document.getElementById('cosmic-tool-readback');
     if(readback)readback.disabled=!state?.toolRequest || state.busy || state.phase==='LOCKED';
@@ -237,6 +242,13 @@
   node('refresh').addEventListener('click',()=>act(()=>client.refresh()));
   node('lock').addEventListener('click',()=>{client?.close();render();});
   document.getElementById('cosmic-core-read')?.addEventListener('click',()=>act(()=>client.status()));
+  document.getElementById('cosmic-command-preview')?.addEventListener('click',()=>act(()=>client.preview('command_advice',{
+    command:document.getElementById('cosmic-command-input').value})));
+  document.getElementById('cosmic-mail-preview')?.addEventListener('click',()=>act(()=>client.preview('mail_preview',{
+    sender:document.getElementById('cosmic-mail-sender').value,
+    to:document.getElementById('cosmic-mail-to').value.split(',').map(x=>x.trim()),
+    subject:document.getElementById('cosmic-mail-subject').value,
+    body_text:document.getElementById('cosmic-mail-body').value})));
   for(const button of document.querySelectorAll?.('[data-tool-read]') || [])button.addEventListener('click',()=>act(()=>client.readTool(button.dataset.toolRead)));
   document.getElementById('cosmic-tool-readback')?.addEventListener('click',()=>act(()=>client.readToolResult()));
   document.getElementById('cosmic-proposal-parse')?.addEventListener('click',()=>act(()=>client.proposeTool(document.getElementById('cosmic-proposal-chat').value.trim())));

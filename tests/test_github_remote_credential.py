@@ -22,7 +22,7 @@ class GitHubCredentialTests(unittest.TestCase):
                                                     'installation_id':73}))
         (self.root/'app.json').chmod(0o600)
         self.now=1793851200;self.calls=[]
-        self.token='ghs_OFFLINE_FIXTURE_ONLY'
+        self.token='ghs_'+'x'*20  # Deterministic non-secret offline fixture.
         self.permissions={'contents':'write','pull_requests':'write','metadata':'read'}
         self.repositories=[{'id':1445911975,'full_name':'luciferprosun/AIOA-spArkHAT-Meta-Hackathon-2026'}]
         self.fail=False
