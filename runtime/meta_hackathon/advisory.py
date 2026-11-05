@@ -11,7 +11,7 @@ from runtime.memory_patch.persistence.ports import RecordKind
 from runtime.mobile_gateway import wire
 from runtime.mobile_gateway.service import plain
 
-OPS=frozenset(('command_advice','mail_preview'))
+OPS=frozenset(('command_advice','mail_preview','critic_transform_preview'))
 
 
 def dispatch(host,owner,value):
@@ -31,11 +31,23 @@ def dispatch(host,owner,value):
     key='native-advisory-'+identity
     def reuse(row):
         if row.payload.get('request_digest')!=binding:raise wire.MobileError(409)
-        return plain(row.payload['result'])
+        result=plain(row.payload['result'])
+        if op=='critic_transform_preview':
+            from runtime.critical_loop.cpt.preview import prepare_preview
+            # Reconstruct only this pure local presentation from the same input.
+            # No new audit write, provider call or effect retry occurs on replay.
+            data,preview=prepare_preview(payload)
+            if data!=result['data']:raise wire.MobileError(409)
+            return {**result,'preview':preview}
+        return result
     prior=host.mobile._get(key)
     if prior is not None:return reuse(prior)
     now=int(time.time())
-    if op=='command_advice':
+    preview=None
+    if op=='critic_transform_preview':
+        from runtime.critical_loop.cpt.preview import prepare_preview
+        data,preview=prepare_preview(payload)
+    elif op=='command_advice':
         from runtime.tools.command_grammar import validate_command_shape
         if (set(payload)!={'command'} or type(payload['command']) is not str
                 or len(payload['command'].encode())>2000):raise wire.MobileError(400)
@@ -74,5 +86,5 @@ def dispatch(host,owner,value):
         old=tx.get(RecordKind.OPERATION,key)
         if old is not None:return reuse(old)
         host.mobile._record(tx,key,{'state':'ADVISORY_PREVIEW_RECORDED','request_digest':binding,'result':result},at=now)
-        return result
+        return {**result,'preview':preview} if op=='critic_transform_preview' else result
     return host.mobile._run(Capability.COMMIT,save)

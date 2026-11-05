@@ -15,6 +15,10 @@ class MobileSourceSealTests(unittest.TestCase):
                   'web/mobile_devices_dom.js','web/qr.js'}
         required.update({'runtime/mcp_bridge/native_read.py','runtime/meta_hackathon/native_tools.py','web/mobile_chat.js'})
         required.add('runtime/meta_hackathon/chat_session.py')
+        required.update('runtime/critical_loop/cpt/'+name for name in
+            ('__init__.py','sanitizer.py','schema.py','templates.py','transformer.py','preview.py'))
+        required.add('runtime/critical_loop/redaction.py')
+        required.add('runtime/critical_loop/__init__.py')
         required.update({'runtime/mobile_gateway/desktop.py','runtime/critical_loop/preset.py','web/white-hole.svg'})
         required.update('clients/android/app/src/main/java/eu/sparkhat/aioa/companion/'+name
             for name in ('PairingProtocol.kt','TrustedHostStore.kt','CosmicScreen.kt',

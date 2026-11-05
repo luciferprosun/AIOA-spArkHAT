@@ -394,9 +394,69 @@ test('local advisory preview uses existing console and cannot claim execution or
 test('ordinary preview input bounds do not dispatch or invalidate the owner panel',async()=>{
   const {client,calls}=harness(()=>({pending:[],devices:[]}));await client.refresh();const count=calls.length;
   for(const [op,payload] of [['command_advice',{command:''}],['command_advice',{command:'ą'.repeat(1001)}],
-      ['mail_preview',{body_text:'ą'.repeat(4097)}],['mail_preview',{body_text:'ok',subject:'x'.repeat(12000)}]]) {
+      ['mail_preview',{body_text:'ą'.repeat(4097)}],['mail_preview',{body_text:'ok',subject:'x'.repeat(12000)}],
+      ['critic_transform_preview',{prompt:''}],['critic_transform_preview',{prompt:'ą'.repeat(4001)}]]) {
     await assert.rejects(client.preview(op,payload,'a'.repeat(32)),/PREVIEW_INPUT_LIMIT/);
     assert.equal(client.snapshot().phase,'READY');assert.equal(client.snapshot().observed,true);
   }
   assert.equal(calls.length,count);
+});
+function cptReply(request) {
+  const crypto=require('node:crypto');
+  const canonical=value=>JSON.stringify(Object.fromEntries(Object.keys(value).sort().map(k=>[k,value[k]])));
+  const sha=text=>crypto.createHash('sha256').update(text).digest('hex');
+  const text='Literal <script> draft';
+  const data={status:'CPT_DRAFT_PREVIEW_ONLY',input_sha256:sha(request.payload.prompt),
+    execution_authorized:false,human_review_required:true,template_version:'synthetic-v1',transformation_version:'synthetic-v1',
+    review_input_sha256:sha(request.payload.prompt),transformed_prompt_sha256:sha(text),transformed_prompt_bytes:Buffer.byteLength(text)};
+  const receipt={schema:'aioa.native-advisory-receipt.v1',request_id:request.request_id,operation:request.op,
+    request_digest:'a'.repeat(64),data_sha256:sha(canonical(data)),source_sha:'a'.repeat(40),capsule_digest:'b'.repeat(64),
+    core_instance_id:'c'.repeat(64),observed_at:100,effect:'ADVISORY_PREVIEW',execution_authorized:false,
+    provider_calls:0,external_calls:0,automatic_retry:false};
+  const {privateKey}=crypto.generateKeyPairSync('ec',{namedCurve:'prime256v1'});
+  return {data,receipt,preview:{transformed_prompt:text},signature:crypto.sign('sha256',Buffer.from(canonical(receipt)),privateKey).toString('base64')};
+}
+test('critical previews are explicitly repeatable without chat send or automatic follow-up',async()=>{
+  const {client,calls}=harness(v=>v.op==='pairing_list'?{pending:[],devices:[]}:cptReply(v));
+  await client.refresh();
+  await client.preview('critic_transform_preview',{prompt:'First prompt'},'b'.repeat(32));
+  await client.preview('critic_transform_preview',{prompt:'Second prompt'},'c'.repeat(32));
+  assert.equal(client.snapshot().advisoryPreview.preview.transformed_prompt,'Literal <script> draft');
+  assert.deepEqual(calls.map(c=>JSON.parse(c.options.body).op),['pairing_list','critic_transform_preview','critic_transform_preview']);
+  client.close();assert.equal(client.snapshot().advisoryPreview,undefined);
+});
+test('critical preview refuses changed text, metadata, unknown status and missing receipt fields',async()=>{
+  const mutations=[r=>{r.preview.transformed_prompt='Altered text';},r=>{r.data.transformed_prompt_bytes++;},
+    r=>{r.data.template_version='changed';},r=>{delete r.signature;},r=>{delete r.receipt.data_sha256;},
+    r=>{r.data.status='CANONICAL';},r=>{r.data.status='INPUT_REJECTED';},r=>{r.data.execution_authorized=true;}];
+  for(const mutate of mutations) {
+    const {client,calls}=harness(v=>{
+      if(v.op==='pairing_list')return {pending:[],devices:[]};
+      const reply=cptReply(v);mutate(reply);return reply;
+    });
+    await client.refresh();
+    await assert.rejects(client.preview('critic_transform_preview',{prompt:'Review'},'b'.repeat(32)));
+    assert.equal(client.snapshot().advisoryPreview,undefined);
+    assert.equal(calls.length,2,'no automatic retry after malformed readback');
+  }
+});
+test('locking during asynchronous preview validation cannot restore private text',async()=>{
+  const crypto=require('node:crypto').webcrypto;
+  const previous=Object.getOwnPropertyDescriptor(globalThis,'crypto');
+  let release,entered;
+  const blocked=new Promise(resolve=>{release=resolve;});
+  const started=new Promise(resolve=>{entered=resolve;});
+  Object.defineProperty(globalThis,'crypto',{configurable:true,value:{subtle:{digest:async(...args)=>{
+    entered();await blocked;return crypto.subtle.digest(...args);
+  }}}});
+  try {
+    const {client}=harness(v=>v.op==='pairing_list'?{pending:[],devices:[]}:cptReply(v));
+    await client.refresh();
+    const pending=client.preview('critic_transform_preview',{prompt:'Private'},'b'.repeat(32));
+    await started;client.close();release();
+    await assert.rejects(pending,/LOCAL_OPERATOR_REQUIRED/);
+    assert.equal(client.snapshot().phase,'LOCKED');assert.equal(client.snapshot().advisoryPreview,undefined);
+  } finally {
+    if(previous)Object.defineProperty(globalThis,'crypto',previous);else delete globalThis.crypto;
+  }
 });

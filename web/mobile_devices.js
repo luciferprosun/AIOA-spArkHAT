@@ -16,6 +16,38 @@
     let token = credential, busy = false, generation = 0,registryRevision=0,polling=false;
     let uncertainMutation=false,authorizationFailed=false,githubApprovalAttempted=false;
     let state = {phase:'READY', observed:false, pending:[], devices:[], invite:null, message:'',coreStatus:null,coreStatusAt:null,toolResult:null,toolRequest:null,toolState:'NOT_RUN',toolError:null,toolProposal:null};
+    async function validateCptPreview(data,request) {
+      const exact=(value,keys)=>value && typeof value==='object' && !Array.isArray(value) &&
+        Object.keys(value).sort().join(',')===keys.split(',').sort().join(',');
+      const hash=value=>typeof value==='string' && /^[a-f0-9]{64}$/.test(value);
+      const sha=async text=>Array.from(new Uint8Array(await root.crypto.subtle.digest('SHA-256',new TextEncoder().encode(text))),
+        x=>x.toString(16).padStart(2,'0')).join('');
+      const metadata=data.data,receipt=data.receipt;
+      if(!exact(data,'data,receipt,signature,preview') ||
+          !exact(receipt,'schema,request_id,operation,request_digest,data_sha256,source_sha,capsule_digest,core_instance_id,observed_at,effect,execution_authorized,provider_calls,external_calls,automatic_retry') ||
+          !hash(receipt.request_digest) || !hash(receipt.data_sha256) || !hash(receipt.capsule_digest) ||
+          !/^[a-f0-9]{40}$/.test(receipt.source_sha) || !hash(receipt.core_instance_id) ||
+          !Number.isSafeInteger(receipt.observed_at) || receipt.observed_at<0 ||
+          typeof data.signature!=='string' || !/^[A-Za-z0-9+/]{8,128}={0,2}$/.test(data.signature) ||
+          metadata?.execution_authorized!==false || metadata.human_review_required!==true ||
+          metadata.input_sha256!==await sha(request.payload.prompt))throw Error('INVALID_READBACK');
+      const fields='status,input_sha256,execution_authorized,human_review_required';
+      if(metadata.status==='CPT_DRAFT_PREVIEW_ONLY') {
+        if(!exact(metadata,fields+',template_version,transformation_version,review_input_sha256,transformed_prompt_sha256,transformed_prompt_bytes') ||
+            !exact(data.preview,'transformed_prompt') || typeof data.preview.transformed_prompt!=='string' ||
+            typeof metadata.template_version!=='string' || metadata.template_version.length>128 ||
+            typeof metadata.transformation_version!=='string' || metadata.transformation_version.length>128 ||
+            !hash(metadata.review_input_sha256) || !hash(metadata.transformed_prompt_sha256))throw Error('INVALID_READBACK');
+        const text=data.preview.transformed_prompt,bytes=new TextEncoder().encode(text).length;
+        if(!bytes || bytes>16000 || bytes!==metadata.transformed_prompt_bytes ||
+            await sha(text)!==metadata.transformed_prompt_sha256)throw Error('INVALID_READBACK');
+      } else if(metadata.status!=='INPUT_REJECTED' || !exact(metadata,fields+',error') ||
+          metadata.error!=='CPT_INPUT_INVALID' || data.preview!==null)throw Error('INVALID_READBACK');
+      const canonical=JSON.stringify(Object.fromEntries(Object.keys(metadata).sort().map(k=>[k,metadata[k]])));
+      if(await sha(canonical)!==receipt.data_sha256)throw Error('INVALID_READBACK');
+      // This authenticated Native channel supplies the receipt. These checks bind
+      // its displayed text; they do not claim independent browser signature trust.
+    }
     async function call(value, mutation, apply,backgroundRead=false) {
       const chat=value.op.startsWith('chat_');
       const background=chat || backgroundRead;
@@ -41,6 +73,8 @@
         const envelope = await response.json();
         if (epoch !== generation || !token) throw Error('LOCAL_OPERATOR_REQUIRED');
         if (!envelope || envelope.ok !== true || !envelope.data || typeof envelope.data !== 'object') throw Error('UNKNOWN_READBACK_REQUIRED');
+        if(value.op==='critic_transform_preview')await validateCptPreview(envelope.data,value);
+        if(epoch!==generation || !token)throw Error('LOCAL_OPERATOR_REQUIRED');
         if(backgroundRead && registryTicket!==registryRevision)return copy(envelope.data);
         apply(copy(envelope.data));
         // Only pairing registry readback can resolve an uncertain pairing
@@ -70,12 +104,13 @@
     }
     return Object.freeze({
       preview:(operation,payload,requestId)=>{
-        if(!['command_advice','mail_preview'].includes(operation))return Promise.reject(Error('REVIEW_REQUIRED'));
+        if(!['command_advice','mail_preview','critic_transform_preview'].includes(operation))return Promise.reject(Error('REVIEW_REQUIRED'));
         if(state.phase!=='READY' || !state.observed)return Promise.reject(Error('READBACK_REQUIRED'));
         const bytes=value=>typeof value==='string'?new TextEncoder().encode(value).length:Infinity;
         if(!payload || typeof payload!=='object' || bytes(JSON.stringify(payload))>12000 ||
             operation==='command_advice' && (typeof payload.command!=='string' || !payload.command.trim() || bytes(payload.command)>2000) ||
-            operation==='mail_preview' && bytes(payload.body_text)>8192)
+            operation==='mail_preview' && bytes(payload.body_text)>8192 ||
+            operation==='critic_transform_preview' && (typeof payload.prompt!=='string' || !payload.prompt.trim() || bytes(payload.prompt)>8000))
           return Promise.reject(Error('PREVIEW_INPUT_LIMIT'));
         requestId=requestId || Array.from(root.crypto.getRandomValues(new Uint8Array(16)),x=>x.toString(16).padStart(2,'0')).join('');
         if(!/^[a-f0-9]{32}$/.test(requestId))return Promise.reject(Error('REVIEW_REQUIRED'));
@@ -84,6 +119,8 @@
           if(receipt?.schema!=='aioa.native-advisory-receipt.v1' || receipt.request_id!==requestId ||
               receipt.operation!==operation || receipt.effect!=='ADVISORY_PREVIEW' || receipt.execution_authorized!==false ||
               receipt.provider_calls!==0 || receipt.external_calls!==0 || receipt.automatic_retry!==false)throw Error('INVALID_READBACK');
+          if(operation==='critic_transform_preview' && data.data?.status==='CPT_DRAFT_PREVIEW_ONLY' &&
+              (typeof data.preview?.transformed_prompt!=='string' || bytes(data.preview.transformed_prompt)>16000))throw Error('INVALID_READBACK');
           state.advisoryPreview=data;
         });
       },

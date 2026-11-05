@@ -100,6 +100,9 @@ SOURCE_FILES += ('runtime/mobile_gateway/desktop.py','runtime/critical_loop/pres
 SOURCE_FILES += ('runtime/meta_hackathon/advisory.py','runtime/tools/command_grammar.py',
         'runtime/knowledge/grammar/command_patterns.json','runtime/communication/contracts.py',
         'runtime/communication/canonical_mime.py','runtime/communication/__init__.py')
+SOURCE_FILES += tuple('runtime/critical_loop/cpt/'+name for name in
+        ('__init__.py','sanitizer.py','schema.py','templates.py','transformer.py','preview.py'))
+SOURCE_FILES += ('runtime/critical_loop/redaction.py','runtime/critical_loop/__init__.py')
 
 
 def sealed_source_path(relative, *, root=None):

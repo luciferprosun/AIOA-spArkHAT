@@ -191,6 +191,14 @@
                   <details><summary>Preview existing contract · no model call</summary><pre id="cosmic-cpl-preview">Read Core status to inspect the contract.</pre></details>
                   <button class="button button-ghost" disabled>Run CPL · native binding required</button>
                 </article>
+                <article class="panel"><h3>Critical prompt preview</h3>
+                  <p>Prepare a local draft for critical review. You choose whether to use it later; this preview makes no model call.</p>
+                  <label for="cosmic-cpt-input">Prompt to review</label>
+                  <textarea id="cosmic-cpt-input" maxlength="8000" autocomplete="off"></textarea>
+                  <button id="cosmic-cpt-preview" class="button button-ghost" disabled>Prepare local preview</button>
+                  <pre id="cosmic-cpt-result">No critical prompt preview.</pre>
+                  <details><summary>Preview receipt</summary><pre id="cosmic-cpt-receipt">No preview recorded.</pre></details>
+                </article>
               </section>
               <section class="cosmic-page" data-cosmic-page="memory" hidden aria-labelledby="cosmic-memory-title">
                 <h2 id="cosmic-memory-title" tabindex="-1">Memory</h2>

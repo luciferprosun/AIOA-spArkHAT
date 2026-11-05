@@ -101,7 +101,7 @@ def worker():
             def synthetic_operation(value):
                 nonlocal reads
                 operations.append(value)
-                if value.get('op') in ('command_advice','mail_preview'):
+                if value.get('op') in ('command_advice','mail_preview','critic_transform_preview'):
                     # The new pure previews use real temporary Native/Core/audit;
                     # only the pairing registry below is a presentation fixture.
                     return self.app.operator_request(os.getuid(),value)
@@ -130,7 +130,7 @@ def worker():
               if(args[0]==='/api/native-operator'){
                 const op=JSON.parse(args[1].body).op;
                 if(op==='status')window.consoleProbeStatusReads++;
-                else if(['command_advice','mail_preview'].includes(op))window.consoleProbePreviewReads++;
+                else if(['command_advice','mail_preview','critic_transform_preview'].includes(op))window.consoleProbePreviewReads++;
                 else window.consoleProbeReads++;
               }
               return reply;};
@@ -217,7 +217,16 @@ def worker():
                 result.mail_preview_core_receipt=local.receipt.operation==='mail_preview'&&
                   local.receipt.execution_authorized===false&&local.receipt.external_calls===0&&
                   local.data.status==='DRAFT_PREVIEW_ONLY'&&!!local.signature;
+                document.querySelector('[data-cosmic-target="critical"]').click();
+                document.getElementById('cosmic-cpt-input').value='A private synthetic <script> prompt to review.';
+                local=await preview('cosmic-cpt-preview',3);
+                result.cpt_preview_core_receipt=local.receipt.operation==='critic_transform_preview'&&
+                  local.receipt.provider_calls===0&&local.data.status==='CPT_DRAFT_PREVIEW_ONLY'&&
+                  document.getElementById('cosmic-cpt-result').textContent===local.preview.transformed_prompt&&
+                  !document.getElementById('cosmic-cpt-result').querySelector('script')&&!!local.signature;
                 document.getElementById('devices-lock').click();
+                result.lock_clears_cpt_preview=document.getElementById('cosmic-cpt-result').textContent==='No critical prompt preview.'&&
+                  document.getElementById('cosmic-cpt-input').value===''&&document.getElementById('cosmic-cpt-input').disabled;
                 result.lock_clears_status_history=!document.getElementById('cosmic-core-settings').textContent.includes('NATIVE_STATUS_READ_ONLY_V1')&&
                   !document.getElementById('cosmic-core-observations').textContent.includes('/api/mobile/v1/status');
                 result.empty_lists_and_locked_controls=document.getElementById('devices-pending').textContent.includes('No pending requests')&&
@@ -387,21 +396,25 @@ def worker():
             self.assertIsNotNone(found,'Browser probe did not finish')
             result=json.loads(html.unescape(found[1]))
             self.assertNotIn('error',result,result)
-            self.assertEqual(12,len(operations));self.assertEqual(9,operations.count({'op':'pairing_list'}))
+            self.assertEqual(13,len(operations));self.assertEqual(9,operations.count({'op':'pairing_list'}))
             self.assertEqual(1,operations.count({'op':'status'}))
             from runtime.mobile_gateway import wire
             from runtime.mobile_gateway.service import plain
-            for value in (v for v in operations if v['op'] in ('command_advice','mail_preview')):
+            for value in (v for v in operations if v['op'] in ('command_advice','mail_preview','critic_transform_preview')):
                 saved=plain(self.app.mobile._get('native-advisory-'+value['request_id']).payload['result'])
                 wire.verify(self.app.identity.spki,saved['signature'],saved['receipt'])
                 self.assertFalse(saved['receipt']['execution_authorized'])
+                self.assertNotIn('preview',saved)
+            self.assertTrue(all(value is True for value in result.values()),
+                {key:value for key,value in result.items() if value is not True})
             self.assertEqual(dict.fromkeys(('bootstrap','background_controls_available','pending_focus','device_focus',
                 'reordered_exact_focus','changed_digest_not_focused','removed_request_not_focused',
                 'deliberate_focus_preserved','stale_read_recovers','revoked_reconnect_keeps_legacy_revoke',
                 'no_url_or_storage_credential','cosmic_navigation_read_only','local_fonts_loaded',
                 'large_text_no_outer_overflow','unknown_clears_cosmic_overview','existing_core_status_read',
                 'lock_clears_status_history','empty_lists_and_locked_controls',
-                'command_preview_core_receipt','mail_preview_core_receipt'),True),result)
+                'command_preview_core_receipt','mail_preview_core_receipt',
+                'cpt_preview_core_receipt','lock_clears_cpt_preview'),True),result)
 
     suite=unittest.TestSuite([BrowserConsoleTests('test_chrome_private_launcher_bootstrap_and_exact_control_focus')])
     result=unittest.TextTestRunner(verbosity=2).run(suite)

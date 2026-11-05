@@ -44,6 +44,11 @@
     const get=id=>document.getElementById('cosmic-github-'+id);
     const value=state?.githubWrite,approval=get('approve'),reviewed=get('reviewed');
     const ready=state?.phase==='READY' && state.observed && !state.busy;
+    const cptInput=document.getElementById('cosmic-cpt-input');
+    if(cptInput) {
+      cptInput.disabled=!ready;
+      if(!state || state.phase==='LOCKED')cptInput.value='';
+    }
     const readable=state && state.phase!=='LOCKED' && !state.busy;
     if(reviewed && reviewedDigest!==value?.review_digest){reviewed.checked=false;reviewedDigest=value?.review_digest;}
     const mayApprove=ready && value?.approval_available===true && !state.githubApprovalAttempted;
@@ -82,11 +87,15 @@
   }
   function renderTools(state) {
     const ready=state?.phase==='READY' && state.observed && !state.busy;
-    for(const id of ['cosmic-command-preview','cosmic-mail-preview']) {
+    for(const id of ['cosmic-command-preview','cosmic-mail-preview','cosmic-cpt-preview']) {
       const button=document.getElementById(id);if(button)button.disabled=!ready;
     }
     const advisory=document.getElementById('cosmic-advisory-result');
     if(advisory)advisory.textContent=state?.advisoryPreview?JSON.stringify(state.advisoryPreview,null,2):'No preview recorded.';
+    const cpt=state?.advisoryPreview?.receipt?.operation==='critic_transform_preview'?state.advisoryPreview:null;
+    const cptResult=document.getElementById('cosmic-cpt-result'),cptReceipt=document.getElementById('cosmic-cpt-receipt');
+    if(cptResult)cptResult.textContent=cpt?.preview?.transformed_prompt || cpt?.data?.status || 'No critical prompt preview.';
+    if(cptReceipt)cptReceipt.textContent=cpt?JSON.stringify({data:cpt.data,receipt:cpt.receipt,signature:cpt.signature},null,2):'No preview recorded.';
     for(const button of document.querySelectorAll?.('[data-tool-read]') || [])button.disabled=!ready;
     const readback=document.getElementById('cosmic-tool-readback');
     if(readback)readback.disabled=!state?.toolRequest || state.busy || state.phase==='LOCKED';
@@ -245,6 +254,8 @@
   document.getElementById('cosmic-core-read')?.addEventListener('click',()=>act(()=>client.status()));
   document.getElementById('cosmic-command-preview')?.addEventListener('click',()=>act(()=>client.preview('command_advice',{
     command:document.getElementById('cosmic-command-input').value})));
+  document.getElementById('cosmic-cpt-preview')?.addEventListener('click',()=>act(()=>client.preview('critic_transform_preview',{
+    prompt:document.getElementById('cosmic-cpt-input').value})));
   document.getElementById('cosmic-mail-preview')?.addEventListener('click',()=>act(()=>client.preview('mail_preview',{
     sender:document.getElementById('cosmic-mail-sender').value,
     to:document.getElementById('cosmic-mail-to').value.split(',').map(x=>x.trim()),
