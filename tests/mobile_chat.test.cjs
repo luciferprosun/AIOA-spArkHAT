@@ -229,7 +229,7 @@ test('explicit READ attachment forwards only its existing receipt reference and 
 test('chat never approves cost and duplicate send cannot repeat uncertain POST',async()=>{
   assert.equal(typeof api.createChat,'function');let sends=0;
   const client=api.createChat(async value=>{
-    if(value.op==='chat_catalog')return {chat:true,model_id:'muse-spark-1.3',mission_read:'BLOCKED_NATIVE_WORKER_NOT_BOUND'};
+    if(value.op==='chat_catalog')return {chat:true,model_id:'muse-spark-1.3',mission_read:'BLOCKED_NATIVE_WORKER_NOT_CERTIFIED'};
     if(value.op==='chat_threads')return {threads:[]};
     if(value.op==='chat_propose'){sends++;throw Error('lost ACK');}
     throw Error('denied');

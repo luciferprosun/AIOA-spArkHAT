@@ -37,7 +37,7 @@ def dispatch(host,owner,value):
             'mode':'LIVE_OWNER_SESSION' if session['state']=='ACTIVE' else 'LIVE_PENDING_EXACT_OWNER_APPROVAL',
             'session':session,'chat':reason is None,'save_knowledge':False,**budget,
             'blocking_reason':reason,
-            'billing_status':'UNVERIFIED','mission_read':'BLOCKED_NATIVE_WORKER_NOT_BOUND',
+            'billing_status':'UNVERIFIED','mission_read':'BLOCKED_NATIVE_WORKER_NOT_CERTIFIED',
             'github_write':False,'native_execute':False,'source_sha':host.source[0],'capsule_digest':host.source[1],
             'model_calls':host.model_calls()}
     if op.startswith('chat_session_'):

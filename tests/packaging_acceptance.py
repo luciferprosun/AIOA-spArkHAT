@@ -359,6 +359,35 @@ print(json.dumps({'STATUS': 'PASS', 'python': sys.version.split()[0],
     return json.loads(execute(command, cwd=venv, log=log))
 
 
+def native_check(venv, staging, *, isolate_filesystem, log):
+    """Use the same installed modules; only admission/TLS/source identity is a fixture."""
+    names=('runtime/core_admission.py','runtime/meta_hackathon/runtime_adapter.py',
+        'runtime/meta_hackathon/mission_service.py','runtime/meta_hackathon/native_tools.py',
+        'runtime/meta_hackathon/advisory.py','runtime/meta_hackathon/chat.py',
+        'runtime/meta_hackathon/chat_session.py','runtime/meta_hackathon/github_write.py',
+        'runtime/mobile_gateway/service.py','runtime/mobile_gateway/wire.py',
+        'runtime/mobile_gateway/operator_chat.py','runtime/providers/meta_model_api.py',
+        'runtime/memory_patch/persistence/ports.py','runtime/memory_patch/audit.py',
+        'runtime/mission/governor.py','runtime/mission/warrant.py','runtime/webapp.py',
+        'runtime/tools/command_grammar.py','runtime/knowledge/grammar/command_patterns.json',
+        'runtime/communication/contracts.py','runtime/communication/canonical_mime.py',
+        'runtime/critical_loop/preset.py','web/index.html','web/mobile_chat.js',
+        'web/mobile_devices.js','web/mobile_devices_dom.js')
+    expected={name:hashlib.sha256((staging/name).read_bytes()).hexdigest() for name in names}
+    command=[]
+    if isolate_filesystem:
+        command=['bwrap','--die-with-parent','--new-session','--unshare-net','--unshare-pid',
+            '--ro-bind','/','/','--tmpfs','/home','--tmpfs','/media','--tmpfs','/run','--tmpfs','/tmp',
+            '--dev','/dev','--proc','/proc',
+            '--ro-bind',str(Path(sys.base_prefix).resolve()),str(Path(sys.base_prefix).resolve()),
+            '--ro-bind',str(venv),str(venv),'--chdir','/tmp','--']
+    fixture=Path(__file__).with_name('installed_native_acceptance.py').read_text(encoding='utf-8')
+    command += [venv/'bin/python','-I','-B','-c',fixture,venv,json.dumps(expected,sort_keys=True)]
+    result=json.loads(execute(command,cwd=venv,log=log))
+    result['network_and_pid_namespace_isolated']=isolate_filesystem
+    return result
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--source', type=Path, default=Path(__file__).resolve().parents[1])
@@ -396,6 +425,14 @@ def main():
                  '--no-compile', artifact], cwd=output, log=output / (kind + '-install.log'))
         result = import_check(venv, source, staging, isolate_filesystem=args.isolate_filesystem,
                               log=output / (kind + '-import.log'))
+        # Base imports above still prove operation without optional dependencies.
+        # Native is then installed from the declared extra into this same clean
+        # venv, never satisfied by user/system site packages or a checkout.
+        execute([sys.executable,'-B','-m','pip','--isolated','--python',venv/'bin/python',
+                 'install','--no-compile',str(artifact)+'[native]'],cwd=output,
+                log=output/(kind+'-native-install.log'))
+        result['installed_native']=native_check(venv,staging,isolate_filesystem=args.isolate_filesystem,
+            log=output/(kind+'-native.log'))
         result.update({'distribution': kind, 'wheel': str(artifact),
                        'wheel_sha256': hashlib.sha256(artifact.read_bytes()).hexdigest()})
         results.append(result)

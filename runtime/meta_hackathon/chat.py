@@ -165,7 +165,7 @@ def propose(service,payload,reader,*,device_id,session_id,nonce,actor='ANDROID',
         if session_authorization is not None:chat_session.require_active(service,session_authorization,task)
         context={'schema':'aioa.chat.core-context.v1','core':'ADMITTED','profile':'NATIVE_ADVISORY_CHAT_V1',
             'source_sha':sha,'capsule_digest':capsule,'native_execute':False,'github_write':False,'save_knowledge':False,
-            'mission_read':'BLOCKED_NATIVE_WORKER_NOT_BOUND'}
+            'mission_read':'BLOCKED_NATIVE_WORKER_NOT_CERTIFIED'}
         if read_context is not None:context.update(schema='aioa.chat.core-context.v2',read_context=read_context)
         req=MetaChatRequest(task,payload['prompt'],canonical_json_bytes(context).decode(),history=tuple(history),
             budget_usd=payload.get('max_budget_usd','0'),capsule_digest=capsule)

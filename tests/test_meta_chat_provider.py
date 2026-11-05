@@ -24,7 +24,7 @@ class MetaChatProviderTests(unittest.TestCase):
             session_id='4'*32,nonce='5'*32,actor='ANDROID')
         self.context={'schema':'aioa.chat.core-context.v1','core':'ADMITTED','profile':'NATIVE_ADVISORY_CHAT_V1',
             'source_sha':task.source_sha,'capsule_digest':'c'*64,'native_execute':False,'github_write':False,
-            'save_knowledge':False,'mission_read':'BLOCKED_NATIVE_WORKER_NOT_BOUND'}
+            'save_knowledge':False,'mission_read':'BLOCKED_NATIVE_WORKER_NOT_CERTIFIED'}
         self.request=self.api.MetaChatRequest(task=task,prompt='Jaki jest stan AIOA Core?',
             history=(),context_json=canonical_json_bytes(self.context).decode(),capsule_digest='c'*64,budget_usd='0.05')
 

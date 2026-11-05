@@ -1,6 +1,8 @@
 """Local preview E2E: real temporary Native/Core/SQLite; no model or mail traffic."""
 from dataclasses import replace
+from contextlib import redirect_stdout,redirect_stderr
 import hashlib
+import io
 import json
 import os
 import unittest
@@ -9,7 +11,9 @@ from unittest.mock import patch
 import test_mobile_pairing as pairing
 import test_mobile_chat as chat_fixture
 import test_mobile_device_console as console_fixture
-from runtime.core_admission import AdmissionError
+from runtime.core_admission import AdmissionError,Capability
+from runtime.memory_patch.errors import CommitOutcomeUnknown
+from runtime.memory_patch.persistence.ports import RecordKind
 from runtime.mobile_gateway import wire
 from runtime.communication.canonical_mime import prepare_mime,verify_prepared_mime
 from runtime.communication.contracts import MailContractError
@@ -93,6 +97,88 @@ class NativeAdvisoryTests(unittest.TestCase):
         self.assertEqual('reject',result['data']['classification']['status'])
         self.assertFalse(result['receipt']['execution_authorized'])
         self.assertEqual('ADVISORY_ONLY',self.call(request_id='b'*32)['data']['status'])
+
+    def test_variables_escapes_and_unicode_never_expand_or_execute(self):
+        commands=('$CMD /tmp','${CMD} /tmp','ls "$TARGET"',r'ls /tmp\;touch /tmp/example',
+            'ls\r\ntouch /tmp/example','ls /tmp/\u202eexample','ls /tmp/\x00example')
+        with patch('subprocess.Popen') as child,patch('socket.create_connection') as network:
+            for index,command in enumerate(commands):
+                result=self.call(payload={'command':command},request_id=f'{index+1:032x}')
+                self.assertEqual('unknown',result['data']['classification']['danger'])
+                self.assertFalse(result['receipt']['execution_authorized'])
+                wire.verify(self.app.identity.spki,result['signature'],result['receipt'])
+            result=self.call(payload={'command':'ls "/tmp/zażółć 🧪"'})
+            self.assertEqual('read_only',result['data']['classification']['danger'])
+            self.assertFalse(result['receipt']['execution_authorized'])
+            child.assert_not_called();network.assert_not_called()
+
+    def test_invalid_recipient_headers_and_unicode_are_private_signed_refusals(self):
+        draft={'sender':'author@example.org','to':['reviewer@example.org'],
+            'subject':'Private subject','body_text':'Private body'}
+        invalid=({'sender':'author@example.org\r\nBcc: bad@example.org'},
+            {'to':['bad']},{'to':['reviewer@example.org\r\nCc: bad@example.org']},
+            {'subject':'Private\r\nBcc: bad@example.org'}, {'body_text':'Private\r\nbody'},
+            {'body_text':'Private\x00body'},{'body_text':'Private\u202ebody'},
+            {'subject':'e\u0301'},{'to':[]},{'to':[f'user{i}@example.org' for i in range(9)]},
+            {'to':['REVIEWER@example.org','reviewer@example.org']})
+        output=io.StringIO()
+        with patch('subprocess.Popen') as child,patch('socket.create_connection') as network,\
+                redirect_stdout(output),redirect_stderr(output):
+            for index,changed in enumerate(invalid):
+                result=self.call('mail_preview',{**draft,**changed},request_id=f'{index+1:032x}')
+                self.assertEqual('INPUT_REJECTED',result['data']['status'])
+                self.assertFalse(result['receipt']['execution_authorized'])
+                wire.verify(self.app.identity.spki,result['signature'],result['receipt'])
+            corrected=self.call('mail_preview',draft)
+            self.assertEqual('DRAFT_PREVIEW_ONLY',corrected['data']['status'])
+            child.assert_not_called();network.assert_not_called()
+        self.assertEqual('',output.getvalue())
+        for private in ('author@example.org','reviewer@example.org','Private subject','Private body','bad@example.org'):
+            self.assertNotIn(private.encode(),(self.root/'core-records.sqlite3').read_bytes())
+
+    def test_changed_mail_recipient_cannot_reuse_id_or_append_an_event(self):
+        draft={'sender':'author@example.org','to':['reviewer@example.org'],'subject':'Preview','body_text':'Local only'}
+        first=self.call('mail_preview',draft)
+        before=self.app.mobile._run(Capability.READ,lambda tx:len(tx.scan(RecordKind.AUDIT,limit=128)))
+        with patch('socket.create_connection') as network:
+            with self.assertRaises(wire.MobileError) as caught:
+                self.call('mail_preview',{**draft,'to':['different@example.org']})
+            self.assertEqual(409,caught.exception.status);network.assert_not_called()
+        self.assertEqual(first,self.call('mail_preview',draft))
+        self.assertEqual(1,self.app.mobile._get('native-advisory-'+'a'*32).revision)
+        self.assertEqual(before,self.app.mobile._run(Capability.READ,lambda tx:len(tx.scan(RecordKind.AUDIT,limit=128))))
+
+    def test_committed_advisory_with_lost_ack_is_read_back_without_recomputation(self):
+        run=self.app.mobile._run
+        def lost(purpose,callback):
+            result=run(purpose,callback)
+            if purpose is Capability.COMMIT:raise CommitOutcomeUnknown()
+            return result
+        with patch.object(self.app.mobile,'_run',side_effect=lost),self.assertRaises(CommitOutcomeUnknown):self.call()
+        before=run(Capability.READ,lambda tx:len(tx.scan(RecordKind.AUDIT,limit=128)))
+        with patch('runtime.tools.command_grammar.validate_command_shape') as classify:
+            result=self.call();classify.assert_not_called()
+        wire.verify(self.app.identity.spki,result['signature'],result['receipt'])
+        self.assertEqual(before,run(Capability.READ,lambda tx:len(tx.scan(RecordKind.AUDIT,limit=128))))
+        self.assertEqual(1,self.app.mobile._get('native-advisory-'+'a'*32).revision)
+
+    def test_source_drift_and_new_instance_cannot_rebind_existing_preview(self):
+        result=self.call();self.source[1]='c'*64
+        with patch('runtime.tools.command_grammar.validate_command_shape') as classify:
+            with self.assertRaises(AdmissionError):self.call()
+            classify.assert_not_called()
+        self.source[1]='b'*64;self.app.close();self.start()
+        with self.assertRaises(wire.MobileError) as caught:self.call()
+        self.assertEqual(409,caught.exception.status)
+        from runtime.mobile_gateway.service import plain
+        stored=plain(self.app.mobile._get('native-advisory-'+'a'*32).payload['result'])
+        self.assertEqual(result,stored)
+        wire.verify(self.app.identity.spki,stored['signature'],stored['receipt'])
+
+    def test_invalid_unicode_transport_is_denied_without_audit_or_session_loss(self):
+        with self.assertRaises(wire.MobileError):self.call(payload={'command':'ls \ud800'})
+        self.assertIsNone(self.app.mobile._get('native-advisory-'+'a'*32))
+        self.assertEqual('ADVISORY_ONLY',self.call()['data']['status'])
 
     def test_http_preview_requires_existing_console_session_origin_and_csrf(self):
         service=self.service();request=self.tls(service);control=self.console_socket(service)

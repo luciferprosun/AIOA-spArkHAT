@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import re
 import shlex
+import unicodedata
 from pathlib import Path
 from typing import Any
 
@@ -458,6 +459,14 @@ def validate_command_shape(command: str) -> dict[str, Any]:
         return _result(status=_STATUS_REJECT, reasons=["variable_only"])
     if _is_glob_only(stripped):
         return _result(status=_STATUS_REJECT, reasons=["glob_only"])
+
+    # This advisory does not resolve shell variables, escapes or display controls.
+    # Literal quoted cases are conservatively unknown too; Unicode path names
+    # themselves remain ordinary data and are never evaluated.
+    if '$' in stripped or '\\' in stripped or any(
+            unicodedata.category(char) in {'Cc', 'Cf', 'Cs', 'Zl', 'Zp'} for char in stripped):
+        return _result(status=_STATUS_SUSPICIOUS, confidence='grammar_suspicious', danger='unknown',
+            reasons=['unresolved_expansion_escape_or_control'])
 
     tokens, error = _split(stripped)
     if error:

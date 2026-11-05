@@ -1,7 +1,7 @@
 """Same-Core native READ receipts and truthful capability projections.
 
-No remote effect executor is registered. The existing owner-wide UNKNOWN barrier
-and local network-OFF execution contracts are deliberately unchanged.
+Remote effects remain unqualified and disabled. The existing owner-wide UNKNOWN
+barrier and local network-OFF execution contracts are deliberately unchanged.
 """
 import time
 import json
@@ -88,12 +88,14 @@ def registry(host):
                          'BLOCKED_EXTERNAL' if not github_auth['configured'] else 'EXACT_OWNER_APPROVAL_REQUIRED',
                          'enabled': False, 'unknown_liabilities': unknown,'authorization':github_auth,
                          'adapter':'CORE_CREATE_ONLY_CANDIDATE','qualification':'NOT_LIVE_VERIFIED'},
-        'worker': {'status': 'BLOCKED_NATIVE_WORKER_NOT_BOUND', 'enabled': False},
-        'memory': {'status':'CORE_RECORDS_ONLY','enabled':False,
+        'worker': {'status': 'BLOCKED_NATIVE_WORKER_NOT_CERTIFIED', 'enabled': False},
+        'memory': {'status':'INTEGRATED_INERT','enabled':False,
+            'blocking_reason':'MEMORY_CONSENT_REQUIRED',
             'core_records':{'status':'CORE_RECORDS_SQLITE','persistent':True},
             'semantic_memory':{'enabled':memory['enabled'],'status':memory['backend_status']},
             'cockroach':{'status':'NOT_BOUND','enabled':False},'save_knowledge':False},
         'cpl': {'status': 'BLOCKED_NATIVE_CPL_NOT_BOUND', 'enabled': False, 'provider_calls': 0,
+                'preview_status':'READ_ONLY_ADVISORY','preview_enabled':True,
                 'contract': 'cpl-1plus3plus1-v1', 'expected_generation_requests': 5,
                 'authority': 'ADVISORY_ONLY', 'automatic_retry': False,'preview':build_native_cpl_preview()},
     }

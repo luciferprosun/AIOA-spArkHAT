@@ -169,7 +169,7 @@ class MetaChatRequest:
             and context['profile'] in ('NATIVE_ADVISORY_CHAT_V1','OFFLINE_FIXTURE')
             and context['source_sha']==self.task.source_sha and context['capsule_digest']==self.capsule_digest
             and all(context[k] is False for k in ('native_execute','github_write','save_knowledge'))
-            and context['mission_read']=='BLOCKED_NATIVE_WORKER_NOT_BOUND')
+            and context['mission_read']=='BLOCKED_NATIVE_WORKER_NOT_CERTIFIED')
         require(canonical_json_bytes(strict_json(self.context_json)).decode()==self.context_json)
         require(type(self.history) is tuple and len(self.history)<=20 and len(self.history)%2==0)
         messages=[];history_bytes=0

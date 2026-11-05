@@ -150,7 +150,7 @@
     text('h4','Operator authentication',settings);
     text('p',String(data.operator_authentication?.method || 'Not read'),settings);
     text('p','TLS and saved host identity are checked by this Native host. Keys and pairing material are not displayed here.',settings);
-    text('p','Recorded model attempts: '+data.model_calls+'. Worker: BLOCKED_NATIVE_WORKER_NOT_BOUND.',settings);
+    text('p','Recorded model attempts: '+data.model_calls+'. Worker: BLOCKED_NATIVE_WORKER_NOT_CERTIFIED.',settings);
     if(!data.observations.length)text('p','No Core responses in the observed range.',history);
     for(const row of data.observations) {
       const proof=row.proof || {};
