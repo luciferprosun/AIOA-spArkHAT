@@ -24,8 +24,10 @@
         throw Error('CHAT_RESPONSE_MISMATCH');
       if(value.schema!=='aioa.mobile.chat-result.v1' || !/^[a-f0-9]{32}$/.test(value.request_id) ||
           value.model_id!=='muse-spark-1.3' || value.provider_id!=='meta_model_api' || value.save_knowledge!==false)throw Error('CHAT_SCHEMA_INVALID');
-      if(value.state==='SUCCEEDED' && (!value.live_verified || !value.receipt ||
-          value.receipt.schema!=='aioa.meta.chat-receipt.v1' || value.receipt.request_digest!==value.request_digest))throw Error('CHAT_RECEIPT_UNKNOWN');
+      if(['SUCCEEDED','TRUNCATED'].includes(value.state) && (!value.live_verified || !value.receipt ||
+          value.receipt.schema!==(value.state==='TRUNCATED'?'aioa.meta.chat-receipt.v2':'aioa.meta.chat-receipt.v1') ||
+          value.receipt.request_digest!==value.request_digest || value.state==='TRUNCATED' &&
+          (value.receipt.finish_reason!=='length' || value.receipt.response_complete!==false)))throw Error('CHAT_RECEIPT_UNKNOWN');
       state.thread=value.thread_id;state.messages=state.messages.filter(x=>x.request_id!==value.request_id).concat([value]).slice(-20);
       state.pending=['PENDING_OWNER','RUNNING','UNKNOWN'].includes(value.state)?value.request_id:null;
       return copy(value);
@@ -47,7 +49,7 @@
         const value=await call({op:'chat_threads'});if(!Array.isArray(value.threads) || value.threads.length>24)throw Error('CHAT_SCHEMA_INVALID');
         check();
         state.threads=value.threads;
-        const fresh=value.threads.filter(x=>x.state==='SUCCEEDED' && x.current_source===true && x.text_available===true).at(-1);
+        const fresh=value.threads.filter(x=>['SUCCEEDED','TRUNCATED'].includes(x.state) && x.current_source===true && x.text_available===true).at(-1);
         const pending=value.threads.filter(x=>x.current_source===true && ['PENDING_OWNER','RUNNING'].includes(x.state)).at(-1);
         // Old peers without summary fields retain v1 behaviour. A current peer
         // never automatically selects a historical UNKNOWN conversation.
@@ -122,6 +124,7 @@
         const card=text('article','',el('messages'));card.className='panel';
         if(message.prompt)text('p','You: '+message.prompt,card);
         if(message.reply)text('p','Muse Spark 1.3: '+message.reply,card);
+        if(message.state==='TRUNCATED')text('p','This reply reached its length limit. The partial text and usage were verified. You can ask a follow-up; nothing was retried automatically.',card);
         if(message.state==='RUNNING')text('p','Muse is responding…',card);
         const evidence=text('details','',card);text('summary','Evidence and receipt',evidence);
         text('p',message.state+' · task '+message.task_id+' · source '+message.source_sha,evidence).className='device-digest';

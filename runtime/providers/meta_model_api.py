@@ -142,8 +142,9 @@ class MetaChatRequest:
         require(type(self.task) is MetaChatTask);self.task.to_dict()
         require(type(self.prompt) is str and 1<=len(self.prompt.encode('utf-8'))<=2000)
         require(type(self.capsule_digest) is str and re.fullmatch('[0-9a-f]{64}',self.capsule_digest))
-        require(type(self.max_output_tokens) is int and 1<=self.max_output_tokens<=512)
-        require(type(self.timeout_seconds) is int and 1<=self.timeout_seconds<=15)
+        owner=self.task.actor=='LINUX_OWNER'
+        require(type(self.max_output_tokens) is int and 1<=self.max_output_tokens<=(4096 if owner else 512))
+        require(type(self.timeout_seconds) is int and 1<=self.timeout_seconds<=(60 if owner else 15))
         require(type(self.context_json) is str and len(self.context_json.encode())<=4096)
         context=strict_json(self.context_json)
         require(type(context) is dict)
@@ -174,7 +175,7 @@ class MetaChatRequest:
         messages=[];history_bytes=0
         for index,entry in enumerate(self.history):
             require(type(entry) is tuple and len(entry)==2 and entry[0]==('user' if index%2==0 else 'assistant')
-                and type(entry[1]) is str and 1<=len(entry[1].encode())<=(2000 if index%2==0 else 8192))
+                and type(entry[1]) is str and 1<=len(entry[1].encode())<=(2000 if index%2==0 else 32768))
             history_bytes+=len(entry[1].encode());messages.append({'role':entry[0],'content':entry[1]})
         require(history_bytes<=12000)
         payload={'model':MODEL,'messages':[{'role':'developer','content':
@@ -225,9 +226,12 @@ class ProviderChat:
     provider_request_id: str | None = None
     live_verified: bool = False
     binding: dict = field(default_factory=dict,repr=False)
+    finish_reason: str = 'stop'
 
     def receipt(self):
-        return {'schema':'aioa.meta.chat-receipt.v1','provider_id':PROVIDER,'model_id':MODEL,
+        return {'schema':'aioa.meta.chat-receipt.v2' if self.finish_reason=='length' else 'aioa.meta.chat-receipt.v1',
+            **({'finish_reason':'length','response_complete':False} if self.finish_reason=='length' else {}),
+            'provider_id':PROVIDER,'model_id':MODEL,
             'request_digest':self.request_digest,'provider_request_id':self.provider_request_id,
             'response_sha256':hashlib.sha256(self.text.encode()).hexdigest(),'usage':dict(self.usage),
             'environment':self.environment,'live_verified':self.live_verified,'cost_estimate_usd':self.cost_estimate_usd,
@@ -539,15 +543,18 @@ class MetaModelProvider:
             require(self.mode == 'MOCK' and budget == 0 or cost <= budget, 'META_BUDGET_EXCEEDED_UNKNOWN')
             environment='META_API_LIVE_VERIFIED' if self.mode=='LIVE' else 'META_API_MOCK'
             if type(request) is MetaChatRequest:
-                require(choice.get('finish_reason')=='stop' and not message.get('tool_calls') and not message.get('function_call'),
+                finishes=('stop','length') if request.task.actor=='LINUX_OWNER' else ('stop',)
+                require(choice.get('finish_reason') in finishes and not message.get('tool_calls') and not message.get('function_call'),
                     'META_INCOMPLETE_UNKNOWN')
                 text=message.get('content')
-                require(type(text) is str and 1<=len(text.encode())<=8192,'META_CHAT_RESPONSE_INVALID_UNKNOWN')
+                require(type(text) is str and 1<=len(text.encode())<=(32768 if request.task.actor=='LINUX_OWNER' else 8192),
+                    'META_CHAT_RESPONSE_INVALID_UNKNOWN')
                 provider_id=value.get('id')
                 require(provider_id is None or type(provider_id) is str and re.fullmatch('[A-Za-z0-9_.:/-]{1,200}',provider_id),
                     'META_CHAT_RESPONSE_INVALID_UNKNOWN')
                 result=ProviderChat(text,request.digest,usage,environment,format(cost,'f') if self.mode=='LIVE' else '0',
-                    provider_request_id=provider_id,live_verified=self.mode=='LIVE',binding=request.public_binding())
+                    provider_request_id=provider_id,live_verified=self.mode=='LIVE',binding=request.public_binding(),
+                    finish_reason=choice['finish_reason'])
             else:
                 require(choice.get('finish_reason')=='tool_calls','META_INCOMPLETE_UNKNOWN')
                 calls = message.get('tool_calls'); require(type(calls) is list and len(calls) == 1)
