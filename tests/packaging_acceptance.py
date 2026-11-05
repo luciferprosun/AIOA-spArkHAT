@@ -373,6 +373,9 @@ def native_check(venv, staging, *, isolate_filesystem, log):
         'runtime/communication/contracts.py','runtime/communication/canonical_mime.py',
         'runtime/critical_loop/preset.py','web/index.html','web/mobile_chat.js',
         'web/mobile_devices.js','web/mobile_devices_dom.js')
+    names+=tuple('runtime/critical_loop/cpt/'+name for name in
+        ('__init__.py','sanitizer.py','schema.py','templates.py','transformer.py','preview.py'))
+    names+=('runtime/critical_loop/redaction.py',)
     expected={name:hashlib.sha256((staging/name).read_bytes()).hexdigest() for name in names}
     command=[]
     if isolate_filesystem:

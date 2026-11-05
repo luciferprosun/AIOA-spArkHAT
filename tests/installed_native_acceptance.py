@@ -87,6 +87,17 @@ with tempfile.TemporaryDirectory(prefix='aioa-installed-native-') as temporary,\
         wire.verify(host.identity.spki,mail['signature'],mail['receipt'])
         assert mail['data']['status']=='DRAFT_PREVIEW_ONLY' and mail['receipt']['external_calls']==0
         assert counts(host)==tuple(n+2 for n in initial)
+        cpt_request={'op':'critic_transform_preview','request_id':'3'*32,
+            'payload':{'prompt':'An installed private synthetic CPT proposal.'}}
+        cpt=host.operator_request(os.getuid(),cpt_request)
+        wire.verify(host.identity.spki,cpt['signature'],cpt['receipt'])
+        assert cpt['data']['status']=='CPT_DRAFT_PREVIEW_ONLY'
+        assert wire.digest(cpt['preview']['transformed_prompt'].encode())==cpt['data']['transformed_prompt_sha256']
+        assert 'preview' not in host.mobile._get('native-advisory-'+'3'*32).payload['result']
+        assert counts(host)==tuple(n+3 for n in initial)
+        assert host.operator_request(os.getuid(),cpt_request)==cpt
+        assert counts(host)==tuple(n+3 for n in initial)
+        assert cpt_request['payload']['prompt'].encode() not in (root/'core-records.sqlite3').read_bytes()
         before_status=counts(host)
         components=host.operator_request(os.getuid(),{'op':'status'})['components']
         assert not components['github_write']['enabled'] and not components['worker']['enabled']
@@ -125,7 +136,8 @@ for name in ('runtime.meta_hackathon.runtime_adapter','runtime.core_admission',
     origins[name]=str(path)
 print(json.dumps({'status':'PASS','scope':'INSTALLED_NATIVE_FIXTURE',
     'one_core_and_transaction_factory':True,'second_native_same_state_denied':True,
-    'real_sqlite_audit_outbox':True,'signed_preview_receipts':2,'restart_preserves_identity_and_receipt':True,
+    'real_sqlite_audit_outbox':True,'signed_preview_receipts':3,'cpt_prompt_text_persisted':False,
+    'restart_preserves_identity_and_receipt':True,
     'source_drift_and_foreign_uid_denied':True,'provider_calls':0,'external_calls':0,
     'os_tls_source_qualification':'SYNTHETIC_FIXTURE_ONLY','production_deployment_qualified':False,
     'installed_source_files_verified':len(expected),'installed_source_manifest_sha256':original_source,

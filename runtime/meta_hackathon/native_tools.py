@@ -82,6 +82,8 @@ def registry(host):
         'chat': chat,
         'github_read': github,
         'command_advice': {'status':'ADVISORY_ONLY','enabled':True,'execution_authorized':False},
+        'critic_transform_preview': {'status':'CPT_DRAFT_PREVIEW_ONLY','enabled':True,
+            'execution_authorized':False,'provider_calls':0,'prompt_text_persisted':False},
         'mail_preview': {'status':'DRAFT_PREVIEW_ONLY','enabled':True,'send_enabled':False,
             'send_status':'BLOCKED_GMAIL_CORE_TRANSPORT_NOT_BOUND'},
         'github_write': {'status': 'BLOCKED_OWNER_LIABILITY_UNKNOWN' if unknown else
