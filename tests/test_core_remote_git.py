@@ -60,6 +60,10 @@ class CoreRemoteGitTests(unittest.TestCase):
         self.assertFalse(stored['receipt']['live_verified'])
         self.assertEqual('OFFLINE_FIXTURE',stored['receipt']['mode'])
         self.assertEqual(self.protocol.commit,stored['receipt']['commit_sha'])
+        scope=stored['receipt']['credential_scope']
+        self.assertEqual(DEMO_REPOSITORY,scope['repository'])
+        self.assertEqual({'contents':'write','pull_requests':'write'},scope['permissions'])
+        self.assertNotIn(self.protocol.credential.bearer,str(stored))
         verify(self.identity.spki,stored['signature'],stored['receipt'])
         self.assertEqual('COMMITTED',self.fx.gov.inspect(self.fx.p(Capability.READ))['reservations'][self.fx.request.request_id]['state'])
         self.assertFalse(self.fx.journal.delivery(self.fx.p(Capability.READ),self.fx.warrant)['grants_replay'])

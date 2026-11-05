@@ -60,6 +60,7 @@ class CoreServiceGuard:
                     route.validate(tx,warrant,operation,consumed=True))
             release()
             api=route.bind_api(release,cancel)
+            route.record_credential_scope(principal,warrant,operation,api)
             observation=api.execute(check=release,cancel=cancel,
                 begin_step=lambda step,digest:route.begin_step(principal,warrant,operation,step,digest))
             release()

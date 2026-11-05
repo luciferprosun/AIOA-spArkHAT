@@ -69,12 +69,16 @@ def registry(host):
         last=max(reads,key=lambda r:r['observed_at'])
         github.update(status='VERIFIED_READ',request_id=last['request_id'],observed_at=last['observed_at'],
                       data_sha256=last['data_sha256'])
+    from .github_write import authorization
+    github_auth=authorization(host)
     return {
         'chat': {'status': 'OWNER_APPROVAL_REQUIRED' if host.chat_enabled else 'BLOCKED_PROFILE',
                  'enabled': host.chat_enabled, 'provider': 'meta_model_api', 'model': 'muse-spark-1.3'},
         'github_read': github,
-        'github_write': {'status': 'BLOCKED_OWNER_LIABILITY_UNKNOWN' if unknown else 'BLOCKED_REMOTE_START_NOT_BOUND',
-                         'enabled': False, 'unknown_liabilities': unknown},
+        'github_write': {'status': 'BLOCKED_OWNER_LIABILITY_UNKNOWN' if unknown else
+                         'BLOCKED_EXTERNAL' if not github_auth['configured'] else 'EXACT_OWNER_APPROVAL_REQUIRED',
+                         'enabled': False, 'unknown_liabilities': unknown,'authorization':github_auth,
+                         'adapter':'CORE_CREATE_ONLY_CANDIDATE','qualification':'NOT_LIVE_VERIFIED'},
         'worker': {'status': 'BLOCKED_NATIVE_WORKER_NOT_BOUND', 'enabled': False},
         'memory': {'status':'CORE_RECORDS_ONLY','enabled':False,
             'core_records':{'status':'CORE_RECORDS_SQLITE','persistent':True},
@@ -202,7 +206,10 @@ def proposal(host, value):
                 or message.get('source_sha') != host.source[0] or message.get('capsule_digest') != host.source[1]
                 or message['receipt'].get('response_sha256') != wire.digest(message['reply'].encode('utf-8'))):
             raise wire.MobileError(409)
-        raw = wire.strict_json(message['reply'].encode('utf-8'))
+        raw = wire.strict_json(message['reply'].encode('utf-8'),limit=wire.RESPONSE_LIMIT)
+        if raw.get('schema')=='aioa.muse.github-change.v1':
+            from .github_write import propose
+            return propose(host,value,message)
         if (set(raw) != {'operation', 'target_repo', 'title', 'body'} or raw['operation'] != 'issue.create'
                 or raw['target_repo'] != native_read.REPOSITORY
                 or any(type(raw[k]) is not str or not raw[k].strip() or len(raw[k].encode('utf-8')) > maximum

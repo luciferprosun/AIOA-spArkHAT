@@ -201,7 +201,7 @@
                 </article>
               </section>
               <section class="cosmic-page" data-cosmic-page="repositories" hidden aria-labelledby="cosmic-repositories-title">
-                <h2 id="cosmic-repositories-title" tabindex="-1">GitHub · verified reads</h2>
+                <h2 id="cosmic-repositories-title" tabindex="-1">GitHub · READ / PROPOSE / APPROVED WRITE</h2>
                 <article class="panel"><h3>luciferprosun/AIOA-spArkHAT</h3>
                   <p>Fixed repository. GET only. Each deliberate read records source, time and a signed Core receipt.</p>
                   <div class="device-actions">
@@ -215,14 +215,25 @@
                   <p id="cosmic-tool-state" role="status">No tool result read.</p>
                   <pre id="cosmic-tool-result">No repository evidence yet.</pre>
                 </article>
-                <article class="panel"><h3>Muse tool proposal · advisory</h3>
-                  <p>Use a successful current-source Muse response containing only JSON with operation, target_repo, title and body. The only accepted proposed operation is issue.create in this repository.</p>
+                <article class="panel"><h3>Muse proposal · exact owner review</h3>
+                  <p>Validate a completed Muse JSON response. Code proposals create new files on a new branch and a draft PR in luciferprosun/AIOA-spArkHAT-Meta-Hackathon-2026. Review every file and the target below before approving.</p>
                   <label for="cosmic-proposal-chat">Verified chat request ID</label>
                   <input id="cosmic-proposal-chat" maxlength="32" autocomplete="off" spellcheck="false">
                   <button id="cosmic-proposal-parse" class="button button-ghost" disabled>Validate proposal from Core</button>
                   <pre id="cosmic-proposal-result">No validated model proposal. Model text never grants authority.</pre>
-                  <p id="cosmic-github-write-state">REMOTE_WRITE_BLOCKED · no execution authority.</p>
-                  <button class="button button-ghost" disabled>Create issue · exact native START not bound</button>
+                  <p id="cosmic-github-auth-state">GitHub App authorization has not been read.</p>
+                  <p id="cosmic-github-write-state" role="status">PROPOSE · no owner-approved operation selected.</p>
+                  <label><input id="cosmic-github-reviewed" type="checkbox" disabled> I approve exactly these files, this repository, branch, commit and draft PR.</label>
+                  <div class="device-actions">
+                    <button id="cosmic-github-approve" class="button button-primary" disabled>Approve this WRITE once</button>
+                    <button id="cosmic-github-status" class="button button-ghost" disabled>Read saved Core result</button>
+                    <button id="cosmic-github-reconcile" class="button button-ghost" disabled>Verify with GitHub GET</button>
+                    <button id="cosmic-github-stop" class="button button-ghost" disabled>STOP this operation</button>
+                  </div>
+                  <div id="cosmic-github-links"></div>
+                  <pre id="cosmic-github-receipt">No GitHub WRITE receipt.</pre>
+                  <button id="cosmic-github-history-read" class="button button-ghost" disabled>Read authorization and saved operations</button>
+                  <div id="cosmic-github-history"></div>
                 </article>
               </section>
               <section class="cosmic-page" data-cosmic-page="details" hidden aria-labelledby="cosmic-details-title">

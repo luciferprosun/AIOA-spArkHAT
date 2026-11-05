@@ -14,7 +14,7 @@
   function createDeviceConsole(credential, fetcher = root.fetch.bind(root), clock = () => Math.floor(Date.now()/1000)) {
     if (!/^[A-Za-z0-9_-]{43}$/.test(credential)) throw Error('LOCAL_OPERATOR_REQUIRED');
     let token = credential, busy = false, generation = 0,registryRevision=0,polling=false;
-    let uncertainMutation=false,authorizationFailed=false;
+    let uncertainMutation=false,authorizationFailed=false,githubApprovalAttempted=false;
     let state = {phase:'READY', observed:false, pending:[], devices:[], invite:null, message:'',coreStatus:null,coreStatusAt:null,toolResult:null,toolRequest:null,toolState:'NOT_RUN',toolError:null,toolProposal:null};
     async function call(value, mutation, apply,backgroundRead=false) {
       const chat=value.op.startsWith('chat_');
@@ -30,7 +30,7 @@
       const registryTicket=registryRevision;
       const epoch = generation;
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), value.op==='tool_read'?30000:8000);
+      const timer = setTimeout(() => controller.abort(), value.op==='tool_proposal'?45000:value.op==='tool_read'?30000:8000);
       try {
         const response = await fetcher('/api/native-operator', {
           method:'POST', credentials:'same-origin', redirect:'error', cache:'no-store', signal:controller.signal,
@@ -63,6 +63,11 @@
         throw Error(message);
       } finally { clearTimeout(timer); if(!background)busy = false; }
     }
+    function receiveGithub(data) {
+      if(data.operation_id!==state.githubOperation || typeof data.status!=='string')throw Error('INVALID_READBACK');
+      state.githubWrite=data;
+      if(data.review)state.toolProposal=data;
+    }
     return Object.freeze({
       readTool:async(operation,requestId)=>{
         if(busy)throw Error('BUSY');
@@ -91,17 +96,53 @@
       proposeTool:chatRequestId=>{
         if(!/^[a-f0-9]{32}$/.test(chatRequestId))return Promise.reject(Error('TOOL_OPERATION_DENIED'));
         const requestId=Array.from(root.crypto.getRandomValues(new Uint8Array(16)),x=>x.toString(16).padStart(2,'0')).join('');
+        const previous=state.githubOperation;
+        state.githubOperation=requestId;state.githubWrite=null;state.toolProposal=null;
         return call({op:'tool_proposal',request_id:requestId,chat_request_id:chatRequestId},false,data=>{
-          if(data.execution_authorized!==false || data.proposal?.operation!=='issue.create')throw Error('INVALID_READBACK');
+          if(data.execution_authorized!==false || !['issue.create','code.commit_draft_pr'].includes(data.proposal?.operation))throw Error('INVALID_READBACK');
+          if(data.proposal.operation==='code.commit_draft_pr') {
+            if(!/^[a-f0-9]{32}$/.test(data.operation_id) || data.proposal.source_chat_request_id!==chatRequestId)throw Error('INVALID_READBACK');
+            state.githubOperation=data.operation_id;
+            if(previous!==data.operation_id)githubApprovalAttempted=false;
+            receiveGithub(data);
+          }
           state.toolProposal=data;
         });
+      },
+      githubStatus:operationId=>{
+        if(operationId!==undefined) {
+          if(!/^[a-f0-9]{32}$/.test(operationId))return Promise.reject(Error('REVIEW_REQUIRED'));
+          if(operationId!==state.githubOperation){githubApprovalAttempted=false;state.githubWrite=null;}
+          state.githubOperation=operationId;
+        }
+        if(!state.githubOperation)return Promise.reject(Error('REVIEW_REQUIRED'));
+        return call({op:'github_write_status',operation_id:state.githubOperation},false,receiveGithub);
+      },
+      githubHistory:()=>call({op:'github_write_list'},false,data=>{
+        if(!Array.isArray(data.operations) || data.operations.length>20 ||
+            !data.operations.every(x=>/^[a-f0-9]{32}$/.test(x.operation_id)))throw Error('INVALID_READBACK');
+        state.githubHistory=data;
+      }),
+      githubApprove:()=>{
+        const review=state.githubWrite;
+        if(githubApprovalAttempted || review?.approval_available!==true || !/^[a-f0-9]{64}$/.test(review.review_digest))return Promise.reject(Error('REVIEW_REQUIRED'));
+        githubApprovalAttempted=true;
+        return call({op:'github_write_approve',operation_id:state.githubOperation,review_digest:review.review_digest},true,receiveGithub);
+      },
+      githubReconcile:()=>{
+        if(state.githubWrite?.readback_available!==true)return Promise.reject(Error('READBACK_REQUIRED'));
+        return call({op:'github_write_reconcile',operation_id:state.githubOperation},false,receiveGithub);
+      },
+      githubStop:()=>{
+        if(!state.githubOperation)return Promise.reject(Error('READBACK_REQUIRED'));
+        return call({op:'github_write_stop',operation_id:state.githubOperation},false,receiveGithub);
       },
       chatCall:value=>{
         if(!value || !['chat_catalog','chat_threads','chat_thread','chat_request','chat_review','chat_propose','chat_stop',
           'chat_send','chat_session_status','chat_session_stop'].includes(value.op))return Promise.reject(Error('LOCAL_OPERATOR_REQUIRED'));
         return call(value,['chat_propose','chat_send','chat_stop','chat_session_stop'].includes(value.op),()=>{});
       },
-      snapshot:() => copy({...state, busy,polling}),
+      snapshot:() => copy({...state, busy,polling,githubApprovalAttempted}),
       refresh:async({background=false}={}) => {
         if(background && (polling || busy || uncertainMutation || authorizationFailed || !token))return;
         if(background)polling=true;
