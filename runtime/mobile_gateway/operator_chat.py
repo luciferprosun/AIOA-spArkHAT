@@ -1,7 +1,7 @@
 """Same-Core chat operations on the existing UID-authenticated operator port.
 
-Financial approval is private-socket only. The web adapter has a separate closed
-allowlist of non-financial operations and must never forward chat_approve.
+Financial configuration is private-socket only. The console can send paid text
+under an active owner session, but cannot enable it or forward chat_approve.
 """
 import secrets
 import json
@@ -12,7 +12,8 @@ from runtime.core_admission import Capability
 from runtime.memory_patch.contracts.serialization import canonical_sha256
 from . import wire
 
-READ_OPS=frozenset(('chat_catalog','chat_threads','chat_thread','chat_request','chat_propose','chat_stop','chat_review'))
+READ_OPS=frozenset(('chat_catalog','chat_threads','chat_thread','chat_request','chat_propose','chat_stop','chat_review',
+    'chat_send','chat_session_status','chat_session_stop'))
 
 def dispatch(host,owner,value):
     if not host.chat_enabled:raise wire.MobileError(501)
@@ -20,19 +21,35 @@ def dispatch(host,owner,value):
     service=host.missions;reader=host.core.local_operator(Capability.READ);op=value['op']
     fields={'chat_catalog':{'op'},'chat_threads':{'op'},'chat_thread':{'op','thread_id'},
         'chat_request':{'op','request_id'},'chat_review':{'op','request_id'},'chat_stop':{'op','request_id'},
-        'chat_propose':{'op','payload'},'chat_approve':{'op','request_id','review_digest'}}
-    with_read=op=='chat_propose' and set(value)=={'op','payload','read_request_id'}
+        'chat_propose':{'op','payload'},'chat_approve':{'op','request_id','review_digest'},
+        'chat_send':{'op','payload'},'chat_session_status':{'op'},'chat_session_stop':{'op'},
+        'chat_session_start':{'op','request_id','local_money_limit_usd'}}
+    with_read=op in ('chat_propose','chat_send') and set(value)=={'op','payload','read_request_id'}
     if op not in fields or (not with_read and set(value)!=fields[op]):raise wire.MobileError(400)
     if op=='chat_catalog':
         from runtime.meta_hackathon.chat import budget_status
+        from runtime.meta_hackathon.chat_session import status
         budget=budget_status(service,reader)
-        blocked=budget['credit_only'] and not budget['credit_binding_available']
+        session=status(service)
+        reason=('CHAT_SESSION_REQUIRED' if budget['allocation_usd'] is None and session['state']!='ACTIVE' else
+            'CREDIT_BALANCE_NOT_BOUND' if budget['credit_only'] and not budget['credit_binding_available'] else None)
         return {'schema':'aioa.chat.catalog.v1','provider_id':'meta_model_api','model_id':'muse-spark-1.3',
-            'mode':'LIVE_PENDING_EXACT_OWNER_APPROVAL','chat':not blocked,'save_knowledge':False,**budget,
-            'blocking_reason':'CREDIT_BALANCE_NOT_BOUND' if blocked else None,
-            'billing_status':'UNVERIFIED','mission_read':'BLOCKED_NATIVE_WORKER_NOT_BOUND',
+            'mode':'LIVE_OWNER_SESSION' if session['state']=='ACTIVE' else 'LIVE_PENDING_EXACT_OWNER_APPROVAL',
+            'session':session,'chat':reason is None,'save_knowledge':False,**budget,
+            'blocking_reason':reason,
+            'billing_status':'UNVERIFIED','mission_read':'BLOCKED_NATIVE_WORKER_NOT_CERTIFIED',
             'github_write':False,'native_execute':False,'source_sha':host.source[0],'capsule_digest':host.source[1],
             'model_calls':host.model_calls()}
+    if op.startswith('chat_session_'):
+        from datetime import timedelta
+        from runtime.meta_hackathon import chat_session
+        host._require_qualified_operator()
+        if op=='chat_session_status':return chat_session.status(service)
+        if op=='chat_session_stop':return chat_session.stop(service,owner)
+        if value['local_money_limit_usd'] is not None:raise wire.MobileError(400)
+        lifetime=min(3600,host._auth_deadline-time.monotonic(),host._tls_expires-time.time())
+        return chat_session.start(service,owner,session_id=value['request_id'],device_id=host.identity.audience,
+            expires_at=service.ledger.clock()+timedelta(seconds=lifetime),authority_check=host._require_qualified_operator)
     if op=='chat_threads':return service.chat_threads(reader)
     if op=='chat_thread':return service.chat_thread(value['thread_id'],reader)
     if op=='chat_request':return service.chat_request(value['request_id'],reader)
@@ -48,6 +65,11 @@ def dispatch(host,owner,value):
     if with_read:
         from runtime.meta_hackathon.native_tools import chat_read_context
         context=chat_read_context(host,value['read_request_id'])
+    if op=='chat_send':
+        from runtime.meta_hackathon.chat_session import send
+        host._require_qualified_operator()
+        return send(service,owner,payload,device_id=device,session_id=canonical_sha256(host.instance_id)[:32],
+            nonce=secrets.token_hex(16),read_context=context)
     return service.chat_propose(payload,reader,device_id=device,session_id=canonical_sha256(host.instance_id)[:32],
         nonce=secrets.token_hex(16),actor='LINUX_OWNER',read_context=context)
 

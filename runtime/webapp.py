@@ -102,9 +102,11 @@ class WebRuntimeService:
         from runtime.mobile_gateway import wire
         from runtime.mobile_gateway.pairing import OWNER_FIELDS
         from runtime.mobile_gateway.operator_chat import READ_OPS
+        from runtime.meta_hackathon.github_write import OPS as GITHUB_OPS
+        from runtime.meta_hackathon.advisory import OPS as ADVISORY_OPS
         if (not self.mobile_only or self._mobile_console_uid is None or
                 type(value) is not dict or type(value.get('op')) is not str or
-                value['op'] not in {*OWNER_FIELDS, 'status','tool_read','tool_readback','tool_proposal',*READ_OPS}):
+                value['op'] not in {*OWNER_FIELDS, 'status','tool_read','tool_readback','tool_proposal',*READ_OPS,*GITHUB_OPS,*ADVISORY_OPS}):
             raise wire.MobileError(403)
         # Recheck actual authority, source, expiry and exact operation in Core.
         return self.meta_owner.operator_request(self._mobile_console_uid, value)
@@ -1182,11 +1184,12 @@ def _parser() -> argparse.ArgumentParser:
     mode.add_argument('--meta-offline', action='store_true', help='One existing UI, isolated Meta fixture, zero spend')
     mode.add_argument('--unified-offline', action='store_true', help='One app: Core-gated local recipes, MCP and signed mobile fixture; no paid calls')
     mode.add_argument('--mobile-native',action='store_true',help='System-authenticated private mobile status only; no model, task execution or fixture')
-    mode.add_argument('--mobile-operator',choices=('settings','enroll','status','revoke','console','desktop','auth-status','renew','budget-review','budget-approve','chat-review','chat-approve'),help='Private native operator socket; code stays local')
+    mode.add_argument('--mobile-operator',choices=('settings','enroll','status','revoke','console','desktop','auth-status','renew','budget-review','budget-approve','chat-review','chat-approve','chat-session-start','chat-session-status','chat-session-stop'),help='Private native operator socket; code stays local')
     mode.add_argument('--meta-live-one-shot', action='store_true', help='Inspect the explicit one-shot LIVE gate; never implies owner GO')
     parser.add_argument('--state-dir', help='Private state directory for the explicit Meta offline profile')
     parser.add_argument('--mobile-origin')
     parser.add_argument('--mobile-chat',action='store_true',help='Explicit advisory Meta chat with separate exact local financial approval')
+    parser.add_argument('--mobile-chat-direct',action='store_true',help='Owner preference: Send runs paid text chat without per-message approval or a local money cap; existing native login still applies')
     parser.add_argument('--mobile-existing-profile',action='store_true',help='Require initialized Native history and preserve its exact file through admission')
     parser.add_argument('--chat-request-id',help='Public exact chat request ID for local financial review')
     parser.add_argument('--budget-usd',default='148',help='Proposed total local allocation; configuration never approves paid calls')
@@ -1201,6 +1204,8 @@ def _parser() -> argparse.ArgumentParser:
 
 def main() -> None:
     args = _parser().parse_args()
+    if args.mobile_chat_direct and args.mobile_operator not in ('desktop','chat-session-start'):
+        raise SystemExit('DIRECT_CHAT_REQUIRES_NATIVE_OWNER_CHANNEL')
     if args.mobile_operator:
         if not args.state_dir:raise SystemExit('NATIVE_STATE_REQUIRED')
         if args.mobile_operator in ('budget-review','budget-approve'):
@@ -1224,6 +1229,14 @@ def main() -> None:
         if args.mobile_operator in ('chat-review','chat-approve'):
             from runtime.mobile_gateway.operator_chat import financial_review
             financial_review(args.state_dir,args.chat_request_id,approve=args.mobile_operator=='chat-approve')
+            return
+        if args.mobile_operator.startswith('chat-session-'):
+            if args.mobile_operator=='chat-session-start':
+                if not args.mobile_chat_direct:raise SystemExit('EXPLICIT_DIRECT_CHAT_PREFERENCE_REQUIRED')
+                from runtime.mobile_gateway.desktop import prepare_chat_session
+                print(json.dumps(prepare_chat_session(args.state_dir)),flush=True)
+            else:
+                print(json.dumps(mobile_operator_client(args.state_dir,{'op':args.mobile_operator.replace('-','_')})),flush=True)
             return
         value={'op':args.mobile_operator}
         if args.mobile_operator in ('enroll','revoke'):value['device_spki']=args.device_spki

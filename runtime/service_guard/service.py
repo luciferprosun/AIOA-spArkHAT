@@ -36,6 +36,37 @@ def plain(value):
 class CoreServiceGuard:
     """Admitted domain service; does not create a Core, credential source or loop."""
     @staticmethod
+    def dispatch_registered_remote_git(route,principal,warrant,operation,reservation,*,cancel):
+        """Same-Core, USD0 remote START; no credential/effect before its ACK."""
+        from runtime.mission.git_publish import CoreRemoteGitRoute
+        from runtime.mission.warrant import require
+        require(type(route) is CoreRemoteGitRoute,'GITHUB_REGISTERED_ROUTE_REQUIRED')
+        route.core.require(principal,Capability.COMMIT,scope=route.scope)
+        with route.target_guard():
+            route.check();require(not cancel.cancelled,'GITHUB_STOPPED')
+            def start(tx):
+                _,existing=route.journal._load(tx,warrant)
+                # Delivery of an already acknowledged intent is read-only,
+                # including after a consumed warrant or expired owner session.
+                if existing is None:route.validate(tx,warrant,operation)
+                require(reservation.money_nano==0 and reservation.risk_units==1,'GITHUB_RESOURCE_BINDING')
+                return route.journal._start_in_transaction(tx,warrant,operation,reservation,
+                    local_zero=False,remote_zero=True)
+            marker=route.journal._run(principal,Capability.COMMIT,start)
+            if not marker['remote_step_now']:return marker
+            def release():
+                route.check();require(not cancel.cancelled,'GITHUB_STOPPED')
+                route.journal._run(principal,Capability.COMMIT,lambda tx:
+                    route.validate(tx,warrant,operation,consumed=True))
+            release()
+            api=route.bind_api(release,cancel)
+            route.record_credential_scope(principal,warrant,operation,api)
+            observation=api.execute(check=release,cancel=cancel,
+                begin_step=lambda step,digest:route.begin_step(principal,warrant,operation,step,digest))
+            release()
+            return route.complete(principal,warrant,observation)
+
+    @staticmethod
     def dispatch_registered_local(route, principal, warrant, operation, reservation, *, check, cancel):
         """Local-zero slice over the SAME journal and Core session registry.
 

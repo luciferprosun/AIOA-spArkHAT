@@ -9,7 +9,8 @@
   let client=null;
   const errors={LOCAL_OPERATOR_REQUIRED:'A local operator session is required. Reopen the panel from Linux.',
     UNKNOWN_READBACK_REQUIRED:'Unknown result. Read Core status before another operation. No automatic retry was made.',
-    READBACK_REQUIRED:'Read current Core status first.',REVIEW_REQUIRED:'Device state changed. Read it again.',
+    READBACK_REQUIRED:'Read current Core status first.',REVIEW_REQUIRED:'Review the current exact operation before approving.',
+    PREVIEW_INPUT_LIMIT:'Enter a command up to 2,000 UTF-8 bytes or a message up to 8,192 UTF-8 bytes. Total draft input must stay below 12,000 bytes.',
     BUSY:'An operation is in progress. Wait for its result.'};
   const menu=Array.from(document.querySelectorAll?.('[data-cosmic-target]') || []);
   const pages=Array.from(document.querySelectorAll?.('[data-cosmic-page]') || []);
@@ -38,8 +39,54 @@
     }
   }
   function text(tag,value,parent) {const el=document.createElement(tag);el.textContent=value;parent.append(el);return el;}
+  let reviewedDigest=null;
+  function renderGithub(state) {
+    const get=id=>document.getElementById('cosmic-github-'+id);
+    const value=state?.githubWrite,approval=get('approve'),reviewed=get('reviewed');
+    const ready=state?.phase==='READY' && state.observed && !state.busy;
+    const readable=state && state.phase!=='LOCKED' && !state.busy;
+    if(reviewed && reviewedDigest!==value?.review_digest){reviewed.checked=false;reviewedDigest=value?.review_digest;}
+    const mayApprove=ready && value?.approval_available===true && !state.githubApprovalAttempted;
+    if(reviewed)reviewed.disabled=!mayApprove;
+    if(approval)approval.disabled=!(mayApprove && reviewed?.checked);
+    if(get('status'))get('status').disabled=!(readable && state.githubOperation);
+    if(get('reconcile'))get('reconcile').disabled=!(readable && value?.readback_available===true);
+    if(get('stop'))get('stop').disabled=!(readable && state.githubOperation && value?.status!=='GITHUB_VERIFIED');
+    if(get('history-read'))get('history-read').disabled=!readable;
+    const auth=value?.authorization || state?.githubHistory?.authorization;
+    if(get('auth-state'))get('auth-state').textContent=auth?
+      auth.status+' · '+(auth.reason || 'Repository scope is checked again before WRITE.'):'GitHub App authorization has not been read.';
+    if(get('write-state'))get('write-state').textContent=value?
+      (value.owner_approval?'APPROVED WRITE':'PROPOSE')+' · '+value.status+' · '+value.operation_id+
+      (value.blockers?.length?'\n'+value.blockers.join(' · '):'')+(value.error?'\n'+value.error:''):
+      'PROPOSE · no owner-approved operation selected.';
+    const result=value?.result;
+    if(get('receipt'))get('receipt').textContent=result?JSON.stringify(result,null,2):'No GitHub WRITE receipt.';
+    if(get('links')) {
+      get('links').replaceChildren();
+      for(const [label,url] of [['Verified commit',result?.receipt?.github_url],['Verified draft PR',result?.receipt?.pr_url]]) {
+        if(result?.receipt?.live_verified===true && typeof url==='string' &&
+            /^https:\/\/github\.com\/luciferprosun\/AIOA-spArkHAT-Meta-Hackathon-2026\/(commit\/[a-f0-9]{40}|pull\/[1-9][0-9]{0,8})$/.test(url)) {
+          const link=text('a',label,get('links'));link.href=url;link.target='_blank';link.rel='noopener noreferrer';
+        }
+      }
+    }
+    if(get('history')) {
+      get('history').replaceChildren();
+      for(const item of state?.githubHistory?.operations || []) {
+        const button=text('button',item.mode+' · '+item.status+' · '+item.operation_id,get('history'));
+        button.className='button button-ghost';button.disabled=!readable;
+        button.addEventListener('click',()=>act(()=>client.githubStatus(item.operation_id)));
+      }
+    }
+  }
   function renderTools(state) {
     const ready=state?.phase==='READY' && state.observed && !state.busy;
+    for(const id of ['cosmic-command-preview','cosmic-mail-preview']) {
+      const button=document.getElementById(id);if(button)button.disabled=!ready;
+    }
+    const advisory=document.getElementById('cosmic-advisory-result');
+    if(advisory)advisory.textContent=state?.advisoryPreview?JSON.stringify(state.advisoryPreview,null,2):'No preview recorded.';
     for(const button of document.querySelectorAll?.('[data-tool-read]') || [])button.disabled=!ready;
     const readback=document.getElementById('cosmic-tool-readback');
     if(readback)readback.disabled=!state?.toolRequest || state.busy || state.phase==='LOCKED';
@@ -103,7 +150,7 @@
     text('h4','Operator authentication',settings);
     text('p',String(data.operator_authentication?.method || 'Not read'),settings);
     text('p','TLS and saved host identity are checked by this Native host. Keys and pairing material are not displayed here.',settings);
-    text('p','Recorded model attempts: '+data.model_calls+'. Worker: BLOCKED_NATIVE_WORKER_NOT_BOUND.',settings);
+    text('p','Recorded model attempts: '+data.model_calls+'. Worker: BLOCKED_NATIVE_WORKER_NOT_CERTIFIED.',settings);
     if(!data.observations.length)text('p','No Core responses in the observed range.',history);
     for(const row of data.observations) {
       const proof=row.proof || {};
@@ -123,6 +170,7 @@
     renderOverview(state);
     renderCore(state);
     renderTools(state);
+    renderGithub(state);
     for (const id of ['add','refresh','lock']) node(id).disabled=!state || state.phase==='LOCKED' || state.busy;
     if (!state) return;
     node('add').disabled=state.phase!=='READY'||state.busy;
@@ -195,14 +243,34 @@
   node('refresh').addEventListener('click',()=>act(()=>client.refresh()));
   node('lock').addEventListener('click',()=>{client?.close();render();});
   document.getElementById('cosmic-core-read')?.addEventListener('click',()=>act(()=>client.status()));
+  document.getElementById('cosmic-command-preview')?.addEventListener('click',()=>act(()=>client.preview('command_advice',{
+    command:document.getElementById('cosmic-command-input').value})));
+  document.getElementById('cosmic-mail-preview')?.addEventListener('click',()=>act(()=>client.preview('mail_preview',{
+    sender:document.getElementById('cosmic-mail-sender').value,
+    to:document.getElementById('cosmic-mail-to').value.split(',').map(x=>x.trim()),
+    subject:document.getElementById('cosmic-mail-subject').value,
+    body_text:document.getElementById('cosmic-mail-body').value})));
   for(const button of document.querySelectorAll?.('[data-tool-read]') || [])button.addEventListener('click',()=>act(()=>client.readTool(button.dataset.toolRead)));
   document.getElementById('cosmic-tool-readback')?.addEventListener('click',()=>act(()=>client.readToolResult()));
   document.getElementById('cosmic-proposal-parse')?.addEventListener('click',()=>act(()=>client.proposeTool(document.getElementById('cosmic-proposal-chat').value.trim())));
+  document.getElementById('cosmic-github-reviewed')?.addEventListener('change',render);
+  document.getElementById('cosmic-github-approve')?.addEventListener('click',()=>{
+    if(document.getElementById('cosmic-github-reviewed')?.checked)act(()=>client.githubApprove());
+  });
+  for(const [id,method] of [['status','githubStatus'],['reconcile','githubReconcile'],['stop','githubStop'],['history-read','githubHistory']])
+    document.getElementById('cosmic-github-'+id)?.addEventListener('click',()=>act(()=>client[method]()));
   window.addEventListener('pagehide',()=>{client?.close();render();});
-  // Read-only polling while visible; never repeat a mutation or UNKNOWN operation.
+  // The transport decides whether a stale read can recover. An uncertain
+  // mutation still requires explicit readback and is never replayed here.
   setInterval(()=>{
     const state=client?.snapshot();
-    if (document.visibilityState==='visible' && state?.phase==='READY' && !state.busy)act(()=>client.refresh({background:true}));
+    if (document.visibilityState==='visible' && state && state.phase!=='LOCKED' && !state.busy)act(async()=>{
+      await client.refresh({background:true});
+      // Local Core records only. External recovery GETs require a deliberate click.
+      if(state.githubOperation && (!state.githubWrite ||
+          ['GITHUB_APPROVAL_PENDING','GITHUB_APPROVED','GITHUB_RUNNING','GITHUB_RECONCILING'].includes(state.githubWrite.status) ||
+          state.githubApprovalAttempted && state.githubWrite.status==='GITHUB_PROPOSED'))await client.githubStatus();
+    });
   },5000);
   render();
   // The HttpOnly cookie was delivered through the private OS launcher. The

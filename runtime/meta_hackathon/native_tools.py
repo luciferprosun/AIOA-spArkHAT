@@ -1,7 +1,7 @@
 """Same-Core native READ receipts and truthful capability projections.
 
-No remote effect executor is registered. The existing owner-wide UNKNOWN barrier
-and local network-OFF execution contracts are deliberately unchanged.
+Remote effects remain unqualified and disabled. The existing owner-wide UNKNOWN
+barrier and local network-OFF execution contracts are deliberately unchanged.
 """
 import time
 import json
@@ -48,7 +48,7 @@ def chat_read_context(host,request_id):
 
 
 def registry(host):
-    host.operator_principal()
+    owner=host.operator_principal()
     from runtime.critical_loop.preset import build_native_cpl_preview
     memory=host.runtime.memory_patch_status()
     unknown = 0
@@ -69,18 +69,33 @@ def registry(host):
         last=max(reads,key=lambda r:r['observed_at'])
         github.update(status='VERIFIED_READ',request_id=last['request_id'],observed_at=last['observed_at'],
                       data_sha256=last['data_sha256'])
+    from .github_write import authorization
+    github_auth=authorization(host)
+    chat={'status':'BLOCKED_PROFILE','enabled':False,'provider':'meta_model_api','model':'muse-spark-1.3'}
+    if host.chat_enabled:
+        from runtime.mobile_gateway.operator_chat import dispatch as chat_dispatch
+        catalog=chat_dispatch(host,owner,{'op':'chat_catalog'})
+        chat.update(status=catalog['blocking_reason'] or ('LIVE_OWNER_SESSION'
+            if catalog['session']['state']=='ACTIVE' else 'OWNER_APPROVAL_REQUIRED'),
+            enabled=catalog['chat'],mode=catalog['mode'],session=catalog['session'])
     return {
-        'chat': {'status': 'OWNER_APPROVAL_REQUIRED' if host.chat_enabled else 'BLOCKED_PROFILE',
-                 'enabled': host.chat_enabled, 'provider': 'meta_model_api', 'model': 'muse-spark-1.3'},
+        'chat': chat,
         'github_read': github,
-        'github_write': {'status': 'BLOCKED_OWNER_LIABILITY_UNKNOWN' if unknown else 'BLOCKED_REMOTE_START_NOT_BOUND',
-                         'enabled': False, 'unknown_liabilities': unknown},
-        'worker': {'status': 'BLOCKED_NATIVE_WORKER_NOT_BOUND', 'enabled': False},
-        'memory': {'status':'CORE_RECORDS_ONLY','enabled':False,
+        'command_advice': {'status':'ADVISORY_ONLY','enabled':True,'execution_authorized':False},
+        'mail_preview': {'status':'DRAFT_PREVIEW_ONLY','enabled':True,'send_enabled':False,
+            'send_status':'BLOCKED_GMAIL_CORE_TRANSPORT_NOT_BOUND'},
+        'github_write': {'status': 'BLOCKED_OWNER_LIABILITY_UNKNOWN' if unknown else
+                         'BLOCKED_EXTERNAL' if not github_auth['configured'] else 'EXACT_OWNER_APPROVAL_REQUIRED',
+                         'enabled': False, 'unknown_liabilities': unknown,'authorization':github_auth,
+                         'adapter':'CORE_CREATE_ONLY_CANDIDATE','qualification':'NOT_LIVE_VERIFIED'},
+        'worker': {'status': 'BLOCKED_NATIVE_WORKER_NOT_CERTIFIED', 'enabled': False},
+        'memory': {'status':'INTEGRATED_INERT','enabled':False,
+            'blocking_reason':'MEMORY_CONSENT_REQUIRED',
             'core_records':{'status':'CORE_RECORDS_SQLITE','persistent':True},
             'semantic_memory':{'enabled':memory['enabled'],'status':memory['backend_status']},
             'cockroach':{'status':'NOT_BOUND','enabled':False},'save_knowledge':False},
         'cpl': {'status': 'BLOCKED_NATIVE_CPL_NOT_BOUND', 'enabled': False, 'provider_calls': 0,
+                'preview_status':'READ_ONLY_ADVISORY','preview_enabled':True,
                 'contract': 'cpl-1plus3plus1-v1', 'expected_generation_requests': 5,
                 'authority': 'ADVISORY_ONLY', 'automatic_retry': False,'preview':build_native_cpl_preview()},
     }
@@ -202,7 +217,10 @@ def proposal(host, value):
                 or message.get('source_sha') != host.source[0] or message.get('capsule_digest') != host.source[1]
                 or message['receipt'].get('response_sha256') != wire.digest(message['reply'].encode('utf-8'))):
             raise wire.MobileError(409)
-        raw = wire.strict_json(message['reply'].encode('utf-8'))
+        raw = wire.strict_json(message['reply'].encode('utf-8'),limit=wire.RESPONSE_LIMIT)
+        if raw.get('schema')=='aioa.muse.github-change.v1':
+            from .github_write import propose
+            return propose(host,value,message)
         if (set(raw) != {'operation', 'target_repo', 'title', 'body'} or raw['operation'] != 'issue.create'
                 or raw['target_repo'] != native_read.REPOSITORY
                 or any(type(raw[k]) is not str or not raw[k].strip() or len(raw[k].encode('utf-8')) > maximum
@@ -220,8 +238,12 @@ def proposal(host, value):
                 'requested_capabilities': ['GITHUB_ISSUE_CREATE'], 'approval_digest': None,
                 'idempotency_key': value['request_id'], 'budget_cap_usd': '0.00',
                 'created_at': now, 'expires_at': now+300}
+        # The new code/PR route does not implement the legacy issue actuator.
+        # Its credential/readiness status must not imply issue execution exists.
+        unknown=registry(host)['github_write']['unknown_liabilities']
         result = {'proposal': item, 'proposal_digest': wire.digest(wire.canonical(item)),
-                  'execution_authorized': False, 'status': registry(host)['github_write']['status']}
+                  'execution_authorized': False, 'status':
+                  'BLOCKED_OWNER_LIABILITY_UNKNOWN' if unknown else 'BLOCKED_REMOTE_START_NOT_BOUND'}
         result['signature'] = host.identity.sign(result)
         key = 'native-tool-proposal-'+value['request_id']
         host._require_qualified_operator()

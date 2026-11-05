@@ -1,0 +1,24 @@
+{
+  "schema": "aioa.final-release.local-evidence.v1",
+  "implementation_sha": "bb48d7940f1e759adce4ff8b24c9a296819dc461",
+  "private_directory": "/home/l/projects/AIOA_FINAL_RELEASE_PRIVATE_20261105",
+  "files": {
+    "advisory-edges.log": "e90a365e4cd3b993ecfb55c638055b22429b70f7199404a37e65c0d3078f47c8",
+    "native-flow.log": "a9ed0d2981c1eba9554cc5c2ce39174055b1afa5c0880fc95523cba8c1d22d40",
+    "targeted-final-code.log": "142a5b136d6458d503523ea6d7bf58ab7152de906df4520320cb000e1019d998",
+    "node-final-code.log": "183f2043d866271a56558de9cb8f9132d16d3e04723523af4ae745b1cd3fef6f",
+    "packaging-native.log": "b90cfb1116eea51ead6f53fcd64f76757194547ab60d5822f2f9be8d25c24a61",
+    "architecture-final-code.log": "20687464f7fd33af73dfd576dc4b63e0bcd3578ba12d611093b5740cc8a29e29",
+    "secrets-final-code.json": "85a5d40063b40cbea3c298998aa2f6a699536e838e61b424ad973afc9e182b62",
+    "STATE_BACKUP.json": "97a7f0c2375ab7777012d76ae2f5c5dcaa3317651cc8cb4a08b1fca855239b78",
+    "snapshot_state.py": "4297884250ff9ef15717d62214efc784b73b255682b03ae68422099635d3a593",
+    "verify_state_copy.py": "dcdf3f1268651d2fa4d66ea2f7cbd4bfaafcb47b787dbd6693e13ae233e75690",
+    "pinned-state-16fcfeed.json": "985eb5b9069b0703913def85764ec7b4d1aeea800405fbd986331e5a1fb8258a",
+    "pinned-state-41aa47e5.json": "59a4550438195a8636c269fca1ea428f7b4eb0e14843e82a5ea2999a3cce720b",
+    "pinned-state-bb48d794.json": "56a0c2e764650e2413db74758998a1ef20b4f31664d23b94f5bd81ccd999cd3c",
+    "pinned-state-2be99da7.log": "6e63d088397f8b970833fe3cf2dcb76bd3b238c57562e8c63673c6c10ab87083",
+    "private-identity-consistency.json": "f4eb4784059e4dd54df1daebbadccc6efd6ebf78e68259aa03ce65c479856c00",
+    "secrets-final-docs.json": "b91ee8b7dd02e785af3873772861a7e9b8a1542934db9f97b7c5ce60127391d7"
+  },
+  "installed_result_sha256": "1d660a8df8b2b35fac2e49dd45f60878f9ba5e40cd799ce002541b39bf212182"
+}

@@ -1,0 +1,9 @@
+{
+  "base_sha": "2be99da7aa07f7eb5faa9459fe8a78c5d0b6653a",
+  "refs": 320,
+  "branch_refs_including_historical_stores": 209,
+  "unique_object_heads": 177,
+  "prs": 39,
+  "coverage": "All discovered refs compared; semantic/runtime evidence tracked separately.",
+  "external_worktrees": "Two unavailable; committed local refs covered, external uncommitted content unknown."
+}

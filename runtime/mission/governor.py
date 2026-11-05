@@ -244,7 +244,8 @@ commit or refund it. A lost marker ACK never gives send permission on replay.
                               ('task_limit',self.policy.task_limit,exposure['tasks'].values()),
                               ('owner_provider_limit',self.policy.owner_provider_limit,exposure['owner_providers'].values())):
             for bucket in buckets:
-                _deny(bucket['money_nano'] <= override.get(name,limits.money_nano) and bucket['risk_units'] <= limits.risk_units,
+                ceiling=override.get(name,limits.money_nano)
+                _deny((ceiling is None or bucket['money_nano'] <= ceiling) and bucket['risk_units'] <= limits.risk_units,
                       'BUDGET_EXCEEDED')
 
     def _clock(self, state, now):
@@ -298,8 +299,10 @@ commit or refund it. A lost marker ACK never gives send permission on replay.
     def _money_review(self,state,limits,request_id):
         _identity(request_id)
         _deny(type(limits) is dict and set(limits)=={'task_limit','owner_provider_limit','global_limit'},'INVALID_GOVERNOR_POLICY')
-        for value in limits.values():_amount(value)
-        body={'schema':'aioa.governor.money-review.v2','request_id':request_id,
+        unlimited=all(value is None for value in limits.values())
+        if not unlimited:
+            for value in limits.values():_amount(value)
+        body={'schema':'aioa.governor.money-review.v3' if unlimited else 'aioa.governor.money-review.v2','request_id':request_id,
             'bootstrap_policy_digest':self.policy.digest,'expected_version':state['version'],
             'expected_epoch':state['epoch'],'limits':dict(limits)}
         return {**body,'review_digest':canonical_sha256(body)}
@@ -316,7 +319,7 @@ commit or refund it. A lost marker ACK never gives send permission on replay.
         _deny(canonical_json_bytes(review)==canonical_json_bytes(expected),'POLICY_BINDING')
         _deny(type(after['last_now']) is int and (before['last_now'] is None
             or after['last_now']>=before['last_now']),'CLOCK_UNSAFE')
-        policy={'schema':'aioa.governor.money-policy.v2','limits':review['limits'],
+        policy={'schema':review['schema'].replace('money-review','money-policy'),'limits':review['limits'],
             'request_id':review['request_id'],'review_digest':review['review_digest']}
         unchanged=_plain(before)
         unchanged.update(money_policy=policy,epoch=before['epoch']+1,version=before['version']+1,last_now=after['last_now'])
@@ -347,7 +350,7 @@ commit or refund it. A lost marker ACK never gives send permission on replay.
             _deny(canonical_json_bytes(review)==canonical_json_bytes(expected),'POLICY_BINDING')
             _deny(before['last_now'] is None or now>=before['last_now'],'CLOCK_UNSAFE')
             state=_plain(before)
-            state.update(epoch=before['epoch']+1,money_policy={'schema':'aioa.governor.money-policy.v2',
+            state.update(epoch=before['epoch']+1,money_policy={'schema':review['schema'].replace('money-review','money-policy'),
                 'limits':review['limits'],'request_id':review['request_id'],'review_digest':review['review_digest']})
             self._budgets(state)
             if authority_check is not None:authority_check()

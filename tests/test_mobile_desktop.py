@@ -23,6 +23,29 @@ class DesktopTests(unittest.TestCase):
         result=self.module().prepare_console(Path('/unused'),('a'*40,'b'*64),client=client)
         self.assertEqual('https://host.invalid/devices',result['url'])
         self.assertEqual(['operator_auth_status','console'],[v['op'] for v in calls])
+
+    def test_explicit_direct_chat_preference_starts_once_without_password_or_prompt(self):
+        calls=[]
+        def client(root,value):
+            calls.append(value)
+            return {'ok':True,'data':{'state':'INACTIVE' if value['op']=='chat_session_status' else 'ACTIVE'}}
+        self.module().prepare_chat_session(Path('/unused'),client=client)
+        self.assertEqual(['chat_session_status','chat_session_start'],[v['op'] for v in calls])
+        self.assertIsNone(calls[-1]['local_money_limit_usd'])
+        self.assertNotIn('prompt',calls[-1])
+
+    def test_active_direct_chat_session_is_reused_and_unknown_start_is_not_retried(self):
+        client=Mock(return_value={'ok':True,'data':{'state':'ACTIVE'}})
+        self.module().prepare_chat_session(Path('/unused'),client=client)
+        self.assertEqual(1,client.call_count)
+        client=Mock(side_effect=[{'ok':True,'data':{'state':'INACTIVE'}},TimeoutError()])
+        with self.assertRaises(TimeoutError):self.module().prepare_chat_session(Path('/unused'),client=client)
+        self.assertEqual(2,client.call_count)
+
+    def test_direct_chat_launcher_is_an_explicit_opt_in(self):
+        module=self.module()
+        self.assertNotIn('--mobile-chat-direct',module.launcher_files('/checkout','/state',origin='https://host.invalid')['aioa-mission-control'])
+        self.assertIn('--mobile-chat-direct',module.launcher_files('/checkout','/state',origin='https://host.invalid',direct_chat=True)['aioa-mission-control'])
     def test_expired_host_requires_native_renewal_with_exact_binding(self):
         calls=[]
         def client(root,value):
@@ -76,10 +99,14 @@ class DesktopTests(unittest.TestCase):
         module=self.module()
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp)/'checkout with spaces';root.mkdir()
-            files=module.launcher_files(root,Path(tmp)/'private state')
+            files=module.launcher_files(root,Path(tmp)/'private state',origin='https://owner.example.org',
+                python_executable='/reviewed venv/bin/python')
             self.assertEqual({'aioa-mission-control','aioa-mission-control.desktop'},set(files))
             self.assertIn("'"+str(root)+"'",files['aioa-mission-control'])
             self.assertIn('--mobile-operator desktop',files['aioa-mission-control'])
+            self.assertIn('--mobile-origin https://owner.example.org',files['aioa-mission-control'])
+            self.assertIn("'/reviewed venv/bin/python'",files['aioa-mission-control'])
+            self.assertNotIn('tail8c781e',files['aioa-mission-control'])
             self.assertIn('AIOA spArkHAT — White Hole Mission Control',files['aioa-mission-control.desktop'])
             self.assertNotIn('sudo',str(files));self.assertNotIn('MODEL_API_KEY',str(files))
 

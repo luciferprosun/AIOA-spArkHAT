@@ -35,6 +35,21 @@ def prepare_console(root,source,*,client=None):
     return result['data']
 
 
+def prepare_chat_session(root,*,client=None):
+    """Explicit owner-configured direct chat; no message or provider call."""
+    from runtime.webapp import mobile_operator_client
+    client=client or mobile_operator_client
+    result=client(root,{'op':'chat_session_status'})
+    if result.get('ok') is not True:raise ValueError('CHAT_SESSION_READBACK_REQUIRED')
+    state=result.get('data',{}).get('state')
+    if state=='ACTIVE':return result['data']
+    if state!='INACTIVE':raise ValueError('CHAT_SESSION_READBACK_REQUIRED')
+    result=client(root,{'op':'chat_session_start','request_id':secrets.token_hex(16),'local_money_limit_usd':None})
+    if result.get('ok') is not True or result.get('data',{}).get('state')!='ACTIVE':
+        raise ValueError('CHAT_SESSION_START_UNKNOWN_NO_AUTOMATIC_RETRY')
+    return result['data']
+
+
 def _private_root(root):
     root=Path(root).absolute();info=root.lstat()
     if (root.resolve()!=root or not stat.S_ISDIR(info.st_mode)
@@ -140,16 +155,22 @@ def open_desktop(args):
             else:raise ValueError('NATIVE_START_UNKNOWN_NO_AUTOMATIC_RETRY')
             data=prepare_console(root,source)
         finally:os.close(lock)
+    if getattr(args,'mobile_chat_direct',False):prepare_chat_session(root)
     _open_mobile_console(data)
 
 
-def launcher_files(checkout,state_dir):
+def launcher_files(checkout,state_dir,*,origin,direct_chat=False,python_executable=None):
     """Reviewable per-user templates; this function installs nothing."""
+    from runtime.mobile_gateway.wire import origin as validate_origin
+    validate_origin(origin)
     root=Path(checkout).absolute();state=Path(state_dir).absolute()
-    command=['/usr/bin/python3','-B','-m','runtime.webapp','--mobile-operator','desktop','--state-dir',str(state),
-        '--mobile-origin','https://l-1.tail8c781e.ts.net','--mobile-chat',
+    interpreter=str(Path(python_executable or sys.executable).absolute())
+    command=[interpreter,'-B','-m','runtime.webapp','--mobile-operator','desktop','--state-dir',str(state),
+        '--mobile-origin',origin,'--mobile-chat',
         '--mobile-tls-certificate',str(state/'tls/host.crt'),'--mobile-tls-key',str(state/'tls/host.key'),
         '--host','127.0.0.1','--port','4317']
+    if type(direct_chat) is not bool:raise ValueError('DIRECT_CHAT_PREFERENCE_REQUIRED')
+    if direct_chat:command.append('--mobile-chat-direct')
     script='#!/bin/sh\n# AIOA verified-checkout desktop launcher v1\nset -eu\ncd -- '+shlex.quote(str(root))+'\nexec '+shlex.join(command)+'\n'
     wrapper=Path.home()/'.local/bin/aioa-mission-control'
     icon=root/'web/white-hole.svg'
