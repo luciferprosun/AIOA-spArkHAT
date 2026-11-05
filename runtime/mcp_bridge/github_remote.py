@@ -87,7 +87,7 @@ class InstallationCredential:
 
     def evidence(self):
         return {'schema':'aioa.github-scoped-credential.v1','mode':self.mode,
-            'installation_id':self.installation_id,'repository_id':DEMO_REPOSITORY_ID,
+            'installation_id':self.installation_id,'repository_id':DEMO_REPOSITORY_ID,'repository':DEMO_REPOSITORY,
             'permissions':dict(PERMISSIONS),'expires_at':self.expires_at,
             'scope_readback_sha256':self.proof_digest,'credential_disclosed':False}
 
@@ -183,7 +183,7 @@ class GitHubCreateOnly:
         self.plan,self.base,self.credential,self.mode=plan,base,credential,mode
         self.tree=base.add_files(plan.files);self.commit_sha=plan.commit_sha_for_tree(self.tree.sha)
         self._transport,self.clock=transport,clock
-        self._attempted=set()
+        self._attempted=set();self.request_count=0
         self.pull_query=PREFIX+'/pulls?head=luciferprosun%3Aaioa%2Fmuse-'+plan.operation_id+'&base=main&state=all&per_page=2'
 
     def _call(self,method,path,payload,*,check,cancel,deadline,absent=False):
@@ -199,10 +199,18 @@ class GitHubCreateOnly:
             'GITHUB_ENDPOINT_DENIED')
         check();cancel.check(deadline)
         require(self.credential is None or int(self.clock())<self.credential.expires_at,'GITHUB_CREDENTIAL_EXPIRED')
+        require(self.request_count<self.plan.payload()['api_request_limit'],'GITHUB_API_BUDGET_EXHAUSTED')
+        self.request_count+=1
         transport=self._transport if self.mode=='OFFLINE_FIXTURE' else _https_once
         try:
             status,raw=transport(method,path,payload,self.credential.bearer if self.credential else None,
                 cancel,min(15,deadline-time.monotonic()))
+        except Exception:
+            raise ValueError('GITHUB_WRITE_UNKNOWN_NO_RETRY' if method=='POST' else 'GITHUB_GET_UNVERIFIED') from None
+        if status in (401,403,429):
+            if method=='POST':raise ValueError('GITHUB_WRITE_UNKNOWN_HTTP_'+str(status)+'_NO_RETRY')
+            raise ValueError({401:'GITHUB_AUTHENTICATION_401',403:'GITHUB_PERMISSION_403',429:'GITHUB_RATE_LIMIT_429'}[status])
+        try:
             if absent and method=='GET' and status==404:return None
             require(status==(201 if method=='POST' else 200),'GITHUB_HTTP_STATUS_UNCONFIRMED')
             # Reuse the existing bounded duplicate-key/number/depth decoder.
@@ -280,6 +288,7 @@ class GitHubCreateOnly:
         self._repo(**args)
         result={'schema':'aioa.github-write-readback.v1','mode':self.mode,'live_verified':False,
             'state':'UNRESOLVED','remote_effect_verified':False,'automatic_retry':False,
+            'api_request_limit':self.plan.payload()['api_request_limit'],'write_retry_limit':0,
             'repository':DEMO_REPOSITORY,'repository_id':DEMO_REPOSITORY_ID,'plan_digest':self.plan.digest,
             'branch':self.plan.branch,'expected_commit_sha':self.commit_sha,'commit_sha':None,'pr_url':None}
         ref=self._call('GET',PREFIX+'/git/ref/heads/'+self.plan.branch,None,absent=True,**args)
@@ -330,3 +339,34 @@ class GitHubCreateOnly:
             live_verified=self.mode in ('LIVE','PUBLIC_READ_ONLY'),pr_url=url,pr_number=number,
             pr_get_sha256=sha256(canonical(pull)))
         return result
+
+
+def read_demo_base(*,check,cancel,mode='LIVE',transport=None):
+    """Fixed public GETs for a proposal; no credential is minted or loaded."""
+    require(mode in ('LIVE','OFFLINE_FIXTURE') and callable(check)
+        and (transport is None if mode=='LIVE' else callable(transport)),'GITHUB_READ_CONFIGURATION_DENIED')
+    deadline=time.monotonic()+40
+    port=_https_once if mode=='LIVE' else transport
+    def get(path):
+        check();cancel.check(deadline)
+        try:
+            status,raw=port('GET',path,None,None,cancel,min(10,deadline-time.monotonic()))
+            require(status==200,'GITHUB_BASE_READ_UNVERIFIED')
+            value=strict_json(raw,limit=RESPONSE_LIMIT);cancel.check(deadline)
+            return value
+        except Exception:raise ValueError('GITHUB_BASE_READ_UNVERIFIED') from None
+    repo=get(PREFIX)
+    require(repo.get('id')==DEMO_REPOSITORY_ID and repo.get('full_name')==DEMO_REPOSITORY
+        and repo.get('default_branch')=='main' and repo.get('private') is False
+        and repo.get('archived') is False and repo.get('disabled') is False,'GITHUB_REPOSITORY_READBACK_MISMATCH')
+    ref=get(PREFIX+'/git/ref/heads/main');obj=ref.get('object')
+    require(ref.get('ref')=='refs/heads/main' and type(obj) is dict and obj.get('type')=='commit'
+        and type(obj.get('sha')) is str and re.fullmatch('[a-f0-9]{40}',obj['sha']),'GITHUB_BASE_READ_UNVERIFIED')
+    commit=get(PREFIX+'/git/commits/'+obj['sha']);tree=commit.get('tree')
+    require(commit.get('sha')==obj['sha'] and type(tree) is dict and type(tree.get('sha')) is str
+        and re.fullmatch('[a-f0-9]{40}',tree['sha']),'GITHUB_BASE_READ_UNVERIFIED')
+    snapshot=GitTreeSnapshot.from_github(get(PREFIX+'/git/trees/'+tree['sha']+'?recursive=1'),expected_sha=tree['sha'])
+    require(not any(p.startswith('.github/workflows/') for p in snapshot.entries),
+        'GITHUB_EXISTING_WORKFLOWS_REVIEW_REQUIRED')
+    check()
+    return obj['sha'],snapshot

@@ -70,6 +70,7 @@ SOURCE_FILES += ('runtime/mcp_bridge/adapter.py','runtime/mcp_bridge/policy.py',
 SOURCE_FILES += ('runtime/meta_hackathon/web_agent.py','web/agent_mission.js',
         'clients/android/ANDROID_BUILD_INPUT_MANIFEST.json')
 SOURCE_FILES += ('web/mobile_devices.js','web/mobile_devices_dom.js','web/qr.js')
+SOURCE_FILES += ('runtime/mcp_bridge/github_remote.py','runtime/meta_hackathon/github_write.py')
 SOURCE_FILES += tuple('clients/android/app/src/main/java/eu/sparkhat/aioa/companion/'+name
         for name in ('PairingProtocol.kt','TrustedHostStore.kt','CosmicScreen.kt',
                      'PairingProblem.kt','SessionRecovery.kt','RecoveryNetworkMonitor.kt'))
@@ -546,6 +547,9 @@ class NativeMobileComposition:
         if value=={'op':'operator_auth_status'}:return self.operator_auth_status()
         if op=='operator_renew':return self.renew_operator(value,invalidate_console)
         owner=self.operator_principal()
+        if op.startswith('github_'):
+            from .github_write import dispatch
+            return dispatch(self,owner,value)
         if op in ('budget_review','budget_approve'):
             from runtime.mobile_gateway.operator_chat import budget_dispatch
             return budget_dispatch(self,owner,value)

@@ -263,7 +263,8 @@ class RemoteGitPlan:
             'operation':'code.commit_draft_pr','operation_id':self.operation_id,'issued_at':self.issued_at,
             'commit_identity':self.commit_payload(self.base_tree_sha)['author'],'base_ref':'main','base_sha':self.base_sha,
             'base_tree_sha':self.base_tree_sha,'branch':self.branch,'commit_message':self.message,
-            'pr_title':self.title,'pr_body':self.body,'draft':True,'force':False,'merge':False,
+            'pr_title':self.title,'pr_body':self.body,'draft':True,'maintainer_can_modify':False,'force':False,'merge':False,
+            'api_request_limit':48,'write_retry_limit':0,
             'files':{p:data.decode() for p,data in self.files.items()},'manifest':self.manifest(),
             'diff_sha256':sha256(self.diff_bytes()),'source_sha':self.source_sha,'capsule_digest':self.capsule_digest,
             'source_reply_sha256':self.source_reply_sha256,'source_receipt_sha256':self.source_receipt_sha256}
@@ -392,6 +393,18 @@ class CoreRemoteGitRoute:
             'GITHUB_REGISTERED_EXECUTOR_REQUIRED')
         return api
 
+    def record_credential_scope(self,principal,warrant,operation,api):
+        from runtime.core_admission import Capability
+        evidence=api.credential.evidence()
+        def save(tx):
+            self.validate(tx,warrant,operation,consumed=True)
+            _,intent=self.journal._load(tx,warrant)
+            core_require(intent is not None and intent['resolution'] is None,'GITHUB_INTENT_REQUIRED')
+            self._save(tx,'github-auth-'+self.plan.operation_id,{
+                'state':'GITHUB_SCOPE_VERIFIED','warrant_digest':warrant.digest(),
+                'operation_hash':warrant.operation_hash,'evidence':evidence})
+        self.journal._run(principal,Capability.COMMIT,save)
+
     def result(self,principal):
         from runtime.core_admission import Capability
         from runtime.memory_patch.contracts.serialization import canonical_json_bytes
@@ -422,14 +435,25 @@ class CoreRemoteGitRoute:
             'state':'CODE_COMMITTED_AND_DRAFT_PR_CREATED' if self.mode=='LIVE' and terminal else
                 'OFFLINE_PROTOCOL_VERIFIED' if terminal else 'UNKNOWN',
             'readback_sha256':canonical_sha256(observation),'automatic_retry':False}
-        result={'observation':observation,'receipt':receipt,'signature':self.identity.sign(receipt),
-                'receipt_sha256':sha256(wire_canonical(receipt))}
+        scope_key='github-auth-'+self.plan.operation_id
+        scope=self.journal._run(principal,Capability.COMMIT,lambda tx:tx.get(RecordKind.OPERATION,scope_key))
+        from runtime.memory_patch.contracts.serialization import canonical_json_bytes
+        if terminal:
+            core_require(scope is not None and scope.payload['warrant_digest']==warrant.digest()
+                and scope.payload['operation_hash']==warrant.operation_hash,'GITHUB_SCOPE_PROVENANCE_REQUIRED')
+        signed={**receipt,'credential_scope':json.loads(canonical_json_bytes(scope.payload['evidence'])) if scope else None}
+        # Signing randomness stays outside the retryable transaction callback.
+        result={'observation':observation,'receipt':signed,'signature':self.identity.sign(signed),
+                'receipt_sha256':sha256(wire_canonical(signed))}
         def save(tx):
             _,intent=self.journal._load(tx,warrant)
             core_require(intent is not None and intent['operation']['payload']['plan_digest']==self.plan.digest,
                 'GITHUB_INTENT_REQUIRED')
             if intent['resolution'] is not None:return self.journal._public(intent)
             if not historical:self.validate(tx,warrant,intent['operation'],consumed=True)
+            current_scope=tx.get(RecordKind.OPERATION,scope_key)
+            core_require((current_scope.payload_digest if current_scope else None)==
+                (scope.payload_digest if scope else None),'GITHUB_SCOPE_PROVENANCE_CHANGED')
             if terminal:
                 for step in ('tree','commit','branch','draft_pr'):
                     key='github-step-'+self.plan.operation_id+'-'+step
@@ -437,7 +461,6 @@ class CoreRemoteGitRoute:
                     core_require(row is not None and row.payload.get('warrant_digest')==warrant.digest()
                         and row.payload.get('operation_hash')==warrant.operation_hash,
                         'GITHUB_AIOA_DISPATCH_PROVENANCE_REQUIRED')
-                    from runtime.memory_patch.contracts.serialization import canonical_json_bytes
                     data=json.loads(canonical_json_bytes(row.payload))
                     self._save(tx,key,{**data,'state':'GITHUB_STEP_VERIFIED',
                         'readback_sha256':canonical_sha256(observation)})

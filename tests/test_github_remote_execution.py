@@ -68,7 +68,8 @@ class RemoteExecutionTests(unittest.TestCase):
                 result={**p,'sha':self.commit,'tree':{'sha':self.tree.sha},'parents':[{'sha':self.plan.base_sha}]}
             elif path==PREFIX+'/git/trees/'+self.tree.sha+'?recursive=1':result=self.tree_value(self.tree)
             elif path.startswith(PREFIX+'/git/blobs/'):
-                data=b'CHANGED\n' if self.bad_blob else self.plan.files['agent-demo/proposal.py']
+                data=b'CHANGED\n' if self.bad_blob else next(data for data in self.plan.files.values()
+                    if git_object('blob',data)==path.rsplit('/',1)[1])
                 result={'sha':path.rsplit('/',1)[1],'size':len(data),'encoding':'base64','content':base64.b64encode(data).decode()}
             elif path.startswith(PREFIX+'/pulls?'):result=[self.pull()] if PREFIX+'/pulls' in self.objects else []
             elif path==PREFIX+'/pulls/1':result=self.pull()
@@ -93,6 +94,44 @@ class RemoteExecutionTests(unittest.TestCase):
         posts=sum(m=='POST' for m,_,_ in self.calls)
         with self.assertRaises(ValueError):self.execute(self.api())
         self.assertEqual(posts,sum(m=='POST' for m,_,_ in self.calls))
+
+    def test_api_budget_and_expired_credentials_stop_before_network(self):
+        from dataclasses import replace
+        api=self.api();api.request_count=48
+        with self.assertRaisesRegex(ValueError,'GITHUB_API_BUDGET_EXHAUSTED'):
+            api.readback(check=self.check,cancel=self.cancel)
+        self.assertEqual([],self.calls)
+        self.credential=replace(self.credential,expires_at=int(time.time())-1)
+        with self.assertRaisesRegex(ValueError,'GITHUB_CREDENTIAL_EXPIRED'):
+            self.execute(self.api())
+        self.assertEqual([],self.calls)
+
+    def test_authentication_and_permission_errors_never_retry_or_disclose_body(self):
+        from runtime.mcp_bridge.github_remote import GitHubCreateOnly
+        for status,code in ((401,'GITHUB_AUTHENTICATION_401'),(403,'GITHUB_PERMISSION_403'),(429,'GITHUB_RATE_LIMIT_429')):
+            calls=[]
+            def denied(*args):calls.append(args[0]);return status,b'SECRET_UNTRUSTED_BODY'
+            api=GitHubCreateOnly(self.plan,self.base,self.credential,mode='OFFLINE_FIXTURE',transport=denied)
+            with self.assertRaisesRegex(ValueError,code) as found:self.execute(api)
+            self.assertEqual(['GET'],calls);self.assertNotIn('SECRET',str(found.exception))
+
+    def test_public_base_read_uses_four_gets_and_rejects_scope_or_incomplete_tree(self):
+        from runtime.mcp_bridge.github_remote import read_demo_base
+        repo={'id':1445911975,'full_name':DEMO_REPOSITORY,'default_branch':'main','private':False,'archived':False,'disabled':False}
+        replies={PREFIX:repo,PREFIX+'/git/ref/heads/main':{'ref':'refs/heads/main','object':{'type':'commit','sha':self.plan.base_sha}},
+            PREFIX+'/git/commits/'+self.plan.base_sha:{'sha':self.plan.base_sha,'tree':{'sha':self.base.sha}},
+            PREFIX+'/git/trees/'+self.base.sha+'?recursive=1':self.tree_value(self.base)}
+        calls=[]
+        def read(method,path,body,bearer,cancel,timeout):
+            self.assertEqual('GET',method);self.assertIsNone(body);self.assertIsNone(bearer)
+            calls.append(path);return 200,json.dumps(replies[path]).encode()
+        def run():return read_demo_base(check=self.check,cancel=self.cancel,mode='OFFLINE_FIXTURE',transport=read)
+        self.assertEqual((self.plan.base_sha,self.base),run());self.assertEqual(4,len(calls))
+        repo['id']=1
+        with self.assertRaisesRegex(ValueError,'GITHUB_REPOSITORY_READBACK_MISMATCH'):run()
+        repo['id']=1445911975
+        replies[PREFIX+'/git/trees/'+self.base.sha+'?recursive=1']['truncated']=True
+        with self.assertRaises(ValueError):run()
 
     def test_lost_ack_stops_sequence_and_recovery_performs_only_get(self):
         for endpoint in ('/git/trees','/git/commits','/git/refs','/pulls'):

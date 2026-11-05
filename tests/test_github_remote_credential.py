@@ -76,5 +76,12 @@ class GitHubCredentialTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'^GITHUB_CREDENTIAL_UNKNOWN_NO_RETRY$'):self.mint()
         self.assertEqual(1,len(self.calls))
 
+    def test_each_operation_mints_a_fresh_short_lived_token_without_cached_secret(self):
+        first=self.mint();self.now+=3601
+        second=self.mint()
+        self.assertGreater(second.expires_at,first.expires_at)
+        self.assertEqual(2,sum(method=='POST' for method,_,_,_ in self.calls))
+        self.assertNotIn('bearer',second.evidence());self.assertNotIn('token',vars(self.provider()))
+
 
 if __name__=='__main__':unittest.main()
