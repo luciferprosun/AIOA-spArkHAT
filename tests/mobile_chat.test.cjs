@@ -1,5 +1,34 @@
 const test=require('node:test');const assert=require('node:assert/strict');const fs=require('node:fs');
 const path=require('node:path').join(__dirname,'../web/mobile_chat.js');const api=fs.existsSync(path)?require(path):{};
+test('successful current background read clears a transient banner without resending',async()=>{
+  let failure=false;const calls=[];
+  const client=api.createChat(async value=>{
+    calls.push(value.op);if(failure)throw Error('UNKNOWN_READBACK_REQUIRED');
+    return value.op==='chat_catalog'?{chat:true,model_id:'muse-spark-1.3',mode:'LIVE_OWNER_SESSION'}:{threads:[]};
+  });
+  await client.refresh();failure=true;
+  await assert.rejects(client.refresh({background:true}),/UNKNOWN_READBACK_REQUIRED/);
+  failure=false;await client.refresh({background:true});
+  assert.equal(client.snapshot().error,null);
+  assert.equal(client.snapshot().catalog.mode,'LIVE_OWNER_SESSION');
+  assert.ok(calls.every(op=>['chat_catalog','chat_threads'].includes(op)));
+});
+test('recovered background read retains authoritative UNKNOWN and its send barrier',async()=>{
+  let failure=false;
+  const message={schema:'aioa.mobile.chat-result.v1',request_id:'a'.repeat(32),thread_id:'b'.repeat(32),
+    provider_id:'meta_model_api',model_id:'muse-spark-1.3',save_knowledge:false,state:'UNKNOWN'};
+  const client=api.createChat(async value=>{
+    if(failure)throw Error('UNKNOWN_READBACK_REQUIRED');
+    if(value.op==='chat_catalog')return {chat:true,model_id:'muse-spark-1.3'};
+    if(value.op==='chat_threads')return {threads:[{thread_id:message.thread_id}]};
+    if(value.op==='chat_thread')return {schema:'aioa.mobile.chat-thread.v1',thread_id:message.thread_id,messages:[message]};
+    assert.fail('recovery cannot send');
+  });
+  await client.refresh();failure=true;await assert.rejects(client.refresh({background:true}));
+  failure=false;await client.refresh({background:true});
+  assert.equal(client.snapshot().error,null);assert.equal(client.snapshot().pending,message.request_id);
+  await assert.rejects(client.send('do not repeat'),/CHAT_READBACK_ONLY/);
+});
 test('verified partial response permits a new explicit message without retrying the first',async()=>{
   let count=0,serial=0,current;
   const chat=api.createChat(async v=>{

@@ -48,7 +48,7 @@ def chat_read_context(host,request_id):
 
 
 def registry(host):
-    host.operator_principal()
+    owner=host.operator_principal()
     from runtime.critical_loop.preset import build_native_cpl_preview
     memory=host.runtime.memory_patch_status()
     unknown = 0
@@ -71,9 +71,15 @@ def registry(host):
                       data_sha256=last['data_sha256'])
     from .github_write import authorization
     github_auth=authorization(host)
+    chat={'status':'BLOCKED_PROFILE','enabled':False,'provider':'meta_model_api','model':'muse-spark-1.3'}
+    if host.chat_enabled:
+        from runtime.mobile_gateway.operator_chat import dispatch as chat_dispatch
+        catalog=chat_dispatch(host,owner,{'op':'chat_catalog'})
+        chat.update(status=catalog['blocking_reason'] or ('LIVE_OWNER_SESSION'
+            if catalog['session']['state']=='ACTIVE' else 'OWNER_APPROVAL_REQUIRED'),
+            enabled=catalog['chat'],mode=catalog['mode'],session=catalog['session'])
     return {
-        'chat': {'status': 'OWNER_APPROVAL_REQUIRED' if host.chat_enabled else 'BLOCKED_PROFILE',
-                 'enabled': host.chat_enabled, 'provider': 'meta_model_api', 'model': 'muse-spark-1.3'},
+        'chat': chat,
         'github_read': github,
         'github_write': {'status': 'BLOCKED_OWNER_LIABILITY_UNKNOWN' if unknown else
                          'BLOCKED_EXTERNAL' if not github_auth['configured'] else 'EXACT_OWNER_APPROVAL_REQUIRED',

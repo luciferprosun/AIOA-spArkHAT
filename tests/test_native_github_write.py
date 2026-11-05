@@ -18,7 +18,7 @@ class NativeGitHubWriteTests(unittest.TestCase):
     tearDown=pairing.PairingTests.tearDown
     start=chat_fixture.NativeChatTests.start
 
-    def proposal(self):
+    def proposal(self,read_error=None):
         raw=json.dumps({'schema':'aioa.muse.github-change.v1','operation':'code.commit_draft_pr',
             'target_repo':DEMO_REPOSITORY,'title':'Add reviewed contract','body':'Proposed code; tests not run.',
             'files':{'agent-demo/contracts.py':'VALUE = 1\n'}})
@@ -28,8 +28,48 @@ class NativeGitHubWriteTests(unittest.TestCase):
         self.message=message
         base=GitTreeSnapshot(git_object('tree',b''),{})
         with patch.object(self.app.missions,'chat_request',return_value=message),\
-                patch('runtime.mcp_bridge.github_remote.read_demo_base',return_value=('c'*40,base)):
+                patch('runtime.mcp_bridge.github_remote.read_demo_base',return_value=('c'*40,base),side_effect=read_error):
             return self.app.operator_request(os.getuid(),{'op':'tool_proposal','request_id':'d'*32,'chat_request_id':'a'*32})
+
+    def test_failed_preflight_is_terminal_sanitized_and_cannot_retry_or_approve(self):
+        result=self.proposal(ValueError('Authorization: Bearer SYNTHETIC_DO_NOT_ECHO'))
+        self.assertEqual('GITHUB_PROPOSAL_FAILED',result['status'])
+        self.assertEqual('GITHUB_PROPOSAL_READ_FAILED',result['error'])
+        self.assertNotIn('SYNTHETIC_DO_NOT_ECHO',json.dumps(result))
+        self.assertFalse(result['approval_available']);self.assertFalse(result['readback_available'])
+        wire.verify(self.app.identity.spki,result['signature'],{k:v for k,v in result.items() if k!='signature'})
+        with patch.object(self.app.missions,'chat_request',return_value=self.message),\
+                patch('runtime.mcp_bridge.github_remote.read_demo_base') as read,\
+                patch('runtime.mcp_bridge.github_remote.GitHubAppCredentialSource.mint') as mint:
+            for identity in ('d'*32,'e'*32):
+                repeated=self.app.operator_request(os.getuid(),{'op':'tool_proposal','request_id':identity,'chat_request_id':'a'*32})
+                self.assertEqual(result['operation_id'],repeated['operation_id'])
+                self.assertEqual('GITHUB_PROPOSAL_FAILED',repeated['status'])
+            with self.assertRaises(wire.MobileError):self.app.operator_request(os.getuid(),{
+                'op':'github_write_approve','operation_id':'d'*32,'review_digest':'0'*64})
+            history=self.app.operator_request(os.getuid(),{'op':'github_write_list'})
+            self.assertEqual('GITHUB_PROPOSAL_FAILED',history['operations'][0]['status'])
+            read.assert_not_called();mint.assert_not_called()
+
+    def test_model_plan_failure_cannot_leave_an_approvable_or_running_proposal(self):
+        with patch('runtime.mission.git_publish.RemoteGitPlan.from_model',side_effect=ValueError('GIT_REMOTE_PLAN_INVALID')):
+            result=self.proposal()
+        self.assertEqual('GITHUB_PROPOSAL_FAILED',result['status'])
+        self.assertEqual('GIT_REMOTE_PLAN_INVALID',result['error'])
+        self.assertFalse(result['execution_authorized']);self.assertNotIn('review',result)
+
+    def test_interrupted_preflight_read_is_projected_without_network_or_new_authority(self):
+        from runtime.meta_hackathon import github_write
+        from runtime.mobile_gateway.service import plain
+        self.proposal();data=plain(self.app.mobile._get('native-github-'+'d'*32).payload)
+        for key in ('schema','plan','base_entries','operation','review_digest','policy_decision'):data.pop(key,None)
+        github_write._save(self.app,'d'*32,{**data,'state':'GITHUB_PROPOSAL_READING','expires_at':int(time.time())-1})
+        with patch('runtime.mcp_bridge.github_remote._https_once') as network:
+            result=self.app.operator_request(os.getuid(),{'op':'github_write_status','operation_id':'d'*32})
+        self.assertEqual('GITHUB_PROPOSAL_FAILED',result['status'])
+        self.assertEqual('GITHUB_PROPOSAL_INTERRUPTED',result['error'])
+        self.assertFalse(result['approval_available']);self.assertFalse(result['readback_available'])
+        network.assert_not_called()
 
     def test_model_file_proposal_is_signed_exact_and_grants_no_authority(self):
         result=self.proposal()

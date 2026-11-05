@@ -77,6 +77,19 @@ class NativeChatSessionTests(unittest.TestCase):
         self.assertEqual(format(req.estimate(),'f'),req.budget_usd)
         self.assertTrue(second['live_verified']);self.assertFalse(second['save_knowledge'])
 
+    def test_overview_projects_the_same_active_and_stopped_session_as_chat(self):
+        self.begin()
+        with patch('runtime.providers.meta_model_api._https_once') as http:
+            active=self.owner('status')['components']['chat']
+            self.assertEqual('LIVE_OWNER_SESSION',active['status'])
+            self.assertTrue(active['enabled'])
+            self.owner('chat_session_stop')
+            stopped=self.owner('status')['components']['chat']
+            self.assertEqual('CHAT_SESSION_REQUIRED',stopped['status'])
+            self.assertFalse(stopped['enabled'])
+            self.assertEqual('INACTIVE',stopped['session']['state'])
+            http.assert_not_called()
+
     def test_successful_conversation_does_not_open_the_failure_circuit_after_three_messages(self):
         self.begin()
         with patch('runtime.providers.meta_model_api._https_once',return_value=self.response()) as http:

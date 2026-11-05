@@ -69,14 +69,22 @@ def _worker_active(host,operation_id):
     return worker is not None and worker.is_alive()
 
 
+def _preflight_interrupted(host,data):
+    return data['state']=='GITHUB_PROPOSAL_READING' and (
+        time.time()>=data['expires_at'] or data.get('stop_requested') is True
+        or host.instance_id!=data['core_instance_id']
+        or host.source!=(data['source_sha'],data['capsule_digest']))
+
+
 def history(host):
     host._require_qualified_operator()
-    states=('GITHUB_PROPOSAL_READING','GITHUB_PROPOSED','GITHUB_APPROVAL_PENDING',
+    states=('GITHUB_PROPOSAL_READING','GITHUB_PROPOSAL_FAILED','GITHUB_PROPOSED','GITHUB_APPROVAL_PENDING',
         'GITHUB_APPROVED','GITHUB_RUNNING','GITHUB_RECONCILING','GITHUB_UNKNOWN','GITHUB_VERIFIED')
     rows=host.mobile._run(Capability.READ,lambda tx:tx.scan(RecordKind.OPERATION,limit=1024,states=states))
     rows=[r.payload for r in rows if r.payload.get('core_instance_id') and r.payload.get('source_chat_request_id')]
     rows.sort(key=lambda p:p['created_at'],reverse=True)
-    return {'operations':[{'operation_id':p['operation_id'],'status':p['state'],'created_at':p['created_at'],
+    return {'operations':[{'operation_id':p['operation_id'],
+        'status':'GITHUB_PROPOSAL_FAILED' if _preflight_interrupted(host,p) else p['state'],'created_at':p['created_at'],
         'mode':'APPROVED WRITE' if p.get('warrant') else 'PROPOSE'} for p in rows[:20]],
         'history_truncated':len(rows)>20,'authorization':authorization(host),'blockers':blockers(host),
         'automatic_retry':False}
@@ -153,16 +161,26 @@ def propose(host,value,message):
         return operation_id,True
     bound,first=host.mobile._run(Capability.COMMIT,reserve)
     if not first:return view(host,bound)
-    base_sha,base=github_remote.read_demo_base(check=host._require_qualified_operator,cancel=CancellationToken())
-    plan=RemoteGitPlan.from_model(message['reply'].encode(),operation_id=operation_id,issued_at=now,
-        base_sha=base_sha,base_tree_sha=base.sha,source_sha=host.source[0],capsule_digest=host.source[1],
-        source_reply_sha256=message['receipt']['response_sha256'],source_receipt_sha256=canonical_sha256(message['receipt']))
-    data={**pending,'plan':plan.payload(),'base_entries':{k:list(v) for k,v in base.entries.items()}}
-    state=host.missions._chat_governor.inspect(host.core.local_operator(Capability.READ))
-    route=_route(host,data,write=True)
-    operation=route.operation(host.instance_id,state['epoch'])
-    data.update(state='GITHUB_PROPOSED',operation=operation,review_digest=canonical_sha256(operation),
-        policy_decision={'decision':'PROPOSE_ONLY','reasons':blockers(host),'observed_at':int(time.time())})
+    try:
+        base_sha,base=github_remote.read_demo_base(check=host._require_qualified_operator,cancel=CancellationToken())
+        plan=RemoteGitPlan.from_model(message['reply'].encode(),operation_id=operation_id,issued_at=now,
+            base_sha=base_sha,base_tree_sha=base.sha,source_sha=host.source[0],capsule_digest=host.source[1],
+            source_reply_sha256=message['receipt']['response_sha256'],source_receipt_sha256=canonical_sha256(message['receipt']))
+        data={**pending,'plan':plan.payload(),'base_entries':{k:list(v) for k,v in base.entries.items()}}
+        state=host.missions._chat_governor.inspect(host.core.local_operator(Capability.READ))
+        route=_route(host,data,write=True)
+        operation=route.operation(host.instance_id,state['epoch'])
+        data.update(state='GITHUB_PROPOSED',operation=operation,review_digest=canonical_sha256(operation),
+            policy_decision={'decision':'PROPOSE_ONLY','reasons':blockers(host),'observed_at':int(time.time())})
+    except Exception as error:
+        # Only GET/validation has happened. Preserve the Muse-turn binding and
+        # record a terminal refusal; neither replay nor status may retry it.
+        code=str(error)
+        if not re.fullmatch('[A-Z][A-Z0-9_]{0,99}',code):code='GITHUB_PROPOSAL_READ_FAILED'
+        _save(host,operation_id,{**pending,'state':'GITHUB_PROPOSAL_FAILED','error':code,
+            'policy_decision':{'decision':'PROPOSE_DENIED','reasons':[code],'observed_at':int(time.time())}},
+            expected={'GITHUB_PROPOSAL_READING'})
+        return view(host,operation_id)
     host._require_qualified_operator()
     _save(host,operation_id,data,expected={'GITHUB_PROPOSAL_READING'})
     return view(host,operation_id)
@@ -173,6 +191,7 @@ def view(host,operation_id):
     if row is None:return {'status':'NOT_FOUND','operation_id':operation_id,'execution_authorized':False,'automatic_retry':False}
     data=plain(row.payload);data.pop('schema',None)
     result={'status':data['state'],'operation_id':operation_id,'execution_authorized':False,
+        'approval_available':False,'readback_available':False,
         'automatic_retry':False,'authorization':authorization(host),'blockers':blockers(host),
         'proposal':{'operation':'code.commit_draft_pr','target_repo':DEMO_REPOSITORY,
                     'source_chat_request_id':data['source_chat_request_id']}}
@@ -196,6 +215,9 @@ def view(host,operation_id):
         if not active and data['state'] in ('GITHUB_APPROVED','GITHUB_RUNNING','GITHUB_RECONCILING'):
             result.update(status='GITHUB_UNKNOWN',readback_available=True)
     if 'error' in data:result['error']=data['error']
+    if _preflight_interrupted(host,data):
+        # Read projection only: a lost preflight ACK never grants execution.
+        result.update(status='GITHUB_PROPOSAL_FAILED',error='GITHUB_PROPOSAL_INTERRUPTED')
     if 'policy_decision' in data:result['policy_decision']=data['policy_decision']
     result['signature']=host.identity.sign(result)
     require(len(wire.canonical(result))<=wire.RESPONSE_LIMIT,'GITHUB_REVIEW_RESPONSE_LIMIT')

@@ -12,7 +12,7 @@
       const ticket=++generation;
       const check=()=>{if(ticket!==generation)throw Error('CHAT_REFRESH_SUPERSEDED');};
       if(background)refreshing=true;else {state.busy=true;state.error=null;emit();}
-      try{return await fn(check);}catch(e){
+      try{const value=await fn(check);check();state.error=null;return value;}catch(e){
         if(background && ticket!==generation)return;
         if(e.message==='LOCAL_OPERATOR_REQUIRED')state.catalog=null;
         state.error=/^[A-Z][A-Z0-9_]{1,100}$/.test(e.message)?e.message:'CHAT_READBACK_UNKNOWN';throw e;
