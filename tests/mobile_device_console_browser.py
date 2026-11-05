@@ -101,6 +101,10 @@ def worker():
             def synthetic_operation(value):
                 nonlocal reads
                 operations.append(value)
+                if value.get('op') in ('command_advice','mail_preview'):
+                    # The new pure previews use real temporary Native/Core/audit;
+                    # only the pairing registry below is a presentation fixture.
+                    return self.app.operator_request(os.getuid(),value)
                 if value=={'op':'status'}:
                     return {**self.app.public_settings(),'sessions':[],'history_truncated':False,
                         'observations':[{'proof':{'method':'GET','path':'/api/mobile/v1/status',
@@ -117,12 +121,18 @@ def worker():
             window.consoleProbeInitialURL=location.href;
             window.consoleProbeReads=0;
             window.consoleProbeStatusReads=0;
+            window.consoleProbePreviewReads=0;
             window.consoleProbeDeliveryFetches=0;
             const originalFetch=window.fetch.bind(window);
             window.fetch=async(...args)=>{
               if(String(args[0]).endsWith('/devices'))window.consoleProbeDeliveryFetches++;
               const reply=await originalFetch(...args);
-              if(args[0]==='/api/native-operator'){if(JSON.parse(args[1].body).op==='status')window.consoleProbeStatusReads++;else window.consoleProbeReads++;}
+              if(args[0]==='/api/native-operator'){
+                const op=JSON.parse(args[1].body).op;
+                if(op==='status')window.consoleProbeStatusReads++;
+                else if(['command_advice','mail_preview'].includes(op))window.consoleProbePreviewReads++;
+                else window.consoleProbeReads++;
+              }
               return reply;};
             const originalInterval=window.setInterval.bind(window);
             window.setInterval=(fn,ms,...args)=>ms===5000?(window.consoleProbePoll=fn,0):originalInterval(fn,ms,...args);
@@ -191,6 +201,22 @@ def worker():
                 window.consoleProbePoll();await wait(9);
                 result.stale_read_recovers=window.consoleProbeReads===9&&pending().every(x=>!x.disabled)&&
                   !statusButton.disabled&&document.getElementById('cosmic-trusted-count').textContent!=='—';
+                document.querySelector('[data-cosmic-target="repositories"]').click();
+                const preview=async(id,n)=>{
+                  const button=document.getElementById(id);button.click();
+                  for(let i=0;i<200&&(window.consoleProbePreviewReads<n||button.disabled);i++)await new Promise(r=>setTimeout(r,20));
+                  return JSON.parse(document.getElementById('cosmic-advisory-result').textContent);
+                };
+                document.getElementById('cosmic-command-input').value='ls /tmp&touch /tmp/not-executed';
+                let local=await preview('cosmic-command-preview',1);
+                result.command_preview_core_receipt=local.receipt.operation==='command_advice'&&
+                  local.receipt.execution_authorized===false&&local.data.classification.danger==='unknown'&&!!local.signature;
+                for(const [id,value] of [['sender','author@example.org'],['to','reviewer@example.org'],
+                    ['subject','Synthetic local preview'],['body','No mail is sent.']])document.getElementById('cosmic-mail-'+id).value=value;
+                local=await preview('cosmic-mail-preview',2);
+                result.mail_preview_core_receipt=local.receipt.operation==='mail_preview'&&
+                  local.receipt.execution_authorized===false&&local.receipt.external_calls===0&&
+                  local.data.status==='DRAFT_PREVIEW_ONLY'&&!!local.signature;
                 document.getElementById('devices-lock').click();
                 result.lock_clears_status_history=!document.getElementById('cosmic-core-settings').textContent.includes('NATIVE_STATUS_READ_ONLY_V1')&&
                   !document.getElementById('cosmic-core-observations').textContent.includes('/api/mobile/v1/status');
@@ -361,14 +387,21 @@ def worker():
             self.assertIsNotNone(found,'Browser probe did not finish')
             result=json.loads(html.unescape(found[1]))
             self.assertNotIn('error',result,result)
-            self.assertEqual(10,len(operations));self.assertEqual(9,operations.count({'op':'pairing_list'}))
+            self.assertEqual(12,len(operations));self.assertEqual(9,operations.count({'op':'pairing_list'}))
             self.assertEqual(1,operations.count({'op':'status'}))
+            from runtime.mobile_gateway import wire
+            from runtime.mobile_gateway.service import plain
+            for value in (v for v in operations if v['op'] in ('command_advice','mail_preview')):
+                saved=plain(self.app.mobile._get('native-advisory-'+value['request_id']).payload['result'])
+                wire.verify(self.app.identity.spki,saved['signature'],saved['receipt'])
+                self.assertFalse(saved['receipt']['execution_authorized'])
             self.assertEqual(dict.fromkeys(('bootstrap','background_controls_available','pending_focus','device_focus',
                 'reordered_exact_focus','changed_digest_not_focused','removed_request_not_focused',
                 'deliberate_focus_preserved','stale_read_recovers','revoked_reconnect_keeps_legacy_revoke',
                 'no_url_or_storage_credential','cosmic_navigation_read_only','local_fonts_loaded',
                 'large_text_no_outer_overflow','unknown_clears_cosmic_overview','existing_core_status_read',
-                'lock_clears_status_history','empty_lists_and_locked_controls'),True),result)
+                'lock_clears_status_history','empty_lists_and_locked_controls',
+                'command_preview_core_receipt','mail_preview_core_receipt'),True),result)
 
     suite=unittest.TestSuite([BrowserConsoleTests('test_chrome_private_launcher_bootstrap_and_exact_control_focus')])
     result=unittest.TextTestRunner(verbosity=2).run(suite)

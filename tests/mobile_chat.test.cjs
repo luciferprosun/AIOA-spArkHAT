@@ -1,5 +1,17 @@
 const test=require('node:test');const assert=require('node:assert/strict');const fs=require('node:fs');
 const path=require('node:path').join(__dirname,'../web/mobile_chat.js');const api=fs.existsSync(path)?require(path):{};
+test('superseded background success cannot clear a newer uncertain-send error',async()=>{
+  let defer=false,finish;
+  const client=api.createChat(async value=>{
+    if(value.op==='chat_catalog')return {chat:true,model_id:'muse-spark-1.3'};
+    if(value.op==='chat_threads')return defer?new Promise(resolve=>{finish=()=>resolve({threads:[]});}):{threads:[]};
+    throw Error('NETWORK_ACK_LOST');
+  },()=>{},()=> 'a'.repeat(32));
+  await client.refresh();defer=true;const background=client.refresh({background:true});
+  await new Promise(resolve=>setImmediate(resolve));await assert.rejects(client.send('one attempt'),/NETWORK_ACK_LOST/);
+  finish();await background;
+  assert.equal(client.snapshot().error,'NETWORK_ACK_LOST');assert.equal(client.snapshot().pending,'a'.repeat(32));
+});
 test('successful current background read clears a transient banner without resending',async()=>{
   let failure=false;const calls=[];
   const client=api.createChat(async value=>{

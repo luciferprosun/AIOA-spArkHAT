@@ -63,13 +63,28 @@ class NativeGitHubWriteTests(unittest.TestCase):
         from runtime.mobile_gateway.service import plain
         self.proposal();data=plain(self.app.mobile._get('native-github-'+'d'*32).payload)
         for key in ('schema','plan','base_entries','operation','review_digest','policy_decision'):data.pop(key,None)
-        github_write._save(self.app,'d'*32,{**data,'state':'GITHUB_PROPOSAL_READING','expires_at':int(time.time())-1})
         with patch('runtime.mcp_bridge.github_remote._https_once') as network:
-            result=self.app.operator_request(os.getuid(),{'op':'github_write_status','operation_id':'d'*32})
-        self.assertEqual('GITHUB_PROPOSAL_FAILED',result['status'])
-        self.assertEqual('GITHUB_PROPOSAL_INTERRUPTED',result['error'])
-        self.assertFalse(result['approval_available']);self.assertFalse(result['readback_available'])
+            for changed in ({'expires_at':int(time.time())-1},{'core_instance_id':'0'*64},
+                    {'source_sha':'0'*40},{'stop_requested':True}):
+                github_write._save(self.app,'d'*32,{**data,'state':'GITHUB_PROPOSAL_READING',**changed})
+                result=self.app.operator_request(os.getuid(),{'op':'github_write_status','operation_id':'d'*32})
+                self.assertEqual('GITHUB_PROPOSAL_FAILED',result['status'])
+                self.assertEqual('GITHUB_PROPOSAL_INTERRUPTED',result['error'])
+                self.assertFalse(result['approval_available']);self.assertFalse(result['readback_available'])
         network.assert_not_called()
+
+    def test_lost_ack_after_preflight_refusal_keeps_binding_and_never_repeats_get(self):
+        from runtime.meta_hackathon import github_write
+        from runtime.memory_patch.errors import CommitOutcomeUnknown
+        original=github_write._save
+        def lost(*args,**kwargs):original(*args,**kwargs);raise CommitOutcomeUnknown()
+        with patch.object(github_write,'_save',side_effect=lost),self.assertRaises(CommitOutcomeUnknown):
+            self.proposal(ValueError('GITHUB_READ_FAILED'))
+        with patch.object(self.app.missions,'chat_request',return_value=self.message),\
+                patch('runtime.mcp_bridge.github_remote.read_demo_base') as read:
+            result=self.app.operator_request(os.getuid(),{'op':'tool_proposal','request_id':'e'*32,'chat_request_id':'a'*32})
+        self.assertEqual('d'*32,result['operation_id']);self.assertEqual('GITHUB_PROPOSAL_FAILED',result['status'])
+        self.assertFalse(result['approval_available']);read.assert_not_called()
 
     def test_model_file_proposal_is_signed_exact_and_grants_no_authority(self):
         result=self.proposal()
