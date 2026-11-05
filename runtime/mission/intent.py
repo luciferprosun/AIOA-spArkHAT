@@ -20,6 +20,8 @@ from runtime.mission.warrant import CoreWarrantLedger, require
 
 KIND = 'aioa-effect-intent-v1'
 LOCAL_ZERO_KIND = 'aioa-effect-intent-local-zero-v2'
+REMOTE_ZERO_KIND = 'aioa-effect-intent-github-zero-v1'
+INTENT_KINDS = (KIND, LOCAL_ZERO_KIND, REMOTE_ZERO_KIND)
 
 
 class CoreIntentJournal:
@@ -45,7 +47,7 @@ class CoreIntentJournal:
         state = json.loads(canonical_json_bytes(row.payload))
         require(set(state) == {'schema', 'warrant_digest', 'operation', 'reservation',
                                'epoch', 'outcome', 'liability_id', 'resolution'}
-                and state['schema'] in (KIND, LOCAL_ZERO_KIND) and state['warrant_digest'] == warrant.digest(),
+                and state['schema'] in INTENT_KINDS and state['warrant_digest'] == warrant.digest(),
                 'INTENT_BINDING')
         require('sha256:' + canonical_sha256(state['operation']) == warrant.operation_hash
                 and type(state['epoch']) is int and state['epoch'] == warrant.lease_epoch
@@ -70,7 +72,7 @@ class CoreIntentJournal:
         require(active == warrant and approval['consumption'] == self.ledger._receipt(warrant),
                 'INTENT_WARRANT_INTEGRITY')
         reservation = self.governor._load(tx)['reservations'].get(
-            warrant.risk_reservation_id if state['schema'] == LOCAL_ZERO_KIND else warrant.money_reservation_id)
+            warrant.risk_reservation_id if state['schema'] in (LOCAL_ZERO_KIND,REMOTE_ZERO_KIND) else warrant.money_reservation_id)
         require(reservation is not None and reservation['binding_digest'] == state['reservation']
                 and reservation['request_digest'] == canonical_sha256(state['operation'])
                 and reservation['task_id'] == warrant.task_id
@@ -125,12 +127,25 @@ class CoreIntentJournal:
         return self._run(principal, Capability.COMMIT, lambda tx:
             self._start_in_transaction(tx, warrant, operation, reservation, local_zero=True))
 
-    def _start_in_transaction(self, tx, warrant, operation, reservation, *, local_zero):
+    def start_remote_zero(self, principal, warrant, operation, reservation):
+        """Versioned remote START, with the same owner-wide UNKNOWN barrier.
+
+        This marker alone is not a registered executor. Only the first ACK may
+        release a separately validated Native remote route through ServiceGuard.
+        """
+        return self._run(principal,Capability.COMMIT,lambda tx:
+            self._start_in_transaction(tx,warrant,operation,reservation,local_zero=False,remote_zero=True))
+
+    def _start_in_transaction(self, tx, warrant, operation, reservation, *, local_zero, remote_zero=False):
+        require(type(local_zero) is bool and type(remote_zero) is bool and not (local_zero and remote_zero),'INVALID_INTENT_VARIANT')
+        zero=local_zero or remote_zero
+        schema=REMOTE_ZERO_KIND if remote_zero else LOCAL_ZERO_KIND if local_zero else KIND
+        marker_key='remote_step_now' if remote_zero else 'local_step_now' if local_zero else 'fixture_step_now'
         principal = tx.context.principal
         require(tx.context.purpose is Capability.COMMIT, 'INVALID_INTENT_CONTEXT')
         self.ledger.core.require(principal, Capability.COMMIT, scope=self.ledger.scope)
         require(type(warrant) is EffectWarrant, 'INVALID_INTENT_WARRANT')
-        require(type(operation) is dict and len(canonical_json_bytes(operation)) <= (65536 if local_zero else 4096),
+        require(type(operation) is dict and len(canonical_json_bytes(operation)) <= (65536 if zero else 4096),
                 'INVALID_INTENT')
         operation = json.loads(canonical_json_bytes(operation))
         require(set(operation) == {'operation_class', 'target_fingerprint',
@@ -145,16 +160,20 @@ class CoreIntentJournal:
                 and reservation.task_id == warrant.task_id
                 and reservation.request_digest == canonical_sha256(operation)
                 and reservation.risk_units > 0, 'RESERVATION_BINDING')
-        if local_zero:
-            require(warrant.operation_class in ('READ', 'WORKSPACE_WRITE', 'SANDBOX_EXEC',
+        if zero:
+            classes=('GITHUB_CREATE_COMMIT_PR_V1',) if remote_zero else ('READ', 'WORKSPACE_WRITE', 'SANDBOX_EXEC',
                     'DEPENDENCY_INSTALL', 'GIT_COMMIT', 'GIT_PUSH', 'GITHUB_DRAFT_PR')
+            require(warrant.operation_class in classes
                     and warrant.money_reservation_id == 'NONE'
                     and warrant.authority_scope.monetary_ceiling.amount == 0
                     and reservation.money_nano == 0, 'LOCAL_ZERO_CONTRACT')
             payload = operation['payload']
-            require(payload.get('schema') == 'aioa.local-operation.v2'
+            require(payload.get('schema') == ('aioa.github-remote-operation.v1' if remote_zero else 'aioa.local-operation.v2')
                     and payload.get('principal_session_id', payload.get('session_id')) == principal.actor_session_id
                     and payload.get('policy_epoch') == warrant.lease_epoch, 'LOCAL_ZERO_BINDING')
+            if remote_zero:
+                require(type(payload.get('repository_id')) is int and payload['repository_id']==1445911975,
+                    'GITHUB_REPOSITORY_DENIED')
         else:
             require(reservation.request_id == warrant.money_reservation_id
                     and 0 < reservation.money_nano <= warrant.authority_scope.monetary_ceiling.amount * 10**9,
@@ -169,8 +188,8 @@ class CoreIntentJournal:
         if row is not None:
             require(existing['operation'] == operation
                     and existing['reservation'] == canonical_sha256(reservation), 'INTENT_BINDING')
-            require(existing['schema'] == (LOCAL_ZERO_KIND if local_zero else KIND), 'INTENT_BINDING')
-            return {('local_step_now' if local_zero else 'fixture_step_now'): False, **self._public(existing)}
+            require(existing['schema'] == schema, 'INTENT_BINDING')
+            return {marker_key: False, **self._public(existing)}
         self.ledger._check(warrant)
         # Conservative owner-wide barrier: revised intent/nonce cannot bypass
         # an unresolved send. A new effect requires independent resolution.
@@ -180,9 +199,9 @@ class CoreIntentJournal:
                         for entry in before['reservations'].values()), 'UNRESOLVED_INTENT')
         rows = tx.scan(RecordKind.OPERATION, limit=1024)
         require(len(rows) < 1024, 'INTENT_HISTORY_QUOTA')
-        require(not any(r.payload.get('schema') in (KIND, LOCAL_ZERO_KIND) and r.payload.get('resolution') is None
+        require(not any(r.payload.get('schema') in INTENT_KINDS and r.payload.get('resolution') is None
                         for r in rows), 'UNRESOLVED_INTENT')
-        if local_zero:
+        if zero:
             stored, approval = self.ledger.require_active_in_transaction(tx, warrant)
         else:
             stored, approval, active = self.ledger._load_unrevoked(tx, warrant)
@@ -198,14 +217,14 @@ class CoreIntentJournal:
                            canonical_sha256(liability_id), now)
         approval['consumption'] = self.ledger._receipt(warrant)
         self.ledger._save(tx, warrant, approval, stored)
-        intent = {'schema': LOCAL_ZERO_KIND if local_zero else KIND,
+        intent = {'schema': schema,
                   'warrant_digest': warrant.digest(), 'operation': operation,
                   'reservation': canonical_sha256(reservation), 'epoch': warrant.lease_epoch,
                   'outcome': Unknown(liability_id).to_dict(), 'liability_id': liability_id,
                   'resolution': None}
         self._save(tx, warrant, intent)
         gov._write(tx, before, state, now)
-        return {('local_step_now' if local_zero else 'fixture_step_now'): True, **self._public(intent)}
+        return {marker_key: True, **self._public(intent)}
 
     def inspect(self, principal, warrant):
         def read(tx):
@@ -248,7 +267,7 @@ class CoreIntentJournal:
             require(intent['resolution'] == resolution.to_dict(), 'RESOLUTION_CONFLICT')
             return self._public(intent)
         state = json.loads(canonical_json_bytes(before)); gov._clock(state, now)
-        gov._settle_state(state, warrant.risk_reservation_id if intent['schema'] == LOCAL_ZERO_KIND
+        gov._settle_state(state, warrant.risk_reservation_id if intent['schema'] in (LOCAL_ZERO_KIND,REMOTE_ZERO_KIND)
                           else warrant.money_reservation_id, epoch, canonical_sha256(resolution))
         intent.update(outcome=resolution.outcome.to_dict(), resolution=resolution.to_dict())
         self._save(tx, warrant, intent, row); gov._write(tx, before, state, now)
