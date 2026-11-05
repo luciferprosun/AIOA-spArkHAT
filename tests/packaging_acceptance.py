@@ -85,6 +85,18 @@ assert callable(assistant.operator_request)
 assert pathlib.Path(assistant.__file__).resolve().is_relative_to(venv)
 assert 'site-packages' in assistant.__file__
 assert not any(name == 'textual' or name.startswith('textual.') for name in sys.modules)
+from runtime.tools.command_grammar import validate_command_shape
+from runtime.communication.contracts import MailProposalV1
+from runtime.communication.canonical_mime import prepare_mime, verify_prepared_mime
+from runtime.communication.gmail.oauth_native import new_oauth_session
+assert validate_command_shape('ls -l')['status'] == 'family'
+assert validate_command_shape('ls $(touch /tmp/not-executed)')['danger'] == 'unknown'
+assert callable(new_oauth_session)
+# Installed pure preparation, without OAuth enrollment, another store or network.
+mail = MailProposalV1(task_id='installed', proposal_id='installed-preview', owner_scope_ref='fixture',
+    sender='author@example.org', to=('reviewer@example.org',), subject='Installed preview', body_text='Offline only',
+    nonce='a' * 64, created_at='2026-11-05T00:00:00Z', expires_at='2026-11-05T00:05:00Z')
+verify_prepared_mime(mail, prepare_mime(mail))
 from datetime import datetime, timezone, timedelta
 from threading import RLock
 from lab.archaioa.evidence import EvidenceRef

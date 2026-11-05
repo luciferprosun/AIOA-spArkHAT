@@ -159,11 +159,14 @@ def open_desktop(args):
     _open_mobile_console(data)
 
 
-def launcher_files(checkout,state_dir,*,direct_chat=False):
+def launcher_files(checkout,state_dir,*,origin,direct_chat=False,python_executable=None):
     """Reviewable per-user templates; this function installs nothing."""
+    from runtime.mobile_gateway.wire import origin as validate_origin
+    validate_origin(origin)
     root=Path(checkout).absolute();state=Path(state_dir).absolute()
-    command=['/usr/bin/python3','-B','-m','runtime.webapp','--mobile-operator','desktop','--state-dir',str(state),
-        '--mobile-origin','https://l-1.tail8c781e.ts.net','--mobile-chat',
+    interpreter=str(Path(python_executable or sys.executable).absolute())
+    command=[interpreter,'-B','-m','runtime.webapp','--mobile-operator','desktop','--state-dir',str(state),
+        '--mobile-origin',origin,'--mobile-chat',
         '--mobile-tls-certificate',str(state/'tls/host.crt'),'--mobile-tls-key',str(state/'tls/host.key'),
         '--host','127.0.0.1','--port','4317']
     if type(direct_chat) is not bool:raise ValueError('DIRECT_CHAT_PREFERENCE_REQUIRED')
