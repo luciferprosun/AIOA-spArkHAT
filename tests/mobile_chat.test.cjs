@@ -1,5 +1,19 @@
 const test=require('node:test');const assert=require('node:assert/strict');const fs=require('node:fs');
 const path=require('node:path').join(__dirname,'../web/mobile_chat.js');const api=fs.existsSync(path)?require(path):{};
+test('verified partial response permits a new explicit message without retrying the first',async()=>{
+  let count=0,serial=0,current;
+  const chat=api.createChat(async v=>{
+    if(v.op==='chat_catalog')return {chat:true,model_id:'muse-spark-1.3',mode:'LIVE_OWNER_SESSION'};
+    if(v.op==='chat_threads')return {threads:[]};
+    if(v.op==='chat_send') {count++;current={schema:'aioa.mobile.chat-result.v1',request_id:v.payload.request_id,
+      thread_id:v.payload.thread_id,provider_id:'meta_model_api',model_id:'muse-spark-1.3',save_knowledge:false,state:'RUNNING'};return current;}
+    assert.equal(v.op,'chat_request');return {...current,state:'TRUNCATED',live_verified:true,reply:'partial',request_digest:'d'.repeat(64),
+      receipt:{schema:'aioa.meta.chat-receipt.v2',request_digest:'d'.repeat(64),finish_reason:'length',response_complete:false}};
+  },()=>{},()=> (++serial).toString(16).padStart(32,'0'));
+  await chat.refresh();await chat.send('First');await chat.read();
+  assert.equal(chat.snapshot().pending,null);assert.equal(chat.snapshot().messages[0].reply,'partial');
+  await chat.send('Follow up');assert.equal(count,2);
+});
 test('owner conversation crosses the actual console transport and can end its session',async()=>{
   const {createDeviceConsole}=require('../web/mobile_devices.js');
   const calls=[];let serial=0,active=true,latest;

@@ -199,10 +199,11 @@
   document.getElementById('cosmic-tool-readback')?.addEventListener('click',()=>act(()=>client.readToolResult()));
   document.getElementById('cosmic-proposal-parse')?.addEventListener('click',()=>act(()=>client.proposeTool(document.getElementById('cosmic-proposal-chat').value.trim())));
   window.addEventListener('pagehide',()=>{client?.close();render();});
-  // Read-only polling while visible; never repeat a mutation or UNKNOWN operation.
+  // The transport decides whether a stale read can recover. An uncertain
+  // mutation still requires explicit readback and is never replayed here.
   setInterval(()=>{
     const state=client?.snapshot();
-    if (document.visibilityState==='visible' && state?.phase==='READY' && !state.busy)act(()=>client.refresh({background:true}));
+    if (document.visibilityState==='visible' && state && state.phase!=='LOCKED' && !state.busy)act(()=>client.refresh({background:true}));
   },5000);
   render();
   // The HttpOnly cookie was delivered through the private OS launcher. The
