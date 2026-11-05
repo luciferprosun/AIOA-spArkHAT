@@ -443,7 +443,7 @@ def validate_command_shape(command: str) -> dict[str, Any]:
 
     # Conservative advisory boundary: shlex does not parse shell evaluation.
     # Even quoted occurrences remain suspicious; never infer READ from them.
-    if any(marker in command for marker in ('$(', '`', '\n', '\r', '<(', '>(')):
+    if any(marker in command for marker in ('$(', '`', '\n', '\r', '<(', '>(', '&')):
         return _result(status=_STATUS_SUSPICIOUS,confidence='grammar_suspicious',danger='unknown',
             reasons=['shell_evaluation_or_multiline'])
 
@@ -493,7 +493,7 @@ def validate_command_shape(command: str) -> dict[str, Any]:
             family=str(pattern.get("family")),
             base=base,
             confidence="grammar_suspicious",
-            danger=danger,
+            danger='unknown',
             reasons=reasons + ["shell_composition_present"],
             matched_pattern_id=str(pattern.get("id")),
         )

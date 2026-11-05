@@ -13,7 +13,12 @@ the changed source has passed CI and been admitted for deployment:
 
 ```python
 from runtime.mobile_gateway.desktop import launcher_files
-files = launcher_files(verified_checkout, existing_state_dir, direct_chat=True)
+files = launcher_files(
+    verified_checkout, existing_state_dir,
+    origin=qualified_https_origin,
+    python_executable=verified_python_interpreter,
+    direct_chat=True,
+)
 ```
 
 This generates the ordinary launcher with `--mobile-chat-direct`. It installs

@@ -10,6 +10,7 @@
   const errors={LOCAL_OPERATOR_REQUIRED:'A local operator session is required. Reopen the panel from Linux.',
     UNKNOWN_READBACK_REQUIRED:'Unknown result. Read Core status before another operation. No automatic retry was made.',
     READBACK_REQUIRED:'Read current Core status first.',REVIEW_REQUIRED:'Review the current exact operation before approving.',
+    PREVIEW_INPUT_LIMIT:'Enter a command up to 2,000 UTF-8 bytes or a message up to 8,192 UTF-8 bytes. Total draft input must stay below 12,000 bytes.',
     BUSY:'An operation is in progress. Wait for its result.'};
   const menu=Array.from(document.querySelectorAll?.('[data-cosmic-target]') || []);
   const pages=Array.from(document.querySelectorAll?.('[data-cosmic-page]') || []);

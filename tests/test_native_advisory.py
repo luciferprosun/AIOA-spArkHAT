@@ -82,10 +82,17 @@ class NativeAdvisoryTests(unittest.TestCase):
 
     def test_shell_evaluation_is_never_signed_as_read_only_advice(self):
         for index,command in enumerate(('ls $(touch /tmp/example)','ls `touch /tmp/example`',
-                'ls\ntouch /tmp/example','ls <(touch /tmp/example)')):
+                'ls\ntouch /tmp/example','ls <(touch /tmp/example)','ls /tmp&touch /tmp/example',
+                'ls /tmp;touch /tmp/example','ls /tmp | cat')):
             result=self.call(payload={'command':command},request_id=f'{index+1:032x}')
             self.assertEqual('suspicious',result['data']['classification']['status'])
             self.assertEqual('unknown',result['data']['classification']['danger'])
+
+    def test_blank_command_is_known_advisory_rejection_without_invalidating_owner(self):
+        result=self.call(payload={'command':''})
+        self.assertEqual('reject',result['data']['classification']['status'])
+        self.assertFalse(result['receipt']['execution_authorized'])
+        self.assertEqual('ADVISORY_ONLY',self.call(request_id='b'*32)['data']['status'])
 
     def test_http_preview_requires_existing_console_session_origin_and_csrf(self):
         service=self.service();request=self.tls(service);control=self.console_socket(service)

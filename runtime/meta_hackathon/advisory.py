@@ -38,7 +38,7 @@ def dispatch(host,owner,value):
     if op=='command_advice':
         from runtime.tools.command_grammar import validate_command_shape
         if (set(payload)!={'command'} or type(payload['command']) is not str
-                or not 0<len(payload['command'].encode())<=2000):raise wire.MobileError(400)
+                or len(payload['command'].encode())>2000):raise wire.MobileError(400)
         data={'classification':validate_command_shape(payload['command']),
             'status':'ADVISORY_ONLY','input_sha256':wire.digest(payload['command'].encode())}
     else:

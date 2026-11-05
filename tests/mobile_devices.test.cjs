@@ -386,8 +386,17 @@ test('local advisory preview uses existing console and cannot claim execution or
         request_id:request.request_id,operation:request.op,effect:'ADVISORY_PREVIEW',
         execution_authorized:false,provider_calls:0,external_calls:0,automatic_retry:false}}})};
   });
-  await client.refresh();await client.preview('mail_preview',{subject:'Literal <script> text'},'b'.repeat(32));
+  await client.refresh();await client.preview('mail_preview',{subject:'Literal <script> text',body_text:'Local preview'},'b'.repeat(32));
   assert.equal(client.snapshot().advisoryPreview.receipt.execution_authorized,false);
   const count=calls.length;await assert.rejects(client.preview('mail_send',{},'c'.repeat(32)));
   assert.equal(calls.length,count);assert.deepEqual(calls.map(x=>x.op),['pairing_list','mail_preview']);
+});
+test('ordinary preview input bounds do not dispatch or invalidate the owner panel',async()=>{
+  const {client,calls}=harness(()=>({pending:[],devices:[]}));await client.refresh();const count=calls.length;
+  for(const [op,payload] of [['command_advice',{command:''}],['command_advice',{command:'ą'.repeat(1001)}],
+      ['mail_preview',{body_text:'ą'.repeat(4097)}],['mail_preview',{body_text:'ok',subject:'x'.repeat(12000)}]]) {
+    await assert.rejects(client.preview(op,payload,'a'.repeat(32)),/PREVIEW_INPUT_LIMIT/);
+    assert.equal(client.snapshot().phase,'READY');assert.equal(client.snapshot().observed,true);
+  }
+  assert.equal(calls.length,count);
 });

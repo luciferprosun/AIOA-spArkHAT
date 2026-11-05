@@ -72,6 +72,11 @@
       preview:(operation,payload,requestId)=>{
         if(!['command_advice','mail_preview'].includes(operation))return Promise.reject(Error('REVIEW_REQUIRED'));
         if(state.phase!=='READY' || !state.observed)return Promise.reject(Error('READBACK_REQUIRED'));
+        const bytes=value=>typeof value==='string'?new TextEncoder().encode(value).length:Infinity;
+        if(!payload || typeof payload!=='object' || bytes(JSON.stringify(payload))>12000 ||
+            operation==='command_advice' && (typeof payload.command!=='string' || !payload.command.trim() || bytes(payload.command)>2000) ||
+            operation==='mail_preview' && bytes(payload.body_text)>8192)
+          return Promise.reject(Error('PREVIEW_INPUT_LIMIT'));
         requestId=requestId || Array.from(root.crypto.getRandomValues(new Uint8Array(16)),x=>x.toString(16).padStart(2,'0')).join('');
         if(!/^[a-f0-9]{32}$/.test(requestId))return Promise.reject(Error('REVIEW_REQUIRED'));
         return call({op:operation,request_id:requestId,payload},false,data=>{
