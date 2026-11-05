@@ -64,6 +64,11 @@ def _get(host,operation_id):
     return host.mobile._get('native-github-'+operation_id)
 
 
+def _worker_active(host,operation_id):
+    worker=host.missions._workers.get('github-'+operation_id)
+    return worker is not None and worker.is_alive()
+
+
 def history(host):
     host._require_qualified_operator()
     states=('GITHUB_PROPOSAL_READING','GITHUB_PROPOSED','GITHUB_APPROVAL_PENDING',
@@ -184,8 +189,11 @@ def view(host,operation_id):
         saved=host.mobile._get('github-result-'+operation_id)
         if saved is not None:result['result']=plain(saved.payload['result'])
         result['approval_available']=data['state']=='GITHUB_PROPOSED' and not result['blockers']
-        result['readback_available']=data.get('warrant') is not None and data['state'] not in ('GITHUB_APPROVED','GITHUB_RUNNING','GITHUB_RECONCILING')
-        if data['core_instance_id']!=host.instance_id and data['state'] in ('GITHUB_APPROVED','GITHUB_RUNNING','GITHUB_RECONCILING'):
+        active=_worker_active(host,operation_id)
+        result['readback_available']=data.get('warrant') is not None and not active
+        # Expired owner admission may prevent the worker's final local save.
+        # A dead worker is uncertain even if this same Native was renewed.
+        if not active and data['state'] in ('GITHUB_APPROVED','GITHUB_RUNNING','GITHUB_RECONCILING'):
             result.update(status='GITHUB_UNKNOWN',readback_available=True)
     if 'error' in data:result['error']=data['error']
     if 'policy_decision' in data:result['policy_decision']=data['policy_decision']
@@ -281,9 +289,7 @@ def dispatch(host,owner,value):
             data={**data,'state':'GITHUB_APPROVED','warrant':warrant.to_dict()}
             _save(host,identity,data,expected={'GITHUB_APPROVAL_PENDING'})
         else:
-            if not data.get('warrant') or data['state'] in ('GITHUB_APPROVED','GITHUB_RUNNING','GITHUB_RECONCILING'):
-                if data['core_instance_id']==host.instance_id:raise wire.MobileError(409)
-            if not data.get('warrant'):raise wire.MobileError(409)
+            if not data.get('warrant') or _worker_active(host,identity):raise wire.MobileError(409)
             warrant=EffectWarrant.from_dict(data['warrant'])
             data={**data,'state':'GITHUB_RECONCILING'};_save(host,identity,data)
         cancel=CancellationToken();key='github-'+identity
