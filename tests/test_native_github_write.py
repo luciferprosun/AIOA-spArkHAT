@@ -152,5 +152,31 @@ class NativeGitHubWriteTests(unittest.TestCase):
             self.assertIn('GITHUB_STOPPED',status['blockers']);self.assertFalse(status['approval_available'])
             mint.assert_not_called()
 
+    def test_dead_worker_after_owner_expiry_is_readback_only_in_same_native_instance(self):
+        from runtime.meta_hackathon import github_write
+        from runtime.mobile_gateway.service import plain
+        self.proposal();data=plain(self.app.mobile._get('native-github-'+'d'*32).payload);data.pop('schema')
+        route=github_write._route(self.app,data,write=True)
+        warrant=github_write._warrant(self.app,data,route)
+        github_write._save(self.app,'d'*32,{**data,'state':'GITHUB_RUNNING','warrant':warrant.to_dict()})
+        with patch('runtime.mcp_bridge.github_remote._https_once') as network:
+            state=self.app.operator_request(os.getuid(),{'op':'github_write_status','operation_id':'d'*32})
+        self.assertEqual('GITHUB_UNKNOWN',state['status'])
+        self.assertTrue(state['readback_available']);self.assertFalse(state['approval_available'])
+        network.assert_not_called()
+        # A currently running recovery must stay single even when the stored
+        # proposal belongs to an earlier Native instance.
+        import threading
+        finished=threading.Event();worker=threading.Thread(target=finished.wait,daemon=True)
+        self.app.missions._workers['github-'+'d'*32]=worker;worker.start()
+        try:
+            github_write._save(self.app,'d'*32,{**data,'state':'GITHUB_RECONCILING',
+                'core_instance_id':'0'*64,'warrant':warrant.to_dict()})
+            state=self.app.operator_request(os.getuid(),{'op':'github_write_status','operation_id':'d'*32})
+            self.assertFalse(state['readback_available'])
+            with self.assertRaises(wire.MobileError):self.app.operator_request(os.getuid(),{
+                'op':'github_write_reconcile','operation_id':'d'*32})
+        finally:finished.set();worker.join(timeout=2)
+
 
 if __name__=='__main__':unittest.main()
