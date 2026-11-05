@@ -140,4 +140,3 @@ transport tests also check lost mutation ACKs and rejected authentication.
 Deploy only an exact CI-verified source. Do not roll back to a reader that cannot
 interpret v3 money policy or the new partial-result metadata against the active
 journal. No database reset, UNKNOWN reset or provider retry is part of recovery.
-

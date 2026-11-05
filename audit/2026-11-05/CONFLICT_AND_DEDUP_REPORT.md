@@ -5,6 +5,10 @@ All 76 remote heads, 22 canonical local heads, 39 PR heads, tags and imported lo
 
 Genealogy coverage is complete for discovered refs. Semantic review covers feature slices and relevant call paths, **not every inherited file or every intermediate historical tree**. Corpora and sensitive/untracked noncode directories are not content/provenance-certified. No branch is approved for deletion by this report.
 
+Inventory counts describe the frozen source snapshot before this integration branch and PR. `owner-private:aioa-all-local-sources.bundle#<ref>` evidence locators refer to the independently verified private bundle, not a public GitHub URL. Local-only history was not published simply to make a link. Tag `head_sha` preserves the exact backed-up object; a public commit evidence link uses its peeled commit.
+
+Test names on `SOURCE_VALIDATED`/`DISCOVERED` feature rows identify tests in the declared historical source tree. They are not claims that those tests exist or pass in the current candidate. Current qualification is recorded separately in `test_status` and TEST_RESULTS.md.
+
 ## Canonical choices
 
 | Overlap | Selected boundary | Rejected whole-stack import |
