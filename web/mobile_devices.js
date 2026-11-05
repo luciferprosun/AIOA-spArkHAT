@@ -14,14 +14,17 @@
   function createDeviceConsole(credential, fetcher = root.fetch.bind(root), clock = () => Math.floor(Date.now()/1000)) {
     if (!/^[A-Za-z0-9_-]{43}$/.test(credential)) throw Error('LOCAL_OPERATOR_REQUIRED');
     let token = credential, busy = false, generation = 0,registryRevision=0,polling=false;
+    let uncertainMutation=false,authorizationFailed=false;
     let state = {phase:'READY', observed:false, pending:[], devices:[], invite:null, message:'',coreStatus:null,coreStatusAt:null,toolResult:null,toolRequest:null,toolState:'NOT_RUN',toolError:null,toolProposal:null};
     async function call(value, mutation, apply,backgroundRead=false) {
       const chat=value.op.startsWith('chat_');
       const background=chat || backgroundRead;
       const refuse=message=>{const error=Error(message);error.notDispatched=true;throw error;};
-      if (!token) refuse('LOCAL_OPERATOR_REQUIRED');
+      if (!token || authorizationFailed) refuse('LOCAL_OPERATOR_REQUIRED');
       if (!background && busy) refuse('BUSY');
-      if (mutation && state.phase !== 'READY') refuse('READBACK_REQUIRED');
+      // A failed registry READ is stale presentation, not an uncertain effect.
+      // Chat still passes its own authenticated Core session/warrant checks.
+      if (mutation && state.phase !== 'READY' && (!chat || uncertainMutation)) refuse('READBACK_REQUIRED');
       if(!background)busy = true;
       if(value.op.startsWith('pairing_') && mutation)registryRevision++;
       const registryTicket=registryRevision;
@@ -41,8 +44,10 @@
         if(backgroundRead && registryTicket!==registryRevision)return copy(envelope.data);
         apply(copy(envelope.data));
         // Only pairing registry readback can resolve an uncertain pairing
-        // mutation. Background chat traffic is a separate read-only lane.
-        if(!background && (value.op==='pairing_list' || state.phase!=='UNKNOWN')) {
+        // mutation. Chat traffic cannot resolve a pairing mutation.
+        if(value.op==='pairing_list' && (!backgroundRead || !uncertainMutation)) {
+          uncertainMutation=false;state.phase='READY';state.message='';
+        } else if(!background && state.phase!=='UNKNOWN') {
           state.phase = 'READY'; state.message = '';
         }
         return copy(envelope.data);
@@ -51,6 +56,8 @@
         const message=error.message === 'LOCAL_OPERATOR_REQUIRED' ? error.message : 'UNKNOWN_READBACK_REQUIRED';
         if(backgroundRead && registryTicket!==registryRevision && message!=='LOCAL_OPERATOR_REQUIRED')return;
         if(!chat || message==='LOCAL_OPERATOR_REQUIRED') {
+          if(mutation && !chat)uncertainMutation=true;
+          if(message==='LOCAL_OPERATOR_REQUIRED')authorizationFailed=true;
           state.phase = 'UNKNOWN';state.observed = false;state.message=message;
         }
         throw Error(message);
@@ -90,12 +97,13 @@
         });
       },
       chatCall:value=>{
-        if(!value || !['chat_catalog','chat_threads','chat_thread','chat_request','chat_review','chat_propose','chat_stop'].includes(value.op))return Promise.reject(Error('LOCAL_OPERATOR_REQUIRED'));
-        return call(value,['chat_propose','chat_stop'].includes(value.op),()=>{});
+        if(!value || !['chat_catalog','chat_threads','chat_thread','chat_request','chat_review','chat_propose','chat_stop',
+          'chat_send','chat_session_status','chat_session_stop'].includes(value.op))return Promise.reject(Error('LOCAL_OPERATOR_REQUIRED'));
+        return call(value,['chat_propose','chat_send','chat_stop','chat_session_stop'].includes(value.op),()=>{});
       },
       snapshot:() => copy({...state, busy,polling}),
       refresh:async({background=false}={}) => {
-        if(background && (polling || busy || state.phase!=='READY'))return;
+        if(background && (polling || busy || uncertainMutation || authorizationFailed || !token))return;
         if(background)polling=true;
         try{return await call({op:'pairing_list'}, false, data => {
         if (!Array.isArray(data.pending) || !Array.isArray(data.devices) || data.pending.length>128 || data.devices.length>128) throw Error('INVALID_READBACK');
