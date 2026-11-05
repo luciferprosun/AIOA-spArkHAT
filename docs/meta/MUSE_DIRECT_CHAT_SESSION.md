@@ -111,3 +111,28 @@ lost-ACK readback, source/expiry/revocation checks before key loading, forged
 fields and Android isolation, retained UNKNOWN, unchanged risk/kill controls,
 source sealing and UI submission without a browser-supplied spending limit.
 These tests do not certify a new LIVE model response or production deployment.
+# Chat recovery update — 2026-11-05
+
+Native owner sessions use a bounded 4096-token, 60-second response envelope.
+The estimate and warrant bind these bounds before dispatch. Android requests
+keep their existing 512-token / 15-second limits and response contract.
+
+A verified owner chat response with `finish_reason=length` is now recorded as
+`CHAT_TRUNCATED`, with the received text in the existing expiring RAM cache and
+a durable `aioa.meta.chat-receipt.v2` carrying `response_complete=false`. Its
+validated usage is retained, without retry. It can supply conversation context
+but cannot pass the `SUCCEEDED` gate for an executable proposal. Complete replies
+retain receipt v1. Old UNKNOWN entries cannot be inferred, rewritten or settled
+by this change; their original provider responses were not retained.
+
+Failed registry reads invalidate displayed status and may recover through a
+fresh read. They do not revoke the independent chat session. Lost mutation ACKs
+still require explicit registry readback; a rejected authentication stays
+blocked. Both the view adapter and the actual console transport participate in
+this distinction. The isolated browser regression checks the read recovery;
+transport tests also check lost mutation ACKs and rejected authentication.
+
+Deploy only an exact CI-verified source. Do not roll back to a reader that cannot
+interpret v3 money policy or the new partial-result metadata against the active
+journal. No database reset, UNKNOWN reset or provider retry is part of recovery.
+
