@@ -227,8 +227,12 @@ def proposal(host, value):
                 'requested_capabilities': ['GITHUB_ISSUE_CREATE'], 'approval_digest': None,
                 'idempotency_key': value['request_id'], 'budget_cap_usd': '0.00',
                 'created_at': now, 'expires_at': now+300}
+        # The new code/PR route does not implement the legacy issue actuator.
+        # Its credential/readiness status must not imply issue execution exists.
+        unknown=registry(host)['github_write']['unknown_liabilities']
         result = {'proposal': item, 'proposal_digest': wire.digest(wire.canonical(item)),
-                  'execution_authorized': False, 'status': registry(host)['github_write']['status']}
+                  'execution_authorized': False, 'status':
+                  'BLOCKED_OWNER_LIABILITY_UNKNOWN' if unknown else 'BLOCKED_REMOTE_START_NOT_BOUND'}
         result['signature'] = host.identity.sign(result)
         key = 'native-tool-proposal-'+value['request_id']
         host._require_qualified_operator()
