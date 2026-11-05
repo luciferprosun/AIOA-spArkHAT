@@ -19,9 +19,9 @@ The Native root is `runtime/meta_hackathon/runtime_adapter.py`; the historical d
 | Code proposal and remote Git | `github_write` → `CoreRemoteGitRoute` → ServiceGuard | Exact owner review and scoped App credential; independent GET; live qualification blocked |
 | Command advice | `advisory.dispatch(command_advice)` → recovered grammar | Pure local classification; no shell/subprocess or permission inference |
 | Email draft preview | `advisory.dispatch(mail_preview)` → canonical MIME verifier | Local preparation with digest-only Core audit; no account connection or sending |
-| CPL | `critical_loop.service`, `review`, `mission.lite_cpl` | One existing 1+3+1 contract; Native paid/executing binding not qualified |
-| Worker/local publish | `agent_operations`, `mission.tools`, sandbox and Git contracts | Existing fixture binding retained; no silent Native EXEC activation |
-| Memory and knowledge | `memory_patch.service`, `learning`, `personal` | Borrow existing Core ports; Native semantic HAT/scope/consent binding still required |
+| CPL | `critical_loop.service`, `review`, `mission.lite_cpl` | One existing 1+3+1 contract; `build_native_cpl_preview` is read-only, zero calls; paid/executing binding disabled |
+| Worker/local publish | `agent_operations`, `mission.tools`, sandbox and Git contracts | `BLOCKED_NATIVE_WORKER_NOT_CERTIFIED`; existing fixture binding retained |
+| Memory and knowledge | `memory_patch.service`, `learning`, `personal` | `INTEGRATED_INERT` / `MEMORY_CONSENT_REQUIRED`; borrow Core ports after explicit HAT/scope/consent |
 | NonZero | `nonzero_cloudops` | Native domain contract retained; do not restore historical checkpoint/effect stores |
 
 See [feature evidence](../audit/2026-11-05/FEATURE_MATRIX.csv) and the [dependency graph](../audit/2026-11-05/DEPENDENCY_GRAPH.md). A source-valid module, a wired entrypoint, an offline contract test and a live production effect are separate qualifications.

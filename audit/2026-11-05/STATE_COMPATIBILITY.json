@@ -1,0 +1,127 @@
+{
+  "schema": "aioa.final-release.state-evidence.v1",
+  "qualification": "OFFLINE_COPY_ONLY_NOT_LIVE_ADMISSION",
+  "backup_time_utc": "2026-11-05T10:36:05Z",
+  "backup_method": "official SQLite Connection.backup; source mode=ro/query_only; no live runtime boot",
+  "sqlite_sha256": "31c39bbf86c0f0148426363695ff9824449750525daf0399b1cda3b82b099500",
+  "sqlite_schema_sha256": "97d0515eca883033c4958778a7ce0725018a2b94bcf6a8e236c21cebf2ac48f7",
+  "records": 1200,
+  "audit_events": 443,
+  "outbox_events": 443,
+  "warrants": 16,
+  "owner_witnesses": 16,
+  "governor_versions": 71,
+  "governor_unknown": 2,
+  "chat_unknown": 3,
+  "pairing_devices": 2,
+  "pairing_sessions": 2,
+  "identical_state_projection": true,
+  "readers": [
+    {
+      "source_sha": "16fcfeed477f92f2ec65bd235e0b1cd98f87e7fd",
+      "source_python_files": 321,
+      "source_manifest_sha256": "78f05313b65288c68b0490159ca43c519ee0f95976a8f9c7d5a15e36dff1eecf",
+      "imports_pinned_to_export": 43,
+      "evidence_sha256": "985eb5b9069b0703913def85764ec7b4d1aeea800405fbd986331e5a1fb8258a",
+      "status": "PASS"
+    },
+    {
+      "source_sha": "41aa47e57e5c8e875f0a67d87108cba62d1d623c",
+      "source_python_files": 332,
+      "source_manifest_sha256": "661c9528dda9562c9317ea17aec2d6ed01d38c81d7d54f7bf1e30ee7519c63d1",
+      "imports_pinned_to_export": 43,
+      "evidence_sha256": "59a4550438195a8636c269fca1ea428f7b4eb0e14843e82a5ea2999a3cce720b",
+      "status": "PASS"
+    },
+    {
+      "source_sha": "bb48d7940f1e759adce4ff8b24c9a296819dc461",
+      "source_python_files": 332,
+      "source_manifest_sha256": "ff2e10427db2be265e569e1a5520f1782bcaf9393ab3d7826bd48b96435ae691",
+      "imports_pinned_to_export": 43,
+      "evidence_sha256": "56a0c2e764650e2413db74758998a1ef20b4f31664d23b94f5bd81ccd999cd3c",
+      "status": "PASS"
+    }
+  ],
+  "schema_api_source_comparison": {
+    "runtime/core_admission.py": {
+      "sha256_by_version": {
+        "16fcfeed477f92f2ec65bd235e0b1cd98f87e7fd": "46061f1311c575aadc3c6cce7b3ff64b65ab81942ef42abe6de7227b06458a1d",
+        "41aa47e57e5c8e875f0a67d87108cba62d1d623c": "46061f1311c575aadc3c6cce7b3ff64b65ab81942ef42abe6de7227b06458a1d",
+        "bb48d7940f1e759adce4ff8b24c9a296819dc461": "46061f1311c575aadc3c6cce7b3ff64b65ab81942ef42abe6de7227b06458a1d"
+      },
+      "identical": true
+    },
+    "runtime/mission/governor.py": {
+      "sha256_by_version": {
+        "16fcfeed477f92f2ec65bd235e0b1cd98f87e7fd": "9d6911753ab408e3bcc9eb5e92233b149324492393796bbe231af1636d4134af",
+        "41aa47e57e5c8e875f0a67d87108cba62d1d623c": "9d6911753ab408e3bcc9eb5e92233b149324492393796bbe231af1636d4134af",
+        "bb48d7940f1e759adce4ff8b24c9a296819dc461": "9d6911753ab408e3bcc9eb5e92233b149324492393796bbe231af1636d4134af"
+      },
+      "identical": true
+    },
+    "runtime/mission/warrant.py": {
+      "sha256_by_version": {
+        "16fcfeed477f92f2ec65bd235e0b1cd98f87e7fd": "c02122299fe3a1e2f09466a94074e9b9dc9532ae72d002d643c3bf3b6829d378",
+        "41aa47e57e5c8e875f0a67d87108cba62d1d623c": "c02122299fe3a1e2f09466a94074e9b9dc9532ae72d002d643c3bf3b6829d378",
+        "bb48d7940f1e759adce4ff8b24c9a296819dc461": "c02122299fe3a1e2f09466a94074e9b9dc9532ae72d002d643c3bf3b6829d378"
+      },
+      "identical": true
+    },
+    "runtime/mission/intent.py": {
+      "sha256_by_version": {
+        "16fcfeed477f92f2ec65bd235e0b1cd98f87e7fd": "5d3b67ac0a66e55cfc6135efc815ef20f43216de4f55b2d85c069297543858f5",
+        "41aa47e57e5c8e875f0a67d87108cba62d1d623c": "8fe87f82e8907b7a173f506f1f8087bc0d010864b1d9421e42d8e276e9e8382a",
+        "bb48d7940f1e759adce4ff8b24c9a296819dc461": "8fe87f82e8907b7a173f506f1f8087bc0d010864b1d9421e42d8e276e9e8382a"
+      },
+      "identical": false
+    },
+    "runtime/memory_patch/contracts/serialization.py": {
+      "sha256_by_version": {
+        "16fcfeed477f92f2ec65bd235e0b1cd98f87e7fd": "60b025204f6897c88bfb48345f9a49760587961562f3cf27576482780ad69057",
+        "41aa47e57e5c8e875f0a67d87108cba62d1d623c": "60b025204f6897c88bfb48345f9a49760587961562f3cf27576482780ad69057",
+        "bb48d7940f1e759adce4ff8b24c9a296819dc461": "60b025204f6897c88bfb48345f9a49760587961562f3cf27576482780ad69057"
+      },
+      "identical": true
+    },
+    "runtime/memory_patch/persistence/ports.py": {
+      "sha256_by_version": {
+        "16fcfeed477f92f2ec65bd235e0b1cd98f87e7fd": "65e02aa1585d991f9d48308347e78c4fe72c076713ec09165220ee315e7e7a62",
+        "41aa47e57e5c8e875f0a67d87108cba62d1d623c": "65e02aa1585d991f9d48308347e78c4fe72c076713ec09165220ee315e7e7a62",
+        "bb48d7940f1e759adce4ff8b24c9a296819dc461": "65e02aa1585d991f9d48308347e78c4fe72c076713ec09165220ee315e7e7a62"
+      },
+      "identical": true
+    },
+    "runtime/memory_patch/adapters/cockroach/repositories.py": {
+      "sha256_by_version": {
+        "16fcfeed477f92f2ec65bd235e0b1cd98f87e7fd": "3282e2dbd024e93597074ccd9e114bf604d000388d64e5b7d0a66da63599158b",
+        "41aa47e57e5c8e875f0a67d87108cba62d1d623c": "3282e2dbd024e93597074ccd9e114bf604d000388d64e5b7d0a66da63599158b",
+        "bb48d7940f1e759adce4ff8b24c9a296819dc461": "3282e2dbd024e93597074ccd9e114bf604d000388d64e5b7d0a66da63599158b"
+      },
+      "identical": true
+    },
+    "runtime/memory_patch/audit.py": {
+      "sha256_by_version": {
+        "16fcfeed477f92f2ec65bd235e0b1cd98f87e7fd": "4b41b69645e6a5911ab4e09ad8c8bee7ec523eb1d95d74fe1a67a6dc6f5e8d76",
+        "41aa47e57e5c8e875f0a67d87108cba62d1d623c": "4b41b69645e6a5911ab4e09ad8c8bee7ec523eb1d95d74fe1a67a6dc6f5e8d76",
+        "bb48d7940f1e759adce4ff8b24c9a296819dc461": "4b41b69645e6a5911ab4e09ad8c8bee7ec523eb1d95d74fe1a67a6dc6f5e8d76"
+      },
+      "identical": true
+    },
+    "runtime/mobile_gateway/pairing.py": {
+      "sha256_by_version": {
+        "16fcfeed477f92f2ec65bd235e0b1cd98f87e7fd": "cdadc4cc424b568143941d9790b68fc6cb139547f340c25bacb4f6bef1ecfb5e",
+        "41aa47e57e5c8e875f0a67d87108cba62d1d623c": "cdadc4cc424b568143941d9790b68fc6cb139547f340c25bacb4f6bef1ecfb5e",
+        "bb48d7940f1e759adce4ff8b24c9a296819dc461": "cdadc4cc424b568143941d9790b68fc6cb139547f340c25bacb4f6bef1ecfb5e"
+      },
+      "identical": true
+    }
+  },
+  "old_main_2be99da7": "EXPECTED_REFUSAL_INVALID_GOVERNOR_AMOUNT; rollback forbidden",
+  "host_tls": "private files stable and0600; directories0700; TLS key/cert match and certificate currently valid; no bytes disclosed",
+  "runtime_boots_on_copy": 0,
+  "principals_issued": 0,
+  "production_write_connections": 0,
+  "snapshot_unchanged": true,
+  "backup_restore": "readability/integrity certified on copy; production restore NOT_PERFORMED",
+  "deployment": "NOT_DEPLOYED; exact owner approval and fresh deployment gate required"
+}

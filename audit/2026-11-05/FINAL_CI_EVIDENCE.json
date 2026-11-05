@@ -1,0 +1,623 @@
+{
+  "schema": "aioa.final-release.ci-evidence.v1",
+  "implementation_sha": "bb48d7940f1e759adce4ff8b24c9a296819dc461",
+  "base_sha": "2be99da7aa07f7eb5faa9459fe8a78c5d0b6653a",
+  "synthetic_merge_commit": "598c0871983d4c78dd617db6981f4cfc65078afd",
+  "tested_merge_tree_sha": "0655749ef3bd87c84ae28a74ce242a636c877497",
+  "candidate_tree_sha": "0655749ef3bd87c84ae28a74ce242a636c877497",
+  "exact_tree_match": true,
+  "compare_files": 0,
+  "workflows": [
+    {
+      "id": 42015109163,
+      "name": "AIOA CodeQL (owner-gated advanced profile)",
+      "status": "completed",
+      "conclusion": "skipped",
+      "run_number": 62,
+      "jobs_url": "https://api.github.com/repos/luciferprosun/AIOA-spArkHAT/actions/runs/42015109163/jobs",
+      "logs_url": "https://api.github.com/repos/luciferprosun/AIOA-spArkHAT/actions/runs/42015109163/logs",
+      "workflow_id": 403663332
+    },
+    {
+      "id": 42015109213,
+      "name": "AIOA MCP Bridge",
+      "status": "completed",
+      "conclusion": "success",
+      "run_number": 33,
+      "jobs_url": "https://api.github.com/repos/luciferprosun/AIOA-spArkHAT/actions/runs/42015109213/jobs",
+      "logs_url": "https://api.github.com/repos/luciferprosun/AIOA-spArkHAT/actions/runs/42015109213/logs",
+      "workflow_id": 379927480
+    },
+    {
+      "id": 42015109337,
+      "name": "Core and native NonZero",
+      "status": "completed",
+      "conclusion": "success",
+      "run_number": 109,
+      "jobs_url": "https://api.github.com/repos/luciferprosun/AIOA-spArkHAT/actions/runs/42015109337/jobs",
+      "logs_url": "https://api.github.com/repos/luciferprosun/AIOA-spArkHAT/actions/runs/42015109337/logs",
+      "workflow_id": 356881203
+    }
+  ],
+  "jobs": [
+    {
+      "id": 127203597682,
+      "name": "certify (3.12)",
+      "status": "completed",
+      "conclusion": "success",
+      "run_id": 42015109337,
+      "logs_url": null,
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1
+        },
+        {
+          "name": "Run actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2
+        },
+        {
+          "name": "Run actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3
+        },
+        {
+          "name": "Install one Core package and check dependencies",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 4
+        },
+        {
+          "name": "Verify checked-in Android source inventory before build",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 5
+        },
+        {
+          "name": "NVIDIA isolated reviewer preflight",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 6
+        },
+        {
+          "name": "Install pinned isolated browser prerequisites on hosted Noble",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 7
+        },
+        {
+          "name": "Required isolated Chrome device console regression",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 8
+        },
+        {
+          "name": "Chat and console transport regressions",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 9
+        },
+        {
+          "name": "Full Core suite and native authority regressions",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 10
+        },
+        {
+          "name": "Architecture, provenance and license",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 11
+        },
+        {
+          "name": "Native and integration Ruff scopes",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 12
+        },
+        {
+          "name": "Python 3.11 AST and interpreter compilation",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 13
+        },
+        {
+          "name": "Installed command discovery",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 14
+        },
+        {
+          "name": "Post Run actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 27
+        },
+        {
+          "name": "Post Run actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 28
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 29
+        }
+      ],
+      "log_sha256": "c3be0764581e39dfe89bdf4b1b40275b19e4d6a0b918fabbfa5c290939b9bb07",
+      "url": "https://github.com/luciferprosun/AIOA-spArkHAT/actions/runs/42015109337/job/127203597682",
+      "completed_test_counts": [
+        {
+          "tests": 1,
+          "seconds": 10.657
+        },
+        {
+          "tests": 2953,
+          "seconds": 759.904
+        },
+        {
+          "tests": 105,
+          "seconds": 53.488
+        }
+      ],
+      "core": {
+        "cases": 2953,
+        "passed": 2948,
+        "skipped": 5,
+        "skip_policy": "unchanged explicit optional allowlist"
+      },
+      "nonzero": 105,
+      "javascript": 48,
+      "isolated_chrome": 1
+    },
+    {
+      "id": 127203597883,
+      "name": "certify (3.11)",
+      "status": "completed",
+      "conclusion": "success",
+      "run_id": 42015109337,
+      "logs_url": null,
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1
+        },
+        {
+          "name": "Run actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2
+        },
+        {
+          "name": "Run actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3
+        },
+        {
+          "name": "Install one Core package and check dependencies",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 4
+        },
+        {
+          "name": "Verify checked-in Android source inventory before build",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 5
+        },
+        {
+          "name": "NVIDIA isolated reviewer preflight",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 6
+        },
+        {
+          "name": "Install pinned isolated browser prerequisites on hosted Noble",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 7
+        },
+        {
+          "name": "Required isolated Chrome device console regression",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 8
+        },
+        {
+          "name": "Chat and console transport regressions",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 9
+        },
+        {
+          "name": "Full Core suite and native authority regressions",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 10
+        },
+        {
+          "name": "Architecture, provenance and license",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 11
+        },
+        {
+          "name": "Native and integration Ruff scopes",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 12
+        },
+        {
+          "name": "Python 3.11 AST and interpreter compilation",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 13
+        },
+        {
+          "name": "Installed command discovery",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 14
+        },
+        {
+          "name": "Post Run actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 27
+        },
+        {
+          "name": "Post Run actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 28
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 29
+        }
+      ],
+      "log_sha256": "ac4ef3e2eb0124a0b8e5f8eb118b786b05fc1056693f6d61ae191ee38d29bed7",
+      "url": "https://github.com/luciferprosun/AIOA-spArkHAT/actions/runs/42015109337/job/127203597883",
+      "completed_test_counts": [
+        {
+          "tests": 1,
+          "seconds": 17.901
+        },
+        {
+          "tests": 2953,
+          "seconds": 741.778
+        },
+        {
+          "tests": 105,
+          "seconds": 54.112
+        }
+      ],
+      "core": {
+        "cases": 2953,
+        "passed": 2948,
+        "skipped": 5,
+        "skip_policy": "unchanged explicit optional allowlist"
+      },
+      "nonzero": 105,
+      "javascript": 48,
+      "isolated_chrome": 1
+    },
+    {
+      "id": 127203597997,
+      "name": "Installed packaging (3.12)",
+      "status": "completed",
+      "conclusion": "success",
+      "run_id": 42015109337,
+      "logs_url": null,
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1
+        },
+        {
+          "name": "Run actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2
+        },
+        {
+          "name": "Run actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3
+        },
+        {
+          "name": "Install pinned packaging test tools",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 4
+        },
+        {
+          "name": "Build and test wheel and sdist without source imports or Textual",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 5
+        },
+        {
+          "name": "Post Run actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 9
+        },
+        {
+          "name": "Post Run actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 10
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 11
+        }
+      ],
+      "log_sha256": "ea3887ae37b2b215d274d9ee03c7023596e10c3261077f89816f248708626b8e",
+      "url": "https://github.com/luciferprosun/AIOA-spArkHAT/actions/runs/42015109337/job/127203597997",
+      "completed_test_counts": [],
+      "packages": [
+        {
+          "distribution": "wheel",
+          "wheel_sha256": "d581144b92b5c07f45cfee0c1a737e9bb4156ddcbb2c23ee10a0de88c37c9d31",
+          "native": "PASS",
+          "source_pins": 26,
+          "source_manifest_sha256": "ae5afa87f94d54c7fecaae9e688215ac0e58245934a424052d8d5ff1286943b3"
+        },
+        {
+          "distribution": "sdist",
+          "wheel_sha256": "a143cb87ab85bb898afa4b022a0b070b0fb20c59dcf239e557fcd57697be594d",
+          "native": "PASS",
+          "source_pins": 26,
+          "source_manifest_sha256": "ae5afa87f94d54c7fecaae9e688215ac0e58245934a424052d8d5ff1286943b3"
+        }
+      ],
+      "sdist_sha256": "d73bed75d6a42351ddebb033f753b35c81396ee7a1b75325d33e0b9ddf81872e",
+      "isolation": "isolated Python/venv/import origins; additional namespace mode certified only in local run"
+    },
+    {
+      "id": 127203598200,
+      "name": "Installed packaging (3.11)",
+      "status": "completed",
+      "conclusion": "success",
+      "run_id": 42015109337,
+      "logs_url": null,
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1
+        },
+        {
+          "name": "Run actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2
+        },
+        {
+          "name": "Run actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3
+        },
+        {
+          "name": "Install pinned packaging test tools",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 4
+        },
+        {
+          "name": "Build and test wheel and sdist without source imports or Textual",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 5
+        },
+        {
+          "name": "Post Run actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 9
+        },
+        {
+          "name": "Post Run actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 10
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 11
+        }
+      ],
+      "log_sha256": "40e0dd0de0bd4e20d3c933e8a48480bc8ac17de3298e6819b844e0c09e09a0c4",
+      "url": "https://github.com/luciferprosun/AIOA-spArkHAT/actions/runs/42015109337/job/127203598200",
+      "completed_test_counts": [],
+      "packages": [
+        {
+          "distribution": "wheel",
+          "wheel_sha256": "2d9b5b836a4d25dde703f67d8f893dee52bc5a0558472661933f78d385348d5e",
+          "native": "PASS",
+          "source_pins": 26,
+          "source_manifest_sha256": "ae5afa87f94d54c7fecaae9e688215ac0e58245934a424052d8d5ff1286943b3"
+        },
+        {
+          "distribution": "sdist",
+          "wheel_sha256": "a143cb87ab85bb898afa4b022a0b070b0fb20c59dcf239e557fcd57697be594d",
+          "native": "PASS",
+          "source_pins": 26,
+          "source_manifest_sha256": "ae5afa87f94d54c7fecaae9e688215ac0e58245934a424052d8d5ff1286943b3"
+        }
+      ],
+      "sdist_sha256": "85b7b7ecce424c57377da933b0814549c51fbf6bc5b1b293cd9bcf09da461881",
+      "isolation": "isolated Python/venv/import origins; additional namespace mode certified only in local run"
+    },
+    {
+      "id": 127203596912,
+      "name": "MCP contract (3.11)",
+      "status": "completed",
+      "conclusion": "success",
+      "run_id": 42015109213,
+      "logs_url": null,
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1
+        },
+        {
+          "name": "Run actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2
+        },
+        {
+          "name": "Run actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3
+        },
+        {
+          "name": "Install pinned offline Ed25519 test dependency",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 4
+        },
+        {
+          "name": "Compile bridge",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 5
+        },
+        {
+          "name": "Run all MCP contract and synthetic authority tests",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 6
+        },
+        {
+          "name": "Post Run actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 11
+        },
+        {
+          "name": "Post Run actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 12
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 13
+        }
+      ],
+      "log_sha256": "4129590baa1bc3f77592bc0dbb54ce8ab09295feedaa35ee52ea000f192e3815",
+      "url": "https://github.com/luciferprosun/AIOA-spArkHAT/actions/runs/42015109213/job/127203596912",
+      "completed_test_counts": [
+        {
+          "tests": 99,
+          "seconds": 1.48
+        }
+      ],
+      "mcp": 99
+    },
+    {
+      "id": 127203597079,
+      "name": "MCP contract (3.12)",
+      "status": "completed",
+      "conclusion": "success",
+      "run_id": 42015109213,
+      "logs_url": null,
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1
+        },
+        {
+          "name": "Run actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2
+        },
+        {
+          "name": "Run actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3
+        },
+        {
+          "name": "Install pinned offline Ed25519 test dependency",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 4
+        },
+        {
+          "name": "Compile bridge",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 5
+        },
+        {
+          "name": "Run all MCP contract and synthetic authority tests",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 6
+        },
+        {
+          "name": "Post Run actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 11
+        },
+        {
+          "name": "Post Run actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 12
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 13
+        }
+      ],
+      "log_sha256": "231ce71fa7bef8d3a249aafea09847563fd688c2d9be36a26441c7547bf2d0a8",
+      "url": "https://github.com/luciferprosun/AIOA-spArkHAT/actions/runs/42015109213/job/127203597079",
+      "completed_test_counts": [
+        {
+          "tests": 99,
+          "seconds": 1.868
+        }
+      ],
+      "mcp": 99
+    }
+  ],
+  "required_jobs_passed": 6
+}

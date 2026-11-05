@@ -1,38 +1,52 @@
-# Product readiness — consolidation candidate
+# Product readiness — one canonical code release
 
-Outcome: **PARTIAL; not an approved complete-system release**. Canonical release target is main in `luciferprosun/AIOA-spArkHAT`. The running prototype is preserved; no deployment, branch removal, paid model call or operational remote WRITE was performed by consolidation.
+The 31 source groups are fully classified in PR46. This is **code consolidation**, not full LIVE product qualification. The canonical repository is `luciferprosun/AIOA-spArkHAT`; the running Native at source `16fcfeed477f92f2ec65bd235e0b1cd98f87e7fd` was preserved without restart or deployment.
 
-## Working candidate scope
+Implementation checkpoint: `bb48d7940f1e759adce4ff8b24c9a296819dc461`, based on `41aa47e57e5c8e875f0a67d87108cba62d1d623c`. Frozen main: `2be99da7aa07f7eb5faa9459fe8a78c5d0b6653a`. Exact test results and CI links are in [TEST_RESULTS](../audit/2026-11-05/TEST_RESULTS.md). Final documentation-only PR HEAD, tested merge-tree SHA and its checks must be verified in the current [PR46 release gate](https://github.com/luciferprosun/AIOA-spArkHAT/pull/46) and the owner's desktop release report, without trying to embed a commit's own future SHA in its contents.
 
-- Complete PR44 native Muse conversation/session path and PR45 unique code/PR adapter retained with source provenance.
-- Correct Overview/chat session projection and recovery of stale background-read presentation without clearing real UNKNOWN or replay barriers.
-- Failed GitHub proposal preflight becomes a terminal refused operation; the original Muse-turn deduplication binding remains.
-- Existing authenticated Mission Control now routes command advice and email-draft preparation through the same Native/Core/audit. No shell/mail/provider effects are available from these previews.
-- Pure historical Gmail MIME/wire/PKCE contracts preserved with exact-byte/correlation binding tests. PKCE preparation is not an OAuth-connected account.
-- Native dependencies declared; launcher templates use an explicit qualified origin/interpreter. Isolated wheel/sdist import/contract acceptance passes. Production installation is a separate gate.
+## Distinct outcomes
 
-## Release gates
+| Status | Result / boundary |
+| --- | --- |
+| CODE_CONSOLIDATED | YES: 31/31 classified, all selected ports retained in one Core; deferred sources pinned and protected |
+| RELEASE_SAFE | YES for implementation bb48d794: 6/6 required CI and two reviews PASS; final documentation-only HEAD must independently retain all checks before owner GO |
+| MERGED_MAIN | NO — AWAITING_EXACT_OWNER_GO |
+| DEPLOYED_NATIVE | NO — running source, SQLite, TLS, keys and pairing unchanged |
+| AGENT_LIVE_WRITE_VERIFIED | NO — no real agent GitHub WRITE was performed |
+| ANDROID_LIVE_E2E | NOT_RUN — no physical acceptance, APK rebuild or signer change |
+| FULL_PRODUCT_LIVE_READY | BLOCKED — external and Native activation gates below remain |
 
-| Gate | Current state | Evidence / remaining condition |
+## Feature qualification
+
+| Feature | Code/test qualification | Current operational boundary |
 | --- | --- | --- |
-| A — inventory | PARTIAL | All 320 discovered refs and 39 PR heads compared; feature-family semantic audit recorded. Intermediate historical files/corpora and unavailable external uncommitted content are not exhaustively certified. |
-| B — backup | PASS | Two independently restored bundles; full 320-ref manifest/fsck match, raw dirty-file archives. No claim of live-state backup. |
-| C — security | Targeted checks PASS; full regression pending | Existing authority and no-retry gates retained; source review findings fixed and tested. See TEST_RESULTS. |
-| D — complete functional product | BLOCKED | Native CPL/worker/semantic-memory/orchestration bindings and real external GitHub/Gmail effects are not qualified. |
-| E — regression/CI | IN_PROGRESS | Full Core suite, browser acceptance and CI must report their exact candidate SHA. |
-| F — independent review | Targeted review completed | Chat/preflight and advisory review performed read-only; final candidate/CI review remains. |
-| G — owner GO | NOT_REQUESTED | No main merge/deployment or branch deletion is implied by this candidate. |
+| Muse conversation | PR44 session and multi-turn behavior retained; actual Native/SQLite with provider fixture tested | No paid call in this sprint; active production owner session may require renewal by owner |
+| GitHub/local Git READ | Fixed bounded recipes and signed readback retained; fixture/negative acceptance | No new production READ or runtime credential qualification claimed here |
+| GitHub WRITE adapter | PR45 create-only branch/commit/draft-PR integration, denial/STOP/UNKNOWN/idempotency tests | DISABLED / NOT_LIVE_VERIFIED; scoped App, exact warrant, liability evidence and separate live acceptance required |
+| Legacy issue proposal | Existing parser/advisory contract | No issue-create executor; never ISSUE_CREATED |
+| CPL | Existing canonical 1+3+1 contract and tested read-only Native preview, zero provider calls | Paid/executing path disabled; provider/governor/approval binding not certified |
+| Worker/local Git | Existing worker, ServiceGuard/intent/outbox contracts retained | BLOCKED_NATIVE_WORKER_NOT_CERTIFIED; no Native EXEC activation |
+| Memory/HAT | Existing MemoryPatch/NativeLearning and canonical transaction ports retained | INTEGRATED_INERT / MEMORY_CONSENT_REQUIRED; selected HAT, scope and consent absent |
+| Command advice | Same-Core signed preview; variables, escapes, Unicode controls and composition conservatively refused | Advisory only, no command executor or permission inference |
+| Gmail | Exact MIME/digest preview, wire and PKCE intent contracts tested | SEND disabled; no enrolled account or Core sending transport |
+| Android | Existing same-Core signed transport/pairing and source inventory preserved | Physical current-session readback NOT_RUN |
+| MCP | Existing bridge and offline authority contracts | External effect activation remains independently gated |
+| NVIDIA / Nebius / NonZero | Existing provider/domain contracts and offline regressions retained | No new paid calls, provider credential activation or old runtime restoration |
+| Historical knowledge / W7A / Companion | Exact SHAs, tests and destination modules accounted for | Deferred preservation; the existence of a target module does not mean the historical feature is integrated |
 
-## Concrete blockers and preserved work
+## Release gates and preserved sources
 
-GitHub WRITE needs a repository-scoped local App installation credential, permission verification at START, retained UNKNOWN liabilities resolved with real evidence, and a current exact Muse proposal plus owner warrant. No broad CLI fallback or administrative token substitution is allowed. A real remote test must be authorized separately.
+| Gate | Evidence / decision |
+| --- | --- |
+| Source inventory | 31/31 classified: 11 already merged into frozen main, 6 ports, 11 deferred, 1 external blocker, 1 duplicate slice, 1 obsolete authority use. No claim of exhaustive semantic coverage of unavailable uncommitted bytes. |
+| Source backup | Two independently restored/fsck-verified Git bundles covering 320 refs; eight dirty archives and two unavailable external worktrees PROTECTED. |
+| State backup | Official SQLite API snapshot, integrity/FK PASS; source-pinned active/baseline/implementation readers preserve all 1200 records, v3, two governor UNKNOWN and three CHAT_UNKNOWN. See STATE_COMPATIBILITY. |
+| Installed product | Real Native/Core/SQLite tested from wheel and sdist, source-byte pins and import-origin checks; synthetic OS/TLS/source admission. Local additional filesystem/net/PID isolation passed. |
+| Security / architecture | Two independent READ-ONLY implementation reviews: NO P0/P1. Evidence limits and resolved certificate improvements recorded. |
+| CI | Baseline 41aa 6/6 PASS; Implementation bb48d794 6/6 PASS. Core 2953 cases = 2948 PASS + 5 allowed SKIP per interpreter; NonZero 105, MCP 99, JS 48, isolated Chrome 1 and installed wheel/sdist PASS. CodeQL remains SKIPPED under owner policy, not PASS. |
+| Main merge | Separate exact owner GO for PR46 HEAD and code-only scope required by ASTRA_MERGE.pdf 1.5/7.6. |
+| Deployment | Separate approval, fresh state/backup/authority gate and controlled restart required. Offline reader compatibility does not certify reboot. |
 
-Native CPL currently has the real canonical 1+3+1 service/contracts and a truthful preview. The Native composition lacks the reviewed exact provider/governor and five-call approval binding. Worker activation likewise lacks qualified production composition and a real CPL veto; its fixture-only guard is retained. These are concrete integration gaps, not missing copied directories.
+PR44 and PR45 remain open and protected. No branch, worktree, SQLite record, UNKNOWN, pairing or key is deleted. The external worktrees under `/media/l/LSC_DATA3/AIOA_UNIFICATION_20261009/AIOA-SPRINT30-20261018T203545Z` and `/media/l/LSC_DATA1/MCP_Commander/nebius-personal-ai-contract` remain unavailable/protected; their uncommitted content is unknown.
 
-Semantic memory needs explicit selected HAT, scope and knowledge consent while borrowing the existing transaction factory. Current Native assignment is `mobile-status`; creating another store or widening that assignment silently is not integration. Optional CockroachDB and external legal corpora are not configured or certified by this work.
-
-Gmail transport/account enrollment and the Core sending gate are absent. Imported pure preparation contracts plus the local preview do not imply delivery. Later W7A repair/Codex worker, knowledge orchestration and diagnostic slices remain preserved with source/dependency decisions in the matrix; none is activated through its old independent authority stack.
-
-Two external worktree directories are unavailable. Eight dirty local trees and all discovered committed refs are protected. No historical branch is ready for deletion merely because its tip is an ancestor or a backup exists.
-
-See [feature matrix](../audit/2026-11-05/FEATURE_MATRIX.csv), [dependency graph](../audit/2026-11-05/DEPENDENCY_GRAPH.md), [deduplication decisions](../audit/2026-11-05/CONFLICT_AND_DEDUP_REPORT.md), [security review](../audit/2026-11-05/SECURITY_REVIEW.md) and [tests](../audit/2026-11-05/TEST_RESULTS.md).
+See [feature matrix](../audit/2026-11-05/FEATURE_MATRIX.csv), [dependencies and post-merge channels](../audit/2026-11-05/DEPENDENCY_GRAPH.md), [protected sources](../audit/2026-11-05/PROTECTED_SOURCES.csv), [security review](../audit/2026-11-05/SECURITY_REVIEW.md), and [rollback](ROLLBACK_AND_RECOVERY.md). Old-main 2be rollback against the current v3 journal is prohibited; a snapshot must never erase later effects or UNKNOWN history.

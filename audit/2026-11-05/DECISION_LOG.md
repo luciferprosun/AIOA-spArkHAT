@@ -14,3 +14,13 @@ All comparisons use base `2be99da7aa07f7eb5faa9459fe8a78c5d0b6653a`. No changes 
 | Auth/policy review | PR44 and PR45 code | Offline integration is authorized; applying changed money-policy behavior or GitHub authority to production still requires the final exact deployment decision. |
 
 The full inventory is not a deletion list. An ancestor/patch-equivalent commit proves history preservation, not current runtime availability or completeness of intermediate experimental trees.
+
+## Final source-consolidation decisions under ASTRA_MERGE.pdf
+
+- Keep one PR46 and one writer. Baseline `41aa47e5` already preserved all five PR44 commits and five unique PR45 commits; do not cherry-pick these again. PR44/45 stay open and protected until accepted main preservation is independently verified.
+- Classify 31/31 feature groups without wholesale merges: 11 already in frozen main, 6 ports in PR46, 11 deferred/preserved, one external corpus blocker, one deduplicated reviewer slice and one obsolete authority use. Every group has an exact source SHA, canonical destination, reason and evidence boundary. No source receives deletion approval.
+- Use only the existing canonical CPL preview; paid 1+3+1 execution remains unbound. Project worker `BLOCKED_NATIVE_WORKER_NOT_CERTIFIED` and memory `INTEGRATED_INERT` / `MEMORY_CONSENT_REQUIRED`; never pick an operator HAT or widen scope automatically.
+- Implementation `bb48d7940f1e759adce4ff8b24c9a296819dc461` adds installed real Native/Core acceptance and missing offline refusal/ACK/source/input regressions. Model and remote ports remain fixtures in tests; production is not touched.
+- The official private SQLite snapshot is readable by active, baseline and implementation readers with identical UNKNOWN/audit/warrant/pairing projections. Old main refuses it. State compatibility is a read-only copy certificate, not permission to restart Native or restore an older journal.
+- Separate code-source completeness from product LIVE readiness. GitHub/Gmail effects, canonical paid CPL, worker activation, semantic memory and physical Android acceptance remain separate explicit gates. Keep CodeQL `SKIPPED` under the existing owner policy.
+- Exact final PR HEAD, tested merge tree, CI and evidence hashes go in the operator's final release report and current PR description. Require separate exact owner GO for main merge and another for deployment, as ASTRA_MERGE.pdf sections1.5/7.6–7.7 specify.
