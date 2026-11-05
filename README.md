@@ -1,25 +1,34 @@
 # AIOA spArkHAT 🐾
 
-## Cosmic Native Linux — integration candidate, 4 November2026
+## One AIOA — consolidation candidate, 5 November 2026
 
-The existing private `/devices` Mission Control uses real local PolicyKit
-admission, the same Core/store and preserved Android pairing. Its Linux-only
-integration adds five fixed READ recipes: GitHub repository/main and latest
-issues, plus local Git status/log/branches. Successful reads retain a signed
-source-bound Core receipt; lost ACKs require readback rather than redispatch.
-No Android source, package, signer or pairing data is changed by this slice.
+White Hole Mission Control uses the existing Native Core, OS/PolicyKit owner
+admission, SQLite audit, host identity and Android pairing. This candidate
+preserves the functioning multi-turn Muse prototype and integrates selected
+historical capabilities through the same application. Production has not been
+replaced by this branch.
 
-Muse Spark1.3 remains advisory and requires exact, separate native cost approval
-for each paid message. A strict current-response issue proposal grants no
-execution authority. **Remote WRITE is blocked**: the previously incomplete
-model call remains UNKNOWN, and a reviewed remote START binding is absent.
-**Native CPL is blocked**; its five-call contract preview is not a live run.
-Historical successful model evidence does not certify a new source or response.
+An explicitly enabled native owner session supports successive Muse messages
+without a password for every Send. Each intentional Send still has an exact
+bounded request, Core accounting and one attempt; uncertain outcomes remain
+readback-only. Session authority does not permit GitHub WRITE or command execution.
 
-This is the explicitly scoped READ fallback, not acceptance of the complete
-GitHub mutation demo. See the [integration report](docs/meta/ULTRA_INTEGRATION_REPORT_20261104.md),
-[architecture and gates](docs/meta/ULTRA_FINAL_ARCHITECTURE_20261104.md) and
-[English operator runbook](docs/meta/ULTRA_FINAL_DEMO_RUNBOOK_EN.md).
+Five fixed READ recipes cover GitHub repository/main/issues and local Git
+status/log/branches. The Tools page also offers local command-structure advice
+and an email draft fingerprint preview, with signed Core audit receipts. Neither
+preview executes commands, connects Gmail nor sends messages.
+
+The existing create-only GitHub branch/commit/draft-PR adapter and exact owner
+review are integrated as an **unqualified remote candidate**. Real WRITE remains
+blocked by missing scoped App credentials, unresolved owner liabilities and a
+missing current owner-approved live test. An issue proposal is not an issue
+executor. Native CPL, worker and semantic-memory bindings remain explicitly
+blocked; their existing source/contracts are inventoried, not presented as live.
+
+See [architecture](docs/ARCHITECTURE_UNIFIED.md), [Linux installation](docs/DEPLOY_LINUX.md),
+[readiness](docs/PRODUCT_READINESS.md), [source inventory](audit/2026-11-05/INVENTORY_SUMMARY.json)
+and [rollback](docs/ROLLBACK_AND_RECOVERY.md). Historical evidence certifies only
+its stated source and scope; current test results are recorded separately.
 
 ## One local Mission Control
 
@@ -89,7 +98,9 @@ AI models, GitHub issues and external services have **no implicit WRITE/EXEC aut
 
 ## Start locally
 
-Requires Python 3.11+ and a complete source checkout.
+Requires Python 3.11+ and a complete source checkout. Install the `native` extra
+for Native crypto/READ dependencies; see the isolated environment instructions
+in [DEPLOY_LINUX.md](docs/DEPLOY_LINUX.md).
 
 ```bash
 python3 -I -B scripts/nvidia_reviewer_preflight.py --unified
@@ -109,7 +120,7 @@ branch do not certify an unmerged `main`.
 | `runtime/` | AIOA core, execution boundaries, provider routing, CPL and integrations |
 | `runtime/memory_patch/` | native memory module and optional CockroachDB adapter |
 | `runtime/nonzero_cloudops/` | integrated Non-Zero safety / bounded CloudOps implementation |
-| `runtime/mcp_bridge/` | READ-only GitHub task bus and MCP policy bridge |
+| `runtime/mcp_bridge/` | bounded READ/task bus, MCP policy and gated create-only remote Git adapter |
 | `memory/`, `provenance/`, `contradictions/` | state and epistemic semantics |
 | `web/`, `tui/` | user interfaces |
 | `tests/` | active deterministic and integration tests |

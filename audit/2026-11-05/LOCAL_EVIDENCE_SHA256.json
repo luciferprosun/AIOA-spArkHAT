@@ -1,0 +1,88 @@
+{
+  "schema": "aioa.consolidation.local-evidence.v1",
+  "raw_log_location": "owner-private consolidation directory; final exact-SHA CI published on integration PR",
+  "implementation_checkpoint": "11f800f9",
+  "additional_test_checkpoint": "981bab0d",
+  "files": [
+    {
+      "file": "batch1-chat-python.log",
+      "sha256": "5af882ddf9c03e331dc1f8dfe383ecdb023438dc732b3a35494fa7b6aacc8901",
+      "bytes": 195
+    },
+    {
+      "file": "batch1-chat-node.log",
+      "sha256": "4ea9225a5d5825ac483ca23733f00e1c51a12838f5db288eadca28f893abe269",
+      "bytes": 9576
+    },
+    {
+      "file": "batch2-github-python-corrected.log",
+      "sha256": "4796135f8dd2a78f6b91a5ebd329d0690e551039a1241a2becfbaaef78e596ec",
+      "bytes": 163
+    },
+    {
+      "file": "batch3-green-0.log",
+      "sha256": "c313eb389073c787898f1e8eab355234bf8c7747456d066d948ef8a1e5867b92",
+      "bytes": 10520
+    },
+    {
+      "file": "batch3-green-1.log",
+      "sha256": "6a2295dabe69523fa0c9c27a52d889c961548ce066342b9072e89438248ce1cf",
+      "bytes": 158
+    },
+    {
+      "file": "batch3-red-0.log",
+      "sha256": "1034a3075dd844ca264dce885ef13f0196f4b32d222f4bfd7e033338af2684e3",
+      "bytes": 1862
+    },
+    {
+      "file": "batch3-red-1.log",
+      "sha256": "512f6a2ee21b383354a5e2a3155fcb154e28345e64cf112ab82a88c560429c80",
+      "bytes": 6446
+    },
+    {
+      "file": "batch4-source-contracts.log",
+      "sha256": "5f80e77b202faf01ae2f96dfb090c9de4a99899bdbabf1570f9144e66e2ace98",
+      "bytes": 175
+    },
+    {
+      "file": "batch4-advisory-reviewed.log",
+      "sha256": "dde70c2c70f831b25501d1acc77f69aee512f7447fbe61bfdb7cd9a2330d8e2c",
+      "bytes": 185
+    },
+    {
+      "file": "batch5-desktop.log",
+      "sha256": "b35ad8abfed4787a1a901a3cb2b859be770d4adf5c003c7d5e55b396c93ef2e0",
+      "bytes": 111
+    },
+    {
+      "file": "final-review-python.log",
+      "sha256": "15f15f97c59127d1d52d89af9a028b6ef0eb9de552888934922db0bec90a7134",
+      "bytes": 192
+    },
+    {
+      "file": "final-edges-github.log",
+      "sha256": "c1fa6c35d44a86d2a36a9b3b30dade5f3629157bd204e94850ced11960a091d6",
+      "bytes": 113
+    },
+    {
+      "file": "final-edges-node.log",
+      "sha256": "cf172dae31c712de70f7eaee6e4243ccf50a8ee510d7483c15d29f68336aa9a7",
+      "bytes": 11215
+    },
+    {
+      "file": "browser-advisory-e2e-corrected.log",
+      "sha256": "fe521a5416a6bededa5e9a8ab05b637bba7efdce1c29718632113863faf7b96b",
+      "bytes": 402
+    },
+    {
+      "file": "full-core.log",
+      "sha256": "c7b1d3a75cd17a27390dc661c5ff7c2c1dee3c1e75a207483f4e442f07108db2",
+      "bytes": 17530
+    },
+    {
+      "file": "packaging-result.json",
+      "sha256": "474e04d31ea27e477d42b26f47a3774c58081951bf98b1fad0237a7973b1d5a6",
+      "bytes": 4903
+    }
+  ]
+}
