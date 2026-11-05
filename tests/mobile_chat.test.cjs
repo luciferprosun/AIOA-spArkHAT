@@ -1,5 +1,95 @@
 const test=require('node:test');const assert=require('node:assert/strict');const fs=require('node:fs');
 const path=require('node:path').join(__dirname,'../web/mobile_chat.js');const api=fs.existsSync(path)?require(path):{};
+test('verified partial response permits a new explicit message without retrying the first',async()=>{
+  let count=0,serial=0,current;
+  const chat=api.createChat(async v=>{
+    if(v.op==='chat_catalog')return {chat:true,model_id:'muse-spark-1.3',mode:'LIVE_OWNER_SESSION'};
+    if(v.op==='chat_threads')return {threads:[]};
+    if(v.op==='chat_send') {count++;current={schema:'aioa.mobile.chat-result.v1',request_id:v.payload.request_id,
+      thread_id:v.payload.thread_id,provider_id:'meta_model_api',model_id:'muse-spark-1.3',save_knowledge:false,state:'RUNNING'};return current;}
+    assert.equal(v.op,'chat_request');return {...current,state:'TRUNCATED',live_verified:true,reply:'partial',request_digest:'d'.repeat(64),
+      receipt:{schema:'aioa.meta.chat-receipt.v2',request_digest:'d'.repeat(64),finish_reason:'length',response_complete:false}};
+  },()=>{},()=> (++serial).toString(16).padStart(32,'0'));
+  await chat.refresh();await chat.send('First');await chat.read();
+  assert.equal(chat.snapshot().pending,null);assert.equal(chat.snapshot().messages[0].reply,'partial');
+  await chat.send('Follow up');assert.equal(count,2);
+});
+test('owner conversation crosses the actual console transport and can end its session',async()=>{
+  const {createDeviceConsole}=require('../web/mobile_devices.js');
+  const calls=[];let serial=0,active=true,latest;
+  const consoleClient=createDeviceConsole('T'.repeat(43),async(url,options)=>{
+    assert.equal(url,'/api/native-operator');
+    assert.equal(options.headers['X-AIOA-Session-Token'],'T'.repeat(43));
+    assert.equal(options.credentials,'same-origin');
+    const value=JSON.parse(options.body);calls.push(value);
+    let data;
+    if(value.op==='chat_catalog')data={chat:active,model_id:'muse-spark-1.3',mode:active?'LIVE_OWNER_SESSION':'LIVE_PENDING_EXACT_OWNER_APPROVAL'};
+    else if(value.op==='chat_threads')data={threads:[]};
+    else if(value.op==='chat_send'){
+      assert.equal(value.payload.schema,'aioa.mobile.chat-send.v2');
+      assert.equal('max_budget_usd' in value.payload,false);
+      latest={schema:'aioa.mobile.chat-result.v1',request_id:value.payload.request_id,thread_id:value.payload.thread_id,
+        provider_id:'meta_model_api',model_id:'muse-spark-1.3',save_knowledge:false,state:'RUNNING'};
+      data=latest;
+    } else if(value.op==='chat_request')data={...latest,state:'SUCCEEDED',live_verified:true,reply:'Synthetic reply',request_digest:'a'.repeat(64),
+      receipt:{schema:'aioa.meta.chat-receipt.v1',request_digest:'a'.repeat(64)}};
+    else if(value.op==='chat_session_stop'){active=false;data={state:'INACTIVE'};}
+    else assert.fail('Unexpected operation: '+value.op);
+    return {ok:true,status:200,json:async()=>({ok:true,data})};
+  });
+  const chat=api.createChat(consoleClient.chatCall,()=>{},()=> (++serial).toString(16).padStart(32,'0'));
+  await chat.refresh();await chat.send('First message');await chat.read();
+  assert.equal(chat.snapshot().messages[0].reply,'Synthetic reply');
+  const thread=chat.snapshot().thread;
+  await chat.send('Second message');await chat.read();
+  assert.equal(chat.snapshot().thread,thread);assert.equal(chat.snapshot().pending,null);
+  assert.equal(calls.filter(x=>x.op==='chat_send').length,2);
+  await chat.endSession();await assert.rejects(chat.send('Session ended'),/CHAT_NOT_AVAILABLE/);
+  assert.equal(calls.some(x=>['chat_approve','chat_session_start','budget_approve'].includes(x.op)),false);
+});
+test('lost session send ACK through console transport retains the request and never retries',async()=>{
+  const {createDeviceConsole}=require('../web/mobile_devices.js');
+  let sends=0;
+  const transport=createDeviceConsole('T'.repeat(43),async(url,options)=>{
+    const value=JSON.parse(options.body);
+    if(value.op==='chat_send'){sends++;throw Error('lost ACK');}
+    const data=value.op==='chat_catalog'?{chat:true,model_id:'muse-spark-1.3',mode:'LIVE_OWNER_SESSION'}:{threads:[]};
+    return {ok:true,status:200,json:async()=>({ok:true,data})};
+  });
+  const chat=api.createChat(transport.chatCall,()=>{},()=> 'a'.repeat(32));
+  await chat.refresh();await assert.rejects(chat.send('One attempt'),/UNKNOWN_READBACK_REQUIRED/);
+  assert.equal(chat.snapshot().pending,'a'.repeat(32));
+  await assert.rejects(chat.send('One attempt'),/CHAT_READBACK_ONLY/);
+  assert.equal(sends,1);
+});
+test('an owner session sends directly without a cost approval or a browser-supplied budget',async()=>{
+  const calls=[];let serial=0;
+  const client=api.createChat(async value=>{
+    calls.push(value);
+    if(value.op==='chat_catalog')return {chat:true,model_id:'muse-spark-1.3',mode:'LIVE_OWNER_SESSION'};
+    if(value.op==='chat_threads')return {threads:[]};
+    assert.equal(value.op,'chat_send');
+    return {schema:'aioa.mobile.chat-result.v1',request_id:value.payload.request_id,thread_id:value.payload.thread_id,
+      provider_id:'meta_model_api',model_id:'muse-spark-1.3',save_knowledge:false,state:'RUNNING'};
+  },()=>{},()=> (++serial).toString(16).padStart(32,'0'));
+  await client.refresh();await client.send('Cześć!');
+  assert.equal(calls.at(-1).payload.schema,'aioa.mobile.chat-send.v2');
+  assert.equal('max_budget_usd' in calls.at(-1).payload,false);
+  assert.equal(calls.some(v=>['chat_approve','chat_session_start','budget_approve'].includes(v.op)),false);
+  await assert.rejects(client.send('same again'),/CHAT_READBACK_ONLY/);
+});
+test('new ordinary conversation clears context locally without a confirmation or remote mutation',async()=>{
+  const calls=[];let serial=0;
+  const client=api.createChat(async value=>{
+    calls.push(value);
+    if(value.op==='chat_catalog')return {chat:true,model_id:'muse-spark-1.3',mode:'LIVE_OWNER_SESSION'};
+    if(value.op==='chat_threads')return {threads:[]};
+    assert.fail('new conversation must not spend or approve');
+  },()=>{},()=> (++serial).toString(16).padStart(32,'0'));
+  await client.refresh();const before=calls.length;
+  client.newConversation(true);assert.equal(client.snapshot().draft,true);
+  assert.equal(calls.length,before);
+});
 test('initial selection prefers current successful text over historical UNKNOWN and preserves manual history',async()=>{
   const fresh='1'.repeat(32),old='2'.repeat(32);let selected;
   const client=api.createChat(async v=>{

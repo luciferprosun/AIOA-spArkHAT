@@ -185,11 +185,12 @@ def worker():
                 pending()[0].focus();window.consoleProbePoll();
                 const view=document.getElementById('devices-view');view.tabIndex=-1;view.focus();
                 await wait(7);result.deliberate_focus_preserved=document.activeElement===view;
-                window.consoleProbePoll();await wait(8);window.consoleProbePoll();
-                await new Promise(r=>setTimeout(r,50));
-                result.unknown_suppresses_poll=window.consoleProbeReads===8&&pending().every(x=>x.disabled);
+                window.consoleProbePoll();await wait(8);
                 result.unknown_clears_cosmic_overview=document.getElementById('cosmic-trusted-count').textContent==='—'&&
                   document.getElementById('cosmic-session-count').textContent==='—'&&statusButton.disabled;
+                window.consoleProbePoll();await wait(9);
+                result.stale_read_recovers=window.consoleProbeReads===9&&pending().every(x=>!x.disabled)&&
+                  !statusButton.disabled&&document.getElementById('cosmic-trusted-count').textContent!=='—';
                 document.getElementById('devices-lock').click();
                 result.lock_clears_status_history=!document.getElementById('cosmic-core-settings').textContent.includes('NATIVE_STATUS_READ_ONLY_V1')&&
                   !document.getElementById('cosmic-core-observations').textContent.includes('/api/mobile/v1/status');
@@ -360,11 +361,11 @@ def worker():
             self.assertIsNotNone(found,'Browser probe did not finish')
             result=json.loads(html.unescape(found[1]))
             self.assertNotIn('error',result,result)
-            self.assertEqual(9,len(operations));self.assertEqual(8,operations.count({'op':'pairing_list'}))
+            self.assertEqual(10,len(operations));self.assertEqual(9,operations.count({'op':'pairing_list'}))
             self.assertEqual(1,operations.count({'op':'status'}))
             self.assertEqual(dict.fromkeys(('bootstrap','background_controls_available','pending_focus','device_focus',
                 'reordered_exact_focus','changed_digest_not_focused','removed_request_not_focused',
-                'deliberate_focus_preserved','unknown_suppresses_poll','revoked_reconnect_keeps_legacy_revoke',
+                'deliberate_focus_preserved','stale_read_recovers','revoked_reconnect_keeps_legacy_revoke',
                 'no_url_or_storage_credential','cosmic_navigation_read_only','local_fonts_loaded',
                 'large_text_no_outer_overflow','unknown_clears_cosmic_overview','existing_core_status_read',
                 'lock_clears_status_history','empty_lists_and_locked_controls'),True),result)

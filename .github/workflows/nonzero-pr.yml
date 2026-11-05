@@ -118,6 +118,8 @@ jobs:
           sudo /usr/sbin/apparmor_parser --add --skip-cache "$policy_file"
           profile_loaded=1
           /usr/bin/python3 -B tests/mobile_device_console_browser.py
+      - name: Chat and console transport regressions
+        run: node --test tests/mobile_chat.test.cjs tests/mobile_devices.test.cjs
       - name: Full Core suite and native authority regressions
         run: |
           python - <<'PY'

@@ -70,6 +70,7 @@ SOURCE_FILES += ('runtime/mcp_bridge/adapter.py','runtime/mcp_bridge/policy.py',
 SOURCE_FILES += ('runtime/meta_hackathon/web_agent.py','web/agent_mission.js',
         'clients/android/ANDROID_BUILD_INPUT_MANIFEST.json')
 SOURCE_FILES += ('web/mobile_devices.js','web/mobile_devices_dom.js','web/qr.js')
+SOURCE_FILES += ('runtime/mcp_bridge/github_remote.py','runtime/meta_hackathon/github_write.py')
 SOURCE_FILES += tuple('clients/android/app/src/main/java/eu/sparkhat/aioa/companion/'+name
         for name in ('PairingProtocol.kt','TrustedHostStore.kt','CosmicScreen.kt',
                      'PairingProblem.kt','SessionRecovery.kt','RecoveryNetworkMonitor.kt'))
@@ -90,7 +91,7 @@ SOURCE_FILES += ('web/cosmic_tokens.css',
         'clients/android/app/src/main/res/font/cosmic_manrope.ttf',
         'clients/android/app/src/main/res/font/cosmic_ibm_plex_mono.ttf',
         'clients/android/app/src/main/assets/licenses/cosmic_fonts_ofl.txt')
-SOURCE_FILES += ('runtime/meta_hackathon/chat.py','runtime/mobile_gateway/chat_views.py',
+SOURCE_FILES += ('runtime/meta_hackathon/chat.py','runtime/meta_hackathon/chat_session.py','runtime/mobile_gateway/chat_views.py',
         'runtime/mobile_gateway/operator_chat.py','runtime/mobile_gateway/chrome_console.py',
         'protocol/mobile_chat_v1.json','web/mobile_chat.js',
         'clients/android/app/src/main/java/eu/sparkhat/aioa/companion/ChatView.kt')
@@ -507,6 +508,7 @@ class NativeMobileComposition:
                         or time.time()>=self._tls_expires):raise AdmissionError()
                 epoch=None
                 if self.chat_enabled:
+                    self.missions._chat_session=None
                     epoch=self.chat_governor.start_epoch(self.core.local_operator(Capability.MANAGE))
                 now=int(time.time())
                 def record(tx):
@@ -545,6 +547,9 @@ class NativeMobileComposition:
         if value=={'op':'operator_auth_status'}:return self.operator_auth_status()
         if op=='operator_renew':return self.renew_operator(value,invalidate_console)
         owner=self.operator_principal()
+        if op.startswith('github_'):
+            from .github_write import dispatch
+            return dispatch(self,owner,value)
         if op in ('budget_review','budget_approve'):
             from runtime.mobile_gateway.operator_chat import budget_dispatch
             return budget_dispatch(self,owner,value)

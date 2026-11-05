@@ -14,6 +14,87 @@ function harness(handler) {
   },()=>100);
   return {client,calls};
 }
+test('remote code review requires exact owner action and cannot repeat an approval after lost ACK',async()=>{
+  let id;let approvals=0;
+  const {client,calls}=harness(v=>{
+    if(v.op==='pairing_list')return {pending:[],devices:[]};
+    if(v.op==='tool_proposal') {id=v.request_id;return {operation_id:id,status:'GITHUB_PROPOSED',
+      execution_authorized:false,approval_available:true,review_digest:'a'.repeat(64),
+      proposal:{operation:'code.commit_draft_pr',source_chat_request_id:v.chat_request_id}};}
+    if(v.op==='github_write_approve'){approvals++;assert.equal(v.operation_id,id);
+      assert.equal(v.review_digest,'a'.repeat(64));throw Error('lost ACK');}
+    if(v.op==='github_write_status')return {operation_id:id,status:'GITHUB_UNKNOWN',approval_available:false};
+    assert.fail('unexpected '+v.op);
+  });
+  await client.refresh();await client.proposeTool('b'.repeat(32));
+  assert.equal(approvals,0);assert.equal(client.snapshot().githubWrite.status,'GITHUB_PROPOSED');
+  await assert.rejects(client.githubApprove());await client.githubStatus();
+  await assert.rejects(client.githubApprove());assert.equal(approvals,1);
+  assert.equal(calls.filter(c=>JSON.parse(c.options.body).op==='github_write_reconcile').length,0);
+});
+test('remote approval is unavailable with Core blockers and result reads never send a write',async()=>{
+  const {client,calls}=harness(v=>{
+    if(v.op==='pairing_list')return {pending:[],devices:[]};
+    if(v.op==='tool_proposal')return {operation_id:v.request_id,status:'GITHUB_PROPOSED',execution_authorized:false,
+      approval_available:false,blockers:['BLOCKED_OWNER_LIABILITY_UNKNOWN'],review_digest:'a'.repeat(64),
+      proposal:{operation:'code.commit_draft_pr',source_chat_request_id:v.chat_request_id}};
+    if(v.op==='github_write_status')return {operation_id:v.operation_id,status:'GITHUB_UNKNOWN',approval_available:false};
+    assert.fail('must not dispatch '+v.op);
+  });
+  await client.refresh();await client.proposeTool('b'.repeat(32));await assert.rejects(client.githubApprove());
+  await client.githubStatus();
+  assert.equal(calls.filter(c=>JSON.parse(c.options.body).op==='github_write_approve').length,0);
+});
+test('failed read polling recovers without blocking a separately authorized chat send',async()=>{
+  let fail=false;
+  const {client,calls}=harness(v=>{
+    if(v.op==='pairing_list') {if(fail)throw Error('read timeout');return {pending:[],devices:[]};}
+    if(v.op==='chat_send')return {state:'RUNNING'};
+    assert.fail('unexpected dispatch');
+  });
+  await client.refresh();fail=true;
+  await assert.rejects(client.refresh({background:true}));
+  assert.equal(client.snapshot().observed,false);
+  await client.chatCall({op:'chat_send'});
+  assert.equal(client.snapshot().observed,false);
+  fail=false;await client.refresh({background:true});
+  assert.equal(client.snapshot().phase,'READY');
+  assert.equal(client.snapshot().observed,true);
+  assert.equal(calls.filter(x=>JSON.parse(x.options.body).op==='chat_send').length,1);
+});
+test('background recovery never resolves a lost mutation ACK or reopens rejected authentication',async()=>{
+  const {client,calls}=harness(v=>{
+    if(v.op==='pairing_list')return {pending:[pending],devices:[]};
+    throw Error('lost approval ACK');
+  });
+  await client.refresh();await assert.rejects(client.approve(pending.request_id,pending.request_digest));
+  await client.refresh({background:true});
+  assert.equal(calls.length,2);assert.equal(client.snapshot().phase,'UNKNOWN');
+  let requests=0;
+  const denied=api.createDeviceConsole('T'.repeat(43),async()=>{requests++;return {ok:false,status:403};});
+  await assert.rejects(denied.refresh());await denied.refresh({background:true});
+  await assert.rejects(denied.chatCall({op:'chat_send'}),/LOCAL_OPERATOR_REQUIRED/);
+  assert.equal(requests,1);
+});
+test('chat transport cannot enable spending authority or forward private approvals',async()=>{
+  const {client,calls}=harness(()=>assert.fail('Private authority must never reach HTTP'));
+  for(const op of ['chat_session_start','chat_approve','budget_approve','operator_renew'])
+    await assert.rejects(client.chatCall({op}),/LOCAL_OPERATOR_REQUIRED/);
+  assert.equal(calls.length,0);
+});
+test('session reads preserve uncertain pairing while session mutations require current console readback',async()=>{
+  const {client,calls}=harness(value=>{
+    if(value.op==='pairing_list')return {pending:[pending],devices:[]};
+    if(value.op==='chat_session_status')return {state:'ACTIVE'};
+    throw Error('lost pairing approval ACK');
+  });
+  await client.refresh();await assert.rejects(client.approve(pending.request_id,pending.request_digest));
+  assert.equal((await client.chatCall({op:'chat_session_status'})).state,'ACTIVE');
+  assert.equal(client.snapshot().phase,'UNKNOWN');
+  for(const op of ['chat_send','chat_session_stop'])
+    await assert.rejects(client.chatCall({op}),error=>error.message==='READBACK_REQUIRED' && error.notDispatched===true);
+  assert.equal(calls.filter(x=>['chat_send','chat_session_stop'].includes(JSON.parse(x.options.body).op)).length,0);
+});
 test('only bounded READ dispatch gets the enclosing 30-second transport budget',async()=>{
   const original=global.setTimeout,delays=[];
   global.setTimeout=(fn,ms)=>{delays.push(ms);return original(fn,ms);};
@@ -248,8 +329,10 @@ test('device panel renders revoked reconnect separately from active legacy acces
   const device={device_id:'b'.repeat(64),device_name:'Phone',revoked:true,active_sessions:1,pending_enrollments:1};
   const document={body:new Element('body'),getElementById:get,createElement:tag=>new Element(tag)};
   const credential=get('aioa-console-credential');credential.value='';
-  let consumed=false;
-  const client={snapshot:()=>({phase:'READY',pending:[],devices:[device],busy:false}),refresh:async()=>{}};
+  let consumed=false,phase='READY',poll,githubWrite=null,approvals=0;const refreshes=[];
+  const client={snapshot:()=>({phase,observed:true,pending:[],devices:[device],busy:false,githubWrite,
+    githubOperation:githubWrite?.operation_id}),refresh:async options=>{refreshes.push(options);},
+    githubApprove:async()=>{approvals++;}};
   vm.runInNewContext(fs.readFileSync(require('node:path').join(__dirname,'../web/mobile_devices_dom.js'),'utf8'),{
     location:{pathname:'/devices',hash:'',search:''},history:{replaceState(){}},document,
     AIOAMobileDevices:{...api,createDeviceConsole:token=>{
@@ -257,7 +340,7 @@ test('device panel renders revoked reconnect separately from active legacy acces
       consumed=true;return client;
     }},AIOAMobileChat:{mount:()=>assert.fail('status-only profile must not invoke chat APIs')},
     fetch:async()=>({ok:true,json:async()=>({ok:true,csrf_token:'T'.repeat(43),profile:'NATIVE_STATUS_READ_ONLY_V1'})}),
-    window:{addEventListener(){}},setInterval(){},Date,JSON});
+    window:{addEventListener(){}},setInterval(fn){poll=fn;},Date,JSON});
   await new Promise(resolve=>setImmediate(resolve));
   assert.equal(consumed,true,'memory client must obtain anti-CSRF value through the cookie-authenticated JSON bootstrap');
   const card=get('devices-trusted').children[0];
@@ -268,6 +351,25 @@ test('device panel renders revoked reconnect separately from active legacy acces
   assert.ok(button,'fresh legacy access must retain a revoke action');
   assert.equal(button.disabled,false);
   assert.equal(button.dataset.deviceFocus,JSON.stringify(['revoke',device.device_id]));
+  // A stale read must reach the real transport's recovery decision; the DOM
+  // must not permanently suppress polling just because presentation is UNKNOWN.
+  document.visibilityState='visible';phase='UNKNOWN';poll();
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(refreshes.length,2);assert.equal(refreshes[1].background,true);
+  phase='READY';githubWrite={status:'GITHUB_PROPOSED',operation_id:'d'.repeat(32),approval_available:true,
+    review_digest:'a'.repeat(64),blockers:[],authorization:{status:'APP_CONFIGURED_SCOPE_CHECK_AT_START'}};
+  get('cosmic-github-reviewed').listeners.change();
+  assert.equal(get('cosmic-github-approve').disabled,true,'an available Core review is not owner consent');
+  get('cosmic-github-reviewed').checked=true;get('cosmic-github-reviewed').listeners.change();
+  assert.equal(get('cosmic-github-approve').disabled,false);
+  get('cosmic-github-approve').listeners.click();await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(approvals,1);
+  githubWrite={...githubWrite,review_digest:'b'.repeat(64),result:{receipt:{live_verified:true,
+    github_url:'javascript:alert(1)',pr_url:'https://attacker.invalid/pull/1'}}};
+  get('cosmic-github-reviewed').listeners.change();
+  assert.equal(get('cosmic-github-reviewed').checked,false,'changed exact review invalidates the checkbox');
+  assert.equal(get('cosmic-github-approve').disabled,true);
+  assert.equal(get('cosmic-github-links').children.length,0,'untrusted receipt URLs never become links');
   // A manually supplied legacy hash cannot supply a credential to a public GET.
   vm.runInNewContext(fs.readFileSync(require('node:path').join(__dirname,'../web/mobile_devices_dom.js'),'utf8'),{
     location:{pathname:'/devices',hash:'#operator='+'T'.repeat(43)},history:{replaceState(){}},

@@ -73,8 +73,9 @@ def public_binding(value,scope):
     require(value['owner_scope_digest']==canonical_sha256(scope)
         and value['model_id']=='muse-spark-1.3' and value['provider_id']=='meta_model_api'
         and value['stopped'] is False and type(value['max_attempts']) is int and value['max_attempts']==1)
-    require(type(value['max_output_tokens']) is int and 1<=value['max_output_tokens']<=512
-        and type(value['timeout_seconds']) is int and 1<=value['timeout_seconds']<=15
+    owner_chat=chat and value['actor']=='LINUX_OWNER'
+    require(type(value['max_output_tokens']) is int and 1<=value['max_output_tokens']<=(4096 if owner_chat else 512)
+        and type(value['timeout_seconds']) is int and 1<=value['timeout_seconds']<=(60 if owner_chat else 15)
         and type(value['input_token_bound']) is int and 1<=value['input_token_bound']<=16896)
     utc_timestamp(value['deadline'])
     require(declared_budget(value['budget_usd'],chat=chat and value['actor']=='LINUX_OWNER')>0)
@@ -164,7 +165,7 @@ class MetaReceiptView:
         self.ledger, self.governor, self.source_reader = ledger, governor, source_reader
 
     def _validate(self,row,receipt,approval,reader,governor,current_source,active_attempt_id,*,historical=False):
-        from runtime.providers.meta_model_api import spend_operation, INPUT_PRICE, OUTPUT_PRICE
+        from runtime.providers.meta_model_api import spend_operation, INPUT_PRICE, OUTPUT_PRICE,session_chat_warrant
         from runtime.meta_hackathon.contracts import utc_timestamp
         data=plain(row.payload);binding=public_binding(data['binding'],self.ledger.scope)
         hex_digest(data['request_digest']);hex_digest(data['operation_digest']);hex_digest(data['nonce_digest'])
@@ -201,11 +202,18 @@ class MetaReceiptView:
             'last_attempt':{k:data[k] for k in ('attempt_id','attempt','request_digest','policy_epoch','http_status','error_code','created_at')}}
         value=None
         if state=='COMPLETED':
-            require(receipt is not None and approval_data['consumption'] is not None and entry['state'] in ('UNKNOWN','COMMITTED'))
+            session_pending=(binding.get('schema')=='aioa.meta.chat-binding.v1' and binding['actor']=='LINUX_OWNER'
+                and session_chat_warrant(warrant) and entry['state']=='DISPATCHED')
+            require(receipt is not None and approval_data['consumption'] is not None
+                and (entry['state'] in ('UNKNOWN','COMMITTED') or session_pending))
             chat=binding.get('schema')=='aioa.meta.chat-binding.v1'
-            fields=CHAT_RECEIPT_FIELDS if chat else RECEIPT_FIELDS
-            value=plain(receipt.payload);require(set(value)==fields)
-            require(value['schema']==('aioa.meta.chat-receipt.v1' if chat else 'aioa.meta.api-receipt.v1') and value['request_digest']==data['request_digest']
+            value=plain(receipt.payload)
+            partial=chat and value.get('schema')=='aioa.meta.chat-receipt.v2'
+            fields=(CHAT_RECEIPT_FIELDS|{'finish_reason','response_complete'} if partial else CHAT_RECEIPT_FIELDS) if chat else RECEIPT_FIELDS
+            require(set(value)==fields)
+            if partial:require(value['finish_reason']=='length' and value['response_complete'] is False)
+            schema='aioa.meta.chat-receipt.v2' if partial else 'aioa.meta.chat-receipt.v1' if chat else 'aioa.meta.api-receipt.v1'
+            require(value['schema']==schema and value['request_digest']==data['request_digest']
                 and value['binding']==binding and type(value['policy_epoch']) is int
                 and value['policy_epoch']==data['policy_epoch'] and type(value['attempt']) is int
                 and value['attempt_id']==data['attempt_id'] and value['attempt']==1

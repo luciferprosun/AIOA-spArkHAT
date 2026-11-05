@@ -31,12 +31,13 @@ from .mission_service import require,plain,utc
 from .contracts import utc_timestamp
 
 KIND='aioa.mission.chat.v1'
-STATES=('PENDING_OWNER','RUNNING','SUCCEEDED','FAILED','UNKNOWN','STOPPED')
+STATES=('PENDING_OWNER','RUNNING','SUCCEEDED','TRUNCATED','FAILED','UNKNOWN','STOPPED')
 FILTER=tuple('CHAT_'+s for s in STATES)
 TTL=900
 
 def initialize(service):
     service._chat_payloads={};service._chat_results={};service._chat_governor=None
+    service._chat_session=None
     service._chat_authority=None;service._chat_context_probe=None;service._chat_credit_probe=None
     for row in _rows(service):
         if row.payload['state'] in ('CHAT_PENDING_OWNER','CHAT_RUNNING'):
@@ -59,10 +60,11 @@ def budget_status(service,reader):
     cap=limits.get('task_limit',governor.policy.task_limit.money_nano)
     total=limits.get('global_limit',governor.policy.global_limit.money_nano)
     credit_ready=callable(service._chat_credit_probe) and service._chat_credit_probe(None) is True
-    return {'max_budget_usd':format(Decimal(cap)/10**9,'f'),
-        'allocation_usd':format(Decimal(total)/10**9,'f'),
+    return {'max_budget_usd':None if cap is None else format(Decimal(cap)/10**9,'f'),
+        'allocation_usd':None if total is None else format(Decimal(total)/10**9,'f'),
         'local_exposure_usd':format(Decimal(state['exposure']['global']['money_nano'])/10**9,'f'),
-        'provider_balance_status':'OWNER_ATTESTED' if credit_ready else 'UNVERIFIED','credit_only':bool(state.get('money_policy')),
+        'provider_balance_status':'OWNER_ATTESTED' if credit_ready else 'UNVERIFIED',
+        'credit_only':state.get('money_policy',{}).get('schema')=='aioa.governor.money-policy.v2',
         'credit_binding_available':credit_ready}
 
 def _check_context(service,req):
@@ -110,16 +112,25 @@ def _prune(service):
         for key,value in tuple(cache.items()):
             if now-value[0]>TTL:del cache[key]
 
-def propose(service,payload,reader,*,device_id,session_id,nonce,actor='ANDROID',read_context=None):
+def propose(service,payload,reader,*,device_id,session_id,nonce,actor='ANDROID',read_context=None,session_authorization=None):
     service.core.require(reader,Capability.READ,scope=service.scope)
-    require(type(payload) is dict and set(payload)=={'schema','thread_id','request_id','model_id','prompt','max_budget_usd'},'CHAT_PAYLOAD_INVALID')
-    require(payload['schema']=='aioa.mobile.chat-send.v1' and payload['model_id']==MODEL,'CHAT_MODEL_INVALID')
+    fields={'schema','thread_id','request_id','model_id','prompt'}
+    if session_authorization is None:fields.add('max_budget_usd')
+    require(type(payload) is dict and set(payload)==fields,'CHAT_PAYLOAD_INVALID')
+    schema='aioa.mobile.chat-send.v1' if session_authorization is None else 'aioa.mobile.chat-send.v2'
+    require(payload['schema']==schema and payload['model_id']==MODEL,'CHAT_MODEL_INVALID')
     device_id=_device(device_id);request_id=_id(payload['request_id']);thread_id=_id(payload['thread_id'])
     _id(session_id);_id(nonce)
     require(type(payload['prompt']) is str and payload['prompt'].strip() and 1<=len(payload['prompt'].encode())<=2000,'CHAT_PROMPT_LIMIT')
-    require(type(payload['max_budget_usd']) is str and re.fullmatch(r'(?:0|[1-9][0-9]{0,2})(?:\.[0-9]{1,9})?',payload['max_budget_usd']),'CHAT_BUDGET_INVALID')
-    ceiling=Decimal('.05') if actor=='ANDROID' else Decimal('148')
-    require(0<Decimal(payload['max_budget_usd'])<=min(ceiling,Decimal(budget_status(service,reader)['max_budget_usd'])),'CHAT_BUDGET_INVALID')
+    if session_authorization is None:
+        require(type(payload['max_budget_usd']) is str and re.fullmatch(r'(?:0|[1-9][0-9]{0,2})(?:\.[0-9]{1,9})?',payload['max_budget_usd']),'CHAT_BUDGET_INVALID')
+        ceiling=Decimal('.05') if actor=='ANDROID' else Decimal('148')
+        cap=budget_status(service,reader)['max_budget_usd']
+        require(0<Decimal(payload['max_budget_usd'])<=min(ceiling,Decimal(cap) if cap is not None else ceiling),'CHAT_BUDGET_INVALID')
+    else:
+        from . import chat_session
+        require(actor=='LINUX_OWNER','CHAT_SESSION_SCOPE_DENIED')
+        chat_session.require_active(service,session_authorization)
     submission=canonical_sha256({'payload':payload,'device_id':device_id,**({'read_context':read_context} if read_context is not None else {})})
     with service._lock:
         require(not service._closed and service._chat_governor is not None,'CHAT_NOT_CONFIGURED')
@@ -136,11 +147,14 @@ def propose(service,payload,reader,*,device_id,session_id,nonce,actor='ANDROID',
         history=[]
         for row in thread_rows:
             key=row.payload['request_id'];source=service._chat_payloads.get(key);result=service._chat_results.get(key)
-            if row.payload['state']=='CHAT_SUCCEEDED' and source and result:
+            if row.payload['state'] in ('CHAT_SUCCEEDED','CHAT_TRUNCATED') and source and result:
                 history.extend((('user',source[1].prompt),('assistant',result[1])))
         while len(history)>20 or sum(len(text.encode()) for _,text in history)>12000:history=history[2:]
         sha,capsule=service.source_probe();now=service.ledger.clock()
         deadline=now+timedelta(minutes=5)
+        if session_authorization is not None:
+            active=chat_session.require_active(service,session_authorization)
+            deadline=min(deadline,utc_timestamp(active['expires_at']))
         if read_context is not None:
             require(actor=='LINUX_OWNER' and type(read_context) is dict,'CHAT_CONTEXT_NOT_BOUND')
             require(callable(service._chat_context_probe) and service._chat_context_probe(read_context.get('request_id'))==read_context,'CHAT_CONTEXT_CHANGED')
@@ -148,12 +162,17 @@ def propose(service,payload,reader,*,device_id,session_id,nonce,actor='ANDROID',
         task=MetaChatTask('chat-'+request_id,canonical_sha256(service.scope),sha,utc(deadline),
             device_id,thread_id,request_id,session_id,nonce,actor)
         require(service._chat_authority(task),'CHAT_AUTHORITY_REVOKED')
+        if session_authorization is not None:chat_session.require_active(service,session_authorization,task)
         context={'schema':'aioa.chat.core-context.v1','core':'ADMITTED','profile':'NATIVE_ADVISORY_CHAT_V1',
             'source_sha':sha,'capsule_digest':capsule,'native_execute':False,'github_write':False,'save_knowledge':False,
             'mission_read':'BLOCKED_NATIVE_WORKER_NOT_BOUND'}
         if read_context is not None:context.update(schema='aioa.chat.core-context.v2',read_context=read_context)
         req=MetaChatRequest(task,payload['prompt'],canonical_json_bytes(context).decode(),history=tuple(history),
-            budget_usd=payload['max_budget_usd'],capsule_digest=capsule)
+            budget_usd=payload.get('max_budget_usd','0'),capsule_digest=capsule)
+        if session_authorization is not None:req=replace(req,max_output_tokens=4096,timeout_seconds=60)
+        # This is a reservation derived from the exact bounded payload, not an
+        # arbitrary per-message or session spending cap.
+        if session_authorization is not None:req=replace(req,budget_usd=format(req.estimate(),'f'))
         req.payload();require(req.estimate()<=Decimal(req.budget_usd),'CHAT_BUDGET_INSUFFICIENT')
         data={'schema':KIND,'state':'CHAT_PENDING_OWNER','request_id':request_id,'thread_id':thread_id,
             'device_id':device_id,'actor':actor,'task_id':task.task_id,'task_digest':task.digest,
@@ -161,6 +180,7 @@ def propose(service,payload,reader,*,device_id,session_id,nonce,actor='ANDROID',
             'source_sha':sha,'capsule_digest':capsule,'created_at':utc(now),'created_order':int(now.timestamp()*1000000),
             'model_id':MODEL,'provider_id':PROVIDER,'max_budget_usd':req.budget_usd,'reserved_bound_usd':None,
             'cost_estimate_usd':format(req.estimate(),'f'),'receipt':None,'error':None,'live_verified':False}
+        if session_authorization is not None:data['authorization']=dict(session_authorization)
         # Intent/ACK barrier is committed before any approval or provider call.
         service._run(Capability.COMMIT,lambda tx:_save(service,tx,task.task_id,data))
         service._chat_payloads[request_id]=(time.monotonic(),req)
@@ -218,20 +238,27 @@ def review(service,request_id,reader):
     require(service.ledger.clock()<utc_timestamp(req.task.deadline_utc),'CHAT_APPROVAL_EXPIRED')
     epoch=service._chat_governor.inspect(reader)['epoch']
     result={**data,'policy_epoch':epoch,'endpoint':'https://api.meta.ai/v1/chat/completions','max_attempts':1,
-        'billing_status':'OWNER_CONFIRMATION_REQUIRED','request_payload':req.payload(),'review_digest':None}
+        'billing_status':'OWNER_SESSION_AUTHORIZED' if data.get('authorization') else 'OWNER_CONFIRMATION_REQUIRED',
+        'request_payload':req.payload(),'review_digest':None}
     result['review_digest']=canonical_sha256({k:result[k] for k in ('request_digest','source_sha','capsule_digest','max_budget_usd','policy_epoch','endpoint','max_attempts')})
     return result
 
-def approve(service,request_id,review_digest,owner_principal):
-    # Only the private local operator transport calls this. No HTTP route may
-    # expose it. Core authenticates the supplied actual OWNER_APPROVAL session.
+def approve(service,request_id,review_digest,owner_principal,*,session_authorization=None):
+    # Exact per-message review or a native owner session plus authenticated Send.
+    # HTTP cannot create a spending session or forward the chat_approve operation.
     service.core.require(owner_principal,Capability.OWNER_APPROVAL,scope=service.scope)
     with service._lock:
         current=review(service,request_id,service.core.local_operator(Capability.READ))
         require(current['review_digest']==review_digest,'CHAT_REVIEW_CHANGED')
         require(not any(r.payload['state']=='CHAT_RUNNING' for r in _rows(service)),'CHAT_PROVIDER_BUSY')
         req=service._chat_payloads[request_id][1];governor=service._chat_governor
-        credit_required=bool(governor.inspect(service.core.local_operator(Capability.READ)).get('money_policy'))
+        require(current.get('authorization')==session_authorization,'CHAT_SESSION_BINDING_CHANGED')
+        def session_check():
+            if session_authorization is not None:
+                from . import chat_session
+                chat_session.require_active(service,session_authorization,req.task)
+        session_check()
+        credit_required=governor.inspect(service.core.local_operator(Capability.READ)).get('money_policy',{}).get('schema')=='aioa.governor.money-policy.v2'
         def credit_check():
             if credit_required:
                 require(callable(service._chat_credit_probe) and service._chat_credit_probe(req) is True,'CREDIT_BALANCE_NOT_BOUND')
@@ -244,10 +271,13 @@ def approve(service,request_id,review_digest,owner_principal):
             risk_ceiling=RiskLevel.MODERATE,monetary_ceiling=Money(Decimal(req.budget_usd),'USD'),not_before=now,
             expires_at=utc_timestamp(req.task.deadline_utc),
             owner_scope=req.task.owner_scope_digest,task_scope=req.task.task_id)
+        evidence=(EvidenceRef('chat-request','request','sha256:'+req.digest,'v1'),)
+        if session_authorization is not None:
+            evidence+=(EvidenceRef('owner-chat-session','authorization','sha256:'+session_authorization['grant_digest'],'v1'),)
         warrant=EffectWarrant(warrant_id='chat-warrant-'+request_id,task_id=req.task.task_id,owner_scope=req.task.owner_scope_digest,
             operation_class=operation['operation_class'],operation_hash='sha256:'+canonical_sha256(operation),
             target_fingerprint=operation['target_fingerprint'],expected_target_revision=req.task.source_sha,revision_policy=RevisionPolicy.REQUIRE,
-            decision_dependency_root=DecisionDependencyRoot((EvidenceRef('chat-request','request','sha256:'+req.digest,'v1'),)),
+            decision_dependency_root=DecisionDependencyRoot(evidence),
             lease_epoch=current['policy_epoch'],authority_scope=authority,approval_digest='sha256:'+'0'*64,
             money_reservation_id=reserve.request_id,risk_reservation_id=reserve.request_id,nonce=uuid.uuid4().hex,issued_at=now,expires_at=authority.expires_at)
         warrant=replace(warrant,approval_digest=approval_digest(warrant));commit=service.core.local_operator(Capability.COMMIT)
@@ -256,9 +286,11 @@ def approve(service,request_id,review_digest,owner_principal):
             service.ledger.approve(owner_principal,warrant)
             def admitted_source():
                 require(service._chat_authority(req.task),'CHAT_AUTHORITY_REVOKED')
+                session_check()
                 credit_check()  # Trusted probe must be pure; never a Core/HTTP callback.
                 return service.source_probe()
-            binding=MetaLiveBinding(service.ledger,governor,commit,warrant,reserve,True,True,source_reader=admitted_source)
+            binding=MetaLiveBinding(service.ledger,governor,commit,warrant,reserve,True,True,source_reader=admitted_source,
+                session_dispatch=session_authorization is not None)
             binding.check(req)
             _change(service,req.task.task_id,('PENDING_OWNER',),'RUNNING',{'warrant_digest':warrant.digest(),
                 'reserved_bound_usd':format(Decimal(amount)/10**9,'f'),'policy_epoch':warrant.lease_epoch})
@@ -281,7 +313,8 @@ def _execute(service,req,binding,cancel):
         with service._lock:
             if cancel.cancelled:raise ValueError('CHAT_STOPPED')
             service._chat_results[req.task.request_id]=(time.monotonic(),result.text)
-            _change(service,req.task.task_id,('RUNNING',),'SUCCEEDED',{'receipt':receipt,'live_verified':True})
+            state='TRUNCATED' if receipt.get('response_complete') is False else 'SUCCEEDED'
+            _change(service,req.task.task_id,('RUNNING',),state,{'receipt':receipt,'live_verified':True})
     except Exception as error:
         code=error.code if type(error) is MetaAPIError else 'CHAT_RECEIPT_UNKNOWN'
         state='STOPPED' if cancel.cancelled else 'FAILED' if code in ('META_AUTH_DENIED','META_CONTRACT_REJECTED','META_RATE_LIMITED','META_BILLING_UNAVAILABLE','META_UNAVAILABLE') else 'UNKNOWN'
