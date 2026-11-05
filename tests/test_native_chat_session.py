@@ -89,6 +89,31 @@ class NativeChatSessionTests(unittest.TestCase):
         self.assertEqual('CLOSED',state['circuits']['meta_model_api']['state'])
         self.assertEqual(0,state['circuits']['meta_model_api']['failures'])
 
+    def test_partial_reply_is_visible_settled_and_followup_keeps_old_unknown(self):
+        gov=self.app.chat_governor;reader=self.app.core.local_operator(Capability.READ)
+        commit=self.app.core.local_operator(Capability.COMMIT);epoch=gov.inspect(reader)['epoch']
+        old=ReservationRequest('old-unknown','old-task','meta_model_api','muse-spark-1.3','a'*64,1,1)
+        gov.reserve(commit,old,epoch);gov.dispatch_commit(commit,old.request_id,epoch)
+        gov.mark_unknown(commit,old.request_id,epoch,canonical_sha256('old-lost-ack'))
+        before=gov.inspect(reader)['reservations'][old.request_id]
+        self.begin();status,raw=self.response();partial=json.loads(raw)
+        partial['choices'][0]['finish_reason']='length'
+        with patch('runtime.providers.meta_model_api._https_once',side_effect=[(status,json.dumps(partial).encode()),self.response()]) as http:
+            self.send();result=self.wait()
+            self.assertEqual('TRUNCATED',result['state']);self.assertTrue(result['reply'])
+            self.assertFalse(result['receipt']['response_complete'])
+            self.assertEqual(4096,result['binding']['max_output_tokens'])
+            self.assertEqual(60,result['binding']['timeout_seconds'])
+            self.send('4'*32,'Kontynuuj, proszę.');self.assertEqual('SUCCEEDED',self.wait('4'*32)['state'])
+            self.assertEqual(2,http.call_count)
+        after=gov.inspect(reader)
+        self.assertEqual(before,after['reservations'][old.request_id])
+        self.assertEqual('COMMITTED',after['reservations']['chat-spend-'+'2'*32]['state'])
+        self.assertEqual('length',self.owner('chat_request',request_id='2'*32)['receipt']['finish_reason'])
+        self.assertIn(('assistant',result['reply']),self.app.missions._chat_payloads['4'*32][1].history)
+        # A partial model response is never eligible as an executable proposal.
+        with self.assertRaises(Exception):self.owner('tool_proposal',request_id='8'*32,chat_request_id='2'*32)
+
     def test_actual_uncertain_calls_still_open_the_circuit_and_retain_every_hold(self):
         self.begin()
         with patch('runtime.providers.meta_model_api._https_once',side_effect=TimeoutError()) as http:

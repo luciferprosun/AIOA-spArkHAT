@@ -31,7 +31,7 @@ from .mission_service import require,plain,utc
 from .contracts import utc_timestamp
 
 KIND='aioa.mission.chat.v1'
-STATES=('PENDING_OWNER','RUNNING','SUCCEEDED','FAILED','UNKNOWN','STOPPED')
+STATES=('PENDING_OWNER','RUNNING','SUCCEEDED','TRUNCATED','FAILED','UNKNOWN','STOPPED')
 FILTER=tuple('CHAT_'+s for s in STATES)
 TTL=900
 
@@ -147,7 +147,7 @@ def propose(service,payload,reader,*,device_id,session_id,nonce,actor='ANDROID',
         history=[]
         for row in thread_rows:
             key=row.payload['request_id'];source=service._chat_payloads.get(key);result=service._chat_results.get(key)
-            if row.payload['state']=='CHAT_SUCCEEDED' and source and result:
+            if row.payload['state'] in ('CHAT_SUCCEEDED','CHAT_TRUNCATED') and source and result:
                 history.extend((('user',source[1].prompt),('assistant',result[1])))
         while len(history)>20 or sum(len(text.encode()) for _,text in history)>12000:history=history[2:]
         sha,capsule=service.source_probe();now=service.ledger.clock()
@@ -169,6 +169,7 @@ def propose(service,payload,reader,*,device_id,session_id,nonce,actor='ANDROID',
         if read_context is not None:context.update(schema='aioa.chat.core-context.v2',read_context=read_context)
         req=MetaChatRequest(task,payload['prompt'],canonical_json_bytes(context).decode(),history=tuple(history),
             budget_usd=payload.get('max_budget_usd','0'),capsule_digest=capsule)
+        if session_authorization is not None:req=replace(req,max_output_tokens=4096,timeout_seconds=60)
         # This is a reservation derived from the exact bounded payload, not an
         # arbitrary per-message or session spending cap.
         if session_authorization is not None:req=replace(req,budget_usd=format(req.estimate(),'f'))
@@ -312,7 +313,8 @@ def _execute(service,req,binding,cancel):
         with service._lock:
             if cancel.cancelled:raise ValueError('CHAT_STOPPED')
             service._chat_results[req.task.request_id]=(time.monotonic(),result.text)
-            _change(service,req.task.task_id,('RUNNING',),'SUCCEEDED',{'receipt':receipt,'live_verified':True})
+            state='TRUNCATED' if receipt.get('response_complete') is False else 'SUCCEEDED'
+            _change(service,req.task.task_id,('RUNNING',),state,{'receipt':receipt,'live_verified':True})
     except Exception as error:
         code=error.code if type(error) is MetaAPIError else 'CHAT_RECEIPT_UNKNOWN'
         state='STOPPED' if cancel.cancelled else 'FAILED' if code in ('META_AUTH_DENIED','META_CONTRACT_REJECTED','META_RATE_LIMITED','META_BILLING_UNAVAILABLE','META_UNAVAILABLE') else 'UNKNOWN'
