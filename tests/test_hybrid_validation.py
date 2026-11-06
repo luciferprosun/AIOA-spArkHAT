@@ -8,6 +8,23 @@ from pathlib import Path
 
 
 class ValidationTests(unittest.TestCase):
+    def test_full_archive_refuses_sensitive_content_even_in_unchanged_files(self):
+        api = self.api()
+        raw = json.dumps(
+            {
+                "schema": "aioa.validation-workspace.v1",
+                "files": [
+                    {
+                        "path": "config.py",
+                        "mode": 0o600,
+                        "text": "api_key=synthetic-secret-value\n",
+                    }
+                ],
+            }
+        ).encode()
+        with self.assertRaises(ValueError):
+            api.workspace_tree_digest(raw)
+
     def api(self):
         try:
             return importlib.import_module("runtime.mission.repair_validation")

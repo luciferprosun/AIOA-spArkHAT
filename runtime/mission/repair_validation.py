@@ -28,6 +28,7 @@ from runtime.mission.repair import TEST_STAGES, ValidationStep, digest, require
 from runtime.mission.sandbox_contracts import SANDBOX
 from runtime.mission.sandbox_linux import LinuxSandboxBroker, read_evidence_file
 from runtime.mission.tools import CoreToolRoute
+from runtime.nonzero_cloudops.models.redaction import contains_sensitive_material
 from runtime.providers.exact import CancellationToken
 
 COMPLETE = b"TESTS_FINISHED\n"
@@ -220,6 +221,10 @@ def workspace_tree_digest(data):
         )
         names.add(path.casefold())
         raw = entry["text"].encode("utf-8")
+        require(
+            not contains_sensitive_material(entry["text"]),
+            "WORKSPACE_SENSITIVE_CONTENT",
+        )
         require(len(raw) <= 1048576, "WORKSPACE_ARCHIVE_BOUNDS")
         rows.append([path, hashlib.sha256(raw).hexdigest(), len(raw), entry["mode"]])
     return canonical_sha256(sorted(rows))
@@ -418,6 +423,7 @@ class _CoreValidationSession:
                 "warrant_digest": warrant.digest(),
                 "evidence_digest": evidence,
                 "operation_digest": warrant.operation_hash,
+                "warrant": warrant.to_dict(),
             }
             key = canonical_sha256(["aioa.trusted-validation.v1", warrant.digest()])
 
@@ -458,7 +464,7 @@ class _CoreValidationSession:
 
             self.owner.journal._run(step.principal, Capability.COMMIT, save)
         except Exception as error:
-            status, code = 'UNKNOWN', None
+            status, code = "UNKNOWN", None
             self.failure_code = (
                 str(error)
                 if re.fullmatch(r"[A-Z0-9_]{1,96}", str(error))

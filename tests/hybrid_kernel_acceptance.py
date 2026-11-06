@@ -10,12 +10,14 @@ import importlib
 import json
 import sys
 from dataclasses import asdict, replace
+from datetime import timedelta
 from pathlib import Path
 from unittest.mock import patch
 
 sys.path[:0] = [str(Path(__file__).resolve().parents[1]), str(Path(__file__).parent)]
 importlib.import_module("runtime")
 import test_core_tool_composition as support
+from cryptography.hazmat.primitives.asymmetric import ec
 from test_dual_governor import MODEL
 from test_hybrid_repair import DirectoryProducer
 
@@ -30,6 +32,12 @@ from runtime.memory_patch.contracts.serialization import (
 from runtime.mission.completion import TaskCompletionBinding
 from runtime.mission.governor import GovernorPolicy, Limits, ReservationRequest
 from runtime.mission.job_contracts import JobEnvelope
+from runtime.mission.patch_capsule import (
+    CorePatchCapsules,
+    ExecutionCapsule,
+    capsule_dependencies,
+    capsule_operation,
+)
 from runtime.mission.patchset import observe_source
 from runtime.mission.repair_validation import (
     COMPLETE,
@@ -41,7 +49,9 @@ from runtime.mission.repair_validation import (
 )
 from runtime.mission.sandbox_linux import LinuxSandboxBroker, prepare_linux_sandbox
 from runtime.mission.tools import CoreToolRoute
+from runtime.mission.warrant import approval_digest
 from runtime.mission.worker import CandidateFile, CandidatePatch, Task
+from runtime.mobile_gateway.wire import Identity, verify
 from runtime.providers.nvidia import ProviderRequest
 
 
@@ -220,7 +230,13 @@ check(namespace['add'](0, 8) == 8)
         (base / "calc.py").write_text("def add(a, b):\n    return a-b\n")
         (base / "calc.py").chmod(0o644)
         task = Task(
-            "task-1", "run-1", "workspace-1", "repo-1", "a" * 40, "Fix addition.", 200
+            "task-1",
+            "run-1",
+            "workspace-1",
+            "repo-1",
+            "a" * 40,
+            "Fix addition.",
+            fixture.now + 200,
         )
         source = observe_source(
             base,
@@ -273,6 +289,76 @@ check(namespace['add'](0, 8) == 8)
             "profile_digest": profile.digest,
             "kernel_receipts": [],
         }
+        identity = Identity(ec.generate_private_key(ec.SECP256R1()))
+        capsules = CorePatchCapsules(
+            fx.journal,
+            identity,
+            source_probe=lambda: source,
+            target_guard=lambda: fixture.lifecycle,
+        )
+        if result.status == "PATCH_READY":
+            signed = capsules.prepare(
+                fx.p(),
+                task=task,
+                source=source,
+                base_root=base,
+                final_root=root / "attempt-1",
+                result=result,
+                target_fingerprint=fixture.current.fingerprint,
+                target_revision=fixture.current.revision,
+                expires_at=fixture.now + 120,
+            )
+            verify(identity.spki, signed["signature"], signed["receipt"])
+            payload = dict(signed["receipt"]["capsule"])
+            payload.pop("schema")
+            payload["validation_warrants"] = tuple(payload["validation_warrants"])
+            payload["validation_receipts"] = tuple(payload["validation_receipts"])
+            capsule = ExecutionCapsule(**payload)
+            op = capsule_operation(capsule)
+            scope = replace(
+                fx.warrant.authority_scope,
+                operation_classes=(op["operation_class"],),
+                target_scope=op["target_fingerprint"],
+                task_scope=task.task_id,
+                expires_at=fx.warrant.issued_at + timedelta(seconds=120),
+            )
+            warrant = replace(
+                fx.warrant,
+                warrant_id="patch-owner-1",
+                nonce="patch-owner-1",
+                task_id=task.task_id,
+                operation_class=op["operation_class"],
+                authority_scope=scope,
+                operation_hash="sha256:" + canonical_sha256(op),
+                target_fingerprint=op["target_fingerprint"],
+                expected_target_revision=op["expected_target_revision"],
+                decision_dependency_root=capsule_dependencies(capsule),
+                expires_at=scope.expires_at,
+            )
+            warrant = replace(warrant, approval_digest=approval_digest(warrant))
+            capsules.approve(fx.p(Capability.OWNER_APPROVAL), capsule.digest, warrant)
+            approved = capsules.require_approved(fx.p(), capsule.digest, warrant)
+            assert (
+                approved["status"] == "APPROVED"
+                and approved["dispatch_registered"] is False
+            )
+            assert capsules.read(fx.p(Capability.READ), capsule.digest) == signed
+            try:
+                capsules.approve(
+                    fx.p(Capability.OWNER_APPROVAL),
+                    capsule.digest,
+                    replace(warrant, operation_hash="sha256:" + "0" * 64),
+                )
+            except ValueError:
+                pass
+            else:
+                raise AssertionError("approval swap unexpectedly accepted")
+            evidence["capsule"] = {
+                "status": "PASS",
+                "signed_receipt": signed,
+                "exact_owner_warrant": warrant.digest(),
+                "effect_executed": False,
+            }
         for config in configs:
             for path in config.root.glob("run-*/receipt.json"):
                 receipt = json.loads(path.read_bytes())
