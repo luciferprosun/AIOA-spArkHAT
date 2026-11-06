@@ -140,7 +140,9 @@ class GitHubAppCredentialSource:
         require(type(repositories) is list and all(type(r) is dict for r in repositories)
             and [(r.get('id'),r.get('full_name')) for r in repositories]==expected,'GITHUB_CREDENTIAL_SCOPE_DENIED')
         token=value.get('token')
-        require(type(token) is str and re.fullmatch(r'[A-Za-z0-9_]{16,512}',token),'GITHUB_CREDENTIAL_SCOPE_DENIED')
+        # Installation tokens are opaque, including GitHub's 2026 stateless
+        # ghs_APPID_JWT format. Keep the transport bound and reject header bytes.
+        require(type(token) is str and re.fullmatch(r'[A-Za-z0-9_.-]{16,8192}',token),'GITHUB_CREDENTIAL_SCOPE_DENIED')
         try:
             expiry=datetime.strptime(value['expires_at'],'%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=timezone.utc).timestamp()
             require(60<expiry-now<=3600,'GITHUB_CREDENTIAL_SCOPE_DENIED')

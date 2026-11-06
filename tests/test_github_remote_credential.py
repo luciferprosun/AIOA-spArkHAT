@@ -83,5 +83,42 @@ class GitHubCredentialTests(unittest.TestCase):
         self.assertEqual(2,sum(method=='POST' for method,_,_,_ in self.calls))
         self.assertNotIn('bearer',second.evidence());self.assertNotIn('token',vars(self.provider()))
 
+    def test_current_opaque_installation_token_format_is_accepted_without_logging_it(self):
+        # GitHub's 2026 stateless format is longer and contains JWT separators.
+        self.token='ghs_12345_'+'.'.join(('synthetic_header', 'fixture_payload_'+'x'*900, 'fixture-signature'))
+        credential=self.mint()
+        self.assertEqual(self.token,credential.bearer)
+        self.assertEqual(self.token,self.calls[-1][3])
+        self.assertNotIn(self.token,repr(credential)+json.dumps(credential.evidence()))
+
+    def test_invalid_opaque_token_is_denied_before_scope_request_without_secret_echo(self):
+        for token in ('x'*8193, 'synthetic_fixture\r\nAuthorization: forged', 'short'):
+            self.calls=[];self.token=token
+            with self.assertRaisesRegex(ValueError,'^GITHUB_CREDENTIAL_SCOPE_DENIED$'):self.mint()
+            self.assertEqual(1,len(self.calls))
+
+    def test_missing_invalid_and_linked_private_keys_never_reach_network(self):
+        import os
+        key=self.root/'private-key.pem';original=key.read_bytes();target=self.root/'saved.pem'
+        target.write_bytes(original);target.chmod(0o600)
+        for kind in ('missing','invalid','symlink','hardlink'):
+            if key.exists() or key.is_symlink():key.unlink()
+            if kind=='invalid':key.write_bytes(b'not a private key');key.chmod(0o600)
+            if kind=='symlink':key.symlink_to(target)
+            if kind=='hardlink':os.link(target,key)
+            with self.subTest(kind=kind),self.assertRaisesRegex(ValueError,'GITHUB_PRIVATE_CREDENTIAL_REQUIRED'):self.mint()
+        self.assertEqual([],self.calls)
+
+    def test_denied_or_rate_limited_mint_is_not_retried_or_logged(self):
+        from runtime.mcp_bridge.github_remote import GitHubAppCredentialSource
+        from runtime.providers.exact import CancellationToken
+        for status in (401,403,429):
+            calls=[]
+            def denied(*args):calls.append(args[0]);return status,b'SYNTHETIC_SENSITIVE_BODY'
+            source=GitHubAppCredentialSource(self.root,mode='OFFLINE_FIXTURE',transport=denied,clock=lambda:self.now)
+            with self.assertRaisesRegex(ValueError,'^GITHUB_CREDENTIAL_UNKNOWN_NO_RETRY$'):
+                source.mint(cancel=CancellationToken(),check=lambda:None)
+            self.assertEqual(['POST'],calls)
+
 
 if __name__=='__main__':unittest.main()

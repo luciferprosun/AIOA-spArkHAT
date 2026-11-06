@@ -5,19 +5,24 @@
   function createChat(call,changed=()=>{},id=()=>Array.from(root.crypto.getRandomValues(new Uint8Array(16)),x=>x.toString(16).padStart(2,'0')).join('')) {
     let state={catalog:null,threads:[],thread:null,messages:[],pending:null,busy:false,error:null,draft:false};
     const emit=()=>changed(copy(state));
-    let generation=0,refreshing=false;
+    let generation=0,refreshing=false,closed=false;
+    function close() {
+      closed=true;generation++;refreshing=false;
+      state={catalog:null,threads:[],thread:null,messages:[],pending:null,busy:false,error:null,draft:false};emit();
+    }
     async function work(fn,background=false) {
+      if(closed)throw Error('CHAT_NOT_AVAILABLE');
       if(background && (state.busy || refreshing))return;
       if(state.busy)throw Error('CHAT_BUSY');
       const ticket=++generation;
       const check=()=>{if(ticket!==generation)throw Error('CHAT_REFRESH_SUPERSEDED');};
       if(background)refreshing=true;else {state.busy=true;state.error=null;emit();}
       try{const value=await fn(check);check();state.error=null;return value;}catch(e){
-        if(background && ticket!==generation)return;
-        if(e.message==='LOCAL_OPERATOR_REQUIRED')state.catalog=null;
+        if(ticket!==generation){if(background)return;throw e;}
+        if(e.message==='LOCAL_OPERATOR_REQUIRED'){close();throw e;}
         state.error=/^[A-Z][A-Z0-9_]{1,100}$/.test(e.message)?e.message:'CHAT_READBACK_UNKNOWN';throw e;
       }
-      finally{if(background)refreshing=false;else state.busy=false;if(ticket===generation)emit();}
+      finally{if(background)refreshing=false;else if(ticket===generation)state.busy=false;if(ticket===generation)emit();}
     }
     function accept(value,expectedRequest=null,expectedThread=state.thread) {
       if((expectedRequest && value.request_id!==expectedRequest) || (expectedThread && value.thread_id!==expectedThread))
@@ -43,7 +48,7 @@
       state.messages=[];state.pending=null;state.thread=thread;state.draft=false;for(const message of value.messages)accept(message,null,thread);
       return copy(value);
     };
-    return Object.freeze({snapshot:()=>copy(state),
+    return Object.freeze({snapshot:()=>copy(state),close,
       refresh:({background=false}={})=>work(async check=>{
         const catalog=await call({op:'chat_catalog'});check();state.catalog=catalog;
         const value=await call({op:'chat_threads'});if(!Array.isArray(value.threads) || value.threads.length>24)throw Error('CHAT_SCHEMA_INVALID');
@@ -58,34 +63,37 @@
         if(!state.draft && target)await select(target,check);
       },background),
       newConversation:confirmed=>{
+        if(closed)throw Error('CHAT_NOT_AVAILABLE');
         if(state.busy || confirmed!==true || (state.pending &&
             !state.messages.some(x=>x.request_id===state.pending && x.state==='UNKNOWN')))throw Error('CHAT_READBACK_ONLY');
         generation++;state.thread=id();state.messages=[];state.pending=null;state.draft=true;state.error=null;emit();
       },
       select:thread=>work(check=>select(thread,check)),
-      send:(prompt,readRequestId=null)=>work(async()=>{
+      send:(prompt,readRequestId=null)=>work(async check=>{
         if(!state.catalog?.chat || state.catalog.model_id!=='muse-spark-1.3')throw Error('CHAT_NOT_AVAILABLE');
         if(state.pending)throw Error('CHAT_READBACK_ONLY');
         if(typeof prompt!=='string' || !prompt.trim() || new TextEncoder().encode(prompt).length>2000)throw Error('CHAT_PROMPT_LIMIT');
         if(readRequestId!==null && !/^[a-f0-9]{32}$/.test(readRequestId))throw Error('CHAT_READ_REFERENCE_INVALID');
         const request=id();state.thread=state.thread || id();state.pending=request;state.draft=false;emit();
         const direct=state.catalog.mode==='LIVE_OWNER_SESSION';
-        try{return accept(await call({op:direct?'chat_send':'chat_propose',...(readRequestId?{read_request_id:readRequestId}:{}),payload:{
+        try{const value=await call({op:direct?'chat_send':'chat_propose',...(readRequestId?{read_request_id:readRequestId}:{}),payload:{
           schema:direct?'aioa.mobile.chat-send.v2':'aioa.mobile.chat-send.v1',thread_id:state.thread,
-          request_id:request,model_id:'muse-spark-1.3',prompt,...(direct?{}:{max_budget_usd:state.catalog.max_budget_usd || '0.05'})}}),request,state.thread);}
-        catch(error){if(error.notDispatched===true){state.pending=null;state.draft=true;}throw error;}
+          request_id:request,model_id:'muse-spark-1.3',prompt,...(direct?{}:{max_budget_usd:state.catalog.max_budget_usd || '0.05'})}});
+          check();return accept(value,request,state.thread);}
+        catch(error){check();if(error.notDispatched===true){state.pending=null;state.draft=true;}throw error;}
       }),
-      read:()=>work(async()=>{
+      read:()=>work(async check=>{
         const request=state.pending || state.messages[state.messages.length-1]?.request_id;
-        if(!request)throw Error('CHAT_NO_REQUEST');return accept(await call({op:'chat_request',request_id:request}),request,state.thread);
+        if(!request)throw Error('CHAT_NO_REQUEST');const value=await call({op:'chat_request',request_id:request});
+        check();return accept(value,request,state.thread);
       }),
-      stop:()=>work(async()=>{
+      stop:()=>work(async check=>{
         if(!state.pending)throw Error('CHAT_NO_REQUEST');const request=state.pending;
-        return accept(await call({op:'chat_stop',request_id:request}),request,state.thread);
+        const value=await call({op:'chat_stop',request_id:request});check();return accept(value,request,state.thread);
       }),
-      endSession:()=>work(async()=>{
-        await call({op:'chat_session_stop'});
-        state.catalog=await call({op:'chat_catalog'});
+      endSession:()=>work(async check=>{
+        await call({op:'chat_session_stop'});check();
+        const catalog=await call({op:'chat_catalog'});check();state.catalog=catalog;
       })
     });
   }
@@ -160,7 +168,12 @@
       }
     };
     client.refresh().catch(()=>{});
-    setInterval(()=>{if(document.visibilityState==='visible')client.refresh({background:true}).catch(()=>{});},8000);
+    const timer=setInterval(()=>{if(document.visibilityState==='visible')client.refresh({background:true}).catch(()=>{});},8000);
+    return Object.freeze({close:()=>{
+      clearInterval(timer);client.close();el('prompt').value='';
+      if(el('attach-read'))el('attach-read').checked=false;
+      el('messages').replaceChildren();el('threads').replaceChildren();
+    }});
   }
   const api={createChat,mount};if(typeof module!=='undefined' && module.exports)module.exports=api;else root.AIOAMobileChat=Object.freeze(api);
 })(typeof globalThis!=='undefined'?globalThis:this);

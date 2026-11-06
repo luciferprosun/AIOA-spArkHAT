@@ -150,17 +150,21 @@ class MetaChatRequest:
         require(type(context) is dict)
         read_context=None
         if context.get('schema')=='aioa.chat.core-context.v2':
+            from runtime.mcp_bridge.native_read import CONTEXT_REPOSITORIES, validate_context_data
             read_context=context.get('read_context')
             require(type(read_context) is dict and set(read_context)=={'schema','trust','request_id','operation',
                 'observed_at','expires_at','source_sha','capsule_digest','data_sha256','receipt_sha256','data'})
             require(read_context['schema']=='aioa.chat.read-context.v1' and read_context['trust']=='UNTRUSTED_READ_DATA'
-                and read_context['operation']=='github.repository'
+                and read_context['operation'] in ('github.repository', *CONTEXT_REPOSITORIES)
                 and type(read_context['request_id']) is str and re.fullmatch('[a-f0-9]{32}',read_context['request_id'])
                 and all(type(read_context[k]) is str and re.fullmatch('[a-f0-9]{64}',read_context[k]) for k in ('data_sha256','receipt_sha256'))
                 and read_context['source_sha']==self.task.source_sha and read_context['capsule_digest']==self.capsule_digest
                 and type(read_context['observed_at']) is int and type(read_context['expires_at']) is int
                 and 0<=read_context['observed_at']<read_context['expires_at']==read_context['observed_at']+300
                 and type(read_context['data']) is dict)
+            if read_context['operation'] in CONTEXT_REPOSITORIES:
+                validate_context_data(read_context['operation'], read_context['data'])
+                require(canonical_sha256(read_context['data']) == read_context['data_sha256'])
             context={k:v for k,v in context.items() if k!='read_context'}
             context['schema']='aioa.chat.core-context.v1'
         require(type(context) is dict and set(context)=={'schema','core','profile','source_sha','capsule_digest',

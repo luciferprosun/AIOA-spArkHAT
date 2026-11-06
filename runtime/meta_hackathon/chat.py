@@ -167,6 +167,11 @@ def propose(service,payload,reader,*,device_id,session_id,nonce,actor='ANDROID',
             'source_sha':sha,'capsule_digest':capsule,'native_execute':False,'github_write':False,'save_knowledge':False,
             'mission_read':'BLOCKED_NATIVE_WORKER_NOT_CERTIFIED'}
         if read_context is not None:context.update(schema='aioa.chat.core-context.v2',read_context=read_context)
+        # Bound serialized history, including JSON escaping and the attached
+        # source. Drop only oldest complete pairs; never enlarge the provider's
+        # existing 16 KiB request envelope or repeat a prior provider call.
+        history_budget=max(0,11000-len(canonical_json_bytes(context))-len(canonical_json_bytes(payload['prompt'])))
+        while history and len(canonical_json_bytes(history))>history_budget:history=history[2:]
         req=MetaChatRequest(task,payload['prompt'],canonical_json_bytes(context).decode(),history=tuple(history),
             budget_usd=payload.get('max_budget_usd','0'),capsule_digest=capsule)
         if session_authorization is not None:req=replace(req,max_output_tokens=4096,timeout_seconds=60)

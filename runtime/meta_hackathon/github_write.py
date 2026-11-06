@@ -9,6 +9,7 @@ from dataclasses import replace
 from datetime import datetime,timezone
 from decimal import Decimal
 import re
+import json
 import threading
 import time
 
@@ -119,6 +120,14 @@ def _check(host,data,*,write):
         require(host.source==(data['source_sha'],data['capsule_digest'])
             and host.instance_id==data['core_instance_id'],'GITHUB_OWNER_OR_SOURCE_CHANGED')
         require(time.time()<data['expires_at'],'GITHUB_REVIEW_EXPIRED')
+        from .native_tools import chat_read_context
+        context=data.get('source_read_context')
+        require(type(context) is dict,'GITHUB_DEMO_READ_REQUIRED')
+        require(chat_read_context(host,context['request_id'])==context,'GITHUB_SOURCE_READ_CHANGED')
+        require(host._auth_deadline==data.get('owner_auth_deadline'),'GITHUB_OWNER_LEASE_CHANGED')
+        if data.get('source_chat_authorization') is not None:
+            from .chat_session import require_active
+            require_active(host.missions,data['source_chat_authorization'])
         row=_get(host,data['operation_id'])
         require(row is not None and not row.payload.get('stop_requested',False),'GITHUB_STOPPED')
     require(canonical_sha256(data['operation'])==data['review_digest'],'GITHUB_REVIEW_CHANGED')
@@ -134,6 +143,31 @@ def _route(host,data,*,write):
     return CoreRemoteGitRoute(journal,plan=plan,base=base,identity=host.identity,
         api_factory=factory,check=lambda:_check(host,data,write=write),
         target_guard=lambda:host.missions._lock,mode='LIVE')
+
+
+def _proposal_read_context(host,message):
+    """Bind the actual cached request to its canonical provider and READ receipts.
+
+    The public chat projection alone is insufficient. A forged/edited reply or
+    a manually assembled context cannot replace the admitted provider record.
+    """
+    from runtime.providers.meta_receipts import MetaReceiptView
+    from .native_tools import chat_read_context
+    cached=host.missions._chat_payloads.get(message['request_id'])
+    require(cached is not None,'GITHUB_SOURCE_REQUEST_EXPIRED')
+    request=cached[1]
+    require(request.digest==message.get('request_digest') and request.task.actor=='LINUX_OWNER'
+        and request.task.session_id==canonical_sha256(host.instance_id)[:32], 'GITHUB_SOURCE_REQUEST_CHANGED')
+    receipt=MetaReceiptView(host.ledger,governor=host.missions._chat_governor,
+        source_reader=host.missions.source_probe).readback(request.digest)
+    require(receipt==message['receipt'] and receipt['binding']==request.public_binding(), 'GITHUB_SOURCE_RECEIPT_CHANGED')
+    if message.get('authorization') is not None:
+        from .chat_session import require_active
+        require_active(host.missions,message['authorization'],request.task)
+    context=json.loads(request.context_json).get('read_context')
+    require(type(context) is dict and context.get('operation')=='github.demo_context','GITHUB_DEMO_READ_REQUIRED')
+    require(chat_read_context(host,context['request_id'])==context,'GITHUB_SOURCE_READ_CHANGED')
+    return context
 
 
 def propose(host,value,message):
@@ -162,11 +196,16 @@ def propose(host,value,message):
     bound,first=host.mobile._run(Capability.COMMIT,reserve)
     if not first:return view(host,bound)
     try:
+        context=_proposal_read_context(host,message)
         base_sha,base=github_remote.read_demo_base(check=host._require_qualified_operator,cancel=CancellationToken())
+        require(base_sha==context['data']['commit_sha'] and base.sha==context['data']['tree_sha'],
+                'GITHUB_MODEL_READ_BASE_CHANGED')
         plan=RemoteGitPlan.from_model(message['reply'].encode(),operation_id=operation_id,issued_at=now,
             base_sha=base_sha,base_tree_sha=base.sha,source_sha=host.source[0],capsule_digest=host.source[1],
             source_reply_sha256=message['receipt']['response_sha256'],source_receipt_sha256=canonical_sha256(message['receipt']))
-        data={**pending,'plan':plan.payload(),'base_entries':{k:list(v) for k,v in base.entries.items()}}
+        data={**pending,'plan':plan.payload(),'base_entries':{k:list(v) for k,v in base.entries.items()},
+            'source_read_context':context,'source_chat_authorization':message.get('authorization'),
+            'owner_auth_deadline':host._auth_deadline,'expires_at':min(pending['expires_at'],context['expires_at'])}
         state=host.missions._chat_governor.inspect(host.core.local_operator(Capability.READ))
         route=_route(host,data,write=True)
         operation=route.operation(host.instance_id,state['epoch'])
@@ -201,6 +240,18 @@ def view(host,operation_id):
             'expected_tree_sha':data['operation']['payload']['tree_sha'],
             'policy_epoch':data['operation']['payload']['policy_epoch']},review_digest=data['review_digest'],
             expires_at=data['expires_at'],owner_approval=data.get('warrant') is not None)
+        context=data.get('source_read_context')
+        if context is not None:
+            result['review']['source_read']={'request_id':context['request_id'],
+                'receipt_sha256':context['receipt_sha256'],'data_sha256':context['data_sha256'],
+                'repository':context['data']['repository'],'repository_id':context['data']['repository_id'],
+                'base_sha':context['data']['commit_sha'],'read_source':context['data']['read_source'],
+                'observed_at':context['observed_at'],'expires_at':context['expires_at']}
+        if data['state']=='GITHUB_PROPOSED':
+            try:_check(host,data,write=True)
+            except ValueError as error:
+                code=str(error)
+                result['blockers'].append(code if re.fullmatch('[A-Z][A-Z0-9_]{0,99}',code) else 'GITHUB_SOURCE_BINDING_UNVERIFIED')
         if host.instance_id!=data['core_instance_id'] or host.source!=(data['source_sha'],data['capsule_digest']):
             result['blockers'].append('GITHUB_OWNER_OR_SOURCE_CHANGED')
         if time.time()>=data['expires_at']:result['blockers'].append('GITHUB_REVIEW_EXPIRED')

@@ -35,6 +35,22 @@ completed result. No message is prefilled or automatically sent by this change.
 For a repository factual answer, first deliberately refresh GitHub READ and
 attach the resulting receipt; READ context expires after five minutes.
 
+Use **Read code README at main SHA** for the canonical code repository, or
+**Read demo README for Muse proposal** for the documentation repository. Each
+recipe independently checks repository ID, main, commit/tree, regular README
+blob bytes and main again. The signed result identifies `read_source`, commit,
+tree, file hashes, receipt ID and observation time. The chat receives a clearly
+marked excerpt of at most 1,536 UTF-8 bytes (also bounded after JSON escaping),
+not a claim that the whole repository was read. The complete file is hashed;
+files over 32 KiB, symlinks, missing files and main drift are refused.
+
+Before the proposal turn, refresh the **demo** READ and explicitly attach it to
+that message. Canonical-repository metadata or an earlier unattached chat turn
+does not satisfy this requirement. Core resolves the original cached request,
+canonical Meta receipt and signed READ; it compares the planning base/tree with
+the independent demo preflight. A changed base requires a new deliberate READ
+and a new model proposal. It never silently rebases the model's proposal.
+
 1. Ask Muse to explain the verified repository READ, naming the exact main SHA
    and separating observation from inference.
 2. Ask for a short implementation/design proposal. This is advisory text only.
@@ -58,7 +74,21 @@ PR and blockers. Review everything before selecting the checkbox and approving.
 The five-minute review is source- and owner-session-bound. It is not a reusable
 session-wide GitHub permission.
 
+Ending the source chat session, renewing the Native owner lease or changing the
+source invalidates an outstanding review. LOCK/pagehide clears the chat text,
+pending review and in-memory browser authority; late responses cannot restore
+them. This does not cancel or erase already dispatched external effects.
+
+Installation tokens are opaque and may use GitHub's longer, dot-separated 2026
+stateless format. The adapter accepts that bounded format without decoding,
+persisting or displaying it. Repository and permission narrowing are unchanged.
+See [GitHub's installation-token guidance](https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/generating-an-installation-access-token-for-a-github-app).
+
 ## Results and recovery
+
+Repeating a proposal request or its already bound Muse turn reads the saved
+Core operation, even after the in-memory chat text expires. It does not repeat
+preflight GETs, refresh the review or authorize another write.
 
 - **Read saved Core result** and **Read authorization and saved operations** are
   local reads. They do not call Muse or GitHub and do not retry a mutation.

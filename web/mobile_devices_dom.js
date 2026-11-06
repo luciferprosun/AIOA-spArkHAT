@@ -6,7 +6,8 @@
   const node = id => document.getElementById('devices-'+id);
   document.getElementById('devices-view').hidden=false;
   history.replaceState(null,'','/devices');
-  let client=null;
+  let client=null,chatView=null,consoleClosed=false;
+  function lockConsole() {consoleClosed=true;chatView?.close();client?.close();render();}
   const errors={LOCAL_OPERATOR_REQUIRED:'A local operator session is required. Reopen the panel from Linux.',
     UNKNOWN_READBACK_REQUIRED:'Unknown result. Read Core status before another operation. No automatic retry was made.',
     READBACK_REQUIRED:'Read current Core status first.',REVIEW_REQUIRED:'Review the current exact operation before approving.',
@@ -62,7 +63,10 @@
     if(get('auth-state'))get('auth-state').textContent=auth?
       auth.status+' · '+(auth.reason || 'Repository scope is checked again before WRITE.'):'GitHub App authorization has not been read.';
     if(get('write-state'))get('write-state').textContent=value?
-      (value.owner_approval?'APPROVED WRITE':'PROPOSE')+' · '+value.status+' · '+value.operation_id+
+      (value.status==='GITHUB_VERIFIED'?(value.result?.receipt?.live_verified===true?'LIVE VERIFIED':'OFFLINE TEST ONLY'):
+        value.status==='GITHUB_UNKNOWN'?'UNKNOWN':
+        value.blockers?.length || value.status==='GITHUB_PROPOSAL_FAILED'?'BLOCKED':
+        value.approval_available?'NEEDS OWNER APPROVAL':value.owner_approval?'APPROVED WRITE':'PROPOSAL')+' · '+value.status+' · '+value.operation_id+
       (value.blockers?.length?'\n'+value.blockers.join(' · '):'')+(value.error?'\n'+value.error:''):
       'PROPOSE · no owner-approved operation selected.';
     const result=value?.result;
@@ -70,7 +74,7 @@
     if(get('links')) {
       get('links').replaceChildren();
       for(const [label,url] of [['Verified commit',result?.receipt?.github_url],['Verified draft PR',result?.receipt?.pr_url]]) {
-        if(result?.receipt?.live_verified===true && typeof url==='string' &&
+        if(value?.status==='GITHUB_VERIFIED' && result?.receipt?.live_verified===true && typeof url==='string' &&
             /^https:\/\/github\.com\/luciferprosun\/AIOA-spArkHAT-Meta-Hackathon-2026\/(commit\/[a-f0-9]{40}|pull\/[1-9][0-9]{0,8})$/.test(url)) {
           const link=text('a',label,get('links'));link.href=url;link.target='_blank';link.rel='noopener noreferrer';
         }
@@ -103,7 +107,9 @@
     const result=state?.toolResult, receipt=result?.receipt;
     const value=document.getElementById('cosmic-tool-result'),summary=document.getElementById('cosmic-receipt-summary');
     if(value)value.textContent=result?JSON.stringify(result,null,2):'No repository evidence yet.';
-    if(summary)summary.textContent=receipt?receipt.operation+' · '+receipt.transport+'\n'+receipt.task_id+'\n'+
+    if(summary)summary.textContent=receipt?receipt.operation+' · '+receipt.transport+'\nread_receipt_id: '+receipt.request_id+'\n'+
+      'read_source: '+(result.data?.read_source || receipt.transport)+'\nbase_sha: '+(result.data?.commit_sha || 'not a repository context')+'\n'+
+      'freshness: '+(receipt.observed_at<=Date.now()/1000 && Date.now()/1000<receipt.observed_at+300?'CURRENT (5-minute window)':'STALE')+'\n'+
       new Date(receipt.observed_at*1000).toISOString()+'\nSHA-256 '+receipt.data_sha256:
       (state?.toolState || 'NOT_RUN')+(state?.toolRequest?' · '+state.toolRequest:'');
     const status=document.getElementById('cosmic-tool-state');
@@ -112,7 +118,7 @@
       state?.toolState==='NOT_FOUND'?'No READ record found for this request. No automatic retry.':
       state?.toolRequest?'READ result not confirmed. Check last receipt; no automatic retry.':'No tool result read.');
     const proposal=document.getElementById('cosmic-proposal-result');
-    if(proposal && state?.toolProposal)proposal.textContent=JSON.stringify(state.toolProposal,null,2);
+    if(proposal)proposal.textContent=state?.toolProposal?JSON.stringify(state.toolProposal,null,2):'No proposal selected.';
   }
   function renderCore(state) {
     const button=document.getElementById('cosmic-core-read');
@@ -174,6 +180,10 @@
   }
   function render() {
     const state=client?.snapshot();
+    if(state?.phase==='LOCKED' || state?.message==='LOCAL_OPERATOR_REQUIRED') {
+      chatView?.close();
+      const input=document.getElementById('cosmic-proposal-chat');if(input)input.value='';
+    }
     node('pending').setAttribute?.('aria-busy',state?.polling?'true':'false');
     node('trusted').setAttribute?.('aria-busy',state?.polling?'true':'false');
     renderOverview(state);
@@ -250,7 +260,7 @@
   }
   node('add').addEventListener('click',()=>{showPage('devices');act(()=>client.invite());});
   node('refresh').addEventListener('click',()=>act(()=>client.refresh()));
-  node('lock').addEventListener('click',()=>{client?.close();render();});
+  node('lock').addEventListener('click',lockConsole);
   document.getElementById('cosmic-core-read')?.addEventListener('click',()=>act(()=>client.status()));
   document.getElementById('cosmic-command-preview')?.addEventListener('click',()=>act(()=>client.preview('command_advice',{
     command:document.getElementById('cosmic-command-input').value})));
@@ -270,7 +280,7 @@
   });
   for(const [id,method] of [['status','githubStatus'],['reconcile','githubReconcile'],['stop','githubStop'],['history-read','githubHistory']])
     document.getElementById('cosmic-github-'+id)?.addEventListener('click',()=>act(()=>client[method]()));
-  window.addEventListener('pagehide',()=>{client?.close();render();});
+  window.addEventListener('pagehide',lockConsole);
   // The transport decides whether a stale read can recover. An uncertain
   // mutation still requires explicit readback and is never replayed here.
   setInterval(()=>{
@@ -289,14 +299,15 @@
   fetch('/api/native-operator/session',{credentials:'same-origin',redirect:'error',cache:'no-store'})
     .then(async response=>{if(!response.ok)throw Error('LOCAL_OPERATOR_REQUIRED');return response.json();})
     .then(async data=>{
+      if(consoleClosed)throw Error('LOCAL_OPERATOR_REQUIRED');
       if(data.ok!==true || !/^[A-Za-z0-9_-]{43}$/.test(data.csrf_token))throw Error('LOCAL_OPERATOR_REQUIRED');
       client=AIOAMobileDevices.createDeviceConsole(data.csrf_token);
       await act(()=>client.refresh());
       if(data.profile==='NATIVE_ADVISORY_CHAT_V1' && client?.snapshot().phase==='READY' &&
           typeof AIOAMobileChat!=='undefined') {
-        AIOAMobileChat.mount(value=>client.chatCall(value),()=>{
+        chatView=AIOAMobileChat.mount(value=>client.chatCall(value),()=>{
           const snapshot=client.snapshot(),receipt=snapshot.toolResult?.receipt;
-          return snapshot.toolState==='VERIFIED' && receipt?.operation==='github.repository' &&
+          return snapshot.toolState==='VERIFIED' && ['github.repository','github.code_context','github.demo_context'].includes(receipt?.operation) &&
             receipt.transport==='LIVE_GITHUB_GET' && Number.isSafeInteger(receipt.observed_at) &&
             receipt.observed_at<=Date.now()/1000 && Date.now()/1000<receipt.observed_at+300?receipt.request_id:null;
         });showPage('chat');

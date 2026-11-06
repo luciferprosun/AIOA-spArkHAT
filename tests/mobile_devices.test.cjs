@@ -370,12 +370,49 @@ test('device panel renders revoked reconnect separately from active legacy acces
   assert.equal(get('cosmic-github-reviewed').checked,false,'changed exact review invalidates the checkbox');
   assert.equal(get('cosmic-github-approve').disabled,true);
   assert.equal(get('cosmic-github-links').children.length,0,'untrusted receipt URLs never become links');
+  githubWrite={...githubWrite,status:'GITHUB_UNKNOWN',owner_approval:true};
+  get('cosmic-github-reviewed').listeners.change();
+  assert.match(get('cosmic-github-write-state').textContent,/^UNKNOWN ·/,'a prior receipt must not hide current uncertainty');
+  githubWrite={...githubWrite,status:'GITHUB_PROPOSED',blockers:['BLOCKED_OWNER_LIABILITY_UNKNOWN']};
+  get('cosmic-github-reviewed').listeners.change();
+  assert.match(get('cosmic-github-write-state').textContent,/^BLOCKED ·/);
   // A manually supplied legacy hash cannot supply a credential to a public GET.
   vm.runInNewContext(fs.readFileSync(require('node:path').join(__dirname,'../web/mobile_devices_dom.js'),'utf8'),{
     location:{pathname:'/devices',hash:'#operator='+'T'.repeat(43)},history:{replaceState(){}},
     document:{...document,getElementById:id=>id==='aioa-console-credential'?null:get(id)},
     AIOAMobileDevices:{...api,createDeviceConsole:()=>assert.fail('URL credential accepted')},
     fetch:async()=>({ok:false}),window:{addEventListener(){}},setInterval(){},Date,JSON});
+});
+test('owner LOCK and pagehide close mounted chat and erase the proposal without accepting a late bootstrap',async()=>{
+  const vm=require('node:vm');
+  for(const action of ['lock','pagehide','late-bootstrap']) {
+    class Element {
+      constructor(){this.children=[];this.dataset={};this.listeners={};this.textContent='';this.value='';this.classList={add(){}};}
+      append(child){this.children.push(child);} replaceChildren(){this.children=[];}
+      addEventListener(event,fn){this.listeners[event]=fn;} getContext(){return {clearRect(){}};}
+    }
+    const ids=new Map(),get=id=>{if(!ids.has(id))ids.set(id,new Element());return ids.get(id);};
+    const events={};let phase='READY',mounted=0,closed=0,bootstrap;
+    const document={body:new Element(),getElementById:get,createElement:()=>new Element()};
+    const client={snapshot:()=>({phase,observed:true,pending:[],devices:[],busy:false,
+      toolProposal:phase==='LOCKED'?null:{private:'proposal bytes'}}),refresh:async()=>{},close:()=>{phase='LOCKED';}};
+    vm.runInNewContext(fs.readFileSync(require('node:path').join(__dirname,'../web/mobile_devices_dom.js'),'utf8'),{
+      location:{pathname:'/devices',hash:'',search:''},history:{replaceState(){}},document,
+      AIOAMobileDevices:{...api,createDeviceConsole:()=>client},
+      AIOAMobileChat:{mount:()=>{mounted++;return {close:()=>{closed++;}};}},
+      fetch:()=>new Promise(resolve=>{bootstrap=()=>resolve({ok:true,json:async()=>({ok:true,
+        csrf_token:'T'.repeat(43),profile:'NATIVE_ADVISORY_CHAT_V1'})});}),
+      window:{addEventListener:(name,fn)=>{events[name]=fn;}},setInterval(){},Date,JSON});
+    if(action==='late-bootstrap')events.pagehide();
+    bootstrap();await new Promise(resolve=>setImmediate(resolve));
+    if(action==='late-bootstrap'){assert.equal(mounted,0);continue;}
+    assert.equal(mounted,1);assert.match(get('cosmic-proposal-result').textContent,/proposal bytes/);
+    get('cosmic-proposal-chat').value='private request';
+    if(action==='lock')get('devices-lock').listeners.click();else events.pagehide();
+    assert.ok(closed>0);assert.equal(phase,'LOCKED');
+    assert.equal(get('cosmic-proposal-chat').value,'');
+    assert.equal(get('cosmic-proposal-result').textContent,'No proposal selected.');
+  }
 });
 test('local advisory preview uses existing console and cannot claim execution or send permission',async()=>{
   const calls=[];

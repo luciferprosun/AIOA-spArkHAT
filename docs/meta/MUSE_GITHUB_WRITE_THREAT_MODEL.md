@@ -86,6 +86,23 @@ valid way to make the current operation pass.
 
 ## Required negative tests
 
+The 6 November candidate additionally binds the complete canonical Meta receipt
+to its original in-memory request and the current signed demo READ. A source
+from the code repository, a missing context, a changed base/tree, an ended chat
+session or a renewed Native lease denies WRITE. READ content remains a separate
+untrusted user-data message; README instructions cannot mint a warrant.
+
+New file reads are fixed public README recipes. Validate numeric repository ID,
+nonrecursive tree SHA and regular-file mode, blob SHA/size/UTF-8, bounded excerpt,
+and the main ref again after reading. A full-file SHA does not mean the model saw
+the full file; the excerpt is explicitly marked truncated when appropriate.
+
+The browser clears chat/review text on LOCK/pagehide and rejects delayed
+responses from a closed controller. This is local privacy cleanup, not evidence
+that a remote request had no effect. Installation tokens remain opaque; JWT
+separators and longer 2026 token values do not justify accepting control bytes,
+oversized headers, excess repositories or permissions.
+
 Test exact source/expiry/grant/diff/repository mismatches; forged model authority;
 path and file-mode attacks; key echo; base/ref races; incomplete or forged GET
 evidence; lost response before/after every mutation; duplicate/restarted requests;

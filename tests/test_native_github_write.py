@@ -19,6 +19,12 @@ class NativeGitHubWriteTests(unittest.TestCase):
     start=chat_fixture.NativeChatTests.start
 
     def proposal(self,read_error=None):
+        from test_native_repository_context import PublicRepositoryFixture
+        from runtime.meta_hackathon.native_tools import chat_read_context
+        fixture=PublicRepositoryFixture(True)
+        with patch('runtime.mcp_bridge.native_read._github_json',side_effect=fixture.get):
+            self.app.operator_request(os.getuid(),{'op':'tool_read','operation':'github.demo_context','request_id':'9'*32})
+        context=chat_read_context(self.app,'9'*32)
         raw=json.dumps({'schema':'aioa.muse.github-change.v1','operation':'code.commit_draft_pr',
             'target_repo':DEMO_REPOSITORY,'title':'Add reviewed contract','body':'Proposed code; tests not run.',
             'files':{'agent-demo/contracts.py':'VALUE = 1\n'}})
@@ -26,8 +32,11 @@ class NativeGitHubWriteTests(unittest.TestCase):
             'source_sha':self.source[0],'capsule_digest':self.source[1],'request_id':'a'*32,'thread_id':'b'*32,
             'receipt':{'response_sha256':wire.digest(raw.encode())}}
         self.message=message
-        base=GitTreeSnapshot(git_object('tree',b''),{})
+        base=GitTreeSnapshot(fixture.tree,{'README.md':('100644','blob',fixture.blob)})
+        # These are route unit tests with a synthetic source port. The separate
+        # MuseRepositoryFlowTests exercise real request/receipt/context binding.
         with patch.object(self.app.missions,'chat_request',return_value=message),\
+                patch('runtime.meta_hackathon.github_write._proposal_read_context',return_value=context),\
                 patch('runtime.mcp_bridge.github_remote.read_demo_base',return_value=('c'*40,base),side_effect=read_error):
             return self.app.operator_request(os.getuid(),{'op':'tool_proposal','request_id':'d'*32,'chat_request_id':'a'*32})
 
@@ -183,12 +192,14 @@ class NativeGitHubWriteTests(unittest.TestCase):
     def test_incomplete_or_foreign_source_muse_reply_never_reaches_remote_port(self):
         self.proposal()
         for fields in ({'state':'CHAT_TRUNCATED'},{'current_source':False},{'live_verified':False},
-                {'source_sha':'0'*40},{'receipt':{'response_sha256':'0'*64}}):
-            with self.subTest(fields=fields),patch.object(self.app.missions,'chat_request',return_value={**self.message,**fields}),\
+                {'source_sha':'0'*40},{'capsule_digest':'0'*64},{'receipt':{'response_sha256':'0'*64}}):
+            # A new source must pass LIVE checks. Replaying the already bound
+            # source is a local readback, even after its text cache has expired.
+            with self.subTest(fields=fields),patch.object(self.app.missions,'chat_request',return_value={**self.message,'request_id':'f'*32,**fields}),\
                     patch('runtime.mcp_bridge.github_remote.read_demo_base') as read,\
                     patch('runtime.mcp_bridge.github_remote.GitHubAppCredentialSource.mint') as mint:
                 with self.assertRaises(wire.MobileError):self.app.operator_request(os.getuid(),{
-                    'op':'tool_proposal','request_id':'e'*32,'chat_request_id':'a'*32})
+                    'op':'tool_proposal','request_id':'e'*32,'chat_request_id':'f'*32})
                 read.assert_not_called();mint.assert_not_called()
 
     def test_stop_is_durable_and_expired_review_cannot_authorize_write(self):
