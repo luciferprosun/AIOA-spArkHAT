@@ -22,15 +22,25 @@ test('loss of operator readback hides positive counts while keeping review recor
   }
 });
 
-test('expired owner session invalidates presentation until a successful explicit readback',async()=>{
+test('expired owner session stays locked until a fresh owner session performs readback',async()=>{
   let denied=false;
-  const client=api.createDeviceConsole('T'.repeat(43),async()=>({ok:!denied,status:denied?403:200,
-    json:async()=>({ok:true,data:{pending:[],devices:[{revoked:false,active_sessions:1}]}})}));
+  let calls=0;
+  const fetcher=async()=>{calls++;return {ok:!denied,status:denied?403:200,
+    json:async()=>({ok:true,data:{pending:[],devices:[{revoked:false,active_sessions:1}]}})};};
+  const client=api.createDeviceConsole('T'.repeat(43),fetcher);
   assert.equal(typeof api.presentation,'function','Cosmic overview presentation is missing');
   assert.equal(api.presentation(client.snapshot()).operatorReady,false);
   await client.refresh();assert.equal(api.presentation(client.snapshot()).trustedDevices,1);
   denied=true;await assert.rejects(client.refresh(),/LOCAL_OPERATOR_REQUIRED/);
   assert.equal(api.presentation(client.snapshot()).trustedDevices,null);
-  denied=false;await client.refresh();assert.equal(api.presentation(client.snapshot()).trustedDevices,1);
+  denied=false;
+  const callsAtLock=calls;
+  await assert.rejects(client.refresh(),/LOCAL_OPERATOR_REQUIRED/);
+  assert.equal(calls,callsAtLock,'locked client must not issue a new request');
+  assert.equal(api.presentation(client.snapshot()).trustedDevices,null);
+  const renewed=api.createDeviceConsole('U'.repeat(43),fetcher);
+  assert.equal(api.presentation(renewed.snapshot()).trustedDevices,null);
+  await renewed.refresh();assert.equal(api.presentation(renewed.snapshot()).trustedDevices,1);
+  renewed.close();
   client.close();assert.equal(api.presentation(client.snapshot()).operatorReady,false);
 });
