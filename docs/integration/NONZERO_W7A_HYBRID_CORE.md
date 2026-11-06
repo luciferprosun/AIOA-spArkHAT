@@ -68,3 +68,33 @@ Core authority/policy files and executable changes cannot be proposed.
 it does not itself establish remote Git truth. The Core source reader and
 publish route must independently bind that SHA and file preimages before
 an approved effect. A PatchSet and its integrity hash remain non-authoritative.
+
+## Offline implementation and deployment boundary
+
+`repair` and `repair_validation` use a maximum of three attempts. The host
+pins test scripts, counters, context and all workspace bytes. Each executed
+stage uses the existing CoreToolRoute/LinuxSandboxBroker, independent
+readback and canonical OPERATION/audit/outbox records. Applied certifies
+report generation; PASS/FAIL is decoded separately. Uncertainty never
+grants another repair attempt or an effect replay.
+
+`patch_capsule` joins those records with the current source/tree/patch and
+uses the existing Native Identity signer. Exact owner decisions use only
+CoreWarrantLedger. PROJECT_PATCH_PROPOSAL_V1 has no registered executor.
+`CoreRemoteGitRoute.prepare_patchset` prepares actual MODIFY postimages,
+but the qualified remote profile still accepts only create-only demo plans.
+General MODIFY/DELETE dispatch and the full coding-to-Git chain are blocked.
+
+`coding_tasks` provides create_task/read_status/cancel/get_receipts through
+an explicitly injected CoreCodingTasks on AgentRuntime. Its typed CLI parser
+requires that admitted host binding; it does not bootstrap a new Core or add
+a server. Signed intake receipts are stored in the existing transaction
+repository. A canonical capsule can move a queued task to REVIEW_REQUIRED.
+Cancel stops this pending intake; active Native effects still require the
+existing operator STOP/revocation path. No deployed HTTP/UI switch is made.
+
+The implemented intake exposes QUEUED/REVIEW_REQUIRED/CANCELLED. Remaining
+state names are reserved contracts, not claims of an active end-to-end
+controller. Deployment, arbitrary repository test profiles and production
+model workers remain separate qualification gates. These features require
+the existing `[native,nonzero]` extras; no new runtime dependency was added.

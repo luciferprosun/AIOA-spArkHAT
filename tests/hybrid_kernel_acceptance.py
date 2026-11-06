@@ -25,10 +25,12 @@ import runtime.mission.repair as repair
 from lab.archaioa.faults import FaultKind, FaultTrace, classify_fault
 from lab.archaioa.taint import DependencyGraph, DependencyNode, NodeKind
 from runtime.core_admission import Capability
+from runtime.main import AgentRuntime
 from runtime.memory_patch.contracts.serialization import (
     canonical_json_bytes,
     canonical_sha256,
 )
+from runtime.mission.coding_tasks import CoreCodingTasks, coding_cli_request
 from runtime.mission.completion import TaskCompletionBinding
 from runtime.mission.governor import GovernorPolicy, Limits, ReservationRequest
 from runtime.mission.job_contracts import JobEnvelope
@@ -244,6 +246,21 @@ check(namespace['add'](0, 8) == 8)
             workspace_id="workspace-1",
             source_base_sha="a" * 40,
         )
+        identity = Identity(ec.generate_private_key(ec.SECP256R1()))
+        capsules = CorePatchCapsules(
+            fx.journal,
+            identity,
+            source_probe=lambda: source,
+            target_guard=lambda: fixture.lifecycle,
+        )
+        intake = CoreCodingTasks(fx.journal, capsules)
+        runtime = AgentRuntime(
+            None, "", root, inspection_only=True, coding_tasks=intake
+        )
+        created = coding_cli_request(
+            runtime, fx.p(Capability.MANAGE), "create_task", {"task": asdict(task)}
+        )
+        assert created["state"] == "QUEUED"
         candidates = tuple(
             CandidatePatch(
                 (CandidateFile("calc.py", "def add(a, b):\n    return " + expr + "\n"),)
@@ -289,13 +306,6 @@ check(namespace['add'](0, 8) == 8)
             "profile_digest": profile.digest,
             "kernel_receipts": [],
         }
-        identity = Identity(ec.generate_private_key(ec.SECP256R1()))
-        capsules = CorePatchCapsules(
-            fx.journal,
-            identity,
-            source_probe=lambda: source,
-            target_guard=lambda: fixture.lifecycle,
-        )
         if result.status == "PATCH_READY":
             signed = capsules.prepare(
                 fx.p(),
@@ -314,6 +324,18 @@ check(namespace['add'](0, 8) == 8)
             payload["validation_warrants"] = tuple(payload["validation_warrants"])
             payload["validation_receipts"] = tuple(payload["validation_receipts"])
             capsule = ExecutionCapsule(**payload)
+            attached = intake.attach_review(fx.p(), task.task_id, capsule.digest)
+            assert attached["state"] == "REVIEW_REQUIRED"
+            status = coding_cli_request(
+                runtime, fx.p(Capability.READ), "read_status", {"task_id": task.task_id}
+            )
+            assert status == attached
+            evidence["intake"] = {
+                "status": "PASS",
+                "created": created,
+                "review": status,
+                "same_core": intake.journal is fx.journal,
+            }
             op = capsule_operation(capsule)
             scope = replace(
                 fx.warrant.authority_scope,

@@ -155,9 +155,18 @@ class AgentRuntime:
         mission_context=None,
         mission_bindings=None,
         agent_bindings=None,
+        coding_tasks=None,
     ) -> None:
         if type(inspection_only) is not bool:
             raise ValueError('INVALID_INSPECTION_MODE')
+        if coding_tasks is not None:
+            from runtime.mission.coding_tasks import CoreCodingTasks
+            if (type(coding_tasks) is not CoreCodingTasks or not inspection_only
+                    or provider_manager is not None or agent_bindings is not None
+                    or nonzero_config is not None or memory_patch_config is not None
+                    or memory_patch_dependencies is not None or mission_bindings is not None):
+                raise ValueError('INVALID_CODING_BINDING')
+        self._coding_tasks = coding_tasks
         if agent_bindings is not None:
             from runtime.mission.agent import CoreAgentBindings
             if (type(agent_bindings) is not CoreAgentBindings or inspection_only or provider_manager is not None
@@ -222,6 +231,11 @@ class AgentRuntime:
             self.memory_store.paths.session_logs_dir
             / f"session_{self.memory_store.memory.session_id}.jsonl"
         )
+
+    def coding_request(self, action, payload, *, principal):
+        if self._agent_closed or self._coding_tasks is None:
+            raise ValueError('EXISTING_CORE_CODING_BINDING_REQUIRED')
+        return self._coding_tasks.request(principal, action, payload)
 
     def agent_step(self, value):
         if self._agent_closed or self._agent_bindings is None:
