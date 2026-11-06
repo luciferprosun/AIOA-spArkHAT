@@ -300,6 +300,20 @@ class CoreRemoteGitRoute:
     is deferred until the existing owner-wide START barrier has admitted the
     exact operation. The route owns no separate Core, governor or state store.
     """
+    @staticmethod
+    def prepare_patchset(base_root, final_root, *, source, task, worker_session_id, capsule_digest):
+        """General preparation is inert; it cannot widen the registered profile."""
+        from runtime.mission.patchset import BoundedPatchSetPolicy, _snapshot
+        policy=BoundedPatchSetPolicy()
+        patch=policy.evaluate(base_root,final_root,source=source,task=task,worker_session_id=worker_session_id)
+        observed=_snapshot(final_root)
+        core_require(observed.digest==patch.final_tree_sha256,'GIT_PATCH_TREE_DRIFT')
+        images=tuple((change.path,None if change.operation=='DELETE' else observed.files[change.path].content)
+                     for change in patch.files)
+        policy.recheck(patch,base_root=base_root,final_root=final_root,source=source,task=task,
+                       worker_session_id=worker_session_id)
+        return VerifiedPatchSet(patch,images,capsule_digest)
+
     def __init__(self,journal,*,plan,base,identity,api_factory,check,target_guard,mode):
         from runtime.mission.intent import CoreIntentJournal
         from runtime.mobile_gateway.wire import Identity
@@ -499,3 +513,58 @@ class CoreRemoteGitRoute:
             observation=api.readback(check=self.check,cancel=cancel)
             self.check()
             return self.complete(principal,warrant,observation,historical=True)
+
+
+@dataclass(frozen=True, slots=True, repr=False)
+class VerifiedPatchSet:
+    """Bounded postimages for review, with no authority or default transport.
+
+    MODIFY/DELETE require a separately qualified versioned actuator profile.
+    The existing production create-only profile is deliberately unchanged.
+    """
+    patchset: object
+    postimages: tuple
+    capsule_digest: str
+
+    def __post_init__(self):
+        from runtime.mission.patchset import PatchSet
+        core_require(type(self.patchset) is PatchSet,'GIT_PATCHSET_REQUIRED')
+        self.patchset.verify_digest()
+        core_require(type(self.capsule_digest) is str and re.fullmatch('[a-f0-9]{64}',self.capsule_digest),
+                     'GIT_CAPSULE_BINDING')
+        core_require(type(self.postimages) is tuple and len(self.postimages)==len(self.patchset.files)
+                     and all(type(row) is tuple and len(row)==2 for row in self.postimages), 'GIT_PATCH_POSTIMAGES')
+        core_require(tuple(row[0] for row in self.postimages)==tuple(c.path for c in self.patchset.files),
+                     'GIT_PATCH_POSTIMAGES')
+        for change,(_,data) in zip(self.patchset.files,self.postimages):
+            if change.operation=='DELETE':core_require(data is None,'GIT_PATCH_POSTIMAGES')
+            else:core_require(type(data) is bytes and sha256(data)==change.after.sha256
+                              and len(data)==change.after.size,'GIT_PATCH_POSTIMAGES')
+
+    @property
+    def authority(self):return 'NONE'
+
+    @property
+    def digest(self):
+        return sha256(canonical({'patchset':self.patchset.patchset_sha256,'capsule':self.capsule_digest,
+            'postimages':[[path,None if data is None else sha256(data)] for path,data in self.postimages]}))
+
+    def preview(self):
+        self.__post_init__()
+        return {'schema':'aioa.verified-patch-preparation.v1','preparation_digest':self.digest,
+                'patchset_sha256':self.patchset.patchset_sha256,'capsule_digest':self.capsule_digest,
+                'source_base_sha':self.patchset.source_base_sha,'postimage_tree_sha256':self.patchset.final_tree_sha256,
+                'operations':[change.operation for change in self.patchset.files],
+                'authority':'NONE','live_enabled':False,'dispatch_registered':False,
+                'required_gate':'VERSIONED_MODIFY_ACTUATOR_QUALIFICATION'}
+
+    def create_only_plan(self, *, title, body, operation_id, issued_at, base_tree_sha,
+                         source_reply_sha256, source_receipt_sha256):
+        self.__post_init__()
+        core_require(self.patchset.repository_id==str(DEMO_REPOSITORY_ID)
+            and all(c.operation=='ADD' and c.after.mode==0o644 for c in self.patchset.files),
+            'GITHUB_CREATE_ONLY_REQUIRED')
+        return RemoteGitPlan(files=dict(self.postimages),title=title,body=body,operation_id=operation_id,
+            issued_at=issued_at,base_sha=self.patchset.source_base_sha,base_tree_sha=base_tree_sha,
+            source_sha=self.patchset.source_base_sha,capsule_digest=self.capsule_digest,
+            source_reply_sha256=source_reply_sha256,source_receipt_sha256=source_receipt_sha256)
