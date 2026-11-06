@@ -53,3 +53,18 @@ all its references are preserved.
 MIT attribution is already shipped verbatim in
 `runtime/nonzero_cloudops/LICENSE-NONZERO.txt` (Copyright 2026 luciferprosun).
 Adapted modules retain their exact W7A source paths and commit identity.
+
+## Initial actual-tree profile
+
+`runtime.mission.patchset` evaluates separate plain source/candidate exports,
+with descriptor-confined reads and a fresh independent tree census. It allows
+at most three changed files and 300 added/deleted lines, at most one deleted
+file and 150 deleted lines, and requires a nonempty final tree. Input trees
+are bounded to 256 files / 16 MiB, each file to 1 MiB and rendered diff to
+256 KiB. Secret paths are refused before content reads. Tests, manifests,
+Core authority/policy files and executable changes cannot be proposed.
+
+`SourceIdentity` binds a host-selected export to the declared source commit;
+it does not itself establish remote Git truth. The Core source reader and
+publish route must independently bind that SHA and file preimages before
+an approved effect. A PatchSet and its integrity hash remain non-authoritative.
