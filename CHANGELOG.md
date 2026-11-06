@@ -1,5 +1,10 @@
 # Changelog
 
+## Post-submission security fix — 2026-11-06
+
+- Clear private operator results, proposals and draft inputs on HTTP403; invalidate pending responses and immediately clear the outer panel when chat authorization is refused.
+- Preserve explicit UNKNOWN/refusal and existing401/429 recovery, without changing Core authority, durable records or effect retries. Add state, DOM and isolated Chrome regressions.
+
 ## Unreleased — unified Native candidate, 2026-11-05
 
 - Preserve the complete functioning Muse owner-session conversation chain and selected create-only GitHub adapter through one temporary integration branch based on verified main.

@@ -113,6 +113,9 @@ def worker():
                 if value=={'op':'pairing_list'}:
                     reads+=1
                     if reads==8:raise OSError('Synthetic lost readback ACK')
+                    if reads==10:
+                        from runtime.mobile_gateway.wire import MobileError
+                        raise MobileError(403)
                     pending=([row,other] if reads<4 else [other,row] if reads==4 else
                         [other,{**row,'request_digest':'f'*64}] if reads==5 else [other])
                     return {'pending':pending,'devices':[device]}
@@ -224,6 +227,18 @@ def worker():
                   local.receipt.provider_calls===0&&local.data.status==='CPT_DRAFT_PREVIEW_ONLY'&&
                   document.getElementById('cosmic-cpt-result').textContent===local.preview.transformed_prompt&&
                   !document.getElementById('cosmic-cpt-result').querySelector('script')&&!!local.signature;
+                document.getElementById('devices-refresh').click();await wait(10);
+                result.auth_denial_clears_private_preview=
+                  document.getElementById('devices-message').textContent.includes('local operator session')&&
+                  document.getElementById('cosmic-advisory-result').textContent==='No preview recorded.'&&
+                  document.getElementById('cosmic-cpt-result').textContent==='No critical prompt preview.'&&
+                  document.getElementById('cosmic-cpt-input').value===''&&
+                  document.getElementById('cosmic-mail-body').value===''&&
+                  document.getElementById('cosmic-command-input').value===''&&
+                  document.getElementById('cosmic-github-approve').disabled&&
+                  document.getElementById('cosmic-github-history-read').disabled;
+                window.consoleProbePoll();await new Promise(resolve=>setTimeout(resolve,20));
+                result.auth_denial_no_automatic_request=window.consoleProbeReads===10;
                 document.getElementById('devices-lock').click();
                 result.lock_clears_cpt_preview=document.getElementById('cosmic-cpt-result').textContent==='No critical prompt preview.'&&
                   document.getElementById('cosmic-cpt-input').value===''&&document.getElementById('cosmic-cpt-input').disabled;
@@ -396,7 +411,7 @@ def worker():
             self.assertIsNotNone(found,'Browser probe did not finish')
             result=json.loads(html.unescape(found[1]))
             self.assertNotIn('error',result,result)
-            self.assertEqual(13,len(operations));self.assertEqual(9,operations.count({'op':'pairing_list'}))
+            self.assertEqual(14,len(operations));self.assertEqual(10,operations.count({'op':'pairing_list'}))
             self.assertEqual(1,operations.count({'op':'status'}))
             from runtime.mobile_gateway import wire
             from runtime.mobile_gateway.service import plain
@@ -414,7 +429,8 @@ def worker():
                 'large_text_no_outer_overflow','unknown_clears_cosmic_overview','existing_core_status_read',
                 'lock_clears_status_history','empty_lists_and_locked_controls',
                 'command_preview_core_receipt','mail_preview_core_receipt',
-                'cpt_preview_core_receipt','lock_clears_cpt_preview'),True),result)
+                'cpt_preview_core_receipt','lock_clears_cpt_preview',
+                'auth_denial_clears_private_preview','auth_denial_no_automatic_request'),True),result)
 
     suite=unittest.TestSuite([BrowserConsoleTests('test_chrome_private_launcher_bootstrap_and_exact_control_focus')])
     result=unittest.TextTestRunner(verbosity=2).run(suite)

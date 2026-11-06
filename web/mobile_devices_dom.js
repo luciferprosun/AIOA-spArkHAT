@@ -50,7 +50,7 @@
       cptInput.disabled=!ready;
       if(!state || state.phase==='LOCKED')cptInput.value='';
     }
-    const readable=state && state.phase!=='LOCKED' && !state.busy;
+    const readable=state && state.phase!=='LOCKED' && state.message!=='LOCAL_OPERATOR_REQUIRED' && !state.busy;
     if(reviewed && reviewedDigest!==value?.review_digest){reviewed.checked=false;reviewedDigest=value?.review_digest;}
     const mayApprove=ready && value?.approval_available===true && !state.githubApprovalAttempted;
     if(reviewed)reviewed.disabled=!mayApprove;
@@ -182,7 +182,10 @@
     const state=client?.snapshot();
     if(state?.phase==='LOCKED' || state?.message==='LOCAL_OPERATOR_REQUIRED') {
       chatView?.close();
-      const input=document.getElementById('cosmic-proposal-chat');if(input)input.value='';
+      for(const id of ['cosmic-proposal-chat','cosmic-command-input','cosmic-cpt-input',
+          'cosmic-mail-sender','cosmic-mail-to','cosmic-mail-subject','cosmic-mail-body']) {
+        const input=document.getElementById(id);if(input)input.value='';
+      }
     }
     node('pending').setAttribute?.('aria-busy',state?.polling?'true':'false');
     node('trusted').setAttribute?.('aria-busy',state?.polling?'true':'false');
@@ -305,7 +308,10 @@
       await act(()=>client.refresh());
       if(data.profile==='NATIVE_ADVISORY_CHAT_V1' && client?.snapshot().phase==='READY' &&
           typeof AIOAMobileChat!=='undefined') {
-        chatView=AIOAMobileChat.mount(value=>client.chatCall(value),()=>{
+        chatView=AIOAMobileChat.mount(async value=>{
+          try{return await client.chatCall(value);}
+          finally {if(client?.snapshot().message==='LOCAL_OPERATOR_REQUIRED')render();}
+        },()=>{
           const snapshot=client.snapshot(),receipt=snapshot.toolResult?.receipt;
           return snapshot.toolState==='VERIFIED' && ['github.repository','github.code_context','github.demo_context'].includes(receipt?.operation) &&
             receipt.transport==='LIVE_GITHUB_GET' && Number.isSafeInteger(receipt.observed_at) &&
