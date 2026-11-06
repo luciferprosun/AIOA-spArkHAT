@@ -501,10 +501,17 @@ def independent_tree_digest(root):
     try:
         root_fd, root_info = _open_root(root)
         records, folded, entries, size = {}, {}, 0, 0
+        directories = {"": root_info}
         for directory, dirs, names, fd in os.fwalk(
             ".", topdown=True, follow_symlinks=False, dir_fd=root_fd
         ):
             prefix = "" if directory == "." else directory[2:] + "/"
+            current = prefix.rstrip("/")
+            _require(
+                current in directories
+                and _stamp(os.fstat(fd)) == _stamp(directories[current]),
+                "PATCHSET_DIRECTORY_CHANGED",
+            )
             for name in sorted(dirs + names):
                 entries += 1
                 _require(entries <= MAX_TREE_ENTRIES, "PATCHSET_TREE_ENTRY_BOUND")
@@ -524,6 +531,7 @@ def independent_tree_digest(root):
                         stat.S_ISDIR(info.st_mode) and not info.st_mode & 0o7022,
                         "PATCHSET_DIRECTORY_TYPE",
                     )
+                    directories[path] = info
                     continue
                 _regular(info)
                 _require(
@@ -543,7 +551,37 @@ def independent_tree_digest(root):
                     ),
                     b"",
                 )
-        _require(_stamp(root.lstat()) == _stamp(root_info), "PATCHSET_ROOT_CHANGED")
+        # A fwalk descriptor can outlive a renamed directory. Reopen each named
+        # ancestry from the pinned root and compare every original identity.
+        for path, expected in sorted(directories.items()):
+            opened = os.dup(root_fd)
+            try:
+                traversed = []
+                for component in path.split("/") if path else ():
+                    traversed.append(component)
+                    child = os.open(
+                        component,
+                        os.O_RDONLY | os.O_NOFOLLOW | os.O_DIRECTORY | os.O_CLOEXEC,
+                        dir_fd=opened,
+                    )
+                    os.close(opened)
+                    opened = child
+                    _require(
+                        _stamp(os.fstat(opened))
+                        == _stamp(directories["/".join(traversed)]),
+                        "PATCHSET_DIRECTORY_CHANGED",
+                    )
+                _require(
+                    _stamp(os.fstat(opened)) == _stamp(expected),
+                    "PATCHSET_DIRECTORY_CHANGED",
+                )
+            finally:
+                os.close(opened)
+        _require(
+            _stamp(os.fstat(root_fd)) == _stamp(root_info)
+            and _stamp(root.lstat()) == _stamp(root_info),
+            "PATCHSET_ROOT_CHANGED",
+        )
         return _tree_digest(records)
     except OSError:
         raise PatchSetPolicyDenied("PATCHSET_INDEPENDENT_READ_FAILED") from None
@@ -570,10 +608,20 @@ def _text(record):
     return text
 
 
+def _bounded_diff_lines(before, after):
+    left, right = before.splitlines(), after.splitlines()
+    _require(
+        len(left) <= 2048 and len(right) <= 2048 and len(left) * len(right) <= 1048576,
+        "PATCHSET_DIFF_WORK_BOUND",
+    )
+    return left, right
+
+
 def _counts(before, after):
     added, deleted = 0, 0
+    left, right = _bounded_diff_lines(before, after)
     for tag, start, end, new_start, new_end in difflib.SequenceMatcher(
-        a=before.splitlines(), b=after.splitlines(), autojunk=False
+        a=left, b=right, autojunk=False
     ).get_opcodes():
         if tag in ("replace", "delete"):
             deleted += end - start
@@ -583,6 +631,8 @@ def _counts(before, after):
 
 
 def _diff(path, before, after, left, right):
+    left_lines, right_lines = _bounded_diff_lines(left, right)
+
     def identity(record):
         return "0" * 64 if record is None else record.identity.sha256
 
@@ -593,8 +643,8 @@ def _diff(path, before, after, left, right):
     return header + "".join(
         line + "\n"
         for line in difflib.unified_diff(
-            left.splitlines(),
-            right.splitlines(),
+            left_lines,
+            right_lines,
             fromfile="/dev/null" if before is None else "a/" + path,
             tofile="/dev/null" if after is None else "b/" + path,
             lineterm="",

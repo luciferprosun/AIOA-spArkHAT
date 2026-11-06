@@ -42,6 +42,7 @@ from runtime.mission.patch_capsule import (
 )
 from runtime.mission.patchset import observe_source
 from runtime.mission.repair_validation import (
+    CALCULATOR_TEST,
     COMPLETE,
     TEST_RUNNER,
     CoreSandboxValidation,
@@ -75,19 +76,7 @@ def main(manifest_path, root):
     ):
         fixture.setUp()
     fx = fixture.fx
-    script = b"""import ast
-tree = ast.parse(workspace['calc.py'])
-allowed = (ast.Module, ast.FunctionDef, ast.arguments, ast.arg, ast.Return,
-           ast.BinOp, ast.Add, ast.Sub, ast.Mult, ast.Div, ast.FloorDiv,
-           ast.Name, ast.Load)
-if not all(isinstance(node, allowed) for node in ast.walk(tree)):
-    raise ValueError('fixture pure arithmetic only')
-namespace = {}
-exec(compile(tree, '<candidate>', 'exec'), {'__builtins__': {}}, namespace)
-check(namespace['add'](2, 3) == 5)
-check(namespace['add'](-7, 4) == -3)
-check(namespace['add'](0, 8) == 8)
-"""
+    script = CALCULATOR_TEST
     profile = TrustedTestProfile(
         "calculator-fixed-v1",
         tuple((s, script) for s in repair.TEST_STAGES),

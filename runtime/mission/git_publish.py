@@ -310,9 +310,13 @@ class CoreRemoteGitRoute:
         core_require(observed.digest==patch.final_tree_sha256,'GIT_PATCH_TREE_DRIFT')
         images=tuple((change.path,None if change.operation=='DELETE' else observed.files[change.path].content)
                      for change in patch.files)
+        original=_snapshot(base_root)
+        core_require(original.digest==patch.base_tree_sha256,'GIT_PATCH_TREE_DRIFT')
+        preimages=tuple((change.path,None if change.operation=='ADD' else original.files[change.path].content)
+                       for change in patch.files)
         policy.recheck(patch,base_root=base_root,final_root=final_root,source=source,task=task,
                        worker_session_id=worker_session_id)
-        return VerifiedPatchSet(patch,images,capsule_digest)
+        return VerifiedPatchSet(patch,images,capsule_digest,preimages)
 
     def __init__(self,journal,*,plan,base,identity,api_factory,check,target_guard,mode):
         from runtime.mission.intent import CoreIntentJournal
@@ -525,9 +529,10 @@ class VerifiedPatchSet:
     patchset: object
     postimages: tuple
     capsule_digest: str
+    preimages: tuple = ()
 
     def __post_init__(self):
-        from runtime.mission.patchset import PatchSet
+        from runtime.mission.patchset import PatchSet, _counts, _diff, _protected_change, _secret_path, _TreeFile, _text
         core_require(type(self.patchset) is PatchSet,'GIT_PATCHSET_REQUIRED')
         self.patchset.verify_digest()
         core_require(type(self.capsule_digest) is str and re.fullmatch('[a-f0-9]{64}',self.capsule_digest),
@@ -536,10 +541,33 @@ class VerifiedPatchSet:
                      and all(type(row) is tuple and len(row)==2 for row in self.postimages), 'GIT_PATCH_POSTIMAGES')
         core_require(tuple(row[0] for row in self.postimages)==tuple(c.path for c in self.patchset.files),
                      'GIT_PATCH_POSTIMAGES')
+        if not self.preimages and all(c.operation=='ADD' for c in self.patchset.files):
+            before={c.path:None for c in self.patchset.files}
+        else:
+            core_require(type(self.preimages) is tuple and len(self.preimages)==len(self.patchset.files)
+                and all(type(row) is tuple and len(row)==2 for row in self.preimages)
+                and tuple(row[0] for row in self.preimages)==tuple(c.path for c in self.patchset.files),
+                'GIT_PATCH_PREIMAGES')
+            before=dict(self.preimages)
+        rendered=[]
         for change,(_,data) in zip(self.patchset.files,self.postimages):
+            _secret_path(change.path);_protected_change(change.path)
+            prior=before[change.path]
+            if change.before is None:core_require(prior is None,'GIT_PATCH_PREIMAGES')
+            else:core_require(type(prior) is bytes and sha256(prior)==change.before.sha256
+                              and len(prior)==change.before.size,'GIT_PATCH_PREIMAGES')
             if change.operation=='DELETE':core_require(data is None,'GIT_PATCH_POSTIMAGES')
             else:core_require(type(data) is bytes and sha256(data)==change.after.sha256
                               and len(data)==change.after.size,'GIT_PATCH_POSTIMAGES')
+            core_require(change.after is None or not change.after.mode&0o111,'GIT_PATCH_MODE')
+            core_require(change.before is None or change.after is None
+                         or change.before.mode==change.after.mode,'GIT_PATCH_MODE')
+            left=None if prior is None else _TreeFile(change.before,prior)
+            right=None if data is None else _TreeFile(change.after,data)
+            a,b=_text(left),_text(right)
+            core_require(_counts(a,b)==(change.lines_added,change.lines_deleted),'GIT_PATCH_LINE_BINDING')
+            rendered.append(_diff(change.path,left,right,a,b))
+        core_require(''.join(rendered)==self.patchset.canonical_diff,'GIT_PATCH_DIFF_BINDING')
 
     @property
     def authority(self):return 'NONE'
@@ -561,10 +589,6 @@ class VerifiedPatchSet:
     def create_only_plan(self, *, title, body, operation_id, issued_at, base_tree_sha,
                          source_reply_sha256, source_receipt_sha256):
         self.__post_init__()
-        core_require(self.patchset.repository_id==str(DEMO_REPOSITORY_ID)
-            and all(c.operation=='ADD' and c.after.mode==0o644 for c in self.patchset.files),
-            'GITHUB_CREATE_ONLY_REQUIRED')
-        return RemoteGitPlan(files=dict(self.postimages),title=title,body=body,operation_id=operation_id,
-            issued_at=issued_at,base_sha=self.patchset.source_base_sha,base_tree_sha=base_tree_sha,
-            source_sha=self.patchset.source_base_sha,capsule_digest=self.capsule_digest,
-            source_reply_sha256=source_reply_sha256,source_receipt_sha256=source_receipt_sha256)
+        # Even ADD requires a separately qualified canonical capsule-to-route
+        # join. A self-consistent DTO and a digest string cannot provide it.
+        core_require(False,'GITHUB_PATCH_CONVERSION_NOT_QUALIFIED')

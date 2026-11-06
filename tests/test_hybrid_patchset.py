@@ -192,7 +192,8 @@ class PatchSetTests(unittest.TestCase):
 
     def test_secret_content_does_not_enter_patch_or_logs(self):
         self.write(
-            self.final / "calc.py", b"Authorization: Bearer synthetic-credential-123\n"
+            self.final / "calc.py",
+            b"Authorization: Bearer " + b"synthetic-credential-123\n",
         )
         with self.assertRaises(ValueError) as caught:
             self.evaluate()

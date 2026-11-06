@@ -28,7 +28,12 @@ from runtime.mission.contracts import bounded_int, logical_id
 from runtime.mission.intent import CoreIntentJournal
 from runtime.mission.liability import Reconciliation
 from runtime.mission.patchset import BoundedPatchSetPolicy, SourceIdentity
-from runtime.mission.repair import TEST_STAGES, RepairLoopResult, digest
+from runtime.mission.repair import (
+    TEST_STAGES,
+    RepairLoopResult,
+    digest,
+    semantic_review,
+)
 from runtime.mission.warrant import require
 from runtime.mission.worker import Task
 from runtime.mobile_gateway.wire import Identity, verify
@@ -262,6 +267,7 @@ class CorePatchCapsules:
                 task=task,
                 worker_session_id=patch.worker_session_id,
             )
+            require(semantic_review(patch) is None, "CAPSULE_REVIEW_DENIED")
             receipt = {
                 "schema": "aioa.patch-review-receipt.v1",
                 "state": "REVIEW_REQUIRED",
@@ -387,7 +393,6 @@ class CorePatchCapsules:
         row = tx.get(RecordKind.OPERATION, canonical_sha256([KIND, capsule_digest]))
         require(row is not None, "CAPSULE_REQUIRED")
         capsule = self._decode(row)
-        self._fresh(capsule)
         require(
             type(warrant) is EffectWarrant
             and warrant.task_id == capsule.task_id
@@ -408,11 +413,12 @@ class CorePatchCapsules:
         )
         digest(capsule_digest)
         with self.target_guard():
-            self.journal._run(
+            capsule = self.journal._run(
                 principal,
                 Capability.OWNER_APPROVAL,
                 lambda tx: self._bound(tx, capsule_digest, warrant),
             )
+            self._fresh(capsule)
             # No second approval record. Lost ACK is inspected in this ledger;
             # neither this method nor the capsule can execute a patch.
             self.journal.ledger.approve(principal, warrant)
@@ -424,6 +430,12 @@ class CorePatchCapsules:
 
     def require_approved(self, principal, capsule_digest, warrant):
         with self.target_guard():
+            capsule = self.journal._run(
+                principal,
+                Capability.COMMIT,
+                lambda tx: self._bound(tx, capsule_digest, warrant),
+            )
+            self._fresh(capsule)
 
             def read(tx):
                 self._bound(tx, capsule_digest, warrant)

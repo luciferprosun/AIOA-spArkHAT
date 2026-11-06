@@ -150,17 +150,16 @@ class ValidationTests(unittest.TestCase):
 
     def test_test_profile_is_fixed_order_bounded_and_not_model_commands(self):
         api = self.api()
-        scripts = (
-            ("FAST_TESTS", b"check(True)\n"),
-            ("TARGETED_TESTS", b"check(True)\n"),
-            ("FINAL_TESTS", b"check(True)\n"),
+        scripts = tuple(
+            (stage, api.CALCULATOR_TEST)
+            for stage in ("FAST_TESTS", "TARGETED_TESTS", "FINAL_TESTS")
         )
-        counts = (("FAST_TESTS", 1), ("TARGETED_TESTS", 1), ("FINAL_TESTS", 1))
-        profile = api.TrustedTestProfile("fixture-profile", scripts, counts)
+        counts = tuple((stage, 3) for stage, _ in scripts)
+        profile = api.TrustedTestProfile(api.CALCULATOR_PROFILE_ID, scripts, counts)
         self.assertEqual(len(profile.digest), 64)
         for candidate in (tuple(reversed(scripts)), scripts[:2]):
             with self.assertRaises(ValueError):
-                api.TrustedTestProfile("fixture-profile", candidate, counts)
+                api.TrustedTestProfile(api.CALCULATOR_PROFILE_ID, candidate, counts)
 
 
 if __name__ == "__main__":

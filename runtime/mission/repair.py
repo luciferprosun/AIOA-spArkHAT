@@ -220,6 +220,14 @@ class BoundedRepairLoopCoordinator:
         history, attempts, seen = [], [], set()
         final, failure, status = None, None, "FAILED"
         feedback = None
+
+        def stop_reason():
+            if cancelled is not None and cancelled():
+                return "CANCELLED", "CANCELLED"
+            if self.clock() >= task.deadline_at:
+                return "TIMEOUT", "TASK_DEADLINE"
+            return None
+
         try:
             for attempt in range(max_repairs + 1):
                 if cancelled is not None and cancelled():
@@ -302,6 +310,10 @@ class BoundedRepairLoopCoordinator:
                                 "VALIDATION_PROFILE_CHANGED",
                             )
                             steps.append(observed)
+                            stopped = stop_reason()
+                            if stopped is not None:
+                                attempt_status, attempt_failure = stopped
+                                break
                             if observed.status != "PASS":
                                 attempt_status, attempt_failure = (
                                     observed.status,
@@ -343,6 +355,10 @@ class BoundedRepairLoopCoordinator:
                             cleanup = 1
                 if cleanup:
                     attempt_status, attempt_failure = "CRASH", "SANDBOX_CLEANUP_FAILED"
+                elif (
+                    attempt_status == "PASS" and (stopped := stop_reason()) is not None
+                ):
+                    attempt_status, attempt_failure = stopped
                 attempts.append(
                     AttemptReceipt(
                         attempt,
@@ -379,6 +395,10 @@ class BoundedRepairLoopCoordinator:
                     final, status, failure = None, "FAILED", "WORKER_CLEANUP_FAILED"
             except Exception:
                 final, status, failure = None, "FAILED", "WORKER_CLEANUP_FAILED"
+        if status == "PATCH_READY" and (stopped := stop_reason()) is not None:
+            final, failure = None, stopped[1]
+            status = "CANCELLED" if stopped[0] == "CANCELLED" else "FAILED"
+            history.append(status)
         return RepairLoopResult(
             task.task_id,
             task.run_id,

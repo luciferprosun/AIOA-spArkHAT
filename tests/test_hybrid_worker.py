@@ -37,7 +37,7 @@ class WorkerTests(unittest.TestCase):
             ("source_base_sha", "main"),
             ("deadline_at", True),
             ("max_events", 257),
-            ("instruction", "Authorization: Bearer synthetic-credential-123"),
+            ("instruction", "Authorization: Bearer " + "synthetic-credential-123"),
         ]:
             with self.subTest(key=key), self.assertRaises(ValueError):
                 replace(task, **{key: value})

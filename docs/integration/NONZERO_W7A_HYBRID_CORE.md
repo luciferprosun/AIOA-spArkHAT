@@ -98,3 +98,28 @@ state names are reserved contracts, not claims of an active end-to-end
 controller. Deployment, arbitrary repository test profiles and production
 model workers remain separate qualification gates. These features require
 the existing `[native,nonzero]` extras; no new runtime dependency was added.
+
+## Post-review qualification limits
+
+The only certified test profile is `calculator-fixed-v1`: exact bundled AST
+script bytes, three checks in each stage, and the workspace file set
+`{calc.py}`. Other scripts/counts/IDs are refused before preparation. This
+prevents candidate Python from sharing the trusted assertion frame through
+an arbitrary exec-based profile. General application test execution needs a
+separately qualified observer boundary and is unavailable in this release.
+
+Diff work is bounded before matching and rendering: at most 2048 lines on
+each side and 1,048,576 line-pair cells per changed file. The independent
+census reopens every directory ancestry after descent. Host lifecycle guards
+or immutable snapshots remain required for atomic use of an observation.
+
+Capsule signing independently repeats semantic review after the actual-tree
+recheck; a self-hashed loop/history is advisory metadata, not execution proof.
+Fresh source IO occurs outside retryable transaction callbacks under the host
+guard. Cancel/deadline is checked after test stages, session cleanup and final
+producer cleanup before a successful result can be published.
+
+VerifiedPatchSet reconstructs diff and line counts from bound pre/postimages.
+Conversion to RemoteGitPlan is blocked for every new patch until a canonical
+capsule-to-route join is separately qualified. Existing create-only Native
+operations and their original route remain unchanged.
