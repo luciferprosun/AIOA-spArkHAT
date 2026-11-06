@@ -21,10 +21,16 @@ class BrowserGateTests(unittest.TestCase):
         ids=[case.id() for group in suite for case in group]
         self.assertFalse(any('chrome_private_launcher' in name for name in ids),ids)
 
-    def test_explicit_gate_retains_existing_containment_and_exact_fixture_mounts(self):
+    def test_browser_refuses_ambient_system_crypto_without_qualified_site(self):
         gate=self.gate()
         with tempfile.TemporaryDirectory() as output:
-            command=gate.browser_command(output,'1'*40)
+            with self.assertRaisesRegex(RuntimeError,'CRYPTO_SITE_REQUIRED'):
+                gate.browser_command(output,'1'*40)
+
+    def test_explicit_gate_retains_existing_containment_and_exact_fixture_mounts(self):
+        gate=self.gate()
+        with tempfile.TemporaryDirectory() as output,tempfile.TemporaryDirectory() as site:
+            command=gate.browser_command(output,'1'*40,site)
         for flag in ('--unshare-all','--clearenv','--cap-drop','--die-with-parent'):
             self.assertIn(flag,command)
         self.assertNotIn('--share-net',command)
@@ -36,8 +42,39 @@ class BrowserGateTests(unittest.TestCase):
             'test_mobile_device_console.py','test_mobile_pairing.py','mobile_device_console_browser.py')}
         self.assertEqual(expected,{host for host,_ in mounts if host.startswith(str(gate.ROOT/'tests')+'/')
             and not host.endswith('meta_p03_ui_probe.js')})
+        self.assertIn((site,'/opt/aioa-test-crypto'),mounts)
         self.assertEqual(['/usr/bin/python3','-B','/app/tests/mobile_device_console_browser.py','--worker'],
             command[command.index('--')+1:])
+
+    def test_crypto_site_refuses_missing_symlinked_or_public_directory(self):
+        gate=self.gate()
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);site=root/'site';site.mkdir(mode=0o700)
+            link=root/'link';link.symlink_to(site,target_is_directory=True)
+            for denied in (None,root/'missing',link):
+                with self.subTest(path=denied),self.assertRaisesRegex(RuntimeError,'CRYPTO_SITE_REQUIRED'):
+                    gate.qualified_crypto_site(denied)
+            site.chmod(0o755)
+            with self.assertRaisesRegex(RuntimeError,'CRYPTO_SITE_REQUIRED'):gate.qualified_crypto_site(site)
+
+    def test_crypto_provenance_refuses_system_fallback_and_wrong_version(self):
+        import cryptography
+        gate=self.gate()
+        with tempfile.TemporaryDirectory() as site:
+            with patch.object(cryptography,'__version__','0'):
+                with self.assertRaisesRegex(RuntimeError,'CRYPTO_VERSION_REQUIRED'):gate.crypto_provenance(site)
+            with self.assertRaisesRegex(RuntimeError,'CRYPTO_ORIGIN_REQUIRED'):gate.crypto_provenance(site)
+
+    def test_dependency_site_cannot_shadow_sealed_source_or_fixtures(self):
+        gate=self.gate()
+        with tempfile.TemporaryDirectory() as directory:
+            site=Path(directory)
+            for name in ('runtime','json.py','test_mobile_device_console.py'):
+                unexpected=site/name
+                unexpected.write_text('raise AssertionError("must never import")')
+                with self.subTest(name=name),self.assertRaisesRegex(RuntimeError,'CRYPTO_SITE_REQUIRED'):
+                    gate.qualified_crypto_site(site)
+                unexpected.unlink()
 
     def test_uncontained_direct_worker_is_denied_before_browser_or_fixture(self):
         gate=self.gate()
