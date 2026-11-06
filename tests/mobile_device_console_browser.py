@@ -1,13 +1,15 @@
-"""Required, networkless Chrome regression. Invoke with /usr/bin/python3 -B.
+"""Required networkless Chrome, with an explicitly qualified crypto wheel site.
 
 This explicit test gate is outside unittest test*.py discovery. Its fixed worker
 reuses existing capsule containment; it creates only synthetic fixture state.
 No missing prerequisite or failed browser assertion is converted into a skip.
 """
 import os
+import json
 from pathlib import Path
 import re
 import socket
+import stat
 import subprocess
 import sys
 import tempfile
@@ -16,25 +18,84 @@ from unittest.mock import patch
 
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT))
+CRYPTO_SITE='/opt/aioa-test-crypto'
+
+
+def qualified_crypto_site(value):
+    if value is None:raise RuntimeError('CONSOLE_BROWSER_CRYPTO_SITE_REQUIRED')
+    path=Path(value).absolute()
+    try:
+        info=path.lstat()
+        if (path.resolve()!=path or not stat.S_ISDIR(info.st_mode)
+                or info.st_uid!=os.getuid() or info.st_mode&0o077):raise ValueError()
+        allowed={'cryptography','cffi','pycparser','yaml','_yaml','bin',
+            'cryptography-50.0.2.dist-info','cffi-2.1.1.dist-info',
+            'pycparser-3.12.dist-info','pyyaml-6.0.3.dist-info'}
+        for item in path.iterdir():
+            if (item.name not in allowed and not re.fullmatch(
+                    r'_cffi_backend\.cpython-3(?:11|12)-x86_64-linux-gnu\.so',item.name)):
+                raise ValueError()
+            if item.name=='bin' and {f.name for f in item.iterdir()}!={'cffi-gen-src'}:
+                raise ValueError()
+        for item in path.rglob('*'):
+            details=item.lstat()
+            if (not (stat.S_ISDIR(details.st_mode) or stat.S_ISREG(details.st_mode))
+                    or details.st_uid!=os.getuid()
+                    or stat.S_ISREG(details.st_mode) and details.st_nlink!=1):raise ValueError()
+    except (OSError,ValueError):raise RuntimeError('CONSOLE_BROWSER_CRYPTO_SITE_REQUIRED') from None
+    return path
+
+
+if sys.argv[1:]==['--worker']:
+    sys.path.insert(1,str(qualified_crypto_site(CRYPTO_SITE)))
 from runtime.browser_agent.chrome_process_read import sandbox_command,run_bounded
 from runtime.providers.exact import CancellationToken
 
 
-def require_prerequisites():
+def crypto_provenance(value):
+    site=qualified_crypto_site(value)
+    sys.path.insert(1,str(site))
+    import cryptography
+    import cffi
+    import pycparser
+    import yaml
+    import _cffi_backend
+    import ssl
+    modules=((cryptography,'50.0.2'),(cffi,'2.1.1'),(pycparser,'3.12'),(yaml,'6.0.3'))
+    evidence={}
+    for module,version in modules:
+        if module.__version__!=version:raise RuntimeError('CONSOLE_BROWSER_CRYPTO_VERSION_REQUIRED')
+        origin=Path(module.__file__).resolve()
+        if not origin.is_relative_to(site):raise RuntimeError('CONSOLE_BROWSER_CRYPTO_ORIGIN_REQUIRED')
+        evidence[module.__name__]={'version':version,'origin':str(origin)}
+    if not Path(_cffi_backend.__file__).resolve().is_relative_to(site):
+        raise RuntimeError('CONSOLE_BROWSER_CRYPTO_ORIGIN_REQUIRED')
+    from cryptography.hazmat.backends.openssl.backend import backend
+    evidence.update(python_ssl=ssl.OPENSSL_VERSION,cryptography_openssl=backend.openssl_version_text())
+    return evidence
+
+
+def require_prerequisites(crypto_site=None):
     for name in ('/usr/bin/bwrap','/usr/bin/python3','/opt/google/chrome/chrome'):
         if not os.access(name,os.X_OK):
             raise RuntimeError('CONSOLE_BROWSER_PREREQUISITE_REQUIRED: '+name)
-    result=subprocess.run(['/usr/bin/python3','-I','-B','-c','import cryptography'],
-        capture_output=True,env={'PATH':'/usr/bin:/bin','LANG':'C.UTF-8'})
+    site=qualified_crypto_site(crypto_site)
+    code=('import sys,json;sys.path.insert(0,sys.argv[1]);'
+          'import mobile_device_console_browser as gate;'
+          'print(json.dumps(gate.crypto_provenance(sys.argv[2])))')
+    result=subprocess.run(['/usr/bin/python3','-I','-B','-c',code,str(ROOT/'tests'),str(site)],
+        capture_output=True,env={'PATH':'/usr/bin:/bin','LANG':'C.UTF-8'},timeout=15)
     if result.returncode:
-        raise RuntimeError('CONSOLE_BROWSER_PREREQUISITE_REQUIRED: system Python cryptography')
+        raise RuntimeError('CONSOLE_BROWSER_CRYPTO_QUALIFICATION_REQUIRED')
 
 
-def browser_command(output,source_sha):
+def browser_command(output,source_sha,crypto_site=None):
+    site=qualified_crypto_site(crypto_site)
     command=sandbox_command(output,1280,900,source_sha)
     command=command[:command.index('--')]
     for name in ('test_mobile_device_console.py','test_mobile_pairing.py','mobile_device_console_browser.py'):
         command+=['--ro-bind',str(ROOT/'tests'/name),'/app/tests/'+name]
+    command+=['--ro-bind',str(site),CRYPTO_SITE]
     return command+['--','/usr/bin/python3','-B','/app/tests/mobile_device_console_browser.py','--worker']
 
 
@@ -76,6 +137,7 @@ def startup_process_state(process):
 
 def worker():
     verify_isolation()
+    print('CRYPTO_PROVENANCE '+json.dumps(crypto_provenance(CRYPTO_SITE),sort_keys=True),flush=True)
     import test_mobile_device_console as console
     class BrowserConsoleTests(console.DeviceConsoleTests):
         def test_chrome_private_launcher_bootstrap_and_exact_control_focus(self):
@@ -441,11 +503,13 @@ def worker():
 def main():
     if sys.argv[1:]==['--worker']:
         worker();return
-    if sys.argv[1:]:raise RuntimeError('CONSOLE_BROWSER_INVOCATION_DENIED')
-    require_prerequisites()
+    if len(sys.argv)!=3 or sys.argv[1]!='--crypto-site':
+        raise RuntimeError('CONSOLE_BROWSER_CRYPTO_SITE_REQUIRED')
+    site=qualified_crypto_site(sys.argv[2])
+    require_prerequisites(site)
     source_sha=subprocess.check_output(['git','-C',str(ROOT),'rev-parse','HEAD'],text=True).strip()
     with tempfile.TemporaryDirectory(prefix='aioa-console-browser-') as output:
-        status,stdout,stderr=run_bounded(browser_command(output,source_sha),CancellationToken(),55)
+        status,stdout,stderr=run_bounded(browser_command(output,source_sha,site),CancellationToken(),55)
     sys.stdout.buffer.write(stdout);sys.stderr.buffer.write(stderr)
     if status:raise SystemExit(status)
 
