@@ -10,7 +10,7 @@ from unittest.mock import patch
 import test_mobile_pairing as pairing
 from runtime.mcp_bridge import native_read
 from runtime.core_admission import Capability
-from runtime.meta_hackathon.native_tools import chat_read_context
+from runtime.meta_hackathon.native_tools import chat_read_context, registry
 from runtime.mobile_gateway import wire
 
 
@@ -125,6 +125,9 @@ class SignedRepositoryContextTests(unittest.TestCase):
         self.assertIn('grant WRITE', context['data']['files'][0]['excerpt'])
         self.assertEqual(wire.digest(wire.canonical(result['data'])), context['data_sha256'])
         self.assertEqual('github.demo_context', context['operation'])
+        status = registry(self.app)['github_read']
+        self.assertEqual(fixture.repo, status['repository'])
+        self.assertEqual('github.demo_context', status['operation'])
 
 
 class MuseRepositoryFlowTests(unittest.TestCase):

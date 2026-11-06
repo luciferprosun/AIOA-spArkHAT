@@ -63,7 +63,9 @@
     if(get('auth-state'))get('auth-state').textContent=auth?
       auth.status+' · '+(auth.reason || 'Repository scope is checked again before WRITE.'):'GitHub App authorization has not been read.';
     if(get('write-state'))get('write-state').textContent=value?
-      (value.result?.receipt?.live_verified===true?'LIVE VERIFIED':value.status==='GITHUB_VERIFIED'?'OFFLINE TEST ONLY':
+      (value.status==='GITHUB_VERIFIED'?(value.result?.receipt?.live_verified===true?'LIVE VERIFIED':'OFFLINE TEST ONLY'):
+        value.status==='GITHUB_UNKNOWN'?'UNKNOWN':
+        value.blockers?.length || value.status==='GITHUB_PROPOSAL_FAILED'?'BLOCKED':
         value.approval_available?'NEEDS OWNER APPROVAL':value.owner_approval?'APPROVED WRITE':'PROPOSAL')+' · '+value.status+' · '+value.operation_id+
       (value.blockers?.length?'\n'+value.blockers.join(' · '):'')+(value.error?'\n'+value.error:''):
       'PROPOSE · no owner-approved operation selected.';
@@ -72,7 +74,7 @@
     if(get('links')) {
       get('links').replaceChildren();
       for(const [label,url] of [['Verified commit',result?.receipt?.github_url],['Verified draft PR',result?.receipt?.pr_url]]) {
-        if(result?.receipt?.live_verified===true && typeof url==='string' &&
+        if(value?.status==='GITHUB_VERIFIED' && result?.receipt?.live_verified===true && typeof url==='string' &&
             /^https:\/\/github\.com\/luciferprosun\/AIOA-spArkHAT-Meta-Hackathon-2026\/(commit\/[a-f0-9]{40}|pull\/[1-9][0-9]{0,8})$/.test(url)) {
           const link=text('a',label,get('links'));link.href=url;link.target='_blank';link.rel='noopener noreferrer';
         }

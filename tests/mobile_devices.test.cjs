@@ -370,6 +370,12 @@ test('device panel renders revoked reconnect separately from active legacy acces
   assert.equal(get('cosmic-github-reviewed').checked,false,'changed exact review invalidates the checkbox');
   assert.equal(get('cosmic-github-approve').disabled,true);
   assert.equal(get('cosmic-github-links').children.length,0,'untrusted receipt URLs never become links');
+  githubWrite={...githubWrite,status:'GITHUB_UNKNOWN',owner_approval:true};
+  get('cosmic-github-reviewed').listeners.change();
+  assert.match(get('cosmic-github-write-state').textContent,/^UNKNOWN ·/,'a prior receipt must not hide current uncertainty');
+  githubWrite={...githubWrite,status:'GITHUB_PROPOSED',blockers:['BLOCKED_OWNER_LIABILITY_UNKNOWN']};
+  get('cosmic-github-reviewed').listeners.change();
+  assert.match(get('cosmic-github-write-state').textContent,/^BLOCKED ·/);
   // A manually supplied legacy hash cannot supply a credential to a public GET.
   vm.runInNewContext(fs.readFileSync(require('node:path').join(__dirname,'../web/mobile_devices_dom.js'),'utf8'),{
     location:{pathname:'/devices',hash:'#operator='+'T'.repeat(43)},history:{replaceState(){}},

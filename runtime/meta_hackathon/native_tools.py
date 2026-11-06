@@ -65,7 +65,8 @@ def registry(host):
     if reads:
         last=max(reads,key=lambda r:r['observed_at'])
         github.update(status='VERIFIED_READ',request_id=last['request_id'],observed_at=last['observed_at'],
-                      data_sha256=last['data_sha256'])
+                      data_sha256=last['data_sha256'],operation=last['operation'],
+                      repository=native_read.CONTEXT_REPOSITORIES.get(last['operation'], (native_read.REPOSITORY,))[0])
     from .github_write import authorization
     github_auth=authorization(host)
     chat={'status':'BLOCKED_PROFILE','enabled':False,'provider':'meta_model_api','model':'muse-spark-1.3'}
