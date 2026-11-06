@@ -327,9 +327,34 @@ class CPLServiceTests(unittest.TestCase):
         reopened = CriticalPromptLoopService(self.manager, self.root / 'trace')
         report = reopened.get(result['run_id'])
         self.assertEqual(report['final_answer'], result['final_answer'])
+        self.assertEqual(report['response_comparison'], result['response_comparison'])
         self.assertTrue(reopened.verify(result['run_id'], result['evidence_chain'])['ok'])
         self.assertEqual(len(self.fixture.requests), 5)
         reopened.close()
+
+    def test_comparison_read_is_ephemeral_and_cannot_dispatch_or_mutate_evidence(self):
+        plan = self.plan()
+        self.assertIsNone(plan['response_comparison'])
+        self.service.start(plan['run_id'], plan['plan_hash'], plan['nonce'])
+        result = self.service.wait(plan['run_id'], 5)
+        before = {p: p.read_bytes() for p in (self.root / 'trace').rglob('*') if p.is_file()}
+        comparison = result['response_comparison']
+        self.assertEqual(comparison['authority'], 'ADVISORY_ONLY')
+        self.assertFalse(comparison['exact_equal'])
+        with patch.object(self.manager, 'generate_exact', side_effect=AssertionError('read must not dispatch')):
+            for _ in range(2):
+                self.assertEqual(self.service.get(plan['run_id'])['response_comparison'], comparison)
+        comparison['exact_equal'] = True
+        self.assertFalse(self.service.get(plan['run_id'])['response_comparison']['exact_equal'])
+        self.assertEqual(before, {p: p.read_bytes() for p in (self.root / 'trace').rglob('*') if p.is_file()})
+        self.assertTrue(self.service.verify(plan['run_id'], result['evidence_chain'])['ok'])
+        self.assertEqual(len(self.fixture.requests), 5)
+
+    def test_comparison_withholds_failed_run(self):
+        self.fixture.faults = {5: 'http_error'}
+        result = self.execute()
+        self.assertEqual(result['execution_status'], 'FAILED')
+        self.assertIsNone(result['response_comparison'])
 
     def test_T14_known_secrets_redacted_before_hash_and_persistence(self):
         self.fixture.faults = {1: 'secret_text', 5: 'secret_text'}

@@ -92,6 +92,11 @@ from runtime.communication.gmail.oauth_native import new_oauth_session
 assert validate_command_shape('ls -l')['status'] == 'family'
 assert validate_command_shape('ls $(touch /tmp/not-executed)')['danger'] == 'unknown'
 assert callable(new_oauth_session)
+from runtime.critical_loop.comparison import compare_responses
+comparison = compare_responses('draft', 'final')
+assert comparison['exact_equal'] is False
+assert comparison['authority'] == 'ADVISORY_ONLY'
+assert comparison['semantic_equivalence'] == 'NOT_EVALUATED'
 # Installed pure preparation, without OAuth enrollment, another store or network.
 mail = MailProposalV1(task_id='installed', proposal_id='installed-preview', owner_scope_ref='fixture',
     sender='author@example.org', to=('reviewer@example.org',), subject='Installed preview', body_text='Offline only',

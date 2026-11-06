@@ -15,6 +15,7 @@ import uuid
 
 from providers.exact import CancellationToken, ExactCallError, ExactRequest
 from providers.messages import ChatMessage, ChatResult
+from .comparison import compare_responses
 from .evidence import CPLTraceStore, valid_run_id
 from .policy import CONTRACT_VERSION, PROMPT_VERSION, CostPolicy, Limits, money
 from .redaction import redact_secret_data, redact_secret_text
@@ -195,6 +196,9 @@ class CriticalPromptLoopService:
                 raise ExactCallError('RUN_NOT_FOUND')
             view = json.loads(canonical_json(run.view))
             view['evidence_chain'] = run.manifest
+            # Derived read projection only: existing evidence bytes stay intact.
+            view['response_comparison'] = (compare_responses(view.get('draft'), view.get('final_answer'))
+                                           if view['execution_status'] == 'COMPLETED' else None)
             return view
 
     def start(self, run_id, plan_hash, nonce, *, approval_source='LOCAL_CLI'):
