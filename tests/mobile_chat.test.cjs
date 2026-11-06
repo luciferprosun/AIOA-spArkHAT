@@ -1,5 +1,26 @@
 const test=require('node:test');const assert=require('node:assert/strict');const fs=require('node:fs');
 const path=require('node:path').join(__dirname,'../web/mobile_chat.js');const api=fs.existsSync(path)?require(path):{};
+test('lock clears private chat and a late send response cannot restore it',async()=>{
+  let finish,request,serial=0;const calls=[];
+  const chat=api.createChat(async value=>{
+    calls.push(value.op);
+    if(value.op==='chat_catalog')return {chat:true,model_id:'muse-spark-1.3',mode:'LIVE_OWNER_SESSION'};
+    if(value.op==='chat_threads')return {threads:[]};
+    request=value.payload;
+    return new Promise(resolve=>{finish=()=>resolve({schema:'aioa.mobile.chat-result.v1',
+      request_id:request.request_id,thread_id:request.thread_id,model_id:'muse-spark-1.3',provider_id:'meta_model_api',
+      save_knowledge:false,state:'SUCCEEDED',live_verified:true,request_digest:'a'.repeat(64),
+      prompt:'PRIVATE_PROMPT_FIXTURE',reply:'PRIVATE_REPLY_FIXTURE',
+      receipt:{schema:'aioa.meta.chat-receipt.v1',request_digest:'a'.repeat(64)}});});
+  },()=>{},()=> (++serial).toString(16).padStart(32,'0'));
+  await chat.refresh();const pending=chat.send('PRIVATE_PROMPT_FIXTURE');
+  assert.equal(typeof chat.close,'function','the owner must be able to clear the chat on LOCK');
+  chat.close();finish();await assert.rejects(pending);
+  assert.deepEqual(chat.snapshot().messages,[]);assert.equal(chat.snapshot().catalog,null);
+  assert.equal(JSON.stringify(chat.snapshot()).includes('PRIVATE_'),false);
+  await assert.rejects(chat.refresh());await assert.rejects(chat.send('No new call'));
+  assert.deepEqual(calls,['chat_catalog','chat_threads','chat_send']);
+});
 test('superseded background success cannot clear a newer uncertain-send error',async()=>{
   let defer=false,finish;
   const client=api.createChat(async value=>{

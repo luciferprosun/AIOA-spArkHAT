@@ -166,7 +166,7 @@
                   <p>Messages use your Meta API account. Text stays in memory for up to 15 minutes. Save knowledge: Off.</p>
                   <div id="native-chat-threads"></div><div id="native-chat-messages" aria-live="polite"></div>
                   <div class="native-chat-composer"><label>Message to Muse<textarea id="native-chat-prompt" maxlength="2000"></textarea></label>
-                  <label class="native-chat-context"><input id="native-chat-attach-read" type="checkbox"> Attach my latest verified repository READ</label>
+                  <label class="native-chat-context"><input id="native-chat-attach-read" type="checkbox"> Attach my latest verified repository READ (use demo README before a WRITE proposal)</label>
                   <button id="native-chat-send" class="button button-primary" disabled>Send</button>
                   <button id="native-chat-read" class="button button-ghost" disabled>Check result without retry</button>
                   <button id="native-chat-stop" class="button button-danger" disabled>STOP</button>
@@ -214,6 +214,8 @@
                   <p>Fixed repository. GET only. Each deliberate read records source, time and a signed Core receipt.</p>
                   <div class="device-actions">
                     <button class="button button-primary" data-tool-read="github.repository" disabled>Read repository and main</button>
+                    <button class="button button-ghost" data-tool-read="github.code_context" disabled>Read code README at main SHA</button>
+                    <button class="button button-ghost" data-tool-read="github.demo_context" disabled>Read demo README for Muse proposal</button>
                     <button class="button button-ghost" data-tool-read="github.issues" disabled>Read latest issues</button>
                     <button class="button button-ghost" data-tool-read="git.status" disabled>Local Git status</button>
                     <button class="button button-ghost" data-tool-read="git.log" disabled>Local Git log</button>
@@ -221,6 +223,7 @@
                     <button id="cosmic-tool-readback" class="button button-ghost" disabled>Check last READ receipt</button>
                   </div>
                   <p id="cosmic-tool-state" role="status">No tool result read.</p>
+                  <p>File reads show a bounded, untrusted excerpt and the hash of the complete file. Each source expires after five minutes.</p>
                   <pre id="cosmic-tool-result">No repository evidence yet.</pre>
                 </article>
                 <article class="panel"><h3>Command advice</h3>

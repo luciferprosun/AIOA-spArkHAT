@@ -7,14 +7,27 @@ repair is `16fcfeed477f92f2ec65bd235e0b1cd98f87e7fd`.
 
 ## Implemented path
 
+The 6 November follow-up adds fixed code/demo README context, exact binding from
+the original model request and canonical provider receipt to the signed demo
+READ, lease/session invalidation, bounded serialized chat history and private UI
+cleanup. It also accepts GitHub's current opaque installation-token format.
+These are candidate source changes, not a production deployment or a LIVE
+WRITE receipt. The existing executor, state, policy and credential scope remain.
+
 1. The existing Muse provider records a complete successful LIVE reply. Native
    verifies its current source/capsule, provider receipt and response digest.
    Partial, historical and manually substituted responses cannot propose WRITE.
-2. The existing proposal parser accepts `aioa.muse.github-change.v1`. Model
+2. The existing proposal parser accepts `aioa.muse.github-change.v1`. The source
+   request must contain a current signed demo README READ. Core re-reads the
+   canonical provider receipt and compares its binding with the cached request;
+   projected flags or a pasted JSON reply alone cannot establish provenance. Model
    content is data; it cannot choose credentials, permissions, endpoints or grants.
 3. Four public GitHub GETs bind the demonstration repository's numeric identity,
    main commit and independently reconstructed complete base tree. Repositories
    with existing Actions workflows require a separate review and are refused.
+   Their base/tree must equal the signed context seen by Muse. Context reads
+   have six separately bounded GETs through the existing READ-only recipe,
+   including reconstructed root-tree/blob hashes and a final main drift check.
 4. The existing `git_publish.py` creates an immutable plan with exact new files,
    full diff, content hashes, predicted tree/commit SHA, commit identity, branch,
    draft PR, source evidence, policy epoch and a five-minute review expiry.
@@ -60,6 +73,12 @@ warrant. The stop flag cannot be overwritten by a late worker. Already released
 effects remain UNKNOWN until independent evidence; STOP does not imply undo.
 One verified Muse turn is bound durably to one operation, including repeat parse
 requests with different browser-generated IDs.
+
+Chat retains the existing 16 KiB serialized provider payload limit. When history
+plus the new context would exceed the bounded allowance, it drops the oldest
+complete user/assistant pairs before estimating and approving the new request.
+JSON escaping is counted. This prevents a later explicit message from failing
+solely because escaped earlier replies were counted as raw text.
 
 ## Current boundaries and external blockers
 

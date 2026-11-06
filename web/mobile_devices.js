@@ -126,7 +126,7 @@
       },
       readTool:async(operation,requestId)=>{
         if(busy)throw Error('BUSY');
-        if(!['github.repository','github.issues','git.status','git.log','git.branches'].includes(operation))throw Error('TOOL_OPERATION_DENIED');
+        if(!['github.repository','github.code_context','github.demo_context','github.issues','git.status','git.log','git.branches'].includes(operation))throw Error('TOOL_OPERATION_DENIED');
         if(state.phase!=='READY' || !state.observed)throw Error('READBACK_REQUIRED');
         requestId=requestId || Array.from(root.crypto.getRandomValues(new Uint8Array(16)),x=>x.toString(16).padStart(2,'0')).join('');
         if(!/^[a-f0-9]{32}$/.test(requestId))throw Error('TOOL_OPERATION_DENIED');

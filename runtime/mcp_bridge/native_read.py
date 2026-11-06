@@ -3,6 +3,7 @@
 Authority belongs to the caller's existing Native Core. This module owns no
 session, database, credential or approval; it never reads a token value.
 """
+import base64
 import json
 import hashlib
 import os
@@ -19,7 +20,12 @@ from .read_ops import validate_read_payload
 
 REPOSITORY = 'luciferprosun/AIOA-spArkHAT'
 REPOSITORY_ID = 1247349659
-OPERATIONS = frozenset(('github.repository', 'github.issues', 'git.status', 'git.log', 'git.branches'))
+CONTEXT_REPOSITORIES = {
+    'github.code_context': (REPOSITORY, REPOSITORY_ID),
+    'github.demo_context': ('luciferprosun/AIOA-spArkHAT-Meta-Hackathon-2026', 1445911975),
+}
+OPERATIONS = frozenset(('github.repository', 'github.issues', 'git.status', 'git.log', 'git.branches',
+                        *CONTEXT_REPOSITORIES))
 READ_TIMEOUT_SECONDS = 20
 
 
@@ -126,8 +132,12 @@ def _github_json(endpoint, *, check=lambda: None, deadline=None):
     _binary('/usr/bin/gh')
     # This is an internal closed recipe, never an endpoint taken from a model.
     prefix = 'repos/' + REPOSITORY
-    _require(endpoint == prefix or endpoint == prefix+'/issues?state=all&per_page=5'
-             or re.fullmatch(re.escape(prefix)+r'/branches/[A-Za-z0-9%_.-]{1,768}', endpoint))
+    legacy = (endpoint == prefix or endpoint == prefix+'/issues?state=all&per_page=5'
+              or re.fullmatch(re.escape(prefix)+r'/branches/[A-Za-z0-9%_.-]{1,768}', endpoint))
+    context = any(endpoint in ('repos/'+repo, 'repos/'+repo+'/git/ref/heads/main') or
+        re.fullmatch(re.escape('repos/'+repo)+r'/git/(?:commits|trees|blobs)/[a-f0-9]{40}', endpoint)
+        for repo, _ in CONTEXT_REPOSITORIES.values())
+    _require(legacy or context)
     env = _environment()
     directory = Path(env['GH_CONFIG_DIR'])
     _require(directory.resolve() == directory and directory.stat().st_uid == os.getuid()
@@ -184,8 +194,101 @@ def _repository(check, deadline):
     return data, branch
 
 
+def validate_context_data(operation, data):
+    """Closed context shapes shared by receipt resolution and provider input.
+
+    Validation grants no authority: the Native caller also verifies the signed
+    receipt, owner/source/instance, freshness and the complete data digest.
+    """
+    code = 'CHAT_READ_DATA_MISMATCH'
+    target = (REPOSITORY, REPOSITORY_ID) if operation == 'github.repository' else CONTEXT_REPOSITORIES.get(operation)
+    _require(target is not None and type(data) is dict, code)
+    fields = {'repository', 'repository_id', 'url', 'branch', 'commit_sha'}
+    if operation in CONTEXT_REPOSITORIES: fields |= {'read_source', 'tree_sha', 'files'}
+    _require(set(data) == fields and data['repository'] == target[0]
+        and type(data['repository_id']) is int and data['repository_id'] == target[1]
+        and data['url'] == 'https://github.com/'+target[0] and data['branch'] == 'main'
+        and type(data['commit_sha']) is str and re.fullmatch('[a-f0-9]{40}', data['commit_sha']), code)
+    if operation == 'github.repository': return
+    _require(data['read_source'] == 'GITHUB_API' and type(data['tree_sha']) is str
+        and re.fullmatch('[a-f0-9]{40}', data['tree_sha']) and type(data['files']) is list
+        and len(data['files']) == 1, code)
+    file = data['files'][0]
+    _require(type(file) is dict and set(file) == {'path', 'git_blob_sha', 'sha256', 'bytes', 'excerpt', 'truncated'}
+        and file['path'] == 'README.md' and type(file['git_blob_sha']) is str
+        and re.fullmatch('[a-f0-9]{40}', file['git_blob_sha']) and type(file['sha256']) is str
+        and re.fullmatch('[a-f0-9]{64}', file['sha256']) and type(file['bytes']) is int
+        and 0 < file['bytes'] <= 32768 and type(file['excerpt']) is str and type(file['truncated']) is bool, code)
+    raw = file['excerpt'].encode('utf-8')
+    _require(0 < len(raw) <= min(1536, file['bytes']) and len(json.dumps(file['excerpt']).encode()) <= 1800
+        and file['truncated'] == (len(raw) < file['bytes']) and '\0' not in file['excerpt'], code)
+    if not file['truncated']:
+        from runtime.mission.git_recipe import git_object
+        _require(hashlib.sha256(raw).hexdigest() == file['sha256']
+            and git_object('blob', raw) == file['git_blob_sha'], code)
+
+
+def _repository_context(operation, check, deadline):
+    """Six GETs, two fixed public repos, one regular file; no model URL input."""
+    from runtime.mission.git_recipe import git_object
+    repo, repo_id = CONTEXT_REPOSITORIES[operation]
+    prefix = 'repos/'+repo
+    def get(suffix=''):
+        check()
+        value = _github_json(prefix+suffix, check=check, deadline=deadline)
+        check()
+        _require(type(value) is dict, 'GITHUB_CONTEXT_INVALID')
+        return value
+    metadata = get()
+    _require(type(metadata.get('id')) is int and metadata['id'] == repo_id
+        and metadata.get('full_name') == repo and metadata.get('default_branch') == 'main'
+        and all(metadata.get(k) is False for k in ('private', 'archived', 'disabled')), 'GITHUB_REPOSITORY_MISMATCH')
+    ref = get('/git/ref/heads/main');obj = ref.get('object')
+    _require(ref.get('ref') == 'refs/heads/main' and type(obj) is dict and obj.get('type') == 'commit'
+        and type(obj.get('sha')) is str and re.fullmatch('[a-f0-9]{40}', obj['sha']), 'GITHUB_REVISION_MISMATCH')
+    commit_sha = obj['sha'];commit = get('/git/commits/'+commit_sha);tree_ref = commit.get('tree')
+    _require(commit.get('sha') == commit_sha and type(tree_ref) is dict and type(tree_ref.get('sha')) is str
+        and re.fullmatch('[a-f0-9]{40}', tree_ref['sha']), 'GITHUB_REVISION_MISMATCH')
+    tree = get('/git/trees/'+tree_ref['sha']);entries = tree.get('tree')
+    _require(tree.get('sha') == tree_ref['sha'] and tree.get('truncated') is False
+        and type(entries) is list and 0 < len(entries) <= 256, 'GITHUB_CONTEXT_TREE_INVALID')
+    modes = {'100644': 'blob', '100755': 'blob', '120000': 'blob', '040000': 'tree', '160000': 'commit'}
+    names = set();encoded = []
+    for entry in entries:
+        _require(type(entry) is dict, 'GITHUB_CONTEXT_TREE_INVALID')
+        path, mode, kind, sha = (entry.get(k) for k in ('path', 'mode', 'type', 'sha'))
+        _require(type(path) is str and 0 < len(path.encode()) <= 255 and path not in names
+            and path not in ('.', '..') and not any(c in path for c in '/\0') and type(mode) is str
+            and modes.get(mode) == kind and type(sha) is str and re.fullmatch('[a-f0-9]{40}', sha), 'GITHUB_CONTEXT_TREE_INVALID')
+        names.add(path)
+        encoded.append((path.encode()+(b'/' if kind == 'tree' else b'\0'),
+            ('40000' if kind == 'tree' else mode).encode()+b' '+path.encode()+b'\0'+bytes.fromhex(sha)))
+    _require(git_object('tree', b''.join(value for _, value in sorted(encoded))) == tree_ref['sha'], 'GITHUB_CONTEXT_TREE_INVALID')
+    matches = [e for e in entries if e['path'] == 'README.md' and e['mode'] == '100644' and e['type'] == 'blob']
+    _require(len(matches) == 1, 'GITHUB_CONTEXT_REGULAR_FILE_REQUIRED')
+    blob_sha = matches[0]['sha'];blob = get('/git/blobs/'+blob_sha)
+    _require(blob.get('sha') == blob_sha and blob.get('encoding') == 'base64' and type(blob.get('content')) is str
+        and type(blob.get('size')) is int and 0 < blob['size'] <= 32768, 'GITHUB_CONTEXT_BLOB_INVALID')
+    try:
+        raw = base64.b64decode(blob['content'].replace('\n', ''), validate=True)
+        _require(len(raw) == blob['size'] and git_object('blob', raw) == blob_sha, 'GITHUB_CONTEXT_BLOB_INVALID')
+        raw.decode('utf-8')
+        _require(b'\0' not in raw, 'GITHUB_CONTEXT_BLOB_INVALID')
+    except (ValueError, UnicodeError): raise ValueError('GITHUB_CONTEXT_BLOB_INVALID') from None
+    excerpt = raw[:1536].decode('utf-8', errors='ignore')
+    while len(json.dumps(excerpt).encode()) > 1800: excerpt = excerpt[:-1]
+    final = get('/git/ref/heads/main')
+    _require(final.get('ref') == ref['ref'] and final.get('object') == obj, 'GITHUB_CONTEXT_BASE_CHANGED')
+    data = {'repository': repo, 'repository_id': repo_id, 'url': 'https://github.com/'+repo,
+        'branch': 'main', 'commit_sha': commit_sha, 'tree_sha': tree_ref['sha'], 'read_source': 'GITHUB_API',
+        'files': [{'path': 'README.md', 'git_blob_sha': blob_sha, 'sha256': hashlib.sha256(raw).hexdigest(),
+                  'bytes': len(raw), 'excerpt': excerpt, 'truncated': len(excerpt.encode()) < len(raw)}]}
+    validate_context_data(operation, data)
+    return {'operation': operation, 'data': data, 'transport': 'LIVE_GITHUB_GET'}
+
+
 def read(operation, project_root, *, check=lambda: None, deadline=None):
-    """One of five fixed READ recipes; all data remains untrusted display text."""
+    """Fixed READ recipes; all returned text remains untrusted data."""
     _require(type(operation) is str and operation in OPERATIONS, 'TOOL_OPERATION_DENIED')
     if deadline is None:deadline=time.monotonic()+READ_TIMEOUT_SECONDS
     authority_check=check
@@ -194,6 +297,8 @@ def read(operation, project_root, *, check=lambda: None, deadline=None):
         authority_check()
         _remaining(deadline)
     check()
+    if operation in CONTEXT_REPOSITORIES:
+        return _repository_context(operation, check, deadline)
     if operation.startswith('github.'):
         repo, branch = _repository(check, deadline)
         data = {'repository': REPOSITORY, 'repository_id': REPOSITORY_ID,

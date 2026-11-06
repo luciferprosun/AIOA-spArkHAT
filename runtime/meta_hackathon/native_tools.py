@@ -18,8 +18,8 @@ from runtime.mcp_bridge import native_read
 def chat_read_context(host,request_id):
     """Resolve an exact existing receipt, never caller-supplied tool output.
 
-    This deliberately supports only public repository identity/main metadata.
-    Source text is untrusted data even though Core verified its provenance.
+    Public metadata and bounded file excerpts remain untrusted data even though
+    Core verified their provenance. No URL or file path comes from the model.
     """
     host._require_qualified_operator()
     native_read._require(type(request_id) is str and wire.HEX32.fullmatch(request_id),'CHAT_READ_REFERENCE_INVALID')
@@ -27,22 +27,19 @@ def chat_read_context(host,request_id):
     native_read._require(row is not None and row.payload.get('state')=='TOOL_READ_VERIFIED','CHAT_READ_NOT_VERIFIED')
     result=plain(row.payload['result']);receipt=result['receipt'];data=result['data']
     wire.verify(host.identity.spki,result['signature'],receipt)
-    expected={'schema':'aioa.native-tool-read-receipt.v1','request_id':request_id,'operation':'github.repository',
+    operation=receipt.get('operation')
+    native_read._require(operation in ('github.repository', *native_read.CONTEXT_REPOSITORIES), 'CHAT_READ_BINDING_MISMATCH')
+    expected={'schema':'aioa.native-tool-read-receipt.v1','request_id':request_id,'operation':operation,
         'effect':'READ','authority':'LOCAL_NATIVE_OWNER_READ','transport':'LIVE_GITHUB_GET',
         'source_sha':host.source[0],'capsule_digest':host.source[1],'core_instance_id':host.instance_id,
         'owner_scope_digest':host.mobile.owner_scope_digest,'automatic_retry':False}
     native_read._require(all(receipt.get(k)==v for k,v in expected.items()),'CHAT_READ_BINDING_MISMATCH')
     observed=receipt.get('observed_at');now=int(time.time())
     native_read._require(type(observed) is int and observed<=now<observed+300,'CHAT_READ_EXPIRED')
-    native_read._require(type(data) is dict and set(data)=={'repository','repository_id','url','branch','commit_sha'}
-        and data['repository']==native_read.REPOSITORY and type(data['repository_id']) is int
-        and data['repository_id']==native_read.REPOSITORY_ID
-        and data['url']=='https://github.com/'+native_read.REPOSITORY and data['branch']=='main'
-        and type(data['commit_sha']) is str and len(data['commit_sha'])==40
-        and all(c in '0123456789abcdef' for c in data['commit_sha'])
-        and wire.digest(wire.canonical(data))==receipt.get('data_sha256'),'CHAT_READ_DATA_MISMATCH')
+    native_read.validate_context_data(operation,data)
+    native_read._require(wire.digest(wire.canonical(data))==receipt.get('data_sha256'),'CHAT_READ_DATA_MISMATCH')
     return {'schema':'aioa.chat.read-context.v1','trust':'UNTRUSTED_READ_DATA','request_id':request_id,
-        'operation':'github.repository','observed_at':observed,'expires_at':observed+300,
+        'operation':operation,'observed_at':observed,'expires_at':observed+300,
         'source_sha':host.source[0],'capsule_digest':host.source[1],
         'data_sha256':receipt['data_sha256'],'receipt_sha256':wire.digest(wire.canonical(receipt)),'data':data}
 
@@ -212,6 +209,17 @@ def proposal(host, value):
             type(value[k]) is not str or not wire.HEX32.fullmatch(value[k]) for k in ('request_id', 'chat_request_id')):
         raise wire.MobileError(400)
     with host.missions._lock:
+        # Durable readback precedes the expiring, in-memory Muse text. A replay
+        # after restart must not mint another proposal or repeat external IO.
+        from .github_write import view
+        prior = host.mobile._get('native-github-'+value['request_id'])
+        if prior is not None:
+            if prior.payload.get('source_chat_request_id') != value['chat_request_id']:
+                raise wire.MobileError(409)
+            return view(host, value['request_id'])
+        source = host.mobile._get('native-github-source-'+value['chat_request_id'])
+        if source is not None:
+            return view(host, source.payload['operation_id'])
         message = host.missions.chat_request(value['chat_request_id'], host.core.local_operator(Capability.READ))
         if (message.get('state') != 'SUCCEEDED' or message.get('live_verified') is not True
                 or message.get('current_source') is not True or not isinstance(message.get('receipt'), dict)
