@@ -48,6 +48,11 @@
       // This authenticated Native channel supplies the receipt. These checks bind
       // its displayed text; they do not claim independent browser signature trust.
     }
+    function clearPrivateState(phase) {
+      generation++;token='';
+      state={phase,observed:false,pending:[],devices:[],invite:null,coreStatus:null,coreStatusAt:null,
+        toolResult:null,toolRequest:null,toolState:'NOT_RUN',toolError:null,toolProposal:null,message:'LOCAL_OPERATOR_REQUIRED'};
+    }
     async function call(value, mutation, apply,backgroundRead=false) {
       const chat=value.op.startsWith('chat_');
       const background=chat || backgroundRead;
@@ -91,8 +96,11 @@
         if(backgroundRead && registryTicket!==registryRevision && message!=='LOCAL_OPERATOR_REQUIRED')return;
         if(!chat || message==='LOCAL_OPERATOR_REQUIRED') {
           if(mutation && !chat)uncertainMutation=true;
-          if(message==='LOCAL_OPERATOR_REQUIRED')authorizationFailed=true;
-          state.phase = 'UNKNOWN';state.observed = false;state.message=message;
+          if(message==='LOCAL_OPERATOR_REQUIRED') {
+            authorizationFailed=true;clearPrivateState('UNKNOWN');
+          } else {
+            state.phase = 'UNKNOWN';state.observed = false;state.message=message;
+          }
         }
         throw Error(message);
       } finally { clearTimeout(timer); if(!background)busy = false; }
@@ -243,7 +251,7 @@
           state.devices=state.devices.map(x=>x.device_id===deviceId ? {...x,revoked:true,active_sessions:0,pending_enrollments:0} : x);
         });
       },
-      close:() => { generation++; token=''; state={phase:'LOCKED',observed:false,pending:[],devices:[],invite:null,coreStatus:null,coreStatusAt:null,toolResult:null,toolRequest:null,toolState:'NOT_RUN',toolError:null,toolProposal:null,message:'LOCAL_OPERATOR_REQUIRED'}; }
+      close:() => clearPrivateState('LOCKED')
     });
   }
   const api={createDeviceConsole,canRevokeDevice,presentation};

@@ -3,6 +3,138 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const file = require('node:path').join(__dirname, '../web/mobile_devices.js');
 const api = fs.existsSync(file) ? require(file) : {};
+
+test('chat403 clears outer private DOM and inputs immediately while a foreground request is pending',async()=>{
+  const vm=require('node:vm'),h=privacyConsole();await h.seed();
+  class Element {
+    constructor(){this.children=[];this.dataset={};this.listeners={};this.textContent='';this.value='';this.classList={add(){}};}
+    append(child){this.children.push(child);} replaceChildren(){this.children=[];}
+    addEventListener(name,fn){this.listeners[name]=fn;} getContext(){return {clearRect(){}};}
+  }
+  const ids=new Map(),get=id=>{if(!ids.has(id))ids.set(id,new Element());return ids.get(id);};
+  const document={body:new Element(),getElementById:get,createElement:()=>new Element()};
+  let chatCall,closed=0;
+  vm.runInNewContext(fs.readFileSync(require('node:path').join(__dirname,'../web/mobile_devices_dom.js'),'utf8'),{
+    location:{pathname:'/devices'},history:{replaceState(){}},document,Date,JSON,setInterval(){},
+    window:{addEventListener(){}},AIOAMobileDevices:{...api,createDeviceConsole:()=>h.client},
+    AIOAMobileChat:{mount:call=>{chatCall=call;return {close:()=>{closed++;}};}},
+    fetch:async()=>({ok:true,json:async()=>({ok:true,csrf_token:'T'.repeat(43),profile:'NATIVE_ADVISORY_CHAT_V1'})})
+  });
+  await new Promise(resolve=>setImmediate(resolve));assert.equal(typeof chatCall,'function');
+  const inputs=['cosmic-proposal-chat','cosmic-command-input','cosmic-cpt-input',
+    'cosmic-mail-sender','cosmic-mail-to','cosmic-mail-subject','cosmic-mail-body'];
+  for(const id of inputs)get(id).value=h.marker;
+  assert.ok(get('cosmic-proposal-result').textContent.includes(h.marker));
+  const deferred=h.deferStatus(),pending=h.client.githubStatus(),settle=await deferred;
+  const rejected=assert.rejects(pending,/LOCAL_OPERATOR_REQUIRED/);
+  h.setDenied(403);await assert.rejects(chatCall({op:'chat_catalog'}),/LOCAL_OPERATOR_REQUIRED/);
+  assert.ok(closed>0,'mounted chat closes on denial');
+  for(const id of inputs)assert.equal(get(id).value,'',id);
+  for(const id of ['cosmic-proposal-result','cosmic-advisory-result','cosmic-github-receipt'])
+    assert.equal(get(id).textContent.includes(h.marker),false,id);
+  assert.equal(get('cosmic-github-approve').disabled,true);
+  assert.equal(get('cosmic-github-history-read').disabled,true);
+  assert.match(get('devices-message').textContent,/local operator session/);
+  settle({operation_id:'d'.repeat(32),review:{private:h.marker}});await rejected;
+});
+
+
+function privacyConsole() {
+  const marker='PRIVATE_OWNER_DRAFT',calls=[];
+  let deny=0,pendingReply=null;
+  const client=api.createDeviceConsole('T'.repeat(43),async(_,options)=>{
+    const request=JSON.parse(options.body);calls.push(request);
+    if(deny)return {ok:false,status:deny};
+    if(request.op==='github_write_status' && pendingReply)return pendingReply;
+    let data;
+    if(request.op==='pairing_list')data={pending:[],devices:[]};
+    else if(request.op==='tool_read')data={data:{private:marker},receipt:{
+      schema:'aioa.native-tool-read-receipt.v1',effect:'READ',request_id:request.request_id,operation:request.operation,
+      observed_at:100,source_sha:'a'.repeat(40),capsule_digest:'b'.repeat(64),data_sha256:'c'.repeat(64)}};
+    else if(request.op==='mail_preview')data={data:{private:marker},receipt:{
+      schema:'aioa.native-advisory-receipt.v1',effect:'ADVISORY_PREVIEW',request_id:request.request_id,
+      operation:request.op,execution_authorized:false,provider_calls:0,external_calls:0,automatic_retry:false}};
+    else if(request.op==='github_write_list')data={operations:[{operation_id:'d'.repeat(32),private:marker}]};
+    else if(request.op==='tool_proposal' || request.op==='github_write_approve' || request.op==='github_write_status')data={
+      operation_id:'d'.repeat(32),status:request.op==='github_write_approve'?'GITHUB_APPROVED':'GITHUB_PROPOSED',
+      execution_authorized:false,approval_available:true,review_digest:'a'.repeat(64),
+      review:{files:{'agent-demo/note.md':marker}},
+      proposal:{operation:'code.commit_draft_pr',source_chat_request_id:'b'.repeat(32)}};
+    else if(request.op==='chat_catalog')data={private:marker};
+    else assert.fail('unexpected '+request.op);
+    return {ok:true,json:async()=>({ok:true,data})};
+  });
+  const seed=async()=>{
+    await client.refresh();await client.readTool('github.demo_context','c'.repeat(32));
+    await client.preview('mail_preview',{body_text:marker},'e'.repeat(32));
+    await client.githubHistory();await client.proposeTool('b'.repeat(32));
+    assert.ok(JSON.stringify(client.snapshot()).includes(marker));
+  };
+  return {client,calls,marker,seed,setDenied:status=>{deny=status;},
+    deferStatus:()=>new Promise(resolve=>{pendingReply=new Promise(reply=>resolve((data,status=200)=>reply(
+      status===200?{ok:true,json:async()=>({ok:true,data})}:{ok:false,status})));})};
+}
+test('HTTP403 erases saved private READ, review, history and advisory after proposal or approval',async()=>{
+  for(const approved of [false,true]) {
+    const h=privacyConsole();await h.seed();
+    if(approved)await h.client.githubApprove();
+    h.setDenied(403);await assert.rejects(h.client.refresh(),/LOCAL_OPERATOR_REQUIRED/);
+    const state=h.client.snapshot();
+    assert.equal(state.phase,'UNKNOWN');assert.equal(state.message,'LOCAL_OPERATOR_REQUIRED');
+    assert.equal(state.observed,false);
+    assert.equal(JSON.stringify(state).includes(h.marker),false,'denied operator retains private result');
+    assert.equal(state.githubOperation,undefined);
+    const count=h.calls.length;
+    await assert.rejects(h.client.githubApprove());await h.client.refresh({background:true});
+    assert.equal(h.calls.length,count,'denial never dispatches another request');
+  }
+});
+test('HTTP403 invalidates a pending response before it can restore the previous private review',async()=>{
+  const h=privacyConsole();await h.seed();
+  const deferred=h.deferStatus();const pending=h.client.githubStatus();
+  const settle=await deferred;const rejected=assert.rejects(pending,/LOCAL_OPERATOR_REQUIRED/);
+  h.setDenied(403);await assert.rejects(h.client.chatCall({op:'chat_catalog'}),/LOCAL_OPERATOR_REQUIRED/);
+  settle({operation_id:'d'.repeat(32),status:'GITHUB_PROPOSED',review:{private:h.marker}});
+  await rejected;
+  assert.equal(JSON.stringify(h.client.snapshot()).includes(h.marker),false);
+  assert.equal(h.client.snapshot().phase,'UNKNOWN');
+});
+test('a late HTTP403 after LOCK cannot change the locked state or restore private review',async()=>{
+  const h=privacyConsole();await h.seed();
+  const deferred=h.deferStatus();const pending=h.client.githubStatus();
+  const settle=await deferred;const rejected=assert.rejects(pending,/LOCAL_OPERATOR_REQUIRED/);
+  h.client.close();settle({},403);await rejected;
+  assert.equal(h.client.snapshot().phase,'LOCKED');
+  assert.equal(JSON.stringify(h.client.snapshot()).includes(h.marker),false);
+});
+test('401 and 429 remain uncertain, never successful and never repeat a mutation automatically',async()=>{
+  for(const status of [401,429]) {
+    const h=privacyConsole();await h.seed();h.setDenied(status);
+    await assert.rejects(h.client.githubApprove(),/UNKNOWN_READBACK_REQUIRED/);
+    assert.equal(h.client.snapshot().phase,'UNKNOWN');
+    assert.equal(h.client.snapshot().observed,false);
+    const count=h.calls.length;await h.client.refresh({background:true});
+    await assert.rejects(h.client.githubApprove());assert.equal(h.calls.length,count);
+    assert.equal(h.calls.filter(x=>x.op==='github_write_approve').length,1);
+  }
+});
+test('fresh console session with another request ID cannot inherit a denied console review',async()=>{
+  const h=privacyConsole();await h.seed();h.setDenied(403);
+  await assert.rejects(h.client.refresh(),/LOCAL_OPERATOR_REQUIRED/);
+  const next=api.createDeviceConsole('U'.repeat(43),async(_,options)=>{
+    const r=JSON.parse(options.body),data=r.op==='pairing_list'?{pending:[],devices:[]}:{data:{fresh:true},
+      receipt:{schema:'aioa.native-tool-read-receipt.v1',effect:'READ',request_id:r.request_id,operation:r.operation}};
+    return {ok:true,json:async()=>({ok:true,data})};
+  });
+  await next.refresh();
+  await next.readTool('github.demo_context','f'.repeat(32));
+  assert.equal(next.snapshot().toolResult.receipt.request_id,'f'.repeat(32));
+  assert.equal(next.snapshot().toolProposal,null);
+  assert.equal(next.snapshot().githubOperation,undefined);
+  assert.equal(JSON.stringify(next.snapshot()).includes(h.marker),false);
+  next.close();
+});
+
 const pending = {request_id:'1'.repeat(32),request_digest:'a'.repeat(64),device_id:'b'.repeat(64),device_name:'Xiaomi',sas:'123456',state:'PENDING',expires_at:200,automatic_retry:false};
 function harness(handler) {
   assert.equal(typeof api.createDeviceConsole, 'function', 'owner console implementation missing');
