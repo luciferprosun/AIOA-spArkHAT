@@ -1,5 +1,10 @@
 # NonZero W7A in the existing AIOA Core
 
+> Historical NZ10 snapshot, retained for provenance. The capability/status statements
+> below describe NZ10, not the current coding controller. For the qualified bounded
+> Python profile, full controller states, local Git ADD/MODIFY and current limits, see
+> [the NZ11 controller documentation](../unification/NZ11_GENERAL_PYTHON_CONTROLLER.md).
+
 Source: `luciferprosun/AIOA-NonZero-CloudOps-Agent`, commit
 `392487849eddc7444f5159994b66b72e73f15934`. This is a selective W7A delta;
 the earlier B5/B6 one-system retirement remains in force. The complete
