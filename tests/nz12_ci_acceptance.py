@@ -8,6 +8,7 @@ import argparse
 import hashlib
 import json
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -24,8 +25,13 @@ def main(output, codex):
     home, temporary = output / "home", output / "tmp"
     home.mkdir(mode=0o700)
     temporary.mkdir(mode=0o700)
+    node = shutil.which("node")
+    if node is None or subprocess.check_output(
+        [node, "--version"], text=True, env={"PATH": "/usr/bin:/bin", "HOME": "/nonexistent", "LANG": "C.UTF-8"},
+    ).strip() != "v22.23.3":
+        raise ValueError("PINNED_NODE_REQUIRED")
     environment = {
-        "PATH": str(Path(sys.executable).parent) + ":/usr/bin:/bin",
+        "PATH": str(Path(sys.executable).parent) + ":" + str(Path(node).parent) + ":/usr/bin:/bin",
         "HOME": str(home), "TMPDIR": str(temporary), "LANG": "C.UTF-8",
         "PYTHONNOUSERSITE": "1", "PYTHONDONTWRITEBYTECODE": "1",
         "GIT_CONFIG_GLOBAL": "/dev/null", "GIT_CONFIG_NOSYSTEM": "1",
