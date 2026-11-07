@@ -3,6 +3,7 @@ const state = {
   currentModel: "",
   scenario: null,
   sessionToken: null,
+  codingProfile: null,
   cplPlan: null,
   cplStatus: null,
   cplPreset: null,
@@ -572,6 +573,11 @@ document.querySelector("#switch-model").addEventListener("click", async () => {
 });
 
 document.querySelector("#refresh-status").addEventListener("click", async () => {
+  if (state.codingProfile === null) return;
+  if (state.codingProfile) {
+    document.querySelector('#coding-refresh').click();
+    return;
+  }
   try {
     await Promise.all([refreshStatus(), refreshAuthorityTimeline(), refreshCompetitionEvaluation(), refreshProviderAvailability(), refreshPersonalAI()]);
   } catch (error) {
@@ -665,7 +671,8 @@ async function bootstrap() {
   try {
     const session=await jsonFetch('/api/session');
     state.sessionToken=session.token;
-    if(session.coding_profile) {
+    state.codingProfile=session.coding_profile===true;
+    if(state.codingProfile) {
       setView('meta');
       for(const section of document.querySelector('#meta-view').children)section.hidden=section.id!=='coding-panel';
       elements.viewTitle.textContent='Bounded Python coding · Core receipts';
