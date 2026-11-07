@@ -305,6 +305,32 @@
         </header>
 
         <section id="meta-view" class="workspace-view meta-mission" role="tabpanel" hidden>
+          <section id="coding-panel" class="review-card" hidden>
+            <h2>Bounded Python coding tasks</h2>
+            <p>Use the operator-configured repository and test recipe. A passing patch requires human review before a local Git commit.</p>
+            <label class="label" for="coding-task-id">Admitted task ID</label>
+            <input id="coding-task-id" class="select" maxlength="128" />
+            <button id="coding-select" type="button" class="button button-ghost">Select task</button>
+            <details><summary>Create a task for the configured repository</summary>
+              <textarea id="coding-task" class="select" rows="5" maxlength="16384" aria-label="Typed coding task JSON"></textarea>
+              <button id="coding-create" type="button" class="button button-ghost">Queue task</button>
+            </details>
+            <div class="meta-actions">
+              <button id="coding-start" type="button" class="button button-primary" disabled>Start coding</button>
+              <button id="coding-stop" type="button" class="button button-stop" disabled>STOP task</button>
+              <button id="coding-refresh" type="button" class="button button-ghost">Read state</button>
+              <button id="coding-review" type="button" class="button button-ghost">Review exact Git operation</button>
+              <button id="coding-deny" type="button" class="button button-ghost" disabled>Deny patch</button>
+              <button id="coding-reconcile" type="button" class="button button-ghost" disabled>Read back UNKNOWN</button>
+            </div>
+            <pre id="coding-evidence" class="meta-evidence">No coding task selected.</pre>
+            <label class="label"><input id="coding-confirm" type="checkbox" /> I reviewed this capsule and exact local Git operation.</label>
+            <div class="meta-actions">
+              <button id="coding-approve" type="button" class="button button-primary" disabled>Approve exact local commit</button>
+              <button id="coding-apply" type="button" class="button button-primary" disabled>Execute approved local commit</button>
+            </div>
+            <p id="coding-message" role="status" aria-live="polite">Coding host binding required.</p>
+          </section>
           <section id="agent-workspace" class="review-card agent-workspace" hidden>
             <p class="eyebrow">One app · one Core · bounded local tools</p>
             <h2>Agent workspace</h2>

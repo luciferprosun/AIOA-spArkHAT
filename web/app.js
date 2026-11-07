@@ -663,7 +663,14 @@ elements.personalAIReplayButton.addEventListener("click", async () => {
 
 async function bootstrap() {
   try {
-    state.sessionToken = (await jsonFetch('/api/session')).token;
+    const session=await jsonFetch('/api/session');
+    state.sessionToken=session.token;
+    if(session.coding_profile) {
+      setView('meta');
+      for(const section of document.querySelector('#meta-view').children)section.hidden=section.id!=='coding-panel';
+      elements.viewTitle.textContent='Bounded Python coding · Core receipts';
+      return;
+    }
     const initialStatus = await refreshStatus();
     if (initialStatus.meta_profile) {
       setView('meta');
@@ -1095,6 +1102,7 @@ agentNode('reconcile').addEventListener('click',()=>agentAction(()=>agentClient.
 agentNode('git').addEventListener('click',()=>agentAction(()=>agentClient.gitPreview()));
 agentNode('install').addEventListener('click',()=>agentAction(()=>agentClient.installPreview(JSON.parse(agentNode('install-plan').value))));
 
+AIOAAgentMissions.mountCodingPanel(jsonFetch);
 setAssistantMode('cpl');
 bootstrap();
 

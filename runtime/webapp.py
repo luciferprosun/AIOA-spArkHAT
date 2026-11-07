@@ -53,8 +53,20 @@ class WebRuntimeService:
     def __init__(self, *, cpl_fixture=False, cpl_cost_policy=None, runtime=None,
                  personal_ai=None, personal_ai_catalog=None,
                  personal_ai_cost_quote=None, native_console=None,
-                 meta_missions=None, meta_owner=None, mobile_gateway=None) -> None:
+                 meta_missions=None, meta_owner=None, mobile_gateway=None,
+                 coding_principals=None) -> None:
         self.runtime = runtime or create_runtime(cpl_fixture=cpl_fixture, cpl_cost_policy=cpl_cost_policy)
+        self._coding_principals=None
+        if coding_principals is not None:
+            from runtime.core_admission import Capability
+            from runtime.mission.coding_tasks import CoreCodingTasks
+            tasks=getattr(self.runtime,'_coding_tasks',None)
+            if type(tasks) is not CoreCodingTasks or type(coding_principals) is not dict or set(coding_principals)!={'READ','MANAGE','COMMIT','OWNER_APPROVAL'}:
+                raise ValueError('CODING_WEB_BINDING_REQUIRED')
+            for name,principal in coding_principals.items():
+                tasks.journal.ledger.core.require(principal,getattr(Capability,name),scope=tasks.scope)
+            from types import MappingProxyType
+            self._coding_principals=MappingProxyType(dict(coding_principals))
         self.personal_ai = personal_ai
         self.personal_ai_catalog = personal_ai_catalog
         self.personal_ai_cost_quote = personal_ai_cost_quote
@@ -146,6 +158,14 @@ class WebRuntimeService:
         raise MissionError('META_REQUEST_DENIED')
 
     def status_payload(self) -> dict:
+        if self._coding_principals is not None:
+            return {'product_name':'AIOA spArkHAT','coding_profile':True,'session_id':'core-coding-host',
+                'cwd':'Operator-configured coding workspace','model':'WorkerPort (advisory)',
+                'available_models':[],'browser_active':False,'current_url':None,
+                'vault_dir':'No personal data loaded','tools':['bounded Python recipe','approved local bare Git'],
+                'previous_commands':[],'recent_outputs':[],'open_tabs':[],
+                'critical_loop':{'enabled':False,'mode':'CODING','authority':'NONE','live_enabled':False,
+                    'run_ids':[],'session_budget_usd':'0'},'assistant':{'default_mode':'coding','plain_chat':'DISABLED'}}
         if self.meta_missions is not None:
             fixture = self.meta_missions.manager._meta_provider.mode == 'MOCK'
             payload = {'product_name': 'AIOA spArkHAT', 'subtitle': 'METAGuardiansSPARK',
@@ -183,6 +203,16 @@ class WebRuntimeService:
         payload['critical_loop'] = self.runtime.critical_loop.status()
         payload['assistant'] = {'default_mode': 'cpl', 'plain_chat': 'EXPLICIT_BYPASS_ONLY'}
         return payload
+
+    def coding_request(self,action,payload,*,intent=None):
+        purpose={'read_status':'READ','get_receipts':'READ','review_effect':'READ',
+            'create_task':'MANAGE','start':'MANAGE','cancel':'MANAGE','stop':'MANAGE','recover':'MANAGE',
+            'approve':'OWNER_APPROVAL','deny':'OWNER_APPROVAL','apply':'COMMIT','reconcile':'COMMIT'}.get(action)
+        if self._coding_principals is None or purpose is None:
+            raise ValueError('CODING_WEB_BINDING_REQUIRED')
+        if purpose!='READ' and intent!='coding-'+action+'-v1':
+            raise ValueError('CODING_EXACT_INTENT_REQUIRED')
+        return self.runtime.coding_request(action,payload,principal=self._coding_principals[purpose])
 
     def agent_request(self, action, payload=None, *, intent=None):
         from runtime.meta_hackathon.web_agent import request
@@ -393,7 +423,8 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
             return
         if parsed.path == '/api/session':
             self._write_json(HTTPStatus.OK, {'token': self._service().csrf_token,
-                                           'product_name': 'AIOA spArkHAT'})
+                                           'product_name': 'AIOA spArkHAT',
+                                           'coding_profile':self._service()._coding_principals is not None})
             return
         if parsed.path == '/api/authority-timeline':
             if not self._check_token():
@@ -529,6 +560,10 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
                 '/api/agent/install-preview':'agent-propose-v2','/api/agent/run':'agent-approve-offline-exact-v2',
                 '/api/agent/stop':'agent-stop-v2','/api/agent/mcp/submit':'agent-mcp-propose-v2',
                 '/api/agent/reconcile':'agent-readback-v2'}
+            if parsed.path.startswith('/api/agent/coding/'):
+                action=parsed.path.removeprefix('/api/agent/coding/')
+                if action in ('create_task','start','cancel','stop','recover','approve','deny','apply','reconcile'):
+                    intents[parsed.path]='coding-'+action+'-v1'
             expected=intents.get(parsed.path)
             if expected is None or self.headers.get_all('X-AIOA-Intent',[]) != [expected]:
                 self._write_json(HTTPStatus.FORBIDDEN,{'ok':False,'error':'AGENT_EXACT_INTENT_REQUIRED','automatic_retry':False})
@@ -757,6 +792,17 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
         from runtime.memory_patch.errors import CommitOutcomeUnknown
         try:
             if parsed.query or parsed.params or parsed.fragment:raise ValueError('AGENT_QUERY_DENIED')
+            if parsed.path.startswith('/api/agent/coding/'):
+                route=parsed.path.removeprefix('/api/agent/coding/')
+                if method=='GET':
+                    prefix,separator,task_id=route.partition('/')
+                    action={'tasks':'read_status','receipts':'get_receipts','review':'review_effect'}.get(prefix)
+                    if not separator or action is None:raise ValueError('CODING_ROUTE_DENIED')
+                    payload={'task_id':task_id}
+                else:action=route
+                result=self._service().coding_request(action,payload,intent=self.headers.get('X-AIOA-Intent'))
+                self._write_json(HTTPStatus.OK,result)
+                return
             fixed={('GET','/api/agent/status'):'status',('GET','/api/agent/providers'):'providers',
                 ('POST','/api/agent/propose'):'propose',('POST','/api/agent/run'):'run',
                 ('POST','/api/agent/stop'):'stop',('POST','/api/agent/git-preview'):'git-preview',
@@ -776,7 +822,7 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
             self._write_json(HTTPStatus.SERVICE_UNAVAILABLE,{'ok':False,'error':'AGENT_ACK_UNKNOWN_READBACK_REQUIRED','automatic_retry':False})
         except Exception as error:
             code=str(error)
-            if not re.fullmatch(r'(?:AGENT|MCP|LOCAL|CORE)_[A-Z0-9_]{1,72}',code):code='AGENT_REQUEST_DENIED'
+            if not re.fullmatch(r'(?:AGENT|MCP|LOCAL|CORE|CODING)_[A-Z0-9_]{1,72}',code):code='AGENT_REQUEST_DENIED'
             self._write_json(HTTPStatus.BAD_REQUEST,{'ok':False,'error':code,'automatic_retry':False})
 
     def _handle_meta(self, method, parsed, payload):

@@ -140,3 +140,213 @@ class CodexWorker(SyntheticWorker):
         session = super().start(task)
         self._box.fail(session, "NOT_CERTIFIED")
         return session
+
+
+class OwnedCodexProtocol:
+    """Bounded v2 diagnostics over an ALREADY owned, isolated process's pipes.
+
+    This is not an executor or a certified inference WorkerPort. It has no
+    process launcher, credentials, generic RPC, tool approval or turn/start.
+    The existing Core host must supply ownership and isolation separately.
+    """
+
+    authority = "NONE"
+
+    def __init__(self, read_fd, write_fd):
+        import os
+
+        require(
+            type(read_fd) is int and type(write_fd) is int,
+            "PROTOCOL_OWNED_PIPES_REQUIRED",
+        )
+        self.read_fd, self.write_fd = os.dup(read_fd), os.dup(write_fd)
+        os.set_blocking(self.read_fd, False)
+        os.set_blocking(self.write_fd, False)
+        self.framer = JsonlFramer(max_bytes=65536)
+        self.events, self._messages = [], []
+        self.protocol, self._pending, self._next_id = None, None, 0
+        self.closed, self.initialized = False, False
+
+    def _send(self, message, *, deadline):
+        import os
+        import select
+
+        raw = (
+            json.dumps(message, separators=(",", ":"), allow_nan=False).encode() + b"\n"
+        )
+        require(len(raw) <= 8192 and not self.closed, "PROTOCOL_WRITE_BOUND")
+        view = memoryview(raw)
+        while view:
+            require(time.monotonic() < deadline, "PROTOCOL_TIMEOUT")
+            _, ready, _ = select.select(
+                [], [self.write_fd], [], min(0.05, max(0, deadline - time.monotonic()))
+            )
+            if not ready:
+                continue
+            try:
+                written = os.write(self.write_fd, view)
+            except (BrokenPipeError, OSError):
+                raise WorkerError("PROTOCOL_EOF") from None
+            require(written > 0, "PROTOCOL_EOF")
+            view = view[written:]
+
+    def _read(self, deadline, cancel):
+        import os
+        import select
+
+        while not self._messages:
+            require(not self.closed, "PROTOCOL_CLOSED")
+            require(cancel is None or not cancel.cancelled, "CANCELLED")
+            require(time.monotonic() < deadline, "PROTOCOL_TIMEOUT")
+            ready, _, _ = select.select(
+                [self.read_fd], [], [], min(0.05, max(0, deadline - time.monotonic()))
+            )
+            if not ready:
+                continue
+            raw = os.read(self.read_fd, 65536)
+            if not raw:
+                self.framer.finish()
+                raise WorkerError("PROTOCOL_EOF")
+            self._messages.extend(self.framer.feed(raw))
+            require(len(self._messages) <= 64, "PROTOCOL_EVENT_LIMIT")
+        return self._messages.pop(0)
+
+    def _observe(self, message, deadline):
+        import re
+
+        from runtime.memory_patch.contracts.serialization import canonical_sha256
+
+        method = message.get("method")
+        require(
+            type(method) is str
+            and re.fullmatch(r"[A-Za-z0-9_/.-]{1,128}", method)
+            and not contains_sensitive_material(method),
+            "PROTOCOL_METHOD",
+        )
+        require(len(self.events) < 64, "PROTOCOL_EVENT_LIMIT")
+        if self.protocol is not None:
+            reply = self.protocol.observe(message)
+        elif "id" in message:
+            identity = message["id"]
+            require(
+                type(identity) is int and 0 <= identity <= 2**31, "PROTOCOL_REQUEST_ID"
+            )
+            reply = {
+                "id": identity,
+                "error": {"code": -32601, "message": "AIOA tool approval denied"},
+            }
+        else:
+            reply = None
+        if reply is not None:
+            self._send(reply, deadline=deadline)
+        self.events.append(
+            {"method": method, "evidence_digest": canonical_sha256(message)}
+        )
+
+    def _request(self, method, params, *, seconds=5, cancel=None):
+        require(
+            method in ("initialize", "thread/start", "turn/interrupt")
+            and self._pending is None
+            and self._next_id < 8
+            and type(seconds) in (int, float)
+            and 0 < seconds <= 10,
+            "PROTOCOL_REQUEST_BOUND",
+        )
+        self._next_id += 1
+        identity = self._next_id
+        self._pending = identity
+        deadline = time.monotonic() + seconds
+        self._send(
+            {"id": identity, "method": method, "params": params}, deadline=deadline
+        )
+        try:
+            for _ in range(65):
+                message = self._read(deadline, cancel)
+                if "method" in message:
+                    self._observe(message, deadline)
+                    continue
+                require(
+                    set(message)
+                    in (
+                        {"id", "result"},
+                        {"id", "error"},
+                        {"jsonrpc", "id", "result"},
+                        {"jsonrpc", "id", "error"},
+                    )
+                    and type(message["id"]) is int
+                    and message["id"] == identity,
+                    "PROTOCOL_RESPONSE_BINDING",
+                )
+                require(
+                    "error" not in message and type(message.get("result")) is dict,
+                    "PROTOCOL_RPC_ERROR",
+                )
+                return message["result"]
+            raise WorkerError("PROTOCOL_EVENT_LIMIT")
+        finally:
+            self._pending = None
+
+    def initialize(self):
+        require(not self.initialized, "PROTOCOL_INITIALIZE_ORDER")
+        result = self._request(
+            "initialize",
+            {
+                "clientInfo": {
+                    "name": "aioa-nz11-probe",
+                    "title": "AIOA offline protocol probe",
+                    "version": "1",
+                },
+                "capabilities": {"experimentalApi": False},
+            },
+        )
+        self._send(
+            {"method": "initialized", "params": {}}, deadline=time.monotonic() + 1
+        )
+        self.initialized = True
+        return result
+
+    def thread_start(self):
+        require(self.initialized, "PROTOCOL_INITIALIZE_REQUIRED")
+        return self._request(
+            "thread/start",
+            {
+                "cwd": "/fixture",
+                "sandbox": "read-only",
+                "approvalPolicy": "never",
+                "ephemeral": True,
+                "config": {"web_search": "disabled", "analytics.enabled": False},
+            },
+        )
+
+    def bind_turn(self, thread_id, turn_id):
+        require(self.protocol is None, "PROTOCOL_TURN_ALREADY_BOUND")
+        self.protocol = CodexProtocol(thread_id, turn_id)
+
+    def interrupt(self, thread_id, turn_id):
+        require(
+            self.protocol is not None
+            and self.protocol.thread_id == thread_id
+            and self.protocol.turn_id == turn_id,
+            "PROTOCOL_TURN_BINDING",
+        )
+        return self._request(
+            "turn/interrupt", {"threadId": thread_id, "turnId": turn_id}
+        )
+
+    def next_event(self, *, seconds=1, cancel=None):
+        require(
+            type(seconds) in (int, float) and 0 < seconds <= 10, "PROTOCOL_WAIT_BOUND"
+        )
+        deadline = time.monotonic() + seconds
+        message = self._read(deadline, cancel)
+        require("method" in message, "PROTOCOL_RESPONSE_BINDING")
+        self._observe(message, deadline)
+        return self.events[-1]
+
+    def close(self):
+        import os
+
+        if not self.closed:
+            self.closed = True
+            os.close(self.read_fd)
+            os.close(self.write_fd)

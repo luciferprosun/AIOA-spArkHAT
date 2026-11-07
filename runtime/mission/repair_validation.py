@@ -14,10 +14,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from runtime.core_admission import Capability
+from runtime.memory_patch.audit import append_domain_event
 from runtime.memory_patch.contracts.serialization import (
     canonical_json_bytes,
     canonical_sha256,
 )
+from runtime.memory_patch.persistence.idempotency import OperationBinding
 from runtime.memory_patch.persistence.ports import RecordKind, StoredRecord
 from runtime.mission.codex_worker import JsonlFramer
 from runtime.mission.contracts import bounded_int, logical_id
@@ -294,7 +296,7 @@ class PreparedValidationStep:
 
     def __post_init__(self):
         require(
-            self.stage in TEST_STAGES
+            self.stage in (*TEST_STAGES, "MATERIALIZE")
             and type(self.route) is CoreToolRoute
             and self.route.bound_variant is SANDBOX
             and type(self.route.executor) is LinuxSandboxBroker,
@@ -311,14 +313,268 @@ class PreparedValidationStep:
         )
 
 
-class CoreSandboxValidation:
-    def __init__(self, journal, prepare, *, profile=None, cancel=None):
+def _pin_prepared_spec(journal, step, expected_spec):
+    require(
+        type(step) is PreparedValidationStep and step.route.journal is journal,
+        "SECOND_CORE_DENIED",
+    )
+    config = step.route.executor.config
+    operation = step.arguments["operation"]
+    config.registry.validate(operation)
+    spec = config.inputs()[operation["payload"]["recipe_id"]]
+    expected = {
+        name: {"sha256": hashlib.sha256(data).hexdigest(), "bytes": len(data)}
+        for name, data in expected_spec["expected"].items()
+    }
+    files = expected_spec["files"]
+    require(
+        set(spec["files"]) == set(files) and spec["expected"] == expected,
+        "VALIDATION_INPUTS",
+    )
+    for name, data in files.items():
+        require(
+            spec["manifest"][name] == hashlib.sha256(data).hexdigest(),
+            "VALIDATION_INPUT_PIN",
+        )
+        path = Path(spec["files"][name])
+        require(
+            read_evidence_file(path.parent, path.name) == data,
+            "VALIDATION_INPUT_CHANGED",
+        )
+
+
+def _collect_sandbox_receipt(journal, step, cancel):
+    """One existing Core dispatch, then independent retained broker evidence."""
+    require(step.route.journal is journal, "SECOND_CORE_DENIED")
+    step.route.dispatch(step.principal, **step.arguments, cancel=cancel)
+    warrant = step.arguments["warrant"]
+    matching = []
+    for run in step.route.executor.config.root.glob("run-*"):
+        if not (run / "receipt.json").exists():
+            continue
+        raw = read_evidence_file(run, "receipt.json")
+        receipt = _json_bytes(raw)
+        if receipt.get("warrant_digest") == warrant.digest():
+            matching.append((raw, receipt, run))
+    require(len(matching) == 1, "VALIDATION_RECEIPT_REQUIRED")
+    return matching[0]
+
+
+def _clean_receipt(receipt):
+    return (
+        receipt.get("cgroup_absent_after_cleanup") is True
+        and receipt.get("unit_terminal_observed") is True
+        and receipt.get("cgroup_populated_zero_directly_observed") is True
+    )
+
+
+def _settle_sandbox_receipt(journal, step, raw, receipt):
+    require(
+        _clean_receipt(receipt) and receipt["status"] == "READBACK_VERIFIED",
+        "VALIDATION_UNRESOLVED",
+    )
+    warrant = step.arguments["warrant"]
+    step.route.reconcile(step.principal, warrant, 1)
+    stored = journal._run(
+        step.principal,
+        Capability.COMMIT,
+        lambda tx: journal._load(tx, warrant)[1]["resolution"],
+    )
+    resolved = Reconciliation.from_dict(stored)
+    require(
+        resolved.outcome.to_dict()["contract_type"] == "Applied"
+        and resolved.receipt.digest == "sha256:" + hashlib.sha256(raw).hexdigest(),
+        "VALIDATION_CORE_RECEIPT",
+    )
+    return stored
+
+
+class CoreRepositoryMaterializer:
+    """One Core-owned sandbox materialization; no candidate executes on the host."""
+
+    def __init__(
+        self,
+        journal,
+        prepare,
+        *,
+        profile,
+        source_snapshot,
+        source_repository,
+        base_root,
+        output_root,
+        cancel=None,
+    ):
+        from runtime.mission.git_publish import GitSourceSnapshot
+        from runtime.mission.project_recipe import PythonRepositoryRecipe
+
         require(
             type(journal) is CoreIntentJournal and callable(prepare),
             "EXISTING_CORE_REQUIRED",
         )
         require(
-            profile is None or type(profile) is TrustedTestProfile, "FIXED_TEST_PROFILE"
+            type(profile) is PythonRepositoryRecipe
+            and type(source_snapshot) is GitSourceSnapshot,
+            "MATERIALIZATION_PROFILE_REQUIRED",
+        )
+        require(cancel is None or type(cancel) is CancellationToken, "CANCEL_TOKEN")
+        require(
+            profile.repository_id == source_snapshot.repository_id
+            and profile.source_base_sha == source_snapshot.source_base_sha,
+            "MATERIALIZATION_SOURCE_BINDING",
+        )
+        require(
+            all(
+                isinstance(p, Path) and p.is_absolute()
+                for p in (source_repository, base_root, output_root)
+            ),
+            "MATERIALIZATION_LOCATORS",
+        )
+        self.journal, self.prepare, self.profile = journal, prepare, profile
+        self.source_snapshot, self.source_repository = (
+            source_snapshot,
+            source_repository,
+        )
+        self.base_root, self.output_root, self.cancel = base_root, output_root, cancel
+
+    def materialize(self, task, session, candidate):
+        from runtime.mission.patchset import BoundedPatchSetPolicy, observe_source
+        from runtime.mission.worker import Task, WorkerSession
+
+        require(
+            type(task) is Task
+            and type(session) is WorkerSession
+            and session.task_digest == task.digest
+            and session.task_id == task.task_id
+            and session.run_id == task.run_id,
+            "MATERIALIZATION_TASK_BINDING",
+        )
+        require(
+            task.repository_id == self.source_snapshot.repository_id
+            and task.workspace_id == self.source_snapshot.workspace_id
+            and task.source_base_sha == self.source_snapshot.source_base_sha,
+            "MATERIALIZATION_TASK_SOURCE",
+        )
+        require(self.cancel is None or not self.cancel.cancelled, "CANCELLED")
+        self.source_snapshot.verify(self.source_repository)
+        self.source_snapshot.verify_export(self.base_root)
+        source = observe_source(
+            self.base_root,
+            repository_id=task.repository_id,
+            workspace_id=task.workspace_id,
+            source_base_sha=task.source_base_sha,
+        )
+        predicted, archive, spec = self.profile.materialization_spec(
+            self.base_root,
+            source=source,
+            task=task,
+            worker_session_id=session.session_id,
+            candidate=candidate,
+        )
+        step = self.prepare(spec, predicted)
+        require(
+            type(step) is PreparedValidationStep and step.stage == "MATERIALIZE",
+            "MATERIALIZATION_PREPARED_STEP",
+        )
+        _pin_prepared_spec(self.journal, step, spec)
+        raw, receipt, run = _collect_sandbox_receipt(self.journal, step, self.cancel)
+        _settle_sandbox_receipt(self.journal, step, raw, receipt)
+        actual = read_evidence_file(run, "artifact-workspace.json")
+        require(
+            actual == archive
+            and workspace_tree_digest(actual) == predicted.final_tree_sha256,
+            "MATERIALIZATION_READBACK",
+        )
+        require(
+            read_evidence_file(run, "artifact-materialization.json")
+            == spec["expected"]["materialization.json"],
+            "MATERIALIZATION_RECEIPT",
+        )
+        self.source_snapshot.verify(self.source_repository)
+        self.source_snapshot.verify_export(self.base_root)
+        require(self.cancel is None or not self.cancel.cancelled, "CANCELLED")
+        self.output_root.mkdir(mode=0o700, parents=True, exist_ok=True)
+        require(
+            self.output_root.resolve(strict=True) == self.output_root,
+            "MATERIALIZATION_ROOT_LINK",
+        )
+        final = self.output_root / ("candidate-" + session.session_id)
+        require(not final.exists(), "MATERIALIZATION_REPLAY_DENIED")
+        # A new pinned mirror of broker-read artifacts, never a host repo edit.
+        from runtime.mission.patchset import _export_fresh_tree
+
+        _export_fresh_tree(
+            final,
+            tuple(
+                (item["path"], item["text"].encode(), item["mode"])
+                for item in _json_bytes(actual)["files"]
+            ),
+        )
+        patch = BoundedPatchSetPolicy().evaluate(
+            self.base_root,
+            final,
+            source=source,
+            task=task,
+            worker_session_id=session.session_id,
+        )
+        require(patch == predicted, "MATERIALIZATION_TREE_DRIFT")
+        warrant = step.arguments["warrant"]
+        data = {
+            "schema": "aioa.materialization.v1",
+            "state": "MATERIALIZED",
+            "task_digest": task.digest,
+            "patchset_sha256": patch.patchset_sha256,
+            "profile_digest": self.profile.digest,
+            "source_base_sha": task.source_base_sha,
+            "source_readback_digest": self.source_snapshot.digest,
+            "evidence_digest": hashlib.sha256(raw).hexdigest(),
+            "warrant_digest": warrant.digest(),
+            "warrant": warrant.to_dict(),
+            "final_tree_sha256": patch.final_tree_sha256,
+        }
+        key = canonical_sha256(["aioa.materialization.v1", patch.patchset_sha256])
+
+        def save(tx):
+            require(
+                tx.get(RecordKind.OPERATION, key) is None,
+                "MATERIALIZATION_REPLAY_DENIED",
+            )
+            row = StoredRecord(
+                RecordKind.OPERATION, key, self.journal.ledger.scope, 1, data
+            )
+            tx.insert(row)
+            binding = OperationBinding.bind(
+                "materialize-" + key,
+                "CODING_MATERIALIZATION",
+                {"record_digest": row.payload_digest},
+            )
+            append_domain_event(
+                tx,
+                binding,
+                event_id="materialize-audit-" + key,
+                proof_id="materialize-outbox-" + key,
+                resource_id=key,
+                before=None,
+                after="MATERIALIZED",
+                content_digest=row.payload_digest,
+                at=self.journal.ledger.clock(),
+            )
+
+        self.journal._run(step.principal, Capability.COMMIT, save)
+        return final
+
+
+class CoreSandboxValidation:
+    def __init__(self, journal, prepare, *, profile=None, cancel=None):
+        from runtime.mission.project_recipe import PythonRepositoryRecipe
+
+        require(
+            type(journal) is CoreIntentJournal and callable(prepare),
+            "EXISTING_CORE_REQUIRED",
+        )
+        require(
+            profile is None
+            or type(profile) in (TrustedTestProfile, PythonRepositoryRecipe),
+            "FIXED_TEST_PROFILE",
         )
         require(cancel is None or type(cancel) is CancellationToken, "CANCEL_TOKEN")
         self.journal, self.prepare, self.profile, self.cancel = (
@@ -329,16 +585,23 @@ class CoreSandboxValidation:
         )
 
     def open(self, root, patchset):
+        from runtime.mission.project_recipe import PythonRepositoryRecipe
+
         require(
-            type(self.profile) is TrustedTestProfile and type(patchset) is PatchSet,
+            type(self.profile) in (TrustedTestProfile, PythonRepositoryRecipe)
+            and type(patchset) is PatchSet,
             "VALIDATION_NOT_CONFIGURED",
         )
         self.profile.__post_init__()
         archive = pack_workspace(root, patchset)
-        require(
-            [entry["path"] for entry in _json_bytes(archive)["files"]] == ["calc.py"],
-            "VALIDATION_WORKSPACE_NOT_CERTIFIED",
-        )
+        if type(self.profile) is TrustedTestProfile:
+            require(
+                [entry["path"] for entry in _json_bytes(archive)["files"]]
+                == ["calc.py"],
+                "VALIDATION_WORKSPACE_NOT_CERTIFIED",
+            )
+        else:
+            self.profile.validate_patch(patchset)
         prepared = self.prepare(root, patchset)
         require(
             type(prepared) is tuple
@@ -348,39 +611,23 @@ class CoreSandboxValidation:
             "VALIDATION_STAGES",
         )
         for step in prepared:
-            require(step.route.journal is self.journal, "SECOND_CORE_DENIED")
-            config = step.route.executor.config
-            op = step.arguments["operation"]
-            config.registry.validate(op)
-            spec = config.inputs()[op["payload"]["recipe_id"]]
-            expected = {
-                "test-report-complete.txt": {
-                    "sha256": hashlib.sha256(COMPLETE).hexdigest(),
-                    "bytes": len(COMPLETE),
+            if type(self.profile) is PythonRepositoryRecipe:
+                expected_spec = self.profile.observation_spec(
+                    step.stage, archive, patchset
+                )
+            else:
+                expected_spec = {
+                    "files": {
+                        "recipe.py": TEST_RUNNER,
+                        "approved-test.py": dict(self.profile.scripts)[step.stage],
+                        "validation-context.json": canonical_json_bytes(
+                            self.profile.context(step.stage, patchset)
+                        ),
+                        "workspace.json": archive,
+                    },
+                    "expected": {"test-report-complete.txt": COMPLETE},
                 }
-            }
-            files = {
-                "recipe.py": TEST_RUNNER,
-                "approved-test.py": dict(self.profile.scripts)[step.stage],
-                "validation-context.json": canonical_json_bytes(
-                    self.profile.context(step.stage, patchset)
-                ),
-                "workspace.json": archive,
-            }
-            require(
-                set(spec["files"]) == set(files) and spec["expected"] == expected,
-                "VALIDATION_INPUTS",
-            )
-            for name, data in files.items():
-                require(
-                    spec["manifest"][name] == hashlib.sha256(data).hexdigest(),
-                    "VALIDATION_INPUT_PIN",
-                )
-                path = Path(spec["files"][name])
-                require(
-                    read_evidence_file(path.parent, path.name) == data,
-                    "VALIDATION_INPUT_CHANGED",
-                )
+            _pin_prepared_spec(self.journal, step, expected_spec)
         # Recheck after host preparation. The broker also pins each input at release.
         require(pack_workspace(root, patchset) == archive, "VALIDATION_TREE_CHANGED")
         return _CoreValidationSession(self, patchset, prepared)
@@ -408,46 +655,23 @@ class _CoreValidationSession:
         )
         try:
             with failure_boundary("VALIDATION_UNRESOLVED"):
-                step.route.dispatch(step.principal, **args, cancel=self.owner.cancel)
-                matching = []
-                for run in step.route.executor.config.root.glob("run-*"):
-                    if not (run / "receipt.json").exists():
-                        continue
-                    raw = read_evidence_file(run, "receipt.json")
-                    receipt = _json_bytes(raw)
-                    if receipt.get("warrant_digest") == warrant.digest():
-                        matching.append((raw, receipt))
-                require(len(matching) == 1, "VALIDATION_RECEIPT_REQUIRED")
-                raw, receipt = matching[0]
+                from runtime.mission.project_recipe import PythonRepositoryRecipe
+
+                raw, receipt, _ = _collect_sandbox_receipt(
+                    self.owner.journal, step, self.owner.cancel
+                )
                 evidence = hashlib.sha256(raw).hexdigest()
-                clean = (
-                    receipt.get("cgroup_absent_after_cleanup") is True
-                    and receipt.get("unit_terminal_observed") is True
-                    and receipt.get("cgroup_populated_zero_directly_observed") is True
-                )
-                self.cleanup_failed = not clean
-                require(
-                    clean and receipt["status"] == "READBACK_VERIFIED",
-                    "VALIDATION_UNRESOLVED",
-                )
-                step.route.reconcile(step.principal, warrant, 1)
-
-                def load(tx):
-                    return self.owner.journal._load(tx, warrant)[1]["resolution"]
-
-                stored = self.owner.journal._run(
-                    step.principal, Capability.COMMIT, load
-                )
-                resolved = Reconciliation.from_dict(stored)
-                require(
-                    resolved.outcome.to_dict()["contract_type"] == "Applied"
-                    and resolved.receipt.digest == "sha256:" + evidence,
-                    "VALIDATION_CORE_RECEIPT",
-                )
-                status, code = decode_test_report(
-                    receipt["observations"]["worker_terminal"]["stdout"],
-                    self.owner.profile.context(stage, self.patchset),
-                )
+                self.cleanup_failed = not _clean_receipt(receipt)
+                stored = _settle_sandbox_receipt(self.owner.journal, step, raw, receipt)
+                stdout = receipt["observations"]["worker_terminal"]["stdout"]
+                if type(self.owner.profile) is PythonRepositoryRecipe:
+                    status, code = self.owner.profile.decode_observation(
+                        stdout, stage, self.patchset
+                    )
+                else:
+                    status, code = decode_test_report(
+                        stdout, self.owner.profile.context(stage, self.patchset)
+                    )
                 # Canonical Core evidence joins the report to the exact approved
                 # sandbox operation. A caller-created ValidationStep is not proof.
                 data = {
@@ -462,14 +686,15 @@ class _CoreValidationSession:
                     "operation_digest": warrant.operation_hash,
                     "warrant": warrant.to_dict(),
                 }
+                if type(self.owner.profile) is PythonRepositoryRecipe:
+                    data["trusted_observer"] = "EXTERNAL_JSON_ORACLE"
+                    data["source_base_sha"] = self.patchset.source_base_sha
+                    data["test_count"] = self.owner.profile.context(
+                        stage, self.patchset
+                    )["test_count"]
                 key = canonical_sha256(["aioa.trusted-validation.v1", warrant.digest()])
 
                 def save(tx):
-                    from runtime.memory_patch.audit import append_domain_event
-                    from runtime.memory_patch.persistence.idempotency import (
-                        OperationBinding,
-                    )
-
                     current = self.owner.journal._load(tx, warrant)[1]
                     require(current["resolution"] == stored, "VALIDATION_CORE_CHANGED")
                     prior = tx.get(RecordKind.OPERATION, key)

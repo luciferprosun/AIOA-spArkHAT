@@ -180,7 +180,8 @@ def prepare_linux_sandbox(root,runtime_manifest,*,workspace,recipes):
     for name,final in [('setup_filter',False),('final_filter',True)]:
         path=root/(name+'.bpf');path.write_bytes(build_filter(final=final));path.chmod(0o400);pins[name]=sha(path)
     for target,entry in runtime_manifest.items():
-        require(type(target) is str and target.startswith(('/usr/lib/python3.12/','/usr/bin/python3.12','/lib/','/lib64/'))
+        require(type(target) is str and (target=='/usr/lib/python312.zip' or
+                target.startswith(('/usr/lib/python3.12/','/usr/bin/python3.12','/lib/','/lib64/')))
                 and '..' not in target.split('/'),'UNAPPROVED_RUNTIME_PATH')
         path=Path(entry['snapshot']);metadata=path.lstat()
         require(stat.S_ISREG(metadata.st_mode) and metadata.st_size==entry['bytes'] and sha(path)==entry['sha256'],

@@ -42,6 +42,7 @@ class CoreServiceGuard:
         from runtime.mission.warrant import require
         require(type(route) is CoreRemoteGitRoute,'GITHUB_REGISTERED_ROUTE_REQUIRED')
         route.core.require(principal,Capability.COMMIT,scope=route.scope)
+        local_patch=route.mode=='LOCAL_PATCH_FIXTURE'
         with route.target_guard():
             route.check();require(not cancel.cancelled,'GITHUB_STOPPED')
             def start(tx):
@@ -51,14 +52,16 @@ class CoreServiceGuard:
                 if existing is None:route.validate(tx,warrant,operation)
                 require(reservation.money_nano==0 and reservation.risk_units==1,'GITHUB_RESOURCE_BINDING')
                 return route.journal._start_in_transaction(tx,warrant,operation,reservation,
-                    local_zero=False,remote_zero=True)
+                    local_zero=local_patch,remote_zero=not local_patch)
             marker=route.journal._run(principal,Capability.COMMIT,start)
-            if not marker['remote_step_now']:return marker
+            if not marker['local_step_now' if local_patch else 'remote_step_now']:return marker
             def release():
                 route.check();require(not cancel.cancelled,'GITHUB_STOPPED')
                 route.journal._run(principal,Capability.COMMIT,lambda tx:
                     route.validate(tx,warrant,operation,consumed=True))
             release()
+            if local_patch:
+                return route._dispatch_local_patch(principal,warrant,operation,release,cancel)
             api=route.bind_api(release,cancel)
             route.record_credential_scope(principal,warrant,operation,api)
             observation=api.execute(check=release,cancel=cancel,

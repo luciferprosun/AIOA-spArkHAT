@@ -367,6 +367,8 @@ class AgentRuntime:
 
     def close(self):
         self._agent_closed = True
+        if self._coding_tasks is not None:
+            self._coding_tasks.close()
         if self._lite_scheduler is not None:
             self._lite_scheduler.close()
         if self._lite_memory is not None:
@@ -1600,6 +1602,10 @@ def main() -> None:
     if len(sys.argv) > 1 and sys.argv[1] == 'lite':
         from runtime.mission.lite_cli import run_lite_cli
         raise SystemExit(run_lite_cli(sys.argv[2:], runtime_factory=create_runtime))
+
+    if sys.argv[1:3]==['mission','coding']:
+        from runtime.mission.coding_tasks import run_coding_http_cli
+        raise SystemExit(run_coding_http_cli(sys.argv[3:]))
 
     if len(sys.argv) > 1 and sys.argv[1] in {'doctor', 'mission'}:
         from runtime.mission.cli import run_diagnostic_cli

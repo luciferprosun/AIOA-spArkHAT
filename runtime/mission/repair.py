@@ -233,10 +233,12 @@ class BoundedRepairLoopCoordinator:
         validator,
         max_repairs=2,
         cancelled=None,
+        on_state=None,
     ):
         bounded_int(max_repairs, 0, 2)
         require(type(task) is Task and type(source) is SourceIdentity, "LOOP_CONTEXT")
         require(cancelled is None or callable(cancelled), "LOOP_CANCEL_BINDING")
+        require(on_state is None or callable(on_state), "LOOP_OBSERVER_BINDING")
         history, attempts, seen = [], [], set()
         final, failure, status = None, None, "FAILED"
         feedback = None
@@ -260,6 +262,8 @@ class BoundedRepairLoopCoordinator:
                     history.append("REPAIRING")
                 try:
                     with failure_boundary("WORKER_PRODUCER_FAILED"):
+                        if on_state is not None:
+                            on_state("REPAIRING" if attempt else "RUNNING")
                         candidate = producer.produce(attempt, feedback)
                         require(type(candidate) is CandidateWorkspace, "WORKER_CONTEXT")
                         result, session = candidate.worker_result, candidate.session
@@ -273,7 +277,11 @@ class BoundedRepairLoopCoordinator:
                             "WORKER_CONTEXT",
                         )
                 except (ValueError, RepairBoundaryError):
-                    status, failure = "FAILED", "WORKER_PRODUCER_FAILED"
+                    status, failure = (
+                        ("CANCELLED", "CANCELLED")
+                        if cancelled is not None and cancelled()
+                        else ("FAILED", "WORKER_PRODUCER_FAILED")
+                    )
                     break
                 patchset, steps, session, cleanup = None, [], None, 0
                 attempt_status, attempt_failure = "CRASH", "VALIDATION_BACKEND_FAILURE"
@@ -302,6 +310,8 @@ class BoundedRepairLoopCoordinator:
                             )
                         else:
                             seen.add(patchset.final_tree_sha256)
+                            if on_state is not None:
+                                on_state("VALIDATING")
                             session = validator.open(candidate.root, patchset)
                             attempt_status, attempt_failure = "PASS", None
                             for stage in TEST_STAGES:
@@ -435,3 +445,113 @@ class BoundedRepairLoopCoordinator:
             final,
             failure,
         )
+
+
+class SandboxedCandidateProducer:
+    """Neutral advice becomes files only through the existing Core sandbox.
+
+    A worker receives the same admitted task on each bounded attempt. It never
+    receives a shell, source locator, test selector, owner principal or warrant.
+    Cancellation is shared with the broker, including during materialization.
+    """
+
+    def __init__(
+        self,
+        task,
+        worker,
+        materializer,
+        *,
+        cancel=None,
+        clock=time.time,
+        monotonic=time.monotonic,
+    ):
+        from runtime.mission.repair_validation import CoreRepositoryMaterializer
+        from runtime.mission.worker import WorkerPort
+        from runtime.providers.exact import CancellationToken
+
+        require(
+            type(task) is Task and isinstance(worker, WorkerPort),
+            "WORKER_PORT_REQUIRED",
+        )
+        require(
+            type(materializer) is CoreRepositoryMaterializer,
+            "CORE_MATERIALIZER_REQUIRED",
+        )
+        require(cancel is None or type(cancel) is CancellationToken, "CANCEL_TOKEN")
+        require(
+            materializer.cancel is cancel and callable(clock) and callable(monotonic),
+            "PRODUCER_CANCEL_BINDING",
+        )
+        self.task, self.worker, self.materializer = task, worker, materializer
+        self.cancel_token, self.clock, self.monotonic = cancel, clock, monotonic
+        self.session, self.last_root, self.closed, self.next_attempt = (
+            None,
+            None,
+            False,
+            0,
+        )
+
+    def _stopped(self):
+        return self.cancel_token is not None and self.cancel_token.cancelled
+
+    def produce(self, attempt_number, feedback_code):
+        require(
+            not self.closed
+            and attempt_number == self.next_attempt
+            and type(attempt_number) is int
+            and 0 <= attempt_number <= 2,
+            "PRODUCER_ATTEMPT_ORDER",
+        )
+        require(
+            feedback_code is None or feedback_code == "TEST_FAIL", "PRODUCER_FEEDBACK"
+        )
+        self.next_attempt += 1  # A failed/uncertain worker is never replayed.
+        require(
+            not self._stopped() and self.clock() < self.task.deadline_at, "CANCELLED"
+        )
+        self.session = self.worker.start(self.task)
+        require(
+            type(self.session) is WorkerSession
+            and self.session.task_digest == self.task.digest
+            and self.session.task_id == self.task.task_id
+            and self.session.run_id == self.task.run_id,
+            "WORKER_CONTEXT",
+        )
+        deadline = self.monotonic() + min(20, self.task.deadline_at - self.clock())
+        while True:
+            if (
+                self._stopped()
+                or self.clock() >= self.task.deadline_at
+                or self.monotonic() >= deadline
+            ):
+                self.worker.cancel(self.session)
+                raise ValueError("CANCELLED" if self._stopped() else "WORKER_TIMEOUT")
+            self.worker.poll(self.session)
+            result = self.worker.result(self.session)
+            if result is not None:
+                break
+            time.sleep(0.01)
+        require(
+            type(result) is WorkerResult
+            and result.session_id == self.session.session_id
+            and result.task_id == self.task.task_id
+            and result.run_id == self.task.run_id
+            and result.worker_id == self.session.worker_id,
+            "WORKER_SUCCESS_REQUIRED",
+        )
+        require(not self._stopped(), "CANCELLED")
+        root = self.materializer.materialize(self.task, self.session, result.candidate)
+        self.last_root = root
+        return CandidateWorkspace(root, self.session, result)
+
+    def stop(self):
+        if self.cancel_token is not None:
+            self.cancel_token.cancel()
+        if self.session is not None and not self.closed:
+            self.worker.cancel(self.session)
+
+    def close(self):
+        if not self.closed:
+            self.closed = True
+            self.worker.close()
+        return 0

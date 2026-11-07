@@ -18,9 +18,12 @@ import unicodedata
 from dataclasses import asdict, dataclass, field
 from pathlib import Path, PurePosixPath
 
-from runtime.memory_patch.contracts.serialization import canonical_sha256
+from runtime.memory_patch.contracts.serialization import (
+    canonical_json_bytes,
+    canonical_sha256,
+)
 from runtime.mission.contracts import bounded_int, logical_id
-from runtime.mission.worker import Task
+from runtime.mission.worker import CandidatePatch, Task
 from runtime.nonzero_cloudops.models.redaction import contains_sensitive_material
 
 MAX_FILES_CHANGED = 3
@@ -678,6 +681,58 @@ class BoundedPatchSetPolicy:
             "PATCHSET_DISTINCT_ROOTS_REQUIRED",
         )
         base, final = _snapshot(base_root), _snapshot(final_root)
+        return self._derive(base, final, source, task, worker_session_id)
+
+    def preview(self, base_root, *, source, task, worker_session_id, candidate):
+        """Inert predicted bytes, never a substitute for actual-tree verification."""
+        _require(type(candidate) is CandidatePatch, "PATCHSET_CANDIDATE_REQUIRED")
+        base = _snapshot(base_root)
+        files = dict(base.files)
+        for proposed in candidate.files:
+            path = normalize_patch_relative_path(proposed.path)
+            _protected_change(path)
+            if proposed.text is None:
+                _require(path in files, "PATCHSET_MISSING_DELETE")
+                del files[path]
+            else:
+                data = proposed.text.encode("utf-8")
+                mode = files[path].identity.mode if path in files else 0o644
+                files[path] = _TreeFile(
+                    FileIdentity(hashlib.sha256(data).hexdigest(), len(data), mode),
+                    data,
+                )
+        _require(
+            len(files) <= MAX_TREE_FILES
+            and sum(f.identity.size for f in files.values()) <= MAX_TREE_BYTES,
+            "PATCHSET_TREE_SIZE_BOUND",
+        )
+        final = _Tree(_tree_digest(files), files)
+        patch = self._derive(base, final, source, task, worker_session_id)
+        archive = canonical_json_bytes(
+            {
+                "schema": "aioa.validation-workspace.v1",
+                "files": [
+                    {"path": p, "mode": f.identity.mode, "text": _text(f)}
+                    for p, f in sorted(final.files.items())
+                ],
+            }
+        )
+        _require(len(archive) <= MAX_FILE_BYTES, "PATCHSET_ARCHIVE_BOUND")
+        return patch, archive
+
+    @staticmethod
+    def _derive(base, final, source, task, worker_session_id):
+        _require(
+            type(source) is SourceIdentity and type(task) is Task,
+            "PATCHSET_CONTEXT_REQUIRED",
+        )
+        logical_id(worker_session_id)
+        _require(
+            source.repository_id == task.repository_id
+            and source.workspace_id == task.workspace_id
+            and source.source_base_sha == task.source_base_sha,
+            "PATCHSET_SOURCE_BINDING",
+        )
         _require(base.digest == source.base_tree_sha256, "PATCHSET_STALE_SOURCE")
         folded = {}
         for path in sorted(set(base.files) | set(final.files)):
@@ -766,3 +821,59 @@ class BoundedPatchSetPolicy:
         )
         _require(current == patchset, "PATCHSET_TOCTOU_DRIFT")
         return current.patchset_sha256
+
+
+def _export_fresh_tree(root, images):
+    """Write a NEW mirror with pinned parent descriptors, never a host checkout."""
+    from runtime.mission.repository_worker import parent, write_new
+
+    _require(
+        isinstance(root, Path)
+        and root.is_absolute()
+        and root.parent.resolve(strict=True) == root.parent,
+        "PATCHSET_EXPORT_PARENT_LINK",
+    )
+    directory = os.open(
+        root.parent, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
+    )
+    target = None
+    try:
+        info = os.fstat(directory)
+        _require(
+            info.st_uid == os.getuid() and not info.st_mode & 0o022,
+            "PATCHSET_EXPORT_PARENT_OWNER",
+        )
+        os.mkdir(root.name, 0o700, dir_fd=directory)
+        target = os.open(
+            root.name,
+            os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC,
+            dir_fd=directory,
+        )
+        pinned = os.fstat(target)
+        for name, data, mode in images:
+            parts = PurePosixPath(normalize_patch_relative_path(name)).parts
+            _require(
+                type(data) is bytes
+                and len(data) <= MAX_FILE_BYTES
+                and mode in (0o600, 0o644),
+                "PATCHSET_EXPORT_IMAGE",
+            )
+            fd = parent(target, parts, create=True)
+            try:
+                write_new(fd, parts[-1], data, mode)
+            finally:
+                os.close(fd)
+        os.fsync(target)
+        os.fsync(directory)
+        current = os.stat(root.name, dir_fd=directory, follow_symlinks=False)
+        _require(
+            (current.st_dev, current.st_ino) == (pinned.st_dev, pinned.st_ino)
+            and (root.parent.stat().st_dev, root.parent.stat().st_ino)
+            == (info.st_dev, info.st_ino)
+            and root.resolve(strict=True) == root,
+            "PATCHSET_EXPORT_MOVED",
+        )
+    finally:
+        if target is not None:
+            os.close(target)
+        os.close(directory)
