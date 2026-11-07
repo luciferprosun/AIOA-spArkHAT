@@ -1,5 +1,12 @@
 # Bounded Python repository coding on the existing Core
 
+> NZ12 SECURITY GATE: NOT_CERTIFIED / DO NOT ENABLE this Python observation profile.
+> Regression NZ12-I1 accepted forged observations from candidate code in the same
+> interpreter as the observation reporter. Prior benign NZ11 fixture results below
+> do not establish adversarial report integrity. Remediation and an authenticated
+> independent review are required before activation or merge. No runtime fix,
+> production binding, remote publication or deployment is claimed by this notice.
+
 NZ11 extends the existing `AgentRuntime` opt-in binding, `CoreCodingTasks`,
 `CoreIntentJournal`, `CoreWarrantLedger`, `LinuxSandboxBroker` and
 `CoreRemoteGitRoute`. It adds no composition root, server or effect store.
