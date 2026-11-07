@@ -214,7 +214,6 @@ def exercise_active_stop(
     armed = threading.Event()
     guest_active = threading.Event()
     workers = {}
-    waiting_worker = WaitingWorker()
     original_line = linux.bounded_line
 
     def observe_line(stream, *args, **kwargs):
@@ -223,10 +222,16 @@ def exercise_active_stop(
         return original_line(stream, *args, **kwargs)
 
     blocked_task = replace(task, task_id="stop-sandbox-task", run_id="stop-sandbox-run")
-    waiting_task = replace(task, task_id="stop-worker-task", run_id="stop-worker-run")
+    worker_tasks = tuple(
+        replace(
+            task, task_id="stop-worker-" + suffix, run_id="stop-worker-run-" + suffix
+        )
+        for suffix in ("one", "two")
+    )
+    waiting_workers = {item.task_id: WaitingWorker() for item in worker_tasks}
 
     def factory(admitted, cancel):
-        assert admitted in (blocked_task, waiting_task)
+        assert admitted in (blocked_task, *worker_tasks)
         materializer = CoreRepositoryMaterializer(
             fx.journal,
             preparer.materialize,
@@ -248,7 +253,7 @@ def exercise_active_stop(
             )
             worker = SyntheticWorker((candidate,), clock=lambda: fixture.now)
         else:
-            worker = waiting_worker
+            worker = waiting_workers[admitted.task_id]
         workers[admitted.task_id] = worker
         producer = repair.SandboxedCandidateProducer(
             admitted, worker, materializer, cancel=cancel, clock=lambda: fixture.now
@@ -286,35 +291,59 @@ def exercise_active_stop(
                 fx.p(support.Capability.MANAGE), "start", {"task_id": admitted.task_id}
             )
 
+        # Gate 1: simultaneous real WorkerPorts on this Core's full history.
+        for item in worker_tasks:
+            start(item)
+        for item in worker_tasks:
+            assert waiting_workers[item.task_id].started.wait(10), (
+                "worker startup did not complete"
+            )
+            assert not waiting_workers[item.task_id].closed
+        intake.request(
+            fx.p(support.Capability.MANAGE),
+            "stop",
+            {"task_id": worker_tasks[0].task_id},
+        )
+        assert not waiting_workers[worker_tasks[1].task_id].closed, (
+            "STOP crossed worker identities"
+        )
+        intake.request(
+            fx.p(support.Capability.MANAGE),
+            "stop",
+            {"task_id": worker_tasks[1].task_id},
+        )
+        for item in worker_tasks:
+            assert intake.wait(item.task_id, 10)
+        worker_states = {
+            item.task_id: intake.request(
+                fx.p(support.Capability.READ), "read_status", {"task_id": item.task_id}
+            )["state"]
+            for item in worker_tasks
+        }
+        assert set(worker_states.values()) == {"CANCELLED"}, worker_states
+        # Gate 2: real post-ACK Linux guest STOP, without an unrelated 2s startup
+        # requirement inside its fixed 20s sandbox lifetime.
         start(blocked_task)
         assert guest_active.wait(180), (
             "guest did not reach actual post-ACK active stage"
         )
-        # Overlap two ACTIVE tasks, not a worker waiting through host preparation.
-        # The real producer's 20 second lifetime bound remains unchanged.
-        start(waiting_task)
-        assert waiting_worker.started.wait(2), "second worker did not start"
-        assert not waiting_worker.closed
         intake.request(
             fx.p(support.Capability.MANAGE), "stop", {"task_id": blocked_task.task_id}
-        )
-        assert not waiting_worker.closed, "STOP cancelled another worker"
-        intake.request(
-            fx.p(support.Capability.MANAGE), "stop", {"task_id": waiting_task.task_id}
         )
         for _ in range(6):
             if intake.wait(blocked_task.task_id, 30):
                 break
         else:
             raise AssertionError("sandbox STOP did not clean up")
-        assert intake.wait(waiting_task.task_id, 5)
     states = {
-        admitted.task_id: intake.request(
-            fx.p(support.Capability.READ), "read_status", {"task_id": admitted.task_id}
-        )["state"]
-        for admitted in (blocked_task, waiting_task)
+        **worker_states,
+        blocked_task.task_id: intake.request(
+            fx.p(support.Capability.READ),
+            "read_status",
+            {"task_id": blocked_task.task_id},
+        )["state"],
     }
-    assert all(state == "UNKNOWN" for state in states.values()), states
+    assert states[blocked_task.task_id] == "UNKNOWN", states
     receipts = []
     for config in preparer.configs[before:]:
         for path in config.root.glob("run-*/receipt.json"):
@@ -338,6 +367,8 @@ def exercise_active_stop(
         "states": states,
         "kernel_receipts": receipts,
         "other_worker_unaffected": True,
+        "two_concurrent_worker_runs": "PASS_ON_SAME_CORE_HISTORY",
+        "active_linux_sandbox_stop": "PASS_SEPARATE_PHASE_SAME_CORE",
         "unknown_intent_settled": False,
         "replay": False,
     }
