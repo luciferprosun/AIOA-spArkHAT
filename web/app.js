@@ -669,6 +669,13 @@ async function bootstrap() {
       setView('meta');
       for(const section of document.querySelector('#meta-view').children)section.hidden=section.id!=='coding-panel';
       elements.viewTitle.textContent='Bounded Python coding · Core receipts';
+      elements.currentModelBadge.textContent='Not certified';
+      elements.sessionModel.textContent='No certified coding model connected';
+      elements.sessionSummary.textContent='Task states and effects come from Core receipts.';
+      elements.modelNote.textContent='Live inference requires a certified backend and separate approval.';
+      elements.modelSelect.disabled=true;
+      for(const node of document.querySelectorAll('.quick-action, #switch-model, #model-picker button'))node.disabled=true;
+      for(const tab of document.querySelectorAll('.view-tab'))tab.hidden=tab.dataset.view!=='meta';
       return;
     }
     const initialStatus = await refreshStatus();

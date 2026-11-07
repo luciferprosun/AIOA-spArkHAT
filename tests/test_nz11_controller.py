@@ -156,6 +156,20 @@ class ControllerTests(unittest.TestCase):
                 )
             self.assertEqual(len(self.workers), before)
 
+    def test_restart_cannot_start_another_task_before_active_run_recovery(self):
+        service = self.service()
+        task = self.case.task
+        self.admit(service, task)
+        service._transition(self.fx.p(), task.task_id, ("QUEUED",), "RUNNING")
+        second = replace(task, task_id="new-after-crash", run_id="new-after-crash-run")
+        restarted = self.service()
+        self.admit(restarted, second)
+        with self.assertRaises(ValueError):
+            restarted.request(
+                self.fx.p(Capability.MANAGE), "start", {"task_id": second.task_id}
+            )
+        self.assertFalse(self.workers)
+
     def test_restart_marks_running_unknown_and_never_restarts_worker(self):
         service = self.service()
         self.admit(service, self.case.task)
@@ -210,6 +224,43 @@ class ControllerTests(unittest.TestCase):
         )
         with self.assertRaises(ValueError):
             replace(run, validator=validator)
+
+    def test_cleanup_failure_retains_unknown_and_blocks_new_runs_including_restart(
+        self,
+    ):
+        service = self.service()
+        task = self.case.task
+        self.admit(service, task)
+        service.request(
+            self.fx.p(Capability.MANAGE), "start", {"task_id": task.task_id}
+        )
+        self.wait_started(task)
+
+        def broken_close():
+            raise OSError("CONTROLLED_WORKER_CLEANUP_FAILURE")
+
+        self.workers[task.task_id].close = broken_close
+        service.request(self.fx.p(Capability.MANAGE), "stop", {"task_id": task.task_id})
+        self.assertTrue(service.wait(task.task_id, 5))
+        view = service.request(
+            self.fx.p(Capability.READ), "get_receipts", {"task_id": task.task_id}
+        )
+        self.assertEqual(view["state"], "UNKNOWN")
+        self.assertEqual(view["run_result"]["failure_code"], "WORKER_CLEANUP_FAILED")
+        self.assertFalse(self.workers[task.task_id].closed)
+        self.assertIn(
+            task.task_id, service._active, "uncertain owned worker handle was discarded"
+        )
+        next_task = replace(task, task_id="after-unknown", run_id="after-unknown-run")
+        self.admit(service, next_task)
+        for controller in (service, self.service()):
+            with self.assertRaises(ValueError):
+                controller.request(
+                    self.fx.p(Capability.MANAGE),
+                    "start",
+                    {"task_id": next_task.task_id},
+                )
+        self.assertNotIn(next_task.task_id, self.workers)
 
     def test_cancel_does_not_hide_an_existing_unknown_core_intent(self):
         service = self.service()

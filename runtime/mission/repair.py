@@ -552,6 +552,6 @@ class SandboxedCandidateProducer:
 
     def close(self):
         if not self.closed:
-            self.closed = True
             self.worker.close()
+            self.closed = True
         return 0

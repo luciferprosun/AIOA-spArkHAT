@@ -37,7 +37,10 @@ signed receipt chain. Host callbacks are registered by the admitted composition,
 never accepted from HTTP/model JSON. Two active WorkerPorts have independent
 cancellation tokens. STOP reaches the worker and sandbox. A cancelled worker may
 be CANCELLED only if no unresolved Core intent remains; otherwise it stays
-UNKNOWN. Recovery never relaunches a claimed run. Re-registering an effect binding
+UNKNOWN. Worker/sandbox cleanup failure is UNKNOWN even after a STOP request.
+Uncertain owned handles keep their capacity quarantined, and canonical UNKNOWN
+or unrecovered active claims block new starts, including after host restart.
+Recovery never relaunches a claimed run. Re-registering an effect binding
 after restart does not grant replay.
 
 The local Git profile requires an explicitly marked private disposable bare

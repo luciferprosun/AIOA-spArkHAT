@@ -257,8 +257,27 @@ class CoreCodingTasks:
         capsule_digest=None,
         purpose=Capability.COMMIT,
         idempotent=True,
+        admission=False,
     ):
         def change(tx):
+            if admission:
+                # This is the SAME Core transaction as QUEUED -> RUNNING.
+                # A restart must inspect prior claims, not reset local capacity.
+                for row in tx.scan(RecordKind.OPERATION, limit=1024):
+                    if row.payload.get("schema") != KIND:
+                        continue
+                    _, stored, stored_task = decode_coding_task_row(
+                        row, row.payload["task"]["task_id"], self.capsules.identity.spki
+                    )
+                    retained = stored["receipts"][-1]["receipt"]["state"]
+                    require(retained != "UNKNOWN", "CODING_UNRESOLVED_RUN")
+                    require(
+                        retained
+                        not in ("RUNNING", "VALIDATING", "REPAIRING", "APPLYING")
+                        or stored_task.task_id in self._active
+                        or stored_task.task_id in self._effects,
+                        "CODING_RECOVERY_REQUIRED",
+                    )
             prior, data, task = self._load(tx, task_id)
             last = data["receipts"][-1]["receipt"]
             if (
@@ -303,7 +322,12 @@ class CoreCodingTasks:
                 )
             require(len(self._active) < 2, "CODING_ACTIVE_LIMIT")
             self._transition(
-                self.run_principal, task_id, ("QUEUED",), "RUNNING", idempotent=False
+                self.run_principal,
+                task_id,
+                ("QUEUED",),
+                "RUNNING",
+                idempotent=False,
+                admission=True,
             )
             cancel = CancellationToken()
             active = {"cancel": cancel, "producer": None, "thread": None}
@@ -373,6 +397,7 @@ class CoreCodingTasks:
 
         principal = self.run_principal
         terminal = None
+        cleanup_uncertain = False
         try:
             with failure_boundary("CODING_CONTROLLER_FAILED"):
                 task = self.journal._run(
@@ -409,6 +434,10 @@ class CoreCodingTasks:
                     cancelled=lambda: active["cancel"].cancelled,
                     on_state=observe,
                 )
+                cleanup_uncertain = result.failure_code in (
+                    "WORKER_CLEANUP_FAILED",
+                    "SANDBOX_CLEANUP_FAILED",
+                )
                 self._record_loop(principal, task, result)
                 if result.status == "PATCH_READY" and not active["cancel"].cancelled:
                     signed = self.capsules.prepare(
@@ -427,15 +456,16 @@ class CoreCodingTasks:
                             principal, task_id, signed["receipt"]["capsule_digest"]
                         )
                         return
-                terminal = (
-                    "CANCELLED"
-                    if active["cancel"].cancelled
-                    else (
+                if cleanup_uncertain:
+                    terminal = "UNKNOWN"
+                elif result.status == "PATCH_READY" and active["cancel"].cancelled:
+                    terminal = "CANCELLED"
+                else:
+                    terminal = (
                         result.status
                         if result.status in ("DENIED", "CANCELLED", "UNKNOWN")
                         else "FAILED"
                     )
-                )
         except (ValueError, RepairBoundaryError):
             # A partial materialization can have an UNKNOWN Core intent. Do
             # not turn cleanup failure into a clean cancellation receipt.
@@ -467,7 +497,12 @@ class CoreCodingTasks:
                     # Another admitted recovery/STOP already won the CAS.
                     pass
             with self._active_lock:
-                self._active.pop(task_id, None)
+                if cleanup_uncertain:
+                    # Keep the owned handle and capacity quarantined. UNKNOWN
+                    # cannot free a worker slot or grant a replacement run.
+                    active["quarantined"] = True
+                else:
+                    self._active.pop(task_id, None)
 
     def _active_cancel(self, principal, task_id):
         self.journal.ledger.core.require(principal, Capability.MANAGE, scope=self.scope)
