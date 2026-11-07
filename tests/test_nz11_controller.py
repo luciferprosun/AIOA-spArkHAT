@@ -264,13 +264,16 @@ class ControllerTests(unittest.TestCase):
 
     def test_cancel_does_not_hide_an_existing_unknown_core_intent(self):
         service = self.service()
-        self.fx.init()
-        self.fx.start()
         self.admit(service, self.case.task)
         service.request(
             self.fx.p(Capability.MANAGE), "start", {"task_id": self.case.task.task_id}
         )
         self.wait_started(self.case.task)
+        # Admission now rejects pre-existing UNKNOWN before starting a worker.
+        # Inject the durable intent after this run's clean admission to retain
+        # this cancellation/terminal-classification regression.
+        self.fx.init()
+        self.fx.start()
         service.request(
             self.fx.p(Capability.MANAGE), "stop", {"task_id": self.case.task.task_id}
         )

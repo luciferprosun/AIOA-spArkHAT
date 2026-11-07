@@ -28,6 +28,7 @@ from runtime.mission.worker import Task
 from runtime.mobile_gateway.wire import verify
 
 KIND = "aioa.coding-task.v1"
+HISTORY_LIMIT = 1024
 STATES = (
     "QUEUED",
     "RUNNING",
@@ -263,7 +264,8 @@ class CoreCodingTasks:
             if admission:
                 # This is the SAME Core transaction as QUEUED -> RUNNING.
                 # A restart must inspect prior claims, not reset local capacity.
-                for row in tx.scan(RecordKind.OPERATION, limit=1024):
+                rows = self._complete_history(tx)
+                for row in rows:
                     if row.payload.get("schema") != KIND:
                         continue
                     _, stored, stored_task = decode_coding_task_row(
@@ -278,30 +280,62 @@ class CoreCodingTasks:
                         or stored_task.task_id in self._effects,
                         "CODING_RECOVERY_REQUIRED",
                     )
-            prior, data, task = self._load(tx, task_id)
-            last = data["receipts"][-1]["receipt"]
-            if (
-                idempotent
-                and last["state"] == state
-                and (capsule_digest is None or last["capsule_digest"] == capsule_digest)
-            ):
-                return self._view(data)
-            require(last["state"] in expected, "CODING_TRANSITION_DENIED")
-            require(len(data["receipts"]) < 64, "CODING_RECEIPT_LIMIT")
-            data["receipts"].append(
-                self._signed(
-                    task,
-                    state,
-                    data["receipts"],
-                    capsule_digest
-                    if capsule_digest is not None
-                    else last["capsule_digest"],
-                )
+                require(not self._unresolved_intents(rows), "CODING_UNRESOLVED_INTENT")
+            return self._append_transition(
+                tx,
+                task_id,
+                expected,
+                state,
+                capsule_digest=capsule_digest,
+                idempotent=idempotent,
             )
-            self._save(tx, prior, data)
-            return self._view(data)
 
         return self.journal._run(principal, purpose, change)
+
+    def _append_transition(
+        self, tx, task_id, expected, state, *, capsule_digest=None, idempotent=True
+    ):
+        """Append on the existing transaction, including atomic owner approval."""
+        prior, data, task = self._load(tx, task_id)
+        last = data["receipts"][-1]["receipt"]
+        if (
+            idempotent
+            and last["state"] == state
+            and (capsule_digest is None or last["capsule_digest"] == capsule_digest)
+        ):
+            return self._view(data)
+        require(last["state"] in expected, "CODING_TRANSITION_DENIED")
+        require(len(data["receipts"]) < 64, "CODING_RECEIPT_LIMIT")
+        data["receipts"].append(
+            self._signed(
+                task,
+                state,
+                data["receipts"],
+                capsule_digest
+                if capsule_digest is not None
+                else last["capsule_digest"],
+            )
+        )
+        self._save(tx, prior, data)
+        return self._view(data)
+
+    @staticmethod
+    def _complete_history(tx):
+        # The existing port's maximum is 1024. A full prefix cannot prove
+        # completeness, including when the actual store contains exactly 1024.
+        rows = tx.scan(RecordKind.OPERATION, limit=HISTORY_LIMIT)
+        require(len(rows) < HISTORY_LIMIT, "CODING_HISTORY_LIMIT")
+        return rows
+
+    @staticmethod
+    def _unresolved_intents(rows):
+        from runtime.mission.intent import INTENT_KINDS
+
+        return any(
+            row.payload.get("schema") in INTENT_KINDS
+            and row.payload.get("resolution") is None
+            for row in rows
+        )
 
     def _start(self, principal, task_id):
         from runtime.providers.exact import CancellationToken
@@ -451,11 +485,15 @@ class CoreCodingTasks:
                         target_revision=run.target_revision,
                         expires_at=run.expires_at,
                     )
-                    if not active["cancel"].cancelled:
-                        self.attach_review(
-                            principal, task_id, signed["receipt"]["capsule_digest"]
-                        )
-                        return
+                    # STOP/close and publication share the same lifecycle
+                    # lock. An acknowledged cancellation cannot publish review
+                    # in the check -> attach interval.
+                    with self._active_lock:
+                        if not self.closed and not active["cancel"].cancelled:
+                            self.attach_review(
+                                principal, task_id, signed["receipt"]["capsule_digest"]
+                            )
+                            return
                 if cleanup_uncertain:
                     terminal = "UNKNOWN"
                 elif result.status == "PATCH_READY" and active["cancel"].cancelled:
@@ -473,20 +511,22 @@ class CoreCodingTasks:
         finally:
             if terminal is not None:
                 try:
-                    if terminal == "CANCELLED":
-                        from runtime.mission.intent import INTENT_KINDS
-
+                    with failure_boundary("CODING_HISTORY_UNRESOLVED"):
                         unresolved = self.journal._run(
                             principal,
                             Capability.COMMIT,
-                            lambda tx: any(
-                                row.payload.get("schema") in INTENT_KINDS
-                                and row.payload.get("resolution") is None
-                                for row in tx.scan(RecordKind.OPERATION, limit=1024)
+                            lambda tx: self._unresolved_intents(
+                                self._complete_history(tx)
                             ),
                         )
-                        if unresolved:
-                            terminal = "UNKNOWN"
+                except (ValueError, RepairBoundaryError):
+                    # Missing/incomplete history is uncertainty, never proof
+                    # that cleanup and effect accounting are complete.
+                    unresolved = True
+                if unresolved:
+                    terminal = "UNKNOWN"
+                cleanup_uncertain = cleanup_uncertain or terminal == "UNKNOWN"
+                try:
                     self._transition(
                         principal,
                         task_id,
@@ -612,7 +652,9 @@ class CoreCodingTasks:
             "CODING_TASK_INACTIVE",
         )
         route, warrant, reservation = self._effect(task_id, view["capsule_digest"])
-        operation = route.operation(principal.actor_session_id, warrant.lease_epoch)
+        operation = getattr(route, "historical_operation", None)
+        if operation is None:
+            operation = route.operation(principal.actor_session_id, warrant.lease_epoch)
         preview = {
             "task_id": task_id,
             "capsule_digest": view["capsule_digest"],
@@ -629,28 +671,36 @@ class CoreCodingTasks:
                 "CODING_EXACT_APPROVAL_REQUIRED",
             )
         if action == "approve":
-            require(view["state"] == "REVIEW_REQUIRED", "CODING_TASK_INACTIVE")
-            route.approve_local_patch(principal, warrant)
-            return self._transition(
-                principal, task_id, ("REVIEW_REQUIRED",), "APPROVED", purpose=purpose
+            require(
+                view["state"] in ("REVIEW_REQUIRED", "APPROVED"), "CODING_TASK_INACTIVE"
             )
+            with self._active_lock:
+                require(not self.closed, "CODING_CONTROLLER_CLOSED")
+                return route.approve_local_patch(principal, warrant, controller=self)
         from runtime.providers.exact import CancellationToken
 
         cancel = CancellationToken()
         if action == "apply":
-            # Persist APPLYING before leaving Core. Any exception stays UNKNOWN;
-            # replay requires the existing intent's read-only reconciliation.
-            self._transition(
-                principal, task_id, ("APPROVED",), "APPLYING", idempotent=False
-            )
+            # The token is published before APPLYING can escape this lock.
+            # STOP/close either wins before the claim, or sees its owned token.
             with self._active_lock:
+                require(not self.closed, "CODING_CONTROLLER_CLOSED")
+                require(task_id not in self._effects, "CODING_EFFECT_ACTIVE")
                 self._effects[task_id] = cancel
+                try:
+                    self._transition(
+                        principal, task_id, ("APPROVED",), "APPLYING", idempotent=False
+                    )
+                except BaseException:
+                    self._effects.pop(task_id, None)
+                    raise
         else:
             require(view["state"] in ("APPLYING", "UNKNOWN"), "CODING_TASK_INACTIVE")
         try:
             from runtime.mission.repair import RepairBoundaryError, failure_boundary
 
             with failure_boundary("CODING_GIT_UNKNOWN"):
+                require(not self.closed and not cancel.cancelled, "CODING_STOPPED")
                 result = (
                     route.dispatch(
                         principal, warrant, operation, reservation, cancel=cancel
@@ -784,6 +834,16 @@ class CoreCodingTasks:
         return self.journal._run(principal, purpose, cancel)
 
     def attach_review(self, principal, task_id, capsule_digest):
+        with self._active_lock:
+            require(not self.closed, "CODING_CONTROLLER_CLOSED")
+            active = self._active.get(task_id)
+            require(
+                active is None or not active["cancel"].cancelled,
+                "CODING_CANCELLED",
+            )
+            return self._attach_review_locked(principal, task_id, capsule_digest)
+
+    def _attach_review_locked(self, principal, task_id, capsule_digest):
         self.journal.ledger.core.require(principal, Capability.COMMIT, scope=self.scope)
         from runtime.mission.repair import digest
 

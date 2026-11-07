@@ -716,14 +716,33 @@ class CoreRemoteGitRoute:
         profile.validate_patch(preparation.patchset)
 
         def load(tx):
+            from runtime.mission.coding_tasks import KIND as TASK_KIND
+            from runtime.mission.coding_tasks import decode_coding_task_row
+
             row = tx.get(
                 RecordKind.OPERATION,
                 canonical_sha256([KIND, preparation.capsule_digest]),
             )
             core_require(row is not None, "CAPSULE_REQUIRED")
-            return capsules._decode(row)
+            capsule = capsules._decode(row)
+            taskrow = tx.get(
+                RecordKind.OPERATION, canonical_sha256([TASK_KIND, capsule.task_id])
+            )
+            _, coding, task = decode_coding_task_row(
+                taskrow, capsule.task_id, capsules.identity.spki
+            )
+            last = coding["receipts"][-1]["receipt"]
+            core_require(
+                task.digest == capsule.task_digest
+                and last["capsule_digest"] == capsule.digest
+                and last["state"]
+                in ("REVIEW_REQUIRED", "APPROVED", "APPLYING", "UNKNOWN", "VERIFIED"),
+                "GIT_CODING_TASK_INACTIVE",
+            )
+            return capsule, last["state"]
 
-        capsule = journal._run(principal, Capability.COMMIT, load)
+        capsule, state = journal._run(principal, Capability.COMMIT, load)
+        historical = state in ("APPLYING", "UNKNOWN", "VERIFIED")
         patch = preparation.patchset
         core_require(
             (
@@ -746,14 +765,15 @@ class CoreRemoteGitRoute:
             and capsule.workspace_id == source_snapshot.workspace_id,
             "GIT_CAPSULE_PATCH_BINDING",
         )
-        source_snapshot.verify(source_repository)
-        target = GitSourceSnapshot.capture(
-            target_repository,
-            expected_sha=source_snapshot.source_base_sha,
-            repository_id=source_snapshot.repository_id,
-            workspace_id=source_snapshot.workspace_id,
-        )
-        core_require(target == source_snapshot, "GIT_TARGET_SOURCE_BINDING")
+        if not historical:
+            source_snapshot.verify(source_repository)
+            target = GitSourceSnapshot.capture(
+                target_repository,
+                expected_sha=source_snapshot.source_base_sha,
+                repository_id=source_snapshot.repository_id,
+                workspace_id=source_snapshot.workspace_id,
+            )
+            core_require(target == source_snapshot, "GIT_TARGET_SOURCE_BINDING")
         plan = LocalPatchGitPlan(
             source_snapshot,
             preparation,
@@ -787,12 +807,22 @@ class CoreRemoteGitRoute:
             Path(target_repository),
         )
         instance.target_guard, instance.owner_check = target_guard, check
-        instance.check = instance._local_check
-        journal._run(principal, Capability.COMMIT, instance._local_proofs)
+        instance.historical_operation = None
+
+        def proofs(tx):
+            instance._local_proofs(tx, historical=historical)
+            return instance._local_history(tx) if historical else None
+
+        instance.historical_operation = journal._run(
+            principal, Capability.COMMIT, proofs
+        )
+        instance.check = (
+            instance._historical_local_check if historical else instance._local_check
+        )
         instance.check()
         return instance
 
-    def _local_proofs(self, tx):
+    def _local_proofs(self, tx, *, historical=False):
         from lab.archaioa.warrant import EffectWarrant
         from runtime.memory_patch.contracts.serialization import (
             canonical_json_bytes,
@@ -811,7 +841,12 @@ class CoreRemoteGitRoute:
         core_require(
             task.digest == c.task_digest
             and last["capsule_digest"] == c.digest
-            and last["state"] in ("REVIEW_REQUIRED", "APPROVED", "APPLYING"),
+            and last["state"]
+            in (
+                ("APPLYING", "UNKNOWN", "VERIFIED")
+                if historical
+                else ("REVIEW_REQUIRED", "APPROVED", "APPLYING")
+            ),
             "GIT_CODING_TASK_INACTIVE",
         )
         looprow = tx.get(
@@ -894,7 +929,60 @@ class CoreRemoteGitRoute:
                 "GIT_UNKNOWN_PROOF",
             )
 
+    def _local_history(self, tx):
+        """An inert binding to an existing canonical START, never new authority."""
+        from runtime.memory_patch.contracts.serialization import (
+            canonical_json_bytes,
+            canonical_sha256,
+        )
+        from runtime.memory_patch.persistence.ports import RecordKind
+        from runtime.mission.intent import KIND, LOCAL_ZERO_KIND
+
+        row = tx.get(
+            RecordKind.OPERATION,
+            "github-step-" + self.plan.operation_id + "-local_patch",
+        )
+        core_require(
+            row is not None
+            and row.payload.get("schema") == "aioa.local-patch-step.v1"
+            and row.payload.get("plan_digest") == self.plan.digest,
+            "GIT_DISPATCH_PROVENANCE_REQUIRED",
+        )
+        key = canonical_sha256(
+            (KIND, self.scope, self.capsule.task_id, row.payload["operation_hash"])
+        )
+        intent_row = tx.get(RecordKind.OPERATION, key)
+        core_require(intent_row is not None, "GIT_INTENT_REQUIRED")
+        intent = intent_row.payload
+        operation = intent.get("operation", {})
+        payload = operation.get("payload", {})
+        core_require(
+            intent.get("schema") == LOCAL_ZERO_KIND
+            and intent.get("warrant_digest") == row.payload.get("warrant_digest")
+            and "sha256:" + canonical_sha256(operation) == row.payload["operation_hash"]
+            and type(payload.get("principal_session_id")) is str
+            and type(payload.get("policy_epoch")) is int
+            and operation
+            == self.operation(payload["principal_session_id"], payload["policy_epoch"]),
+            "GIT_INTENT_REQUIRED",
+        )
+        return json.loads(canonical_json_bytes(operation))
+
+    def _historical_local_check(self):
+        self.owner_check()
+        core_require(
+            _git_target_identity(self.target_repository) == self.plan.target_identity,
+            "GIT_TARGET_MOVED",
+        )
+
+    def _prospective_local(self):
+        core_require(
+            getattr(self, "historical_operation", None) is None,
+            "GIT_HISTORICAL_READ_ONLY",
+        )
+
     def _local_check(self):
+        self._prospective_local()
         self.owner_check()
         self.capsules._fresh(self.capsule)
         self.plan.source.verify(self.source_repository)
@@ -907,25 +995,54 @@ class CoreRemoteGitRoute:
             expected_sha=self.plan.source.source_base_sha,
             repository_id=self.plan.source.repository_id,
             workspace_id=self.plan.source.workspace_id,
+            expected_target_identity=self.plan.target_identity,
         )
         core_require(current == self.plan.source, "GIT_TARGET_SOURCE_DRIFT")
 
-    def approve_local_patch(self, principal, warrant):
+    def approve_local_patch(self, principal, warrant, *, controller):
         from runtime.core_admission import Capability
+        from runtime.memory_patch.persistence.ports import RecordKind
+        from runtime.mission.coding_tasks import CoreCodingTasks
 
         self.core.require(principal, Capability.OWNER_APPROVAL, scope=self.scope)
         core_require(self.mode == "LOCAL_PATCH_FIXTURE", "GIT_LOCAL_PROFILE_REQUIRED")
+        self._prospective_local()
+        core_require(
+            type(controller) is CoreCodingTasks
+            and controller.journal is self.journal
+            and controller.capsules is self.capsules,
+            "EXISTING_CORE_REQUIRED",
+        )
         with self.target_guard():
             self.check()
             operation = self.operation(principal.actor_session_id, warrant.lease_epoch)
             self._local_warrant(warrant, operation)
-            self.journal._run(principal, Capability.OWNER_APPROVAL, self._local_proofs)
-            self.journal.ledger.approve(principal, warrant)
-        return {
-            "state": "OWNER_WARRANT_RECORDED",
-            "warrant_digest": warrant.digest(),
-            "plan_digest": self.plan.digest,
-        }
+
+            def approve(tx):
+                self._local_proofs(tx)
+                _, data, _ = controller._load(tx, self.capsule.task_id)
+                core_require(
+                    data["receipts"][-1]["receipt"]["state"]
+                    in ("REVIEW_REQUIRED", "APPROVED"),
+                    "CODING_TASK_INACTIVE",
+                )
+                ledger = self.journal.ledger
+                if tx.get(RecordKind.OPERATION, ledger._key(warrant)) is None:
+                    ledger.approve_in_transaction(tx, warrant)
+                else:
+                    # Exact recovery of an existing unconsumed owner witness,
+                    # including a pre-fix split commit. Never renew, attenuate,
+                    # un-revoke or transfer a witness to another session.
+                    ledger.require_active_in_transaction(tx, warrant)
+                return controller._append_transition(
+                    tx,
+                    self.capsule.task_id,
+                    ("REVIEW_REQUIRED",),
+                    "APPROVED",
+                    capsule_digest=self.capsule.digest,
+                )
+
+            return self.journal._run(principal, Capability.OWNER_APPROVAL, approve)
 
     def _local_warrant(self, warrant, operation):
         from runtime.memory_patch.contracts.serialization import canonical_sha256
@@ -947,6 +1064,7 @@ class CoreRemoteGitRoute:
         from runtime.core_admission import Capability
         from runtime.memory_patch.persistence.ports import RecordKind
 
+        self._prospective_local()
         key = "github-step-" + self.plan.operation_id + "-local_patch"
 
         def mark(tx):
@@ -985,6 +1103,8 @@ class CoreRemoteGitRoute:
                     self.target_repository,
                     ("hash-object", "-w", "-t", kind, "--stdin"),
                     data=data,
+                    cancel=cancel,
+                    expected_target_identity=self.plan.target_identity,
                 )
                 .decode()
                 .strip()
@@ -994,6 +1114,8 @@ class CoreRemoteGitRoute:
         _bounded_git(
             self.target_repository,
             ("update-ref", self.plan.ref, self.plan.commit_sha, "0" * 40),
+            cancel=cancel,
+            expected_target_identity=self.plan.target_identity,
         )
         release()
         return self._complete_local_patch(principal, warrant, historical=False)
@@ -1016,12 +1138,15 @@ class CoreRemoteGitRoute:
             repository_id=self.plan.source.repository_id,
             workspace_id=self.plan.source.workspace_id,
             ref=self.plan.ref,
+            expected_target_identity=self.plan.target_identity,
         )
         core_require(
             observed.files == self.plan.files
             and observed.git_tree_sha == self.plan.tree_sha
             and _bounded_git(
-                self.target_repository, ("cat-file", "commit", self.plan.commit_sha)
+                self.target_repository,
+                ("cat-file", "commit", self.plan.commit_sha),
+                expected_target_identity=self.plan.target_identity,
             )
             == self.plan.commit_data,
             "GIT_COMMIT_READBACK",
@@ -1045,6 +1170,9 @@ class CoreRemoteGitRoute:
         result = {"receipt": receipt, "signature": self.identity.sign(receipt)}
 
         def save(tx):
+            if historical:
+                self._local_proofs(tx, historical=True)
+                self._local_history(tx)
             _, intent = self.journal._load(tx, warrant)
             core_require(
                 intent is not None
@@ -1219,6 +1347,7 @@ class CoreRemoteGitRoute:
 
     def validate(self, tx, warrant, operation, *, consumed=False):
         if self.mode == "LOCAL_PATCH_FIXTURE":
+            self._prospective_local()
             core_require(
                 operation
                 == self.operation(
@@ -1586,6 +1715,8 @@ class CoreRemoteGitRoute:
     def dispatch(self, principal, warrant, operation, reservation, *, cancel):
         from runtime.service_guard.service import CoreServiceGuard
 
+        if self.mode == "LOCAL_PATCH_FIXTURE":
+            self._prospective_local()
         return CoreServiceGuard.dispatch_registered_remote_git(
             self, principal, warrant, operation, reservation, cancel=cancel
         )
@@ -1789,110 +1920,55 @@ class VerifiedPatchSet:
         core_require(False, "GITHUB_PATCH_CONVERSION_NOT_QUALIFIED")
 
 
-def _bounded_git(repository, arguments, *, data=None):
-    """Fixed host Git plumbing; no shell, credential environment or unbounded IO."""
+def _bounded_git(
+    repository, arguments, *, data=None, cancel=None, expected_target_identity=None
+):
+    """Pinned locator delegated to the existing broker's fixed offline profile."""
     import os
-    import selectors
-    import subprocess
-    import tempfile
-    import time
+
+    from runtime.mission.sandbox_linux import LinuxSandboxBroker
 
     repository = Path(repository)
     core_require(
         repository.is_absolute() and repository.resolve(strict=True) == repository,
         "GIT_REPOSITORY_LOCATOR_DENIED",
     )
-    core_require(
-        data is None or type(data) is bytes and len(data) <= 1048576,
-        "GIT_PLUMBING_INPUT_BOUND",
-    )
     root = os.open(
         repository, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
     )
     try:
         pinned = os.fstat(root)
-        core_require(
-            pinned.st_uid == os.getuid() and not pinned.st_mode & 0o7022,
-            "GIT_REPOSITORY_OWNER_DENIED",
+        storage = None
+
+        def binding_check():
+            current = repository.stat()
+            core_require(
+                (current.st_dev, current.st_ino) == (pinned.st_dev, pinned.st_ino),
+                "GIT_TARGET_MOVED",
+            )
+            if expected_target_identity is not None:
+                identity, _ = _git_target_identity_fd(root, repository)
+                core_require(identity == expected_target_identity, "GIT_TARGET_MOVED")
+
+        if expected_target_identity is not None:
+            identity, storage = _git_target_identity_fd(root, repository)
+            core_require(identity == expected_target_identity, "GIT_TARGET_MOVED")
+        binding_check()
+        output = LinuxSandboxBroker._git_plumbing(
+            root,
+            arguments,
+            git_sha256=LOCAL_GIT_SHA256,
+            data=data,
+            cancel=cancel,
+            expected_storage=storage,
+            binding_check=binding_check,
         )
-        core_require(
-            sha256(Path("/usr/bin/git").read_bytes()) == LOCAL_GIT_SHA256,
-            "GIT_BINARY_CHANGED",
-        )
-        environment = {
-            "PATH": "/usr/bin:/bin",
-            "HOME": "/nonexistent",
-            "LANG": "C.UTF-8",
-            "GIT_CONFIG_GLOBAL": "/dev/null",
-            "GIT_CONFIG_NOSYSTEM": "1",
-            "GIT_NO_REPLACE_OBJECTS": "1",
-            "GIT_TERMINAL_PROMPT": "0",
-            "GIT_OPTIONAL_LOCKS": "0",
-            "GIT_ATTR_NOSYSTEM": "1",
-        }
-        command = [
-            "/usr/bin/git",
-            "--no-replace-objects",
-            "--git-dir=/proc/self/fd/" + str(root),
-            "-c",
-            "core.hooksPath=/dev/null",
-            "-c",
-            "core.fsmonitor=false",
-            "-c",
-            "core.attributesFile=/dev/null",
-            *arguments,
-        ]
-        with tempfile.TemporaryFile() as source:
-            if data is not None:
-                source.write(data)
-                source.seek(0)
-            with subprocess.Popen(
-                command,
-                stdin=source,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                env=environment,
-                pass_fds=(root,),
-            ) as child:
-                selector = selectors.DefaultSelector()
-                output, errors = bytearray(), bytearray()
-                try:
-                    for stream, target in (
-                        (child.stdout, output),
-                        (child.stderr, errors),
-                    ):
-                        os.set_blocking(stream.fileno(), False)
-                        selector.register(stream, selectors.EVENT_READ, target)
-                    deadline = time.monotonic() + 10
-                    while selector.get_map():
-                        core_require(
-                            time.monotonic() < deadline, "GIT_PLUMBING_TIMEOUT"
-                        )
-                        for key, _ in selector.select(0.05):
-                            chunk = os.read(key.fd, 16384)
-                            if not chunk:
-                                selector.unregister(key.fileobj)
-                                continue
-                            core_require(
-                                len(output) + len(errors) + len(chunk) <= 1048576,
-                                "GIT_PLUMBING_OUTPUT_BOUND",
-                            )
-                            key.data.extend(chunk)
-                    code = child.wait(timeout=max(0.1, deadline - time.monotonic()))
-                    core_require(code == 0, "GIT_PLUMBING_FAILED")
-                finally:
-                    selector.close()
-                    if child.poll() is None:
-                        child.kill()
-                        child.wait(timeout=2)
-                    child.stdout.close()
-                    child.stderr.close()
         current = repository.stat()
         core_require(
             (pinned.st_dev, pinned.st_ino) == (current.st_dev, current.st_ino),
             "GIT_REPOSITORY_MOVED",
         )
-        return bytes(output)
+        return output
     finally:
         os.close(root)
 
@@ -1977,6 +2053,7 @@ class GitSourceSnapshot:
         repository_id,
         workspace_id,
         ref="refs/heads/main",
+        expected_target_identity=None,
     ):
         from runtime.mission.patchset import _secret_path, normalize_patch_relative_path
 
@@ -1989,21 +2066,22 @@ class GitSourceSnapshot:
             and re.fullmatch(r"refs/heads/[A-Za-z0-9][A-Za-z0-9/_-]{0,127}", ref),
             "GIT_SOURCE_REF",
         )
+
+        def git(arguments):
+            return _bounded_git(
+                repository, arguments, expected_target_identity=expected_target_identity
+            )
+
         core_require(
-            _bounded_git(repository, ("rev-parse", "--is-bare-repository")).strip()
-            == b"true",
+            git(("rev-parse", "--is-bare-repository")).strip() == b"true",
             "GIT_BARE_SOURCE_REQUIRED",
         )
 
         def current():
-            return (
-                _bounded_git(repository, ("rev-parse", "--verify", ref))
-                .decode()
-                .strip()
-            )
+            return git(("rev-parse", "--verify", ref)).decode().strip()
 
         core_require(current() == expected_sha, "GIT_SOURCE_DRIFT")
-        commit = _bounded_git(repository, ("cat-file", "commit", expected_sha))
+        commit = git(("cat-file", "commit", expected_sha))
         core_require(
             git_object("commit", commit) == expected_sha, "GIT_SOURCE_COMMIT_HASH"
         )
@@ -2015,7 +2093,7 @@ class GitSourceSnapshot:
             "GIT_SOURCE_COMMIT_SCHEMA",
         )
         tree_sha = first[1]
-        raw = _bounded_git(repository, ("ls-tree", "-r", "-t", "-z", tree_sha))
+        raw = git(("ls-tree", "-r", "-t", "-z", tree_sha))
         entries = {}
         files = []
         total_bytes = 0
@@ -2033,14 +2111,14 @@ class GitSourceSnapshot:
                 core_require(mode == "040000", "GIT_SOURCE_MODE")
                 continue
             core_require((mode, kind) == ("100644", "blob"), "GIT_SOURCE_MODE")
-            size = int(_bounded_git(repository, ("cat-file", "-s", object_id)).strip())
+            size = int(git(("cat-file", "-s", object_id)).strip())
             core_require(
                 0 <= size <= 1048576
                 and total_bytes + size <= 1048576
                 and len(files) < 256,
                 "GIT_SOURCE_BOUNDS",
             )
-            blob = _bounded_git(repository, ("cat-file", "blob", object_id))
+            blob = git(("cat-file", "blob", object_id))
             core_require(
                 len(blob) == size and git_object("blob", blob) == object_id,
                 "GIT_SOURCE_BLOB_HASH",
@@ -2103,35 +2181,78 @@ class GitSourceSnapshot:
         )
 
 
-def _git_target_identity(repository):
+def _git_target_identity_fd(fd, repository):
+    """Marker and storage proof for THIS opened FD, never a second path open."""
     import os
     import stat
+
+    from runtime.mission.sandbox_linux import git_storage_identity
+
+    info = os.fstat(fd)
+    storage = git_storage_identity(fd)
+    try:
+        marker = os.open(
+            ".aioa-disposable-bare",
+            os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_NOATIME | os.O_CLOEXEC,
+            dir_fd=fd,
+        )
+    except FileNotFoundError:
+        raise ValueError("GIT_DISPOSABLE_MARKER_REQUIRED") from None
+    try:
+        before = os.fstat(marker)
+        core_require(
+            stat.S_ISREG(before.st_mode)
+            and before.st_uid == os.getuid()
+            and before.st_nlink == 1
+            and not before.st_mode & 0o7077
+            and before.st_size == len(b"AIOA_DISPOSABLE_BARE_PATCH_V1\n"),
+            "GIT_DISPOSABLE_MARKER_REQUIRED",
+        )
+        core_require(
+            os.pread(marker, 128, 0) == b"AIOA_DISPOSABLE_BARE_PATCH_V1\n",
+            "GIT_DISPOSABLE_MARKER_REQUIRED",
+        )
+        after = os.fstat(marker)
+        named = os.stat(".aioa-disposable-bare", dir_fd=fd, follow_symlinks=False)
+        identity = lambda row: (
+            row.st_dev,
+            row.st_ino,
+            row.st_nlink,
+            row.st_size,
+            row.st_mtime_ns,
+            row.st_ctime_ns,
+        )
+        core_require(
+            identity(before) == identity(after) == identity(named), "GIT_TARGET_MOVED"
+        )
+    finally:
+        os.close(marker)
+    return (
+        info.st_dev,
+        info.st_ino,
+        sha256(canonical([str(repository), storage])),
+    ), storage
+
+
+def _git_target_identity(repository):
+    import os
 
     root = Path(repository)
     core_require(
         root.is_absolute() and root.resolve(strict=True) == root, "GIT_TARGET_LOCATOR"
     )
-    info = root.lstat()
-    core_require(
-        stat.S_ISDIR(info.st_mode)
-        and info.st_uid == os.getuid()
-        and not info.st_mode & 0o7022,
-        "GIT_TARGET_OWNER",
+    fd = os.open(
+        root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_NOATIME | os.O_CLOEXEC
     )
-    from runtime.mission.sandbox_linux import read_evidence_file
-
     try:
-        marker = root / ".aioa-disposable-bare"
-        metadata = marker.lstat()
-        core_require(not metadata.st_mode & 0o077, "GIT_DISPOSABLE_MARKER_REQUIRED")
+        identity, _ = _git_target_identity_fd(fd, root)
+        current = root.stat()
         core_require(
-            read_evidence_file(root, ".aioa-disposable-bare", 128)
-            == b"AIOA_DISPOSABLE_BARE_PATCH_V1\n",
-            "GIT_DISPOSABLE_MARKER_REQUIRED",
+            identity[:2] == (current.st_dev, current.st_ino), "GIT_TARGET_MOVED"
         )
-    except FileNotFoundError:
-        raise ValueError("GIT_DISPOSABLE_MARKER_REQUIRED") from None
-    return (info.st_dev, info.st_ino, sha256(str(root).encode()))
+        return identity
+    finally:
+        os.close(fd)
 
 
 @dataclass(frozen=True, slots=True, repr=False)
@@ -2278,10 +2399,20 @@ class LocalPatchGitPlan:
 
     @property
     def digest(self):
+        from runtime.mission import sandbox_linux
+
         return sha256(
             canonical(
                 {
                     "schema": "aioa.local-patch-git-plan.v1",
+                    "git_execution_profile": {
+                        "schema": "aioa.fixed-git-readonly-create-only.v1",
+                        "git_sha256": LOCAL_GIT_SHA256,
+                        "runtime": sandbox_linux.GIT_RUNTIME_PINS,
+                        "broker_sha256": sha256(
+                            Path(sandbox_linux.__file__).read_bytes()
+                        ),
+                    },
                     "source": self.source.digest,
                     "preparation": self.preparation.digest,
                     "profile": self.profile_digest,

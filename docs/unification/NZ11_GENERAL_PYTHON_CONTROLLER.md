@@ -43,6 +43,13 @@ or unrecovered active claims block new starts, including after host restart.
 Recovery never relaunches a claimed run. Re-registering an effect binding
 after restart does not grant replay.
 
+Every terminal classification checks the complete bounded canonical intent
+history, including materializer exceptions without cancellation. An unresolved
+intent dominates apparent FAILED/CANCELLED results. A quota-sized history scan
+fails closed rather than treating its prefix as complete. STOP, review handoff,
+effect-token publication and close share the controller's lifecycle lock.
+APPROVED tasks can also be cancelled through the existing API and panel.
+
 The local Git profile requires an explicitly marked private disposable bare
 repository, exact parent SHA, target identity, canonical controller/capsule
 proofs, and a distinct exact owner effect warrant. The production create-only
@@ -52,6 +59,35 @@ then only fixed object writes and create-ref CAS are allowed. It cannot update
 main, force-push, create a PR, run hooks, select argv, use credentials or network.
 ACK loss retains the canonical UNKNOWN intent. Only independent readback of the
 actual commit, parent, tree and blobs can resolve it; no write is retried.
+
+The broker's fixed Git profile checks the complete no-follow internal storage
+tree (4096 entries, depth 16, 64 MiB), private 0700 root, single-link regular
+files, mount identities and pinned critical storage directories. Alternates,
+worktree redirection, symbolic refs and unsupported local configuration are
+denied. Exact runtime hashes are copied into sealed memfds before use. Git runs
+in an empty network-off namespace with only a read-only repository view, fixed
+safe config, pinned Git/runtime bytes, seccomp, resource ceilings, bounded IO,
+cancellation and owned-process cleanup. No host storage gets a writable mount.
+
+Git validates object identities in that read-only view. The SAME broker creates
+loose objects and new refs using descriptor-bound unnamed temporary files,
+fsync and exclusive link publication. It never truncates, appends, chmods or
+freshens existing files. Existing objects are verified without atime changes.
+The ref operation is create-only CAS (old value zero), not a general update-ref
+interface. The route passes the exact approved root/storage identity to the
+opened descriptor before actuation. Its execution-profile hash is part of the
+owner-reviewed operation. A filesystem without O_TMPFILE/exclusive publication
+support is unsupported and denied; no less restrictive fallback is provided.
+
+Owner-witness persistence and the signed APPROVED receipt commit atomically in
+the existing Core transaction. Exact retries can reconcile a matching,
+unconsumed, unrevoked witness; they cannot renew expiry or transfer a session.
+After APPLYING/UNKNOWN/VERIFIED, a newly reconstructed route is historical and
+read-only. It verifies immutable canonical proofs and existing dispatch/intent
+provenance without requiring a fresh capsule or current source branch. Readback
+still validates the actual approved target and full commit/tree/blob contents.
+The original stored operation is shown after session restart. Such a binding
+cannot approve, validate or dispatch a new effect, even with another nonce.
 
 The existing HTTP service exposes `/api/agent/coding/` under its loopback origin,
 session token and exact intent checks. The host must explicitly inject admitted

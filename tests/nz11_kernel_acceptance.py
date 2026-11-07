@@ -1,11 +1,13 @@
 """Explicit offline Python repository/Core/kernel acceptance (no inference)."""
 
 import json
+import os
+import signal
 import sys
 import threading
 from contextlib import nullcontext
 from dataclasses import asdict, replace
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 from unittest.mock import patch
@@ -666,8 +668,8 @@ def main(manifest_path, root):
         original_git = git_module._bounded_git
         writes = []
 
-        def lost_ack(repository, arguments, *, data=None):
-            value = original_git(repository, arguments, data=data)
+        def lost_ack(repository, arguments, **kwargs):
+            value = original_git(repository, arguments, **kwargs)
             if arguments[0] == "update-ref":
                 writes.append(arguments)
                 raise ValueError("GIT_ACK_LOST_FIXTURE")
@@ -689,8 +691,135 @@ def main(manifest_path, root):
             is False
         )
         assert len(writes) == 1
-        recovered = intake.request(fx.p(), "reconcile", {"task_id": task.task_id})
-        assert recovered["state"] == "VERIFIED", recovered
+        # Reconstruct in a genuinely different process, using a new controller
+        # and route. Only this fixture Native process inherits its synthetic
+        # signing key; no worker/model or credential file receives it.
+        intake.close()
+        recovery_path = root / "fresh-process-recovery.json"
+        parent_pid = os.getpid()
+        child_pid = os.fork()
+        if child_pid == 0:
+            signal.alarm(120)
+            try:
+                assert os.getpid() != parent_pid
+                expiry = route.capsule.expires_at + 1
+                fx.ledger.clock = lambda: datetime.fromtimestamp(expiry, UTC)
+                fx.core._session = "recovered-native-" + str(os.getpid())
+                constructed = []
+
+                def reconstruct(_task_id, _capsule_digest):
+                    rebuilt = CoreRemoteGitRoute.for_local_patch(
+                        fx.p(),
+                        fx.journal,
+                        capsules=capsules,
+                        preparation=preparation,
+                        profile=profile,
+                        source_snapshot=snapshot,
+                        source_repository=case.repo.path,
+                        target_repository=target.path,
+                        check=lambda: None,
+                        target_guard=nullcontext,
+                    )
+                    assert rebuilt is not route
+                    constructed.append(rebuilt)
+                    return rebuilt, warrant, reservation
+
+                fresh = support.CoreCodingTasks(
+                    fx.journal,
+                    capsules,
+                    effect_factory=reconstruct,
+                    clock=lambda: expiry,
+                )
+                original = git_module._bounded_git
+                recovery_writes = []
+
+                def read_only(repository, arguments, **kwargs):
+                    if arguments[0] in ("hash-object", "update-ref"):
+                        recovery_writes.append(arguments[0])
+                        raise AssertionError("historical recovery attempted a write")
+                    return original(repository, arguments, **kwargs)
+
+                with patch.object(git_module, "_bounded_git", side_effect=read_only):
+                    recovered = fresh.request(
+                        fx.p(), "reconcile", {"task_id": task.task_id}
+                    )
+                    assert recovered["state"] == "VERIFIED", recovered
+                    reviewed_again = fresh.request(
+                        fx.p(support.Capability.READ),
+                        "review_effect",
+                        {"task_id": task.task_id},
+                    )
+                    assert reviewed_again["state"] == "VERIFIED"
+                    assert reviewed_again["effect_preview"][
+                        "operation_digest"
+                    ] == warrant.operation_hash.removeprefix("sha256:")
+                    historical = constructed[-1]
+                    try:
+                        historical.dispatch(
+                            fx.p(),
+                            warrant,
+                            operation,
+                            reservation,
+                            cancel=CancellationToken(),
+                        )
+                    except ValueError as error:
+                        assert str(error) == "GIT_HISTORICAL_READ_ONLY", str(error)
+                    else:
+                        raise AssertionError("historical binding accepted dispatch")
+                    try:
+                        historical.approve_local_patch(
+                            fx.p(support.Capability.OWNER_APPROVAL),
+                            warrant,
+                            controller=fresh,
+                        )
+                    except ValueError as error:
+                        assert str(error) == "GIT_HISTORICAL_READ_ONLY", str(error)
+                    else:
+                        raise AssertionError(
+                            "historical binding accepted owner approval"
+                        )
+                    try:
+                        fresh.request(fx.p(), "apply", exact)
+                    except ValueError:
+                        pass
+                    else:
+                        raise AssertionError("VERIFIED accepted another apply")
+                assert not recovery_writes
+                fresh.close()
+                outcome = {
+                    "status": "PASS",
+                    "parent_pid": parent_pid,
+                    "child_pid": os.getpid(),
+                    "capsule_expired": True,
+                    "new_controller": True,
+                    "new_routes": len(constructed),
+                    "native_session_rotated": True,
+                    "verified_review": True,
+                    "second_write_denied": True,
+                    "write_calls": 0,
+                }
+            except (ValueError, AssertionError, RuntimeError) as error:
+                outcome = {
+                    "status": "FAIL",
+                    "error": type(error).__name__,
+                    "code": str(error)[:1024],
+                }
+            recovery_path.write_text(json.dumps(outcome, indent=2) + "\n")
+            os._exit(0 if outcome["status"] == "PASS" else 1)
+        _, child_status = os.waitpid(child_pid, 0)
+        assert child_status == 0 and recovery_path.is_file(), (
+            recovery_path.read_text() if recovery_path.is_file() else child_status
+        )
+        recovery = json.loads(recovery_path.read_text())
+        assert recovery["status"] == "PASS", recovery
+        intake = support.CoreCodingTasks(
+            fx.journal,
+            capsules,
+            run_factory=run_factory,
+            run_principal=fx.p(),
+            clock=lambda: fixture.now,
+            effect_factory=lambda task_id, capsule_id: (route, warrant, reservation),
+        )
         stored = route.result(fx.p(support.Capability.READ))
         support.verify(identity.spki, stored["signature"], stored["receipt"])
         assert (
@@ -725,6 +854,7 @@ def main(manifest_path, root):
             "paid_calls": 0,
             "remote_calls": 0,
             "git_result": stored,
+            "fresh_process_recovery": recovery,
             "controller_receipts": intake.request(
                 fx.p(support.Capability.READ), "get_receipts", {"task_id": task.task_id}
             )["receipts"],

@@ -130,7 +130,7 @@
         const value=await fetchJSON('/api/agent/coding/create_task',{method:'POST',headers:{'X-AIOA-Intent':'coding-create_task-v1'},body:JSON.stringify({task})});
         if(value.task_id!==task.task_id)throw Error('Cross-task reply denied.');return adopt(value);},
       async start(){if(current?.state!=='QUEUED')throw Error('Queued task required.');return send('start',{task_id:current.task_id});},
-      async stop(){if(!['QUEUED','RUNNING','VALIDATING','REPAIRING','REVIEW_REQUIRED','APPLYING'].includes(current?.state))throw Error('No active task.');
+      async stop(){if(!['QUEUED','RUNNING','VALIDATING','REPAIRING','REVIEW_REQUIRED','APPROVED','APPLYING'].includes(current?.state))throw Error('No active task.');
         return send('stop',{task_id:current.task_id});},
       async review(){if(!current)throw Error('Select a task.');const id=current.task_id;
         const value=await fetchJSON('/api/agent/coding/review/'+encodeURIComponent(id));
@@ -148,7 +148,7 @@
       selected=value;node('evidence').textContent=JSON.stringify(value,null,2);node('confirm').checked=false;
       node('approve').disabled=true;node('apply').disabled=true;
       node('start').disabled=value.state!=='QUEUED';
-      node('stop').disabled=!['QUEUED','RUNNING','VALIDATING','REPAIRING','REVIEW_REQUIRED','APPLYING'].includes(value.state);
+      node('stop').disabled=!['QUEUED','RUNNING','VALIDATING','REPAIRING','REVIEW_REQUIRED','APPROVED','APPLYING'].includes(value.state);
       node('deny').disabled=value.state!=='REVIEW_REQUIRED';node('reconcile').disabled=value.state!=='UNKNOWN';
       node('message').textContent=value.state==='VERIFIED'?'Local Git readback verified.':value.state;
     }});

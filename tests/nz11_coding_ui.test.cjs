@@ -23,3 +23,21 @@ test('cross-task replies and model-supplied authority cannot be adopted',()=>{
   const c=client(async()=>{});assert.throws(()=>c.adopt({...view(),authority:'OWNER'}));
   c.adopt(view());assert.throws(()=>c.adopt({...view(),state:'LIVE_VERIFIED'}));
 });
+test('APPROVED can be stopped through the existing exact task endpoint',async()=>{
+  const calls=[];const c=client(async(path,options={})=>{calls.push([path,options.method]);return view('CANCELLED');});
+  c.adopt(view('APPROVED'));await c.stop();
+  assert.deepEqual(calls,[['/api/agent/coding/stop','POST']]);
+  await assert.rejects(c.apply('c'.repeat(64)));assert.equal(calls.length,1);
+});
+test('mounted panel enables STOP for an approved unexecuted task',async()=>{
+  const nodes=new Map();global.document={querySelector:id=>{
+    if(!nodes.has(id))nodes.set(id,{value:'task-1',checked:false,disabled:false,textContent:''});
+    return nodes.get(id);
+  }};
+  try {
+    api.mountCodingPanel(async()=>view('APPROVED'));
+    await nodes.get('#coding-select').onclick();
+    assert.equal(nodes.get('#coding-stop').disabled,false);
+    assert.equal(nodes.get('#coding-apply').disabled,true);
+  } finally {delete global.document;}
+});
