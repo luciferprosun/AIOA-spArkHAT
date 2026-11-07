@@ -214,6 +214,7 @@ def exercise_active_stop(
     armed = threading.Event()
     guest_active = threading.Event()
     workers = {}
+    waiting_worker = WaitingWorker()
     original_line = linux.bounded_line
 
     def observe_line(stream, *args, **kwargs):
@@ -247,7 +248,7 @@ def exercise_active_stop(
             )
             worker = SyntheticWorker((candidate,), clock=lambda: fixture.now)
         else:
-            worker = WaitingWorker()
+            worker = waiting_worker
         workers[admitted.task_id] = worker
         producer = repair.SandboxedCandidateProducer(
             admitted, worker, materializer, cancel=cancel, clock=lambda: fixture.now
@@ -274,7 +275,8 @@ def exercise_active_stop(
     intake.run_factory = factory  # Trusted isolated host registration, never JSON.
     before = len(preparer.configs)
     with patch.object(linux, "bounded_line", side_effect=observe_line):
-        for admitted in (waiting_task, blocked_task):
+
+        def start(admitted):
             intake.request(
                 fx.p(support.Capability.MANAGE),
                 "create_task",
@@ -283,24 +285,28 @@ def exercise_active_stop(
             intake.request(
                 fx.p(support.Capability.MANAGE), "start", {"task_id": admitted.task_id}
             )
+
+        start(blocked_task)
         assert guest_active.wait(180), (
             "guest did not reach actual post-ACK active stage"
         )
-        assert not workers[waiting_task.task_id].closed
+        # Overlap two ACTIVE tasks, not a worker waiting through host preparation.
+        # The real producer's 20 second lifetime bound remains unchanged.
+        start(waiting_task)
+        assert waiting_worker.started.wait(2), "second worker did not start"
+        assert not waiting_worker.closed
         intake.request(
             fx.p(support.Capability.MANAGE), "stop", {"task_id": blocked_task.task_id}
+        )
+        assert not waiting_worker.closed, "STOP cancelled another worker"
+        intake.request(
+            fx.p(support.Capability.MANAGE), "stop", {"task_id": waiting_task.task_id}
         )
         for _ in range(6):
             if intake.wait(blocked_task.task_id, 30):
                 break
         else:
             raise AssertionError("sandbox STOP did not clean up")
-        assert not workers[waiting_task.task_id].closed, (
-            "another worker was incorrectly stopped"
-        )
-        intake.request(
-            fx.p(support.Capability.MANAGE), "stop", {"task_id": waiting_task.task_id}
-        )
         assert intake.wait(waiting_task.task_id, 5)
     states = {
         admitted.task_id: intake.request(
@@ -708,6 +714,8 @@ def main(manifest_path, root):
         )
         return True
     finally:
+        if "intake" in locals():
+            intake.close()
         fixture.doCleanups()
         case.doCleanups()
 
