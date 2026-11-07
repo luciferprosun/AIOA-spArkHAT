@@ -64,6 +64,10 @@ def snapshot():
 def mutate():
     STATE[0] = "changed"
     return STATE
+
+def unpack(values):
+    values[1], result = values
+    return result
 '''
 EXTRA = 'def clean(text):\n    return "-".join(text.lower().split())\n'
 POISON = '''import json
@@ -98,6 +102,7 @@ def cases(positive):
             ("safe_literal", ["plain data"], "plain data"),
             ("snapshot", [], ["initial"]),
             ("mutate", [], ["changed"]),
+            ("unpack", [["first", "second"]], "second"),
         ]
     return tuple(PythonFunctionCase(name, "pkg.textutil", name, encoded(args), encoded(want))
                  for name, args, want in values)
@@ -189,6 +194,8 @@ def main(manifest_path, root, names=()):
         "enumerate_alias": 'def slug(text):\n    values = ["one-two"]\n    rows = enumerate(values)\n    values[0] = "WRONG"\n    for index, value in rows:\n        return value\n',
         "dictionary_view": 'def slug(text):\n    values = {"a": 1}\n    rows = values.keys()\n    values["b"] = 2\n    return "one-two" if len(rows) == 1 else "WRONG"\n',
         "comprehension_scope": 'a = "one-two"\ndef slug(text):\n    return [a for x in [1] for a in [a]][0]\n',
+        "unpack_alias": 'def slug(text):\n    normalized = "-".join(text.lower().split())\n    values = [normalized, text]\n    values[1], output = values\n    return output\n',
+        "unpack_nested": 'def slug(text):\n    normalized = "-".join(text.lower().split())\n    values = [normalized, text]\n    (values[1], output), = [values]\n    return output\n',
         "report_alias": 'STATE = ["WRONG"]\ndef snapshot():\n    return STATE\ndef mutate():\n    STATE[0] = "CORRECT"\n    return "one-two"\n',
         "positive": PRIMARY,
         "wrong": "def slug(text):\n    return text.strip() + text[:0]\n",

@@ -817,7 +817,10 @@ class PythonJsonProgram:
         data_value(value)
         if type(target) in (ast.Tuple, ast.List):
             policy(type(value) in (tuple, list) and len(value) == len(target.elts))
-            for item, part in zip(target.elts, value, strict=True):
+            # Python obtains this level's RHS items before any LHS store can
+            # mutate their shared container. Nested targets snapshot in turn.
+            parts = tuple(value)
+            for item, part in zip(target.elts, parts, strict=True):
                 self.assign(item, part, namespace, local)
             return
         policy(type(target) is ast.Subscript)

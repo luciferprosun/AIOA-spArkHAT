@@ -31,6 +31,10 @@ cannot reach Python globals, builtins dictionaries, reporter objects or I/O.
 Lexical local/comprehension scope, in-place aliases and bounded native data
 iteration preserve the accepted operations' semantics. Each JSON observation
 is frozen before the next call can mutate a shared result.
+Destructuring snapshots the right-hand-side items at each level before stores
+to overlapping targets. A controlled CPython/AST differential corpus executes
+inside the existing Core sandbox to regress this and other accepted operations;
+the diagnostic never accepts arbitrary user/model code as a host program.
 
 Classes, nested functions, decorators, runtime annotations, mutable defaults,
 non-singleton identity, dynamic imports/evaluation, callbacks, filesystem/process

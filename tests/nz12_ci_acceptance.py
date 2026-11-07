@@ -52,6 +52,8 @@ def main(output, codex):
          str(manifest_file), str(output / "kernel")),
         ("adversarial-observer", sys.executable, "tests/nz12_observer_acceptance.py",
          str(manifest_file), str(output / "observer")),
+        ("controlled-python-differential", sys.executable, "tests/nz12_differential_acceptance.py",
+         str(manifest_file), str(output / "differential")),
         ("mcp", sys.executable, "tests/host_unified_mcp.py"),
         ("local-git", sys.executable, "tests/host_unified_git.py"),
         ("chrome-rest", "/usr/bin/python3", "tests/mobile_device_console_browser.py"),
