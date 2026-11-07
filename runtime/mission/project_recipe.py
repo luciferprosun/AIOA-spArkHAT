@@ -452,9 +452,10 @@ class PythonFunctionCase:
 class PythonRepositoryRecipe:
     """Static bounded repository recipe, distinct from model instructions.
 
-    General Python functions/packages execute in the existing credentialless
-    Linux sandbox. A trusted host oracle evaluates returned JSON values; guest
-    assertions, counters, exit text and PASS claims confer no authority.
+    A restricted Python AST/JSON function language is evaluated in the existing
+    credentialless Linux sandbox. Arbitrary Python execution is unsupported.
+    A trusted host oracle checks returned JSON values; guest assertions,
+    counters, exit text and PASS claims confer no authority.
     """
 
     repository_id: str
@@ -537,7 +538,7 @@ class PythonRepositoryRecipe:
         self.__post_init__()
         return _json(
             {
-                "schema": "aioa.python-repository-recipe.v1",
+                "schema": "aioa.python-repository-recipe.v2",
                 "repository_id": self.repository_id,
                 "source_base_sha": self.source_base_sha,
                 "allowed_paths": list(self.allowed_paths),
@@ -580,7 +581,7 @@ class PythonRepositoryRecipe:
                 "command",
                 "stages",
             }
-            and row["schema"] == "aioa.python-repository-recipe.v1",
+            and row["schema"] == "aioa.python-repository-recipe.v2",
             "PYTHON_MANIFEST_SCHEMA",
         )
         for name in ("allowed_paths", "import_roots", "command", "stages"):
@@ -647,7 +648,7 @@ class PythonRepositoryRecipe:
         return _hash(
             _json(
                 {
-                    "schema": "aioa.python-repository-recipe.v1",
+                    "schema": "aioa.python-repository-recipe.v2",
                     "repository_id": self.repository_id,
                     "source_base_sha": self.source_base_sha,
                     "allowed_paths": self.allowed_paths,
@@ -798,7 +799,7 @@ class PythonRepositoryRecipe:
         _require(
             set(row)
             == {"schema", "profile_digest", "patchset_sha256", "stage", "results"}
-            and row["schema"] == "aioa.python-observation.v1"
+            and row["schema"] == "aioa.python-observation.v2"
             and row["profile_digest"] == self.digest
             and row["patchset_sha256"] == patch.patchset_sha256
             and row["stage"] == stage,

@@ -743,6 +743,10 @@ class CoreRemoteGitRoute:
 
         capsule, state = journal._run(principal, Capability.COMMIT, load)
         historical = state in ("APPLYING", "UNKNOWN", "VERIFIED")
+        # Readback reconstructs the already admitted plan. A new evaluator's
+        # version/bytes must not replace its immutable historical profile hash.
+        # Prospective effects still require the exact current profile below.
+        profile_digest = capsule.test_profile_digest if historical else profile.digest
         patch = preparation.patchset
         core_require(
             (
@@ -758,7 +762,7 @@ class CoreRemoteGitRoute:
                 source_snapshot.source_base_sha,
                 source_snapshot.export_tree_sha256,
                 patch.final_tree_sha256,
-                profile.digest,
+                profile_digest,
                 patch.worker_session_id,
             )
             and capsule.repository_id == source_snapshot.repository_id
@@ -777,7 +781,7 @@ class CoreRemoteGitRoute:
         plan = LocalPatchGitPlan(
             source_snapshot,
             preparation,
-            profile.digest,
+            profile_digest,
             _git_target_identity(target_repository),
             capsule.issued_at,
         )
@@ -897,7 +901,13 @@ class CoreRemoteGitRoute:
             core_require(row is not None, "GIT_VALIDATION_REQUIRED")
             data = row.payload
             core_require(
-                data.get("trusted_observer") == "EXTERNAL_JSON_ORACLE"
+                (
+                    data.get("trusted_observer") == "BOUNDED_AST_JSON_ORACLE_V2"
+                    or (
+                        historical
+                        and data.get("trusted_observer") == "EXTERNAL_JSON_ORACLE"
+                    )
+                )
                 and data.get("stage") == stage
                 and data.get("status") == "PASS"
                 and data.get("exit_code") == 0

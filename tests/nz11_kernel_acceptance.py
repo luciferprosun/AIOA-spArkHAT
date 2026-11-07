@@ -54,6 +54,29 @@ def fixture_core():
     return fixture
 
 
+class LegacyObservationProjection:
+    """Read-only fixture projection of the old observer version marker.
+
+    Every signature, warrant, receipt and other Core binding stays unchanged.
+    This never edits canonical history or obtains a transaction write method.
+    """
+
+    def __init__(self, transaction, marker="EXTERNAL_JSON_ORACLE"):
+        self.transaction = transaction
+        self.marker = marker
+        self.projected = 0
+
+    def get(self, kind, record_id):
+        row = self.transaction.get(kind, record_id)
+        if row is not None and row.payload.get("trusted_observer") == "BOUNDED_AST_JSON_ORACLE_V2":
+            self.projected += 1
+            return replace(row, payload={**row.payload, "trusted_observer": self.marker})
+        return row
+
+    def scan(self, *args, **kwargs):
+        return self.transaction.scan(*args, **kwargs)
+
+
 class SandboxPreparer:
     """Operator fixture: all jobs still traverse the real Core START and broker."""
 
@@ -422,6 +445,11 @@ def main(manifest_path, root):
         manifest_file.write_bytes(original_profile.manifest_bytes())
         manifest_file.chmod(0o600)
         profile = type(original_profile).load_file(manifest_file)
+        recovery_profile = replace(profile, stages=tuple(
+            (stage, tuple(replace(case, case_id="recovered-" + case.case_id) for case in cases))
+            for stage, cases in profile.stages
+        ))
+        assert recovery_profile.digest != profile.digest
         preparer = SandboxPreparer(
             fixture, json.loads(manifest_path.read_text())["manifest"], root
         )
@@ -595,6 +623,17 @@ def main(manifest_path, root):
             check=lambda: None,
             target_guard=nullcontext,
         )
+        try:
+            CoreRemoteGitRoute.for_local_patch(
+                fx.p(), fx.journal, capsules=capsules, preparation=preparation,
+                profile=recovery_profile, source_snapshot=snapshot,
+                source_repository=case.repo.path, target_repository=target.path,
+                check=lambda: None, target_guard=nullcontext,
+            )
+        except ValueError as error:
+            assert str(error) == "GIT_CAPSULE_PATCH_BINDING", str(error)
+        else:
+            raise AssertionError("changed profile authorized a prospective effect")
         operation = route.operation(fx.p().actor_session_id, 1)
         scope = replace(
             fx.warrant.authority_scope,
@@ -661,6 +700,17 @@ def main(manifest_path, root):
             fx.p(support.Capability.OWNER_APPROVAL), "approve", exact
         )
         assert approved["state"] == "APPROVED"
+        def reject_legacy_fresh(transaction):
+            legacy = LegacyObservationProjection(transaction)
+            try:
+                route._local_proofs(legacy)
+            except ValueError as error:
+                assert str(error) == "GIT_VALIDATION_BINDING", str(error)
+                assert legacy.projected == 1
+            else:
+                raise AssertionError("legacy observer authorized a new effect")
+
+        fx.journal._run(fx.p(support.Capability.READ), support.Capability.READ, reject_legacy_fresh)
         # Lose only the acknowledgement AFTER the actual Git CAS completed.
         # START and Git writes are real, and recovery must be read-only.
         import runtime.mission.git_publish as git_module
@@ -691,6 +741,19 @@ def main(manifest_path, root):
             is False
         )
         assert len(writes) == 1
+        def accept_legacy_readback(transaction):
+            unknown = LegacyObservationProjection(transaction, marker="UNKNOWN_OBSERVER_VERSION")
+            try:
+                route._local_proofs(unknown, historical=True)
+            except ValueError as error:
+                assert str(error) == "GIT_VALIDATION_BINDING", str(error)
+            else:
+                raise AssertionError("unknown observer version accepted as historical proof")
+            legacy = LegacyObservationProjection(transaction)
+            route._local_proofs(legacy, historical=True)
+            assert legacy.projected == 3
+
+        fx.journal._run(fx.p(support.Capability.READ), support.Capability.READ, accept_legacy_readback)
         # Reconstruct in a genuinely different process, using a new controller
         # and route. Only this fixture Native process inherits its synthetic
         # signing key; no worker/model or credential file receives it.
@@ -713,7 +776,7 @@ def main(manifest_path, root):
                         fx.journal,
                         capsules=capsules,
                         preparation=preparation,
-                        profile=profile,
+                        profile=recovery_profile,
                         source_snapshot=snapshot,
                         source_repository=case.repo.path,
                         target_repository=target.path,
@@ -721,6 +784,8 @@ def main(manifest_path, root):
                         target_guard=nullcontext,
                     )
                     assert rebuilt is not route
+                    assert rebuilt.plan.profile_digest == rebuilt.capsule.test_profile_digest
+                    assert rebuilt.plan.profile_digest != recovery_profile.digest
                     constructed.append(rebuilt)
                     return rebuilt, warrant, reservation
 
@@ -794,6 +859,8 @@ def main(manifest_path, root):
                     "new_controller": True,
                     "new_routes": len(constructed),
                     "native_session_rotated": True,
+                    "profile_changed": True,
+                    "stored_profile_digest_preserved": True,
                     "verified_review": True,
                     "second_write_denied": True,
                     "write_calls": 0,

@@ -239,7 +239,7 @@ class GeneralRecipeTests(unittest.TestCase):
         self.assertNotIn("expected", calls[0])
         self.assertNotIn(b'"one-two"', b"\n".join(spec["files"].values()))
         row = {
-            "schema": "aioa.python-observation.v1",
+            "schema": "aioa.python-observation.v2",
             "profile_digest": profile.digest,
             "patchset_sha256": patch.patchset_sha256,
             "stage": "FAST_TESTS",

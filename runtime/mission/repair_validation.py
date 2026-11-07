@@ -687,7 +687,7 @@ class _CoreValidationSession:
                     "warrant": warrant.to_dict(),
                 }
                 if type(self.owner.profile) is PythonRepositoryRecipe:
-                    data["trusted_observer"] = "EXTERNAL_JSON_ORACLE"
+                    data["trusted_observer"] = "BOUNDED_AST_JSON_ORACLE_V2"
                     data["source_base_sha"] = self.patchset.source_base_sha
                     data["test_count"] = self.owner.profile.context(
                         stage, self.patchset

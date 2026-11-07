@@ -1,25 +1,45 @@
 # Bounded Python repository coding on the existing Core
 
-> NZ12 SECURITY GATE: NOT_CERTIFIED / DO NOT ENABLE this Python observation profile.
-> Regression NZ12-I1 accepted forged observations from candidate code in the same
-> interpreter as the observation reporter. Prior benign NZ11 fixture results below
-> do not establish adversarial report integrity. Remediation and an authenticated
-> independent review are required before activation or merge. No runtime fix,
-> production binding, remote publication or deployment is claimed by this notice.
+> NZ12 version boundary: the v1 Python observation profile is withdrawn after
+> NZ12-I1 demonstrated forged reports from the candidate/reporting interpreter.
+> The v2 recipe evaluates a restricted AST/JSON language instead of executing
+> candidate Python bytecode. V1 manifests and observations are rejected for new
+> work. Exact-commit tests, CI and independent review remain separate gates;
+> historical NZ11 test results do not certify the new implementation. Production
+> owner binding and deployment still require their own reviewed activation.
 
 NZ11 extends the existing `AgentRuntime` opt-in binding, `CoreCodingTasks`,
 `CoreIntentJournal`, `CoreWarrantLedger`, `LinuxSandboxBroker` and
 `CoreRemoteGitRoute`. It adds no composition root, server or effect store.
 The production Native process and remote GitHub profile are unchanged.
 
-The qualified programming profile is a real Git repository of UTF-8 Python
-modules, tested with bounded JSON function-call cases. It is not an arbitrary
+The programming profile is a real Git repository of UTF-8 Python source,
+tested with bounded JSON function-call cases. It is not an arbitrary
 pytest/shell runner. An operator-owned 0600 static manifest fixes repository ID,
 actual base Git SHA, allowed paths, import roots, three stages and the sole
 supported Python argv. `PythonRepositoryRecipe.load_file()` rejects extra fields,
 commands, links and public configuration. Credentials are never manifest fields.
 Expected answers remain outside the guest; a guest PASS or test counter is not
-accepted. Ordinary Python modules and packages can use the pinned stdlib.
+accepted. The v2 subset supports simple functions, bounded data and control flow,
+inert local modules/packages, selected string/list/dict operations and fixed
+`math`/`json` exports. Standard-library shadowing is denied.
+
+Source is parsed and compiled only for static syntax validation; the discarded
+bytecode is never executed or exposed to the source program. Function bodies are
+evaluated as AST data inside the SAME sandbox recipe. Opaque local references
+cannot reach Python globals, builtins dictionaries, reporter objects or I/O.
+Lexical local/comprehension scope, in-place aliases and bounded native data
+iteration preserve the accepted operations' semantics. Each JSON observation
+is frozen before the next call can mutate a shared result.
+
+Classes, nested functions, decorators, runtime annotations, mutable defaults,
+non-singleton identity, dynamic imports/evaluation, callbacks, filesystem/process
+access and unknown constructs fail closed. Namespace packages without explicit
+inert `__init__.py`, arbitrary dependencies, pytest and shell execution remain
+outside this profile. A denied construct is not a passed general Python test.
+Steps, source size, calls, recursion, data depth/size and iteration are bounded;
+the broker retains its independent time, process and memory ceilings. Compiler
+diagnostics are converted to stable denials without printing candidate source.
 
 A private read-only bare source snapshot is independently read through fixed Git
 plumbing, with commit/tree/blob hashes recomputed. A plain export contains no
@@ -27,8 +47,8 @@ plumbing, with commit/tree/blob hashes recomputed. A plain export contains no
 policy. A Core-admitted materialization job performs the actual edits inside the
 Linux sandbox, without importing candidate code. The broker independently reads
 back exact artifacts after teardown. New host mirrors use pinned directory
-file descriptors; they never edit a host repository. Validation imports candidate
-modules from read-only archived inputs, returns only advisory JSON values, and
+file descriptors; they never edit a host repository. Validation interprets inert
+AST modules from read-only archived inputs, returns advisory JSON values, and
 compares them with the external oracle in the Core host.
 
 The bounded coordinator permits at most two repairs. Test failure, malformed
@@ -95,6 +115,12 @@ provenance without requiring a fresh capsule or current source branch. Readback
 still validates the actual approved target and full commit/tree/blob contents.
 The original stored operation is shown after session restart. Such a binding
 cannot approve, validate or dispatch a new effect, even with another nonce.
+The known v1 observer marker is accepted only while reading an already started
+historical operation with all immutable Core proof bindings intact. It cannot
+authorize a prospective Git effect or recertify the withdrawn v1 evaluator.
+Readback reconstructs the stored profile digest rather than replacing it with a
+new evaluator's digest; the prospective path still requires exact current-profile
+equality. Unknown observer versions remain denied, including during recovery.
 
 The existing HTTP service exposes `/api/agent/coding/` under its loopback origin,
 session token and exact intent checks. The host must explicitly inject admitted
