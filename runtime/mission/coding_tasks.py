@@ -348,6 +348,9 @@ class CoreCodingTasks:
             "CODING_CONTROLLER_NOT_CONFIGURED",
         )
         with self._active_lock:
+            # close can win while this starter waits for the lifecycle lock.
+            # The durable claim and owned thread must observe that same lock.
+            require(not self.closed, "CODING_CONTROLLER_CLOSED")
             if task_id in self._active:
                 return self.journal._run(
                     principal,
@@ -493,6 +496,10 @@ class CoreCodingTasks:
                             self.attach_review(
                                 principal, task_id, signed["receipt"]["capsule_digest"]
                             )
+                            # Retire the completed worker in the SAME handoff.
+                            # STOP after publication must reach canonical
+                            # review/approval cancellation, not a stale token.
+                            self._active.pop(task_id, None)
                             return
                 if cleanup_uncertain:
                     terminal = "UNKNOWN"

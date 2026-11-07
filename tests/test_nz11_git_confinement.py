@@ -263,6 +263,208 @@ class GitConfinementTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "GIT_REF_ALREADY_EXISTS"):
             _bounded_git(self.repo.path, arguments, expected_target_identity=identity)
 
+    def test_existing_packed_ref_cannot_be_shadowed_by_zero_old_create(self):
+        ref = "refs/heads/aioa-packed"
+        self.repo.git("update-ref", ref, self.repo.base)
+        newer = self.repo.commit(
+            {"src/value.py": b"value = 2\n"}, parent=self.repo.base
+        )
+        self.repo.git("pack-refs", "--all", "--prune")
+        self.assertFalse((self.repo.path / ref).exists())
+        before = (self.repo.path / "packed-refs").read_bytes()
+        with self.assertRaisesRegex(ValueError, "GIT_REF_ALREADY_EXISTS"):
+            _bounded_git(self.repo.path, ("update-ref", ref, newer, "0" * 40))
+        self.assertFalse((self.repo.path / ref).exists())
+        self.assertEqual((self.repo.path / "packed-refs").read_bytes(), before)
+        self.assertEqual(
+            self.repo.git("rev-parse", ref).decode().strip(), self.repo.base
+        )
+
+    def test_packed_ref_prefix_conflicts_are_denied(self):
+        for index, (existing, requested) in enumerate(
+            (
+                ("refs/heads/aioa-prefix", "refs/heads/aioa-prefix/child"),
+                ("refs/heads/aioa-prefix/child", "refs/heads/aioa-prefix"),
+            )
+        ):
+            with self.subTest(existing=existing):
+                repo = BareRepository(
+                    self.root / ("prefix-" + str(index) + ".git"), self.repo.files
+                )
+                repo.mark_disposable()
+                repo.git("update-ref", existing, repo.base)
+                repo.git("pack-refs", "--all", "--prune")
+                packed = (repo.path / "packed-refs").read_bytes()
+                with self.assertRaisesRegex(ValueError, "GIT_REF_CONFLICT"):
+                    _bounded_git(
+                        repo.path, ("update-ref", requested, repo.base, "0" * 40)
+                    )
+                self.assertEqual((repo.path / "packed-refs").read_bytes(), packed)
+                self.assertEqual(
+                    repo.git("rev-parse", existing).decode().strip(), repo.base
+                )
+
+    def test_loose_ref_prefix_conflicts_are_denied(self):
+        for index, (existing, requested) in enumerate(
+            (
+                ("refs/heads/aioa-prefix", "refs/heads/aioa-prefix/child"),
+                ("refs/heads/aioa-prefix/child", "refs/heads/aioa-prefix"),
+            )
+        ):
+            with self.subTest(existing=existing):
+                repo = BareRepository(
+                    self.root / ("loose-prefix-" + str(index) + ".git"), self.repo.files
+                )
+                repo.mark_disposable()
+                repo.git("update-ref", existing, repo.base)
+                with self.assertRaisesRegex(ValueError, "GIT_REF_CONFLICT"):
+                    _bounded_git(
+                        repo.path, ("update-ref", requested, repo.base, "0" * 40)
+                    )
+                self.assertEqual(
+                    repo.git("rev-parse", existing).decode().strip(), repo.base
+                )
+
+    def test_nested_ref_parent_replacement_cannot_publish_into_displaced_directory(
+        self,
+    ):
+        ref = "refs/heads/aioa-parent/new"
+        parent = self.repo.path / "refs/heads/aioa-parent"
+        parent.mkdir()
+        moved = self.root / "displaced-ref-parent"
+        original = subprocess.Popen
+        observed = {}
+
+        def substitute(*args, **kwargs):
+            parent.rename(moved)
+            parent.mkdir()
+            observed["before"] = self.files(moved)
+            return original(*args, **kwargs)
+
+        with (
+            patch("subprocess.Popen", side_effect=substitute),
+            self.assertRaisesRegex(ValueError, "GIT_TARGET_MOVED"),
+        ):
+            _bounded_git(self.repo.path, ("update-ref", ref, self.repo.base, "0" * 40))
+        self.assertEqual(self.files(moved), observed["before"])
+        self.assertFalse((parent / "new").exists())
+
+    def test_packed_ref_appearing_during_git_execution_denies_publication(self):
+        ref = "refs/heads/aioa-late-packed"
+        original = subprocess.Popen
+        packed = self.repo.path / "packed-refs"
+
+        def substitute(*args, **kwargs):
+            packed.write_text(self.repo.base + " " + ref + "\n")
+            return original(*args, **kwargs)
+
+        with (
+            patch("subprocess.Popen", side_effect=substitute),
+            self.assertRaisesRegex(ValueError, "GIT_STORAGE_CHANGED"),
+        ):
+            _bounded_git(self.repo.path, ("update-ref", ref, self.repo.base, "0" * 40))
+        self.assertFalse((self.repo.path / ref).exists())
+        self.assertEqual(
+            self.repo.git("rev-parse", ref).decode().strip(), self.repo.base
+        )
+
+    def test_existing_git_locks_are_denied_without_removing_or_mutating_them(self):
+        ref = "refs/heads/aioa-locked"
+        for name in ("packed-refs.lock", ref + ".lock"):
+            with self.subTest(name=name):
+                lock = self.repo.path / name
+                lock.write_bytes(b"existing lock canary\n")
+                info = lock.stat()
+                try:
+                    with self.assertRaisesRegex(ValueError, "GIT_REF_LOCKED"):
+                        _bounded_git(
+                            self.repo.path,
+                            ("update-ref", ref, self.repo.base, "0" * 40),
+                        )
+                    self.assertEqual(lock.read_bytes(), b"existing lock canary\n")
+                    self.assertEqual(lock.stat().st_ino, info.st_ino)
+                    self.assertFalse((self.repo.path / ref).exists())
+                finally:
+                    lock.unlink()
+
+    def test_new_ref_with_other_packed_refs_preserves_packed_storage(self):
+        self.repo.git("pack-refs", "--all", "--prune")
+        packed = (self.repo.path / "packed-refs").read_bytes()
+        ref = "refs/heads/aioa-new-packed-repo"
+        self.assertEqual(
+            _bounded_git(self.repo.path, ("update-ref", ref, self.repo.base, "0" * 40)),
+            b"",
+        )
+        self.assertEqual(
+            self.repo.git("rev-parse", ref).decode().strip(), self.repo.base
+        )
+        self.assertEqual((self.repo.path / "packed-refs").read_bytes(), packed)
+        self.assertFalse((self.repo.path / "packed-refs.lock").exists())
+        self.assertFalse((self.repo.path / (ref + ".lock")).exists())
+
+    def test_native_ref_cas_excludes_cooperating_git_writers(self):
+        ref = "refs/heads/aioa-transaction"
+        original = subprocess.Popen
+        entered = []
+
+        def compete(*args, **kwargs):
+            if not entered:
+                entered.append(True)
+                self.assertTrue((self.repo.path / "packed-refs.lock").is_file())
+                self.assertTrue((self.repo.path / (ref + ".lock")).is_file())
+                for command in (
+                    ("pack-refs", "--all"),
+                    ("update-ref", ref, self.repo.base),
+                ):
+                    result = subprocess.run(
+                        [
+                            "/usr/bin/git",
+                            "--git-dir",
+                            str(self.repo.path),
+                            "-c",
+                            "core.packedRefsTimeout=0",
+                            "-c",
+                            "core.filesRefLockTimeout=0",
+                            *command,
+                        ],
+                        capture_output=True,
+                        check=False,
+                        timeout=5,
+                    )
+                    self.assertNotEqual(result.returncode, 0)
+            return original(*args, **kwargs)
+
+        with patch("subprocess.Popen", side_effect=compete):
+            self.assertEqual(
+                _bounded_git(
+                    self.repo.path, ("update-ref", ref, self.repo.base, "0" * 40)
+                ),
+                b"",
+            )
+        self.assertTrue(entered)
+        self.assertEqual(
+            self.repo.git("rev-parse", ref).decode().strip(), self.repo.base
+        )
+
+    def test_replaced_ref_lock_is_denied_without_deleting_foreign_lock(self):
+        ref = "refs/heads/aioa-lock-swap"
+        lock = self.repo.path / (ref + ".lock")
+        original = subprocess.Popen
+
+        def substitute(*args, **kwargs):
+            if lock.exists():
+                lock.unlink()
+            lock.write_bytes(b"foreign replacement lock\n")
+            return original(*args, **kwargs)
+
+        with (
+            patch("subprocess.Popen", side_effect=substitute),
+            self.assertRaisesRegex(ValueError, "GIT_REF_LOCK_CHANGED"),
+        ):
+            _bounded_git(self.repo.path, ("update-ref", ref, self.repo.base, "0" * 40))
+        self.assertFalse((self.repo.path / ref).exists())
+        self.assertEqual(lock.read_bytes(), b"foreign replacement lock\n")
+
     def test_config_alias_during_namespace_setup_has_no_foreign_write(self):
         config = self.repo.path / "config"
         foreign = self.root / "foreign-config"

@@ -119,3 +119,19 @@ Linux x86_64 sealing uses the stable Linux UAPI command numbers and verifies
 F_GET_SEALS after F_ADD_SEALS. Python builds that omit the symbolic constants
 remain supported; a kernel refusing any required seal is denied before exec,
 with no unsealed fallback. This is covered on both supported interpreters.
+
+The fixed Git ref transaction checks both loose and packed refs, including
+ancestor/descendant name conflicts. Native exclusively creates the conventional
+target-ref and packed-refs lock files before checking the bounded packed table;
+cooperating Git writers cannot change those refs during publication. There is
+no waiting or retry. Packed bytes and inode metadata are compared again before
+and after the create-only publication. Lock descriptors are never passed to Git.
+Cleanup unlinks only its exact unchanged lock inode while the approved storage
+and named parent remain bound. Replacement or movement raises an uncertainty
+error and retains the lock instead of modifying displaced/foreign storage.
+This does not certify a hostile host that arbitrarily bypasses filesystem locks.
+
+The same lifecycle lock rechecks closed at worker claim. Successful publication
+of REVIEW_REQUIRED retires its completed worker handle atomically; subsequent
+STOP reaches canonical review/approval cancellation rather than an obsolete
+worker token. UNKNOWN and uncertain cleanup still retain their owned handles.

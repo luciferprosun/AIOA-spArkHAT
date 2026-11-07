@@ -756,7 +756,8 @@ class LinuxSandboxBroker:
 
         No truncation, chmod, utime, append or write to an existing pathname.
         O_TMPFILE keeps incomplete bytes unnameable. linkat's exclusive create
-        is the zero-old-value CAS; unsupported filesystems fail closed.
+        protects a new loose pathname; the ref transaction separately checks
+        packed refs and Git name conflicts. Unsupported filesystems fail closed.
         """
         require(
             type(data) is bytes and len(data) <= 2097152, "GIT_PLUMBING_INPUT_BOUND"
@@ -997,16 +998,21 @@ class LinuxSandboxBroker:
 
             # Inspect a bounded local bare config as inert data. Git receives a
             # static safe config in a new tmpfs, never a mount over host files.
-            def read_local(name, maximum):
-                fd = os.open(
-                    name,
-                    os.O_RDONLY
-                    | os.O_NOFOLLOW
-                    | os.O_NONBLOCK
-                    | os.O_NOATIME
-                    | os.O_CLOEXEC,
-                    dir_fd=root,
-                )
+            def read_local(name, maximum, *, optional=False, identity=False):
+                try:
+                    fd = os.open(
+                        name,
+                        os.O_RDONLY
+                        | os.O_NOFOLLOW
+                        | os.O_NONBLOCK
+                        | os.O_NOATIME
+                        | os.O_CLOEXEC,
+                        dir_fd=root,
+                    )
+                except FileNotFoundError:
+                    if optional:
+                        return None
+                    raise
                 try:
                     info = os.fstat(fd)
                     require(
@@ -1017,11 +1023,26 @@ class LinuxSandboxBroker:
                         "GIT_STORAGE_FILE_TYPE",
                     )
                     raw = os.pread(fd, maximum + 1, 0)
+                    stamp = lambda row: (
+                        row.st_dev,
+                        row.st_ino,
+                        row.st_mode,
+                        row.st_uid,
+                        row.st_nlink,
+                        row.st_size,
+                        row.st_mtime_ns,
+                        row.st_ctime_ns,
+                    )
+                    try:
+                        named = os.stat(name, dir_fd=root, follow_symlinks=False)
+                    except OSError as error:
+                        raise ValueError("GIT_STORAGE_CHANGED") from error
                     require(
-                        len(raw) == info.st_size and os.fstat(fd).st_nlink == 1,
+                        len(raw) == info.st_size
+                        and stamp(info) == stamp(os.fstat(fd)) == stamp(named),
                         "GIT_STORAGE_CHANGED",
                     )
-                    return raw
+                    return (raw, stamp(info)) if identity else raw
                 finally:
                     os.close(fd)
 
@@ -1048,6 +1069,177 @@ class LinuxSandboxBroker:
                 ),
                 "GIT_HEAD_DENIED",
             )
+            locks = []
+
+            def lock_stamp(info):
+                return (
+                    info.st_dev,
+                    info.st_ino,
+                    info.st_mode,
+                    info.st_uid,
+                    info.st_nlink,
+                    info.st_size,
+                    info.st_mtime_ns,
+                    info.st_ctime_ns,
+                )
+
+            def check_lock(parent, name, fd, expected):
+                try:
+                    named = os.stat(name, dir_fd=parent, follow_symlinks=False)
+                except OSError as error:
+                    raise ValueError("GIT_REF_LOCK_CHANGED") from error
+                require(
+                    lock_stamp(os.fstat(fd)) == lock_stamp(named) == expected,
+                    "GIT_REF_LOCK_CHANGED",
+                )
+
+            def check_lock_parent(parent):
+                require(git_storage_identity(root) == topology, "GIT_STORAGE_CHANGED")
+                if binding_check is not None:
+                    binding_check()
+                if parent != root:
+                    fresh = cls._git_directory(
+                        anchors["refs/heads"],
+                        target_ref.split("/")[2:-1],
+                        create=False,
+                        cancel=None,
+                    )
+                    try:
+                        left, right = os.fstat(fresh), os.fstat(parent)
+                        require(
+                            (left.st_dev, left.st_ino) == (right.st_dev, right.st_ino),
+                            "GIT_TARGET_MOVED",
+                        )
+                    finally:
+                        os.close(fresh)
+
+            def lock_new(parent, name):
+                require(
+                    cancel is None or not cancel.cancelled, "GIT_PLUMBING_CANCELLED"
+                )
+                # This RW descriptor never enters held/pass_fds. Only Native
+                # owns it; Git receives neither a writable bind nor lock FD.
+                fd = os.open(
+                    ".", os.O_TMPFILE | os.O_RDWR | os.O_CLOEXEC, 0o400, dir_fd=parent
+                )
+                stack.callback(os.close, fd)
+                os.fsync(fd)
+                require(os.fstat(fd).st_nlink == 0, "GIT_UNNAMED_FILE_REQUIRED")
+                try:
+                    os.link(
+                        "/proc/self/fd/" + str(fd),
+                        name,
+                        dst_dir_fd=parent,
+                        follow_symlinks=True,
+                    )
+                except FileExistsError as error:
+                    raise ValueError("GIT_REF_LOCKED") from error
+                expected = lock_stamp(os.fstat(fd))
+                require(expected[4] == 1, "GIT_REF_LOCK_CHANGED")
+
+                def release():
+                    # Never remove a substituted/pre-existing lock or mutate
+                    # a directory that has left the approved target binding.
+                    # Uncertain cleanup retains the lock and raises, fail-closed.
+                    check_lock_parent(parent)
+                    check_lock(parent, name, fd, expected)
+                    os.unlink(name, dir_fd=parent)
+                    os.fsync(parent)
+
+                stack.callback(release)
+                os.fsync(parent)
+                locks.append((parent, name, fd, expected))
+
+            ref_parent = None
+            if isinstance(publish, tuple):
+                _, target_ref, _, _ = publish
+                if binding_check is not None:
+                    binding_check()
+                # Git's two files-backend locks serialize cooperating Git
+                # writers, including pack-refs. No waiting or blind retry.
+                lock_new(root, "packed-refs.lock")
+            packed_snapshot = read_local(
+                "packed-refs", 1048576, optional=True, identity=True
+            )
+            if isinstance(publish, tuple):
+                requested = target_ref.encode("ascii")
+                seen = set()
+                peeled = False
+                for index, line in enumerate(
+                    (packed_snapshot[0] if packed_snapshot else b"").splitlines(
+                        keepends=True
+                    )
+                ):
+                    if index == 0 and line.startswith(b"# pack-refs with: "):
+                        require(
+                            re.fullmatch(rb"# pack-refs with: [a-z -]*\n", line)
+                            is not None,
+                            "GIT_PACKED_REFS_DENIED",
+                        )
+                        continue
+                    if line.startswith(b"^"):
+                        require(
+                            peeled
+                            and re.fullmatch(rb"\^[a-f0-9]{40}\n", line) is not None,
+                            "GIT_PACKED_REFS_DENIED",
+                        )
+                        peeled = False
+                        continue
+                    record = re.fullmatch(
+                        rb"[a-f0-9]{40} (refs/[^\x00-\x20\x7f]+)\n", line
+                    )
+                    require(record is not None, "GIT_PACKED_REFS_DENIED")
+                    name = record[1]
+                    require(
+                        len(name) <= 256 and name not in seen and len(seen) < 4096,
+                        "GIT_PACKED_REFS_DENIED",
+                    )
+                    seen.add(name)
+                    peeled = True
+                    require(name != requested, "GIT_REF_ALREADY_EXISTS")
+                    require(
+                        not name.startswith(requested + b"/")
+                        and not requested.startswith(name + b"/"),
+                        "GIT_REF_CONFLICT",
+                    )
+                try:
+                    ref_parent = hold(
+                        cls._git_directory(
+                            anchors["refs/heads"],
+                            target_ref.split("/")[2:-1],
+                            create=True,
+                            cancel=cancel,
+                        )
+                    )
+                except (FileExistsError, NotADirectoryError) as error:
+                    raise ValueError("GIT_REF_CONFLICT") from error
+                ref_leaf = target_ref.rsplit("/", 1)[1]
+                lock_new(ref_parent, ref_leaf + ".lock")
+                try:
+                    existing = os.stat(
+                        ref_leaf, dir_fd=ref_parent, follow_symlinks=False
+                    )
+                except FileNotFoundError:
+                    pass
+                else:
+                    require(
+                        False,
+                        "GIT_REF_CONFLICT"
+                        if stat.S_ISDIR(existing.st_mode)
+                        else "GIT_REF_ALREADY_EXISTS",
+                    )
+
+            def check_ref_transaction():
+                for lock in locks:
+                    check_lock(*lock)
+                require(
+                    read_local("packed-refs", 1048576, optional=True, identity=True)
+                    == packed_snapshot,
+                    "GIT_STORAGE_CHANGED",
+                )
+                if ref_parent is not None:
+                    check_lock_parent(ref_parent)
+
             config_fd = sealed(
                 "aioa-fixed-git-config",
                 b"[core]\nrepositoryformatversion = 0\nbare = true\nlogAllRefUpdates = false\n",
@@ -1100,11 +1292,8 @@ class LinuxSandboxBroker:
                 str(head_fd),
                 "/repo/HEAD",
             ]
-            try:
-                packed = read_local("packed-refs", 1048576)
-            except FileNotFoundError:
-                pass
-            else:
+            if packed_snapshot is not None:
+                packed = packed_snapshot[0]
                 command += [
                     "--ro-bind-data",
                     str(sealed("aioa-fixed-packed-refs", packed)),
@@ -1198,6 +1387,7 @@ class LinuxSandboxBroker:
             if binding_check is not None:
                 binding_check()
             require(cancel is None or not cancel.cancelled, "GIT_PLUMBING_CANCELLED")
+            check_ref_transaction()
             if publish == "object":
                 object_id = bytes(output).decode("ascii").strip()
                 raw = (
@@ -1226,17 +1416,9 @@ class LinuxSandboxBroker:
                 require(
                     hashlib.sha1(raw).hexdigest() == object_id, "GIT_OBJECT_READBACK"
                 )
-                parent = hold(
-                    cls._git_directory(
-                        anchors["refs/heads"],
-                        target_ref.split("/")[2:-1],
-                        create=True,
-                        cancel=cancel,
-                    )
-                )
                 require(
                     cls._git_publish_new(
-                        parent,
+                        ref_parent,
                         target_ref.rsplit("/", 1)[1],
                         object_id.encode() + b"\n",
                         cancel=cancel,
@@ -1244,6 +1426,7 @@ class LinuxSandboxBroker:
                     "GIT_REF_ALREADY_EXISTS",
                 )
                 output = b""
+                check_ref_transaction()
             require(git_storage_identity(root) == topology, "GIT_STORAGE_CHANGED")
             return bytes(output)
 

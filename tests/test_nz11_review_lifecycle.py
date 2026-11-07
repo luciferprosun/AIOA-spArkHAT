@@ -17,6 +17,7 @@ from runtime.core_admission import Capability
 from runtime.memory_patch.contracts.serialization import canonical_sha256
 from runtime.memory_patch.errors import MemoryPatchError
 from runtime.memory_patch.persistence.ports import RecordKind, StoredRecord
+from runtime.mission import repair
 from runtime.mission.git_publish import CoreRemoteGitRoute
 from runtime.mission.patch_capsule import KIND, ExecutionCapsule
 from runtime.mission.warrant import approval_digest
@@ -34,16 +35,17 @@ class ReviewLifecycleTests(unittest.TestCase):
         self.service = self.case.service()
         self.case.admit(self.service, self.task)
 
-    def prepared_effect(self):
+    def prepared_effect(self, *, reviewed=False, capsule_digest="b" * 64):
         """Isolate approval/lifecycle after independent route proof checks."""
         service, fx, task = self.service, self.fx, self.task
-        service._transition(
-            fx.p(),
-            task.task_id,
-            ("QUEUED",),
-            "REVIEW_REQUIRED",
-            capsule_digest="b" * 64,
-        )
+        if not reviewed:
+            service._transition(
+                fx.p(),
+                task.task_id,
+                ("QUEUED",),
+                "REVIEW_REQUIRED",
+                capsule_digest=capsule_digest,
+            )
         fx.warrant = replace(
             fx.warrant,
             task_id=task.task_id,
@@ -59,7 +61,7 @@ class ReviewLifecycleTests(unittest.TestCase):
             self.case.case.capsules,
             self.case.case.identity,
         )
-        route.capsule = SimpleNamespace(task_id=task.task_id, digest="b" * 64)
+        route.capsule = SimpleNamespace(task_id=task.task_id, digest=capsule_digest)
         route.plan = SimpleNamespace(digest="a" * 64)
         route.core, route.scope = fx.core, fx.ledger.scope
         route.target_guard, route.check = nullcontext, lambda: None
@@ -250,6 +252,235 @@ class ReviewLifecycleTests(unittest.TestCase):
             )["state"],
             "APPROVED",
         )
+
+    def test_start_waiting_for_lifecycle_lock_cannot_claim_after_close(self):
+        service, task = self.service, self.task
+        lock = service._active_lock
+        waiting = threading.Event()
+        starter_id, observed = [], {}
+
+        class ObservedLock:
+            def __enter__(self):
+                if starter_id and threading.get_ident() == starter_id[0]:
+                    waiting.set()
+                lock.acquire()
+                return self
+
+            def __exit__(self, *_args):
+                lock.release()
+
+        service._active_lock = ObservedLock()
+
+        def start():
+            starter_id.append(threading.get_ident())
+            try:
+                observed["reply"] = service.request(
+                    self.fx.p(Capability.MANAGE), "start", {"task_id": task.task_id}
+                )
+            except ValueError as error:
+                observed["denial"] = str(error)
+
+        thread = threading.Thread(target=start)
+        lock.acquire()
+        try:
+            thread.start()
+            self.assertTrue(waiting.wait(10))
+            service.close()
+            self.assertTrue(service.closed)
+            self.assertFalse(self.case.workers)
+        finally:
+            lock.release()
+        thread.join(10)
+        self.assertFalse(thread.is_alive())
+        self.assertEqual(observed, {"denial": "CODING_CONTROLLER_CLOSED"})
+        self.assertFalse(service._active)
+        self.assertFalse(self.case.workers)
+        state = service.request(
+            self.fx.p(Capability.READ), "read_status", {"task_id": task.task_id}
+        )
+        self.assertEqual((state["state"], state["receipt_count"]), ("QUEUED", 1))
+
+    def _stop_at_review_handoff(self, *, approve):
+        """Real Core/lifecycle, synthetic validation/preparation; no Git effect."""
+        service, task, proposal = self.service, self.task, self.case.case.patch
+        issued_at = int(self.fx.ledger.clock().timestamp())
+        service._transition(self.fx.p(), task.task_id, ("QUEUED",), "RUNNING")
+        profile = self.case.case.case.profile()
+        steps = tuple(
+            repair.ValidationStep(
+                stage,
+                "PASS",
+                0,
+                proposal.patchset_sha256,
+                profile.digest,
+                str(i) * 64,
+                "sha256:" + str(i + 4) * 64,
+            )
+            for i, stage in enumerate(repair.TEST_STAGES, 1)
+        )
+        result = repair.RepairLoopResult(
+            task.task_id,
+            task.run_id,
+            "PATCH_READY",
+            ("INDEPENDENT_REVIEW", "PATCH_READY"),
+            (
+                repair.AttemptReceipt(
+                    0,
+                    proposal.worker_session_id,
+                    proposal.patchset_sha256,
+                    "PASS",
+                    steps,
+                    0,
+                ),
+            ),
+            proposal,
+            None,
+        )
+        capsule = ExecutionCapsule(
+            task.task_id,
+            task.run_id,
+            task.workspace_id,
+            task.repository_id,
+            proposal.worker_session_id,
+            task.source_base_sha,
+            proposal.base_tree_sha256,
+            proposal.final_tree_sha256,
+            task.digest,
+            proposal.patchset_sha256,
+            result.receipt_sha256,
+            profile.digest,
+            canonical_sha256(service.scope),
+            tuple(s.core_warrant_digest for s in steps),
+            tuple(s.evidence_digest for s in steps),
+            issued_at,
+            issued_at + 100,
+            "sha256:" + "9" * 64,
+            "target-1",
+        )
+        receipt = {
+            "schema": "aioa.patch-review-receipt.v1",
+            "state": "REVIEW_REQUIRED",
+            "capsule": capsule.payload(),
+            "capsule_digest": capsule.digest,
+            "authority": "NONE",
+        }
+        signed = {
+            "receipt": receipt,
+            "signature": service.capsules.identity.sign(receipt),
+            "signer_spki": service.capsules.identity.spki,
+        }
+        self.fx.journal._run(
+            self.fx.p(),
+            Capability.COMMIT,
+            lambda tx: tx.insert(
+                StoredRecord(
+                    RecordKind.OPERATION,
+                    canonical_sha256([KIND, capsule.digest]),
+                    service.scope,
+                    1,
+                    signed,
+                )
+            ),
+        )
+        active = {"cancel": CancellationToken(), "producer": None, "thread": None}
+        service._active[task.task_id] = active
+        lock, depths = service._active_lock, threading.local()
+        armed, released, stopped = (
+            threading.Event(),
+            threading.Event(),
+            threading.Event(),
+        )
+        worker_id, observed = [], {}
+
+        class HandoffLock:
+            def __enter__(self):
+                lock.acquire()
+                depths.n = getattr(depths, "n", 0) + 1
+                return self
+
+            def __exit__(self, *_args):
+                depths.n -= 1
+                lock.release()
+                if (
+                    worker_id
+                    and threading.get_ident() == worker_id[0]
+                    and depths.n == 0
+                    and armed.is_set()
+                    and not released.is_set()
+                ):
+                    released.set()
+                    if not stopped.wait(10):
+                        observed["timeout"] = True
+
+        service._active_lock = HandoffLock()
+        attach = service.attach_review
+
+        def attached(*args):
+            view = attach(*args)
+            armed.set()
+            return view
+
+        def execute():
+            worker_id.append(threading.get_ident())
+            service._execute(task.task_id, active)
+
+        thread = threading.Thread(target=execute)
+        active["thread"] = thread
+        with (
+            patch.object(
+                repair.BoundedRepairLoopCoordinator, "run", return_value=result
+            ),
+            patch.object(service.capsules, "prepare", return_value=signed),
+            patch.object(service, "attach_review", side_effect=attached),
+        ):
+            thread.start()
+            try:
+                self.assertTrue(released.wait(10))
+                if approve:
+                    route, exact = self.prepared_effect(
+                        reviewed=True,
+                        capsule_digest=capsule.digest,
+                    )
+                    approved = service.request(
+                        self.fx.p(Capability.OWNER_APPROVAL),
+                        "approve",
+                        exact,
+                    )
+                    self.assertEqual(approved["state"], "APPROVED")
+                    route.dispatch = lambda *_args, **_kwargs: self.fail(
+                        "POST_STOP_DISPATCH"
+                    )
+                reply = service.request(
+                    self.fx.p(Capability.MANAGE),
+                    "stop",
+                    {"task_id": task.task_id},
+                )
+            finally:
+                stopped.set()
+                thread.join(10)
+        self.assertFalse(thread.is_alive())
+        self.assertNotIn("timeout", observed)
+        self.assertEqual(reply["state"], "CANCELLED")
+        self.assertNotIn(task.task_id, service._active)
+        self.assertEqual(
+            service.request(
+                self.fx.p(Capability.READ),
+                "read_status",
+                {"task_id": task.task_id},
+            )["state"],
+            "CANCELLED",
+        )
+        if approve:
+            with self.assertRaisesRegex(ValueError, "CODING_TASK_INACTIVE"):
+                service.request(self.fx.p(), "apply", exact)
+
+    def test_stop_after_review_publication_before_worker_retirement_is_durable(self):
+        self._stop_at_review_handoff(approve=False)
+
+    def test_stop_after_review_handoff_and_owner_approval_cannot_leave_applyable_task(
+        self,
+    ):
+        self._stop_at_review_handoff(approve=True)
 
     def test_acknowledged_stop_cannot_be_followed_by_review_publication(self):
         service, fx, task, proposal = (
