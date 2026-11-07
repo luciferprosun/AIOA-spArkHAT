@@ -114,3 +114,8 @@ already-owned pipes; it has no process launcher or turn/start port. `CodexWorker
 remains NOT_CERTIFIED. A real inference turn and its CandidatePatch-to-Core
 integration need separate owner approval and contained backend certification.
 Protocol success is not model/tool-use certification.
+
+Linux x86_64 sealing uses the stable Linux UAPI command numbers and verifies
+F_GET_SEALS after F_ADD_SEALS. Python builds that omit the symbolic constants
+remain supported; a kernel refusing any required seal is denied before exec,
+with no unsealed fallback. This is covered on both supported interpreters.

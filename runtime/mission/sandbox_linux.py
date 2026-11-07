@@ -861,6 +861,10 @@ class LinuxSandboxBroker:
         from contextlib import ExitStack
 
         require(
+            sys.platform == "linux" and os.uname().machine == "x86_64",
+            "GIT_PLATFORM_DENIED",
+        )
+        require(
             type(arguments) is tuple and all(type(v) is str for v in arguments),
             "GIT_PLUMBING_COMMAND_DENIED",
         )
@@ -936,14 +940,15 @@ class LinuxSandboxBroker:
                     require(count > 0, "GIT_RUNTIME_COPY_FAILED")
                     view = view[count:]
                 os.lseek(fd, 0, os.SEEK_SET)
-                fcntl.fcntl(
-                    fd,
-                    fcntl.F_ADD_SEALS,
-                    fcntl.F_SEAL_WRITE
-                    | fcntl.F_SEAL_GROW
-                    | fcntl.F_SEAL_SHRINK
-                    | fcntl.F_SEAL_SEAL,
-                )
+                # Linux x86_64 UAPI (linux/fcntl.h): some supported Python
+                # builds omit these names although the kernel supports them.
+                # Numeric ABI use is not an unsealed fallback: verify all four
+                # mandatory seals in the kernel before any descriptor is used.
+                seals = 0x000F  # SEAL_SEAL | SEAL_SHRINK | SEAL_GROW | SEAL_WRITE
+                fcntl.fcntl(fd, 1033, seals)  # F_ADD_SEALS
+                require(
+                    fcntl.fcntl(fd, 1034) & seals == seals, "GIT_RUNTIME_UNSEALED"
+                )  # F_GET_SEALS
                 return fd
 
             # Descriptor copies are immutable after their exact hash is checked;

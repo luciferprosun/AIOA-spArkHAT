@@ -1,9 +1,11 @@
 """Fixed Git plumbing cannot follow internal links beyond its approved target."""
 
+import fcntl
 import os
 import subprocess
 import tempfile
 import unittest
+from contextlib import ExitStack
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -203,6 +205,49 @@ class GitConfinementTests(unittest.TestCase):
             .st_nlink,
             1,
         )
+
+    def test_memfd_sealing_works_when_python_omits_linux_constant_names(self):
+        names = (
+            "F_ADD_SEALS",
+            "F_GET_SEALS",
+            "F_SEAL_WRITE",
+            "F_SEAL_GROW",
+            "F_SEAL_SHRINK",
+            "F_SEAL_SEAL",
+        )
+        with ExitStack() as restore:
+            for name in names:
+                if hasattr(fcntl, name):
+                    restore.callback(setattr, fcntl, name, getattr(fcntl, name))
+                    delattr(fcntl, name)
+            payload = b"Python export independence\n"
+            object_id = (
+                _bounded_git(
+                    self.repo.path,
+                    ("hash-object", "-w", "-t", "blob", "--stdin"),
+                    data=payload,
+                    expected_target_identity=_git_target_identity(self.repo.path),
+                )
+                .decode()
+                .strip()
+            )
+            self.assertEqual(self.repo.git("cat-file", "blob", object_id), payload)
+
+    def test_kernel_sealing_denial_never_executes_an_unsealed_runtime(self):
+        original = fcntl.fcntl
+
+        def denied(fd, command, *args):
+            if command == 1033:
+                raise PermissionError("FIXTURE_KERNEL_SEAL_DENIED")
+            return original(fd, command, *args)
+
+        with (
+            patch.object(fcntl, "fcntl", side_effect=denied),
+            patch("subprocess.Popen") as spawned,
+        ):
+            with self.assertRaises(PermissionError):
+                _bounded_git(self.repo.path, ("rev-parse", "--is-bare-repository"))
+            spawned.assert_not_called()
 
     def test_real_git_ref_create_is_atomic_and_never_replayed(self):
         arguments = ("update-ref", "refs/heads/aioa-approved", self.repo.base, "0" * 40)
