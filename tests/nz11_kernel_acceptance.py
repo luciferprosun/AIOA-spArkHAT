@@ -17,6 +17,7 @@ from runtime.mission.git_publish import (
     CoreRemoteGitRoute,
     _git_target_identity,
 )
+from runtime.mission.sandbox_contracts import SandboxRegistry
 from runtime.providers.exact import CancellationToken
 
 sys.path[:0] = [str(Path(__file__).resolve().parents[1]), str(Path(__file__).parent)]
@@ -65,6 +66,21 @@ class SandboxPreparer:
             self.manifest,
             workspace="workspace-1",
             recipes={str(i): spec for i, (_, spec) in enumerate(specs)},
+        )
+        # The existing hard ceiling includes namespace setup and the final
+        # trusted Core release check. Full-history release alone takes 3.5s on
+        # this small host; the default 5s recipe is not this profile's budget.
+        # Pin the operator fixture to the existing 20s ceiling before authority
+        # is constructed. Neither the model nor candidate chooses this limit.
+        config = replace(
+            config,
+            registry=SandboxRegistry(
+                config.registry.workspace,
+                tuple(
+                    replace(recipe, timeout_ms=20000)
+                    for recipe in config.registry.recipes
+                ),
+            ),
         )
         self.configs.append(config)
         broker = support.LinuxSandboxBroker(config)
