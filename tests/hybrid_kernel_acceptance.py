@@ -4,8 +4,6 @@ Run with a clean environment and a user systemd bus. It never reads host keys,
 calls a model, contacts GitHub or uses the production Core database.
 """
 
-# ruff: noqa: E402 -- explicit standalone acceptance path bootstrap
-
 import importlib
 import json
 import sys
@@ -21,7 +19,6 @@ from cryptography.hazmat.primitives.asymmetric import ec
 from test_dual_governor import MODEL
 from test_hybrid_repair import DirectoryProducer
 
-import runtime.mission.repair as repair
 from lab.archaioa.faults import FaultKind, FaultTrace, classify_fault
 from lab.archaioa.taint import DependencyGraph, DependencyNode, NodeKind
 from runtime.core_admission import Capability
@@ -30,6 +27,7 @@ from runtime.memory_patch.contracts.serialization import (
     canonical_json_bytes,
     canonical_sha256,
 )
+from runtime.mission import repair
 from runtime.mission.coding_tasks import CoreCodingTasks, coding_cli_request
 from runtime.mission.completion import TaskCompletionBinding
 from runtime.mission.governor import GovernorPolicy, Limits, ReservationRequest
@@ -197,12 +195,12 @@ def main(manifest_path, root):
                 money_nano=1,
                 risk_units=5,
             )
-            args = dict(
-                session_id=identity,
-                warrant=warrant,
-                operation=op,
-                completion=completion,
-                reservation=ReservationRequest(
+            args = {
+                "session_id": identity,
+                "warrant": warrant,
+                "operation": op,
+                "completion": completion,
+                "reservation": ReservationRequest(
                     warrant.money_reservation_id,
                     identity,
                     "sandbox-exec",
@@ -211,7 +209,7 @@ def main(manifest_path, root):
                     1,
                     5,
                 ),
-            )
+            }
             prepared.append(PreparedValidationStep(stage, route, fx.p(), args))
         return tuple(prepared)
 

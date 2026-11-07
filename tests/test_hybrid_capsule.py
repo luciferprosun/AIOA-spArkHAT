@@ -10,8 +10,8 @@ from cryptography.hazmat.primitives.asymmetric import ec
 from q09_support import Fixture
 from test_hybrid_repair import DirectoryProducer, FaultBackend
 
-import runtime.mission.repair as repair
 from runtime.core_admission import Capability
+from runtime.mission import repair
 from runtime.mission.patchset import observe_source
 from runtime.mission.worker import CandidateFile, CandidatePatch, Task
 from runtime.mobile_gateway.wire import Identity

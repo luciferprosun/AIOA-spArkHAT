@@ -20,7 +20,7 @@ class IntakeTests(unittest.TestCase):
     def test_two_distinct_fixture_adapters_share_policy_without_model_authority(self):
         from test_hybrid_repair import DirectoryProducer
 
-        import runtime.mission.repair as repair
+        from runtime.mission import repair
         from runtime.mission.patchset import BoundedPatchSetPolicy, observe_source
         from runtime.mission.worker import (
             CandidateFile,

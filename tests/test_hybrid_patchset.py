@@ -61,13 +61,13 @@ class PatchSetTests(unittest.TestCase):
         return self.evaluate()
 
     def recheck(self, observed, **changes):
-        values = dict(
-            base_root=self.base,
-            final_root=self.final,
-            source=self.source,
-            task=self.task,
-            worker_session_id="worker-1",
-        )
+        values = {
+            "base_root": self.base,
+            "final_root": self.final,
+            "source": self.source,
+            "task": self.task,
+            "worker_session_id": "worker-1",
+        }
         values.update(changes)
         return self.policy.recheck(observed, **values)
 
@@ -288,9 +288,11 @@ class PatchSetTests(unittest.TestCase):
                 self.write(self.base / "calc.py", b"def add(a, b):\n    return 88\n")
             return data
 
-        with patch.object(self.module, "_read_regular", side_effect=race):
-            with self.assertRaises(ValueError):
-                self.evaluate()
+        with (
+            patch.object(self.module, "_read_regular", side_effect=race),
+            self.assertRaises(ValueError),
+        ):
+            self.evaluate()
 
     def test_model_cannot_weaken_test_framework_from_application_code(self):
         for data in (

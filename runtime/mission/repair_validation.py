@@ -24,7 +24,14 @@ from runtime.mission.contracts import bounded_int, logical_id
 from runtime.mission.intent import CoreIntentJournal
 from runtime.mission.liability import Reconciliation
 from runtime.mission.patchset import PatchSet, _snapshot, normalize_patch_relative_path
-from runtime.mission.repair import TEST_STAGES, ValidationStep, digest, require
+from runtime.mission.repair import (
+    TEST_STAGES,
+    RepairBoundaryError,
+    ValidationStep,
+    digest,
+    failure_boundary,
+    require,
+)
 from runtime.mission.sandbox_contracts import SANDBOX
 from runtime.mission.sandbox_linux import LinuxSandboxBroker, read_evidence_file
 from runtime.mission.tools import CoreToolRoute
@@ -400,97 +407,102 @@ class _CoreValidationSession:
             canonical_sha256({"unresolved": warrant.digest()}),
         )
         try:
-            step.route.dispatch(step.principal, **args, cancel=self.owner.cancel)
-            matching = []
-            for run in step.route.executor.config.root.glob("run-*"):
-                if not (run / "receipt.json").exists():
-                    continue
-                raw = read_evidence_file(run, "receipt.json")
-                receipt = _json_bytes(raw)
-                if receipt.get("warrant_digest") == warrant.digest():
-                    matching.append((raw, receipt))
-            require(len(matching) == 1, "VALIDATION_RECEIPT_REQUIRED")
-            raw, receipt = matching[0]
-            evidence = hashlib.sha256(raw).hexdigest()
-            clean = (
-                receipt.get("cgroup_absent_after_cleanup") is True
-                and receipt.get("unit_terminal_observed") is True
-                and receipt.get("cgroup_populated_zero_directly_observed") is True
-            )
-            self.cleanup_failed = not clean
-            require(
-                clean and receipt["status"] == "READBACK_VERIFIED",
-                "VALIDATION_UNRESOLVED",
-            )
-            step.route.reconcile(step.principal, warrant, 1)
-
-            def load(tx):
-                return self.owner.journal._load(tx, warrant)[1]["resolution"]
-
-            stored = self.owner.journal._run(step.principal, Capability.COMMIT, load)
-            resolved = Reconciliation.from_dict(stored)
-            require(
-                resolved.outcome.to_dict()["contract_type"] == "Applied"
-                and resolved.receipt.digest == "sha256:" + evidence,
-                "VALIDATION_CORE_RECEIPT",
-            )
-            status, code = decode_test_report(
-                receipt["observations"]["worker_terminal"]["stdout"],
-                self.owner.profile.context(stage, self.patchset),
-            )
-            # Canonical Core evidence joins the report to the exact approved
-            # sandbox operation. A caller-created ValidationStep is not proof.
-            data = {
-                "schema": "aioa.trusted-validation.v1",
-                "stage": stage,
-                "status": status,
-                "exit_code": code,
-                "patchset_sha256": self.patchset.patchset_sha256,
-                "profile_digest": self.owner.profile.digest,
-                "warrant_digest": warrant.digest(),
-                "evidence_digest": evidence,
-                "operation_digest": warrant.operation_hash,
-                "warrant": warrant.to_dict(),
-            }
-            key = canonical_sha256(["aioa.trusted-validation.v1", warrant.digest()])
-
-            def save(tx):
-                from runtime.memory_patch.audit import append_domain_event
-                from runtime.memory_patch.persistence.idempotency import (
-                    OperationBinding,
+            with failure_boundary("VALIDATION_UNRESOLVED"):
+                step.route.dispatch(step.principal, **args, cancel=self.owner.cancel)
+                matching = []
+                for run in step.route.executor.config.root.glob("run-*"):
+                    if not (run / "receipt.json").exists():
+                        continue
+                    raw = read_evidence_file(run, "receipt.json")
+                    receipt = _json_bytes(raw)
+                    if receipt.get("warrant_digest") == warrant.digest():
+                        matching.append((raw, receipt))
+                require(len(matching) == 1, "VALIDATION_RECEIPT_REQUIRED")
+                raw, receipt = matching[0]
+                evidence = hashlib.sha256(raw).hexdigest()
+                clean = (
+                    receipt.get("cgroup_absent_after_cleanup") is True
+                    and receipt.get("unit_terminal_observed") is True
+                    and receipt.get("cgroup_populated_zero_directly_observed") is True
                 )
+                self.cleanup_failed = not clean
+                require(
+                    clean and receipt["status"] == "READBACK_VERIFIED",
+                    "VALIDATION_UNRESOLVED",
+                )
+                step.route.reconcile(step.principal, warrant, 1)
 
-                current = self.owner.journal._load(tx, warrant)[1]
-                require(current["resolution"] == stored, "VALIDATION_CORE_CHANGED")
-                prior = tx.get(RecordKind.OPERATION, key)
-                if prior is not None:
-                    require(
-                        canonical_json_bytes(prior.payload)
-                        == canonical_json_bytes(data),
-                        "VALIDATION_RECORD_CONFLICT",
+                def load(tx):
+                    return self.owner.journal._load(tx, warrant)[1]["resolution"]
+
+                stored = self.owner.journal._run(
+                    step.principal, Capability.COMMIT, load
+                )
+                resolved = Reconciliation.from_dict(stored)
+                require(
+                    resolved.outcome.to_dict()["contract_type"] == "Applied"
+                    and resolved.receipt.digest == "sha256:" + evidence,
+                    "VALIDATION_CORE_RECEIPT",
+                )
+                status, code = decode_test_report(
+                    receipt["observations"]["worker_terminal"]["stdout"],
+                    self.owner.profile.context(stage, self.patchset),
+                )
+                # Canonical Core evidence joins the report to the exact approved
+                # sandbox operation. A caller-created ValidationStep is not proof.
+                data = {
+                    "schema": "aioa.trusted-validation.v1",
+                    "stage": stage,
+                    "status": status,
+                    "exit_code": code,
+                    "patchset_sha256": self.patchset.patchset_sha256,
+                    "profile_digest": self.owner.profile.digest,
+                    "warrant_digest": warrant.digest(),
+                    "evidence_digest": evidence,
+                    "operation_digest": warrant.operation_hash,
+                    "warrant": warrant.to_dict(),
+                }
+                key = canonical_sha256(["aioa.trusted-validation.v1", warrant.digest()])
+
+                def save(tx):
+                    from runtime.memory_patch.audit import append_domain_event
+                    from runtime.memory_patch.persistence.idempotency import (
+                        OperationBinding,
                     )
-                    return
-                row = StoredRecord(RecordKind.OPERATION, key, step.route.scope, 1, data)
-                tx.insert(row)
-                binding = OperationBinding.bind(
-                    "validation-" + key,
-                    "TRUSTED_TEST_REPORT",
-                    {"record_digest": row.payload_digest},
-                )
-                append_domain_event(
-                    tx,
-                    binding,
-                    event_id="validation-audit-" + key,
-                    proof_id="validation-proof-" + key,
-                    resource_id=key,
-                    before=None,
-                    after=status,
-                    content_digest=row.payload_digest,
-                    at=self.owner.journal.ledger.clock(),
-                )
 
-            self.owner.journal._run(step.principal, Capability.COMMIT, save)
-        except Exception as error:
+                    current = self.owner.journal._load(tx, warrant)[1]
+                    require(current["resolution"] == stored, "VALIDATION_CORE_CHANGED")
+                    prior = tx.get(RecordKind.OPERATION, key)
+                    if prior is not None:
+                        require(
+                            canonical_json_bytes(prior.payload)
+                            == canonical_json_bytes(data),
+                            "VALIDATION_RECORD_CONFLICT",
+                        )
+                        return
+                    row = StoredRecord(
+                        RecordKind.OPERATION, key, step.route.scope, 1, data
+                    )
+                    tx.insert(row)
+                    binding = OperationBinding.bind(
+                        "validation-" + key,
+                        "TRUSTED_TEST_REPORT",
+                        {"record_digest": row.payload_digest},
+                    )
+                    append_domain_event(
+                        tx,
+                        binding,
+                        event_id="validation-audit-" + key,
+                        proof_id="validation-proof-" + key,
+                        resource_id=key,
+                        before=None,
+                        after=status,
+                        content_digest=row.payload_digest,
+                        at=self.owner.journal.ledger.clock(),
+                    )
+
+                self.owner.journal._run(step.principal, Capability.COMMIT, save)
+        except (ValueError, RepairBoundaryError) as error:
             status, code = "UNKNOWN", None
             self.failure_code = (
                 str(error)

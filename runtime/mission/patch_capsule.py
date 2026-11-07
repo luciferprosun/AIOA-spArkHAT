@@ -99,7 +99,10 @@ class ExecutionCapsule:
             (self.validation_receipts, False),
         ):
             require(
-                type(proof) is tuple and len(proof) == len(set(proof)) == 3,
+                type(proof) is tuple
+                and len(proof) == 3
+                and all(type(value) is str for value in proof)
+                and len(set(proof)) == 3,
                 "CAPSULE_PROOFS",
             )
             for value in proof:

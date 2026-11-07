@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import re
 import time
+from contextlib import contextmanager
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Protocol
@@ -32,6 +33,25 @@ def digest(value):
     require(
         type(value) is str and re.fullmatch(r"[0-9a-f]{64}", value), "REPAIR_DIGEST"
     )
+
+
+class RepairBoundaryError(RuntimeError):
+    """A host callback failed; only the bounded public code crosses the port."""
+
+
+@contextmanager
+def failure_boundary(code):
+    """Preserve typed denials and process signals; wrap foreign callback errors."""
+    require(
+        type(code) is str and re.fullmatch(r"[A-Z0-9_]{1,96}", code),
+        "REPAIR_BOUNDARY_CODE",
+    )
+    try:
+        yield
+    except ValueError:
+        raise
+    except Exception as error:
+        raise RepairBoundaryError(code) from error
 
 
 @dataclass(frozen=True, slots=True)
@@ -239,100 +259,103 @@ class BoundedRepairLoopCoordinator:
                 if attempt:
                     history.append("REPAIRING")
                 try:
-                    candidate = producer.produce(attempt, feedback)
-                    require(type(candidate) is CandidateWorkspace, "WORKER_CONTEXT")
-                    result, session = candidate.worker_result, candidate.session
-                    require(
-                        session.task_digest == task.digest
-                        and session.task_id == task.task_id
-                        and session.run_id == task.run_id
-                        and result.task_id == task.task_id
-                        and result.run_id == task.run_id
-                        and result.session_id == session.session_id,
-                        "WORKER_CONTEXT",
-                    )
-                except Exception:
+                    with failure_boundary("WORKER_PRODUCER_FAILED"):
+                        candidate = producer.produce(attempt, feedback)
+                        require(type(candidate) is CandidateWorkspace, "WORKER_CONTEXT")
+                        result, session = candidate.worker_result, candidate.session
+                        require(
+                            session.task_digest == task.digest
+                            and session.task_id == task.task_id
+                            and session.run_id == task.run_id
+                            and result.task_id == task.task_id
+                            and result.run_id == task.run_id
+                            and result.session_id == session.session_id,
+                            "WORKER_CONTEXT",
+                        )
+                except (ValueError, RepairBoundaryError):
                     status, failure = "FAILED", "WORKER_PRODUCER_FAILED"
                     break
                 patchset, steps, session, cleanup = None, [], None, 0
                 attempt_status, attempt_failure = "CRASH", "VALIDATION_BACKEND_FAILURE"
                 try:
-                    history.append("PATCH_POLICY")
-                    patchset = self.policy.evaluate(
-                        base_root,
-                        candidate.root,
-                        source=source,
-                        task=task,
-                        worker_session_id=result.session_id,
-                    )
-                    self.policy.recheck(
-                        patchset,
-                        base_root=base_root,
-                        final_root=candidate.root,
-                        source=source,
-                        task=task,
-                        worker_session_id=result.session_id,
-                    )
-                    if patchset.final_tree_sha256 in seen:
-                        attempt_status, attempt_failure = (
-                            "DENIED",
-                            "REPAIR_CONTENT_NOT_NEW",
+                    with failure_boundary("VALIDATION_BACKEND_FAILURE"):
+                        history.append("PATCH_POLICY")
+                        patchset = self.policy.evaluate(
+                            base_root,
+                            candidate.root,
+                            source=source,
+                            task=task,
+                            worker_session_id=result.session_id,
                         )
-                    else:
-                        seen.add(patchset.final_tree_sha256)
-                        session = validator.open(candidate.root, patchset)
-                        attempt_status, attempt_failure = "PASS", None
-                        for stage in TEST_STAGES:
-                            if cancelled is not None and cancelled():
-                                attempt_status, attempt_failure = (
-                                    "CANCELLED",
-                                    "CANCELLED",
-                                )
-                                break
-                            if self.clock() >= task.deadline_at:
-                                attempt_status, attempt_failure = (
-                                    "TIMEOUT",
-                                    "TASK_DEADLINE",
-                                )
-                                break
-                            history.append(stage)
-                            observed = session.run(stage)
-                            require(
-                                type(observed) is ValidationStep
-                                and observed.stage == stage
-                                and observed.patchset_sha256
-                                == patchset.patchset_sha256,
-                                "VALIDATION_BINDING",
+                        self.policy.recheck(
+                            patchset,
+                            base_root=base_root,
+                            final_root=candidate.root,
+                            source=source,
+                            task=task,
+                            worker_session_id=result.session_id,
+                        )
+                        if patchset.final_tree_sha256 in seen:
+                            attempt_status, attempt_failure = (
+                                "DENIED",
+                                "REPAIR_CONTENT_NOT_NEW",
                             )
-                            require(
-                                not steps
-                                or observed.profile_digest == steps[0].profile_digest,
-                                "VALIDATION_PROFILE_CHANGED",
-                            )
-                            steps.append(observed)
-                            stopped = stop_reason()
-                            if stopped is not None:
-                                attempt_status, attempt_failure = stopped
-                                break
-                            if observed.status != "PASS":
-                                attempt_status, attempt_failure = (
-                                    observed.status,
-                                    "TEST_" + observed.status,
+                        else:
+                            seen.add(patchset.final_tree_sha256)
+                            session = validator.open(candidate.root, patchset)
+                            attempt_status, attempt_failure = "PASS", None
+                            for stage in TEST_STAGES:
+                                if cancelled is not None and cancelled():
+                                    attempt_status, attempt_failure = (
+                                        "CANCELLED",
+                                        "CANCELLED",
+                                    )
+                                    break
+                                if self.clock() >= task.deadline_at:
+                                    attempt_status, attempt_failure = (
+                                        "TIMEOUT",
+                                        "TASK_DEADLINE",
+                                    )
+                                    break
+                                history.append(stage)
+                                observed = session.run(stage)
+                                require(
+                                    type(observed) is ValidationStep
+                                    and observed.stage == stage
+                                    and observed.patchset_sha256
+                                    == patchset.patchset_sha256,
+                                    "VALIDATION_BINDING",
                                 )
-                                break
-                        if attempt_status == "PASS":
-                            self.policy.recheck(
-                                patchset,
-                                base_root=base_root,
-                                final_root=candidate.root,
-                                source=source,
-                                task=task,
-                                worker_session_id=result.session_id,
-                            )
-                            history.append("INDEPENDENT_REVIEW")
-                            rejected = semantic_review(patchset)
-                            if rejected:
-                                attempt_status, attempt_failure = "DENIED", rejected
+                                require(
+                                    not steps
+                                    or observed.profile_digest
+                                    == steps[0].profile_digest,
+                                    "VALIDATION_PROFILE_CHANGED",
+                                )
+                                steps.append(observed)
+                                stopped = stop_reason()
+                                if stopped is not None:
+                                    attempt_status, attempt_failure = stopped
+                                    break
+                                if observed.status != "PASS":
+                                    attempt_status, attempt_failure = (
+                                        observed.status,
+                                        "TEST_" + observed.status,
+                                    )
+                                    break
+                            if attempt_status == "PASS":
+                                self.policy.recheck(
+                                    patchset,
+                                    base_root=base_root,
+                                    final_root=candidate.root,
+                                    source=source,
+                                    task=task,
+                                    worker_session_id=result.session_id,
+                                )
+                                history.append("INDEPENDENT_REVIEW")
+                                rejected = semantic_review(patchset)
+                                if rejected:
+                                    attempt_status, attempt_failure = "DENIED", rejected
                 except ValueError as error:
                     attempt_status = "DENIED" if patchset is None else "CRASH"
                     attempt_failure = (
@@ -340,7 +363,7 @@ class BoundedRepairLoopCoordinator:
                         if re.fullmatch(r"PATCHSET_[A-Z0-9_]+", str(error))
                         else "VALIDATION_BINDING_FAILED"
                     )
-                except Exception:
+                except RepairBoundaryError:
                     attempt_status, attempt_failure = (
                         "CRASH",
                         "VALIDATION_BACKEND_FAILURE",
@@ -348,10 +371,11 @@ class BoundedRepairLoopCoordinator:
                 finally:
                     if session is not None:
                         try:
-                            cleanup = session.close()
-                            if type(cleanup) is not int or not 0 <= cleanup <= 1024:
-                                cleanup = 1
-                        except Exception:
+                            with failure_boundary("SANDBOX_CLEANUP_FAILED"):
+                                cleanup = session.close()
+                                if type(cleanup) is not int or not 0 <= cleanup <= 1024:
+                                    cleanup = 1
+                        except (ValueError, RepairBoundaryError):
                             cleanup = 1
                 if cleanup:
                     attempt_status, attempt_failure = "CRASH", "SANDBOX_CLEANUP_FAILED"
@@ -390,10 +414,13 @@ class BoundedRepairLoopCoordinator:
                 break
         finally:
             try:
-                cleanup = producer.close()
-                if cleanup is not None and (type(cleanup) is not int or cleanup != 0):
-                    final, status, failure = None, "FAILED", "WORKER_CLEANUP_FAILED"
-            except Exception:
+                with failure_boundary("WORKER_CLEANUP_FAILED"):
+                    cleanup = producer.close()
+                    if cleanup is not None and (
+                        type(cleanup) is not int or cleanup != 0
+                    ):
+                        final, status, failure = None, "FAILED", "WORKER_CLEANUP_FAILED"
+            except (ValueError, RepairBoundaryError):
                 final, status, failure = None, "FAILED", "WORKER_CLEANUP_FAILED"
         if status == "PATCH_READY" and (stopped := stop_reason()) is not None:
             final, failure = None, stopped[1]

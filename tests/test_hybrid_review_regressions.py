@@ -13,11 +13,11 @@ from cryptography.hazmat.primitives.asymmetric import ec
 from q09_support import Fixture
 
 import runtime.mission.patchset as policy
-import runtime.mission.repair as repair
 from runtime.core_admission import Capability
 from runtime.memory_patch.contracts.serialization import canonical_sha256
 from runtime.memory_patch.persistence import ports
 from runtime.memory_patch.persistence.ports import RecordKind, StoredRecord
+from runtime.mission import repair
 from runtime.mission.git_publish import VerifiedPatchSet
 from runtime.mission.patch_capsule import (
     KIND,
@@ -147,15 +147,17 @@ class ReviewRegressions(unittest.TestCase):
                     )
             return raw
 
-        with mock.patch.object(policy, "_read_regular", side_effect=race):
-            with self.assertRaises(ValueError):
-                policy.BoundedPatchSetPolicy().evaluate(
-                    fixture.base,
-                    final,
-                    source=source,
-                    task=fixture.task,
-                    worker_session_id="worker-1",
-                )
+        with (
+            mock.patch.object(policy, "_read_regular", side_effect=race),
+            self.assertRaises(ValueError),
+        ):
+            policy.BoundedPatchSetPolicy().evaluate(
+                fixture.base,
+                final,
+                source=source,
+                task=fixture.task,
+                worker_session_id="worker-1",
+            )
         self.assertEqual(hits[0], 2)
 
     def _final_race(self, where, kind):
@@ -257,13 +259,15 @@ class ReviewRegressions(unittest.TestCase):
             )
 
     def test_I6_work_budget_is_checked_before_sequence_matcher(self):
-        with mock.patch.object(
-            policy.difflib,
-            "SequenceMatcher",
-            side_effect=AssertionError("unbounded matching reached"),
+        with (
+            mock.patch.object(
+                policy.difflib,
+                "SequenceMatcher",
+                side_effect=AssertionError("unbounded matching reached"),
+            ),
+            self.assertRaises(ValueError),
         ):
-            with self.assertRaises(ValueError):
-                policy._counts("x\n" * 32767, "x\n" * 32766 + "y\n")
+            policy._counts("x\n" * 32767, "x\n" * 32766 + "y\n")
 
     def test_I5_valid_add_without_canonical_capsule_cannot_convert(self):
         from runtime.mission.git_publish import CoreRemoteGitRoute
