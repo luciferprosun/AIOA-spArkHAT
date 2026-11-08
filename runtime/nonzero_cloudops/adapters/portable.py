@@ -1,5 +1,6 @@
 # Native semantic port; MIT attribution: LICENSE-NONZERO.txt.
 # Source: cloudops/local_mock.py at 4fafed8b1a877e55d96ddd9baea0a737fbeeaa4a.
+# W7A repeat-demo semantics: 392487849eddc7444f5159994b66b72e73f15934.
 """Integrity-bound local mock inventory and protected execution boundary."""
 
 from collections.abc import Callable, Mapping
@@ -226,6 +227,75 @@ class PortableStateStore:
             _, receipts = self._load()
             return receipts.get(idempotency_key)
 
+    def _released_receipts(self, query, resources, receipts):
+        initial = next((item for item in self._initial_resources if (
+            item.resource_type == query.resource_type
+            and item.resource_id == query.resource_id and item.region == query.region
+        )), None)
+        key = (query.resource_type, query.resource_id, query.region)
+        if initial is None or key in resources:
+            return initial, ()
+        return initial, tuple(receipt for receipt in receipts.values() if (
+            receipt.before_resource == initial and receipt.after_resource is None
+            and receipt.target_resource_type == query.resource_type
+            and receipt.target_resource_id == query.resource_id
+        ))
+
+    def released_default_resource_receipts(
+        self, query: ResourceQuery,
+    ) -> tuple[LocalExecutionReceipt, ...]:
+        """Read all releases of one absent demo target; none grant authority.
+
+        Core must verify every consuming run, including interrupted later runs.
+        Choosing only the greatest timestamp would miss a later UNKNOWN when
+        the wall clock moves backwards or multiple receipts share a timestamp.
+        """
+        if not isinstance(query, ResourceQuery):
+            raise TypeError("query must be ResourceQuery")
+        with self._lock(exclusive=False):
+            resources, receipts = self._load()
+            _, consumed = self._released_receipts(query, resources, receipts)
+            return consumed
+
+    def rearm_verified_demo_resource(
+        self, query: ResourceQuery, *, verifications: tuple[LocalVerificationEvidence, ...],
+    ) -> bool:
+        """Restore only initial mock state with Core-checked readback proofs.
+
+        The existing inventory lock atomically compares the complete release
+        set and preserves every receipt. This never calls a cloud provider.
+        """
+        if not isinstance(query, ResourceQuery):
+            raise TypeError("query must be ResourceQuery")
+        if not isinstance(verifications, tuple) or any(
+            not isinstance(item, LocalVerificationEvidence) for item in verifications
+        ):
+            raise PortablePolicyError("demo rearm requires typed verification proofs")
+        with self._lock(exclusive=True):
+            resources, receipts = self._load()
+            initial, consumed = self._released_receipts(query, resources, receipts)
+            if not consumed:
+                return False
+            proofs = {item.receipt_hash: item for item in verifications}
+            if len(proofs) != len(verifications) or set(proofs) != {
+                receipt.receipt_hash for receipt in consumed
+            }:
+                raise PortableConflictError("demo release history changed or is unverified")
+            for receipt in consumed:
+                proof = proofs[receipt.receipt_hash]
+                if (
+                    proof.run_id != receipt.run_id or proof.proposal_id != receipt.proposal_id
+                    or proof.operation_type != receipt.operation_type
+                    or proof.target_resource_type != receipt.target_resource_type
+                    or proof.target_resource_id != receipt.target_resource_id
+                    or not proof.observed_absent or proof.observed_resource is not None
+                    or proof.verified_at < receipt.executed_at
+                ):
+                    raise PortablePolicyError("demo verification is not release-bound")
+            resources[(query.resource_type, query.resource_id, query.region)] = initial
+            self._write(resources, receipts)
+            return True
+
     def execute(
         self,
         *,
@@ -370,7 +440,10 @@ class PortableStateStore:
             or intent.operation_type is not proposal.operation_type
             or intent.target_resource_type is not proposal.target_resource_type
             or intent.target_resource_id != proposal.target_resource_id
-            or intent.idempotency_key != f"local-exec:{proposal.proposal_hash}"
+            or intent.idempotency_key not in {
+                f"local-exec:{proposal.run_id}:{proposal.proposal_hash}",
+                f"local-exec:{proposal.proposal_hash}",
+            }
         ):
             raise PortablePolicyError(
                 "local executor prerequisites are not exactly approval-bound"

@@ -8762,112 +8762,124 @@
     },
     "runtime/nonzero_cloudops/adapters/portable.py": {
       "path": "runtime/nonzero_cloudops/adapters/portable.py",
-      "git_blob": "1237b033e044cb8298b8bbf385ddc80125f04d39",
-      "sha256": "4837b82339b42c40c05f6e04a211f3bed5328ecddc0f1a450b68807bfa0d2789",
+      "git_blob": "46ca8757f316a4d21239ce2630a301166fa97cbe",
+      "sha256": "9e18028fc9b108f3530395f3978a84c180909252112607d830eb02063bdb8fd6",
       "definitions": [
         {
           "name": "PortableMutationError",
-          "line": 50
+          "line": 51
         },
         {
           "name": "PortablePolicyError",
-          "line": 54
+          "line": 55
         },
         {
           "name": "PortableConflictError",
-          "line": 58
+          "line": 59
         },
         {
           "name": "PortableStateStore",
-          "line": 62
+          "line": 63
         },
         {
           "name": "PortableResourceReader",
-          "line": 433
+          "line": 506
         },
         {
           "name": "PortableExecutor",
-          "line": 454
+          "line": 527
         },
         {
           "name": "__init__",
-          "line": 65
+          "line": 66
         },
         {
           "name": "path",
-          "line": 94
+          "line": 95
         },
         {
           "name": "_lock",
-          "line": 98
+          "line": 99
         },
         {
           "name": "_initial_snapshot",
-          "line": 108
+          "line": 109
         },
         {
           "name": "_load",
-          "line": 119
+          "line": 120
         },
         {
           "name": "_write",
-          "line": 176
+          "line": 177
         },
         {
           "name": "get_resource",
-          "line": 204
+          "line": 205
         },
         {
           "name": "assert_ready",
-          "line": 218
+          "line": 219
         },
         {
           "name": "get_receipt",
-          "line": 224
+          "line": 225
+        },
+        {
+          "name": "_released_receipts",
+          "line": 230
+        },
+        {
+          "name": "released_default_resource_receipts",
+          "line": 244
+        },
+        {
+          "name": "rearm_verified_demo_resource",
+          "line": 260
         },
         {
           "name": "execute",
-          "line": 229
+          "line": 299
         },
         {
           "name": "_validate_execution_binding",
-          "line": 346
+          "line": 416
         },
         {
           "name": "verify",
-          "line": 379
+          "line": 452
         },
         {
           "name": "__init__",
-          "line": 436
+          "line": 509
         },
         {
           "name": "adapter_name",
-          "line": 444
+          "line": 517
         },
         {
           "name": "get_resource",
-          "line": 447
+          "line": 520
         },
         {
           "name": "__init__",
-          "line": 457
+          "line": 530
         },
         {
           "name": "execute",
-          "line": 472
+          "line": 545
         },
         {
           "name": "counters",
-          "line": 496
+          "line": 569
         },
         {
           "name": "get_receipt",
-          "line": 502
+          "line": 575
         },
         {
           "name": "verify",
-          "line": 505
+          "line": 578
         }
       ],
       "symbolic_callees": [
@@ -8898,6 +8910,7 @@
         "isinstance",
         "len",
         "locked_private_file",
+        "next",
         "open_local_payload",
         "payload.get",
         "proposal.normalized_parameters.get",
@@ -8905,6 +8918,7 @@
         "provisional.verification_payload",
         "read_private_json",
         "receipts.get",
+        "receipts.values",
         "receipts[data].model_dump",
         "resolved.parent.mkdir",
         "resolved.with_name",
@@ -8916,6 +8930,7 @@
         "self._load",
         "self._lock",
         "self._path.exists",
+        "self._released_receipts",
         "self._state.execute",
         "self._state.get_receipt",
         "self._state.get_resource",
@@ -8930,8 +8945,8 @@
         "tuple",
         "validate_local_path"
       ],
-      "call_site_count": 124,
-      "call_sites_sha256": "07d16f79f8f123e5fa47bac36a60169d055342b019970fb1da172c3d0398b2f5"
+      "call_site_count": 147,
+      "call_sites_sha256": "e294b1acd4d614c22c1024005288250ee50afa562d7978b395c5b907f4c0610b"
     },
     "runtime/main.py": {
       "path": "runtime/main.py",
@@ -12533,360 +12548,360 @@
     },
     "runtime/nonzero_cloudops/models/contracts.py": {
       "path": "runtime/nonzero_cloudops/models/contracts.py",
-      "git_blob": "faeb928a6193ef7da4c69ac026ad5473b5d4d273",
-      "sha256": "851a163637a5b890e64f7b20cc6e500b716065864a2e7fabb4bce32f242a7521",
+      "git_blob": "965cc51c217cb0f96d7480e594d8794836de2caa",
+      "sha256": "820dda2b2e58c4f3c65b7a9044caf8dfa888bce71f4169adac2493dc5f0d2b65",
       "definitions": [
         {
           "name": "_require_utc",
-          "line": 53
+          "line": 54
         },
         {
           "name": "_canonical_digest",
-          "line": 59
+          "line": 60
         },
         {
           "name": "NonZeroContract",
-          "line": 72
+          "line": 73
         },
         {
           "name": "BudgetCounters",
-          "line": 78
+          "line": 79
         },
         {
           "name": "Run",
-          "line": 101
+          "line": 102
         },
         {
           "name": "transition_run",
-          "line": 150
+          "line": 151
         },
         {
           "name": "ResourceQuery",
-          "line": 170
+          "line": 171
         },
         {
           "name": "SecurityGroupRule",
-          "line": 189
+          "line": 190
         },
         {
           "name": "Ec2Resource",
-          "line": 220
+          "line": 221
         },
         {
           "name": "ElasticIpResource",
-          "line": 233
+          "line": 234
         },
         {
           "name": "SecurityGroupResource",
-          "line": 258
+          "line": 259
         },
         {
           "name": "ResourceProvenance",
-          "line": 278
+          "line": 279
         },
         {
           "name": "ResourceEvidence",
-          "line": 304
+          "line": 305
         },
         {
           "name": "RemediationProposal",
-          "line": 397
+          "line": 398
         },
         {
           "name": "RemediationPlan",
-          "line": 502
+          "line": 503
         },
         {
           "name": "ActionTarget",
-          "line": 532
+          "line": 533
         },
         {
           "name": "ExpectedPrecondition",
-          "line": 543
+          "line": 544
         },
         {
           "name": "ActionProposal",
-          "line": 556
+          "line": 557
         },
         {
           "name": "Approval",
-          "line": 597
+          "line": 598
         },
         {
           "name": "ActionResult",
-          "line": 624
+          "line": 625
         },
         {
           "name": "ExecutionAcknowledgement",
-          "line": 650
+          "line": 651
         },
         {
           "name": "VerificationEvidence",
-          "line": 676
+          "line": 677
         },
         {
           "name": "IdempotencyRecord",
-          "line": 839
+          "line": 840
         },
         {
           "name": "LocalApprovalRequestRecord",
-          "line": 877
+          "line": 878
         },
         {
           "name": "LocalApprovalDecisionRecord",
-          "line": 967
+          "line": 968
         },
         {
           "name": "LocalExecutionIntent",
-          "line": 1036
+          "line": 1037
         },
         {
           "name": "LocalExecutionReceipt",
-          "line": 1116
+          "line": 1117
         },
         {
           "name": "LocalVerificationEvidence",
-          "line": 1210
+          "line": 1211
         },
         {
           "name": "Checkpoint",
-          "line": 1270
+          "line": 1271
         },
         {
           "name": "AuditEvent",
-          "line": 1393
+          "line": 1397
         },
         {
           "name": "validate_consumption",
-          "line": 89
+          "line": 90
         },
         {
           "name": "validate_timestamp",
-          "line": 116
+          "line": 117
         },
         {
           "name": "validate_time_order",
-          "line": 121
+          "line": 122
         },
         {
           "name": "new",
-          "line": 127
+          "line": 128
         },
         {
           "name": "validate_identifier_shape",
-          "line": 178
+          "line": 179
         },
         {
           "name": "validate_cidr",
-          "line": 199
+          "line": 200
         },
         {
           "name": "validate_ports",
-          "line": 209
+          "line": 210
         },
         {
           "name": "validate_public_ip",
-          "line": 248
+          "line": 249
         },
         {
           "name": "validate_observed_at",
-          "line": 293
+          "line": 294
         },
         {
           "name": "validate_observed_fields",
-          "line": 298
+          "line": 299
         },
         {
           "name": "validate_timestamp",
-          "line": 319
+          "line": 320
         },
         {
           "name": "validate_binding",
-          "line": 323
+          "line": 324
         },
         {
           "name": "evidence_payload",
-          "line": 346
+          "line": 347
         },
         {
           "name": "stable_fingerprint",
-          "line": 358
+          "line": 359
         },
         {
           "name": "create",
-          "line": 369
+          "line": 370
         },
         {
           "name": "validate_timestamps",
-          "line": 420
+          "line": 421
         },
         {
           "name": "validate_policy_and_hash",
-          "line": 424
+          "line": 425
         },
         {
           "name": "action_payload",
-          "line": 450
+          "line": 451
         },
         {
           "name": "create",
-          "line": 463
+          "line": 464
         },
         {
           "name": "validate_disposition",
-          "line": 511
+          "line": 512
         },
         {
           "name": "validate_observed_at",
-          "line": 552
+          "line": 553
         },
         {
           "name": "validate_created_at",
-          "line": 571
+          "line": 572
         },
         {
           "name": "validate_mutation_proposal",
-          "line": 575
+          "line": 576
         },
         {
           "name": "authorizes_execution",
-          "line": 591
+          "line": 592
         },
         {
           "name": "validate_decided_at",
-          "line": 614
+          "line": 615
         },
         {
           "name": "validate_action_binding",
-          "line": 618
+          "line": 619
         },
         {
           "name": "validate_outcome",
-          "line": 633
+          "line": 634
         },
         {
           "name": "validate_acknowledged_at",
-          "line": 672
+          "line": 673
         },
         {
           "name": "validate_verified_at",
-          "line": 704
+          "line": 705
         },
         {
           "name": "validate_evidence_hash",
-          "line": 708
+          "line": 709
         },
         {
           "name": "evidence_payload",
-          "line": 732
+          "line": 733
         },
         {
           "name": "create",
-          "line": 759
+          "line": 760
         },
         {
           "name": "create_from_recovery",
-          "line": 803
+          "line": 804
         },
         {
           "name": "validate_registered_at",
-          "line": 853
+          "line": 854
         },
         {
           "name": "validate_completed_at",
-          "line": 858
+          "line": 859
         },
         {
           "name": "validate_status_payload",
-          "line": 862
+          "line": 863
         },
         {
           "name": "validate_timestamps",
-          "line": 898
+          "line": 899
         },
         {
           "name": "validate_request_binding",
-          "line": 902
+          "line": 903
         },
         {
           "name": "binding_payload",
-          "line": 909
+          "line": 910
         },
         {
           "name": "create",
-          "line": 927
+          "line": 928
         },
         {
           "name": "validate_decided_at",
-          "line": 985
+          "line": 986
         },
         {
           "name": "validate_decision_binding",
-          "line": 989
+          "line": 990
         },
         {
           "name": "binding_payload",
-          "line": 994
+          "line": 995
         },
         {
           "name": "create",
-          "line": 1010
+          "line": 1011
         },
         {
           "name": "validate_registered_at",
-          "line": 1053
+          "line": 1054
         },
         {
           "name": "validate_intent_binding",
-          "line": 1057
+          "line": 1058
         },
         {
           "name": "binding_payload",
-          "line": 1066
+          "line": 1067
         },
         {
           "name": "create",
-          "line": 1081
+          "line": 1082
         },
         {
           "name": "validate_executed_at",
-          "line": 1136
+          "line": 1137
         },
         {
           "name": "validate_receipt_binding",
-          "line": 1140
+          "line": 1141
         },
         {
           "name": "receipt_payload",
-          "line": 1188
+          "line": 1189
         },
         {
           "name": "validate_verified_at",
-          "line": 1226
+          "line": 1227
         },
         {
           "name": "validate_verification_binding",
-          "line": 1230
+          "line": 1231
         },
         {
           "name": "verification_payload",
-          "line": 1252
+          "line": 1253
         },
         {
           "name": "validate_created_at",
-          "line": 1291
+          "line": 1292
         },
         {
           "name": "validate_last_safe_state",
-          "line": 1295
+          "line": 1296
         },
         {
           "name": "validate_timestamp",
-          "line": 1408
+          "line": 1412
         },
         {
           "name": "prohibit_sensitive_metadata",
-          "line": 1412
+          "line": 1416
         }
       ],
       "symbolic_callees": [
@@ -12948,20 +12963,20 @@
         "values.update"
       ],
       "call_site_count": 291,
-      "call_sites_sha256": "e4f1915a596cc1999fec9f4224fa8b57cfd4caba7f450182d07e97505d8b0ef0"
+      "call_sites_sha256": "d77c03fadaeb6f4b2b0031782777fc6c63717b760cf8fd363733e1921013fac2"
     },
     "runtime/nonzero_cloudops/models/redaction.py": {
       "path": "runtime/nonzero_cloudops/models/redaction.py",
-      "git_blob": "a3f5a67ca9d4d17da39fb367309d4196de018043",
-      "sha256": "7fbb563104af65a65af059506fd432732ca32c711e6fcf6d0ab1a278f4cb80cd",
+      "git_blob": "ea84890e5a48716abd6d8582f45fdae43b534ab7",
+      "sha256": "1f50d9ae0de27a33ebb69a80cfc04c02b7cea49cc80ed17284dc484d270b6f4d",
       "definitions": [
         {
           "name": "contains_sensitive_material",
-          "line": 30
+          "line": 35
         },
         {
           "name": "redact_sensitive_text",
-          "line": 50
+          "line": 55
         }
       ],
       "symbolic_callees": [
@@ -12973,8 +12988,8 @@
         "pattern.sub",
         "re.compile"
       ],
-      "call_site_count": 16,
-      "call_sites_sha256": "d29d89741ba83f6b019d1ab4fb4c30bf016cd3c23a98e6a56cdb9cccb64aac62"
+      "call_site_count": 17,
+      "call_sites_sha256": "e693961c65009c5be2ad8d0b50b38b315874b4b8ea5cfb8d3826488f5520acb1"
     },
     "runtime/mission/patchset.py": {
       "path": "runtime/mission/patchset.py",
@@ -15019,5 +15034,7 @@
     "NEEDS_PORT": 5,
     "DUPLICATE_VERIFIED": 16,
     "EXCLUDED_UNSAFE": 2
-  }
+  },
+  "current_target_binding_note": "NZ13-A refresh of current tracked blob/AST identities only. NZ12 role assessments/qualification remain historical, not new parity evidence. Exact candidate SHA is bound by the external source-policy receipt.",
+  "nz12_binding_before_nz13_sha256": "cfca6195089170934076cd15ac80a5b26786e947338b089dd75926d545b971b2"
 }

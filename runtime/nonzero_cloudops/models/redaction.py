@@ -1,5 +1,6 @@
 # Native semantic port; MIT attribution: LICENSE-NONZERO.txt.
 # Source: nz/redaction.py at 4fafed8b1a877e55d96ddd9baea0a737fbeeaa4a.
+# W7A token families: 392487849eddc7444f5159994b66b72e73f15934.
 """Provider-neutral secret detection and redaction for durable/public evidence."""
 
 from __future__ import annotations
@@ -15,7 +16,11 @@ _SENSITIVE_PATTERNS: Final = (
     re.compile(r"(?i)\bBearer\s+[A-Za-z0-9._~+/=-]{8,}"),
     re.compile(r"(?i)\bAuthorization\s*:\s*[^\r\n,;]{4,}"),
     re.compile(r"\bsk-[A-Za-z0-9_-]{8,}\b"),
-    re.compile(r"\b(?:ghp|github_pat)_[A-Za-z0-9_]{8,}\b"),
+    # Stateless GitHub App tokens (2026) include three base64url segments.
+    # Match these first so no JWT signature survives a shorter prefix match.
+    re.compile(r"ghs_[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+"),
+    # No Unicode word boundary: adjacent non-ASCII text is not a safe delimiter.
+    re.compile(r"(?:gh[pousr]|github_pat)_[A-Za-z0-9_]{8,}"),
     re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----"),
     re.compile(
         r"(?i)\b(?:password|passwd|pwd|token|secret|api[_-]?key)\s*[=:]\s*[^\s,;]{4,}"

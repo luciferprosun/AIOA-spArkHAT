@@ -1,5 +1,6 @@
 # Native semantic port; MIT attribution: LICENSE-NONZERO.txt.
 # Source: nz/contracts.py at 4fafed8b1a877e55d96ddd9baea0a737fbeeaa4a.
+# W7A run-scoped identity delta: 392487849eddc7444f5159994b66b72e73f15934.
 """Pydantic contracts at Non-Zero model, control, and durable boundaries."""
 
 import hashlib
@@ -1104,7 +1105,7 @@ class LocalExecutionIntent(NonZeroContract):
             "operation_type": proposal.operation_type,
             "target_resource_type": proposal.target_resource_type,
             "target_resource_id": proposal.target_resource_id,
-            "idempotency_key": f"local-exec:{proposal.proposal_hash}",
+            "idempotency_key": f"local-exec:{proposal.run_id}:{proposal.proposal_hash}",
             "registered_at": registered_at,
         }
         provisional = cls.model_construct(**values, intent_hash="0" * 64)
@@ -1355,7 +1356,10 @@ class Checkpoint(NonZeroContract):
             or intent.operation_type is not proposal.operation_type
             or intent.target_resource_type is not proposal.target_resource_type
             or intent.target_resource_id != proposal.target_resource_id
-            or intent.idempotency_key != f"local-exec:{proposal.proposal_hash}"
+            or intent.idempotency_key not in {
+                f"local-exec:{proposal.run_id}:{proposal.proposal_hash}",
+                f"local-exec:{proposal.proposal_hash}",
+            }
             or intent.registered_at < approval.decided_at
             or intent.registered_at > proposal.expires_at
         ):
