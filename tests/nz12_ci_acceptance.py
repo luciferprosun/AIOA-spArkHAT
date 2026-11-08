@@ -5,6 +5,7 @@ No optional fallback converts a missing kernel prerequisite into a PASS.
 """
 
 import argparse
+import fcntl
 import hashlib
 import json
 import os
@@ -14,12 +15,52 @@ import sys
 from pathlib import Path
 
 from runtime.mission.project_recipe import snapshot_python_runtime
+from runtime.mission.sandbox_linux import GIT_RUNTIME_PINS
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def namespace_probe():
+    """Require real namespaces for both fixed executable forms on hosted CI."""
+    raw = Path("/usr/bin/bwrap").read_bytes()
+    if hashlib.sha256(raw).hexdigest() != GIT_RUNTIME_PINS["/usr/bin/bwrap"]:
+        raise ValueError("PINNED_BWRAP_REQUIRED")
+    fd = os.memfd_create("aioa-fixed-git-runtime", os.MFD_CLOEXEC | os.MFD_ALLOW_SEALING)
+    try:
+        with os.fdopen(os.dup(fd), "wb") as stream:
+            stream.write(raw)
+        os.lseek(fd, 0, os.SEEK_SET)
+        fcntl.fcntl(fd, 1033, 0x000F)
+        if fcntl.fcntl(fd, 1034) & 0x000F != 0x000F:
+            raise ValueError("BWRAP_DIAGNOSTIC_UNSEALED")
+        arguments = [
+            "--unshare-all", "--unshare-user", "--unshare-cgroup",
+            "--disable-userns", "--assert-userns-disabled", "--new-session",
+            "--die-with-parent", "--cap-drop", "ALL", "--clearenv",
+            "--ro-bind", "/usr", "/usr", "--ro-bind", "/lib", "/lib",
+            "--ro-bind", "/lib64", "/lib64", "--proc", "/proc", "--dev", "/dev",
+            "--", "/usr/bin/cat", "/proc/self/attr/current",
+        ]
+        for label, binary in (("pathname", "/usr/bin/bwrap"), ("sealed-memfd", "/proc/self/fd/" + str(fd))):
+            result = subprocess.run(
+                [binary, *arguments], stdin=subprocess.DEVNULL,
+                capture_output=True,
+                env={"PATH": "/usr/bin:/bin", "LANG": "C.UTF-8"},
+                pass_fds=(fd,), timeout=20, check=False,
+            )
+            profile = result.stdout.decode(errors="replace").strip()
+            print(json.dumps({"namespace_diagnostic": label, "exit": result.returncode,
+                              "applied_profile": profile[:512],
+                              "stderr": result.stderr.decode(errors="replace")[:2048]}), flush=True)
+            if result.returncode or (label == "sealed-memfd" and profile != os.environ["AIOA_CI_EXPECTED_PROFILE"] + " (unconfined)"):
+                raise ValueError("HOSTED_NAMESPACE_PREREQUISITE_FAILED")
+    finally:
+        os.close(fd)
+
+
 def main(output, codex):
     os.umask(0o077)
+    namespace_probe()
     output = output.resolve()
     output.mkdir(mode=0o700, parents=True, exist_ok=False)
     home, temporary = output / "home", output / "tmp"
