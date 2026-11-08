@@ -13322,140 +13322,152 @@
     },
     "runtime/mission/repair.py": {
       "path": "runtime/mission/repair.py",
-      "git_blob": "73cb67fc4b4e4e188b9b27ad2a8f0c27a7120add",
-      "sha256": "6591e8f12c9d37591dfe562da25877837158333d4f57d7aeccd0bd1e1f35e482",
+      "git_blob": "0f2823442f829d4a6a114d770e53a2f965857901",
+      "sha256": "fb05ce322ee61c20cc80ec1336965db634dba6927ea02462ec591edc58718370",
       "definitions": [
         {
           "name": "require",
-          "line": 33
+          "line": 34
         },
         {
           "name": "digest",
-          "line": 38
+          "line": 39
         },
         {
           "name": "RepairBoundaryError",
-          "line": 44
+          "line": 45
         },
         {
           "name": "failure_boundary",
-          "line": 49
+          "line": 50
         },
         {
           "name": "CandidateWorkspace",
-          "line": 64
+          "line": 65
         },
         {
           "name": "ValidationStep",
-          "line": 81
+          "line": 82
         },
         {
           "name": "AttemptReceipt",
-          "line": 111
+          "line": 112
         },
         {
           "name": "RepairLoopResult",
-          "line": 135
+          "line": 136
         },
         {
           "name": "CandidateProducer",
-          "line": 185
-        },
-        {
-          "name": "ValidationSession",
-          "line": 192
-        },
-        {
-          "name": "ValidationBackend",
-          "line": 197
-        },
-        {
-          "name": "semantic_review",
-          "line": 201
-        },
-        {
-          "name": "BoundedRepairLoopCoordinator",
-          "line": 226
-        },
-        {
-          "name": "SandboxedCandidateProducer",
-          "line": 465
-        },
-        {
-          "name": "__post_init__",
-          "line": 69
-        },
-        {
-          "name": "__post_init__",
-          "line": 90
-        },
-        {
-          "name": "__post_init__",
-          "line": 119
-        },
-        {
-          "name": "__post_init__",
-          "line": 145
-        },
-        {
-          "name": "authority",
-          "line": 181
-        },
-        {
-          "name": "produce",
           "line": 186
         },
         {
-          "name": "close",
-          "line": 189
-        },
-        {
-          "name": "run",
+          "name": "ValidationSession",
           "line": 193
         },
         {
-          "name": "close",
-          "line": 194
-        },
-        {
-          "name": "open",
+          "name": "ValidationBackend",
           "line": 198
         },
         {
-          "name": "__init__",
+          "name": "semantic_review",
+          "line": 202
+        },
+        {
+          "name": "BoundedRepairLoopCoordinator",
           "line": 227
         },
         {
-          "name": "run",
-          "line": 232
+          "name": "SandboxedCandidateProducer",
+          "line": 468
         },
         {
-          "name": "__init__",
-          "line": 473
+          "name": "__post_init__",
+          "line": 70
         },
         {
-          "name": "_stopped",
-          "line": 509
+          "name": "__post_init__",
+          "line": 91
         },
         {
-          "name": "_worker_result",
-          "line": 512
+          "name": "__post_init__",
+          "line": 120
+        },
+        {
+          "name": "__post_init__",
+          "line": 146
+        },
+        {
+          "name": "authority",
+          "line": 182
         },
         {
           "name": "produce",
-          "line": 525
-        },
-        {
-          "name": "stop",
-          "line": 579
+          "line": 187
         },
         {
           "name": "close",
-          "line": 585
+          "line": 190
+        },
+        {
+          "name": "run",
+          "line": 194
+        },
+        {
+          "name": "close",
+          "line": 195
+        },
+        {
+          "name": "open",
+          "line": 199
+        },
+        {
+          "name": "__init__",
+          "line": 228
+        },
+        {
+          "name": "run",
+          "line": 233
+        },
+        {
+          "name": "__init__",
+          "line": 476
+        },
+        {
+          "name": "_stopped",
+          "line": 518
+        },
+        {
+          "name": "_start_worker",
+          "line": 523
+        },
+        {
+          "name": "_check_cancel_uncertainty",
+          "line": 553
+        },
+        {
+          "name": "_cancel_worker",
+          "line": 559
+        },
+        {
+          "name": "_worker_result",
+          "line": 592
+        },
+        {
+          "name": "produce",
+          "line": 607
+        },
+        {
+          "name": "stop",
+          "line": 657
+        },
+        {
+          "name": "close",
+          "line": 669
         },
         {
           "name": "stop_reason",
-          "line": 252
+          "line": 253
         }
       ],
       "symbolic_callees": [
@@ -13495,6 +13507,9 @@
         "re.search",
         "require",
         "seen.add",
+        "self._cancel_worker",
+        "self._check_cancel_uncertainty",
+        "self._start_worker",
         "self._stopped",
         "self._worker_result",
         "self.cancel_token.cancel",
@@ -13518,13 +13533,14 @@
         "steps.append",
         "stop_reason",
         "str",
+        "threading.Lock",
         "time.sleep",
         "tuple",
         "type",
         "validator.open"
       ],
-      "call_site_count": 174,
-      "call_sites_sha256": "bce4f465b0407c9b220487726ac1f7ecaf8307795eb18cb052e31c2fbae44cc9"
+      "call_site_count": 194,
+      "call_sites_sha256": "9323258054cea4a03515d2747939c5df3a56ac9e45873a44ce37d3bc80029c5e"
     },
     "runtime/mission/repair_validation.py": {
       "path": "runtime/mission/repair_validation.py",
@@ -15071,6 +15087,6 @@
     "DUPLICATE_VERIFIED": 16,
     "EXCLUDED_UNSAFE": 2
   },
-  "current_target_binding_note": "NZ13-B refresh of current tracked blob/AST identities only. NZ12 role assessments/qualification remain historical, not new parity evidence. Exact candidate SHA is bound by the external source-policy receipt.",
+  "current_target_binding_note": "NZ13-B2 refresh of current tracked blob/AST identities only. NZ12 role assessments/qualification remain historical, not new parity evidence. Exact candidate SHA is bound by the external source-policy receipt.",
   "nz12_binding_before_nz13_sha256": "cfca6195089170934076cd15ac80a5b26786e947338b089dd75926d545b971b2"
 }

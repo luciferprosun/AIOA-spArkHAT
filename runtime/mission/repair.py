@@ -9,6 +9,7 @@ not model input. Even a passing result remains an inert patch proposal.
 from __future__ import annotations
 
 import re
+import threading
 import time
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass, field
@@ -442,6 +443,8 @@ class BoundedRepairLoopCoordinator:
                             None, "UNKNOWN" if status == "UNKNOWN" else "FAILED",
                             "WORKER_CLEANUP_FAILED",
                         )
+            except WorkerOutcomeUnknown:
+                final, status, failure = None, "UNKNOWN", "WORKER_OUTCOME_UNKNOWN"
             except (ValueError, RepairBoundaryError):
                 final, status, failure = (
                     None, "UNKNOWN" if status == "UNKNOWN" else "FAILED",
@@ -499,6 +502,12 @@ class SandboxedCandidateProducer:
         )
         self.task, self.worker, self.materializer = task, worker, materializer
         self.cancel_token, self.clock, self.monotonic = cancel, clock, monotonic
+        self._cancel_lock = threading.Lock()
+        self._cancel_sent = False
+        self._cancel_pending = False
+        self._cancel_unknown = False
+        self._stop_requested = False
+        self._starting = False
         self.session, self.last_root, self.closed, self.next_attempt = (
             None,
             None,
@@ -507,10 +516,83 @@ class SandboxedCandidateProducer:
         )
 
     def _stopped(self):
-        return self.cancel_token is not None and self.cancel_token.cancelled
+        with self._cancel_lock:
+            stopped = self._stop_requested
+        return stopped or self.cancel_token is not None and self.cancel_token.cancelled
+
+    def _start_worker(self):
+        # Detach the completed old handle at the same boundary as admission.
+        # STOP before this claim prevents start; STOP during start waits for
+        # the NEW returned handle, never consumes the old handle's ACK.
+        with self._cancel_lock:
+            require(
+                not self.closed and not self._stop_requested
+                and (self.cancel_token is None or not self.cancel_token.cancelled)
+                and not self._cancel_sent and not self._starting,
+                "CANCELLED",
+            )
+            self.session, self._starting = None, True
+        try:
+            session = self.worker.start(self.task)
+            require(
+                type(session) is WorkerSession
+                and session.task_digest == self.task.digest
+                and session.task_id == self.task.task_id
+                and session.run_id == self.task.run_id,
+                "WORKER_CONTEXT",
+            )
+        except BaseException:
+            with self._cancel_lock:
+                self._starting = False
+            raise
+        with self._cancel_lock:
+            self.session, self._starting = session, False
+            self._cancel_unknown = self._cancel_unknown or self.closed
+        self._check_cancel_uncertainty()
+
+    def _check_cancel_uncertainty(self):
+        with self._cancel_lock:
+            if self._starting or self._cancel_pending or self._cancel_unknown:
+                self._cancel_unknown = True
+                raise WorkerOutcomeUnknown() from None
+
+    def _cancel_worker(self):
+        # Claim the request once. Never hold the lifecycle lock across port I/O.
+        with self._cancel_lock:
+            if self._cancel_unknown or self._cancel_sent and self._cancel_pending:
+                self._cancel_unknown = True
+                raise WorkerOutcomeUnknown() from None
+            if self.closed or self.session is None or self._cancel_sent:
+                return
+            session = self.session
+            self._cancel_sent, self._cancel_pending = True, True
+        try:
+            with failure_boundary("WORKER_CANCEL_ACK_UNCERTAIN"):
+                self.worker.cancel(session)
+                result = self.worker.result(session)
+                bound = (
+                    type(result) in (WorkerFailure, WorkerResult)
+                    and result.session_id == session.session_id
+                    and result.task_id == self.task.task_id
+                    and result.run_id == self.task.run_id
+                )
+                known = bound and (
+                    type(result) is WorkerFailure and result.status != "UNKNOWN"
+                    or type(result) is WorkerResult and result.worker_id == session.worker_id
+                )
+        except (ValueError, RepairBoundaryError):
+            with self._cancel_lock:
+                self._cancel_pending, self._cancel_unknown = False, True
+            raise WorkerOutcomeUnknown() from None
+        with self._cancel_lock:
+            self._cancel_pending = False
+            self._cancel_unknown = self._cancel_unknown or not known
+        self._check_cancel_uncertainty()
 
     def _worker_result(self):
+        self._check_cancel_uncertainty()
         result = self.worker.result(self.session)
+        self._check_cancel_uncertainty()
         if type(result) is WorkerFailure:
             require(
                 result.session_id == self.session.session_id
@@ -523,6 +605,9 @@ class SandboxedCandidateProducer:
         return result
 
     def produce(self, attempt_number, feedback_code):
+        self._check_cancel_uncertainty()
+        with self._cancel_lock:
+            require(not self._cancel_sent, "CANCELLED")
         require(
             not self.closed
             and attempt_number == self.next_attempt
@@ -537,14 +622,7 @@ class SandboxedCandidateProducer:
         require(
             not self._stopped() and self.clock() < self.task.deadline_at, "CANCELLED"
         )
-        self.session = self.worker.start(self.task)
-        require(
-            type(self.session) is WorkerSession
-            and self.session.task_digest == self.task.digest
-            and self.session.task_id == self.task.task_id
-            and self.session.run_id == self.task.run_id,
-            "WORKER_CONTEXT",
-        )
+        self._start_worker()
         deadline = self.monotonic() + min(20, self.task.deadline_at - self.clock())
         while True:
             if (
@@ -552,7 +630,7 @@ class SandboxedCandidateProducer:
                 or self.clock() >= self.task.deadline_at
                 or self.monotonic() >= deadline
             ):
-                self.worker.cancel(self.session)
+                self._cancel_worker()
                 # A STOP request is not an acknowledgement that an already
                 # dispatched transport had no outcome. Preserve its bound
                 # uncertainty before considering cancellation or timeout.
@@ -577,13 +655,25 @@ class SandboxedCandidateProducer:
         return CandidateWorkspace(root, self.session, result)
 
     def stop(self):
+        with self._cancel_lock:
+            self._stop_requested = True
         if self.cancel_token is not None:
             self.cancel_token.cancel()
-        if self.session is not None and not self.closed:
-            self.worker.cancel(self.session)
+        try:
+            self._cancel_worker()
+        except WorkerOutcomeUnknown:
+            # The controller reads the signed result from its existing run;
+            # an HTTP STOP response must not erase this sticky uncertainty.
+            return
 
     def close(self):
-        if not self.closed:
-            self.worker.close()
-            self.closed = True
+        with self._cancel_lock:
+            already_closed, self.closed = self.closed, True
+        if not already_closed:
+            try:
+                self.worker.close()
+            except Exception:
+                self._check_cancel_uncertainty()
+                raise
+        self._check_cancel_uncertainty()
         return 0

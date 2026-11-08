@@ -49,6 +49,16 @@ On STOP or poll timeout, the producer reads the transport's bound cancellation
 result before reporting cancellation or failure. An uncertain cancellation ACK
 therefore remains UNKNOWN even when the shared cancellation token is set.
 
+Cancellation is claimed once in the existing producer. A missing, mismatched or
+uncertain terminal ACK, or an exception while cancelling/reading it, is sticky
+UNKNOWN through close, signed Core readback and restart. STOP/poll/close never
+resend that cancellation. The short lifecycle lock is released before port I/O.
+
+Repair start atomically checks STOP and the shared token and detaches the old
+completed handle before calling the worker. STOP before admission prevents
+dispatch; STOP during an admitted start applies to the new returned session.
+An old session's ACK never acknowledges a new session's cancellation.
+
 ## Verification and remaining model boundary
 
 Focused regressions cover message validation, legacy signed receipts, budgets,
