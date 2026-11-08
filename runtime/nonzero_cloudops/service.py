@@ -246,6 +246,8 @@ class NonZeroCloudOpsService:
         consumed = inventory.released_default_resource_receipts(query)
         if not consumed:
             return
+        if self.components.repository.has_unsettled_demo_target(query):
+            raise NonZeroError("NONZERO_DEMO_TARGET_HAS_UNRESOLVED_RUN", 409)
         proofs = []
         for receipt in consumed:
             prior = self.components.repository.read_run_snapshot(receipt.run_id)

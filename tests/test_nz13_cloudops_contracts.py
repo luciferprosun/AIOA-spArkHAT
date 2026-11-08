@@ -7,15 +7,17 @@ from unittest.mock import patch
 from uuid import UUID
 
 import test_nonzero_core_authority as authority_fixture
-from nonzero_cloudops.models import (
-    AuditEvent,
-    LocalExecutionIntent,
-    ResourceQuery,
-    contains_sensitive_material,
-    redact_sensitive_text,
-)
-from nonzero_cloudops.models.digest import compute_evidence_digest
-from nonzero_cloudops.provenance import public_evidence
+
+if authority_fixture.AVAILABLE:
+    from nonzero_cloudops.models import (
+        AuditEvent,
+        LocalExecutionIntent,
+        ResourceQuery,
+        contains_sensitive_material,
+        redact_sensitive_text,
+    )
+    from nonzero_cloudops.models.digest import compute_evidence_digest
+    from nonzero_cloudops.provenance import public_evidence
 from nonzero_legacy_fixture import historical_intent_format
 
 
@@ -23,6 +25,7 @@ def synthetic_credential(prefix):
     return prefix + "_" + "A" * 40
 
 
+@unittest.skipUnless(authority_fixture.AVAILABLE, "NonZero optional extra is not installed")
 class RedactionContractTests(unittest.TestCase):
     def test_all_github_token_families_are_detected_and_fully_removed(self):
         for prefix in ("ghp", "gho", "ghu", "ghs", "ghr", "github_pat"):
@@ -246,6 +249,46 @@ class RunScopedPortableExecutionTests(unittest.TestCase):
         with self.assertRaises(PortablePolicyError):
             inventory.rearm_verified_demo_resource(query, verifications=("receipt-only",))
         self.assertEqual(inventory.path.read_bytes(), before)
+
+    def test_pending_sibling_blocks_rearm_until_explicit_human_denial(self):
+        first = self.core.start_run()
+        pending = self.core.start_run()
+        self.core.approve(first)
+        self.assertEqual(self.core.resume(first)["final_state"], "SUCCESS_WITH_EVIDENCE")
+        inventory = self.service.components.inventory
+        before = inventory.path.read_bytes()
+        self.core.native_api("POST", "/api/nonzero/runs", authority_fixture.TARGET, expected=409)
+        self.assertEqual(inventory.path.read_bytes(), before)
+        self.assertEqual(self.service.components.repository.run_count(), 2)
+        self.core.approve(pending, "DENIED")
+        _, next_run = self.complete()
+        self.assertEqual(next_run["final_state"], "SUCCESS_WITH_EVIDENCE")
+        self.assertEqual(self.service.components.executor.mutation_calls, 2)
+
+    def test_approved_sibling_cannot_use_a_rearmed_generation_after_restart(self):
+        first = self.core.start_run()
+        sibling = self.core.start_run()
+        self.core.approve(first)
+        self.core.approve(sibling)
+        self.assertEqual(self.core.resume(first)["final_state"], "SUCCESS_WITH_EVIDENCE")
+        self.core.restart_core()
+        inventory = self.service.components.inventory
+        before = inventory.path.read_bytes()
+        self.core.native_api("POST", "/api/nonzero/runs", authority_fixture.TARGET, expected=409)
+        self.assertEqual(inventory.path.read_bytes(), before)
+        self.assertEqual(self.service.components.repository.run_count(), 2)
+        self.assertEqual(self.core.native_api("GET", sibling)["run"]["state"], "APPROVED")
+        self.core.resume(sibling, expected=409)  # Absence cannot become a new grant.
+        self.assertEqual(self.service.components.executor.mutation_calls, 0)
+        self.core.native_api("POST", "/api/nonzero/runs", authority_fixture.TARGET, expected=409)
+        self.assertEqual(inventory.path.read_bytes(), before)
+
+    def test_unrelated_pending_target_does_not_block_verified_demo_rearm(self):
+        pending = self.core.start_run(authority_fixture.GROUP)
+        self.complete()
+        self.complete()
+        self.assertEqual(self.core.native_api("GET", pending)["run"]["state"], "AWAITING_APPROVAL")
+        self.assertEqual(self.service.components.executor.mutation_calls, 2)
 
     def test_stop_and_closed_lease_deny_demo_rearm(self):
         from nonzero_cloudops import NonZeroError

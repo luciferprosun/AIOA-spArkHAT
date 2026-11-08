@@ -22,6 +22,7 @@ from ..models import (
     IdempotencyStatus,
     ObservedInstanceState,
     ProposalState,
+    ResourceQuery,
     Run,
     VerificationEvidence,
     VerificationProofOrigin,
@@ -73,6 +74,33 @@ class DomainSnapshot:
 
     def run_count(self) -> int:
         return len(self._runs)
+
+    def has_unsettled_demo_target(self, query: ResourceQuery) -> bool:
+        """Bounded owner-local predicate; never expose other run records.
+
+        A reset must not make an older executable proposal's preimage valid
+        again. Failure/UNKNOWN and expiry alone do not revoke that proposal.
+        """
+        if not isinstance(query, ResourceQuery):
+            raise TypeError("query must be ResourceQuery")
+        safe = {
+            WorkflowState.SUCCESS_WITH_EVIDENCE,
+            WorkflowState.DENIED_BY_HUMAN,
+            WorkflowState.DENIED_BY_POLICY,
+        }
+        for checkpoint in self._checkpoints.values():
+            proposal = checkpoint.remediation_proposal
+            evidence = checkpoint.resource_evidence
+            if (
+                proposal is not None and evidence is not None
+                and proposal.target_resource_type == query.resource_type
+                and proposal.target_resource_id == query.resource_id
+                and evidence.resource.region == query.region
+            ):
+                run = self._runs.get(checkpoint.run_id)
+                if run is None or run.state not in safe:
+                    return True
+        return False
 
     def transition_run(
         self,

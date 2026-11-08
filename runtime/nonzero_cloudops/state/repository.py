@@ -151,6 +151,10 @@ class DomainStateRepository:
     def run_count(self) -> int:
         return self._read(lambda repository: repository.run_count())
 
+    def has_unsettled_demo_target(self, query) -> bool:
+        """Read only the existing validated owner-local transaction image."""
+        return self._read(lambda repository: repository.has_unsettled_demo_target(query))
+
     def get_run(self, run_id: UUID) -> Run | None:
         return self._read(lambda repository: repository.get_run(run_id))
 

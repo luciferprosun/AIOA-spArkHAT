@@ -18,6 +18,13 @@ the complete release/proof set and preserves all receipts atomically. STOP,
 service lease, operator admission, run limits and provenance reservation apply
 before this operation. This is synthetic inventory only, with zero AWS authority.
 
+Reset is also denied while another unsettled proposal targets the same resource
+and region. Otherwise an identical restored value could make an older approval
+valid again (an ABA reset). A waiting sibling may be explicitly denied by its
+owner before reset; an already approved or UNKNOWN sibling remains blocked until
+a safe terminal disposition exists. Expiry or a clock change alone does not
+revoke it. There is no automatic revocation, reset override or new approval API.
+
 Redaction covers GitHub `ghp`, `gho`, `ghu`, `ghs`, `ghr` and `github_pat`
 families, including Unicode adjacency and complete stateless installation token
 segments. Public Core evidence projections also filter credential-bearing keys
@@ -39,6 +46,9 @@ vectors check current production intent creation. Their provenance records v1
 golden validation followed by original W7A **pure contract** transformations;
 neither the historical server nor an agent is launched to generate them.
 Normal build/tests need no checkout or network access to the original repository.
+The no-extra discovery regression also runs with `-I -S`, exposing only project
+packages so installed third-party dependencies cannot hide an unconditional
+import. Domain cases skip cleanly when the optional extra is unavailable.
 
 The NZ12 inventory retains its historical role assessments and qualification
 claims. Target blob/AST bindings are refreshed for this candidate and verified by
