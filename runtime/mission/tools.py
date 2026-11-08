@@ -513,16 +513,21 @@ class CoreToolRoute:
         row,intent=self.journal._load(tx,warrant)
         return None if row is None else {'mode':variant.mode,**self.journal._public(intent)}
 
-    def dispatch(self,principal,*,session_id,warrant,operation,reservation,completion):
+    def dispatch(self,principal,*,session_id,warrant,operation,reservation,completion,cancel=None):
         self.core.require(principal,Capability.COMMIT,scope=self.scope)
+        if cancel is not None:
+            from runtime.providers.exact import CancellationToken
+            require(type(cancel) is CancellationToken and self.bound_variant is SANDBOX,
+                    'SANDBOX_CANCEL_BINDING')
+            require(not cancel.cancelled,'SANDBOX_CANCELLED')
         operation=self._snapshot_operation(operation)
         # Guard before DB/CAS locks. Acquisition failure is a denial, never fallback.
         # It covers the synchronous attempt, not only the last authority check.
         with self.target_guard():
             return self._dispatch(principal,session_id=session_id,warrant=warrant,
-                operation=operation,reservation=reservation,completion=completion)
+                operation=operation,reservation=reservation,completion=completion,cancel=cancel)
 
-    def _dispatch(self,principal,*,session_id,warrant,operation,reservation,completion):
+    def _dispatch(self,principal,*,session_id,warrant,operation,reservation,completion,cancel=None):
         self.core.require(principal,Capability.COMMIT,scope=self.scope)
         retained=self._run(principal,Capability.COMMIT,lambda tx:
             self._retained(tx,session_id,warrant,operation,reservation,completion))
@@ -592,7 +597,8 @@ class CoreToolRoute:
                                 current=self._sandbox_request(tx,grant,context,warrant)
                                 require(current==prepared,'SANDBOX_REQUEST_BINDING')
                             return self._run(principal,Capability.COMMIT,check)
-                        self.executor.dispatch(prepared,release_check)
+                        if cancel is None:self.executor.dispatch(prepared,release_check)
+                        else:self.executor.dispatch(prepared,release_check,cancel=cancel)
                     else:self.executor(prepared)
                 else:self.executor(self._snapshot_operation(operation),warrant,prepared)
             except Exception:

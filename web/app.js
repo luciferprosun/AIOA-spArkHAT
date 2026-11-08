@@ -3,6 +3,7 @@ const state = {
   currentModel: "",
   scenario: null,
   sessionToken: null,
+  codingProfile: null,
   cplPlan: null,
   cplStatus: null,
   cplPreset: null,
@@ -572,6 +573,11 @@ document.querySelector("#switch-model").addEventListener("click", async () => {
 });
 
 document.querySelector("#refresh-status").addEventListener("click", async () => {
+  if (state.codingProfile === null) return;
+  if (state.codingProfile) {
+    document.querySelector('#coding-refresh').click();
+    return;
+  }
   try {
     await Promise.all([refreshStatus(), refreshAuthorityTimeline(), refreshCompetitionEvaluation(), refreshProviderAvailability(), refreshPersonalAI()]);
   } catch (error) {
@@ -663,7 +669,22 @@ elements.personalAIReplayButton.addEventListener("click", async () => {
 
 async function bootstrap() {
   try {
-    state.sessionToken = (await jsonFetch('/api/session')).token;
+    const session=await jsonFetch('/api/session');
+    state.sessionToken=session.token;
+    state.codingProfile=session.coding_profile===true;
+    if(state.codingProfile) {
+      setView('meta');
+      for(const section of document.querySelector('#meta-view').children)section.hidden=section.id!=='coding-panel';
+      elements.viewTitle.textContent='Bounded Python coding · Core receipts';
+      elements.currentModelBadge.textContent='Not certified';
+      elements.sessionModel.textContent='No certified coding model connected';
+      elements.sessionSummary.textContent='Task states and effects come from Core receipts.';
+      elements.modelNote.textContent='Live inference requires a certified backend and separate approval.';
+      elements.modelSelect.disabled=true;
+      for(const node of document.querySelectorAll('.quick-action, #switch-model, #model-picker button'))node.disabled=true;
+      for(const tab of document.querySelectorAll('.view-tab'))tab.hidden=tab.dataset.view!=='meta';
+      return;
+    }
     const initialStatus = await refreshStatus();
     if (initialStatus.meta_profile) {
       setView('meta');
@@ -1095,6 +1116,7 @@ agentNode('reconcile').addEventListener('click',()=>agentAction(()=>agentClient.
 agentNode('git').addEventListener('click',()=>agentAction(()=>agentClient.gitPreview()));
 agentNode('install').addEventListener('click',()=>agentAction(()=>agentClient.installPreview(JSON.parse(agentNode('install-plan').value))));
 
+AIOAAgentMissions.mountCodingPanel(jsonFetch);
 setAssistantMode('cpl');
 bootstrap();
 

@@ -58,6 +58,19 @@ Its historical `AIOA-METAGuardiansSPARK` branch remains a provenance reference.
 The unified candidate targets `main` through the separately approved integration PR;
 no second product or permanent hackathon runtime is introduced.
 
+The NonZero integration follows this same Core and authority path. The bounded
+[repository coding controller](docs/unification/NZ11_GENERAL_PYTHON_CONTROLLER.md)
+uses operator-pinned AST/JSON function cases, signed capsules, exact owner
+approval and a disposable local Git target. General Python execution, a real
+model-backed WorkerPort and autonomous GitHub writes remain unqualified/off.
+The original [NonZero jury history](docs/provenance/NONZERO_CLOUDOPS.md) and its
+[MIT notice](runtime/nonzero_cloudops/LICENSE-NONZERO.txt) are preserved; module
+inventory is distinct from full functional or live-provider parity.
+The [69-module inventory](docs/unification/NZ12_69_MODULE_INVENTORY.csv) and
+[source/target call-site map](docs/unification/NZ12_SEMANTIC_TARGETS.json) retain
+that distinction per source file. They are static inventory snapshots; exact PR
+checks and independent review provide the current commit's qualification.
+
 ### Long-Running Agent | NVIDIA Claw Challenge Berlin 2026
 
 ![GOLD24](https://img.shields.io/badge/GOLD24-PASSED-00FF00)
