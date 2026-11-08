@@ -113,6 +113,7 @@ jobs:
           apparmor_enabled="$(cat /sys/module/apparmor/parameters/enabled)"
           userns_restriction="$(cat /proc/sys/kernel/apparmor_restrict_unprivileged_userns)"
           printf 'AppArmor enabled=%s userns_restriction=%s\n' "$apparmor_enabled" "$userns_restriction"
+          audit_start_epoch="$(date +%s)"
           umask 077
           policy_file="$(mktemp "$RUNNER_TEMP/aioa-ci-bwrap.XXXXXX")"
           profile_loaded=0
@@ -128,6 +129,13 @@ jobs:
           cleanup() {
             status=$?
             trap - EXIT
+            if [[ "$status" != 0 ]]; then
+              # Bounded hosted-runner diagnostics only; preserve the failing
+              # status and never dump environment, credentials or home files.
+              if ! sudo journalctl --dmesg --since="@$audit_start_epoch" --lines=300 --no-pager --output=cat | awk '/apparmor="DENIED"/ && /comm="bwrap"/ { print; if (++n == 20) exit }'; then
+                echo 'AppArmor diagnostic log unavailable; original failure retained'
+              fi
+            fi
             if [[ "$profile_loaded" == 1 ]]; then
               if ! sudo /usr/sbin/apparmor_parser --remove --skip-cache "$policy_file"; then status=1; fi
             fi
@@ -155,6 +163,44 @@ jobs:
           export XDG_RUNTIME_DIR="/run/user/$runner_uid"
           export DBUS_SESSION_BUS_ADDRESS="unix:path=$XDG_RUNTIME_DIR/bus"
           systemctl --user is-active default.target
+          python -B - <<'PY'
+          # Compare the real Git broker's sealed executable form with the
+          # pathname attachment. This diagnostic never grants a fallback.
+          import fcntl
+          import hashlib
+          import json
+          import os
+          import subprocess
+          from pathlib import Path
+          from runtime.mission.sandbox_linux import GIT_RUNTIME_PINS
+
+          raw = Path('/usr/bin/bwrap').read_bytes()
+          assert hashlib.sha256(raw).hexdigest() == GIT_RUNTIME_PINS['/usr/bin/bwrap']
+          fd = os.memfd_create('aioa-fixed-git-runtime', os.MFD_CLOEXEC | os.MFD_ALLOW_SEALING)
+          try:
+              with os.fdopen(os.dup(fd), 'wb') as stream:
+                  stream.write(raw)
+                  stream.flush()
+              os.lseek(fd, 0, os.SEEK_SET)
+              fcntl.fcntl(fd, 1033, 0x000f)
+              assert fcntl.fcntl(fd, 1034) & 0x000f == 0x000f
+              arguments = ['--unshare-all', '--unshare-user', '--unshare-cgroup',
+                           '--disable-userns', '--assert-userns-disabled',
+                           '--new-session', '--die-with-parent', '--cap-drop', 'ALL',
+                           '--clearenv', '--ro-bind', '/usr', '/usr',
+                           '--ro-bind', '/lib', '/lib', '--ro-bind', '/lib64', '/lib64',
+                           '--proc', '/proc', '--dev', '/dev', '--', '/usr/bin/cat', '/proc/self/attr/current']
+              for label, binary in [('pathname', '/usr/bin/bwrap'), ('sealed-memfd', '/proc/self/fd/' + str(fd))]:
+                  result = subprocess.run([binary, *arguments], stdin=subprocess.DEVNULL,
+                                          stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                          env={'PATH': '/usr/bin:/bin', 'LANG': 'C.UTF-8'},
+                                          pass_fds=(fd,), timeout=20, check=False)
+                  print(json.dumps({'namespace_diagnostic': label, 'exit': result.returncode,
+                                    'applied_profile': result.stdout.decode(errors='replace')[:512],
+                                    'stderr': result.stderr.decode(errors='replace')[:2048]}), flush=True)
+          finally:
+              os.close(fd)
+          PY
           python -B tests/nz12_source_runner.py tests/nz12_ci_acceptance.py --output "$RUNNER_TEMP/aioa-nz12-acceptance-${{ matrix.python-version }}" --codex "$RUNNER_TEMP/aioa-codex-probe/codex-x86_64-unknown-linux-musl"
       - name: Chat and console transport regressions
         run: node --test tests/*.test.cjs
