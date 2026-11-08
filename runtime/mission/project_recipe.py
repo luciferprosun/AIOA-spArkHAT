@@ -319,6 +319,7 @@ def snapshot_python_runtime(root, *, include_git=False):
         "_decimal.*.so",
         "binascii.*.so",
         "math.*.so",
+        "resource.*.so",
     ):
         for p in Path("/usr/lib/python3.12/lib-dynload").glob(pattern):
             files[str(p)] = p

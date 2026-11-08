@@ -181,5 +181,7 @@ jobs:
             ${{ runner.temp }}/aioa-nz12-acceptance-${{ matrix.python-version }}/*.json
             ${{ runner.temp }}/aioa-nz12-acceptance-${{ matrix.python-version }}/kernel/result.json
             ${{ runner.temp }}/aioa-nz12-acceptance-${{ matrix.python-version }}/observer/result.json
+            ${{ runner.temp }}/aioa-nz12-acceptance-${{ matrix.python-version }}/sandbox-matrix/PRODUCT_MATRIX_RESULT.json
+            ${{ runner.temp }}/aioa-nz12-acceptance-${{ matrix.python-version }}/sandbox-matrix/PRODUCT_MATRIX_CONFIG/run-*/receipt.json
           if-no-files-found: warn
           retention-days: 14

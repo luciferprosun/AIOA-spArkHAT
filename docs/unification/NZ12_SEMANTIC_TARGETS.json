@@ -13818,8 +13818,8 @@
     },
     "runtime/mission/project_recipe.py": {
       "path": "runtime/mission/project_recipe.py",
-      "git_blob": "6daa59c154d223958d1c6b6847eb8c16bcf94c92",
-      "sha256": "2ee9e1eb581f837a96c5e21b62a2c1f0c2121adfc83fbfb8b093fba393871326",
+      "git_blob": "2c77ddf5584d1af1d9c6899eeea3248d62eee66c",
+      "sha256": "79ed80b36fbdd9827f26e71748beaa49b1940c6a478199b17bdff33b29b59fa3",
       "definitions": [
         {
           "name": "_require",
@@ -13859,15 +13859,15 @@
         },
         {
           "name": "_recipe_value",
-          "line": 364
+          "line": 365
         },
         {
           "name": "PythonFunctionCase",
-          "line": 404
+          "line": 405
         },
         {
           "name": "PythonRepositoryRecipe",
-          "line": 452
+          "line": 453
         },
         {
           "name": "__post_init__",
@@ -13931,55 +13931,55 @@
         },
         {
           "name": "check",
-          "line": 376
+          "line": 377
         },
         {
           "name": "__post_init__",
-          "line": 413
+          "line": 414
         },
         {
           "name": "call_payload",
-          "line": 442
+          "line": 443
         },
         {
           "name": "__post_init__",
-          "line": 468
+          "line": 469
         },
         {
           "name": "manifest_bytes",
-          "line": 537
+          "line": 538
         },
         {
           "name": "from_manifest",
-          "line": 567
+          "line": 568
         },
         {
           "name": "load_file",
-          "line": 629
+          "line": 630
         },
         {
           "name": "digest",
-          "line": 647
+          "line": 648
         },
         {
           "name": "validate_patch",
-          "line": 674
+          "line": 675
         },
         {
           "name": "context",
-          "line": 688
+          "line": 689
         },
         {
           "name": "materialization_spec",
-          "line": 699
+          "line": 700
         },
         {
           "name": "observation_spec",
-          "line": 761
+          "line": 762
         },
         {
           "name": "decode_observation",
-          "line": 786
+          "line": 787
         }
       ],
       "symbolic_callees": [
@@ -14094,7 +14094,7 @@
         "zip"
       ],
       "call_site_count": 360,
-      "call_sites_sha256": "28fff6a2f5db4b0949cbe02506dce715a4f920ab5d6fb08dcc45044b1fd2d674"
+      "call_sites_sha256": "a530ad196b223c4a4f347f7271930e913629ccd83d51376887c6f3b2bbf2674c"
     },
     "runtime/mission/install_plan.py": {
       "path": "runtime/mission/install_plan.py",

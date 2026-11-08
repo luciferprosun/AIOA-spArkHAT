@@ -8,6 +8,10 @@ umask 077
 . /etc/os-release
 [[ "$ID" == ubuntu && "$VERSION_ID" == 24.04 && "${VERSION_CODENAME:-}" == noble ]]
 [[ "$(/usr/bin/dpkg --print-architecture)" == amd64 ]]
+apparmor_enabled="$(/usr/bin/cat /sys/module/apparmor/parameters/enabled)"
+userns_restriction="$(/usr/bin/cat /proc/sys/kernel/apparmor_restrict_unprivileged_userns)"
+[[ "$apparmor_enabled" == Y && "$userns_restriction" == 1 ]]
+printf 'AppArmor enabled=%s userns_restriction=%s (unchanged)\n' "$apparmor_enabled" "$userns_restriction"
 [[ $# -gt 0 ]]
 runner_user="$(id -un)"
 runner_uid="$(/usr/bin/id -u)"
