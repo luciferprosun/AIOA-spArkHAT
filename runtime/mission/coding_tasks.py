@@ -756,7 +756,10 @@ class CoreCodingTasks:
         if action == "create_task":
             require(
                 type(payload["task"]) is dict
-                and set(payload["task"]) == set(Task.__dataclass_fields__),
+                and set(payload["task"]) in (
+                    set(Task.__dataclass_fields__),
+                    set(Task.__dataclass_fields__) - {"max_output_tokens"},
+                ),
                 "CODING_REQUEST_SCHEMA",
             )
             task = Task(**payload["task"])

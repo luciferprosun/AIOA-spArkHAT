@@ -18,7 +18,13 @@ from typing import Protocol
 from runtime.memory_patch.contracts.serialization import canonical_sha256
 from runtime.mission.contracts import bounded_int, logical_id
 from runtime.mission.patchset import BoundedPatchSetPolicy, PatchSet, SourceIdentity
-from runtime.mission.worker import Task, WorkerResult, WorkerSession
+from runtime.mission.worker import (
+    Task,
+    WorkerFailure,
+    WorkerOutcomeUnknown,
+    WorkerResult,
+    WorkerSession,
+)
 
 TEST_STAGES = ("FAST_TESTS", "TARGETED_TESTS", "FINAL_TESTS")
 OUTCOMES = ("PASS", "FAIL", "TIMEOUT", "CRASH", "UNKNOWN", "DENIED", "CANCELLED")
@@ -276,6 +282,9 @@ class BoundedRepairLoopCoordinator:
                             and result.session_id == session.session_id,
                             "WORKER_CONTEXT",
                         )
+                except WorkerOutcomeUnknown:
+                    status, failure = "UNKNOWN", "WORKER_OUTCOME_UNKNOWN"
+                    break
                 except (ValueError, RepairBoundaryError):
                     status, failure = (
                         ("CANCELLED", "CANCELLED")
@@ -429,9 +438,15 @@ class BoundedRepairLoopCoordinator:
                     if cleanup is not None and (
                         type(cleanup) is not int or cleanup != 0
                     ):
-                        final, status, failure = None, "FAILED", "WORKER_CLEANUP_FAILED"
+                        final, status, failure = (
+                            None, "UNKNOWN" if status == "UNKNOWN" else "FAILED",
+                            "WORKER_CLEANUP_FAILED",
+                        )
             except (ValueError, RepairBoundaryError):
-                final, status, failure = None, "FAILED", "WORKER_CLEANUP_FAILED"
+                final, status, failure = (
+                    None, "UNKNOWN" if status == "UNKNOWN" else "FAILED",
+                    "WORKER_CLEANUP_FAILED",
+                )
         if status == "PATCH_READY" and (stopped := stop_reason()) is not None:
             final, failure = None, stopped[1]
             status = "CANCELLED" if stopped[0] == "CANCELLED" else "FAILED"
@@ -494,6 +509,19 @@ class SandboxedCandidateProducer:
     def _stopped(self):
         return self.cancel_token is not None and self.cancel_token.cancelled
 
+    def _worker_result(self):
+        result = self.worker.result(self.session)
+        if type(result) is WorkerFailure:
+            require(
+                result.session_id == self.session.session_id
+                and result.task_id == self.task.task_id
+                and result.run_id == self.task.run_id,
+                "WORKER_CONTEXT",
+            )
+            if result.status == "UNKNOWN":
+                raise WorkerOutcomeUnknown()
+        return result
+
     def produce(self, attempt_number, feedback_code):
         require(
             not self.closed
@@ -525,9 +553,13 @@ class SandboxedCandidateProducer:
                 or self.monotonic() >= deadline
             ):
                 self.worker.cancel(self.session)
+                # A STOP request is not an acknowledgement that an already
+                # dispatched transport had no outcome. Preserve its bound
+                # uncertainty before considering cancellation or timeout.
+                self._worker_result()
                 raise ValueError("CANCELLED" if self._stopped() else "WORKER_TIMEOUT")
             self.worker.poll(self.session)
-            result = self.worker.result(self.session)
+            result = self._worker_result()
             if result is not None:
                 break
             time.sleep(0.01)

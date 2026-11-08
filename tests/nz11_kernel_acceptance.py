@@ -415,7 +415,7 @@ def exercise_active_stop(
     }
 
 
-def main(manifest_path, root):
+def main(manifest_path, root, *, worker_factory=SyntheticWorker):
     producer_class = getattr(repair, "SandboxedCandidateProducer", None)
     assert callable(producer_class), (
         "neutral WorkerPort to sandbox materializer producer is missing"
@@ -506,7 +506,7 @@ def main(manifest_path, root):
                 output_root=root / "mirrors",
                 cancel=cancel,
             )
-            worker = SyntheticWorker(candidates, clock=lambda: fixture.now)
+            worker = worker_factory(candidates, clock=lambda: fixture.now)
             producer = producer_class(
                 task, worker, materializer, cancel=cancel, clock=lambda: fixture.now
             )
