@@ -12997,34 +12997,17 @@
     },
     "runtime/nonzero_cloudops/models/redaction.py": {
       "path": "runtime/nonzero_cloudops/models/redaction.py",
-      "git_blob": "ea84890e5a48716abd6d8582f45fdae43b534ab7",
-      "sha256": "1f50d9ae0de27a33ebb69a80cfc04c02b7cea49cc80ed17284dc484d270b6f4d",
-      "definitions": [
-        {
-          "name": "contains_sensitive_material",
-          "line": 35
-        },
-        {
-          "name": "redact_sensitive_text",
-          "line": 55
-        }
-      ],
-      "symbolic_callees": [
-        "TypeError",
-        "any",
-        "isinstance",
-        "json.dumps",
-        "pattern.search",
-        "pattern.sub",
-        "re.compile"
-      ],
-      "call_site_count": 17,
-      "call_sites_sha256": "e693961c65009c5be2ad8d0b50b38b315874b4b8ea5cfb8d3826488f5520acb1"
+      "git_blob": "027f6248162f1f179c45736ab78ca6d956e8afff",
+      "sha256": "3df845218ec1206a3c16049c1da4fd8a271c6e279dd2409f6dd783b440916d8f",
+      "definitions": [],
+      "symbolic_callees": [],
+      "call_site_count": 0,
+      "call_sites_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
     },
     "runtime/mission/patchset.py": {
       "path": "runtime/mission/patchset.py",
-      "git_blob": "c1a8c2370a77d78a08659e219f18d2a48184ace2",
-      "sha256": "bf81a640c54940917a88fdf0a21094c7da0d805ee56a0a09db262fbac0164a8f",
+      "git_blob": "171d96b74c3af771bb915331b0f3d6e123b9a9c4",
+      "sha256": "1c150166372d55db66e26d3bee8790c376fb73cb2d1db23e59cf52d7d033dbe1",
       "definitions": [
         {
           "name": "PatchSetPolicyDenied",
@@ -13052,147 +13035,147 @@
         },
         {
           "name": "FileIdentity",
-          "line": 170
+          "line": 172
         },
         {
           "name": "FileChange",
-          "line": 182
+          "line": 184
         },
         {
           "name": "SourceIdentity",
-          "line": 218
+          "line": 220
         },
         {
           "name": "PatchSet",
-          "line": 232
+          "line": 234
         },
         {
           "name": "_TreeFile",
-          "line": 312
+          "line": 314
         },
         {
           "name": "_Tree",
-          "line": 318
+          "line": 320
         },
         {
           "name": "_stamp",
-          "line": 323
+          "line": 325
         },
         {
           "name": "_regular",
-          "line": 337
+          "line": 339
         },
         {
           "name": "_open_root",
-          "line": 347
+          "line": 349
         },
         {
           "name": "_read_regular",
-          "line": 369
+          "line": 371
         },
         {
           "name": "_tree_digest",
-          "line": 400
+          "line": 402
         },
         {
           "name": "_snapshot",
-          "line": 409
+          "line": 411
         },
         {
           "name": "independent_tree_digest",
-          "line": 501
+          "line": 503
         },
         {
           "name": "observe_source",
-          "line": 596
+          "line": 598
         },
         {
           "name": "_text",
-          "line": 602
+          "line": 604
         },
         {
           "name": "_bounded_diff_lines",
-          "line": 614
+          "line": 616
         },
         {
           "name": "_counts",
-          "line": 623
+          "line": 625
         },
         {
           "name": "_diff",
-          "line": 636
+          "line": 638
         },
         {
           "name": "BoundedPatchSetPolicy",
-          "line": 658
+          "line": 660
         },
         {
           "name": "_export_fresh_tree",
-          "line": 826
+          "line": 828
         },
         {
           "name": "__post_init__",
-          "line": 175
+          "line": 177
         },
         {
           "name": "__post_init__",
-          "line": 190
+          "line": 192
         },
         {
           "name": "__post_init__",
-          "line": 224
+          "line": 226
         },
         {
           "name": "__post_init__",
-          "line": 246
+          "line": 248
         },
         {
           "name": "_validate",
-          "line": 250
+          "line": 252
         },
         {
           "name": "lines_added",
-          "line": 287
+          "line": 289
         },
         {
           "name": "lines_deleted",
-          "line": 291
+          "line": 293
         },
         {
           "name": "authority",
-          "line": 295
+          "line": 297
         },
         {
           "name": "payload",
-          "line": 298
+          "line": 300
         },
         {
           "name": "verify_digest",
-          "line": 303
+          "line": 305
         },
         {
           "name": "identity",
-          "line": 639
+          "line": 641
         },
         {
           "name": "evaluate",
-          "line": 661
+          "line": 663
         },
         {
           "name": "preview",
-          "line": 686
+          "line": 688
         },
         {
           "name": "_derive",
-          "line": 724
+          "line": 726
         },
         {
           "name": "recheck",
-          "line": 803
+          "line": 805
         },
         {
           "name": "walk",
-          "line": 417
+          "line": 419
         }
       ],
       "symbolic_callees": [
@@ -13318,12 +13301,12 @@
         "write_new"
       ],
       "call_site_count": 390,
-      "call_sites_sha256": "ed9664b115d63b3b56a06070aa0c72a1ef23dbe9ff51f334207fadaa185b445f"
+      "call_sites_sha256": "8fee4d657ffc91fcb20988f861b1ae2f7345f8645f9b0fc909582817c44a125a"
     },
     "runtime/mission/repair.py": {
       "path": "runtime/mission/repair.py",
-      "git_blob": "0f2823442f829d4a6a114d770e53a2f965857901",
-      "sha256": "fb05ce322ee61c20cc80ec1336965db634dba6927ea02462ec591edc58718370",
+      "git_blob": "789fe0b2b50216fa910222a827fc1d1ef656a553",
+      "sha256": "695c14550566b157178da7235c5d110d437c05ae4b0faada3a179f27866b01c7",
       "definitions": [
         {
           "name": "require",
@@ -13334,147 +13317,138 @@
           "line": 39
         },
         {
-          "name": "RepairBoundaryError",
-          "line": 45
-        },
-        {
-          "name": "failure_boundary",
-          "line": 50
-        },
-        {
           "name": "CandidateWorkspace",
-          "line": 65
+          "line": 46
         },
         {
           "name": "ValidationStep",
-          "line": 82
+          "line": 63
         },
         {
           "name": "AttemptReceipt",
-          "line": 112
+          "line": 93
         },
         {
           "name": "RepairLoopResult",
-          "line": 136
+          "line": 117
         },
         {
           "name": "CandidateProducer",
-          "line": 186
+          "line": 167
         },
         {
           "name": "ValidationSession",
-          "line": 193
+          "line": 174
         },
         {
           "name": "ValidationBackend",
-          "line": 198
+          "line": 179
         },
         {
           "name": "semantic_review",
-          "line": 202
+          "line": 183
         },
         {
           "name": "BoundedRepairLoopCoordinator",
-          "line": 227
+          "line": 208
         },
         {
           "name": "SandboxedCandidateProducer",
-          "line": 468
+          "line": 449
         },
         {
           "name": "__post_init__",
-          "line": 70
+          "line": 51
         },
         {
           "name": "__post_init__",
-          "line": 91
+          "line": 72
         },
         {
           "name": "__post_init__",
-          "line": 120
+          "line": 101
         },
         {
           "name": "__post_init__",
-          "line": 146
+          "line": 127
         },
         {
           "name": "authority",
-          "line": 182
+          "line": 163
         },
         {
           "name": "produce",
-          "line": 187
+          "line": 168
         },
         {
           "name": "close",
-          "line": 190
+          "line": 171
         },
         {
           "name": "run",
-          "line": 194
+          "line": 175
         },
         {
           "name": "close",
-          "line": 195
+          "line": 176
         },
         {
           "name": "open",
-          "line": 199
+          "line": 180
         },
         {
           "name": "__init__",
-          "line": 228
+          "line": 209
         },
         {
           "name": "run",
-          "line": 233
+          "line": 214
         },
         {
           "name": "__init__",
-          "line": 476
+          "line": 457
         },
         {
           "name": "_stopped",
-          "line": 518
+          "line": 499
         },
         {
           "name": "_start_worker",
-          "line": 523
+          "line": 504
         },
         {
           "name": "_check_cancel_uncertainty",
-          "line": 553
+          "line": 534
         },
         {
           "name": "_cancel_worker",
-          "line": 559
+          "line": 540
         },
         {
           "name": "_worker_result",
-          "line": 592
+          "line": 573
         },
         {
           "name": "produce",
-          "line": 607
+          "line": 588
         },
         {
           "name": "stop",
-          "line": 657
+          "line": 638
         },
         {
           "name": "close",
-          "line": 669
+          "line": 650
         },
         {
           "name": "stop_reason",
-          "line": 253
+          "line": 234
         }
       ],
       "symbolic_callees": [
         "AttemptReceipt",
         "BoundedPatchSetPolicy",
         "CandidateWorkspace",
-        "RepairBoundaryError",
         "RepairLoopResult",
         "ValueError",
         "WorkerOutcomeUnknown",
@@ -13539,8 +13513,8 @@
         "type",
         "validator.open"
       ],
-      "call_site_count": 194,
-      "call_sites_sha256": "9323258054cea4a03515d2747939c5df3a56ac9e45873a44ce37d3bc80029c5e"
+      "call_site_count": 190,
+      "call_sites_sha256": "3c095966b7d500d924b80d6a2ec05f038beffb56e7af7d535c93f4900bb86df7"
     },
     "runtime/mission/repair_validation.py": {
       "path": "runtime/mission/repair_validation.py",
@@ -15077,6 +15051,55 @@
       ],
       "call_site_count": 173,
       "call_sites_sha256": "3aa531919a287f062e65642c9dc477bf2031b42254d460e564f324309773ccf0"
+    },
+    "runtime/secret_redaction.py": {
+      "path": "runtime/secret_redaction.py",
+      "git_blob": "bb0b412d5df299e4060342c92e534e161fae9f54",
+      "sha256": "fdbce12c9a5132b5b9b26aeced6ad1e8a278082250a7c2fb70f2a5e00a424543",
+      "definitions": [
+        {
+          "name": "contains_sensitive_material",
+          "line": 36
+        },
+        {
+          "name": "redact_sensitive_text",
+          "line": 56
+        }
+      ],
+      "call_site_count": 17,
+      "symbolic_callees": [
+        "TypeError",
+        "any",
+        "isinstance",
+        "json.dumps",
+        "pattern.search",
+        "pattern.sub",
+        "re.compile"
+      ],
+      "call_sites_sha256": "f0e9f50ba7b577fbbc3cd74fb6732e7111d6be376286c4dc128d9f88c721a455"
+    },
+    "runtime/failure_boundary.py": {
+      "path": "runtime/failure_boundary.py",
+      "git_blob": "dfa15631cc3a5c8781c51039bcfb208b6a832baa",
+      "sha256": "0e75efc4fa8079240b4cdc081b7fa6de7b9ef86a0c57397b7664c470305d9640",
+      "definitions": [
+        {
+          "name": "RepairBoundaryError",
+          "line": 10
+        },
+        {
+          "name": "failure_boundary",
+          "line": 15
+        }
+      ],
+      "call_site_count": 4,
+      "symbolic_callees": [
+        "RepairBoundaryError",
+        "ValueError",
+        "re.fullmatch",
+        "type"
+      ],
+      "call_sites_sha256": "a4b7f13f50409337d912be3e1bef701b7bd15965d560de5a1a4882da05049ac5"
     }
   },
   "dispositions": {
@@ -15087,6 +15110,6 @@
     "DUPLICATE_VERIFIED": 16,
     "EXCLUDED_UNSAFE": 2
   },
-  "current_target_binding_note": "NZ13-B2 refresh of current tracked blob/AST identities only. NZ12 role assessments/qualification remain historical, not new parity evidence. Exact candidate SHA is bound by the external source-policy receipt.",
+  "current_target_binding_note": "NZ13-C refresh of current tracked blob/AST identities only. NZ12 role assessments/qualification remain historical, not new parity evidence. Exact candidate SHA is bound by the external source-policy receipt.",
   "nz12_binding_before_nz13_sha256": "cfca6195089170934076cd15ac80a5b26786e947338b089dd75926d545b971b2"
 }

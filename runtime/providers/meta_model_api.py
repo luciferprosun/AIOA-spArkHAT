@@ -3,28 +3,36 @@
 Standard Meta Chat Completions contract, reviewed 2026-10-31. Source neutral
 ToolCall contract originated in AIOA/Nebius; no old call is relabelled Meta.
 """
-from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
-from decimal import Decimal, InvalidOperation
 import hashlib
 import http.client
 import json
 import os
-from pathlib import Path
 import re
 import ssl
 import stat
 import threading
 import time
+from contextlib import suppress
+from dataclasses import asdict, dataclass, field
+from decimal import Decimal, InvalidOperation
+from pathlib import Path
 
 from runtime.core_admission import Capability
-from runtime.memory_patch.contracts.serialization import canonical_json_bytes, canonical_sha256
-from runtime.memory_patch.persistence.ports import RecordKind, StoredRecord, TransactionContext
+from runtime.failure_boundary import RepairBoundaryError, failure_boundary
+from runtime.memory_patch.contracts.serialization import (
+    canonical_json_bytes,
+    canonical_sha256,
+)
+from runtime.memory_patch.persistence.ports import (
+    RecordKind,
+    StoredRecord,
+    TransactionContext,
+)
+from runtime.meta_hackathon.contracts import BrowserTaskV1, utc_timestamp
+from runtime.meta_hackathon.mission_read_offline import PLAN_FIELDS, TOOL_SCHEMA
 from runtime.mission.warrant import CoreWarrantLedger
 from runtime.providers.exact import CancellationToken
 from runtime.providers.tool_calling import ToolCall, strict_json
-from runtime.meta_hackathon.contracts import BrowserTaskV1, utc_timestamp
-from runtime.meta_hackathon.mission_read_offline import PLAN_FIELDS, TOOL_SCHEMA
 
 MODEL = 'muse-spark-1.3'
 PROVIDER = 'meta_model_api'
@@ -150,19 +158,22 @@ class MetaChatRequest:
         require(type(context) is dict)
         read_context=None
         if context.get('schema')=='aioa.chat.core-context.v2':
-            from runtime.mcp_bridge.native_read import CONTEXT_REPOSITORIES, validate_context_data
+            from runtime.mcp_bridge.native_read import (
+                VERIFIED_CONTEXT_OPERATIONS,
+                validate_context_data,
+            )
             read_context=context.get('read_context')
             require(type(read_context) is dict and set(read_context)=={'schema','trust','request_id','operation',
                 'observed_at','expires_at','source_sha','capsule_digest','data_sha256','receipt_sha256','data'})
             require(read_context['schema']=='aioa.chat.read-context.v1' and read_context['trust']=='UNTRUSTED_READ_DATA'
-                and read_context['operation'] in ('github.repository', *CONTEXT_REPOSITORIES)
+                and read_context['operation'] in ('github.repository', *VERIFIED_CONTEXT_OPERATIONS)
                 and type(read_context['request_id']) is str and re.fullmatch('[a-f0-9]{32}',read_context['request_id'])
                 and all(type(read_context[k]) is str and re.fullmatch('[a-f0-9]{64}',read_context[k]) for k in ('data_sha256','receipt_sha256'))
                 and read_context['source_sha']==self.task.source_sha and read_context['capsule_digest']==self.capsule_digest
                 and type(read_context['observed_at']) is int and type(read_context['expires_at']) is int
                 and 0<=read_context['observed_at']<read_context['expires_at']==read_context['observed_at']+300
                 and type(read_context['data']) is dict)
-            if read_context['operation'] in CONTEXT_REPOSITORIES:
+            if read_context['operation'] in VERIFIED_CONTEXT_OPERATIONS:
                 validate_context_data(read_context['operation'], read_context['data'])
                 require(canonical_sha256(read_context['data']) == read_context['data_sha256'])
             context={k:v for k,v in context.items() if k!='read_context'}
@@ -341,8 +352,8 @@ class MetaLiveBinding:
     session_dispatch: bool = False
 
     def check(self, request):
-        from runtime.mission.governor import CoreDualGovernor, ReservationRequest
         from lab.archaioa.warrant import EffectWarrant
+        from runtime.mission.governor import CoreDualGovernor, ReservationRequest
         require(type(request) in (MetaPlanRequest,MetaChatRequest),'META_REQUEST_DENIED')
         request.payload()
         require(type(self.ledger) is CoreWarrantLedger and type(self.governor) is CoreDualGovernor
@@ -386,8 +397,9 @@ class MetaLiveBinding:
             _, approval, active = self.ledger._load_unrevoked(tx, w)
             require(active == w and approval['consumption'] is None, 'META_EXACT_HUMAN_APPROVAL_REQUIRED')
         try:
-            self.ledger._run(reader, Capability.READ, approved)
-        except Exception:
+            with failure_boundary('META_EXACT_HUMAN_APPROVAL_REQUIRED'):
+                self.ledger._run(reader, Capability.READ, approved)
+        except (ValueError, RepairBoundaryError):
             # TransactionRunner wraps callback failures. Keep a closed provider
             # denial at this boundary; never leak adapter details or retry.
             raise MetaAPIError('META_EXACT_HUMAN_APPROVAL_REQUIRED') from None
@@ -496,7 +508,7 @@ class MetaModelProvider:
         payload = request.payload()
         try: budget = Decimal(request.budget_usd)
         except (InvalidOperation, ValueError): raise MetaAPIError('META_BUDGET_DENIED') from None
-        ceiling=Decimal('148') if type(request) is MetaChatRequest and request.task.actor=='LINUX_OWNER' else Decimal('0.05')
+        ceiling=Decimal(148) if type(request) is MetaChatRequest and request.task.actor=='LINUX_OWNER' else Decimal('0.05')
         require(budget.is_finite() and 0 <= budget <= ceiling, 'META_BUDGET_DENIED')
         require((self.mode == 'MOCK' and budget == 0) or request.estimate() <= budget, 'META_BUDGET_DENIED')
         key, records, status = None, None, None
@@ -507,81 +519,90 @@ class MetaModelProvider:
             self.receipt_view = MetaReceiptView(live_binding.ledger, governor=live_binding.governor,
                                                source_reader=live_binding.source_reader)
             records = MetaCallRecords(live_binding)
-            try: self._active_attempt_id = records.admit(request)
-            except Exception: raise MetaAPIError('META_ADMISSION_ACK_UNKNOWN') from None
+            try:
+                with failure_boundary('META_ADMISSION_ACK_UNKNOWN'):
+                    self._active_attempt_id = records.admit(request)
+            except (ValueError, RepairBoundaryError):
+                raise MetaAPIError('META_ADMISSION_ACK_UNKNOWN') from None
         try:
-            if self.mode == 'LIVE':
-                key = load_private_key(self.key_path)
-                require(key not in canonical_json_bytes(payload).decode(), 'META_CREDENTIAL_IN_PAYLOAD')
+            with failure_boundary('META_PROVIDER_CALLBACK_FAILURE'):
+                if self.mode == 'LIVE':
+                    key = load_private_key(self.key_path)
+                    require(key not in canonical_json_bytes(payload).decode(), 'META_CREDENTIAL_IN_PAYLOAD')
+                    require(not cancel.cancelled, 'META_STOPPED')
+                    live_binding.release_once(request)
+                    records.change(request, 'IN_FLIGHT')
+                started = time.monotonic()
+                if self.mode == 'MOCK': status, raw = self.transport(payload, cancel, request.timeout_seconds)
+                else: status, raw = _https_once(payload, key, cancel, request.timeout_seconds)
+                require(time.monotonic()-started < request.timeout_seconds, 'META_TIMEOUT_UNKNOWN')
                 require(not cancel.cancelled, 'META_STOPPED')
-                live_binding.release_once(request)
-                records.change(request, 'IN_FLIGHT')
-            started = time.monotonic()
-            if self.mode == 'MOCK': status, raw = self.transport(payload, cancel, request.timeout_seconds)
-            else: status, raw = _https_once(payload, key, cancel, request.timeout_seconds)
-            require(time.monotonic()-started < request.timeout_seconds, 'META_TIMEOUT_UNKNOWN')
-            require(not cancel.cancelled, 'META_STOPPED')
-            errors = {400:'META_CONTRACT_REJECTED',401: 'META_AUTH_DENIED', 403: 'META_AUTH_DENIED', 402: 'META_BILLING_UNAVAILABLE',
-                      429: 'META_RATE_LIMITED'}
-            require(status == 200, errors.get(status, 'META_UNAVAILABLE'))
-            require(type(raw) is bytes and len(raw) <= MAX_BODY, 'META_RESPONSE_LIMIT_UNKNOWN')
-            require(key is None or key.encode() not in raw, 'META_CREDENTIAL_ECHO_DENIED')
-            value = strict_json(raw.decode())
-            def echoes_key(item):
-                if isinstance(item, str): return key is not None and key in item
-                if isinstance(item, dict): return any(echoes_key(k) or echoes_key(v) for k, v in item.items())
-                if isinstance(item, list): return any(echoes_key(v) for v in item)
-                return False
-            require(not echoes_key(value), 'META_CREDENTIAL_ECHO_DENIED')
-            require(type(value) is dict and value.get('model') == MODEL, 'META_MODEL_MISMATCH')
-            usage = value.get('usage'); require(type(usage) is dict, 'META_USAGE_DENIED')
-            usage = {k: usage.get(k) for k in ('prompt_tokens', 'completion_tokens', 'total_tokens')}
-            require(all(type(v) is int and 0 <= v <= 100000 for v in usage.values())
-                and usage['total_tokens'] == usage['prompt_tokens']+usage['completion_tokens']
-                and usage['completion_tokens'] <= request.max_output_tokens
-                and usage['prompt_tokens'] <= len(canonical_json_bytes(payload))+512, 'META_USAGE_DENIED')
-            choices = value.get('choices'); require(type(choices) is list and len(choices) == 1)
-            choice = choices[0];require(type(choice) is dict)
-            message = choice.get('message'); require(type(message) is dict and message.get('role') == 'assistant')
-            cost = (Decimal(usage['prompt_tokens'])*INPUT_PRICE+Decimal(usage['completion_tokens'])*OUTPUT_PRICE)/1000000
-            require(self.mode == 'MOCK' and budget == 0 or cost <= budget, 'META_BUDGET_EXCEEDED_UNKNOWN')
-            environment='META_API_LIVE_VERIFIED' if self.mode=='LIVE' else 'META_API_MOCK'
-            if type(request) is MetaChatRequest:
-                finishes=('stop','length') if request.task.actor=='LINUX_OWNER' else ('stop',)
-                require(choice.get('finish_reason') in finishes and not message.get('tool_calls') and not message.get('function_call'),
-                    'META_INCOMPLETE_UNKNOWN')
-                text=message.get('content')
-                require(type(text) is str and 1<=len(text.encode())<=(32768 if request.task.actor=='LINUX_OWNER' else 8192),
-                    'META_CHAT_RESPONSE_INVALID_UNKNOWN')
-                provider_id=value.get('id')
-                require(provider_id is None or type(provider_id) is str and re.fullmatch('[A-Za-z0-9_.:/-]{1,200}',provider_id),
-                    'META_CHAT_RESPONSE_INVALID_UNKNOWN')
-                result=ProviderChat(text,request.digest,usage,environment,format(cost,'f') if self.mode=='LIVE' else '0',
-                    provider_request_id=provider_id,live_verified=self.mode=='LIVE',binding=request.public_binding(),
-                    finish_reason=choice['finish_reason'])
-            else:
-                require(choice.get('finish_reason')=='tool_calls','META_INCOMPLETE_UNKNOWN')
-                calls = message.get('tool_calls'); require(type(calls) is list and len(calls) == 1)
-                raw_call = calls[0]; require(set(raw_call) == {'id', 'type', 'function'} and raw_call['type'] == 'function')
-                function = raw_call['function']; require(set(function) == {'name', 'arguments'})
-                call = ToolCall(raw_call['id'], function['name'], function['arguments']); call.validate()
-                require(call.name == 'navigate_read' and strict_json(call.arguments_json) == request.plan_fields(),
-                        'META_PLAN_SCOPE_DENIED')
-                result = ProviderPlan(call,request.digest,usage,environment,str(cost) if self.mode=='LIVE' else '0',
-                    live_verified=self.mode=='LIVE',binding=request.public_binding())
-            if self.mode == 'LIVE': records.change(request, 'COMPLETED', result=result, http_status=status)
-            return result
-        except Exception as error:
-            code = (error.code if type(error) is MetaAPIError else
-                    'META_TIMEOUT_UNKNOWN' if isinstance(error, TimeoutError) else
+                errors = {400:'META_CONTRACT_REJECTED',401: 'META_AUTH_DENIED', 403: 'META_AUTH_DENIED', 402: 'META_BILLING_UNAVAILABLE',
+                          429: 'META_RATE_LIMITED'}
+                require(status == 200, errors.get(status, 'META_UNAVAILABLE'))
+                require(type(raw) is bytes and len(raw) <= MAX_BODY, 'META_RESPONSE_LIMIT_UNKNOWN')
+                require(key is None or key.encode() not in raw, 'META_CREDENTIAL_ECHO_DENIED')
+                value = strict_json(raw.decode())
+                def echoes_key(item):
+                    if isinstance(item, str): return key is not None and key in item
+                    if isinstance(item, dict): return any(echoes_key(k) or echoes_key(v) for k, v in item.items())
+                    if isinstance(item, list): return any(echoes_key(v) for v in item)
+                    return False
+                require(not echoes_key(value), 'META_CREDENTIAL_ECHO_DENIED')
+                require(type(value) is dict and value.get('model') == MODEL, 'META_MODEL_MISMATCH')
+                usage = value.get('usage'); require(type(usage) is dict, 'META_USAGE_DENIED')
+                usage = {k: usage.get(k) for k in ('prompt_tokens', 'completion_tokens', 'total_tokens')}
+                require(all(type(v) is int and 0 <= v <= 100000 for v in usage.values())
+                    and usage['total_tokens'] == usage['prompt_tokens']+usage['completion_tokens']
+                    and usage['completion_tokens'] <= request.max_output_tokens
+                    and usage['prompt_tokens'] <= len(canonical_json_bytes(payload))+512, 'META_USAGE_DENIED')
+                choices = value.get('choices'); require(type(choices) is list and len(choices) == 1)
+                choice = choices[0];require(type(choice) is dict)
+                message = choice.get('message'); require(type(message) is dict and message.get('role') == 'assistant')
+                cost = (Decimal(usage['prompt_tokens'])*INPUT_PRICE+Decimal(usage['completion_tokens'])*OUTPUT_PRICE)/1000000
+                require(self.mode == 'MOCK' and budget == 0 or cost <= budget, 'META_BUDGET_EXCEEDED_UNKNOWN')
+                environment='META_API_LIVE_VERIFIED' if self.mode=='LIVE' else 'META_API_MOCK'
+                if type(request) is MetaChatRequest:
+                    finishes=('stop','length') if request.task.actor=='LINUX_OWNER' else ('stop',)
+                    require(choice.get('finish_reason') in finishes and not message.get('tool_calls') and not message.get('function_call'),
+                        'META_INCOMPLETE_UNKNOWN')
+                    text=message.get('content')
+                    require(type(text) is str and 1<=len(text.encode())<=(32768 if request.task.actor=='LINUX_OWNER' else 8192),
+                        'META_CHAT_RESPONSE_INVALID_UNKNOWN')
+                    provider_id=value.get('id')
+                    require(provider_id is None or type(provider_id) is str and re.fullmatch('[A-Za-z0-9_.:/-]{1,200}',provider_id),
+                        'META_CHAT_RESPONSE_INVALID_UNKNOWN')
+                    result=ProviderChat(text,request.digest,usage,environment,format(cost,'f') if self.mode=='LIVE' else '0',
+                        provider_request_id=provider_id,live_verified=self.mode=='LIVE',binding=request.public_binding(),
+                        finish_reason=choice['finish_reason'])
+                else:
+                    require(choice.get('finish_reason')=='tool_calls','META_INCOMPLETE_UNKNOWN')
+                    calls = message.get('tool_calls'); require(type(calls) is list and len(calls) == 1)
+                    raw_call = calls[0]; require(set(raw_call) == {'id', 'type', 'function'} and raw_call['type'] == 'function')
+                    function = raw_call['function']; require(set(function) == {'name', 'arguments'})
+                    call = ToolCall(raw_call['id'], function['name'], function['arguments']); call.validate()
+                    require(call.name == 'navigate_read' and strict_json(call.arguments_json) == request.plan_fields(),
+                            'META_PLAN_SCOPE_DENIED')
+                    result = ProviderPlan(call,request.digest,usage,environment,str(cost) if self.mode=='LIVE' else '0',
+                        live_verified=self.mode=='LIVE',binding=request.public_binding())
+                if self.mode == 'LIVE': records.change(request, 'COMPLETED', result=result, http_status=status)
+                return result
+        except (ValueError, RepairBoundaryError) as error:
+            # The shared boundary preserves process signals and the original
+            # callback type, while only stable public codes leave this adapter.
+            original_error = error.__cause__ if type(error) is RepairBoundaryError else error
+            code = (original_error.code if type(original_error) is MetaAPIError else
+                    'META_TIMEOUT_UNKNOWN' if isinstance(original_error, TimeoutError) else
                     'META_STOPPED' if cancel.cancelled else
-                    'META_NETWORK_UNKNOWN' if isinstance(error, OSError) else 'META_RESPONSE_INVALID_UNKNOWN')
+                    'META_NETWORK_UNKNOWN' if isinstance(original_error, OSError) else 'META_RESPONSE_INVALID_UNKNOWN')
             if records is not None:
-                try:live_binding.note_uncertain_session_dispatch(request)
-                except Exception:pass  # DISPATCHED remains held and cannot be replayed.
+                # Best effort settlement cannot erase the durable DISPATCHED
+                # hold. A missing ACK remains UNKNOWN and cannot be replayed.
+                with suppress(ValueError, RepairBoundaryError), failure_boundary('META_SESSION_ACK_UNCERTAIN'):
+                    live_binding.note_uncertain_session_dispatch(request)
                 state = 'STOPPED' if code == 'META_STOPPED' else 'FAILED' if status in (400,401,402,403,429) or type(status) is int and status >= 500 else 'UNKNOWN'
-                try: records.change(request, state, http_status=status, error_code=code)
-                except Exception: pass  # Durable pending record projects UNKNOWN; never resend.
+                with suppress(ValueError, RepairBoundaryError), failure_boundary('META_RECORD_ACK_UNCERTAIN'):
+                    records.change(request, state, http_status=status, error_code=code)
             raise MetaAPIError(code) from None
         finally:
             self._active_attempt_id = None

@@ -4,15 +4,14 @@ Remote effects remain unqualified and disabled. The existing owner-wide UNKNOWN
 barrier and local network-OFF execution contracts are deliberately unchanged.
 """
 import time
-import json
 from contextlib import contextmanager
 
 from runtime.core_admission import Capability
+from runtime.mcp_bridge import native_read
+from runtime.memory_patch.errors import ErrorCode, MemoryPatchError
 from runtime.memory_patch.persistence.ports import RecordKind
-from runtime.memory_patch.errors import MemoryPatchError, ErrorCode
 from runtime.mobile_gateway import wire
 from runtime.mobile_gateway.service import plain
-from runtime.mcp_bridge import native_read
 
 
 def chat_read_context(host,request_id):
@@ -28,7 +27,7 @@ def chat_read_context(host,request_id):
     result=plain(row.payload['result']);receipt=result['receipt'];data=result['data']
     wire.verify(host.identity.spki,result['signature'],receipt)
     operation=receipt.get('operation')
-    native_read._require(operation in ('github.repository', *native_read.CONTEXT_REPOSITORIES), 'CHAT_READ_BINDING_MISMATCH')
+    native_read._require(operation in ('github.repository', *native_read.VERIFIED_CONTEXT_OPERATIONS), 'CHAT_READ_BINDING_MISMATCH')
     expected={'schema':'aioa.native-tool-read-receipt.v1','request_id':request_id,'operation':operation,
         'effect':'READ','authority':'LOCAL_NATIVE_OWNER_READ','transport':'LIVE_GITHUB_GET',
         'source_sha':host.source[0],'capsule_digest':host.source[1],'core_instance_id':host.instance_id,
@@ -61,7 +60,8 @@ def registry(host):
                 and r['receipt'].get('capsule_digest')==host.source[1]
                 and r['receipt'].get('core_instance_id')==host.instance_id]
     reads=host.mobile._run(Capability.READ,observations)
-    github={'status':'NOT_RUN','enabled':True,'repository':native_read.REPOSITORY}
+    github={'status':'NOT_RUN','enabled':True,'repository':native_read.REPOSITORY,
+            'context_inventory':native_read.context_inventory()}
     if reads:
         last=max(reads,key=lambda r:r['observed_at'])
         github.update(status='VERIFIED_READ',request_id=last['request_id'],observed_at=last['observed_at'],

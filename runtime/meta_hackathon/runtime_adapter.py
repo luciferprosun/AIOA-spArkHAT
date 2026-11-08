@@ -4,23 +4,33 @@ Uses one Core and the existing durable demo transaction adapter, never a new
 authority backend. Synthetic admission is confined to this labelled profile.
 LIVE bindings must be provided independently by a trusted native host.
 """
-from datetime import datetime, timezone
 import fcntl
 import hashlib
 import json
 import os
-from pathlib import Path
 import stat
 import subprocess
+from datetime import UTC, datetime
+from pathlib import Path
 
-from runtime.browser_agent.chrome_read_adapter import ChromeReadAdapter, FixtureReadDriver
-from runtime.core_admission import Capability, CoreAdmission, LocalOwnerAssignment, OwnerScope
-from runtime.core_admission import AdmissionError
+from runtime.browser_agent.chrome_read_adapter import (
+    ChromeReadAdapter,
+    FixtureReadDriver,
+)
+from runtime.core_admission import (
+    AdmissionError,
+    Capability,
+    CoreAdmission,
+    LocalOwnerAssignment,
+    OwnerScope,
+)
+from runtime.failure_boundary import RepairBoundaryError, failure_boundary
 from runtime.memory_patch.contracts.serialization import canonical_sha256
 from runtime.memory_patch.persistence.ports import TransactionRunner
 from runtime.mission.warrant import CoreWarrantLedger
 from runtime.providers.config import ProviderManager
-from runtime.providers.meta_model_api import MetaModelProvider, MODEL
+from runtime.providers.meta_model_api import MODEL, MetaModelProvider
+
 from .mission_service import MissionService
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -96,6 +106,7 @@ SOURCE_FILES += ('runtime/meta_hackathon/chat.py','runtime/meta_hackathon/chat_s
         'protocol/mobile_chat_v1.json','web/mobile_chat.js',
         'clients/android/app/src/main/java/eu/sparkhat/aioa/companion/ChatView.kt')
 SOURCE_FILES += ('runtime/mcp_bridge/native_read.py','runtime/meta_hackathon/native_tools.py')
+SOURCE_FILES += ('runtime/secret_redaction.py','runtime/failure_boundary.py')
 SOURCE_FILES += ('runtime/mobile_gateway/desktop.py','runtime/critical_loop/preset.py','web/white-hole.svg')
 SOURCE_FILES += ('runtime/meta_hackathon/advisory.py','runtime/tools/command_grammar.py',
         'runtime/knowledge/grammar/command_patterns.json','runtime/communication/contracts.py',
@@ -121,7 +132,7 @@ def sealed_source_path(relative, *, root=None):
 
 def current_source():
     sha = subprocess.run(['git', '--no-optional-locks', '-C', str(ROOT), 'rev-parse', 'HEAD'],
-                         capture_output=True, text=True, timeout=3).stdout.strip()
+                         capture_output=True, text=True, timeout=3, check=False).stdout.strip()
     capsule = canonical_sha256({p: hashlib.sha256(sealed_source_path(p).read_bytes()).hexdigest() for p in SOURCE_FILES})
     return sha if len(sha) == 40 else capsule[:40], capsule
 
@@ -129,6 +140,7 @@ def current_source():
 class OfflineMetaComposition:
     def __init__(self, root, *, delay_seconds=.6, source_probe=current_source):
         from main import create_runtime
+
         from runtime.personal_ai_fixture import DurableFactory
         self.root = Path(root).absolute()
         self.root.mkdir(mode=0o700, parents=True, exist_ok=True)
@@ -140,7 +152,7 @@ class OfflineMetaComposition:
         except OSError:
             os.close(self._lease); raise ValueError('META_RUNTIME_ALREADY_ACTIVE') from None
         self._closed = False
-        clock = lambda: datetime.now(timezone.utc)
+        clock = lambda: datetime.now(UTC)
         scope = OwnerScope('offline-fixture', 'offline-operator', 'offline-meta', 'single-runtime')
         self.core = CoreAdmission(LocalOwnerAssignment(scope,
             frozenset({Capability.READ, Capability.COMMIT, Capability.OWNER_APPROVAL, Capability.MANAGE}),
@@ -169,12 +181,13 @@ class OfflineMetaComposition:
 
     def enable_unified(self, *, config=None):
         """Explicit labelled fixture composition of the existing app, not LIVE GO."""
-        from cryptography.hazmat.primitives.asymmetric import ec
         from cryptography.hazmat.primitives import serialization
-        from runtime.mobile_gateway.wire import Identity
-        from runtime.mobile_gateway.service import MobileGateway
+        from cryptography.hazmat.primitives.asymmetric import ec
+
         from runtime.mission.project_recipe import prepare_sensorbridge_sandbox
-        from runtime.mission.sandbox_linux import save_host_config,load_host_config
+        from runtime.mission.sandbox_linux import load_host_config, save_host_config
+        from runtime.mobile_gateway.service import MobileGateway
+        from runtime.mobile_gateway.wire import Identity
         if hasattr(self,'mobile'):raise ValueError('UNIFIED_ALREADY_CONFIGURED')
         if config is None:
             cache=self.root/('sandbox-'+self.missions.source_probe()[1][:16])
@@ -227,13 +240,13 @@ def _desktop_operator_uid():
         for name in ('DISPLAY','XAUTHORITY'):
             if name in os.environ:environment[name]=os.environ[name]
         session=subprocess.run(['/usr/bin/loginctl','show-session','self','-p','User','-p','Active','-p','Remote'],
-            env=environment,stdin=subprocess.DEVNULL,capture_output=True,text=True,timeout=10)
+            env=environment,stdin=subprocess.DEVNULL,capture_output=True,text=True,timeout=10,check=False)
         fields=dict(line.split('=',1) for line in session.stdout.splitlines() if '=' in line)
         if session.returncode or fields!={'User':str(uid),'Remote':'no','Active':'yes'}:raise AdmissionError()
         raw=Path('/proc/self/stat').read_text();started=raw[raw.rfind(')')+2:].split()[19]
         result=subprocess.run(['/usr/bin/pkcheck','--action-id','org.freedesktop.policykit.exec',
             '--process',f'{pid},{started},{uid}','--allow-user-interaction'],env=environment,
-            stdin=subprocess.DEVNULL,capture_output=True,text=True,timeout=120)
+            stdin=subprocess.DEVNULL,capture_output=True,text=True,timeout=120,check=False)
         if result.returncode!=0:raise AdmissionError()
         return uid,{'method':'SYSTEM_POLKIT_ACTIVE_LOCAL_SESSION','action':'org.freedesktop.policykit.exec',
             'uid':uid,'pid':pid,'process_start':started}
@@ -250,10 +263,14 @@ class NativeMobileComposition:
     """
     def __init__(self,root,*,origin,source_probe=current_source,chat=False,key_path=None,existing_profile=False):
         import time
+
         from runtime.mobile_gateway import wire
         self.origin=wire.origin(origin)
         if self.origin=='https://fixture.invalid':raise AdmissionError()
-        from runtime.mobile_gateway.desktop import validate_existing_profile,signing_key_identity
+        from runtime.mobile_gateway.desktop import (
+            signing_key_identity,
+            validate_existing_profile,
+        )
         if type(existing_profile) is not bool:raise AdmissionError()
         self._existing_profile=validate_existing_profile(root) if existing_profile else None
         self._existing_host_key=signing_key_identity(root) if existing_profile else None
@@ -262,7 +279,7 @@ class NativeMobileComposition:
                 or signing_key_identity(root)!=self._existing_host_key):
             raise AdmissionError()
         if type(chat) is not bool:raise AdmissionError()
-        from runtime.providers.meta_model_api import KEY_FILE,key_metadata
+        from runtime.providers.meta_model_api import KEY_FILE, key_metadata
         self.chat_enabled=chat
         self._meta_key_path=Path(key_path) if key_path is not None else KEY_FILE
         if chat and not key_metadata(self._meta_key_path)['configured']:raise ValueError('META_KEY_NOT_CONFIGURED')
@@ -296,12 +313,13 @@ class NativeMobileComposition:
         if self._existing_profile is not None:
             from runtime.mobile_gateway.desktop import signing_key_identity
             if signing_key_identity(self.root)!=self._existing_host_key:raise AdmissionError()
+        from cryptography.hazmat.primitives import serialization
+        from cryptography.hazmat.primitives.asymmetric import ec
         from main import create_runtime
+
         from runtime.memory_patch.persistence.ports import LocalCoreRecordFactory
         from runtime.mobile_gateway import wire
         from runtime.mobile_gateway.service import MobileGateway
-        from cryptography.hazmat.primitives.asymmetric import ec
-        from cryptography.hazmat.primitives import serialization
         scope=OwnerScope('local-linux',f'uid-{self.uid}','aioa-main','mobile-status')
         # True is derived from successful system authentication above, never a
         # caller-supplied approval flag or a synthetic fixture assignment.
@@ -343,7 +361,11 @@ class NativeMobileComposition:
         self.tls_verified=False
         self.mobile=MobileGateway(self.missions,identity=self.identity,native_host=self)
         if self.chat_enabled:
-            from runtime.mission.governor import CoreDualGovernor,GovernorPolicy,Limits
+            from runtime.mission.governor import (
+                CoreDualGovernor,
+                GovernorPolicy,
+                Limits,
+            )
             limits=Limits(50000000,20)
             self.chat_governor=CoreDualGovernor(self.core,self.runner,GovernorPolicy(scope,'native-mobile-chat-v1',limits,limits,limits,max_clock_step_seconds=3600))
             self.chat_governor.start_epoch(self.core.local_operator(Capability.MANAGE))
@@ -351,7 +373,7 @@ class NativeMobileComposition:
             self.missions.bind_chat(self.chat_governor,self._chat_authority,
                 read_context_probe=lambda request_id:chat_read_context(self,request_id),
                 credit_balance_probe=self._chat_credit_authority)
-        now=int(datetime.now(timezone.utc).timestamp())
+        now=int(datetime.now(UTC).timestamp())
         self.mobile._run(Capability.COMMIT,lambda tx:self.mobile._record(tx,
             'mobile-operator-'+self.instance_id,{'state':'MOBILE_OPERATOR_ADMISSION',
                 'authentication':self.operator_authentication,'source_sha':self.source[0],
@@ -365,21 +387,23 @@ class NativeMobileComposition:
 
     def _chat_authority(self,task):
         """Recheck the admitted OS owner and actual registered device/session."""
-        from runtime.memory_patch.persistence.ports import RecordKind
         import time
+
+        from runtime.memory_patch.persistence.ports import RecordKind
         try:
-            self.operator_principal()
-            if task.source_sha!=self.source[0]:return False
-            if task.actor=='LINUX_OWNER':
-                return task.session_id==canonical_sha256(self.instance_id)[:32]
-            device=self.mobile._get('mobile-device-'+task.device_id)
-            if device is None or device.payload.get('revoked') is not False:return False
-            rows=self.mobile._run(Capability.READ,lambda tx:tx.scan(RecordKind.OPERATION,limit=128,states=('MOBILE_SESSION',)))
-            return any(r.payload.get('session_id')==task.session_id and r.payload.get('device_id')==task.device_id
-                and r.payload.get('core_instance_id')==self.instance_id and r.payload.get('revoked') is False
-                and r.payload['expires_at']>time.time() and r.payload.get('source_sha')==self.source[0]
-                and r.payload.get('capsule_digest')==self.source[1] for r in rows)
-        except Exception:return False
+            with failure_boundary('NATIVE_CHAT_AUTHORITY_DENIED'):
+                self.operator_principal()
+                if task.source_sha!=self.source[0]:return False
+                if task.actor=='LINUX_OWNER':
+                    return task.session_id==canonical_sha256(self.instance_id)[:32]
+                device=self.mobile._get('mobile-device-'+task.device_id)
+                if device is None or device.payload.get('revoked') is not False:return False
+                rows=self.mobile._run(Capability.READ,lambda tx:tx.scan(RecordKind.OPERATION,limit=128,states=('MOBILE_SESSION',)))
+                return any(r.payload.get('session_id')==task.session_id and r.payload.get('device_id')==task.device_id
+                    and r.payload.get('core_instance_id')==self.instance_id and r.payload.get('revoked') is False
+                    and r.payload['expires_at']>time.time() and r.payload.get('source_sha')==self.source[0]
+                    and r.payload.get('capsule_digest')==self.source[1] for r in rows)
+        except (ValueError, RepairBoundaryError):return False
 
     def _chat_credit_authority(self,request):
         """Pure projection of a committed native OWNER dashboard attestation.
@@ -390,24 +414,32 @@ class NativeMobileComposition:
         """
         import time
         try:
-            self._require_qualified_operator();value=self._credit_observation
-            if value is None:return False
-            info=self._meta_key_path.lstat()
-            key=canonical_sha256((info.st_dev,info.st_ino,info.st_size,info.st_mtime_ns))
-            if not (value['issued_at']<=time.time()<value['expires_at']
-                    and value['core_instance_id']==self.instance_id
-                    and (value['source_sha'],value['capsule_digest'])==self.source
-                    and value['key_metadata_digest']==key
-                    and (value['policy_epoch'],value['policy_request_id'])==self._credit_policy_binding):return False
-            return request is None or request.estimate()*10**9<=value['credit_nano']
-        except Exception:return False
+            with failure_boundary('NATIVE_CREDIT_AUTHORITY_DENIED'):
+                self._require_qualified_operator();value=self._credit_observation
+                if value is None:return False
+                info=self._meta_key_path.lstat()
+                key=canonical_sha256((info.st_dev,info.st_ino,info.st_size,info.st_mtime_ns))
+                if not (value['issued_at']<=time.time()<value['expires_at']
+                        and value['core_instance_id']==self.instance_id
+                        and (value['source_sha'],value['capsule_digest'])==self.source
+                        and value['key_metadata_digest']==key
+                        and (value['policy_epoch'],value['policy_request_id'])==self._credit_policy_binding):return False
+                return request is None or request.estimate()*10**9<=value['credit_nano']
+        except (ValueError, RepairBoundaryError):return False
 
     def qualify_tls(self,port):
         """System-CA/hostname/TLS1.3 plus a signed challenge of this same app."""
-        import base64,http.client,secrets,socket,ssl,time
+        import base64
+        import http.client
+        import secrets
+        import socket
+        import ssl
+        import time
         from urllib.parse import urlsplit
+
         from cryptography import x509
         from cryptography.hazmat.primitives import serialization
+
         from runtime.mobile_gateway import wire
         self.operator_principal()
         context=ssl.create_default_context()
@@ -437,7 +469,7 @@ class NativeMobileComposition:
             public=certificate.public_key().public_bytes(serialization.Encoding.DER,serialization.PublicFormat.SubjectPublicKeyInfo)
             self.tls_pin='sha256/'+base64.b64encode(hashlib.sha256(public).digest()).decode()
             self.tls_certificate_sha256=hashlib.sha256(certificate.public_bytes(serialization.Encoding.DER)).hexdigest()
-            self._tls_expires=certificate.not_valid_after.replace(tzinfo=timezone.utc).timestamp()
+            self._tls_expires=certificate.not_valid_after.replace(tzinfo=UTC).timestamp()
             if self._tls_expires<=time.time()+300:raise AdmissionError()
             self.tls_verified=True
         finally:peer.close()
@@ -456,8 +488,8 @@ class NativeMobileComposition:
 
     def model_calls(self):
         if not self.chat_enabled:return 0
-        from runtime.providers.meta_receipts import FILTER
         from runtime.memory_patch.persistence.ports import RecordKind
+        from runtime.providers.meta_receipts import FILTER
         return self.mobile._run(Capability.READ,lambda tx:len(tx.scan(RecordKind.OPERATION,limit=128,states=FILTER)))
 
     def operator_auth_status(self):
@@ -480,6 +512,7 @@ class NativeMobileComposition:
         uncertainty in either leaves the RAM lease closed, without retry.
         """
         import time
+
         from runtime.mobile_gateway import wire
         if not callable(invalidate_console):raise AdmissionError()
         if set(value)!={'op','request_id','source_sha','capsule_digest','core_instance_id','admission_revision'}:
@@ -544,16 +577,17 @@ class NativeMobileComposition:
 
     def operator_request(self,peer_uid,value,*,invalidate_console=None):
         """Called only by the private socket after kernel SO_PEERCRED lookup."""
+        from runtime.memory_patch.persistence.ports import RecordKind
         from runtime.mobile_gateway import wire
         from runtime.mobile_gateway.service import plain
-        from runtime.memory_patch.persistence.ports import RecordKind
         if peer_uid!=self.uid:raise AdmissionError()
         if type(value) is not dict or type(value.get('op')) is not str:raise wire.MobileError(400)
         op=value['op']
         if value=={'op':'operator_auth_status'}:return self.operator_auth_status()
         if op=='operator_renew':return self.renew_operator(value,invalidate_console)
         owner=self.operator_principal()
-        from .advisory import OPS as ADVISORY_OPS,dispatch as advisory_dispatch
+        from .advisory import OPS as ADVISORY_OPS
+        from .advisory import dispatch as advisory_dispatch
         if op in ADVISORY_OPS:return advisory_dispatch(self,owner,value)
         if op.startswith('github_'):
             from .github_write import dispatch
@@ -567,7 +601,7 @@ class NativeMobileComposition:
         if op.startswith('chat_'):
             from runtime.mobile_gateway.operator_chat import dispatch
             return dispatch(self,owner,value)
-        from runtime.mobile_gateway.pairing import Pairing, OWNER_FIELDS
+        from runtime.mobile_gateway.pairing import OWNER_FIELDS, Pairing
         if op in OWNER_FIELDS:return Pairing(self.mobile).owner(owner,value)
         fields={'settings':{'op'},'status':{'op'},'enroll':{'op','request_id','device_spki'},'revoke':{'op','device_spki'}}
         if op not in fields or set(value)!=fields[op]:raise wire.MobileError(400)

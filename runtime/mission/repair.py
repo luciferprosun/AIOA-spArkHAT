@@ -11,11 +11,11 @@ from __future__ import annotations
 import re
 import threading
 import time
-from contextlib import contextmanager
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Protocol
 
+from runtime.failure_boundary import RepairBoundaryError, failure_boundary
 from runtime.memory_patch.contracts.serialization import canonical_sha256
 from runtime.mission.contracts import bounded_int, logical_id
 from runtime.mission.patchset import BoundedPatchSetPolicy, PatchSet, SourceIdentity
@@ -40,25 +40,6 @@ def digest(value):
     require(
         type(value) is str and re.fullmatch(r"[0-9a-f]{64}", value), "REPAIR_DIGEST"
     )
-
-
-class RepairBoundaryError(RuntimeError):
-    """A host callback failed; only the bounded public code crosses the port."""
-
-
-@contextmanager
-def failure_boundary(code):
-    """Preserve typed denials and process signals; wrap foreign callback errors."""
-    require(
-        type(code) is str and re.fullmatch(r"[A-Z0-9_]{1,96}", code),
-        "REPAIR_BOUNDARY_CODE",
-    )
-    try:
-        yield
-    except ValueError:
-        raise
-    except Exception as error:
-        raise RepairBoundaryError(code) from error
 
 
 @dataclass(frozen=True, slots=True)

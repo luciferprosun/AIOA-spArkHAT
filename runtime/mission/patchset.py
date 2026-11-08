@@ -160,6 +160,8 @@ def _protected_change(path):
         and path
         not in (
             "runtime/core_admission.py",
+            "runtime/secret_redaction.py",
+            "runtime/failure_boundary.py",
             "runtime/nonzero_cloudops/models/redaction.py",
         ),
         "PATCHSET_CORE_POLICY_DENIED",
