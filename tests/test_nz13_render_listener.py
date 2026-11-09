@@ -169,6 +169,6 @@ class RenderListenerRegistryTests(unittest.TestCase):
                 patch.object(sandbox_linux.subprocess, 'run', side_effect=self.compiler):
             config = render_runtime.prepare_html_render_sandbox(self.root / 'html', workspace='workspace',
                                                                 recipe=recipe)
-        self.assertEqual(LISTENER, config.profile()['ipc_profile'])
+        self.assertEqual('RENDER_UNIX_MOJO_V1', config.profile()['ipc_profile'])
         self.assertEqual(20000, config.registry.recipes[0].timeout_ms)
         self.assertEqual(16384, config.registry.recipes[0].max_output_bytes)

@@ -170,7 +170,7 @@ def bounded_line(stream, seconds=8, *, cancel=None):
 
 def build_filter(*, final, ipc_profile=None):
     if ipc_profile is not None and (type(ipc_profile) is not str
-            or ipc_profile not in ('RENDER_UNIX_SOCKETPAIR_V1', 'RENDER_UNIX_LISTENER_V1')
+            or ipc_profile not in ('RENDER_UNIX_SOCKETPAIR_V1', 'RENDER_UNIX_LISTENER_V1', 'RENDER_UNIX_MOJO_V1')
             or final is not True):
         raise ValueError('UNAPPROVED_SANDBOX_IPC_PROFILE')
     # Linux x86_64 only. Each filter rejects other ABIs and x32 first.
@@ -182,7 +182,7 @@ def build_filter(*, final, ipc_profile=None):
         (0x35, 0, 1, 0x40000000),
         (0x06, 0, 0, 0x80000000),
     ]
-    if ipc_profile in ('RENDER_UNIX_SOCKETPAIR_V1', 'RENDER_UNIX_LISTENER_V1'):
+    if ipc_profile in ('RENDER_UNIX_SOCKETPAIR_V1', 'RENDER_UNIX_LISTENER_V1', 'RENDER_UNIX_MOJO_V1'):
         # The original pair profile stays byte-identical. Both profiles deny
         # connect(), including the mounted host handoff socket. Bootstrap
         # closes all fd>=3 before untrusted code; no host socket is inherited.
@@ -237,7 +237,7 @@ def build_filter(*, final, ipc_profile=None):
         ]
         rows.append((0x15, 0, len(half_close), 48))
         rows.extend(half_close)
-    if ipc_profile == 'RENDER_UNIX_LISTENER_V1':
+    if ipc_profile in ('RENDER_UNIX_LISTENER_V1', 'RENDER_UNIX_MOJO_V1'):
         # A separate operator-pinned profile for Chrome's ProcessSingleton.
         # Fresh UNIX stream creation, bounded bind and backlog-five listen only.
         # No connect/accept, INET, peer identity or imported host FD authority.
@@ -268,6 +268,15 @@ def build_filter(*, final, ipc_profile=None):
         listener_call(49, ((20, 'eq', 0), (16, 'lt', 64), (36, 'eq', 0),
                            (32, 'ge', 2), (32, 'lt', 111)))
         listener_call(50, ((20, 'eq', 0), (16, 'lt', 64), (28, 'eq', 0), (24, 'eq', 5)))
+        if ipc_profile == 'RENDER_UNIX_MOJO_V1':
+            # glibc send() uses sendto(NULL, 0) on x86_64. This writes to an
+            # existing private socket only, never an address/new peer. The
+            # buffer pointer/length stay kernel validated, as with write().
+            # UNIX provenance comes from bootstrap/creation/SCM isolation,
+            # not from a descriptor number or this pointer predicate alone.
+            listener_call(44, ((20, 'eq', 0), (16, 'lt', 256), (44, 'eq', 0),
+                               (40, 'eq', (0xFFFFBFBF, 0)), (52, 'eq', 0),
+                               (48, 'eq', 0), (60, 'eq', 0), (56, 'eq', 0)))
     deny = {
         101,
         133,
@@ -325,7 +334,7 @@ def build_filter(*, final, ipc_profile=None):
         deny.update(
             {41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 288, 299, 307}
         )
-    if ipc_profile in ('RENDER_UNIX_SOCKETPAIR_V1', 'RENDER_UNIX_LISTENER_V1'):
+    if ipc_profile in ('RENDER_UNIX_SOCKETPAIR_V1', 'RENDER_UNIX_LISTENER_V1', 'RENDER_UNIX_MOJO_V1'):
         deny.difference_update({46, 47, 53})
     for number in sorted(deny):
         rows.extend([(0x15, 0, 1, number), (0x06, 0, 0, 0x00050001)])
@@ -506,7 +515,9 @@ def prepare_linux_sandbox(root, runtime_manifest, *, workspace, recipes, resourc
             'INVALID_SANDBOX_RESOURCE_PROFILE')
     renderer = resource_profile is not None
     require(renderer_ipc is None or renderer and type(renderer_ipc) is str
-            and renderer_ipc == 'RENDER_UNIX_LISTENER_V1', 'UNAPPROVED_SANDBOX_IPC_PROFILE')
+            and (renderer_ipc == 'RENDER_UNIX_LISTENER_V1'
+                 or renderer_ipc == 'RENDER_UNIX_MOJO_V1' and resource_profile == 'HEADLESS_RENDER_V3'),
+            'UNAPPROVED_SANDBOX_IPC_PROFILE')
     ipc_profile = (renderer_ipc or 'RENDER_UNIX_SOCKETPAIR_V1') if renderer else None
     resource_ceilings = RENDER_PROFILE_CEILINGS[resource_profile] if renderer else RESOURCE_CEILINGS
     chrome_targets = frozenset('/opt/google/chrome/' + name for name in (
@@ -533,7 +544,7 @@ def prepare_linux_sandbox(root, runtime_manifest, *, workspace, recipes, resourc
                 "-D_FORTIFY_SOURCE=2",
                 "-Wl,-z,relro,-z,now",
                 *(['-DAIOA_RENDER_LISTENER=1'] if name == 'bootstrap'
-                  and ipc_profile == 'RENDER_UNIX_LISTENER_V1' else []),
+                  and ipc_profile in ('RENDER_UNIX_LISTENER_V1', 'RENDER_UNIX_MOJO_V1') else []),
                 str(source),
                 "-o",
                 str(destination),
@@ -606,8 +617,10 @@ def prepare_linux_sandbox(root, runtime_manifest, *, workspace, recipes, resourc
         profile.update(resource_profile=resource_profile, ipc_profile=ipc_profile,
                        host_socket_creation='DENIED', inherited_control_fds=0,
                        virtual_address_limit_bytes=4 * 1024**4)
-        if ipc_profile == 'RENDER_UNIX_LISTENER_V1':
+        if ipc_profile in ('RENDER_UNIX_LISTENER_V1', 'RENDER_UNIX_MOJO_V1'):
             profile.update(private_listener_creation='UNIX_STREAM_ONLY', host_connect='DENIED')
+        if ipc_profile == 'RENDER_UNIX_MOJO_V1':
+            profile.update(private_connected_send='NULL_ADDRESS_ONLY', private_send_fd_limit=256)
         if resource_profile in ('HEADLESS_RENDER_V2', 'HEADLESS_RENDER_V3'):
             profile['descriptor_limit'] = 256
     digest = canonical_sha256(profile)

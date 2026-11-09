@@ -96,7 +96,9 @@ class SandboxPreparer:
             self.manifest,
             workspace="workspace-1",
             recipes={str(i): spec for i, (_, spec) in enumerate(specs)},
-            **({'resource_profile': self.resource_profile, 'renderer_ipc': 'RENDER_UNIX_LISTENER_V1'}
+            **({'resource_profile': self.resource_profile,
+                'renderer_ipc': ('RENDER_UNIX_MOJO_V1' if self.resource_profile == 'HEADLESS_RENDER_V3'
+                                 else 'RENDER_UNIX_LISTENER_V1')}
                if self.resource_profile is not None else {}),
         )
         # The existing hard ceiling includes namespace setup and the final

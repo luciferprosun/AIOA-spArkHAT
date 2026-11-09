@@ -80,6 +80,21 @@ and filter hashes are bound into the profile and warrant. The existing pair,
 default and setup filter bytes are unchanged. A model cannot select this IPC
 policy through recipe input or worker arguments.
 
+The separate `RENDER_UNIX_MOJO_V1` policy is available only with resource V3.
+It preserves the listener rules and additionally admits Linux `sendto` on a
+descriptor below 256, with both destination pointer and destination length
+exactly zero. Only zero, `MSG_NOSIGNAL`, `MSG_DONTWAIT` or their combination is
+allowed; all integer high bits are checked. The pinned glibc implements
+`send()` this way, and the pinned Chrome Mojo transport uses that operation.
+The buffer pointer/length remain kernel validated. This is output to an
+already connected descriptor, comparable to the already permitted `write()`;
+it cannot select a peer. The filter cannot itself prove a descriptor's family.
+UNIX-only provenance still requires the same socket creation, bootstrap,
+private namespaces and closed host-SCM lifecycle. Non-null destinations,
+nonzero destination length, FASTOPEN and other flags, connect, recvfrom,
+accept, INET creation and peer-identity queries remain denied. The four earlier
+filters, native helper bytes and original Chrome arguments are unchanged.
+
 The renderer may half-close its own private pair with `SHUT_RD` or `SHUT_WR`.
 Descriptor and mode high bits are checked, the descriptor stays below 64, and
 `SHUT_RDWR` remains denied. This closes existing job IPC; it cannot create a
