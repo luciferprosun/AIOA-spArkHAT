@@ -8828,8 +8828,8 @@
     },
     "runtime/nonzero_cloudops/adapters/portable.py": {
       "path": "runtime/nonzero_cloudops/adapters/portable.py",
-      "git_blob": "b134f0095c55565c8bd668065869248df21fc1f8",
-      "sha256": "74a2e41d11550e0e8413bf89db163f0a133e96659aa38c3068995adc5398189a",
+      "git_blob": "1965f5445ef50a304493d02d9b5d3e36843c4de6",
+      "sha256": "cd8ac4752280d90b8dff8e500a78fcd62620804a8090c8160e1fd03133b7de5a",
       "definitions": [
         {
           "name": "PortableMutationError",
@@ -8852,16 +8852,20 @@
           "line": 78
         },
         {
-          "name": "PortableStateStore",
+          "name": "_managed_layout_for",
           "line": 123
         },
         {
+          "name": "PortableStateStore",
+          "line": 145
+        },
+        {
           "name": "PortableResourceReader",
-          "line": 669
+          "line": 741
         },
         {
           "name": "PortableExecutor",
-          "line": 690
+          "line": 762
         },
         {
           "name": "__post_init__",
@@ -8873,115 +8877,119 @@
         },
         {
           "name": "__init__",
-          "line": 126
+          "line": 148
+        },
+        {
+          "name": "_require_managed_ready",
+          "line": 189
         },
         {
           "name": "path",
-          "line": 156
+          "line": 218
         },
         {
           "name": "_lock",
-          "line": 160
+          "line": 222
         },
         {
           "name": "_target_guard_identity",
-          "line": 186
+          "line": 252
         },
         {
           "name": "_check_target_guard",
-          "line": 203
+          "line": 269
         },
         {
           "name": "target_guard",
-          "line": 215
+          "line": 281
         },
         {
           "name": "observe_guarded_inventory",
-          "line": 243
+          "line": 309
         },
         {
           "name": "_initial_snapshot",
-          "line": 263
+          "line": 329
         },
         {
           "name": "_load",
-          "line": 274
+          "line": 340
         },
         {
           "name": "_payload",
-          "line": 337
+          "line": 405
         },
         {
           "name": "_write",
-          "line": 351
+          "line": 419
         },
         {
           "name": "get_resource",
-          "line": 368
+          "line": 440
         },
         {
           "name": "assert_ready",
-          "line": 382
+          "line": 454
         },
         {
           "name": "get_receipt",
-          "line": 388
+          "line": 460
         },
         {
           "name": "_released_receipts",
-          "line": 393
+          "line": 465
         },
         {
           "name": "released_default_resource_receipts",
-          "line": 407
+          "line": 479
         },
         {
           "name": "rearm_verified_demo_resource",
-          "line": 423
+          "line": 495
         },
         {
           "name": "execute",
-          "line": 462
+          "line": 534
         },
         {
           "name": "_validate_execution_binding",
-          "line": 579
+          "line": 651
         },
         {
           "name": "verify",
-          "line": 615
+          "line": 687
         },
         {
           "name": "__init__",
-          "line": 672
+          "line": 744
         },
         {
           "name": "adapter_name",
-          "line": 680
+          "line": 752
         },
         {
           "name": "get_resource",
-          "line": 683
+          "line": 755
         },
         {
           "name": "__init__",
-          "line": 693
+          "line": 765
         },
         {
           "name": "execute",
-          "line": 708
+          "line": 780
         },
         {
           "name": "counters",
-          "line": 732
+          "line": 804
         },
         {
           "name": "get_receipt",
-          "line": 738
+          "line": 810
         },
         {
           "name": "verify",
-          "line": 741
+          "line": 813
         }
       ],
       "symbolic_callees": [
@@ -8994,6 +9002,7 @@
         "LocalVerificationEvidence.model_construct",
         "Lock",
         "Path",
+        "Path.cwd",
         "PortableConflictError",
         "PortableInventoryObservation",
         "PortablePolicyError",
@@ -9005,6 +9014,7 @@
         "ValueError",
         "_RESOURCE_ADAPTER.validate_python",
         "_canonical_inventory_bytes",
+        "_managed_layout_for",
         "any",
         "atomic_write_private_json",
         "callable",
@@ -9012,6 +9022,7 @@
         "current.model_copy",
         "dataclass",
         "default_mock_resources",
+        "enumerate",
         "evidence.stable_fingerprint",
         "field",
         "getattr",
@@ -9029,6 +9040,10 @@
         "open_local_payload",
         "os.fstat",
         "os.getuid",
+        "parent.lstat",
+        "part.startswith",
+        "path.is_absolute",
+        "path.lstat",
         "payload.get",
         "proposal.normalized_parameters.get",
         "provisional.receipt_payload",
@@ -9037,6 +9052,7 @@
         "receipts.get",
         "receipts.values",
         "receipts[data].model_dump",
+        "resolved.is_absolute",
         "resolved.parent.mkdir",
         "resolved.with_name",
         "resources.get",
@@ -9050,9 +9066,11 @@
         "self._lock_path.lstat",
         "self._lock_path.parent.lstat",
         "self._path.exists",
+        "self._path.is_absolute",
         "self._path.with_name",
         "self._payload",
         "self._released_receipts",
+        "self._require_managed_ready",
         "self._state.execute",
         "self._state.get_receipt",
         "self._state.get_resource",
@@ -9073,8 +9091,8 @@
         "validate_local_path",
         "values.items"
       ],
-      "call_site_count": 226,
-      "call_sites_sha256": "f49b863b6a0e35230a3b55a9c6a9df2d48592865a492b63d17af65fc739f3f78"
+      "call_site_count": 271,
+      "call_sites_sha256": "4873a9f4302403ae9541a881d0802a23d5fcdfd78703c383259fdbb5170e1f69"
     },
     "runtime/main.py": {
       "path": "runtime/main.py",
@@ -10479,8 +10497,8 @@
     },
     "runtime/mission/warrant.py": {
       "path": "runtime/mission/warrant.py",
-      "git_blob": "e54b88323fa76da0ec5887cae97947dbea3fb9cb",
-      "sha256": "7b6c93611d997a49a8918e1106bdf33e448762227f5dc1096d5b8195922a2b0d",
+      "git_blob": "37ca478f82a9d12d0f5e0f7e68c920d68df261f5",
+      "sha256": "97bbd909dae7fe7fd18980eb6d6ca69dd174f1c20d18a08ae9af2fba5af8ffac",
       "definitions": [
         {
           "name": "WarrantError",
@@ -10563,8 +10581,12 @@
           "line": 280
         },
         {
+          "name": "consume_in_transaction",
+          "line": 291
+        },
+        {
           "name": "inspect",
-          "line": 296
+          "line": 311
         },
         {
           "name": "mutation",
@@ -10575,12 +10597,8 @@
           "line": 267
         },
         {
-          "name": "mutation",
-          "line": 285
-        },
-        {
           "name": "read",
-          "line": 299
+          "line": 314
         }
       ],
       "symbolic_callees": [
@@ -10612,6 +10630,7 @@
         "self._save",
         "self.approve_in_transaction",
         "self.clock",
+        "self.consume_in_transaction",
         "self.core.require",
         "self.runner.run",
         "set",
@@ -10625,8 +10644,8 @@
         "warrant.to_dict",
         "witness.payload.get"
       ],
-      "call_site_count": 123,
-      "call_sites_sha256": "04e3032b45bea4e3b61c7d5586b5b09d65b5b25fc42879a10542d690ef854955"
+      "call_site_count": 126,
+      "call_sites_sha256": "610a3e2cd65ee165354341cc60023c044da62f0c82eaa77d402f21943f62cdc8"
     },
     "runtime/mission/intent.py": {
       "path": "runtime/mission/intent.py",
@@ -16734,145 +16753,225 @@
     },
     "runtime/mission/target_projection.py": {
       "path": "runtime/mission/target_projection.py",
-      "git_blob": "f3ff32290c14f498996cc4cc11dba83957447d80",
-      "sha256": "5fe89e612e3d16b3383aad9f09d6152fb25cbd01b1434c48aa74c6c6b6d48282",
+      "git_blob": "b2059b7e0d603be32d86993e0ae03977271468d7",
+      "sha256": "3d1fc1f6dc07d0ab414072d4b638e57907c0c82fd0219fe117838dc094de0519",
       "definitions": [
         {
           "name": "_json",
-          "line": 39
+          "line": 53
         },
         {
           "name": "_digest",
-          "line": 43
+          "line": 57
         },
         {
           "name": "CoreTargetProjection",
-          "line": 49
+          "line": 63
         },
         {
           "name": "__init__",
-          "line": 52
+          "line": 66
         },
         {
           "name": "history_key",
-          "line": 64
+          "line": 79
         },
         {
           "name": "_revision",
-          "line": 68
-        },
-        {
-          "name": "_context",
-          "line": 71
-        },
-        {
-          "name": "encode_existing_baseline",
           "line": 83
         },
         {
-          "name": "_require_warrant_binding",
-          "line": 95
+          "name": "_context",
+          "line": 86
         },
         {
-          "name": "_liability_entry",
-          "line": 101
+          "name": "prepare_existing_adoption",
+          "line": 100
         },
         {
-          "name": "_observation",
-          "line": 111
+          "name": "_adoption_gate",
+          "line": 130
         },
         {
-          "name": "_details",
-          "line": 117
+          "name": "_target_rows",
+          "line": 142
         },
         {
-          "name": "_checked_details",
-          "line": 124
+          "name": "_require_no_named_adoption",
+          "line": 149
         },
         {
-          "name": "load",
+          "name": "_require_no_adoption_warrants",
+          "line": 159
+        },
+        {
+          "name": "_registration",
+          "line": 173
+        },
+        {
+          "name": "_require_adoption_warrant",
+          "line": 194
+        },
+        {
+          "name": "_adoption_commitment",
           "line": 211
         },
         {
-          "name": "_save_head",
+          "name": "adopt_existing_in_transaction",
           "line": 215
         },
         {
+          "name": "_check_registered_genesis",
+          "line": 255
+        },
+        {
+          "name": "encode_existing_baseline",
+          "line": 283
+        },
+        {
+          "name": "_require_warrant_binding",
+          "line": 295
+        },
+        {
+          "name": "_liability_entry",
+          "line": 301
+        },
+        {
+          "name": "_observation",
+          "line": 311
+        },
+        {
+          "name": "_details",
+          "line": 317
+        },
+        {
+          "name": "_checked_details",
+          "line": 324
+        },
+        {
+          "name": "load",
+          "line": 425
+        },
+        {
+          "name": "_save_head",
+          "line": 429
+        },
+        {
           "name": "_flight",
-          "line": 219
+          "line": 433
         },
         {
           "name": "start_in_transaction",
-          "line": 227
+          "line": 441
         },
         {
           "name": "before_release_in_transaction",
-          "line": 242
+          "line": 456
         },
         {
           "name": "record_ack_in_transaction",
-          "line": 252
+          "line": 466
         },
         {
           "name": "apply_resolution_in_transaction",
-          "line": 261
+          "line": 475
         },
         {
           "name": "check_history_in_transaction",
-          "line": 288
+          "line": 502
+        },
+        {
+          "name": "prepare",
+          "line": 116
         }
       ],
-      "call_site_count": 181,
+      "call_site_count": 315,
       "symbolic_callees": [
         "EffectWarrant.from_dict",
+        "ExistingTargetAdoption",
+        "ExistingTargetAdoption.from_dict",
         "FaultTrace.from_dict",
         "OwnerScope",
         "Reconciliation.from_dict",
         "StoredRecord",
+        "TargetBinding",
         "TargetExecutionAck",
         "TargetObservation",
+        "TransactionContext",
         "VerifiedTargetSettlement",
         "WarrantError",
         "_digest",
         "_json",
         "acknowledgment.to_dict",
         "all",
+        "any",
         "asdict",
         "candidate.payload.get",
         "canonical_json_bytes",
         "canonical_sha256",
+        "cls",
         "enumerate",
         "format",
+        "genesis.get",
+        "governor._clock",
+        "governor._epoch",
+        "governor._load",
+        "governor._now",
         "histories.get",
         "history_rows.sort",
+        "journal.ledger.core.require",
         "json.loads",
         "len",
         "opaque_id",
+        "projection._adoption_gate",
+        "projection._context",
+        "projection._require_no_named_adoption",
+        "projection.runner.run",
+        "request.digest",
+        "request.evidence",
+        "request.operation",
+        "request.to_dict",
         "require",
         "resolution.to_dict",
+        "row.payload.get",
+        "secrets.token_hex",
+        "self._adoption_commitment",
+        "self._adoption_gate",
+        "self._check_registered_genesis",
         "self._checked_details",
         "self._context",
         "self._details",
         "self._flight",
         "self._liability_entry",
         "self._observation",
+        "self._registration",
+        "self._require_adoption_warrant",
+        "self._require_no_adoption_warrants",
         "self._require_warrant_binding",
         "self._revision",
         "self._save_head",
+        "self._target_rows",
         "self.binding.digest",
         "self.binding.evidence",
         "self.binding.require_ack",
         "self.binding.require_observation",
         "self.core.require",
+        "self.encode_existing_baseline",
         "self.history_key",
         "self.journal._load",
         "self.journal.governor._epoch",
         "self.journal.governor._load",
+        "self.journal.ledger._key",
+        "self.journal.ledger._load",
+        "self.journal.ledger._receipt",
+        "self.journal.ledger.consume_in_transaction",
+        "self.journal.ledger.require_active_in_transaction",
         "self.liability._load",
         "self.load",
         "set",
         "state.update",
         "state[data].items",
+        "state[data].values",
         "tx.get",
         "tx.insert",
         "tx.replace",
@@ -16880,14 +16979,15 @@
         "type",
         "value.get",
         "warrant.digest",
-        "warrant.to_dict"
+        "warrant.to_dict",
+        "witness.payload.get"
       ],
-      "call_sites_sha256": "aee8fbb861ef86a7873c8aecbce02ce37831b9c2289ae147752b727b5a51e461"
+      "call_sites_sha256": "005cc5d55e6a02806b29f31bcf27622289569b801cca277fd7895892bbfac267"
     },
     "runtime/mission/target_settlement.py": {
       "path": "runtime/mission/target_settlement.py",
-      "git_blob": "e2a906d4410d98621f0afa65d2fc6fb1c6d8b3de",
-      "sha256": "c7651f4e892792a138cb33ca658450627cccf20abdc206ad9ad2c7bb0b6caca2",
+      "git_blob": "cd11b6ca05dbdb80c50d463340b15a13c46c21a8",
+      "sha256": "5eb630f118e9fcc8828da6a4a4bff7b1cfea47e32952d3270bc92b97db72b15b",
       "definitions": [
         {
           "name": "_root",
@@ -16912,6 +17012,10 @@
         {
           "name": "TargetSettlementPort",
           "line": 149
+        },
+        {
+          "name": "ExistingTargetAdoption",
+          "line": 179
         },
         {
           "name": "__post_init__",
@@ -16968,33 +17072,71 @@
         {
           "name": "check_history_in_transaction",
           "line": 169
+        },
+        {
+          "name": "__post_init__",
+          "line": 193
+        },
+        {
+          "name": "target_revision",
+          "line": 200
+        },
+        {
+          "name": "target_key",
+          "line": 204
+        },
+        {
+          "name": "to_dict",
+          "line": 209
+        },
+        {
+          "name": "from_dict",
+          "line": 213
+        },
+        {
+          "name": "digest",
+          "line": 227
+        },
+        {
+          "name": "evidence",
+          "line": 230
+        },
+        {
+          "name": "operation",
+          "line": 234
         }
       ],
-      "call_site_count": 41,
+      "call_site_count": 67,
       "symbolic_callees": [
         "EvidenceRef",
+        "OwnerScope",
+        "TargetBinding",
         "_root",
         "all",
         "asdict",
         "canonical_sha256",
+        "cls",
         "dataclass",
         "digest_id",
         "len",
         "opaque_id",
         "require",
+        "self.binding.digest",
         "self.digest",
         "self.resolution.readback.digest.removeprefix",
         "self.resolution.receipt.digest.removeprefix",
         "self.scope.binding",
+        "self.to_dict",
+        "set",
         "type",
         "warrant.digest"
       ],
-      "call_sites_sha256": "72582ea972e7e9ffd972ba05e0b9309c280bc5591cb3644e134741ed0c44ed70"
+      "call_sites_sha256": "d4fec8e1cc079af82dae8f67b16f21f38c6bed5b915c3f5dd0887061bbd86245"
     },
     "runtime/nonzero_cloudops/state/files.py": {
       "path": "runtime/nonzero_cloudops/state/files.py",
-      "git_blob": "ce47091f08abcc16dfb76cd6633886a61adf5279",
-      "sha256": "7560ba4c55960cd9e629b458745d3c29f755c5bb107f0ee747bd2763c79b7fb4",
+      "git_blob": "86c94bf816c59a7b796e25c259a71d2c4df5b113",
+      "sha256": "8006c486027aab31ec0347d1b81d4815760ccffda5645a7c84a49ab1a19e778c",
       "definitions": [
         {
           "name": "StateIntegrityError",
@@ -17030,7 +17172,7 @@
         },
         {
           "name": "atomic_write_private_json",
-          "line": 229
+          "line": 231
         },
         {
           "name": "pairs",
@@ -17041,7 +17183,7 @@
           "line": 173
         }
       ],
-      "call_site_count": 122,
+      "call_site_count": 124,
       "symbolic_callees": [
         "<dynamic>.throw",
         "Path",
@@ -17096,7 +17238,7 @@
         "type",
         "validate_local_path"
       ],
-      "call_sites_sha256": "836e4c58b9e5c350651351b6e00019a151de0757debc5a90beeb7b066581181e"
+      "call_sites_sha256": "ed7701a46610bae5309208fa35c3f91d901f3dcf1811bb86abf6175fbf50c25e"
     }
   },
   "dispositions": {
@@ -17107,6 +17249,6 @@
     "DUPLICATE_VERIFIED": 16,
     "EXCLUDED_UNSAFE": 2
   },
-  "current_target_binding_note": "NZ13-F4 current target blob/AST identities for the shared private reader and guarded complete inventory facts, including the static-independence-compatible docstring. Historical NZ12 source assessments and decisions are unchanged. No physical Core registration/factory, model, production Native, package or full parity certification is implied; exact-source qualification remains pending. Failed F3 evidence is retained without retry.",
+  "current_target_binding_note": "NZ13-F6 current blob/AST identities: canonical frozen-root normalization and exact owner management adoption, plus a reserved read-only inventory namespace with absolute I/O binding. Historical NZ12 assessments and decisions are unchanged. Failed F5 evidence is retained. No physical Core release, product INIT/rearm, model, production Native or full parity certification is implied; exact-source qualification remains pending.",
   "nz12_binding_before_nz13_sha256": "cfca6195089170934076cd15ac80a5b26786e947338b089dd75926d545b971b2"
 }

@@ -167,3 +167,71 @@ class TargetSettlementPort(Protocol):
     def record_ack_in_transaction(self, tx, warrant, acknowledgment: TargetExecutionAck): ...
     def apply_resolution_in_transaction(self, tx, warrant, epoch, verified): ...
     def check_history_in_transaction(self, tx, warrant, intent): ...
+
+
+TARGET_HEAD_KIND = 'aioa-core-target-head.v1'
+TARGET_ADOPTION_KIND = 'core-target-existing-adoption'
+TARGET_ADOPTION_CLASS = 'TARGET_ADOPT_EXISTING'
+ADOPTION_REQUEST = 'aioa.target-adopt-existing-request.v1'
+
+
+@dataclass(frozen=True, slots=True)
+class ExistingTargetAdoption:
+    """Immutable host observations for exact adoption, never effect permission.
+
+    The Core preparation route issues the incarnation and retains these facts
+    before owner approval. A physical adapter must still supply fresh roots
+    under its held guard; this data type cannot prove that a guard is held.
+    """
+    binding: TargetBinding
+    state_root: str
+    resources_root: str
+    receipts_root: str
+    epoch: int
+    owner_session_digest: str
+
+    def __post_init__(self):
+        require(type(self.binding) is TargetBinding, 'TARGET_ADOPTION_REQUEST_BINDING')
+        for value in (self.state_root, self.resources_root, self.receipts_root, self.owner_session_digest):
+            _root(value)
+        require(type(self.epoch) is int and self.epoch > 0, 'TARGET_ADOPTION_EPOCH')
+
+    @property
+    def target_revision(self):
+        return 'core-target-' + self.binding.digest()[:16] + '-00000000'
+
+    @property
+    def target_key(self):
+        # Stable named target, deliberately excluding the issued incarnation.
+        return canonical_sha256((TARGET_HEAD_KIND, self.binding.scope,
+                                 self.binding.workspace, self.binding.target_id))
+
+    def to_dict(self):
+        return {'schema': ADOPTION_REQUEST, **asdict(self)}
+
+    @classmethod
+    def from_dict(cls, value):
+        require(type(value) is dict and set(value) == {'schema', 'binding', 'state_root',
+                'resources_root', 'receipts_root', 'epoch', 'owner_session_digest'}
+                and value['schema'] == ADOPTION_REQUEST, 'TARGET_ADOPTION_REQUEST_BINDING')
+        binding = value['binding']
+        require(type(binding) is dict and set(binding) == {'scope', 'workspace', 'target_id',
+                'incarnation', 'guard_fingerprint'}, 'TARGET_ADOPTION_REQUEST_BINDING')
+        scope = binding['scope']
+        require(type(scope) is dict and set(scope) == {'tenant_id', 'owner_id', 'space_id', 'slot_id'},
+                'TARGET_ADOPTION_REQUEST_BINDING')
+        fixed = TargetBinding(**{**binding, 'scope': OwnerScope(**scope)})
+        return cls(fixed, value['state_root'], value['resources_root'], value['receipts_root'],
+                   value['epoch'], value['owner_session_digest'])
+
+    def digest(self):
+        return canonical_sha256(self.to_dict())
+
+    def evidence(self):
+        return EvidenceRef(self.target_key, TARGET_ADOPTION_KIND,
+                           'sha256:' + self.digest(), 'adopt-existing-v1')
+
+    def operation(self):
+        return {'operation_class': TARGET_ADOPTION_CLASS,
+                'target_fingerprint': 'sha256:' + self.state_root,
+                'expected_target_revision': self.target_revision, 'payload': self.to_dict()}

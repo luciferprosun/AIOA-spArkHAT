@@ -282,16 +282,31 @@ class CoreWarrantLedger:
         lease epoch and reservation identities. No effect runs in a transaction.
         """
 
-        def mutation(tx):
-            self._check(current)
-            stored, state, active = self._load_unrevoked(tx, current)
-            require(current == active, "STALE_WARRANT_BINDING")
-            require(state["consumption"] is None, "WARRANT_ALREADY_CONSUMED")
-            state["consumption"] = self._receipt(active)
-            self._save(tx, current, state, stored)
-            return state["consumption"]
+        return self._run(
+            principal,
+            Capability.COMMIT,
+            lambda tx: self.consume_in_transaction(tx, current),
+        )
 
-        return self._run(principal, Capability.COMMIT, mutation)
+    def consume_in_transaction(self, tx, current):
+        """Consume the same exact warrant in the caller's Core COMMIT transaction.
+
+        This composes ledger facts only. Target registration must additionally
+        require its current owner witness and exact immutable registration facts.
+        No approval, effect, nested runner or replay permission is created here.
+        """
+        require(
+            tx.context.purpose is Capability.COMMIT,
+            "WARRANT_CONSUMPTION_CONTEXT",
+        )
+        self.core.require(tx.context.principal, Capability.COMMIT, scope=self.scope)
+        self._check(current)
+        stored, state, active = self._load_unrevoked(tx, current)
+        require(current == active, "STALE_WARRANT_BINDING")
+        require(state["consumption"] is None, "WARRANT_ALREADY_CONSUMED")
+        state["consumption"] = self._receipt(active)
+        self._save(tx, current, state, stored)
+        return state["consumption"]
 
     def inspect(self, principal, warrant):
         """Read-only ACK reconciliation, including after expiry; no raw approval."""

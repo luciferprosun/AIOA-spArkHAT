@@ -120,6 +120,28 @@ class PortableInventoryObservation:
         return 'NONE'
 
 
+def _managed_layout_for(path):
+    """A reserved path only restricts rights; it never grants Core authority."""
+    # Relative names retain the current directory's reserved namespace signal.
+    effective = path if path.is_absolute() else Path.cwd() / path
+    positions = [index for index, part in enumerate(effective.parts)
+                 if part.startswith('.aioa-core-managed')]
+    if not positions:
+        return None
+    valid = (path.is_absolute() and '..' not in path.parts and len(positions) == 1
+             and positions[0] == len(path.parts) - 4
+             and path.parts[positions[0]] == '.aioa-core-managed-v1'
+             and path.name == 'inventory.json')
+    if not valid:
+        raise PortablePolicyError('managed inventory namespace layout is invalid')
+    index = positions[0]
+    identities = path.parts[index + 1:index + 3]
+    if any(len(value) != 64 or any(character not in '0123456789abcdef' for character in value)
+           for value in identities):
+        raise PortablePolicyError('managed inventory namespace identity is invalid')
+    return (Path(*path.parts[:index]), *identities)
+
+
 class PortableStateStore:
     """Atomically persist mock inventory and receipts in one crash-safe file."""
 
@@ -132,6 +154,14 @@ class PortableStateStore:
         resolved = Path(path) if isinstance(path, (str, Path)) else None
         if resolved is None or not str(resolved).strip():
             raise ValueError("local mock state path must be a non-empty path")
+        # One CWD snapshot binds classification, guard and all later I/O.
+        origin = None if resolved.is_absolute() else Path.cwd()
+        resolved = resolved if origin is None else origin / resolved
+        managed = _managed_layout_for(resolved)
+        if origin is not None and managed is not None:
+            raise PortablePolicyError('managed inventory requires an absolute target path')
+        if managed is not None and initial_resources is not None:
+            raise PortablePolicyError('managed inventory does not accept virtual initial resources')
         selected = initial_resources or default_mock_resources()
         identities = {
             (item.resource_type, item.resource_id, item.region) for item in selected
@@ -140,17 +170,49 @@ class PortableStateStore:
             raise ValueError("local mock resources must have unique identities")
         try:
             validate_local_path(resolved)
-            resolved.parent.mkdir(parents=True, exist_ok=True)
+            if managed is None:
+                resolved.parent.mkdir(parents=True, exist_ok=True)
             validate_local_path(resolved)
         except (OSError, StateIntegrityError) as error:
             raise CloudAdapterUnavailableError(
                 "local mock state directory is unavailable"
             ) from error
         self._path = resolved
+        self._relative_cwd = origin
+        self._managed_layout = managed
         self._lock_path = resolved.with_name(f"{resolved.name}.lock")
         self._initial_resources = tuple(selected)
         self._thread_lock = RLock()
         self._held_lock = local()
+        self._require_managed_ready()
+
+    def _require_managed_ready(self):
+        if not self._path.is_absolute():
+            raise PortablePolicyError('local inventory lost its absolute target binding')
+        if self._relative_cwd is not None and Path.cwd() != self._relative_cwd:
+            raise PortablePolicyError('local inventory working directory changed')
+        current = _managed_layout_for(self._path)
+        if current != self._managed_layout:
+            raise PortablePolicyError('managed inventory path binding changed')
+        if current is None:
+            return
+        if self._lock_path != self._path.with_name('inventory.json.lock'):
+            raise PortablePolicyError('managed inventory guard path binding changed')
+        try:
+            validate_local_path(self._path)
+            validate_local_path(self._lock_path)
+            for parent in self._path.parents[:3]:
+                info = parent.lstat()
+                if (not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid()
+                        or stat.S_IMODE(info.st_mode) & 0o077):
+                    raise StateIntegrityError('managed inventory directory is not private')
+            for path in (self._path, self._lock_path):
+                info = path.lstat()
+                if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid()
+                        or info.st_nlink != 1 or stat.S_IMODE(info.st_mode) & 0o077):
+                    raise StateIntegrityError('managed inventory file identity is invalid')
+        except (OSError, StateIntegrityError) as error:
+            raise CloudAdapterUnavailableError('managed inventory state is unavailable') from error
 
     @property
     def path(self) -> Path:
@@ -159,6 +221,7 @@ class PortableStateStore:
     @contextmanager
     def _lock(self, *, exclusive: bool) -> object:
         with self._thread_lock:
+            self._require_managed_ready()
             held = getattr(self._held_lock, 'exclusive', None)
             if held is not None:
                 if exclusive and not held:
@@ -170,7 +233,10 @@ class PortableStateStore:
                     self._check_target_guard()
                 return
             try:
-                with locked_private_file(self._lock_path, exclusive=exclusive) as descriptor:
+                manager = (locked_private_file(self._lock_path, exclusive=exclusive)
+                           if self._managed_layout is None else
+                           locked_private_file(self._lock_path, exclusive=exclusive, create=False))
+                with manager as descriptor:
                     self._held_lock.exclusive = exclusive
                     self._held_lock.descriptor = descriptor
                     try:
@@ -280,6 +346,8 @@ class PortableStateStore:
     ]:
         if type(require_existing) is not bool:
             raise PortablePolicyError('local inventory existing-state flag is invalid')
+        self._require_managed_ready()
+        require_existing = require_existing or self._managed_layout is not None
         if not require_existing and not self._path.exists():
             return self._initial_snapshot()
         try:
@@ -353,6 +421,10 @@ class PortableStateStore:
         resources: Mapping[tuple[object, str, str], CloudResource],
         receipts: Mapping[str, LocalExecutionReceipt],
     ) -> None:
+        self._require_managed_ready()
+        if self._managed_layout is not None:
+            # No positive physical Core release is implemented by this profile.
+            raise PortablePolicyError('managed inventory requires a current Core physical release')
         payload = self._payload(resources, receipts)
         try:
             envelope = seal_local_payload(

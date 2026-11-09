@@ -202,10 +202,12 @@ def read_private_json(
 
 
 @contextmanager
-def locked_private_file(path: Path, *, exclusive: bool) -> Iterator[int]:
+def locked_private_file(path: Path, *, exclusive: bool, create: bool = True) -> Iterator[int]:
     """Hold one owner-only regular lock file without following symlinks."""
 
-    flags = os.O_RDWR | os.O_CREAT
+    if type(create) is not bool:
+        raise StateIntegrityError('local state lock creation flag is invalid')
+    flags = os.O_RDWR | (os.O_CREAT if create else 0)
     if hasattr(os, "O_NOFOLLOW"):
         flags |= os.O_NOFOLLOW
     descriptor = os.open(path, flags, 0o600)
