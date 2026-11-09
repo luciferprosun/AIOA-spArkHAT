@@ -80,7 +80,7 @@ class RichGitHubContextTests(unittest.TestCase):
         fixture = RichContextFixture()
         result = self.read(fixture, OPERATIONS[0])
         data = result['data']
-        self.assertEqual('aioa.github-read-context.v1', data['schema'])
+        self.assertEqual('aioa.github-read-context.v2', data['schema'])
         self.assertEqual({'owner': 'luciferprosun', 'name': 'AIOA-spArkHAT',
                           'canonical_url': 'https://github.com/' + fixture.repo,
                           'repository_id': fixture.repo_id}, data['repository'])

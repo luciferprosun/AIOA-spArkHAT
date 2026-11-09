@@ -64,7 +64,9 @@ SOURCE_FILES = ('runtime/meta_hackathon/runtime_adapter.py', 'runtime/meta_hacka
         'clients/android/app/src/main/res/xml/data_extraction_rules.xml')
 
 SOURCE_FILES += ('LICENSE', 'runtime/meta_hackathon/agent_operations.py',
-        'runtime/mission/intent.py', 'runtime/mission/tools.py', 'runtime/mission/liability.py',
+        'runtime/mission/intent.py', 'runtime/mission/tools.py', 'runtime/mission/target_settlement.py',
+        'runtime/mission/target_projection.py',
+        'runtime/mission/liability.py',
         'runtime/service_guard/service.py', 'runtime/mission/project_recipe.py',
         'runtime/mission/project_worker.py', 'runtime/mission/workspace_worker.py',
         'runtime/mission/sensorbridge_template.py', 'runtime/mission/sensorbridge_checks.py',

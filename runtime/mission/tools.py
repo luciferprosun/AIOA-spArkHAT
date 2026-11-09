@@ -7,14 +7,14 @@ route/process. Calls are synchronous: no work may outlive the guard. A DB commit
 transaction. ACK loss/restart never grants a new attempt. Production target
 fencing, authentication and resource containment are separate gates.
 """
-from dataclasses import dataclass, asdict, replace
-from datetime import datetime, timezone
-from decimal import Decimal
-from enum import Enum
-from types import MappingProxyType
-from pathlib import PurePosixPath
 import json
 import time
+from dataclasses import asdict, dataclass, replace
+from datetime import UTC, datetime
+from decimal import Decimal
+from enum import Enum
+from pathlib import PurePosixPath
+from types import MappingProxyType
 
 from lab.archaioa.authority import AuthorityScope, Money, RiskLevel
 from lab.archaioa.contracts import digest_id, identifier
@@ -24,21 +24,44 @@ from lab.archaioa.faults import FaultTrace, classify_fault, opaque_id
 from lab.archaioa.taint import DependencyGraph, NodeKind
 from lab.archaioa.warrant import EffectWarrant, RevisionPolicy
 from runtime.core_admission import Capability, OwnerScope
-from runtime.memory_patch.contracts.serialization import canonical_json_bytes, canonical_sha256
-from runtime.memory_patch.persistence.ports import RecordKind, StoredRecord, TransactionContext
-from runtime.mission.completion import TaskCompletionBinding
-from runtime.mission.intent import CoreIntentJournal, KIND as INTENT_KIND
-from runtime.mission.governor import ReservationRequest
-from runtime.mission.liability import CoreLiabilityLedger, Reconciliation
-from runtime.mission.warrant import approval_digest, require
-from runtime.mission.sandbox_contracts import (
-    SandboxDispatchRequest, SandboxOperation, SandboxRegistry,
-    SYNTHETIC, SANDBOX, TOOL_POLICY_VERSIONS, tool_variant,
+from runtime.failure_boundary import RepairBoundaryError, failure_boundary
+from runtime.memory_patch.contracts.serialization import (
+    canonical_json_bytes,
+    canonical_sha256,
 )
+from runtime.memory_patch.persistence.ports import (
+    RecordKind,
+    StoredRecord,
+    TransactionContext,
+)
+from runtime.mission.completion import TaskCompletionBinding
+from runtime.mission.governor import ReservationRequest
+from runtime.mission.intent import KIND as INTENT_KIND
+from runtime.mission.intent import CoreIntentJournal
+from runtime.mission.liability import CoreLiabilityLedger, Reconciliation
+from runtime.mission.sandbox_contracts import (
+    SANDBOX,
+    SYNTHETIC,
+    TOOL_POLICY_VERSIONS,
+    SandboxDispatchRequest,
+    SandboxOperation,
+    SandboxRegistry,
+    tool_variant,
+)
+from runtime.mission.target_settlement import (
+    TARGET_BINDING_KIND,
+    TARGET_SETTLEMENT_PROFILE,
+    TargetBinding,
+    TargetSettlementPort,
+    VerifiedTargetSettlement,
+)
+from runtime.mission.warrant import approval_digest, require
 
 SESSION = 'aioa-local-synthetic-session-v1'
 LOCAL_SESSION = 'aioa-local-zero-session-v2'
 CONTEXT = 'aioa-local-synthetic-effect-context-v1'
+EXACT_CONTEXT = 'aioa-local-exact-mock-effect-context-v1'
+EXACT_SESSION = 'aioa-local-exact-mock-session-v1'
 
 
 class ToolCapability(str, Enum):
@@ -177,7 +200,7 @@ class LocalSessionGrant(SessionGrant):
 class CoreToolRoute:
     """Common Core adapter with explicit trusted variants; no default backend."""
     def __init__(self,journal,liability,*,workspace,policy_revision,probe,executor,target_guard=None,verifier=None,clock=None,
-                 variant='synthetic',sandbox_registry=None):
+                 variant='synthetic',sandbox_registry=None,target_settlement=None):
         require(type(journal) is CoreIntentJournal and type(liability) is CoreLiabilityLedger
                 and journal.ledger.core is liability.core and journal.ledger.runner is liability.runner
                 and journal.ledger.scope==liability.scope and callable(probe) and callable(executor)
@@ -197,10 +220,58 @@ class CoreToolRoute:
         self.probe,self.executor,self.verifier=probe,executor,verifier
         self.target_guard=target_guard
         self.clock=clock or (lambda:int(time.time()))
+        self.target_settlement = target_settlement
+        self._target_port_binding = target_settlement
+        self._target_descriptor = getattr(target_settlement, 'binding', None)
+        self._require_target_binding()
+
+    def _require_target_binding(self):
+        port = self.target_settlement
+        require(port is self._target_port_binding, 'TARGET_PORT_BINDING_CHANGED')
+        if port is None:
+            return
+        require(isinstance(port, TargetSettlementPort)
+                and port.profile == TARGET_SETTLEMENT_PROFILE
+                and self.bound_variant is SYNTHETIC
+                and port.core is self.core is self.journal.ledger.core is self.liability.core
+                and port.runner is self.runner is self.journal.ledger.runner is self.liability.runner
+                and port.scope == self.scope == self.journal.ledger.scope == self.liability.scope
+                and port.workspace == self.workspace
+                and type(port.binding) is TargetBinding and port.binding == self._target_descriptor
+                and port.binding.scope == self.scope and port.binding.workspace == self.workspace,
+                'TARGET_PORT_BINDING_REQUIRED')
+
+    def _target_snapshot(self, snapshot, *, insert=False):
+        require(type(snapshot) is TargetSnapshot, 'INVALID_TARGET_SNAPSHOT')
+        refs = [ref for ref in snapshot.ddr.evidence_refs if ref.kind == TARGET_BINDING_KIND]
+        if self.target_settlement is None:
+            require(not refs, 'TARGET_PORT_REQUIRED_FOR_DURABLE_CONTEXT')
+            return snapshot
+        expected = self._target_descriptor.evidence()
+        if insert and not refs:
+            return replace(snapshot, ddr=DecisionDependencyRoot(snapshot.ddr.evidence_refs + (expected,)))
+        require(refs == [expected], 'TARGET_PORT_DURABLE_BINDING_MISMATCH')
+        return snapshot
+
+    def _context_target_snapshot(self,warrant,context):
+        # Accounting may validate mixed legacy/bound context facts without a
+        # target adapter. Every outcome/recovery/authority path requires this
+        # durable participation check separately; no context is rewritten.
+        snapshot=TargetSnapshot(warrant.target_fingerprint,warrant.expected_target_revision,
+                                DecisionDependencyRoot.from_dict(context['target_ddr']))
+        return self._target_snapshot(snapshot)
+
+    def _probe_target(self):
+        self._require_target_binding()
+        return self._target_snapshot(self.probe(), insert=True)
 
     def _run(self,principal,purpose,callback):
         self.core.require(principal,purpose,scope=self.scope)
-        return self.runner.run(TransactionContext(principal,purpose),callback)
+        self._require_target_binding()
+        def checked(tx):
+            self._require_target_binding()
+            return callback(tx)
+        return self.runner.run(TransactionContext(principal,purpose),checked)
 
     def session_key(self,session_id):
         opaque_id(session_id,'session_id')
@@ -210,14 +281,26 @@ class CoreToolRoute:
         row=tx.get(RecordKind.OPERATION,self.session_key(session_id))
         require(row is not None,'SESSION_REQUIRED')
         state=json.loads(canonical_json_bytes(row.payload))
-        require(set(state)=={'schema','grant','revoked','assignment_revision'} and state['schema'] in (SESSION, LOCAL_SESSION)
+        fields = {'schema', 'grant', 'revoked', 'assignment_revision'}
+        exact = state.get('schema') == EXACT_SESSION
+        require(set(state) == (fields | {'owner_session_id'} if exact else fields)
+                and state['schema'] in (SESSION, LOCAL_SESSION, EXACT_SESSION)
                 and type(state['revoked']) is bool and type(state['assignment_revision']) is int,
                 'SESSION_INTEGRITY')
+        if exact:
+            owner_session = state['owner_session_id']
+            require(type(owner_session) is str and len(owner_session) == 64
+                    and all(c in '0123456789abcdef' for c in owner_session),
+                    'SESSION_INTEGRITY')
         grant=(LocalSessionGrant if state['schema'] == LOCAL_SESSION else SessionGrant).parse(state['grant'])
         require(grant.session_id==session_id and grant.scope==self.scope and grant.workspace==self.workspace
                 and grant.policy_revision in TOOL_POLICY_VERSIONS
                 and state['assignment_revision']>=1,'SESSION_BINDING')
+        require(exact == (grant.policy_revision == 3), 'SESSION_POLICY_DOWNGRADE')
         if active:
+            if exact:
+                require(state['owner_session_id'] == tx.context.principal.actor_session_id,
+                        'OWNER_SESSION_CHANGED')
             require(not state['revoked'] and grant.issued_at<=self.clock()<grant.expires_at
                     and grant.policy_revision==self.policy_revision
                     and state['assignment_revision']==tx.context.principal.assignment_revision,'SESSION_INACTIVE')
@@ -228,6 +311,8 @@ class CoreToolRoute:
     def create_session(self,principal,grant):
         require(type(grant) in (SessionGrant, LocalSessionGrant),'INVALID_SESSION')
         def change(tx):
+            if grant.policy_revision == 3:
+                require(type(grant) is SessionGrant, 'EXACT_MOCK_GRANT_REQUIRED')
             require(grant.scope==self.scope and grant.workspace==self.workspace
                     and grant.policy_revision==self.policy_revision
                     and grant.issued_at<=self.clock()<grant.expires_at,'SESSION_BINDING')
@@ -235,10 +320,12 @@ class CoreToolRoute:
             require(not before['kill'],'KILL_SWITCH')
             key=self.session_key(grant.session_id)
             require(tx.get(RecordKind.OPERATION,key) is None,'SESSION_ALREADY_REGISTERED')
-            tx.insert(StoredRecord(RecordKind.OPERATION,key,self.scope,1,
-                {'schema':LOCAL_SESSION if type(grant) is LocalSessionGrant else SESSION,
-                 'grant':grant.to_dict(),'revoked':False,
-                 'assignment_revision':principal.assignment_revision}))
+            state = {'schema': LOCAL_SESSION if type(grant) is LocalSessionGrant else SESSION,
+                     'grant': grant.to_dict(), 'revoked': False,
+                     'assignment_revision': principal.assignment_revision}
+            if grant.policy_revision == 3:
+                state.update(schema=EXACT_SESSION, owner_session_id=principal.actor_session_id)
+            tx.insert(StoredRecord(RecordKind.OPERATION, key, self.scope, 1, state))
         return self._run(principal,Capability.OWNER_APPROVAL,change)
 
     def validate_registered_local(self, tx, warrant, operation, *, consumed=False):
@@ -348,14 +435,32 @@ class CoreToolRoute:
         require(row is not None,'TOOL_AUTHORIZATION_REQUIRED')
         context=json.loads(canonical_json_bytes(row.payload))
         require(set(context)=={'schema','session_id','grant_digest','completion','graph','trace',
-                              'warrant','reservation','target_ddr'} and context['schema']==CONTEXT
+                              'warrant','reservation','target_ddr'} and context['schema'] in (CONTEXT, EXACT_CONTEXT)
                 and EffectWarrant.from_dict(context['warrant'])==warrant,'TOOL_CONTEXT_INTEGRITY')
         binding=TaskCompletionBinding.parse(context['completion'])
         graph=DependencyGraph.from_dict(context['graph']);trace=FaultTrace.from_dict(context['trace'])
         require(binding.scope==self.scope and graph.task_id==trace.task_id==binding.task_id==warrant.task_id
                 and canonical_sha256(graph.to_dict())==binding.graph_digest
                 and trace.operation_digest==warrant.operation_hash,'TOOL_CONTEXT_INTEGRITY')
-        _,_,grant=self._session(tx,context['session_id'],active=False)
+        _, session_state, grant=self._session(tx,context['session_id'],active=False)
+        require((context['schema'] == EXACT_CONTEXT) == (grant.policy_revision == 3),
+                'TOOL_CONTEXT_POLICY_DOWNGRADE')
+        witness = tx.get(RecordKind.APPROVAL, self.journal.ledger._key(warrant))
+        if grant.policy_revision == 3:
+            # Historical structure only: fresh dispatch checks current
+            # session/revocation/consumption below. Readback stays possible.
+            require(witness is not None and set(witness.payload) == {
+                'schema', 'warrant_digest', 'session_id',
+                'assignment_revision', 'revoked'}
+                and witness.payload['schema'] == 'aioa.warrant-owner-witness.v1'
+                and witness.payload['warrant_digest'] == warrant.digest()
+                and witness.payload['session_id'] == session_state['owner_session_id']
+                and type(witness.payload['assignment_revision']) is int
+                and witness.payload['assignment_revision'] == session_state['assignment_revision']
+                and type(witness.payload['revoked']) is bool,
+                'HUMAN_APPROVAL_REQUIRED')
+        else:
+            require(witness is None, 'TOOL_CONTEXT_POLICY_DOWNGRADE')
         variant=tool_variant(grant.policy_revision,warrant.operation_class)
         request=ReservationRequest(**context['reservation'])
         snapshot=TargetSnapshot(warrant.target_fingerprint,warrant.expected_target_revision,
@@ -417,7 +522,7 @@ class CoreToolRoute:
         require(job is not None and 'completion_binding' in job
                 and TaskCompletionBinding.parse(job['completion_binding'])==completion,
                 'REQUIRED_TASK_BINDING_REQUIRED')
-        from runtime.mission.job_contracts import JobEnvelope, JobClaim
+        from runtime.mission.job_contracts import JobClaim, JobEnvelope
         gov=self.journal.governor;state=gov._load(tx);now=gov._now()
         gov._clock(state,now)
         require(job['state']=='STARTED' and now>=job['last_now'],'REQUIRED_TASK_INACTIVE')
@@ -428,12 +533,34 @@ class CoreToolRoute:
         return job
 
     def authorize(self,principal,session_id,operation,completion,graph,trace,*,nonce,model_id,money_nano,risk_units):
-        self.core.require(principal,Capability.COMMIT,scope=self.scope)
+        require(self.policy_revision != 3, 'EXACT_OWNER_APPROVAL_REQUIRED')
+        return self._authorize(principal, session_id, operation, completion, graph, trace,
+            nonce=nonce, model_id=model_id, money_nano=money_nano, risk_units=risk_units, exact=False)
+
+    def authorize_exact(self, principal, session_id, operation, completion, graph, trace,
+                        *, nonce, model_id, money_nano, risk_units):
+        """One exact owner witness in the existing ledger, explicit policy3 only.
+
+        No model boolean, delegated v1 grant or reconstructed START ACK
+        substitutes for this current-session OWNER_APPROVAL transaction.
+        """
+        self.core.require(principal, Capability.OWNER_APPROVAL, scope=self.scope)
+        require(self.policy_revision == 3, 'EXACT_OWNER_POLICY_REQUIRED')
+        operation = self._snapshot_operation(operation)
+        with self.target_guard():
+            return self._authorize(principal, session_id, operation, completion, graph, trace,
+                nonce=nonce, model_id=model_id, money_nano=money_nano, risk_units=risk_units, exact=True)
+
+    def _authorize(self, principal, session_id, operation, completion, graph, trace,
+                   *, nonce, model_id, money_nano, risk_units, exact):
+        purpose = Capability.OWNER_APPROVAL if exact else Capability.COMMIT
+        self.core.require(principal, purpose, scope=self.scope)
+        require(exact == (self.policy_revision == 3), 'EXACT_OWNER_POLICY_REQUIRED')
         operation=self._snapshot_operation(operation)
         require(type(completion) is TaskCompletionBinding and type(graph) is DependencyGraph
                 and type(trace) is FaultTrace,'INVALID_TOOL_BINDING')
         opaque_id(nonce,'nonce')
-        snapshot=self.probe();self._operation(operation,snapshot)
+        snapshot=self._probe_target();self._operation(operation,snapshot)
         require(model_id in principal.model_binding_ids,'MODEL_BINDING_DENIED')
         def change(tx):
             _,_,grant=self._session(tx,session_id)
@@ -457,8 +584,8 @@ class CoreToolRoute:
             reservation_id=canonical_sha256((self.bound_variant.reservation_domain,self.scope,nonce))
             reservation=ReservationRequest(reservation_id,completion.task_id,self.bound_variant.provider_id,model_id,
                                            canonical_sha256(operation),money_nano,risk_units)
-            start=datetime.fromtimestamp(self.clock(),timezone.utc)
-            end=datetime.fromtimestamp(grant.expires_at,timezone.utc)
+            start=datetime.fromtimestamp(self.clock(),UTC)
+            end=datetime.fromtimestamp(grant.expires_at,UTC)
             owner=canonical_sha256(self.scope)
             scope=AuthorityScope((operation['operation_class'],),snapshot.fingerprint,RiskLevel.MODERATE,
                 Money(Decimal(money_nano)/Decimal(10**9),'USD'),start,end,owner,completion.task_id)
@@ -472,25 +599,49 @@ class CoreToolRoute:
             warrant=replace(warrant,approval_digest=approval_digest(warrant))
             ledger=self.journal.ledger;ledger._check(warrant)
             require(tx.get(RecordKind.OPERATION,ledger._key(warrant)) is None,'NONCE_ALREADY_REGISTERED')
-            # Deterministic narrower delegation from stored human root, NOT new human approval.
-            ledger._save(tx,warrant,{'schema':'aioa-linear-warrant-v1','root':warrant.to_dict(),
-                                    'active':warrant.to_dict(),'consumption':None})
-            context={'schema':CONTEXT,'session_id':session_id,'grant_digest':grant.digest,
+            if exact:
+                # The existing intent key deduplicates task+operation, not nonce.
+                # Never issue an alias approval that could poison later history
+                # joins. Keep the earlier authority unchanged and require an
+                # explicit new Task/Run instead of silently retrying the effect.
+                rows = tx.scan(RecordKind.OPERATION, limit=1024)
+                require(len(rows) < 1024, 'TOOL_HISTORY_QUOTA')
+                for row in rows:
+                    if row.payload.get('schema') in (CONTEXT, EXACT_CONTEXT):
+                        existing = EffectWarrant.from_dict(json.loads(canonical_json_bytes(row.payload['warrant'])))
+                        require((existing.task_id, existing.operation_hash)
+                                != (warrant.task_id, warrant.operation_hash),
+                                'OPERATION_ALREADY_AUTHORIZED')
+            # Exact policy uses the existing human approval transaction.
+            # Legacy policies retain their deterministic narrower delegation.
+            if exact:
+                ledger.approve_in_transaction(tx, warrant)
+            else:
+                ledger._save(tx,warrant,{'schema':'aioa-linear-warrant-v1','root':warrant.to_dict(),
+                                        'active':warrant.to_dict(),'consumption':None})
+            context={'schema':EXACT_CONTEXT if exact else CONTEXT,'session_id':session_id,'grant_digest':grant.digest,
                      'completion':completion.to_dict(),'graph':graph.to_dict(),'trace':trace.to_dict(),
                      'warrant':warrant.to_dict(),'reservation':asdict(reservation),'target_ddr':snapshot.ddr.to_dict()}
             tx.insert(StoredRecord(RecordKind.OPERATION,self._context_key(warrant),self.scope,1,context))
             return warrant
-        return self._run(principal,Capability.COMMIT,change)
+        return self._run(principal,purpose,change)
 
     def _check(self,tx,session_id,warrant,operation,completion,snapshot):
         _,_,grant=self._session(tx,session_id)
         self._native_job(tx,completion,dispatch=True)
         context,binding,graph,trace=self._context(tx,warrant)
+        self._context_target_snapshot(warrant,context)
         require(context['session_id']==session_id and context['grant_digest']==grant.digest
                 and binding==completion and completion.digest==grant.completion_digest
                 and operation['operation_class'] in grant.capabilities
                 and self._ddr(snapshot,completion,grant,ReservationRequest(**context['reservation']))==warrant.decision_dependency_root,'STALE_TOOL_BINDING')
         self._operation(operation,snapshot)
+        if grant.policy_revision == 3:
+            # This method runs after START only in the live ACK branch.
+            # A retained intent never grants another callback attempt.
+            intent_row, _ = self.journal._load(tx, warrant)
+            self.journal.ledger.require_active_in_transaction(
+                tx, warrant, consumed=intent_row is not None)
         if self.bound_variant is SANDBOX:self._sandbox_scope(operation,completion,graph,trace,grant)
         require(warrant.target_fingerprint==snapshot.fingerprint
                 and warrant.expected_target_revision==snapshot.revision,'STALE_TOOL_BINDING')
@@ -500,8 +651,7 @@ class CoreToolRoute:
 
     def _retained(self,tx,session_id,warrant,operation,reservation,completion):
         context,binding,_,_=self._context(tx,warrant)
-        snapshot=TargetSnapshot(warrant.target_fingerprint,warrant.expected_target_revision,
-                                DecisionDependencyRoot.from_dict(context['target_ddr']))
+        snapshot=self._context_target_snapshot(warrant,context)
         _,_,grant=self._session(tx,context['session_id'],active=False)
         variant=tool_variant(grant.policy_revision,warrant.operation_class)
         self._operation(operation,snapshot,variant=variant,historical=True)
@@ -511,6 +661,8 @@ class CoreToolRoute:
                 and 'sha256:'+canonical_sha256(operation)==warrant.operation_hash,
                 'TOOL_CONTEXT_INTEGRITY')
         row,intent=self.journal._load(tx,warrant)
+        if row is not None and self.target_settlement is not None:
+            self.target_settlement.check_history_in_transaction(tx, warrant, intent)
         return None if row is None else {'mode':variant.mode,**self.journal._public(intent)}
 
     def dispatch(self,principal,*,session_id,warrant,operation,reservation,completion,cancel=None):
@@ -532,7 +684,7 @@ class CoreToolRoute:
         retained=self._run(principal,Capability.COMMIT,lambda tx:
             self._retained(tx,session_id,warrant,operation,reservation,completion))
         if retained is not None:return retained
-        snapshot=self.probe()
+        snapshot=self._probe_target()
         def start(tx):
             # Competing START may have committed after the read above. Retained
             # observation never invokes target IO or activates expired authority.
@@ -548,7 +700,7 @@ class CoreToolRoute:
             known_intents=set();known_reservations=set()
             for row in rows:
                 c=json.loads(canonical_json_bytes(row.payload))
-                if c.get('schema')==CONTEXT:
+                if c.get('schema') in (CONTEXT, EXACT_CONTEXT):
                     w=EffectWarrant.from_dict(c['warrant']);self._context(tx,w)
                     known_intents.add(w.digest());known_reservations.add(w.money_reservation_id)
                     if c['session_id']==session_id:
@@ -573,47 +725,64 @@ class CoreToolRoute:
                         and risk+reservation.risk_units<=grant.risk_units,'SESSION_BUDGET_EXCEEDED')
             result=self.journal.start_in_transaction(tx,warrant,operation,reservation)
             if result['fixture_step_now']:
+                if self.target_settlement is not None:
+                    self.target_settlement.start_in_transaction(tx, warrant, operation, snapshot)
                 self.liability.record_unknown_in_transaction(tx,trace,graph,
-                    datetime.fromtimestamp(self.clock(),timezone.utc))
+                    datetime.fromtimestamp(self.clock(),UTC))
             return result
         result=self._run(principal,Capability.COMMIT,start)
+        def readback(tx):
+            _, state = self.journal._load(tx, warrant)
+            require(state is not None, 'INTENT_REQUIRED')
+            if self.target_settlement is not None:
+                self.target_settlement.check_history_in_transaction(tx, warrant, state)
+            return {'mode': self._mode(tx,warrant), **self.journal._public(state)}
         if result['fixture_step_now']:
             # Only this ACK grants the one attempt. Never recover an attempt from durable START.
-            fresh=self.probe()
+            fresh=self._probe_target()
             def prepare(tx):
                 grant,context,_,_=self._check(tx,session_id,warrant,operation,completion,fresh)
                 if self.bound_variant is SANDBOX:
                     return self._sandbox_request(tx,grant,context,warrant)
+                if self.target_settlement is not None:
+                    self.target_settlement.before_release_in_transaction(tx, warrant, operation, fresh)
                 return ToolDispatchLimits(grant.deadline_seconds,grant.output_bytes,grant.egress)
             prepared=self._run(principal,Capability.COMMIT,prepare)
             try:
-                if self.bound_variant is SANDBOX:
-                    from runtime.mission.sandbox_linux import LinuxSandboxBroker
-                    if type(self.executor) is LinuxSandboxBroker:
-                        def release_check():
-                            snapshot=self.probe()
-                            def check(tx):
-                                grant,context,_,_=self._check(tx,session_id,warrant,operation,completion,snapshot)
-                                current=self._sandbox_request(tx,grant,context,warrant)
-                                require(current==prepared,'SANDBOX_REQUEST_BINDING')
-                            return self._run(principal,Capability.COMMIT,check)
-                        if cancel is None:self.executor.dispatch(prepared,release_check)
-                        else:self.executor.dispatch(prepared,release_check,cancel=cancel)
-                    else:self.executor(prepared)
-                else:self.executor(self._snapshot_operation(operation),warrant,prepared)
-            except Exception:
-                # An adapter exception cannot prove NotApplied; both ledgers/exposure stay UNKNOWN.
-                pass
-        def readback(tx):
-            _, state = self.journal._load(tx, warrant)
-            require(state is not None, 'INTENT_REQUIRED')
-            return {'mode': self._mode(tx,warrant), **self.journal._public(state)}
+                with failure_boundary('TOOL_EXECUTOR_UNKNOWN'):
+                    if self.bound_variant is SANDBOX:
+                        from runtime.mission.sandbox_linux import LinuxSandboxBroker
+                        if type(self.executor) is LinuxSandboxBroker:
+                            def release_check():
+                                snapshot=self._probe_target()
+                                def check(tx):
+                                    grant,context,_,_=self._check(tx,session_id,warrant,operation,completion,snapshot)
+                                    current=self._sandbox_request(tx,grant,context,warrant)
+                                    require(current==prepared,'SANDBOX_REQUEST_BINDING')
+                                return self._run(principal,Capability.COMMIT,check)
+                            if cancel is None:self.executor.dispatch(prepared,release_check)
+                            else:self.executor.dispatch(prepared,release_check,cancel=cancel)
+                        else:self.executor(prepared)
+                    else:
+                        acknowledgment = self.executor(self._snapshot_operation(operation),warrant,prepared)
+                        if self.target_settlement is not None and acknowledgment is not None:
+                            self._target_descriptor.require_ack(warrant, acknowledgment)
+                            def record_ack(tx):
+                                self.target_settlement.record_ack_in_transaction(tx, warrant, acknowledgment)
+                            self._run(principal, Capability.COMMIT, record_ack)
+            except (ValueError, RepairBoundaryError):
+                # An adapter exception proves no terminal result. Preserve
+                # native UNKNOWN without logging callback data or retrying.
+                return self._run(principal, Capability.COMMIT, readback)
         return self._run(principal, Capability.COMMIT, readback)
 
     def inspect(self,principal,warrant):
         def read(tx):
-            self._context(tx,warrant)
+            context,_,_,_=self._context(tx,warrant)
+            self._context_target_snapshot(warrant,context)
             _,state=self.journal._load(tx,warrant);require(state is not None,'INTENT_REQUIRED')
+            if self.target_settlement is not None:
+                self.target_settlement.check_history_in_transaction(tx, warrant, state)
             return {'mode':self._mode(tx,warrant),**self.journal._public(state)}
         return self._run(principal,Capability.READ,read)
 
@@ -625,23 +794,37 @@ class CoreToolRoute:
     def _reconcile(self,principal,warrant,epoch):
         def read(tx):
             context,_,_,trace=self._context(tx,warrant)
+            self._context_target_snapshot(warrant,context)
             _,intent=self.journal._load(tx,warrant);require(intent is not None,'INTENT_REQUIRED')
             _,state=self.liability._load(tx,warrant.task_id)
             entry=state['entries'].get(classify_fault(trace).liability_id)
             require(entry is not None,'LIABILITY_STATE_REQUIRED')
             require(intent['resolution']==entry['resolution'],'TOOL_RECONCILIATION_INTEGRITY')
+            if self.target_settlement is not None:
+                self.target_settlement.check_history_in_transaction(tx, warrant, intent)
             return intent,entry,trace
         intent,entry,trace=self._run(principal,Capability.COMMIT,read)
         mode=self._run(principal,Capability.COMMIT,lambda tx:self._mode(tx,warrant))
         if intent['resolution'] is not None:return {'mode':mode,**self.journal._public(intent)}
         require(self.verifier is not None,'INDEPENDENT_READBACK_REQUIRED')
-        try:resolution=self.verifier(intent['operation'],warrant)
-        except Exception:require(False,'INDEPENDENT_READBACK_UNAVAILABLE')
+        try:
+            with failure_boundary('TOOL_READBACK_UNAVAILABLE'):
+                observed=self.verifier(intent['operation'],warrant)
+        except (ValueError, RepairBoundaryError):
+            require(False,'INDEPENDENT_READBACK_UNAVAILABLE')
+        if self.target_settlement is not None:
+            require(type(observed) is VerifiedTargetSettlement, 'VERIFIED_TARGET_OBSERVATION_REQUIRED')
+            self._target_descriptor.require_observation(observed.target)
+            resolution = observed.resolution
+        else:
+            resolution = observed
         require(type(resolution) is Reconciliation and resolution.operation_digest==warrant.operation_hash,
                 'UNRESOLVED_READBACK')
         def change(tx):
+            if self.target_settlement is not None:
+                self.target_settlement.apply_resolution_in_transaction(tx, warrant, epoch, observed)
             self.liability.apply_resolution_in_transaction(tx,warrant.task_id,
-                classify_fault(trace).liability_id,datetime.fromtimestamp(self.clock(),timezone.utc),resolution,entry)
+                classify_fault(trace).liability_id,datetime.fromtimestamp(self.clock(),UTC),resolution,entry)
             return self.journal.apply_resolution_in_transaction(tx,warrant,epoch,resolution)
         result=self._run(principal,Capability.COMMIT,change)
         return {'mode':mode,**result}

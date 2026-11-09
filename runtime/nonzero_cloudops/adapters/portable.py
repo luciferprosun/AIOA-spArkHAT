@@ -3,11 +3,13 @@
 # W7A repeat-demo semantics: 392487849eddc7444f5159994b66b72e73f15934.
 """Integrity-bound local mock inventory and protected execution boundary."""
 
+import os
+import stat
 from collections.abc import Callable, Mapping
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
-from threading import Lock, RLock
+from threading import Lock, RLock, local
 
 from pydantic import TypeAdapter, ValidationError
 
@@ -90,6 +92,7 @@ class PortableStateStore:
         self._lock_path = resolved.with_name(f"{resolved.name}.lock")
         self._initial_resources = tuple(selected)
         self._thread_lock = RLock()
+        self._held_lock = local()
 
     @property
     def path(self) -> Path:
@@ -98,13 +101,86 @@ class PortableStateStore:
     @contextmanager
     def _lock(self, *, exclusive: bool) -> object:
         with self._thread_lock:
-            try:
-                with locked_private_file(self._lock_path, exclusive=exclusive):
+            held = getattr(self._held_lock, 'exclusive', None)
+            if held is not None:
+                if exclusive and not held:
+                    raise CloudAdapterUnavailableError('local mock lock upgrade is denied')
+                self._check_target_guard()
+                try:
                     yield
+                finally:
+                    self._check_target_guard()
+                return
+            try:
+                with locked_private_file(self._lock_path, exclusive=exclusive) as descriptor:
+                    self._held_lock.exclusive = exclusive
+                    self._held_lock.descriptor = descriptor
+                    try:
+                        yield
+                    finally:
+                        del self._held_lock.exclusive
+                        del self._held_lock.descriptor
             except (OSError, StateIntegrityError) as error:
                 raise CloudAdapterUnavailableError(
                     "local mock state lock is unavailable"
                 ) from error
+
+    def _target_guard_identity(self):
+        validate_local_path(self._lock_path)
+        descriptor = self._held_lock.descriptor
+        if type(descriptor) is not int:
+            raise StateIntegrityError('local mock lock descriptor is unavailable')
+        parent = self._lock_path.parent.lstat()
+        held, named = os.fstat(descriptor), self._lock_path.lstat()
+        if (not stat.S_ISDIR(parent.st_mode) or parent.st_uid != os.getuid()
+                or stat.S_IMODE(parent.st_mode) & 0o022
+                or not stat.S_ISREG(held.st_mode) or held.st_uid != os.getuid()
+                or stat.S_IMODE(held.st_mode) & 0o077 or held.st_nlink != 1
+                or not stat.S_ISREG(named.st_mode) or named.st_nlink != 1
+                or (held.st_dev, held.st_ino) != (named.st_dev, named.st_ino)):
+            raise StateIntegrityError('local mock target lock identity changed')
+        return (parent.st_dev, parent.st_ino, parent.st_uid, parent.st_mode,
+                held.st_dev, held.st_ino, held.st_uid, held.st_mode)
+
+    def _check_target_guard(self):
+        binding = getattr(self._held_lock, 'target_binding', None)
+        if binding is None:
+            return
+        try:
+            if binding['failed'] or self._target_guard_identity() != binding['identity']:
+                raise StateIntegrityError('local mock target guard is fenced')
+        except (OSError, StateIntegrityError) as error:
+            binding['failed'] = True
+            raise CloudAdapterUnavailableError('local mock target guard identity is unavailable') from error
+
+    @contextmanager
+    def target_guard(self):
+        """Serialize one fixed target lifetime using its existing file lock.
+
+        This is a storage lifecycle port, never approval or replay authority.
+        Nested calls verify the held lock descriptor and current lock/parent
+        identities. A detected substitution poisons this guard lifetime.
+        This does not establish inventory CAS, a Core high-water revision,
+        protection against an uncooperative OS owner, or effect authority.
+        Missing inventory still requires a separate Core initialization policy.
+        """
+        with self._lock(exclusive=True):
+            if getattr(self._held_lock, 'target_binding', None) is not None:
+                yield
+                return
+            try:
+                identity = self._target_guard_identity()
+            except (OSError, StateIntegrityError) as error:
+                raise CloudAdapterUnavailableError('local mock target guard identity is unavailable') from error
+            self._held_lock.target_binding = {'identity': identity, 'failed': False}
+            try:
+                self._check_target_guard()
+                try:
+                    yield
+                finally:
+                    self._check_target_guard()
+            finally:
+                del self._held_lock.target_binding
 
     def _initial_snapshot(
         self,

@@ -212,7 +212,8 @@ def _validate_rich_context_data(operation, data):
     fields = {'schema', 'repository', 'default_branch', 'requested_ref', 'observed_sha',
               'tree_sha', 'visibility', 'taint', 'authority', 'items', 'pagination'}
     _require(operation in RICH_CONTEXT_OPERATIONS and type(data) is dict and set(data) == fields, code)
-    _require(data['schema'] == 'aioa.github-read-context.v1' and data['default_branch'] == 'main'
+    _require(data['schema'] in ('aioa.github-read-context.v1', 'aioa.github-read-context.v2')
+             and data['default_branch'] == 'main'
              and data['requested_ref'] == 'main' and data['visibility'] == 'public'
              and data['taint'] == 'REMOTE_UNTRUSTED_DATA' and data['authority'] == 'NONE', code)
     identity = {'owner': 'luciferprosun', 'name': 'AIOA-spArkHAT',
@@ -232,12 +233,13 @@ def _validate_rich_context_data(operation, data):
         _require(not items and pages['pages_read'] == 0 and not pages['truncated'], code)
     else:
         _require(1 <= pages['pages_read'] <= 2 and len(items) <= pages['pages_read'] * 10, code)
+    provenance_fields = {'text_provenance'} if data['schema'] == 'aioa.github-read-context.v2' else set()
     seen = set()
     for item in items:
         _require(type(item) is dict and item.get('taint') == 'REMOTE_UNTRUSTED_DATA', code)
         if operation == 'github.issue_contexts':
             _require(set(item) == {'number', 'title', 'body', 'state', 'labels',
-                                   'labels_truncated', 'author', 'url', 'taint'}, code)
+                                   'labels_truncated', 'author', 'url', 'taint'} | provenance_fields, code)
             number = _rich_integer(item['number'], maximum=2**31-1)
             _require(item['state'] in ('OPEN', 'CLOSED') and type(item['labels']) is list
                      and len(item['labels']) <= 8 and type(item['labels_truncated']) is bool, code)
@@ -251,7 +253,7 @@ def _validate_rich_context_data(operation, data):
         elif operation == 'github.pull_requests':
             _require(set(item) == {'number', 'title', 'body', 'state', 'base_ref', 'base_sha',
                                    'head_ref', 'head_sha', 'changed_files', 'commits',
-                                   'checks_summary', 'checks_verified', 'url', 'taint'}, code)
+                                   'checks_summary', 'checks_verified', 'url', 'taint'} | provenance_fields, code)
             number = _rich_integer(item['number'], maximum=2**31-1)
             _require(item['state'] in ('OPEN', 'CLOSED', 'MERGED')
                      and item['checks_verified'] is False and item['checks_summary'] == '', code)
@@ -267,7 +269,7 @@ def _validate_rich_context_data(operation, data):
         else:
             _require(set(item) == {'run_id', 'workflow_id', 'name', 'status', 'conclusion',
                                    'head_sha', 'head_branch', 'job_id', 'log_context',
-                                   'logs_fetched', 'core_completion_verified', 'url', 'taint'}, code)
+                                   'logs_fetched', 'core_completion_verified', 'url', 'taint'} | provenance_fields, code)
             number = _rich_integer(item['run_id'])
             workflow = item['workflow_id']
             _require(type(workflow) is str and re.fullmatch('[1-9][0-9]{0,18}', workflow)
@@ -280,6 +282,8 @@ def _validate_rich_context_data(operation, data):
                           'repository': {'id': REPOSITORY_ID, 'full_name': REPOSITORY},
                           'html_url': item['url']})
             _rich_public_text(item['name'], 256)
+        if provenance_fields:
+            _validate_text_provenance(operation, item)
         _require(number not in seen, code)
         seen.add(number)
     _require(len(json.dumps(data, sort_keys=True, separators=(',', ':'),
@@ -408,11 +412,13 @@ def context_inventory():
     tools = []
     for operation in sorted(RICH_CONTEXT_OPERATIONS):
         schema = {'operation': operation, 'arguments': {}, 'repository': REPOSITORY,
-                  'repository_id': REPOSITORY_ID, 'per_page': 10, 'page_limit': 2}
+                  'repository_id': REPOSITORY_ID, 'per_page': 10, 'page_limit': 2,
+                  'output_schema': 'aioa.github-read-context.v2',
+                  'text_provenance': 'SOURCE_UTF8_BYTES_SHA256_REDACTION_TRUNCATION_V1'}
         tools.append({'name': operation, 'read_only_hint': True,
                       'schema_sha256': hashlib.sha256(json.dumps(
                           schema, sort_keys=True, separators=(',', ':')).encode()).hexdigest()})
-    inventory = {'schema': 'aioa.native-github-read-inventory.v1',
+    inventory = {'schema': 'aioa.native-github-read-inventory.v2',
                  'adapter': 'native-fixed-github-get', 'runtime_write_tools': 0,
                  'repository': REPOSITORY, 'repository_id': REPOSITORY_ID,
                  'tools': tools, 'authority': 'NONE'}
@@ -438,6 +444,62 @@ def _rich_text(value, maximum, *, nullable=False):
     )
     redacted = REDACTION_MARKER if contains_sensitive_material(value) else value
     return redacted.encode()[:maximum].decode('utf-8', errors='ignore')
+
+
+def _rich_text_projection(value, maximum, *, nullable=False):
+    """Hash original API text before the existing full-mask/UTF-8 byte bound."""
+    from runtime.secret_redaction import contains_sensitive_material
+    projected = _rich_text(value, maximum, nullable=nullable)
+    raw = b'' if value is None else value.encode('utf-8')
+    masked = value is not None and contains_sensitive_material(value)
+    return projected, {'source_bytes': len(raw), 'source_sha256': hashlib.sha256(raw).hexdigest(),
+                       'redacted': masked, 'truncated': not masked and len(raw) > maximum,
+                       'null': value is None}
+
+
+def _validate_text_projection(value, maximum, meta, *, nullable=False):
+    """Metadata is signed, untrusted READ data, never an execution authority."""
+    from runtime.secret_redaction import REDACTION_MARKER
+    code = 'CHAT_READ_DATA_MISMATCH'
+    _require(type(meta) is dict and set(meta) == {
+        'source_bytes', 'source_sha256', 'redacted', 'truncated', 'null'}, code)
+    _require(type(meta['source_bytes']) is int and 0 <= meta['source_bytes'] <= 32768
+             and type(meta['source_sha256']) is str
+             and re.fullmatch('[a-f0-9]{64}', meta['source_sha256'])
+             and all(type(meta[key]) is bool for key in ('redacted', 'truncated', 'null')), code)
+    _require(type(value) is str or nullable and value is None, code)
+    raw = b'' if value is None else value.encode('utf-8')
+    _require(len(raw) <= maximum, code)
+    if meta['null']:
+        _require(nullable and value in (None, '') and meta['source_bytes'] == 0
+                 and meta['source_sha256'] == hashlib.sha256(b'').hexdigest()
+                 and not meta['redacted'] and not meta['truncated'], code)
+    elif meta['redacted']:
+        _require(value == REDACTION_MARKER and meta['source_bytes'] > 0
+                 and not meta['truncated'], code)
+    else:
+        _require(value is not None and meta['truncated'] == (meta['source_bytes'] > maximum), code)
+        if meta['truncated']:
+            _require(maximum - 3 <= len(raw) <= maximum, code)
+        else:
+            _require(len(raw) == meta['source_bytes']
+                     and hashlib.sha256(raw).hexdigest() == meta['source_sha256'], code)
+
+
+def _validate_text_provenance(operation, item):
+    code = 'CHAT_READ_DATA_MISMATCH'
+    meta = item['text_provenance']
+    fields = ({'title', 'body', 'labels', 'author'} if operation == 'github.issue_contexts'
+              else {'title', 'body'} if operation == 'github.pull_requests' else {'name'})
+    _require(type(meta) is dict and set(meta) == fields, code)
+    for field, maximum, nullable in (('title', 256, False), ('body', 768, True),
+                                     ('author', 64, True), ('name', 256, False)):
+        if field in fields:
+            _validate_text_projection(item[field], maximum, meta[field], nullable=nullable)
+    if 'labels' in fields:
+        _require(type(meta['labels']) is list and len(meta['labels']) == len(item['labels']), code)
+        for value, provenance in zip(item['labels'], meta['labels'], strict=True):
+            _validate_text_projection(value, 64, provenance)
 
 
 def _rich_repo(value):
@@ -478,14 +540,19 @@ def _rich_issue(row):
     user = row.get('user')
     _require(user is None or type(user) is dict and type(user.get('login')) is str,
              'GITHUB_CONTEXT_AUTHOR')
-    return {'number': number, 'title': _rich_text(row.get('title'), 256),
-            'body': _rich_text(row.get('body'), 768, nullable=True),
+    title, title_meta = _rich_text_projection(row.get('title'), 256)
+    body, body_meta = _rich_text_projection(row.get('body'), 768, nullable=True)
+    label_values = [_rich_text_projection(label['name'], 64) for label in labels[:8]]
+    author, author_meta = _rich_text_projection(None if user is None else user['login'], 64, nullable=True)
+    return {'number': number, 'title': title, 'body': body,
             'state': row['state'].upper(),
-            'labels': [_rich_text(label['name'], 64) for label in labels[:8]],
+            'labels': [value for value, _ in label_values],
             'labels_truncated': len(labels) > 8,
-            'author': None if user is None else _rich_text(user['login'], 64),
+            'author': None if user is None else author,
             'url': _rich_url(row.get('html_url'), 'issues', number),
-            'taint': 'REMOTE_UNTRUSTED_DATA'}
+            'taint': 'REMOTE_UNTRUSTED_DATA',
+            'text_provenance': {'title': title_meta, 'body': body_meta,
+                                'labels': [meta for _, meta in label_values], 'author': author_meta}}
 
 
 def _rich_optional_count(value):
@@ -501,8 +568,9 @@ def _rich_pull(row):
     merged = row.get('merged_at')
     _require(merged is None or type(merged) is str and row['state'] == 'closed',
              'GITHUB_CONTEXT_STATE')
-    return {'number': number, 'title': _rich_text(row.get('title'), 256),
-            'body': _rich_text(row.get('body'), 768, nullable=True),
+    title, title_meta = _rich_text_projection(row.get('title'), 256)
+    body, body_meta = _rich_text_projection(row.get('body'), 768, nullable=True)
+    return {'number': number, 'title': title, 'body': body,
             'state': 'MERGED' if merged is not None else row['state'].upper(),
             'base_ref': _rich_ref(base.get('ref')), 'base_sha': _rich_sha(base.get('sha')),
             'head_ref': _rich_ref(head.get('ref')), 'head_sha': _rich_sha(head.get('sha')),
@@ -510,7 +578,8 @@ def _rich_pull(row):
             'commits': _rich_optional_count(row.get('commits')),
             'checks_summary': '', 'checks_verified': False,
             'url': _rich_url(row.get('html_url'), 'pull', number),
-            'taint': 'REMOTE_UNTRUSTED_DATA'}
+            'taint': 'REMOTE_UNTRUSTED_DATA',
+            'text_provenance': {'title': title_meta, 'body': body_meta}}
 
 
 def _rich_action(row):
@@ -523,14 +592,15 @@ def _rich_action(row):
     _require(row.get('conclusion') in (None, 'success', 'failure', 'neutral', 'cancelled',
                                      'skipped', 'timed_out', 'action_required', 'startup_failure', 'stale'),
              'GITHUB_CONTEXT_STATE')
+    name, name_meta = _rich_text_projection(row.get('name'), 256)
     return {'run_id': number, 'workflow_id': str(workflow),
-            'name': _rich_text(row.get('name'), 256), 'status': row['status'],
+            'name': name, 'status': row['status'],
             'conclusion': row.get('conclusion'), 'head_sha': _rich_sha(row.get('head_sha')),
             'head_branch': _rich_ref(row.get('head_branch'), nullable=True),
             'job_id': None, 'log_context': '', 'logs_fetched': False,
             'core_completion_verified': False,
             'url': _rich_url(row.get('html_url'), 'actions/runs', number),
-            'taint': 'REMOTE_UNTRUSTED_DATA'}
+            'taint': 'REMOTE_UNTRUSTED_DATA', 'text_provenance': {'name': name_meta}}
 
 
 def _rich_repository_context(operation, check, deadline):
@@ -578,7 +648,7 @@ def _rich_repository_context(operation, check, deadline):
     _require(type(final) is dict and final.get('ref') == 'refs/heads/main'
              and type(final.get('object')) is dict and final['object'].get('type') == 'commit'
              and final['object'].get('sha') == base['commit_sha'], 'GITHUB_CONTEXT_BASE_CHANGED')
-    data = {'schema': 'aioa.github-read-context.v1',
+    data = {'schema': 'aioa.github-read-context.v2',
             'repository': {'owner': 'luciferprosun', 'name': 'AIOA-spArkHAT',
                            'canonical_url': 'https://github.com/' + REPOSITORY,
                            'repository_id': REPOSITORY_ID},

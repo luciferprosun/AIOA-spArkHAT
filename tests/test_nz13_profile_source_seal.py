@@ -13,6 +13,8 @@ REQUIRED = {
     'runtime/mission/worker.py', 'runtime/mission/codex_worker.py',
     'runtime/mission/patchset.py', 'runtime/mission/repair.py',
     'runtime/mission/patch_capsule.py', 'runtime/mission/coding_tasks.py',
+    'runtime/mission/target_settlement.py',
+    'runtime/mission/target_projection.py',
 }
 
 

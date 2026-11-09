@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import re
+from heapq import merge
 from typing import Final
 
 REDACTION_MARKER: Final = "[REDACTED]"
@@ -17,6 +18,8 @@ _SENSITIVE_PATTERNS: Final = (
     re.compile(r"(?i)\bBearer\s+[A-Za-z0-9._~+/=-]{8,}"),
     re.compile(r"(?i)\bAuthorization\s*:\s*[^\r\n,;]{4,}"),
     re.compile(r"\bsk-[A-Za-z0-9_-]{8,}\b"),
+    # Provider key literals can appear beside non-ASCII text in diagnostics.
+    re.compile(r"AIza[A-Za-z0-9_-]{35,}"),
     # Stateless GitHub App tokens (2026) include three base64url segments.
     # Match these first so no JWT signature survives a shorter prefix match.
     re.compile(r"ghs_[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+"),
@@ -58,7 +61,25 @@ def redact_sensitive_text(value: str) -> str:
 
     if not isinstance(value, str):
         raise TypeError("redaction input must be text")
-    redacted = value
-    for pattern in _SENSITIVE_PATTERNS:
-        redacted = pattern.sub(REDACTION_MARKER, redacted)
-    return redacted
+    # Match the original text once per family; an earlier replacement must
+    # never hide another family's overlapping credential or leave its tail.
+    ordered = merge(*(
+        (match.span() for match in pattern.finditer(value))
+        for pattern in _SENSITIVE_PATTERNS
+    ))
+    pieces = []
+    cursor = 0
+    pending_start = pending_end = None
+    for start, end in ordered:
+        if pending_start is None:
+            pending_start, pending_end = start, end
+        elif start <= pending_end:
+            pending_end = max(pending_end, end)
+        else:
+            pieces.extend((value[cursor:pending_start], REDACTION_MARKER))
+            cursor = pending_end
+            pending_start, pending_end = start, end
+    if pending_start is None:
+        return value
+    pieces.extend((value[cursor:pending_start], REDACTION_MARKER, value[pending_end:]))
+    return ''.join(pieces)

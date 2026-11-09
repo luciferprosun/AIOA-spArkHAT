@@ -181,7 +181,7 @@ def read_private_json(
 
 
 @contextmanager
-def locked_private_file(path: Path, *, exclusive: bool) -> Iterator[None]:
+def locked_private_file(path: Path, *, exclusive: bool) -> Iterator[int]:
     """Hold one owner-only regular lock file without following symlinks."""
 
     flags = os.O_RDWR | os.O_CREAT
@@ -196,7 +196,9 @@ def locked_private_file(path: Path, *, exclusive: bool) -> Iterator[None]:
             raise StateIntegrityError("local state lock must be owner-only")
         fcntl.flock(descriptor, fcntl.LOCK_EX if exclusive else fcntl.LOCK_SH)
         try:
-            yield
+            # Borrowed only for identity checks while this same lock is held.
+            # The existing context manager remains the sole descriptor owner.
+            yield descriptor
         finally:
             fcntl.flock(descriptor, fcntl.LOCK_UN)
     finally:
