@@ -11,9 +11,7 @@ import threading
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import patch
-
-import runtime
+from unittest.mock import Mock, patch
 
 READY = b'CHROME_FILE_NAVIGATION_ACK\n'
 
@@ -21,14 +19,57 @@ READY = b'CHROME_FILE_NAVIGATION_ACK\n'
 class RenderAcceptanceContractTests(unittest.TestCase):
     def api(self):
         name = 'nz13_render_acceptance'
+        tests = Path(__file__).resolve().parent
+        expected = str(tests / (name + '.py'))
         if name not in sys.modules:
-            tests = Path(runtime.__file__).resolve().parents[1] / 'tests'
             spec = importlib.machinery.PathFinder.find_spec(name, [str(tests)])
             self.assertIsNotNone(spec, 'Missing source-bound real render acceptance')
+            self.assertEqual(expected, spec.origin, 'Foreign render acceptance helper')
             module = importlib.util.module_from_spec(spec)
             sys.modules[name] = module
-            spec.loader.exec_module(module)
-        return sys.modules[name]
+            loaded = False
+            try:
+                spec.loader.exec_module(module)
+                loaded = True
+            finally:
+                if not loaded and sys.modules.get(name) is module:
+                    del sys.modules[name]
+        module = sys.modules[name]
+        self.assertEqual(expected, getattr(module, '__file__', None), 'Foreign render acceptance helper')
+        return module
+
+    def test_helper_origin_is_pinned_and_failed_loading_restores_the_cache(self):
+        name = 'nz13_render_acceptance'
+        expected = Path(__file__).resolve().with_name(name + '.py')
+        original = sys.modules.get(name)
+        with self.subTest('foreign cached helper'), patch.dict(sys.modules):
+            sys.modules[name] = SimpleNamespace(__file__=str(expected.with_name('foreign.py')))
+            with self.assertRaisesRegex(AssertionError, 'Foreign render acceptance helper'):
+                self.api()
+        self.assertIs(original, sys.modules.get(name))
+
+        with self.subTest('foreign loader never executes'), patch.dict(sys.modules):
+            sys.modules.pop(name, None)
+            loader = SimpleNamespace(create_module=lambda _spec: None, exec_module=Mock())
+            spec = importlib.machinery.ModuleSpec(name, loader, origin=str(expected.with_name('foreign.py')))
+            spec.has_location = True
+            with patch.object(importlib.machinery.PathFinder, 'find_spec', return_value=spec), \
+                    self.assertRaisesRegex(AssertionError, 'Foreign render acceptance helper'):
+                self.api()
+            loader.exec_module.assert_not_called()
+        self.assertIs(original, sys.modules.get(name))
+
+        with self.subTest('failed exact loader leaves no partial cache'), patch.dict(sys.modules):
+            sys.modules.pop(name, None)
+            loader = SimpleNamespace(create_module=lambda _spec: None,
+                                     exec_module=Mock(side_effect=RuntimeError('fixed loader failure')))
+            spec = importlib.machinery.ModuleSpec(name, loader, origin=str(expected))
+            spec.has_location = True
+            with patch.object(importlib.machinery.PathFinder, 'find_spec', return_value=spec), \
+                    self.assertRaisesRegex(RuntimeError, 'fixed loader failure'):
+                self.api()
+            self.assertFalse(name in sys.modules, 'Failed loader kept a partial helper module')
+        self.assertIs(original, sys.modules.get(name))
 
     def test_stopped_unknown_requires_cleanup_and_must_not_require_a_successful_readback(self):
         api = self.api()
