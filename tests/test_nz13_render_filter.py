@@ -88,6 +88,38 @@ class RenderFilterTests(unittest.TestCase):
             self.assertEqual(ALLOW, evaluate(raw, number))
             self.assertEqual(DENY, evaluate(build_filter(final=True), number))
 
+    def test_only_renderer_private_pair_credential_option_with_int_size_is_allowed(self):
+        raw = self.renderer()
+        for descriptor in (0, 3, 63):
+            args = (descriptor, socket.SOL_SOCKET, socket.SO_PASSCRED, 0x1000, 4)
+            with self.subTest(descriptor=descriptor):
+                self.assertEqual(ALLOW, evaluate(raw, 54, args))
+                self.assertEqual(DENY, evaluate(build_filter(final=True), 54, args))
+
+    def test_credential_option_rejects_other_levels_options_and_lengths(self):
+        raw = self.renderer()
+        for level, option, size in ((0, socket.SO_PASSCRED, 4),
+                                    (socket.SOL_SOCKET, socket.SO_SNDBUF, 4),
+                                    (socket.SOL_SOCKET, socket.SO_RCVBUF, 4),
+                                    (socket.SOL_SOCKET, socket.SO_PASSCRED, 0),
+                                    (socket.SOL_SOCKET, socket.SO_PASSCRED, 8)):
+            with self.subTest(level=level, option=option, size=size):
+                self.assertEqual(DENY, evaluate(raw, 54, (3, level, option, 0x1000, size)))
+
+    def test_credential_option_rejects_high_argument_bits_and_out_of_bound_descriptors(self):
+        raw = self.renderer()
+        for descriptor, level, option, size in ((64, 1, 16, 4), (2**32 + 3, 1, 16, 4),
+                                               (3, 2**32 + 1, 16, 4), (3, 1, 2**32 + 16, 4),
+                                               (3, 1, 16, 2**32 + 4)):
+            with self.subTest(descriptor=descriptor, level=level, option=option, size=size):
+                self.assertEqual(DENY, evaluate(raw, 54, (descriptor, level, option, 0x1000, size)))
+
+    def test_credential_option_never_opens_getsockopt_or_a_network_socket(self):
+        raw = self.renderer()
+        for number in (41, 42, 49, 50, 55, 101, 438):
+            with self.subTest(number=number):
+                self.assertEqual(DENY, evaluate(raw, number, (3, 1, 16, 0x1000, 4)))
+
     def test_renderer_keeps_abi_namespace_and_ptrace_denials(self):
         raw = self.renderer()
         self.assertEqual(KILL, evaluate(raw, 59, arch=0x40000003))

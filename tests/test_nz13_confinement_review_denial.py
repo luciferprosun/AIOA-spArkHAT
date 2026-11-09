@@ -1,6 +1,8 @@
 """A confinement fixture must prove denial without bypassing coding review."""
 import copy
+import json
 import unittest
+from pathlib import Path
 from types import SimpleNamespace
 
 import nz11_kernel_acceptance as kernel
@@ -141,3 +143,44 @@ class ConfinementReviewDenialTests(unittest.TestCase):
         patchset = SimpleNamespace(verify_digest=lambda: None,
                                    canonical_diff='--- a/src/app.py\n+++ b/src/app.py\n+    return 7\n')
         self.assertEqual(semantic_review(patchset), 'REVIEW_FIXTURE_BYPASS')
+
+
+class CapturedConfinementReceiptJoinTests(unittest.TestCase):
+    def setUp(self):
+        self.contract = getattr(kernel, 'review_denial_broker_contract', None)
+        self.assertTrue(callable(self.contract), 'Missing captured canonical receipt-join contract')
+        path = Path(__file__).parent / 'fixtures/nz13_confinement_receipt_join.json'
+        self.capture = json.loads(path.read_text())
+
+    def test_real_synthetic_capture_keeps_both_canonical_digest_prefixes(self):
+        self.assertEqual(len(self.capture['broker_receipts']), 6)
+        self.assertEqual(len(self.capture['validation_steps']), 4)
+        self.contract(self.capture['validation_steps'], self.capture['broker_receipts'])
+
+    def test_missing_swapped_unprefixed_or_duplicate_warrant_is_rejected(self):
+        for mutation in ('missing', 'swapped', 'unprefixed', 'duplicate'):
+            with self.subTest(mutation=mutation), self.assertRaises(AssertionError):
+                values = copy.deepcopy(self.capture['broker_receipts'])
+                key = self.capture['validation_steps'][0]['evidence_digest']
+                other = next(name for name in values if name != key)
+                if mutation == 'missing':
+                    del values[key]
+                elif mutation == 'swapped':
+                    values[key], values[other] = values[other], values[key]
+                elif mutation == 'unprefixed':
+                    values[key] = values[key].removeprefix('sha256:')
+                else:
+                    values[key] = values[other]
+                self.contract(self.capture['validation_steps'], values)
+
+    def test_missing_duplicated_or_foreign_validation_evidence_is_rejected(self):
+        for mutation in ('missing', 'duplicate', 'foreign'):
+            with self.subTest(mutation=mutation), self.assertRaises(AssertionError):
+                values = copy.deepcopy(self.capture['validation_steps'])
+                if mutation == 'missing':
+                    values.pop()
+                elif mutation == 'duplicate':
+                    values[0] = values[1]
+                else:
+                    values[0]['evidence_digest'] = 'f' * 64
+                self.contract(values, self.capture['broker_receipts'])

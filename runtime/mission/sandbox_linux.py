@@ -191,6 +191,28 @@ def build_filter(*, final, ipc_profile=None):
         ]
         rows.append((0x15, 0, len(pair), 53))
         rows.extend(pair)
+        # Crashpad configures credentials on its fresh private Unix pairs.
+        # No host socket FD survives bootstrap. This narrow option does not
+        # permit socket creation, connect/bind/listen, or other socket options.
+        # SO_PASSCRED may auto-bind in the job's private network namespace.
+        credentials = []
+        conditions = []
+        for offset, expected in ((20, 0), (28, 0), (24, 1), (36, 0),
+                                 (32, 16), (52, 0), (48, 4)):
+            credentials.append((0x20, 0, 0, offset))
+            conditions.append(len(credentials))
+            credentials.append((0x15, 0, 0, expected))
+        credentials.append((0x20, 0, 0, 16))
+        descriptor_bound = len(credentials)
+        credentials.append((0x35, 0, 0, 64))
+        credentials.extend(((0x06, 0, 0, 0x7FFF0000), (0x06, 0, 0, 0x00050001)))
+        denied = len(credentials) - 1
+        for index in conditions:
+            code, _, _, expected = credentials[index]
+            credentials[index] = (code, 0, denied - index - 1, expected)
+        credentials[descriptor_bound] = (0x35, denied - descriptor_bound - 1, 0, 64)
+        rows.append((0x15, 0, len(credentials), 54))
+        rows.extend(credentials)
     deny = {
         101,
         133,

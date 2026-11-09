@@ -458,6 +458,20 @@ def review_denial_contract(reviewed, *, expected_failure_code):
             'git_actuation': False, 'coding_success': False}
 
 
+def review_denial_broker_contract(steps, receipts):
+    """Join four canonical validations to six retained fixture broker receipts."""
+    assert type(receipts) is dict and len(receipts) == len(set(receipts.values())) == 6
+    assert all(re.fullmatch('[a-f0-9]{64}', digest) for digest in receipts)
+    assert all(re.fullmatch('sha256:[a-f0-9]{64}', warrant) for warrant in receipts.values())
+    assert len(steps) == 4
+    assert len({step['evidence_digest'] for step in steps}) == 4
+    assert len({step['core_warrant_digest'] for step in steps}) == 4
+    for step in steps:
+        assert step['evidence_digest'] in receipts
+        assert re.fullmatch('sha256:[a-f0-9]{64}', step['core_warrant_digest'])
+        assert receipts[step['evidence_digest']] == step['core_warrant_digest']
+
+
 def main(manifest_path, root, *, worker_factory=SyntheticWorker, profile_factory=None,
          candidate_transform=None, expected_review_denial=None):
     assert expected_review_denial in (None, 'REVIEW_FIXTURE_BYPASS'), 'EXPECTED_REVIEW_DENIAL_SELECTOR'
@@ -635,9 +649,9 @@ def main(manifest_path, root, *, worker_factory=SyntheticWorker, profile_factory
                     assert digest not in receipts
                     receipts[digest] = receipt['warrant_digest']
             assert len(receipts) == len(set(receipts.values())) == 6
-            for attempt in reviewed['run_result']['attempts']:
-                for step in attempt['steps']:
-                    assert receipts[step['evidence_digest']] == step['core_warrant_digest'].removeprefix('sha256:')
+            validation_steps = [step for attempt in reviewed['run_result']['attempts']
+                                for step in attempt['steps']]
+            review_denial_broker_contract(validation_steps, receipts)
             proof = {'schema': 'aioa.nz13.expected-review-denial.v1', **summary,
                      'failure_code': expected_review_denial, 'profile_digest': profile.digest,
                      'signer_spki': identity.spki, 'canonical_receipts': reviewed['receipts'],
