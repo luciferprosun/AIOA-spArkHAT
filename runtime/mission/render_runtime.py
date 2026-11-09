@@ -122,7 +122,7 @@ def prepare_html_render_sandbox(root, *, workspace, recipe):
     config = prepare_linux_sandbox(
         root, runtime, workspace=workspace,
         recipes={'recipe:html-' + recipe.digest[:24]: recipe.recipe_spec()},
-        resource_profile='HEADLESS_RENDER_V1')
+        resource_profile='HEADLESS_RENDER_V1', renderer_ipc='RENDER_UNIX_LISTENER_V1')
     return replace(config, registry=SandboxRegistry(
         workspace, tuple(replace(item, timeout_ms=20000, max_output_bytes=16384)
                          for item in config.registry.recipes)))

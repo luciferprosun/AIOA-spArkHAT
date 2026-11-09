@@ -165,7 +165,8 @@ def bounded_line(stream, seconds=8, *, cancel=None):
 
 def build_filter(*, final, ipc_profile=None):
     if ipc_profile is not None and (type(ipc_profile) is not str
-            or ipc_profile != 'RENDER_UNIX_SOCKETPAIR_V1' or final is not True):
+            or ipc_profile not in ('RENDER_UNIX_SOCKETPAIR_V1', 'RENDER_UNIX_LISTENER_V1')
+            or final is not True):
         raise ValueError('UNAPPROVED_SANDBOX_IPC_PROFILE')
     # Linux x86_64 only. Each filter rejects other ABIs and x32 first.
     rows = [
@@ -176,10 +177,10 @@ def build_filter(*, final, ipc_profile=None):
         (0x35, 0, 1, 0x40000000),
         (0x06, 0, 0, 0x80000000),
     ]
-    if ipc_profile == 'RENDER_UNIX_SOCKETPAIR_V1':
-        # Only fresh Unix stream/seqpacket pairs. socket()/connect() remain
-        # denied, including the mounted host handoff socket. Bootstrap closes
-        # all fd>=3 before untrusted code; no host socket FD can be inherited.
+    if ipc_profile in ('RENDER_UNIX_SOCKETPAIR_V1', 'RENDER_UNIX_LISTENER_V1'):
+        # The original pair profile stays byte-identical. Both profiles deny
+        # connect(), including the mounted host handoff socket. Bootstrap
+        # closes all fd>=3 before untrusted code; no host socket is inherited.
         pair = [
             (0x20, 0, 0, 20), (0x15, 0, 11, 0),
             (0x20, 0, 0, 16), (0x15, 0, 9, 1),
@@ -192,8 +193,8 @@ def build_filter(*, final, ipc_profile=None):
         rows.append((0x15, 0, len(pair), 53))
         rows.extend(pair)
         # Crashpad configures credentials on its fresh private Unix pairs.
-        # No host socket FD survives bootstrap. This narrow option does not
-        # permit socket creation, connect/bind/listen, or other socket options.
+        # No host socket FD survives bootstrap. This option adds no socket
+        # creation, connection, listener or other socket-option permissions.
         # SO_PASSCRED may auto-bind in the job's private network namespace.
         for socket_option_call in (54, 55):
             credentials = []
@@ -221,7 +222,7 @@ def build_filter(*, final, ipc_profile=None):
             rows.extend(credentials)
         # Chrome half-closes each end of its private SandboxIPC pair. Only
         # SHUT_RD/SHUT_WR on bounded job descriptors; no full shutdown or
-        # connection/socket creation is added. Host FDs are closed at bootstrap.
+        # connection/socket creation is added by this rule. Host FDs are closed.
         half_close = [
             (0x20, 0, 0, 20), (0x15, 0, 7, 0),
             (0x20, 0, 0, 28), (0x15, 0, 5, 0),
@@ -231,6 +232,37 @@ def build_filter(*, final, ipc_profile=None):
         ]
         rows.append((0x15, 0, len(half_close), 48))
         rows.extend(half_close)
+    if ipc_profile == 'RENDER_UNIX_LISTENER_V1':
+        # A separate operator-pinned profile for Chrome's ProcessSingleton.
+        # Fresh UNIX stream creation, bounded bind and backlog-five listen only.
+        # No connect/accept, INET, peer identity or imported host FD authority.
+        # The address is an opaque guest pointer. Its safety also requires the
+        # private network/mount namespaces and bootstrap's closed FD lifecycle.
+        def listener_call(number, checks):
+            block, branches = [], []
+            for offset, comparison, expected in checks:
+                block.append((0x20, 0, 0, offset))
+                if type(expected) is tuple:
+                    mask, expected = expected
+                    block.append((0x54, 0, 0, mask))
+                branches.append((len(block), comparison))
+                block.append((0x15 if comparison == 'eq' else 0x35, 0, 0, expected))
+            block.extend(((0x06, 0, 0, 0x7FFF0000), (0x06, 0, 0, 0x00050001)))
+            denied = len(block) - 1
+            for index, comparison in branches:
+                code, _, _, expected = block[index]
+                jump = denied - index - 1
+                block[index] = (code, jump if comparison == 'lt' else 0,
+                                0 if comparison == 'lt' else jump, expected)
+            rows.append((0x15, 0, len(block), number))
+            rows.extend(block)
+
+        listener_call(41, ((20, 'eq', 0), (16, 'eq', 1), (28, 'eq', 0),
+                           (24, 'eq', (0xFFF7F7FE, 0)), (24, 'eq', (0xF, 1)),
+                           (36, 'eq', 0), (32, 'eq', 0)))
+        listener_call(49, ((20, 'eq', 0), (16, 'lt', 64), (36, 'eq', 0),
+                           (32, 'ge', 2), (32, 'lt', 111)))
+        listener_call(50, ((20, 'eq', 0), (16, 'lt', 64), (28, 'eq', 0), (24, 'eq', 5)))
     deny = {
         101,
         133,
@@ -288,7 +320,7 @@ def build_filter(*, final, ipc_profile=None):
         deny.update(
             {41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 288, 299, 307}
         )
-    if ipc_profile == 'RENDER_UNIX_SOCKETPAIR_V1':
+    if ipc_profile in ('RENDER_UNIX_SOCKETPAIR_V1', 'RENDER_UNIX_LISTENER_V1'):
         deny.difference_update({46, 47, 53})
     for number in sorted(deny):
         rows.extend([(0x15, 0, 1, number), (0x06, 0, 0, 0x00050001)])
@@ -447,7 +479,8 @@ def load_host_config(root, *, trusted_root):
     )
 
 
-def prepare_linux_sandbox(root, runtime_manifest, *, workspace, recipes, resource_profile=None):
+def prepare_linux_sandbox(root, runtime_manifest, *, workspace, recipes, resource_profile=None,
+                          renderer_ipc=None):
     """Explicit operator preparation: compile packaged trusted C, pin runtime/inputs.
 
     recipes is a trusted mapping id -> {files:{name:bytes},expected:{artifact:bytes}}.
@@ -466,6 +499,9 @@ def prepare_linux_sandbox(root, runtime_manifest, *, workspace, recipes, resourc
     require(resource_profile is None or type(resource_profile) is str and resource_profile == 'HEADLESS_RENDER_V1',
             'INVALID_SANDBOX_RESOURCE_PROFILE')
     renderer = resource_profile == 'HEADLESS_RENDER_V1'
+    require(renderer_ipc is None or renderer and type(renderer_ipc) is str
+            and renderer_ipc == 'RENDER_UNIX_LISTENER_V1', 'UNAPPROVED_SANDBOX_IPC_PROFILE')
+    ipc_profile = (renderer_ipc or 'RENDER_UNIX_SOCKETPAIR_V1') if renderer else None
     resource_ceilings = RENDER_RESOURCE_CEILINGS if renderer else RESOURCE_CEILINGS
     chrome_targets = frozenset('/opt/google/chrome/' + name for name in (
         'chrome', 'chrome_crashpad_handler', 'icudtl.dat', 'resources.pak',
@@ -490,6 +526,8 @@ def prepare_linux_sandbox(root, runtime_manifest, *, workspace, recipes, resourc
                 "-fstack-protector-strong",
                 "-D_FORTIFY_SOURCE=2",
                 "-Wl,-z,relro,-z,now",
+                *(['-DAIOA_RENDER_LISTENER=1'] if name == 'bootstrap'
+                  and ipc_profile == 'RENDER_UNIX_LISTENER_V1' else []),
                 str(source),
                 "-o",
                 str(destination),
@@ -504,7 +542,7 @@ def prepare_linux_sandbox(root, runtime_manifest, *, workspace, recipes, resourc
     for name, final in [("setup_filter", False), ("final_filter", True)]:
         path = root / (name + ".bpf")
         path.write_bytes(build_filter(final=final, ipc_profile=(
-            'RENDER_UNIX_SOCKETPAIR_V1' if renderer and final else None)))
+            ipc_profile if final else None)))
         path.chmod(0o400)
         pins[name] = sha(path)
     for target, entry in runtime_manifest.items():
@@ -559,9 +597,11 @@ def prepare_linux_sandbox(root, runtime_manifest, *, workspace, recipes, resourc
         "retained_python_extensions": "manifest exact; includes host test and Tk extension closure",
     }
     if renderer:
-        profile.update(resource_profile=resource_profile, ipc_profile='RENDER_UNIX_SOCKETPAIR_V1',
+        profile.update(resource_profile=resource_profile, ipc_profile=ipc_profile,
                        host_socket_creation='DENIED', inherited_control_fds=0,
                        virtual_address_limit_bytes=4 * 1024**4)
+        if ipc_profile == 'RENDER_UNIX_LISTENER_V1':
+            profile.update(private_listener_creation='UNIX_STREAM_ONLY', host_connect='DENIED')
     digest = canonical_sha256(profile)
     env_digest = canonical_sha256(env)
     inputs = {}

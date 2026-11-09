@@ -95,7 +95,8 @@ class SandboxPreparer:
             self.manifest,
             workspace="workspace-1",
             recipes={str(i): spec for i, (_, spec) in enumerate(specs)},
-            **({'resource_profile': self.resource_profile} if self.resource_profile is not None else {}),
+            **({'resource_profile': self.resource_profile, 'renderer_ipc': 'RENDER_UNIX_LISTENER_V1'}
+               if self.resource_profile is not None else {}),
         )
         # The existing hard ceiling includes namespace setup and the final
         # trusted Core release check. Full-history release alone takes 3.5s on

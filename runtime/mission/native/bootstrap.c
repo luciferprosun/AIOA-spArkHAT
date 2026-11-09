@@ -13,6 +13,13 @@
 #include <sys/un.h>
 #include <unistd.h>
 
+#ifndef AIOA_RENDER_LISTENER
+#define AIOA_RENDER_LISTENER 0
+#endif
+#if AIOA_RENDER_LISTENER != 0 && AIOA_RENDER_LISTENER != 1
+#error Unapproved renderer listener profile
+#endif
+
 static void check(int yes,const char *name) {
     if(!yes) { printf("{\"status\":\"HANDOFF_PROBE_FAILED\",\"check\":\"%s\",\"errno\":%d}\n",name,errno);fflush(stdout);exit(86); }
 }
@@ -47,7 +54,15 @@ int main(int argc,char **argv) {
     check(prctl(PR_SET_NO_NEW_PRIVS,1,0,0,0)==0,"nnp");
     check(prctl(PR_SET_SECCOMP,SECCOMP_MODE_FILTER,&program)==0,"final_filter_loaded");
     check(syscall(SYS_close_range,3U,~0U,0)==0,"close_all_extra_fds");
+#if AIOA_RENDER_LISTENER
+    socket_fd=socket(AF_UNIX,SOCK_STREAM|SOCK_CLOEXEC,0);
+    check(socket_fd>=0,"fresh_private_unix_stream");
+    errno=0;check(connect(socket_fd,(struct sockaddr*)&address,sizeof(address))==-1 && errno==EPERM,"final_control_connect_denied");
+    check(close(socket_fd)==0,"private_socket_closed");
+#else
     errno=0;check(socket(AF_UNIX,SOCK_STREAM,0)==-1 && errno==EPERM,"final_control_socket_denied");
+#endif
+    errno=0;check(socket(AF_INET,SOCK_STREAM,0)==-1 && errno==EPERM,"final_inet_socket_denied");
     for(int fd=3;fd<64;fd++) { errno=0;check(fcntl(fd,F_GETFD)==-1 && errno==EBADF,"no_control_fds"); }
     char *const fixed_argv[]={"/usr/bin/python3.12","-I","-S","-B","/inputs/recipe.py",NULL};
     char *const fixed_env[]={"PATH=/usr/bin:/bin","LANG=C.UTF-8","HOME=/nonexistent","TMPDIR=/tmp",NULL};

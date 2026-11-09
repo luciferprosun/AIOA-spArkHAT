@@ -8323,8 +8323,8 @@
     },
     "runtime/mission/sandbox_linux.py": {
       "path": "runtime/mission/sandbox_linux.py",
-      "git_blob": "ae3a2b0194cd38d001379e1284f9944f5ed911e4",
-      "sha256": "3a2f1b9b90b155540654aa33c6e397b3f3497da1f3dea03f26950f17a35844fd",
+      "git_blob": "6013634d8ac378ee04403a80b74c83bcc8dee8a3",
+      "sha256": "7b67a328cc67f7680f9620ed5ede9e64686d6ef1095ae58e2998407977087acf",
       "definitions": [
         {
           "name": "now",
@@ -8368,135 +8368,139 @@
         },
         {
           "name": "TrustedSandboxConfig",
-          "line": 315
+          "line": 347
         },
         {
           "name": "_host_json",
-          "line": 333
+          "line": 365
         },
         {
           "name": "save_host_config",
-          "line": 340
+          "line": 372
         },
         {
           "name": "load_host_config",
-          "line": 371
+          "line": 403
         },
         {
           "name": "prepare_linux_sandbox",
-          "line": 450
+          "line": 482
         },
         {
           "name": "git_storage_identity",
-          "line": 662
+          "line": 702
         },
         {
           "name": "_systemd_properties",
-          "line": 776
+          "line": 816
         },
         {
           "name": "LinuxSandboxBroker",
-          "line": 802
+          "line": 842
         },
         {
           "name": "profile",
-          "line": 323
+          "line": 355
         },
         {
           "name": "inputs",
-          "line": 326
+          "line": 358
         },
         {
           "name": "runtime",
-          "line": 329
+          "line": 361
         },
         {
           "name": "private",
-          "line": 375
+          "line": 407
         },
         {
           "name": "walk",
-          "line": 680
+          "line": 720
         },
         {
           "name": "__init__",
-          "line": 803
+          "line": 843
         },
         {
           "name": "__call__",
-          "line": 814
+          "line": 854
         },
         {
           "name": "_git_directory",
-          "line": 818
+          "line": 858
         },
         {
           "name": "_git_publish_new",
-          "line": 859
+          "line": 899
         },
         {
           "name": "_git_existing_object",
-          "line": 898
+          "line": 938
         },
         {
           "name": "_git_plumbing",
-          "line": 943
+          "line": 983
         },
         {
           "name": "dispatch",
-          "line": 1538
+          "line": 1578
         },
         {
           "name": "_run",
-          "line": 1609
+          "line": 1649
         },
         {
           "name": "verify",
-          "line": 2072
+          "line": 2112
+        },
+        {
+          "name": "listener_call",
+          "line": 241
         },
         {
           "name": "hold",
-          "line": 1036
+          "line": 1076
         },
         {
           "name": "sealed",
-          "line": 1041
+          "line": 1081
         },
         {
           "name": "read_local",
-          "line": 1106
+          "line": 1146
         },
         {
           "name": "lock_stamp",
-          "line": 1179
+          "line": 1219
         },
         {
           "name": "check_lock",
-          "line": 1191
+          "line": 1231
         },
         {
           "name": "check_lock_parent",
-          "line": 1201
+          "line": 1241
         },
         {
           "name": "lock_new",
-          "line": 1221
+          "line": 1261
         },
         {
           "name": "check_ref_transaction",
-          "line": 1337
+          "line": 1377
         },
         {
           "name": "guarded_cleanup",
-          "line": 1978
+          "line": 2018
         },
         {
           "name": "release",
-          "line": 1245
+          "line": 1285
         },
         {
           "name": "reap_owned",
-          "line": 2007
+          "line": 2047
         }
       ],
       "symbolic_callees": [
@@ -8538,7 +8542,10 @@
         "array.array",
         "asdict",
         "binding_check",
+        "block.append",
+        "block.extend",
         "bounded_line",
+        "branches.append",
         "build_filter",
         "bytearray",
         "bytes",
@@ -8640,6 +8647,7 @@
         "listener.close",
         "listener.listen",
         "listener.settimeout",
+        "listener_call",
         "lock_new",
         "lock_stamp",
         "locks.append",
@@ -8801,8 +8809,8 @@
         "zlib.compress",
         "zlib.decompressobj"
       ],
-      "call_site_count": 924,
-      "call_sites_sha256": "c22b1199212a758b35ebce1aef76437be5a22ec0ce45c860fb8022976ae6ba41"
+      "call_site_count": 941,
+      "call_sites_sha256": "a5597e1590df34a036821aabf3f12101c615100dc249c0ccdfa2eb3482a96912"
     },
     "runtime/nonzero_cloudops/adapters/portable.py": {
       "path": "runtime/nonzero_cloudops/adapters/portable.py",
@@ -13533,8 +13541,8 @@
     },
     "runtime/mission/repair_validation.py": {
       "path": "runtime/mission/repair_validation.py",
-      "git_blob": "e9b331f282407eadca885a8577e8a9148ff615e1",
-      "sha256": "8724cea381949441df130df9b9e9e13445b4831c627748314960feb2ceda6064",
+      "git_blob": "11a6f9b19a29ab40dc9e193893cac013ef44e7a8",
+      "sha256": "74c0abce0714377df11817ec67e98dfc76d0a4e5815129322aab74092cd33874",
       "definitions": [
         {
           "name": "TrustedTestProfile",
@@ -13594,7 +13602,7 @@
         },
         {
           "name": "_CoreValidationSession",
-          "line": 761
+          "line": 764
         },
         {
           "name": "__post_init__",
@@ -13638,27 +13646,27 @@
         },
         {
           "name": "read_render",
-          "line": 667
+          "line": 670
         },
         {
           "name": "_read_render_record",
-          "line": 680
+          "line": 683
         },
         {
           "name": "open",
-          "line": 712
+          "line": 715
         },
         {
           "name": "__init__",
-          "line": 762
+          "line": 765
         },
         {
           "name": "run",
-          "line": 767
+          "line": 770
         },
         {
           "name": "close",
-          "line": 842
+          "line": 845
         },
         {
           "name": "save",
@@ -13783,8 +13791,8 @@
         "warrant.to_dict",
         "workspace_tree_digest"
       ],
-      "call_site_count": 361,
-      "call_sites_sha256": "58f1ff8c5c7397b1b393b9b2ffdd0c01c346d1787b443b4dd7c8dada750ba0e9"
+      "call_site_count": 364,
+      "call_sites_sha256": "241ed7c328fc6c339b91ecbab743ecfd64eb0e8b239aaf4cb4e612d8b6406184"
     },
     "runtime/mission/sandbox_contracts.py": {
       "path": "runtime/mission/sandbox_contracts.py",
@@ -15983,8 +15991,8 @@
     },
     "runtime/mission/render_runtime.py": {
       "path": "runtime/mission/render_runtime.py",
-      "git_blob": "682e43149f782ef35f8ffbc2b12b0d59d2af08d7",
-      "sha256": "ddecfc976359416472ca99331ff9dfb64cf38a6b4fc8648c8894de16f43642ef",
+      "git_blob": "c6da27f521a2467db60d9d2a0d36bcb5218d2178",
+      "sha256": "11957ff1f5e56c87123312dcb8969b22724ab2f32e56787bae723579a298c684",
       "definitions": [
         {
           "name": "require",
@@ -16282,6 +16290,6 @@
     "DUPLICATE_VERIFIED": 16,
     "EXCLUDED_UNSAFE": 2
   },
-  "current_target_binding_note": "NZ13-D5 current tracked blob/AST identities only. NZ12 assessments remain historical; function/render profiles require exact-head broker, confinement, Chrome and installed qualification. No model, production Native, unrestricted setup or full parity certification is implied.",
+  "current_target_binding_note": "NZ13-D6 current tracked blob/AST identities only. NZ12 assessments remain historical; function/render profiles require exact-head broker, confinement, Chrome and installed qualification. No model, production Native, unrestricted setup or full parity certification is implied.",
   "nz12_binding_before_nz13_sha256": "cfca6195089170934076cd15ac80a5b26786e947338b089dd75926d545b971b2"
 }

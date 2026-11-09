@@ -25,7 +25,8 @@ an address-space parameter. Real renderer startup and 600 MiB physical-memory
 denial must be demonstrated before qualification; the larger virtual allowance
 alone does not certify browser execution.
 
-Renderer IPC permits fresh Unix stream/seqpacket pairs and the single
+The existing `RENDER_UNIX_SOCKETPAIR_V1` IPC policy permits fresh Unix
+stream/seqpacket pairs and the single
 `SOL_SOCKET/SO_PASSCRED` option with a four-byte setter value and a getter for
 that same flag. The filter bounds descriptor and option arguments; it cannot
 prove descriptor provenance or inspect pointed values/lengths. Getter output
@@ -35,6 +36,27 @@ stdin/stdout/stderr. Unix abstract auto-binding remains inside the job's
 private network namespace. Socket creation, connect, bind, listen, other
 getsockopt options, other socket options and INET access remain denied.
 IPC credential flags never grant Core owner authority.
+
+The separate operator-selected `RENDER_UNIX_LISTENER_V1` policy retains all
+pair-policy decisions and additionally permits Chrome's ProcessSingleton to
+create an `AF_UNIX/SOCK_STREAM` socket with protocol zero and only known
+CLOEXEC/NONBLOCK flags, bind a guest sockaddr of 2 through 110 bytes, and listen
+with the observed backlog of five. Bind/listen descriptor arguments remain
+below 64; integer high bits are checked. Address pointers remain opaque.
+Connect, accept, INET creation, peer queries, ptrace and host-FD import stay
+denied. This is private browser housekeeping, not a remote access interface.
+
+Pathname Unix sockets require the job's private mount namespace as well as
+its private network namespace. No host service may connect to job-created
+sockets. The manifest exposes no host service or writable host directories;
+the handoff connection is closed before untrusted execution. The new profile
+alone selects the trusted bootstrap compilation flag
+`-DAIOA_RENDER_LISTENER=1`; the default remains zero. Bootstrap proves that a
+fresh Unix stream still cannot connect to `/control`, that INET creation is
+denied, and that all descriptors above stderr are closed. Compiled bootstrap
+and filter hashes are bound into the profile and warrant. The existing pair,
+default and setup filter bytes are unchanged. A model cannot select this IPC
+policy through recipe input or worker arguments.
 
 The renderer may half-close its own private pair with `SHUT_RD` or `SHUT_WR`.
 Descriptor and mode high bits are checked, the descriptor stays below 64, and
