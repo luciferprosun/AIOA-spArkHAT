@@ -36,6 +36,12 @@ private network namespace. Socket creation, connect, bind, listen, other
 getsockopt options, other socket options and INET access remain denied.
 IPC credential flags never grant Core owner authority.
 
+The renderer may half-close its own private pair with `SHUT_RD` or `SHUT_WR`.
+Descriptor and mode high bits are checked, the descriptor stays below 64, and
+`SHUT_RDWR` remains denied. This closes existing job IPC; it cannot create a
+connection, import a descriptor or grant authority. Default profiles retain
+their original shutdown denial.
+
 Function validation uses an independently supplied expected result. Child
 exceptions, malformed output, timeout, lost acknowledgement or unverifiable
 cleanup never become success. Signed validation requires a canonical Applied

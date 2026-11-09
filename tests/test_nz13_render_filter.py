@@ -61,8 +61,29 @@ class RenderFilterTests(unittest.TestCase):
             with self.subTest(family=family):
                 self.assertEqual(DENY, evaluate(raw, 41, (family, socket.SOCK_STREAM)))
                 self.assertEqual(DENY, evaluate(raw, 42))
-        for number in (43, 44, 45, 48, 49, 50, 51, 52, 54, 55, 288, 299, 307):
+        for number in (43, 44, 45, 49, 50, 51, 52, 54, 55, 288, 299, 307):
             self.assertEqual(DENY, evaluate(raw, number))
+
+    def test_only_private_pair_read_or_write_half_close_is_allowed(self):
+        raw = self.renderer()
+        for descriptor in (0, 3, 63):
+            for how in (socket.SHUT_RD, socket.SHUT_WR):
+                with self.subTest(descriptor=descriptor, how=how):
+                    self.assertEqual(ALLOW, evaluate(raw, 48, (descriptor, how)))
+                    self.assertEqual(DENY, evaluate(build_filter(final=True), 48, (descriptor, how)))
+
+    def test_half_close_rejects_full_shutdown_high_bits_and_unbounded_descriptors(self):
+        raw = self.renderer()
+        for descriptor, how in ((64, 0), (2**32 + 3, 0), (3, socket.SHUT_RDWR),
+                                 (3, 2**32), (3, 2**32 + 1), (3, 2**32 - 1)):
+            with self.subTest(descriptor=descriptor, how=how):
+                self.assertEqual(DENY, evaluate(raw, 48, (descriptor, how)))
+
+    def test_half_close_never_opens_host_connection_or_ptrace_routes(self):
+        raw = self.renderer()
+        for number in (41, 42, 49, 50, 101, 165, 272, 438):
+            with self.subTest(number=number):
+                self.assertEqual(DENY, evaluate(raw, number, (3, 0)))
 
     def test_only_unix_stream_or_seqpacket_pairs_with_known_flags_are_admitted(self):
         raw = self.renderer()

@@ -219,6 +219,18 @@ def build_filter(*, final, ipc_profile=None):
             credentials[descriptor_bound] = (0x35, denied - descriptor_bound - 1, 0, 64)
             rows.append((0x15, 0, len(credentials), socket_option_call))
             rows.extend(credentials)
+        # Chrome half-closes each end of its private SandboxIPC pair. Only
+        # SHUT_RD/SHUT_WR on bounded job descriptors; no full shutdown or
+        # connection/socket creation is added. Host FDs are closed at bootstrap.
+        half_close = [
+            (0x20, 0, 0, 20), (0x15, 0, 7, 0),
+            (0x20, 0, 0, 28), (0x15, 0, 5, 0),
+            (0x20, 0, 0, 16), (0x35, 3, 0, 64),
+            (0x20, 0, 0, 24), (0x35, 1, 0, 2),
+            (0x06, 0, 0, 0x7FFF0000), (0x06, 0, 0, 0x00050001),
+        ]
+        rows.append((0x15, 0, len(half_close), 48))
+        rows.extend(half_close)
     deny = {
         101,
         133,
