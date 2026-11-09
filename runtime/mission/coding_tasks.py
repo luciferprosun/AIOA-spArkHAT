@@ -181,6 +181,33 @@ class CoreCodingTasks:
         self._active, self._effects = {}, {}
         self.closed = False
 
+    def runtime_view(self, principal):
+        """Read real signed records; never infer model certification or progress."""
+        self.journal.ledger.core.require(principal, Capability.READ, scope=self.scope)
+        with self._active_lock:
+            def read(tx):
+                rows = self._complete_history(tx)
+                counts = dict.fromkeys(STATES, 0)
+                for row in rows:
+                    if row.payload.get('schema') == KIND:
+                        task_id = row.payload.get('task', {}).get('task_id')
+                        _, data, _ = decode_coding_task_row(row, task_id, self.capsules.identity.spki)
+                        require(row.record_id == self._key(task_id), 'CODING_TASK_INTEGRITY')
+                        counts[data['receipts'][-1]['receipt']['state']] += 1
+                return {
+                    'schema': 'aioa.coding-runtime-view.v1', 'authority': 'NONE',
+                    'read_only': True, 'automatic_retry': False,
+                    'snapshot_semantics': 'ONE_CORE_READ_TRANSACTION',
+                    'owner_scope_sha256': canonical_sha256(self.scope),
+                    'controller_state': ('CLOSED' if self.closed else
+                                         'CONFIGURED' if self.run_factory is not None else 'UNBOUND'),
+                    'effect_route_configured': self.effect_factory is not None,
+                    'worker_certification': 'NOT_CHECKED_BY_READ',
+                    'unresolved_effects': self._unresolved_intents(rows),
+                    'task_counts': counts,
+                }
+            return self.journal._run(principal, Capability.READ, read)
+
     def _key(self, task_id):
         logical_id(task_id)
         return canonical_sha256([KIND, task_id])
@@ -728,6 +755,9 @@ class CoreCodingTasks:
         return self._transition(principal, task_id, ("APPLYING", "UNKNOWN"), state)
 
     def request(self, principal, action, payload):
+        if action == 'runtime_status':
+            require(type(payload) is dict and not payload, 'CODING_REQUEST_SCHEMA')
+            return self.runtime_view(principal)
         if action in (
             "start",
             "recover",

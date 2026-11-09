@@ -117,6 +117,9 @@ SOURCE_FILES += tuple('runtime/critical_loop/cpt/'+name for name in
 SOURCE_FILES += ('runtime/critical_loop/redaction.py','runtime/critical_loop/__init__.py')
 
 
+# Runtime construction is part of the same host authority source fence.
+SOURCE_FILES += ('runtime/main.py',)
+
 def sealed_source_path(relative, *, root=None):
     """Fixed source list only; reject links before any source content read."""
     base = Path(root or ROOT).absolute()

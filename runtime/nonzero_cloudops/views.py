@@ -2,6 +2,7 @@
 # Source: local_api/contracts.py at 4fafed8b1a877e55d96ddd9baea0a737fbeeaa4a.
 """Strict local-only HTTP contracts for the Local-2 operator surface."""
 
+import re
 from datetime import datetime
 from enum import StrEnum
 from typing import Literal, Self
@@ -70,6 +71,13 @@ class LocalApiErrorResponse(BaseModel):
     failure_code: str | None = Field(default=None, min_length=1, max_length=128)
     retryable: bool = False
 
+    @field_validator('failure_code')
+    @classmethod
+    def require_public_failure_code(cls, value):
+        if value is not None and not re.fullmatch(r'[A-Z][A-Z0-9_]{0,127}', value):
+            raise ValueError('public failure code must be a stable identifier')
+        return value
+
 
 class StartRunRequest(BaseModel):
     """One exact inventory target; region and budgets remain server-owned."""
@@ -107,6 +115,29 @@ class ResumeRequest(BaseModel):
         if value is not True:
             raise ValueError("explicit boolean execution confirmation required")
         return value
+
+
+# Compatibility names reuse the same canonical validators and request types.
+LocalStartRunRequest = StartRunRequest
+LocalResumeRequest = ResumeRequest
+
+
+class LocalBrowserSessionView(BaseModel):
+    """Non-secret acknowledgement supplied by the existing cookie boundary.
+
+    This view never reads cookies, authenticates a caller or grants authority.
+    """
+
+    model_config = ConfigDict(extra='forbid', frozen=True)
+
+    authenticated: bool = Field(strict=True)
+    storage: Literal['http_only_session_cookie'] | None = None
+
+    @model_validator(mode='after')
+    def validate_session_state(self) -> Self:
+        if self.authenticated != (self.storage == 'http_only_session_cookie'):
+            raise ValueError('browser session state and storage must agree')
+        return self
 
 
 class LocalRuntimeView(BaseModel):

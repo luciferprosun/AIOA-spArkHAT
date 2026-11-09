@@ -112,7 +112,8 @@ async function jsonFetch(url, options = {}) {
   });
   const payload = await response.json();
   if (!response.ok) {
-    throw new Error(payload.detail || payload.error || `Request failed: ${response.status}`);
+    const failure=new Error(payload.detail || payload.error || `Request failed: ${response.status}`);
+    failure.status=response.status;throw failure;
   }
   return payload;
 }

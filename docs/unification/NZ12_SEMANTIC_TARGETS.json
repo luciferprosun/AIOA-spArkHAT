@@ -9016,300 +9016,300 @@
     },
     "runtime/main.py": {
       "path": "runtime/main.py",
-      "git_blob": "69ded5540fbf613b1f7e504471e672b82e3ebb90",
-      "sha256": "69ce510c3422beab560b52c7a943986607cf4f12ff24383bec1b20596d6e3f16",
+      "git_blob": "71a5b115f78c5c69f3252c72e84cf02d950a68dd",
+      "sha256": "60b152e49ac280737f9925b414951ff05cbf0067fc2d773381d6e5cf2b01dbdc",
       "definitions": [
         {
           "name": "EpistemicSafeguards",
-          "line": 57
+          "line": 61
         },
         {
           "name": "_env_flag",
-          "line": 66
+          "line": 70
         },
         {
           "name": "load_epistemic_safeguards",
-          "line": 73
+          "line": 77
         },
         {
           "name": "load_prompt_template",
-          "line": 84
+          "line": 88
         },
         {
           "name": "summarize_text",
-          "line": 91
+          "line": 95
         },
         {
           "name": "extract_first_url",
-          "line": 98
+          "line": 102
         },
         {
           "name": "normalize_external_url",
-          "line": 106
+          "line": 110
         },
         {
           "name": "classify_external_review_request",
-          "line": 120
+          "line": 124
         },
         {
           "name": "is_quota_exhausted_error",
-          "line": 129
+          "line": 133
         },
         {
           "name": "is_daily_quota_error",
-          "line": 135
+          "line": 139
         },
         {
           "name": "AgentRuntime",
-          "line": 141
+          "line": 145
         },
         {
           "name": "print_banner",
-          "line": 1489
+          "line": 1521
         },
         {
           "name": "create_runtime",
-          "line": 1501
+          "line": 1533
         },
         {
           "name": "main",
-          "line": 1593
+          "line": 1637
         },
         {
           "name": "__init__",
-          "line": 144
+          "line": 148
         },
         {
           "name": "coding_request",
-          "line": 235
-        },
-        {
-          "name": "agent_step",
           "line": 240
         },
         {
-          "name": "agent_run",
+          "name": "agent_step",
           "line": 245
         },
         {
-          "name": "_operator_console",
+          "name": "agent_run",
           "line": 250
         },
         {
-          "name": "operator_status",
-          "line": 256
+          "name": "_operator_console",
+          "line": 255
         },
         {
-          "name": "operator_stop",
+          "name": "operator_status",
           "line": 261
         },
         {
+          "name": "operator_stop",
+          "line": 266
+        },
+        {
           "name": "operator_reconcile",
-          "line": 267
+          "line": 272
         },
         {
           "name": "_require_operational_runtime",
-          "line": 273
+          "line": 278
         },
         {
           "name": "mission_doctor",
-          "line": 281
-        },
-        {
-          "name": "render_system_prompt",
           "line": 286
         },
         {
+          "name": "render_system_prompt",
+          "line": 291
+        },
+        {
           "name": "critical_loop",
-          "line": 299
+          "line": 304
         },
         {
           "name": "_check_cpl_safeguards",
-          "line": 312
+          "line": 317
         },
         {
           "name": "plan_critical_loop",
-          "line": 320
+          "line": 325
         },
         {
           "name": "assistant_request",
-          "line": 323
+          "line": 328
         },
         {
           "name": "run_cpl_fixture",
-          "line": 358
+          "line": 363
         },
         {
           "name": "close",
-          "line": 368
+          "line": 373
         },
         {
           "name": "lite_status",
-          "line": 394
+          "line": 399
         },
         {
           "name": "lite_tick",
-          "line": 409
-        },
-        {
-          "name": "lite_run",
           "line": 415
         },
         {
-          "name": "lite_request_stop",
+          "name": "lite_run",
           "line": 421
         },
         {
+          "name": "lite_request_stop",
+          "line": 427
+        },
+        {
           "name": "lite_chat",
-          "line": 425
+          "line": 431
         },
         {
           "name": "lite_nachwg_chat",
-          "line": 437
+          "line": 443
         },
         {
           "name": "lite_memory_status",
-          "line": 447
+          "line": 456
         },
         {
           "name": "lite_cpl_status",
-          "line": 451
+          "line": 460
         },
         {
           "name": "lite_dynamics_status",
-          "line": 455
+          "line": 464
         },
         {
           "name": "lite_memory_retrieve",
-          "line": 459
+          "line": 468
         },
         {
           "name": "lite_memory_operator_request",
-          "line": 465
+          "line": 474
         },
         {
           "name": "nonzero_config",
-          "line": 472
+          "line": 481
         },
         {
           "name": "nonzero_status",
-          "line": 476
+          "line": 485
         },
         {
           "name": "nonzero_cloudops",
-          "line": 489
+          "line": 498
         },
         {
           "name": "memory_patch_config",
-          "line": 505
+          "line": 514
         },
         {
           "name": "memory_patch_status",
-          "line": 508
+          "line": 517
         },
         {
           "name": "memory_patch_operator_request",
-          "line": 519
+          "line": 528
         },
         {
           "name": "build_model_request",
-          "line": 565
+          "line": 575
         },
         {
           "name": "snapshot_status",
-          "line": 626
+          "line": 636
         },
         {
           "name": "_provider_fallback_chain",
-          "line": 668
+          "line": 678
         },
         {
           "name": "_provider_status",
-          "line": 674
+          "line": 684
         },
         {
           "name": "ask_model",
-          "line": 680
+          "line": 690
         },
         {
           "name": "handle_user_request",
-          "line": 708
+          "line": 720
         },
         {
           "name": "handle_external_review_route",
-          "line": 835
+          "line": 853
         },
         {
           "name": "enable_orchestrator",
-          "line": 903
+          "line": 922
         },
         {
           "name": "handle_orchestrated_request",
-          "line": 916
+          "line": 935
         },
         {
           "name": "create_plan",
-          "line": 998
+          "line": 1023
         },
         {
           "name": "build_plan_request",
-          "line": 1066
+          "line": 1096
         },
         {
           "name": "execute_planned_actions",
-          "line": 1095
+          "line": 1125
         },
         {
           "name": "run_text_request",
-          "line": 1142
+          "line": 1174
         },
         {
           "name": "handle_local_route",
-          "line": 1165
+          "line": 1197
         },
         {
           "name": "handle_knowledge_route",
-          "line": 1203
+          "line": 1235
         },
         {
           "name": "emit_epistemic_unknown",
-          "line": 1268
+          "line": 1300
         },
         {
           "name": "handle_model_unavailable",
-          "line": 1289
+          "line": 1321
         },
         {
           "name": "bootstrap_local_context",
-          "line": 1314
+          "line": 1346
         },
         {
           "name": "save_page_text_snapshot",
-          "line": 1388
+          "line": 1420
         },
         {
           "name": "result_for_model",
-          "line": 1402
+          "line": 1434
         },
         {
           "name": "log_session_event",
-          "line": 1418
+          "line": 1450
         },
         {
           "name": "log_reasoning_trace",
-          "line": 1428
+          "line": 1460
         },
         {
           "name": "log_error",
-          "line": 1433
+          "line": 1465
         },
         {
           "name": "print_action",
-          "line": 1441
+          "line": 1473
         },
         {
           "name": "print_result",
-          "line": 1449
+          "line": 1481
         }
       ],
       "symbolic_callees": [
@@ -9357,6 +9357,7 @@
         "argparse.ArgumentParser",
         "asdict",
         "bool",
+        "boundary_cause",
         "build_command_registry",
         "callable",
         "classify_external_review_request",
@@ -9378,6 +9379,7 @@
         "error_response",
         "extract_first_url",
         "extract_json_object",
+        "failure_boundary",
         "getattr",
         "handle.write",
         "inject_linux_context",
@@ -9556,8 +9558,8 @@
         "value.strip().lower",
         "value.update"
       ],
-      "call_site_count": 607,
-      "call_sites_sha256": "115990873c9d396f472dabcfdc7be3a358706cff67040847082acd42ed31856c"
+      "call_site_count": 637,
+      "call_sites_sha256": "e719b3b4d3a10bf3ad883d4c00874854c9e3a074b8a30264b31a953465d7706d"
     },
     "runtime/providers/config.py": {
       "path": "runtime/providers/config.py",
@@ -9773,224 +9775,224 @@
     },
     "runtime/webapp.py": {
       "path": "runtime/webapp.py",
-      "git_blob": "1148dbf4637bcd683fd684ba1e9e4346d21a9add",
-      "sha256": "cc048754b320dbff4b4bf23de1e53290059e49ae75c0e69ebb92c18fc7d7917e",
+      "git_blob": "a3461f6dab60cd28dc203f166896b3be780924d2",
+      "sha256": "6acee4d22665e4f438d412e765ed11c6b6cb8a2615e450409ccf6f0193e2e840",
       "definitions": [
         {
           "name": "WebRuntimeService",
-          "line": 50
+          "line": 57
         },
         {
           "name": "get_service",
-          "line": 330
+          "line": 343
         },
         {
           "name": "AOIAWebHandler",
-          "line": 341
+          "line": 354
         },
         {
           "name": "make_mobile_operator_server",
-          "line": 1101
+          "line": 1130
         },
         {
           "name": "mobile_operator_client",
-          "line": 1155
+          "line": 1189
         },
         {
           "name": "make_server",
-          "line": 1174
+          "line": 1211
         },
         {
           "name": "_launch_mobile_console",
-          "line": 1210
+          "line": 1248
         },
         {
           "name": "_open_mobile_console",
-          "line": 1216
+          "line": 1254
         },
         {
           "name": "_parser",
-          "line": 1225
+          "line": 1263
         },
         {
           "name": "main",
-          "line": 1251
+          "line": 1289
         },
         {
           "name": "__init__",
-          "line": 53
+          "line": 60
         },
         {
           "name": "mobile_operator_request",
-          "line": 112
+          "line": 124
         },
         {
           "name": "authority_payload",
-          "line": 126
+          "line": 138
         },
         {
           "name": "close",
-          "line": 134
+          "line": 146
         },
         {
           "name": "meta_request",
-          "line": 140
+          "line": 152
         },
         {
           "name": "status_payload",
-          "line": 160
+          "line": 172
         },
         {
           "name": "coding_request",
-          "line": 207
+          "line": 219
         },
         {
           "name": "agent_request",
-          "line": 217
+          "line": 229
         },
         {
           "name": "switch_model",
-          "line": 221
+          "line": 233
         },
         {
           "name": "run_prompt",
-          "line": 231
+          "line": 243
         },
         {
           "name": "_personal_ai_projection",
-          "line": 237
+          "line": 249
         },
         {
           "name": "personal_ai_status",
-          "line": 260
+          "line": 273
         },
         {
           "name": "personal_ai_prepare",
-          "line": 277
+          "line": 290
         },
         {
           "name": "personal_ai_approve",
-          "line": 286
+          "line": 299
         },
         {
           "name": "personal_ai_resume",
-          "line": 292
+          "line": 305
         },
         {
           "name": "personal_ai_restart",
-          "line": 298
+          "line": 311
         },
         {
           "name": "personal_ai_replay",
-          "line": 317
+          "line": 330
         },
         {
           "name": "__init__",
-          "line": 346
+          "line": 359
         },
         {
           "name": "_service",
-          "line": 350
+          "line": 363
         },
         {
           "name": "handle",
-          "line": 353
+          "line": 366
         },
         {
           "name": "parse_request",
-          "line": 362
+          "line": 375
         },
         {
           "name": "end_headers",
-          "line": 374
+          "line": 387
         },
         {
           "name": "do_GET",
-          "line": 391
+          "line": 404
         },
         {
           "name": "do_POST",
-          "line": 544
+          "line": 557
         },
         {
           "name": "_handle_nonzero",
-          "line": 705
+          "line": 719
         },
         {
           "name": "_handle_personal_ai",
-          "line": 720
+          "line": 735
         },
         {
           "name": "_check_memory_patch_operator",
-          "line": 747
+          "line": 762
         },
         {
           "name": "_handle_memory_patch",
-          "line": 759
+          "line": 774
         },
         {
           "name": "_handle_agent",
-          "line": 790
+          "line": 807
         },
         {
           "name": "_handle_meta",
-          "line": 828
+          "line": 851
         },
         {
           "name": "_handle_mobile_console_delivery",
-          "line": 849
+          "line": 874
         },
         {
           "name": "_handle_mobile_operator",
-          "line": 886
+          "line": 913
         },
         {
           "name": "_handle_mobile",
-          "line": 921
+          "line": 949
         },
         {
           "name": "_check_local_request",
-          "line": 964
+          "line": 992
         },
         {
           "name": "_check_console_cookie",
-          "line": 1002
+          "line": 1030
         },
         {
           "name": "_check_token",
-          "line": 1015
+          "line": 1044
         },
         {
           "name": "_write_cpl_error",
-          "line": 1022
+          "line": 1051
         },
         {
           "name": "log_message",
-          "line": 1029
+          "line": 1058
         },
         {
           "name": "_read_json_body",
-          "line": 1033
+          "line": 1062
         },
         {
           "name": "_write_json",
-          "line": 1077
+          "line": 1106
         },
         {
           "name": "Handler",
-          "line": 1114
+          "line": 1147
         },
         {
           "name": "Server",
-          "line": 1150
+          "line": 1184
         },
         {
           "name": "handle",
-          "line": 1115
+          "line": 1148
         },
         {
           "name": "invalidate",
-          "line": 1137
+          "line": 1171
         }
       ],
       "symbolic_callees": [
@@ -10034,6 +10036,7 @@
         "argparse.ArgumentParser",
         "args.mobile_operator.replace",
         "args.mobile_operator.startswith",
+        "boundary_cause",
         "build_authority_timeline",
         "build_openrouter_cpl_preset",
         "bundled_scenario",
@@ -10050,6 +10053,7 @@
         "create_runtime",
         "dict",
         "error_response",
+        "failure_boundary",
         "financial_budget_review",
         "financial_review",
         "fixed.get",
@@ -10253,8 +10257,8 @@
         "wire.strict_json",
         "worker.start"
       ],
-      "call_site_count": 753,
-      "call_sites_sha256": "47fdcf3fc30d101b6890c721861bbe01a046f5a7187e68a45e8293e025aa8cc6"
+      "call_site_count": 771,
+      "call_sites_sha256": "9d3d67088f4ad1f5ce08968c66051bd264e6d501e6220a734d9e2f1a2b7cd180"
     },
     "runtime/mission/patch_capsule.py": {
       "path": "runtime/mission/patch_capsule.py",
@@ -11798,88 +11802,100 @@
     },
     "runtime/nonzero_cloudops/views.py": {
       "path": "runtime/nonzero_cloudops/views.py",
-      "git_blob": "68797d0330691daa97591d47daa78b9d2d1512c3",
-      "sha256": "86215780cfd343e4dee3365c25613041f407cc5eb276ff7295054c03af4ce929",
+      "git_blob": "cadb6a0421108f735a60e20722b76922a8be0c67",
+      "sha256": "6da3883e4423b1f4261eea365a82372124ae77ee820a0221f6f151d9558ef276",
       "definitions": [
         {
           "name": "LocalApiErrorCode",
-          "line": 33
+          "line": 34
         },
         {
           "name": "LocalEvidenceCategory",
-          "line": 50
+          "line": 51
         },
         {
           "name": "LocalApiErrorResponse",
-          "line": 62
+          "line": 63
         },
         {
           "name": "StartRunRequest",
-          "line": 74
+          "line": 82
         },
         {
           "name": "ResumeRequest",
-          "line": 97
+          "line": 105
+        },
+        {
+          "name": "LocalBrowserSessionView",
+          "line": 125
         },
         {
           "name": "LocalRuntimeView",
-          "line": 112
-        },
-        {
-          "name": "LocalReadyView",
-          "line": 131
-        },
-        {
-          "name": "LocalApprovalRequestView",
           "line": 143
         },
         {
+          "name": "LocalReadyView",
+          "line": 162
+        },
+        {
+          "name": "LocalApprovalRequestView",
+          "line": 174
+        },
+        {
           "name": "LocalApprovalDecisionView",
-          "line": 161
+          "line": 192
         },
         {
           "name": "LocalApprovalChallengeRequestView",
-          "line": 177
+          "line": 208
         },
         {
           "name": "LocalApprovalChallengeView",
-          "line": 183
+          "line": 214
         },
         {
           "name": "LocalExecutionCompletionView",
-          "line": 194
+          "line": 225
         },
         {
           "name": "LocalExecutionIntentView",
-          "line": 212
+          "line": 243
         },
         {
           "name": "LocalCheckpointView",
-          "line": 228
-        },
-        {
-          "name": "LocalAuditEventView",
-          "line": 244
-        },
-        {
-          "name": "LocalRunView",
           "line": 259
         },
         {
+          "name": "LocalAuditEventView",
+          "line": 275
+        },
+        {
+          "name": "LocalRunView",
+          "line": 290
+        },
+        {
+          "name": "require_public_failure_code",
+          "line": 76
+        },
+        {
           "name": "validate_resource_identity",
-          "line": 83
+          "line": 91
         },
         {
           "name": "to_query",
-          "line": 90
+          "line": 98
         },
         {
           "name": "require_boolean_gesture",
-          "line": 106
+          "line": 114
+        },
+        {
+          "name": "validate_session_state",
+          "line": 137
         },
         {
           "name": "validate_timeline_bounds",
-          "line": 276
+          "line": 307
         }
       ],
       "symbolic_callees": [
@@ -11891,10 +11907,11 @@
         "field_validator",
         "len",
         "model_validator",
+        "re.fullmatch",
         "self.model_dump"
       ],
-      "call_site_count": 39,
-      "call_sites_sha256": "29334f45d6cba8cbeecd8950866528cd39f51baa557455f26351a92e29454df2"
+      "call_site_count": 46,
+      "call_sites_sha256": "c967ee9dbc64215c478c57f2738af9f51c239d632de3fca8893e79d65d6b6a48"
     },
     "runtime/mission/contracts.py": {
       "path": "runtime/mission/contracts.py",
@@ -12026,8 +12043,8 @@
     },
     "web/agent_mission.js": {
       "path": "web/agent_mission.js",
-      "git_blob": "2379788001407d56b445dc6202a645f957262fa3",
-      "sha256": "1826fbc3b82c233e33c214c2819e2c0cb01bb2fb0a4c7839f9d169b5e836cfed",
+      "git_blob": "5300b8d04016679748c9fd08e20acbe3cd591095",
+      "sha256": "79d283fe3644822dccaae81c842b48254838f970c4ad70435b80a30c9fdd72ea",
       "definitions": [],
       "call_sites": []
     },
@@ -12155,8 +12172,8 @@
     },
     "runtime/mission/coding_tasks.py": {
       "path": "runtime/mission/coding_tasks.py",
-      "git_blob": "0724bd22392b1f35488ae96a0c38ec165b564c64",
-      "sha256": "4594b917e9041f7be1adff1f8edb6f9797ddb9d0634a89fba929a039027a3107",
+      "git_blob": "f9e615b871131bbe03a52369895ca7363f494d24",
+      "sha256": "280abcdd060a60826deb2f773f2c2792aa3ef8b37222635a8a28cd92ad6b9311",
       "definitions": [
         {
           "name": "CodingRun",
@@ -12172,19 +12189,19 @@
         },
         {
           "name": "coding_cli_request",
-          "line": 902
+          "line": 932
         },
         {
           "name": "run_coding_cli",
-          "line": 907
+          "line": 937
         },
         {
           "name": "coding_http_request",
-          "line": 936
+          "line": 966
         },
         {
           "name": "run_coding_http_cli",
-          "line": 1028
+          "line": 1058
         },
         {
           "name": "__post_init__",
@@ -12195,116 +12212,124 @@
           "line": 145
         },
         {
-          "name": "_key",
+          "name": "runtime_view",
           "line": 184
         },
         {
+          "name": "_key",
+          "line": 211
+        },
+        {
           "name": "_load",
-          "line": 188
+          "line": 215
         },
         {
           "name": "_signed",
-          "line": 192
+          "line": 219
         },
         {
           "name": "_save",
-          "line": 204
+          "line": 231
         },
         {
           "name": "_view",
-          "line": 236
-        },
-        {
-          "name": "_transition",
-          "line": 251
-        },
-        {
-          "name": "_append_transition",
-          "line": 295
-        },
-        {
-          "name": "_complete_history",
-          "line": 323
-        },
-        {
-          "name": "_unresolved_intents",
-          "line": 331
-        },
-        {
-          "name": "_start",
-          "line": 340
-        },
-        {
-          "name": "_record_loop",
-          "line": 386
-        },
-        {
-          "name": "_execute",
-          "line": 428
-        },
-        {
-          "name": "_active_cancel",
-          "line": 554
-        },
-        {
-          "name": "wait",
-          "line": 571
-        },
-        {
-          "name": "close",
-          "line": 582
-        },
-        {
-          "name": "_effect",
-          "line": 596
-        },
-        {
-          "name": "_controller_request",
-          "line": 617
-        },
-        {
-          "name": "request",
-          "line": 730
-        },
-        {
-          "name": "attach_review",
-          "line": 846
-        },
-        {
-          "name": "_attach_review_locked",
-          "line": 856
-        },
-        {
-          "name": "change",
           "line": 263
         },
         {
+          "name": "_transition",
+          "line": 278
+        },
+        {
+          "name": "_append_transition",
+          "line": 322
+        },
+        {
+          "name": "_complete_history",
+          "line": 350
+        },
+        {
+          "name": "_unresolved_intents",
+          "line": 358
+        },
+        {
+          "name": "_start",
+          "line": 367
+        },
+        {
+          "name": "_record_loop",
+          "line": 413
+        },
+        {
+          "name": "_execute",
+          "line": 455
+        },
+        {
+          "name": "_active_cancel",
+          "line": 581
+        },
+        {
+          "name": "wait",
+          "line": 598
+        },
+        {
+          "name": "close",
+          "line": 609
+        },
+        {
+          "name": "_effect",
+          "line": 623
+        },
+        {
+          "name": "_controller_request",
+          "line": 644
+        },
+        {
+          "name": "request",
+          "line": 757
+        },
+        {
+          "name": "attach_review",
+          "line": 876
+        },
+        {
+          "name": "_attach_review_locked",
+          "line": 886
+        },
+        {
+          "name": "change",
+          "line": 290
+        },
+        {
           "name": "save",
-          "line": 403
+          "line": 430
         },
         {
           "name": "cancel",
-          "line": 834
+          "line": 864
         },
         {
           "name": "inspect",
-          "line": 862
+          "line": 892
         },
         {
           "name": "save",
-          "line": 890
-        },
-        {
-          "name": "create",
-          "line": 768
+          "line": 920
         },
         {
           "name": "read",
-          "line": 787
+          "line": 188
+        },
+        {
+          "name": "create",
+          "line": 798
+        },
+        {
+          "name": "read",
+          "line": 817
         },
         {
           "name": "observe",
-          "line": 455
+          "line": 482
         }
       ],
       "symbolic_callees": [
@@ -12337,6 +12362,7 @@
         "data[data].append",
         "dataclass",
         "decode_coding_task_row",
+        "dict.fromkeys",
         "digest",
         "enumerate",
         "failure_boundary",
@@ -12372,6 +12398,7 @@
         "route.operation",
         "route.reconcile",
         "row.payload.get",
+        "row.payload.get().get",
         "runtime.coding_request",
         "self._active.get",
         "self._active.pop",
@@ -12405,6 +12432,7 @@
         "self.journal.ledger.clock",
         "self.journal.ledger.core.require",
         "self.run_factory",
+        "self.runtime_view",
         "set",
         "stat.S_ISREG",
         "strict_json",
@@ -12421,8 +12449,8 @@
         "type",
         "verify"
       ],
-      "call_site_count": 318,
-      "call_sites_sha256": "3ed3326bbe12b773424e9ebec841ca775b50376cf3ca195aadfcc6ac1b8470c4"
+      "call_site_count": 333,
+      "call_sites_sha256": "59d48e8b9639a5d3a00f925cc25036579bc5d627f6c6dea3daea499899a4baf1"
     },
     "tests/test_hybrid_patchset.py": {
       "path": "tests/test_hybrid_patchset.py",
@@ -15171,131 +15199,139 @@
     },
     "runtime/failure_boundary.py": {
       "path": "runtime/failure_boundary.py",
-      "git_blob": "dfa15631cc3a5c8781c51039bcfb208b6a832baa",
-      "sha256": "0e75efc4fa8079240b4cdc081b7fa6de7b9ef86a0c57397b7664c470305d9640",
+      "git_blob": "d37913a6fba7c2c5d64fa6d6b18520f97550eb39",
+      "sha256": "36efe543cb6bd1a0d971bcc43cbd4615cad8955adf1e68c56d731cad57582b6a",
       "definitions": [
         {
           "name": "RepairBoundaryError",
           "line": 10
         },
         {
+          "name": "boundary_cause",
+          "line": 14
+        },
+        {
           "name": "failure_boundary",
-          "line": 15
+          "line": 26
         }
       ],
-      "call_site_count": 4,
+      "call_site_count": 12,
       "symbolic_callees": [
         "RepairBoundaryError",
         "ValueError",
+        "any",
+        "isinstance",
+        "issubclass",
+        "len",
         "re.fullmatch",
         "type"
       ],
-      "call_sites_sha256": "a4b7f13f50409337d912be3e1bef701b7bd15965d560de5a1a4882da05049ac5"
+      "call_sites_sha256": "b64ff7f429c7c06929fee6f1398220cfa8ccf66755c67e40803c5e7ff8a48fab"
     },
     "runtime/meta_hackathon/runtime_adapter.py": {
       "path": "runtime/meta_hackathon/runtime_adapter.py",
-      "git_blob": "3c529f6ee7ee896f2af4a70b11485f72115e58b0",
-      "sha256": "6615fdb2f592323e4d3864602a5faaaa3b46972ecfb23b0478482cca471733d0",
+      "git_blob": "e609baa1b1c99976acd345d5d02b318308f0ca48",
+      "sha256": "fb192a816f6a13f50f6aae9058d31ef4e42d6cfbd6da7e34e7a58e42e3b5fd71",
       "definitions": [
         {
           "name": "sealed_source_path",
-          "line": 120
+          "line": 123
         },
         {
           "name": "current_source",
-          "line": 134
+          "line": 137
         },
         {
           "name": "OfflineMetaComposition",
-          "line": 141
+          "line": 144
         },
         {
           "name": "_desktop_operator_uid",
-          "line": 228
+          "line": 231
         },
         {
           "name": "NativeMobileComposition",
-          "line": 258
+          "line": 261
         },
         {
           "name": "__init__",
-          "line": 142
+          "line": 145
         },
         {
           "name": "enable_unified",
-          "line": 183
+          "line": 186
         },
         {
           "name": "close",
-          "line": 219
+          "line": 222
         },
         {
           "name": "__init__",
-          "line": 265
+          "line": 268
         },
         {
           "name": "_initialize",
-          "line": 313
+          "line": 316
         },
         {
           "name": "operator_principal",
-          "line": 383
+          "line": 386
         },
         {
           "name": "_chat_authority",
-          "line": 389
+          "line": 392
         },
         {
           "name": "_chat_credit_authority",
-          "line": 409
+          "line": 412
         },
         {
           "name": "qualify_tls",
-          "line": 431
+          "line": 434
         },
         {
           "name": "_require_qualified_operator",
-          "line": 478
+          "line": 481
         },
         {
           "name": "public_settings",
-          "line": 484
+          "line": 487
         },
         {
           "name": "model_calls",
-          "line": 490
+          "line": 493
         },
         {
           "name": "operator_auth_status",
-          "line": 496
+          "line": 499
         },
         {
           "name": "renew_operator",
-          "line": 508
+          "line": 511
         },
         {
           "name": "operator_request",
-          "line": 579
+          "line": 582
         },
         {
           "name": "close",
-          "line": 641
+          "line": 644
         },
         {
           "name": "fixture",
-          "line": 164
+          "line": 167
         },
         {
           "name": "inspect",
-          "line": 628
+          "line": 631
         },
         {
           "name": "revoke",
-          "line": 620
+          "line": 623
         },
         {
           "name": "record",
-          "line": 554
+          "line": 557
         }
       ],
       "call_site_count": 412,
@@ -15484,7 +15520,7 @@
         "worker.is_alive",
         "x509.load_der_x509_certificate"
       ],
-      "call_sites_sha256": "1bdbc4784338f7fea1a3e3fd7fa3039cf2f99d406ac1852cd8a4f018f4f17d62"
+      "call_sites_sha256": "831cc652416b51e4c5539981ce09277b5f80f9785475810dcd88abded4b18378"
     },
     "runtime/mission/dependency_lock.py": {
       "path": "runtime/mission/dependency_lock.py",
@@ -16305,6 +16341,6 @@
     "DUPLICATE_VERIFIED": 16,
     "EXCLUDED_UNSAFE": 2
   },
-  "current_target_binding_note": "NZ13-D9 current tracked blob/AST identities only. NZ12 assessments remain historical; function/render profiles require exact-head broker, confinement, Chrome and installed qualification. No model, production Native, unrestricted setup or full parity certification is implied.",
+  "current_target_binding_note": "NZ13-E1 current tracked blob/AST identities only. NZ12 assessments remain historical; coding UI and existing function/render profiles require exact-head broker, confinement, Chrome and installed qualification. No model, production Native, unrestricted setup or full parity certification is implied.",
   "nz12_binding_before_nz13_sha256": "cfca6195089170934076cd15ac80a5b26786e947338b089dd75926d545b971b2"
 }

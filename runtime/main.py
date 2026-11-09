@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Autonomous local runtime for shell, filesystem, and browser actions.
 
@@ -13,29 +12,34 @@ import io
 import json
 import os
 import re
+import threading
 import time
 import traceback
-import threading
 from contextlib import redirect_stdout
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, unquote, urlparse
 
-from commands import build_command_registry
 from adaptive_routing.epistemic_kernel import AOIAEpistemicKernel
+from commands import build_command_registry
+from memory.gemma_worker_memory import GemmaWorkerMemory
 from memory.rhcsa_context import inject_linux_context
 from orchestrator import GeminiGemmaOrchestrator
 from orchestrator.knowledge_router import KnowledgeRouter
 from providers import ProviderManager
 from router import LocalRouter
 from tools.executor import ExecutionEngine
-from memory.gemma_worker_memory import GemmaWorkerMemory
-from tools.memory_hats import MemoryHatStore
 from tools.memory import MemoryStore
+from tools.memory_hats import MemoryHatStore
 from tools.system_info import detect_desktop_dir
 from tools.validator import extract_json_object, validate_action
 
+from runtime.failure_boundary import (
+    RepairBoundaryError,
+    boundary_cause,
+    failure_boundary,
+)
 
 PROJECT_DIR = Path(__file__).resolve().parent
 PROMPT_FILE = PROJECT_DIR / "prompts" / "system_prompt.txt"
@@ -222,7 +226,8 @@ class AgentRuntime:
         self._memory_patch_config = memory_patch_snapshot(memory_patch_config)
         self._memory_patch_dependencies = memory_patch_dependencies
         self._memory_patch_service = None
-        self._memory_patch_admission = None
+        self._memory_patch_admission = (None if coding_tasks is None
+                                        else coding_tasks.journal.ledger.core)
         self._memory_patch_closed = False
         self._memory_patch_init_lock = threading.RLock()
         self.cpl_cost_policy = None
@@ -356,7 +361,7 @@ class AgentRuntime:
                 'review_status': 'NOT_CPL_REVIEWED', **result}
 
     def run_cpl_fixture(self):
-        from critical_loop.fixture import FIXTURE_PROMPT, FIXTURE_EVIDENCE
+        from critical_loop.fixture import FIXTURE_EVIDENCE, FIXTURE_PROMPT
         from providers.exact import ExactCallError
 
         if getattr(self.provider_manager, 'fixture_base_url', None) is None:
@@ -393,6 +398,7 @@ class AgentRuntime:
 
     def lite_status(self):
         from dataclasses import asdict
+
         from runtime.mission.contracts import MissionError
         if self._lite_profile is None:
             raise MissionError('LITE_PROFILE_NOT_CONFIGURED')
@@ -436,7 +442,10 @@ class AgentRuntime:
 
     def lite_nachwg_chat(self, principal, *, operation_id):
         """Explicit one-case Core entry; shares the existing scheduler mutex."""
-        from runtime.memory_patch.learning.nachwg_contract import HISTORICAL_QUESTION, NACHWG_CASE_ID
+        from runtime.memory_patch.learning.nachwg_contract import (
+            HISTORICAL_QUESTION,
+            NACHWG_CASE_ID,
+        )
         from runtime.mission.contracts import MissionError
         if self._lite_scheduler is None:
             raise MissionError('LITE_NOT_RUNNING')
@@ -528,7 +537,7 @@ class AgentRuntime:
         from runtime.memory_patch.views import envelope, error_response
 
         try:
-            with self._memory_patch_init_lock:
+            with failure_boundary('RUNTIME_CALLBACK_FAILED'), self._memory_patch_init_lock:
                 if operation == "status" and type(payload) is dict and not payload:
                     return 200, envelope(operation, result=self.memory_patch_status())
                 if self._inspection_only or self._agent_bindings is not None:
@@ -559,7 +568,8 @@ class AgentRuntime:
                         existing_critic=self._cpl_service,
                     )
                 return self._memory_patch_service.request(principal, operation, payload)
-        except Exception as error:
+        except (ValueError, RepairBoundaryError) as error:
+            error = boundary_cause(error)
             return error_response(operation, error)
 
     def build_model_request(
@@ -685,12 +695,14 @@ class AgentRuntime:
         last_error: Exception | None = None
         for attempt, delay_seconds in enumerate(MODEL_RETRY_DELAYS, start=1):
             try:
-                raw_text = self.provider_manager.generate(prompt)
-                if self.debug_raw:
-                    print("\n[DEBUG] RAW MODEL OUTPUT:")
-                    print(raw_text)
-                return raw_text
-            except Exception as error:
+                with failure_boundary('RUNTIME_CALLBACK_FAILED'):
+                    raw_text = self.provider_manager.generate(prompt)
+                    if self.debug_raw:
+                        print("\n[DEBUG] RAW MODEL OUTPUT:")
+                        print(raw_text)
+                    return raw_text
+            except (ValueError, RepairBoundaryError) as error:
+                error = boundary_cause(error)
                 last_error = error
                 if is_daily_quota_error(error):
                     break
@@ -751,8 +763,10 @@ class AgentRuntime:
                 },
             )
             try:
-                raw_output = self.ask_model(prompt)
-            except Exception as error:
+                with failure_boundary('RUNTIME_CALLBACK_FAILED'):
+                    raw_output = self.ask_model(prompt)
+            except (ValueError, RepairBoundaryError) as error:
+                error = boundary_cause(error)
                 self.log_error(
                     {
                         "step": step,
@@ -774,8 +788,10 @@ class AgentRuntime:
             )
 
             try:
-                action = validate_action(extract_json_object(raw_output))
-            except Exception as error:
+                with failure_boundary('RUNTIME_CALLBACK_FAILED'):
+                    action = validate_action(extract_json_object(raw_output))
+            except (ValueError, RepairBoundaryError) as error:
+                error = boundary_cause(error)
                 self.log_error(
                     {
                         "step": step,
@@ -793,8 +809,10 @@ class AgentRuntime:
             self.print_action(action, step)
 
             try:
-                result = self.executor.execute(action)
-            except Exception as error:
+                with failure_boundary('RUNTIME_CALLBACK_FAILED'):
+                    result = self.executor.execute(action)
+            except (ValueError, RepairBoundaryError) as error:
+                error = boundary_cause(error)
                 self.log_error(
                     {
                         "step": step,
@@ -843,29 +861,30 @@ class AgentRuntime:
         if raw_url:
             normalized_url = normalize_external_url(raw_url)
             try:
-                open_result = self.executor.execute(
-                    {"action": "browser_open", "url": normalized_url},
-                    require_approval=False,
-                )
-                self.print_result(open_result)
-                if open_result.get("success"):
-                    visible_text = self.executor.execute(
-                        {"action": "browser_get_visible_text"},
+                with failure_boundary('RUNTIME_CALLBACK_FAILED'):
+                    open_result = self.executor.execute(
+                        {"action": "browser_open", "url": normalized_url},
                         require_approval=False,
                     )
-                    self.print_result(visible_text)
-                self.log_session_event(
-                    route,
-                    {
-                        "user_request": user_input,
-                        "routing_boundary": "no_rhcsa_local_knowledge",
-                        "browser_handled": bool(open_result.get('success')),
-                        **({'opened_url': normalized_url} if open_result.get('success') else
-                           {'effect_status': open_result.get('effect_status', 'UNSUPPORTED')}),
-                    },
-                )
-                return True
-            except Exception:
+                    self.print_result(open_result)
+                    if open_result.get("success"):
+                        visible_text = self.executor.execute(
+                            {"action": "browser_get_visible_text"},
+                            require_approval=False,
+                        )
+                        self.print_result(visible_text)
+                    self.log_session_event(
+                        route,
+                        {
+                            "user_request": user_input,
+                            "routing_boundary": "no_rhcsa_local_knowledge",
+                            "browser_handled": bool(open_result.get('success')),
+                            **({'opened_url': normalized_url} if open_result.get('success') else
+                               {'effect_status': open_result.get('effect_status', 'UNSUPPORTED')}),
+                        },
+                    )
+                    return True
+            except (ValueError, RepairBoundaryError):
                 self._request_denial={'success':False,'error':'UNSUPPORTED_EFFECT_ROUTE','effect_status':'UNSUPPORTED'}
                 self.log_error(
                     {
@@ -920,8 +939,10 @@ class AgentRuntime:
         assert self.orchestrator is not None
 
         try:
-            plan = self.orchestrator.create_plan(user_input, self.snapshot_status())
-        except Exception as error:
+            with failure_boundary('RUNTIME_CALLBACK_FAILED'):
+                plan = self.orchestrator.create_plan(user_input, self.snapshot_status())
+        except (ValueError, RepairBoundaryError) as error:
+            error = boundary_cause(error)
             self.log_error(
                 {
                     "kind": "orchestrator_planner_error",
@@ -943,13 +964,15 @@ class AgentRuntime:
         previous_results: list[dict[str, Any]] = []
         for index, step in enumerate(steps[: self.max_steps], start=1):
             try:
-                action = self.orchestrator.action_for_step(
-                    user_request=user_input,
-                    step=step,
-                    runtime_status=self.snapshot_status(),
-                    previous_results=previous_results,
-                )
-            except Exception as error:
+                with failure_boundary('RUNTIME_CALLBACK_FAILED'):
+                    action = self.orchestrator.action_for_step(
+                        user_request=user_input,
+                        step=step,
+                        runtime_status=self.snapshot_status(),
+                        previous_results=previous_results,
+                    )
+            except (ValueError, RepairBoundaryError) as error:
+                error = boundary_cause(error)
                 self.log_error(
                     {
                         "kind": "gemma_worker_error",
@@ -964,8 +987,10 @@ class AgentRuntime:
 
             self.print_action(action, index)
             try:
-                result = self.executor.execute(action)
-            except Exception as error:
+                with failure_boundary('RUNTIME_CALLBACK_FAILED'):
+                    result = self.executor.execute(action)
+            except (ValueError, RepairBoundaryError) as error:
+                error = boundary_cause(error)
                 self.log_error(
                     {
                         "kind": "orchestrated_execution_error",
@@ -1010,9 +1035,11 @@ class AgentRuntime:
             },
         )
         try:
-            raw_output = self.ask_model(prompt)
-            payload = extract_json_object(raw_output)
-        except Exception as error:
+            with failure_boundary('RUNTIME_CALLBACK_FAILED'):
+                raw_output = self.ask_model(prompt)
+                payload = extract_json_object(raw_output)
+        except (ValueError, RepairBoundaryError) as error:
+            error = boundary_cause(error)
             self.log_error(
                 {
                     "kind": "planner_error",
@@ -1026,8 +1053,9 @@ class AgentRuntime:
         raw_plan = payload.get("plan", [])
         if "plan" not in payload and "action" in payload:
             try:
-                return [validate_action(payload)]
-            except Exception:
+                with failure_boundary('RUNTIME_CALLBACK_FAILED'):
+                    return [validate_action(payload)]
+            except (ValueError, RepairBoundaryError):
                 return []
         if not isinstance(raw_plan, list):
             return []
@@ -1035,8 +1063,10 @@ class AgentRuntime:
         planned_actions: list[dict[str, Any]] = []
         for raw_action in raw_plan[: self.max_steps]:
             try:
-                planned_actions.append(validate_action(raw_action))
-            except Exception as error:
+                with failure_boundary('RUNTIME_CALLBACK_FAILED'):
+                    planned_actions.append(validate_action(raw_action))
+            except (ValueError, RepairBoundaryError) as error:
+                error = boundary_cause(error)
                 self.log_error(
                     {
                         "kind": "planner_action_error",
@@ -1103,8 +1133,10 @@ class AgentRuntime:
         for step, action in enumerate(planned_actions, start=1):
             self.print_action(action, step)
             try:
-                result = self.executor.execute(action)
-            except Exception as error:
+                with failure_boundary('RUNTIME_CALLBACK_FAILED'):
+                    result = self.executor.execute(action)
+            except (ValueError, RepairBoundaryError) as error:
+                error = boundary_cause(error)
                 self.log_error(
                     {
                         "step": step,
@@ -1394,7 +1426,7 @@ class AgentRuntime:
 
         parsed = urlparse(url)
         slug = parsed.netloc.replace(".", "_") or "page"
-        timestamp = dt.datetime.now().strftime("%Y%m%d_%H%M%S")
+        timestamp = dt.datetime.now(dt.UTC).strftime("%Y%m%d_%H%M%S")
         snapshot_path = self.memory_store.paths.memory_dir / f"{slug}_{timestamp}.txt"
         snapshot_path.write_text(text, encoding="utf-8")
         return snapshot_path
@@ -1418,7 +1450,7 @@ class AgentRuntime:
     def log_session_event(self, kind: str, payload: dict[str, Any]) -> None:
         self._require_operational_runtime()
         record = {
-            "timestamp": dt.datetime.now().isoformat(),
+            "timestamp": dt.datetime.now(dt.UTC).isoformat(),
             "kind": kind,
             "payload": payload,
         }
@@ -1434,7 +1466,7 @@ class AgentRuntime:
         self._require_operational_runtime()
         error_file = (
             self.memory_store.paths.error_logs_dir
-            / f"error_{dt.datetime.now().strftime('%Y%m%d_%H%M%S_%f')}.json"
+            / f"error_{dt.datetime.now(dt.UTC).strftime('%Y%m%d_%H%M%S_%f')}.json"
         )
         error_file.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
 
@@ -1443,7 +1475,7 @@ class AgentRuntime:
         if action.get("reason"):
             print(f"Reason: {action['reason']}")
         for field in ("command", "path", "url", "selector", "key"):
-            if field in action and action[field]:
+            if action.get(field):
                 print(f"{field}: {action[field]}")
 
     def print_result(self, result: dict[str, Any]) -> None:
@@ -1476,7 +1508,7 @@ class AgentRuntime:
             print("\n--- PAGE TEXT ---")
             print(result["text"])
 
-        if "current_url" in result and result["current_url"]:
+        if result.get("current_url"):
             print(f"\nCurrent URL: {result['current_url']}")
 
         if "screenshot_path" in result:
@@ -1501,9 +1533,18 @@ def print_banner(runtime: AgentRuntime) -> None:
 def create_runtime(*, cpl_fixture=False, cpl_cost_policy=None, nonzero_config=None,
                    memory_patch_config=None, memory_patch_dependencies=None,
                    inspection_only=False, mission_context=None, mission_bindings=None,
-                   lite_profile=None, lite_bindings=None, agent_bindings=None):
+                   lite_profile=None, lite_bindings=None, agent_bindings=None, coding_tasks=None):
     if type(inspection_only) is not bool:
         raise ValueError('INVALID_INSPECTION_MODE')
+    if coding_tasks is not None:
+        if (not inspection_only or cpl_fixture or cpl_cost_policy is not None
+                or nonzero_config is not None or memory_patch_config is not None
+                or memory_patch_dependencies is not None or mission_context is not None
+                or mission_bindings is not None or lite_profile is not None
+                or lite_bindings is not None or agent_bindings is not None):
+            raise ValueError('INVALID_CODING_BINDING')
+        return AgentRuntime(None, '', PROJECT_DIR, inspection_only=True,
+                            coding_tasks=coding_tasks)
     if agent_bindings is not None:
         from runtime.mission.agent import CoreAgentBindings
         if (type(agent_bindings) is not CoreAgentBindings or inspection_only or cpl_fixture
@@ -1546,7 +1587,10 @@ def create_runtime(*, cpl_fixture=False, cpl_cost_policy=None, nonzero_config=No
                 elif lite_profile.cpl_mode == 'ACTIVE':
                     raise MissionError('CPL_BINDINGS_REQUIRED')
                 if lite_bindings.dynamics is not None and lite_profile.dynamics_profile_digest is not None:
-                    from runtime.memory_patch.learning.dynamics import CoreDynamicsBindings, MemoryDynamics
+                    from runtime.memory_patch.learning.dynamics import (
+                        CoreDynamicsBindings,
+                        MemoryDynamics,
+                    )
                     if type(lite_bindings.dynamics) is not CoreDynamicsBindings or runtime._lite_cpl is None:
                         raise MissionError('DYNAMICS_BINDINGS_REQUIRED')
                     runtime._lite_cpl.learning.dynamics = MemoryDynamics(runtime._lite_cpl.learning,
@@ -1640,32 +1684,34 @@ def main() -> None:
 
     while True:
         try:
-            user_input = input("\nYou> ")
+            with failure_boundary('RUNTIME_CALLBACK_FAILED'):
+                user_input = input("\nYou> ")
 
-            if not user_input.strip():
-                continue
+                if not user_input.strip():
+                    continue
 
-            if user_input.strip().lower() in {"exit", "quit", "q"}:
-                print("Exiting agent...")
-                break
+                if user_input.strip().lower() in {"exit", "quit", "q"}:
+                    print("Exiting agent...")
+                    break
 
-            command_result = runtime.command_registry.execute(user_input, runtime)
-            if command_result.handled:
-                if command_result.message:
-                    print(f"\nAgent> {command_result.message}")
-                continue
+                command_result = runtime.command_registry.execute(user_input, runtime)
+                if command_result.handled:
+                    if command_result.message:
+                        print(f"\nAgent> {command_result.message}")
+                    continue
 
-            result = runtime.assistant_request(user_input, mode='plain' if args.plain_chat else 'cpl',
-                plan_options=None if args.plain_chat else {'run_budget_usd':args.cpl_run_budget})
-            if result['mode'] == 'cpl':
-                print(json.dumps(result['cpl'], ensure_ascii=False, indent=2))
-                print('Inspect the immutable plan. To approve in this process: /cpl start RUN_ID PLAN_HASH NONCE')
-            else:
-                print(result['transcript'])
+                result = runtime.assistant_request(user_input, mode='plain' if args.plain_chat else 'cpl',
+                    plan_options=None if args.plain_chat else {'run_budget_usd':args.cpl_run_budget})
+                if result['mode'] == 'cpl':
+                    print(json.dumps(result['cpl'], ensure_ascii=False, indent=2))
+                    print('Inspect the immutable plan. To approve in this process: /cpl start RUN_ID PLAN_HASH NONCE')
+                else:
+                    print(result['transcript'])
         except KeyboardInterrupt:
             print("\nInterrupted by user.")
             break
-        except Exception as error:
+        except (ValueError, RepairBoundaryError) as error:
+            error = boundary_cause(error)
             runtime.log_error(
                 {
                     "error": str(error),
