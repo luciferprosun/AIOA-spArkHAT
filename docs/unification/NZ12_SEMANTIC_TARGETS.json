@@ -8828,136 +8828,160 @@
     },
     "runtime/nonzero_cloudops/adapters/portable.py": {
       "path": "runtime/nonzero_cloudops/adapters/portable.py",
-      "git_blob": "c4dc343cc60f40a7a6e733a6a2bc2d3f476a8bc0",
-      "sha256": "08ab0e00c4d50882e11afc5737166923793192e2ed75ed9192701571cc34a389",
+      "git_blob": "b134f0095c55565c8bd668065869248df21fc1f8",
+      "sha256": "74a2e41d11550e0e8413bf89db163f0a133e96659aa38c3068995adc5398189a",
       "definitions": [
         {
           "name": "PortableMutationError",
-          "line": 53
-        },
-        {
-          "name": "PortablePolicyError",
           "line": 57
         },
         {
-          "name": "PortableConflictError",
+          "name": "PortablePolicyError",
           "line": 61
         },
         {
-          "name": "PortableStateStore",
+          "name": "PortableConflictError",
           "line": 65
         },
         {
+          "name": "_canonical_inventory_bytes",
+          "line": 69
+        },
+        {
+          "name": "PortableInventoryObservation",
+          "line": 78
+        },
+        {
+          "name": "PortableStateStore",
+          "line": 123
+        },
+        {
           "name": "PortableResourceReader",
-          "line": 582
+          "line": 669
         },
         {
           "name": "PortableExecutor",
-          "line": 603
+          "line": 690
+        },
+        {
+          "name": "__post_init__",
+          "line": 91
+        },
+        {
+          "name": "authority",
+          "line": 119
         },
         {
           "name": "__init__",
-          "line": 68
+          "line": 126
         },
         {
           "name": "path",
-          "line": 98
+          "line": 156
         },
         {
           "name": "_lock",
-          "line": 102
+          "line": 160
         },
         {
           "name": "_target_guard_identity",
-          "line": 128
+          "line": 186
         },
         {
           "name": "_check_target_guard",
-          "line": 145
+          "line": 203
         },
         {
           "name": "target_guard",
-          "line": 157
+          "line": 215
+        },
+        {
+          "name": "observe_guarded_inventory",
+          "line": 243
         },
         {
           "name": "_initial_snapshot",
-          "line": 185
+          "line": 263
         },
         {
           "name": "_load",
-          "line": 196
+          "line": 274
+        },
+        {
+          "name": "_payload",
+          "line": 337
         },
         {
           "name": "_write",
-          "line": 253
+          "line": 351
         },
         {
           "name": "get_resource",
-          "line": 281
+          "line": 368
         },
         {
           "name": "assert_ready",
-          "line": 295
+          "line": 382
         },
         {
           "name": "get_receipt",
-          "line": 301
+          "line": 388
         },
         {
           "name": "_released_receipts",
-          "line": 306
+          "line": 393
         },
         {
           "name": "released_default_resource_receipts",
-          "line": 320
+          "line": 407
         },
         {
           "name": "rearm_verified_demo_resource",
-          "line": 336
+          "line": 423
         },
         {
           "name": "execute",
-          "line": 375
+          "line": 462
         },
         {
           "name": "_validate_execution_binding",
-          "line": 492
+          "line": 579
         },
         {
           "name": "verify",
-          "line": 528
+          "line": 615
         },
         {
           "name": "__init__",
-          "line": 585
+          "line": 672
         },
         {
           "name": "adapter_name",
-          "line": 593
+          "line": 680
         },
         {
           "name": "get_resource",
-          "line": 596
+          "line": 683
         },
         {
           "name": "__init__",
-          "line": 606
+          "line": 693
         },
         {
           "name": "execute",
-          "line": 621
+          "line": 708
         },
         {
           "name": "counters",
-          "line": 645
+          "line": 732
         },
         {
           "name": "get_receipt",
-          "line": 651
+          "line": 738
         },
         {
           "name": "verify",
-          "line": 654
+          "line": 741
         }
       ],
       "symbolic_callees": [
@@ -8971,6 +8995,7 @@
         "Lock",
         "Path",
         "PortableConflictError",
+        "PortableInventoryObservation",
         "PortablePolicyError",
         "RLock",
         "SecurityGroupRule.model_validate",
@@ -8979,19 +9004,28 @@
         "TypeError",
         "ValueError",
         "_RESOURCE_ADAPTER.validate_python",
+        "_canonical_inventory_bytes",
         "any",
         "atomic_write_private_json",
         "callable",
         "compute_evidence_digest",
         "current.model_copy",
+        "dataclass",
         "default_mock_resources",
         "evidence.stable_fingerprint",
+        "field",
         "getattr",
+        "hashlib.sha256",
+        "hashlib.sha256().hexdigest",
         "isinstance",
+        "json.dumps",
+        "json.dumps().encode",
+        "json.loads",
         "len",
         "local",
         "locked_private_file",
         "next",
+        "object.__setattr__",
         "open_local_payload",
         "os.fstat",
         "os.getuid",
@@ -9016,6 +9050,8 @@
         "self._lock_path.lstat",
         "self._lock_path.parent.lstat",
         "self._path.exists",
+        "self._path.with_name",
+        "self._payload",
         "self._released_receipts",
         "self._state.execute",
         "self._state.get_receipt",
@@ -9034,10 +9070,11 @@
         "str().strip",
         "tuple",
         "type",
-        "validate_local_path"
+        "validate_local_path",
+        "values.items"
       ],
-      "call_site_count": 176,
-      "call_sites_sha256": "a0a6e8772d66b3aad42f7e7fdbd16c2bcf6ee0f97e8ca25960e73fd6f3d00684"
+      "call_site_count": 226,
+      "call_sites_sha256": "f49b863b6a0e35230a3b55a9c6a9df2d48592865a492b63d17af65fc739f3f78"
     },
     "runtime/main.py": {
       "path": "runtime/main.py",
@@ -16956,8 +16993,8 @@
     },
     "runtime/nonzero_cloudops/state/files.py": {
       "path": "runtime/nonzero_cloudops/state/files.py",
-      "git_blob": "da9fc27d750897d625de5b479c2be500a100bc9e",
-      "sha256": "2b89ed75d01f45a5e666330428e8db9277e4bca0a9d2a123f8b51007a7b8d4b2",
+      "git_blob": "ce47091f08abcc16dfb76cd6633886a61adf5279",
+      "sha256": "7560ba4c55960cd9e629b458745d3c29f755c5bb107f0ee747bd2763c79b7fb4",
       "definitions": [
         {
           "name": "StateIntegrityError",
@@ -16977,30 +17014,34 @@
         },
         {
           "name": "_strict_json",
-          "line": 108
+          "line": 109
         },
         {
           "name": "validate_local_path",
-          "line": 129
+          "line": 130
         },
         {
           "name": "read_private_json",
-          "line": 144
+          "line": 145
         },
         {
           "name": "locked_private_file",
-          "line": 184
+          "line": 205
         },
         {
           "name": "atomic_write_private_json",
-          "line": 208
+          "line": 229
         },
         {
           "name": "pairs",
-          "line": 109
+          "line": 110
+        },
+        {
+          "name": "identity",
+          "line": 173
         }
       ],
-      "call_site_count": 107,
+      "call_site_count": 122,
       "symbolic_callees": [
         "<dynamic>.throw",
         "Path",
@@ -17008,6 +17049,7 @@
         "StateIntegrityError",
         "_canonical_bytes",
         "_strict_json",
+        "all",
         "any",
         "dict",
         "envelope.get",
@@ -17021,6 +17063,7 @@
         "hashlib.sha256",
         "hashlib.sha256().hexdigest",
         "hmac.compare_digest",
+        "identity",
         "isinstance",
         "json.dumps",
         "json.loads",
@@ -17039,6 +17082,7 @@
         "path.exists",
         "path.is_file",
         "path.is_symlink",
+        "path.lstat",
         "payload_type.strip",
         "raw_bytes.decode",
         "rendered.encode",
@@ -17049,9 +17093,10 @@
         "str().strip",
         "suppress",
         "tempfile.mkstemp",
+        "type",
         "validate_local_path"
       ],
-      "call_sites_sha256": "0d5378def74ea2aeb40253352d0087a476a411f38712674a45edb66aff3d740b"
+      "call_sites_sha256": "836e4c58b9e5c350651351b6e00019a151de0757debc5a90beeb7b066581181e"
     }
   },
   "dispositions": {
@@ -17062,6 +17107,6 @@
     "DUPLICATE_VERIFIED": 16,
     "EXCLUDED_UNSAFE": 2
   },
-  "current_target_binding_note": "NZ13-F1 prepared current blob/AST identities only. Historical NZ12 assessments remain unchanged. Generic target settlement/projection is synthetic same-Core wiring; physical Portable registration/INIT/rearm/release STOP/no-effect certificates, Native/model activation and full parity remain OPEN. No applied-source or qualification is claimed by this preparation.",
+  "current_target_binding_note": "NZ13-F4 current target blob/AST identities for the shared private reader and guarded complete inventory facts, including the static-independence-compatible docstring. Historical NZ12 source assessments and decisions are unchanged. No physical Core registration/factory, model, production Native, package or full parity certification is implied; exact-source qualification remains pending. Failed F3 evidence is retained without retry.",
   "nz12_binding_before_nz13_sha256": "cfca6195089170934076cd15ac80a5b26786e947338b089dd75926d545b971b2"
 }

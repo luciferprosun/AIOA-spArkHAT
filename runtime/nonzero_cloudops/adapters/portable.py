@@ -3,10 +3,13 @@
 # W7A repeat-demo semantics: 392487849eddc7444f5159994b66b72e73f15934.
 """Integrity-bound local mock inventory and protected execution boundary."""
 
+import hashlib
+import json
 import os
 import stat
 from collections.abc import Callable, Mapping
 from contextlib import contextmanager
+from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from threading import Lock, RLock, local
@@ -31,6 +34,7 @@ from ..models import (
 from ..models.digest import compute_evidence_digest
 from ..models.public_enums import AuthorityGate
 from ..state.files import (
+    LOCAL_STATE_MAX_BYTES,
     StateIntegrityError,
     atomic_write_private_json,
     locked_private_file,
@@ -60,6 +64,60 @@ class PortablePolicyError(PortableMutationError):
 
 class PortableConflictError(PortableMutationError):
     """Durable local state conflicts with the approved action or idempotency key."""
+
+
+def _canonical_inventory_bytes(value):
+    try:
+        return json.dumps(value, sort_keys=True, separators=(',', ':'),
+                          ensure_ascii=True, allow_nan=False).encode()
+    except (TypeError, ValueError, RecursionError):
+        raise PortablePolicyError('local inventory observation is not canonical JSON') from None
+
+
+@dataclass(frozen=True, slots=True)
+class PortableInventoryObservation:
+    """Immutable complete storage facts; no registration or effect authority.
+
+    Core must separately bind these facts to its exact target incarnation and
+    canonical history. Identical rolled-back payloads have identical roots.
+    """
+    canonical_state: bytes = field(repr=False)
+    guard_identity: tuple = field(repr=False)
+    state_root: str = field(init=False)
+    resources_root: str = field(init=False)
+    receipts_root: str = field(init=False)
+    guard_fingerprint: str = field(init=False)
+
+    def __post_init__(self):
+        if (type(self.canonical_state) is not bytes
+                or not 0 < len(self.canonical_state) <= LOCAL_STATE_MAX_BYTES
+                or type(self.guard_identity) is not tuple or len(self.guard_identity) != 8
+                or any(type(value) is not int or value < 0 for value in self.guard_identity)):
+            raise PortablePolicyError('local inventory observation binding is invalid')
+        try:
+            payload = json.loads(self.canonical_state)
+            valid = (type(payload) is dict
+                     and set(payload) == {'format_version', 'resources', 'receipts'}
+                     and type(payload['format_version']) is int and payload['format_version'] == 1
+                     and type(payload['resources']) is list and type(payload['receipts']) is list
+                     and _canonical_inventory_bytes(payload) == self.canonical_state)
+        except (ValueError, RecursionError):
+            valid = False
+        if not valid:
+            raise PortablePolicyError('local inventory observation payload is invalid')
+        values = {
+            'state_root': self.canonical_state,
+            'resources_root': _canonical_inventory_bytes(payload['resources']),
+            'receipts_root': _canonical_inventory_bytes(payload['receipts']),
+            'guard_fingerprint': _canonical_inventory_bytes({
+                'schema': 'aioa.portable-target-guard.v1', 'identity': self.guard_identity}),
+        }
+        for name, data in values.items():
+            object.__setattr__(self, name, hashlib.sha256(data).hexdigest())
+
+    @property
+    def authority(self):
+        return 'NONE'
 
 
 class PortableStateStore:
@@ -182,6 +240,26 @@ class PortableStateStore:
             finally:
                 del self._held_lock.target_binding
 
+    def observe_guarded_inventory(self) -> PortableInventoryObservation:
+        """Read full existing inventory in this thread's active named guard.
+
+        No lock, inventory, registration or permission is lazily created by this
+        method. The existing guard supplies storage serialization only.
+        """
+        binding = getattr(self._held_lock, 'target_binding', None)
+        if (type(binding) is not dict
+                or getattr(self._held_lock, 'exclusive', None) is not True
+                or self._lock_path != self._path.with_name(f'{self._path.name}.lock')):
+            raise PortablePolicyError('local inventory observation needs its exclusive target guard')
+        self._check_target_guard()
+        with self._lock(exclusive=False):
+            resources, receipts = self._load(require_existing=True)
+            result = PortableInventoryObservation(
+                _canonical_inventory_bytes(self._payload(resources, receipts)),
+                tuple(binding['identity']))
+            self._check_target_guard()
+            return result
+
     def _initial_snapshot(
         self,
     ) -> tuple[
@@ -195,10 +273,14 @@ class PortableStateStore:
 
     def _load(
         self,
+        *,
+        require_existing: bool = False,
     ) -> tuple[
         dict[tuple[object, str, str], CloudResource], dict[str, LocalExecutionReceipt]
     ]:
-        if not self._path.exists():
+        if type(require_existing) is not bool:
+            raise PortablePolicyError('local inventory existing-state flag is invalid')
+        if not require_existing and not self._path.exists():
             return self._initial_snapshot()
         try:
             envelope = read_private_json(self._path)
@@ -216,7 +298,8 @@ class PortableStateStore:
             "resources",
         }:
             raise CloudAdapterUnavailableError("local mock state shape is invalid")
-        if payload.get("format_version") != 1:
+        if (type(payload.get("format_version")) is not int
+                or payload.get("format_version") != 1):
             raise CloudAdapterUnavailableError(
                 "local mock state version is unsupported"
             )
@@ -250,12 +333,9 @@ class PortableStateStore:
             )
         return resources, receipts
 
-    def _write(
-        self,
-        resources: Mapping[tuple[object, str, str], CloudResource],
-        receipts: Mapping[str, LocalExecutionReceipt],
-    ) -> None:
-        payload = {
+    @staticmethod
+    def _payload(resources, receipts):
+        return {
             "format_version": 1,
             "receipts": [
                 receipts[key].model_dump(mode="json") for key in sorted(receipts)
@@ -267,6 +347,13 @@ class PortableStateStore:
                 )
             ],
         }
+
+    def _write(
+        self,
+        resources: Mapping[tuple[object, str, str], CloudResource],
+        receipts: Mapping[str, LocalExecutionReceipt],
+    ) -> None:
+        payload = self._payload(resources, receipts)
         try:
             envelope = seal_local_payload(
                 payload,
