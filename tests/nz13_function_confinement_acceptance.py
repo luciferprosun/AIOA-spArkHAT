@@ -141,13 +141,16 @@ def main(manifest_path, output):
         workers.append(worker)
         return worker
 
-    kernel.main(manifest_path, output, worker_factory=worker_factory,
-                profile_factory=profile_factory, candidate_transform=candidates)
+    denial = kernel.main(manifest_path, output, worker_factory=worker_factory,
+                         profile_factory=profile_factory, candidate_transform=candidates,
+                         expected_review_denial='REVIEW_FIXTURE_BYPASS')
+    assert denial['status'] == 'EXPECTED_REVIEW_DENIAL'
+    assert denial['target_refs_unchanged'] is True and denial['git_actuation'] is False
     assert len(profiles) == len(workers) == 1 and workers[0].messages == 2
     assert 'fixture_math' not in sys.modules, 'HOST_PACKAGE_EXECUTION_FORBIDDEN'
     proof = {
         'schema': 'aioa.nz13.function-confinement-acceptance.v1',
-        'status': 'PASS_REAL_CORE_BROKER_FIXED_ADVERSARIAL_FIXTURE_ONLY',
+        'status': 'PASS_REAL_CONFINEMENT_WITH_EXPECTED_CODING_REVIEW_DENIAL',
         'profile_digest': profiles[0], 'fixture_source_sha256':
             hashlib.sha256(SOURCE.encode()).hexdigest(),
         'probes_per_stage': len(PROBES), 'probes': [
@@ -155,7 +158,12 @@ def main(manifest_path, output):
         ], 'stages': stage_names[0],
         'combined_kernel_confinement': True, 'individual_LSM_attribution': False,
         'permission_errors_only': True, 'missing_path_is_not_a_denial_proof': True,
-        'same_core_and_local_git_flow': True, 'host_package_imported': False,
+        'same_core_broker': True, 'coding_git_actuation': False,
+        'disposable_git_fixture_setup': True,
+        'product_review_guard': 'PRESERVED_DENIAL',
+        'oracle_verified_denials': 33, 'oracle_verified_allowed_controls': 6,
+        'expected_review_denial': 'NZ13_EXPECTED_REVIEW_DENIAL.json',
+        'host_package_imported': False,
         'model_calls': 0, 'remote_calls': 0, 'production_changes': 0,
         'unrun_separate_cases': [
             'real old-Landlock-ABI host', 'crash/timeout/flood protocol negatives',

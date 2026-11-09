@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 import signal
 import sys
 import threading
@@ -106,7 +107,9 @@ class SandboxPreparer:
             registry=SandboxRegistry(
                 config.registry.workspace,
                 tuple(
-                    replace(recipe, timeout_ms=20000)
+                    replace(recipe, timeout_ms=20000,
+                            max_output_bytes=(16384 if self.resource_profile == 'HEADLESS_RENDER_V1'
+                                              else recipe.max_output_bytes))
                     for recipe in config.registry.recipes
                 ),
             ),
@@ -192,6 +195,7 @@ class SandboxPreparer:
                 policy_revision=2,
                 capabilities=("PROJECT_WRITE", "SANDBOX_EXEC"),
                 completion_digest=completion.digest,
+                output_bytes=(16384 if self.resource_profile == 'HEADLESS_RENDER_V1' else f.grant.output_bytes),
             )
             route.create_session(fx.p(support.Capability.OWNER_APPROVAL), grant)
             warrant = route.authorize(
@@ -419,7 +423,44 @@ def exercise_active_stop(
     }
 
 
-def main(manifest_path, root, *, worker_factory=SyntheticWorker, profile_factory=None, candidate_transform=None):
+def review_denial_contract(reviewed, *, expected_failure_code):
+    """Assert a negative fixture's already verified canonical Core readback.
+
+    This observer grants no authority. The caller obtains the view through the
+    existing get_receipts signature/chain verification before invoking it.
+    """
+    assert expected_failure_code == 'REVIEW_FIXTURE_BYPASS', 'EXPECTED_REVIEW_DENIAL_SELECTOR'
+    assert type(reviewed) is dict and reviewed['state'] == 'DENIED'
+    assert reviewed['authority'] == 'NONE' and reviewed['capsule_digest'] is None
+    assert reviewed['effects_registered'] is False and reviewed['effect_verified'] is False
+    assert type(reviewed['receipt_count']) is int and reviewed['receipt_count'] == 6
+    assert tuple(row['receipt']['state'] for row in reviewed['receipts']) == (
+        'QUEUED', 'RUNNING', 'VALIDATING', 'REPAIRING', 'VALIDATING', 'DENIED')
+    loop = reviewed['run_result']
+    assert loop['status'] == 'DENIED' and loop['failure_code'] == expected_failure_code
+    assert loop['final_patchset'] is None and loop['history'][-1] == 'INDEPENDENT_REVIEW'
+    attempts = loop['attempts']
+    assert len(attempts) == 2 and tuple(row['status'] for row in attempts) == ('FAIL', 'DENIED')
+    assert all(type(row['cleanup_orphans']) is int and row['cleanup_orphans'] == 0 for row in attempts)
+    assert tuple((step['stage'], step['status']) for step in attempts[0]['steps']) == (('FAST_TESTS', 'FAIL'),)
+    assert tuple((step['stage'], step['status']) for step in attempts[1]['steps']) == (
+        ('FAST_TESTS', 'PASS'), ('TARGETED_TESTS', 'PASS'), ('FINAL_TESTS', 'PASS'))
+    steps = [step for row in attempts for step in row['steps']]
+    # ValidationStep's code describes the independent oracle, while retained
+    # broker process codes are checked separately against zero below.
+    assert type(steps[0]['exit_code']) is int and steps[0]['exit_code'] == 1
+    assert all(type(step['exit_code']) is int and step['exit_code'] == 0 for step in steps[1:])
+    assert all(re.fullmatch('sha256:[a-f0-9]{64}', step['core_warrant_digest']) for step in steps)
+    assert all(re.fullmatch('[a-f0-9]{64}', step['evidence_digest']) for step in steps)
+    assert len({step['core_warrant_digest'] for step in steps}) == 4
+    assert len({step['evidence_digest'] for step in steps}) == 4
+    return {'status': 'EXPECTED_REVIEW_DENIAL', 'verified_oracle_stages': 3,
+            'git_actuation': False, 'coding_success': False}
+
+
+def main(manifest_path, root, *, worker_factory=SyntheticWorker, profile_factory=None,
+         candidate_transform=None, expected_review_denial=None):
+    assert expected_review_denial in (None, 'REVIEW_FIXTURE_BYPASS'), 'EXPECTED_REVIEW_DENIAL_SELECTOR'
     producer_class = getattr(repair, "SandboxedCandidateProducer", None)
     assert callable(producer_class), (
         "neutral WorkerPort to sandbox materializer producer is missing"
@@ -478,6 +519,8 @@ def main(manifest_path, root, *, worker_factory=SyntheticWorker, profile_factory
             candidates = candidate_transform(candidates)
         target = BareRepository(root / "target.git", case.repo.files)
         target.mark_disposable()
+        negative_target_refs = (target.git('show-ref', '--head')
+                                if expected_review_denial is not None else None)
         assert target.base == snapshot.source_base_sha
         identity = support.Identity(
             support.ec.generate_private_key(support.ec.SECP256R1())
@@ -573,6 +616,41 @@ def main(manifest_path, root, *, worker_factory=SyntheticWorker, profile_factory
             {"task_id": task.task_id},
             principal=fx.p(support.Capability.READ),
         )
+        if expected_review_denial is not None:
+            summary = review_denial_contract(reviewed, expected_failure_code=expected_review_denial)
+            # This diagnostic candidate must remain denied by independent
+            # coding review. Git setup is a fixture; no Git effect is approved.
+            assert target.git('show-ref', '--head') == negative_target_refs
+            assert target.git('rev-parse', 'main').decode().strip() == snapshot.source_base_sha
+            receipts = {}
+            for config in preparer.configs:
+                for path in config.root.glob('run-*/receipt.json'):
+                    raw = path.read_bytes()
+                    receipt = json.loads(raw)
+                    assert receipt['status'] == 'READBACK_VERIFIED' and receipt['exit_code'] == 0
+                    assert all(receipt[key] is True for key in (
+                        'project_code_started', 'cgroup_absent_after_cleanup', 'unit_terminal_observed',
+                        'cgroup_populated_zero_directly_observed'))
+                    digest = sha256(raw)
+                    assert digest not in receipts
+                    receipts[digest] = receipt['warrant_digest']
+            assert len(receipts) == len(set(receipts.values())) == 6
+            for attempt in reviewed['run_result']['attempts']:
+                for step in attempt['steps']:
+                    assert receipts[step['evidence_digest']] == step['core_warrant_digest'].removeprefix('sha256:')
+            proof = {'schema': 'aioa.nz13.expected-review-denial.v1', **summary,
+                     'failure_code': expected_review_denial, 'profile_digest': profile.digest,
+                     'signer_spki': identity.spki, 'canonical_receipts': reviewed['receipts'],
+                     'run_result': reviewed['run_result'], 'broker_receipts': receipts,
+                     'broker_receipt_count': 6, 'materialization_receipts': 2,
+                     'validation_receipts': 4, 'final_oracle_passes': 3,
+                     'initial_target_refs_sha256': sha256(negative_target_refs),
+                     'target_refs_unchanged': True, 'disposable_git_setup': True,
+                     'product_review_guard_preserved': True, 'same_core': True,
+                     'provider_calls': 0, 'remote_calls': 0}
+            with (root / 'NZ13_EXPECTED_REVIEW_DENIAL.json').open('x') as stream:
+                json.dump(proof, stream, indent=2)
+            return proof
         assert reviewed["state"] == "REVIEW_REQUIRED", reviewed
         loop = reviewed["run_result"]
         # The canonical loop is used only for assertions/evidence below. The

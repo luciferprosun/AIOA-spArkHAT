@@ -520,7 +520,8 @@ def prepare_linux_sandbox(root, runtime_manifest, *, workspace, recipes, resourc
     }
     if renderer:
         profile.update(resource_profile=resource_profile, ipc_profile='RENDER_UNIX_SOCKETPAIR_V1',
-                       host_socket_creation='DENIED', inherited_control_fds=0)
+                       host_socket_creation='DENIED', inherited_control_fds=0,
+                       virtual_address_limit_bytes=4 * 1024**4)
     digest = canonical_sha256(profile)
     env_digest = canonical_sha256(env)
     inputs = {}
@@ -745,7 +746,8 @@ def _systemd_properties(operation):
         'CPUQuota=100%',
         'CPUQuotaPeriodSec=100ms',
         'NoNewPrivileges=yes',
-        'LimitAS=536870912',
+        ('LimitAS=4398046511104' if limits.get('resource_profile') == 'HEADLESS_RENDER_V1'
+         else 'LimitAS=536870912'),
         'LimitCPU=15',
         'LimitFSIZE=8388608',
         'LimitCORE=0',

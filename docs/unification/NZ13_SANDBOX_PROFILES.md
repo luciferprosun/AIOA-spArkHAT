@@ -17,6 +17,14 @@ pass actual broker startup, oracle, negative-observation and active STOP tests;
 mock CDP responses and prepared unit tests do not certify Chrome execution.
 Default profile resource limits and network denial remain unchanged.
 
+The explicit renderer profile has a finite 4 TiB virtual address-space limit
+for Chrome/V8 reservations. This is distinct from committed physical memory:
+`MemoryMax` remains 512 MiB and `MemorySwapMax` remains zero. The default
+profile retains its original 512 MiB address-space limit. A model cannot supply
+an address-space parameter. Real renderer startup and 600 MiB physical-memory
+denial must be demonstrated before qualification; the larger virtual allowance
+alone does not certify browser execution.
+
 Function validation uses an independently supplied expected result. Child
 exceptions, malformed output, timeout, lost acknowledgement or unverifiable
 cleanup never become success. Signed validation requires a canonical Applied

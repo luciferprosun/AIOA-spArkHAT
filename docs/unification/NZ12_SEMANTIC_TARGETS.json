@@ -8323,8 +8323,8 @@
     },
     "runtime/mission/sandbox_linux.py": {
       "path": "runtime/mission/sandbox_linux.py",
-      "git_blob": "abe355f789aa9d89b645673f751874f7384e7f25",
-      "sha256": "1db9bae81b09722e9ffb9e3e02c2dbb1eb90d0578b950dd07041de9bc6b0cb5e",
+      "git_blob": "995f603dfeddb8a38aa78783456eaffef70acf82",
+      "sha256": "d1fb9849a716f821b34d472e21e446bd6866b103bbb3568ea547b625ca03439a",
       "definitions": [
         {
           "name": "now",
@@ -8388,15 +8388,15 @@
         },
         {
           "name": "git_storage_identity",
-          "line": 621
+          "line": 622
         },
         {
           "name": "_systemd_properties",
-          "line": 735
+          "line": 736
         },
         {
           "name": "LinuxSandboxBroker",
-          "line": 760
+          "line": 762
         },
         {
           "name": "profile",
@@ -8416,87 +8416,87 @@
         },
         {
           "name": "walk",
-          "line": 639
+          "line": 640
         },
         {
           "name": "__init__",
-          "line": 761
+          "line": 763
         },
         {
           "name": "__call__",
-          "line": 772
+          "line": 774
         },
         {
           "name": "_git_directory",
-          "line": 776
+          "line": 778
         },
         {
           "name": "_git_publish_new",
-          "line": 817
+          "line": 819
         },
         {
           "name": "_git_existing_object",
-          "line": 856
+          "line": 858
         },
         {
           "name": "_git_plumbing",
-          "line": 901
+          "line": 903
         },
         {
           "name": "dispatch",
-          "line": 1496
+          "line": 1498
         },
         {
           "name": "_run",
-          "line": 1567
+          "line": 1569
         },
         {
           "name": "verify",
-          "line": 2030
+          "line": 2032
         },
         {
           "name": "hold",
-          "line": 994
+          "line": 996
         },
         {
           "name": "sealed",
-          "line": 999
+          "line": 1001
         },
         {
           "name": "read_local",
-          "line": 1064
+          "line": 1066
         },
         {
           "name": "lock_stamp",
-          "line": 1137
+          "line": 1139
         },
         {
           "name": "check_lock",
-          "line": 1149
+          "line": 1151
         },
         {
           "name": "check_lock_parent",
-          "line": 1159
+          "line": 1161
         },
         {
           "name": "lock_new",
-          "line": 1179
+          "line": 1181
         },
         {
           "name": "check_ref_transaction",
-          "line": 1295
+          "line": 1297
         },
         {
           "name": "guarded_cleanup",
-          "line": 1936
+          "line": 1938
         },
         {
           "name": "release",
-          "line": 1203
+          "line": 1205
         },
         {
           "name": "reap_owned",
-          "line": 1965
+          "line": 1967
         }
       ],
       "symbolic_callees": [
@@ -8629,6 +8629,7 @@
         "key.data.extend",
         "left.split",
         "len",
+        "limits.get",
         "line.split",
         "line.startswith",
         "listener.accept",
@@ -8797,8 +8798,8 @@
         "zlib.compress",
         "zlib.decompressobj"
       ],
-      "call_site_count": 908,
-      "call_sites_sha256": "bc1d77394466ee27ea205df69e267974451f5398b6a69c29ea9f8662610cc67b"
+      "call_site_count": 909,
+      "call_sites_sha256": "a2009b792d7f6996c17af7c1afaa690ae20302bf640d7179103a6911d8efb876"
     },
     "runtime/nonzero_cloudops/adapters/portable.py": {
       "path": "runtime/nonzero_cloudops/adapters/portable.py",
@@ -16278,6 +16279,6 @@
     "DUPLICATE_VERIFIED": 16,
     "EXCLUDED_UNSAFE": 2
   },
-  "current_target_binding_note": "NZ13-D current tracked blob/AST identities only. NZ12 assessments remain historical; function/render profiles require exact-head broker, confinement, Chrome and installed qualification. No model, production Native, unrestricted setup or full parity certification is implied.",
+  "current_target_binding_note": "NZ13-D2 current tracked blob/AST identities only. NZ12 assessments remain historical; function/render profiles require exact-head broker, confinement, Chrome and installed qualification. No model, production Native, unrestricted setup or full parity certification is implied.",
   "nz12_binding_before_nz13_sha256": "cfca6195089170934076cd15ac80a5b26786e947338b089dd75926d545b971b2"
 }

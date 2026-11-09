@@ -30,7 +30,7 @@ class RendererServiceLimitTests(unittest.TestCase):
         self.assertNotIn('TasksMax=16', properties)
         self.assertIn('MemoryMax=536870912', properties)
         self.assertIn('MemorySwapMax=0', properties)
-        self.assertIn('LimitAS=536870912', properties)
+        self.assertIn('LimitAS=4398046511104', properties)
         self.assertIn('TasksMax=32', self.properties(renderer=True, pids=32))
 
     def test_unknown_profile_or_out_of_range_pid_cannot_generate_a_service_command(self):
