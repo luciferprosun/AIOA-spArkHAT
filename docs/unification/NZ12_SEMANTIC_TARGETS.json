@@ -8323,184 +8323,192 @@
     },
     "runtime/mission/sandbox_linux.py": {
       "path": "runtime/mission/sandbox_linux.py",
-      "git_blob": "6013634d8ac378ee04403a80b74c83bcc8dee8a3",
-      "sha256": "7b67a328cc67f7680f9620ed5ede9e64686d6ef1095ae58e2998407977087acf",
+      "git_blob": "e2376a4a0b4ab066682afe75f95bd902da412c79",
+      "sha256": "1f9518be531eca216abcf6c021949c47ef13396cafad2fcd3557b540d04a42d3",
       "definitions": [
         {
           "name": "now",
-          "line": 39
+          "line": 40
         },
         {
           "name": "sync_directory",
-          "line": 43
+          "line": 44
         },
         {
           "name": "sha",
-          "line": 51
+          "line": 52
         },
         {
           "name": "read_evidence_file",
-          "line": 55
+          "line": 56
         },
         {
           "name": "exact_cgroup",
-          "line": 105
+          "line": 106
         },
         {
           "name": "mountid",
-          "line": 109
+          "line": 110
         },
         {
           "name": "populated",
-          "line": 116
+          "line": 117
         },
         {
           "name": "command_result",
-          "line": 123
+          "line": 124
         },
         {
           "name": "bounded_line",
-          "line": 140
+          "line": 141
         },
         {
           "name": "build_filter",
-          "line": 166
+          "line": 167
         },
         {
           "name": "TrustedSandboxConfig",
-          "line": 347
+          "line": 348
         },
         {
           "name": "_host_json",
-          "line": 365
+          "line": 366
         },
         {
           "name": "save_host_config",
-          "line": 372
+          "line": 373
         },
         {
           "name": "load_host_config",
-          "line": 403
+          "line": 404
         },
         {
           "name": "prepare_linux_sandbox",
-          "line": 482
+          "line": 483
         },
         {
           "name": "git_storage_identity",
-          "line": 702
+          "line": 706
+        },
+        {
+          "name": "_parse_descriptor_limits",
+          "line": 820
+        },
+        {
+          "name": "_observe_descriptor_limits",
+          "line": 836
         },
         {
           "name": "_systemd_properties",
-          "line": 816
+          "line": 851
         },
         {
           "name": "LinuxSandboxBroker",
-          "line": 842
+          "line": 877
         },
         {
           "name": "profile",
-          "line": 355
+          "line": 356
         },
         {
           "name": "inputs",
-          "line": 358
+          "line": 359
         },
         {
           "name": "runtime",
-          "line": 361
+          "line": 362
         },
         {
           "name": "private",
-          "line": 407
+          "line": 408
         },
         {
           "name": "walk",
-          "line": 720
+          "line": 724
         },
         {
           "name": "__init__",
-          "line": 843
+          "line": 878
         },
         {
           "name": "__call__",
-          "line": 854
+          "line": 889
         },
         {
           "name": "_git_directory",
-          "line": 858
+          "line": 893
         },
         {
           "name": "_git_publish_new",
-          "line": 899
+          "line": 934
         },
         {
           "name": "_git_existing_object",
-          "line": 938
+          "line": 973
         },
         {
           "name": "_git_plumbing",
-          "line": 983
+          "line": 1018
         },
         {
           "name": "dispatch",
-          "line": 1578
+          "line": 1613
         },
         {
           "name": "_run",
-          "line": 1649
+          "line": 1684
         },
         {
           "name": "verify",
-          "line": 2112
+          "line": 2156
         },
         {
           "name": "listener_call",
-          "line": 241
+          "line": 242
         },
         {
           "name": "hold",
-          "line": 1076
+          "line": 1111
         },
         {
           "name": "sealed",
-          "line": 1081
+          "line": 1116
         },
         {
           "name": "read_local",
-          "line": 1146
+          "line": 1181
         },
         {
           "name": "lock_stamp",
-          "line": 1219
+          "line": 1254
         },
         {
           "name": "check_lock",
-          "line": 1231
+          "line": 1266
         },
         {
           "name": "check_lock_parent",
-          "line": 1241
+          "line": 1276
         },
         {
           "name": "lock_new",
-          "line": 1261
+          "line": 1296
         },
         {
           "name": "check_ref_transaction",
-          "line": 1377
+          "line": 1412
         },
         {
           "name": "guarded_cleanup",
-          "line": 2018
+          "line": 2062
         },
         {
           "name": "release",
-          "line": 1285
+          "line": 1320
         },
         {
           "name": "reap_owned",
-          "line": 2047
+          "line": 2091
         }
       ],
       "symbolic_callees": [
@@ -8534,6 +8542,8 @@
         "TrustedSandboxConfig",
         "ValueError",
         "_host_json",
+        "_observe_descriptor_limits",
+        "_parse_descriptor_limits",
         "_systemd_properties",
         "all",
         "any",
@@ -8636,6 +8646,7 @@
         "json.dumps",
         "json.dumps().encode",
         "json.loads",
+        "json.loads()[data].get",
         "key.data.extend",
         "left.split",
         "len",
@@ -8719,7 +8730,9 @@
         "proc.kill",
         "proc.stdin.flush",
         "proc.stdin.write",
+        "profile.get",
         "profile.update",
+        "raw.decode",
         "re.fullmatch",
         "read_evidence_file",
         "read_local",
@@ -8795,6 +8808,7 @@
         "target_ref.split",
         "tempfile.TemporaryFile",
         "tempfile.mkdtemp",
+        "text.splitlines",
         "time.monotonic",
         "tuple",
         "type",
@@ -8809,8 +8823,8 @@
         "zlib.compress",
         "zlib.decompressobj"
       ],
-      "call_site_count": 941,
-      "call_sites_sha256": "a5597e1590df34a036821aabf3f12101c615100dc249c0ccdfa2eb3482a96912"
+      "call_site_count": 976,
+      "call_sites_sha256": "bfdf0e551ae3fda8249b2260ad8737ff8ba501e5ac7c6fae8a7fb6d7f284e2ed"
     },
     "runtime/nonzero_cloudops/adapters/portable.py": {
       "path": "runtime/nonzero_cloudops/adapters/portable.py",
@@ -13541,8 +13555,8 @@
     },
     "runtime/mission/repair_validation.py": {
       "path": "runtime/mission/repair_validation.py",
-      "git_blob": "11a6f9b19a29ab40dc9e193893cac013ef44e7a8",
-      "sha256": "74c0abce0714377df11817ec67e98dfc76d0a4e5815129322aab74092cd33874",
+      "git_blob": "29b6816ebc756ff0465230b956b49872d3a7ea86",
+      "sha256": "40cf0d4853b1c22acbb6825d7d26a8160a3967f0dc40fa6ded6a50ea0fc737b3",
       "definitions": [
         {
           "name": "TrustedTestProfile",
@@ -13602,7 +13616,7 @@
         },
         {
           "name": "_CoreValidationSession",
-          "line": 764
+          "line": 767
         },
         {
           "name": "__post_init__",
@@ -13646,27 +13660,27 @@
         },
         {
           "name": "read_render",
-          "line": 670
+          "line": 673
         },
         {
           "name": "_read_render_record",
-          "line": 683
+          "line": 686
         },
         {
           "name": "open",
-          "line": 715
+          "line": 718
         },
         {
           "name": "__init__",
-          "line": 765
+          "line": 768
         },
         {
           "name": "run",
-          "line": 770
+          "line": 773
         },
         {
           "name": "close",
-          "line": 845
+          "line": 848
         },
         {
           "name": "save",
@@ -13791,13 +13805,13 @@
         "warrant.to_dict",
         "workspace_tree_digest"
       ],
-      "call_site_count": 364,
-      "call_sites_sha256": "241ed7c328fc6c339b91ecbab743ecfd64eb0e8b239aaf4cb4e612d8b6406184"
+      "call_site_count": 367,
+      "call_sites_sha256": "29a687a6f1457f6b70e59d26e24e0370943285ec81071c4cec8ee626d0084c53"
     },
     "runtime/mission/sandbox_contracts.py": {
       "path": "runtime/mission/sandbox_contracts.py",
-      "git_blob": "2ebc2413c8ef891548231ea1a6b7fbcbbee5ea65",
-      "sha256": "6631a3accc16c470b9ec8bf5f409b71c85e5e62115d62a11827b5785272b0c15",
+      "git_blob": "759c774e1ef48b4043f787f157f8c536a9966dc6",
+      "sha256": "72d6db44d907c68245ffc3ab4f542e779bb4ac5748662b8f94f7ffe23f63aeac",
       "definitions": [
         {
           "name": "_identity",
@@ -13813,23 +13827,23 @@
         },
         {
           "name": "SandboxDispatchRequest",
-          "line": 97
+          "line": 98
         },
         {
           "name": "ToolVariant",
-          "line": 137
+          "line": 138
         },
         {
           "name": "tool_variant",
-          "line": 152
+          "line": 153
         },
         {
           "name": "SandboxRecipe",
-          "line": 160
+          "line": 161
         },
         {
           "name": "SandboxRegistry",
-          "line": 194
+          "line": 195
         },
         {
           "name": "__post_init__",
@@ -13837,47 +13851,47 @@
         },
         {
           "name": "parse",
-          "line": 84
+          "line": 85
         },
         {
           "name": "to_dict",
-          "line": 88
+          "line": 89
         },
         {
           "name": "digest",
-          "line": 92
+          "line": 93
         },
         {
           "name": "__post_init__",
-          "line": 111
+          "line": 112
         },
         {
           "name": "to_dict",
-          "line": 125
+          "line": 126
         },
         {
           "name": "digest",
-          "line": 132
+          "line": 133
         },
         {
           "name": "__post_init__",
-          "line": 178
+          "line": 179
         },
         {
           "name": "payload",
-          "line": 184
+          "line": 185
         },
         {
           "name": "__post_init__",
-          "line": 198
+          "line": 199
         },
         {
           "name": "payload",
-          "line": 205
+          "line": 206
         },
         {
           "name": "validate",
-          "line": 212
+          "line": 213
         }
       ],
       "symbolic_callees": [
@@ -13912,7 +13926,7 @@
         "type"
       ],
       "call_site_count": 95,
-      "call_sites_sha256": "7b5311156ae22ce8cf8a8b9bdd8aded541822e16adfbf1da245ee8310da7bb38"
+      "call_sites_sha256": "35a5cfde8a85783dc577b8bb403d2f872303e51fe922b7806cd0c05c1ac90258"
     },
     "runtime/mission/project_recipe.py": {
       "path": "runtime/mission/project_recipe.py",
@@ -15911,8 +15925,8 @@
     },
     "runtime/mission/render_recipe.py": {
       "path": "runtime/mission/render_recipe.py",
-      "git_blob": "3cdce51996b83fa3188756047601e53ec15deebd",
-      "sha256": "675d4d0653b70faf94b7cb704382596bd9d8f51b0d720e451f783717bfdf5f25",
+      "git_blob": "61a927b973fc1f4fb50dd1cfd59d2b483af92f5c",
+      "sha256": "4004af12c5f4fcc7f70f9d7795617a636590013db6888fcd870c55e94ad58330",
       "definitions": [
         {
           "name": "require",
@@ -15991,8 +16005,8 @@
     },
     "runtime/mission/render_runtime.py": {
       "path": "runtime/mission/render_runtime.py",
-      "git_blob": "c6da27f521a2467db60d9d2a0d36bcb5218d2178",
-      "sha256": "11957ff1f5e56c87123312dcb8969b22724ab2f32e56787bae723579a298c684",
+      "git_blob": "a6283c005e5acbc61897c918b21ca47490aab43a",
+      "sha256": "1f4dc4c90e816598053b0e686fd24465f1fdd2700801ff66c8e6f7da8ca9bdc2",
       "definitions": [
         {
           "name": "require",
@@ -16290,6 +16304,6 @@
     "DUPLICATE_VERIFIED": 16,
     "EXCLUDED_UNSAFE": 2
   },
-  "current_target_binding_note": "NZ13-D6 current tracked blob/AST identities only. NZ12 assessments remain historical; function/render profiles require exact-head broker, confinement, Chrome and installed qualification. No model, production Native, unrestricted setup or full parity certification is implied.",
+  "current_target_binding_note": "NZ13-D7 current tracked blob/AST identities only. NZ12 assessments remain historical; function/render profiles require exact-head broker, confinement, Chrome and installed qualification. No model, production Native, unrestricted setup or full parity certification is implied.",
   "nz12_binding_before_nz13_sha256": "cfca6195089170934076cd15ac80a5b26786e947338b089dd75926d545b971b2"
 }

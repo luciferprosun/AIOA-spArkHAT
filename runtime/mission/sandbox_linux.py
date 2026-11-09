@@ -9,6 +9,7 @@ import errno
 import hashlib
 import json
 import os
+import re
 import select
 import socket
 import stat
@@ -496,9 +497,10 @@ def prepare_linux_sandbox(root, runtime_manifest, *, workspace, recipes, resourc
         and not sys.flags.optimize,
         "TRUSTED_SANDBOX_CONFIGURATION_REQUIRED",
     )
-    require(resource_profile is None or type(resource_profile) is str and resource_profile == 'HEADLESS_RENDER_V1',
+    require(resource_profile is None or type(resource_profile) is str
+            and resource_profile in ('HEADLESS_RENDER_V1', 'HEADLESS_RENDER_V2'),
             'INVALID_SANDBOX_RESOURCE_PROFILE')
-    renderer = resource_profile == 'HEADLESS_RENDER_V1'
+    renderer = resource_profile in ('HEADLESS_RENDER_V1', 'HEADLESS_RENDER_V2')
     require(renderer_ipc is None or renderer and type(renderer_ipc) is str
             and renderer_ipc == 'RENDER_UNIX_LISTENER_V1', 'UNAPPROVED_SANDBOX_IPC_PROFILE')
     ipc_profile = (renderer_ipc or 'RENDER_UNIX_SOCKETPAIR_V1') if renderer else None
@@ -602,6 +604,8 @@ def prepare_linux_sandbox(root, runtime_manifest, *, workspace, recipes, resourc
                        virtual_address_limit_bytes=4 * 1024**4)
         if ipc_profile == 'RENDER_UNIX_LISTENER_V1':
             profile.update(private_listener_creation='UNIX_STREAM_ONLY', host_connect='DENIED')
+        if resource_profile == 'HEADLESS_RENDER_V2':
+            profile['descriptor_limit'] = 256
     digest = canonical_sha256(profile)
     env_digest = canonical_sha256(env)
     inputs = {}
@@ -813,6 +817,37 @@ def git_storage_identity(root):
     return tuple((name, identities[name]) for name in GIT_CRITICAL_DIRECTORIES)
 
 
+def _parse_descriptor_limits(raw, *, expected):
+    """Bounded kernel limits data, never a source of execution authority."""
+    require(type(raw) is bytes and 0 < len(raw) <= 8192
+            and type(expected) is int and expected in (64, 256), 'KERNEL_DESCRIPTOR_LIMIT_MISMATCH')
+    try:
+        text = raw.decode('ascii')
+    except UnicodeDecodeError:
+        raise ValueError('KERNEL_DESCRIPTOR_LIMIT_MISMATCH') from None
+    rows = [line for line in text.splitlines() if line.startswith('Max open files')]
+    require(len(rows) == 1, 'KERNEL_DESCRIPTOR_LIMIT_MISMATCH')
+    value = str(expected)
+    require(re.fullmatch(r'Max open files[ \t]+' + value + r'[ \t]+' + value + r'[ \t]+files[ \t]*',
+                         rows[0]) is not None, 'KERNEL_DESCRIPTOR_LIMIT_MISMATCH')
+    return expected, expected
+
+
+def _observe_descriptor_limits(procdir, pidfd, *, expected):
+    """Read the already pinned, live trusted bootstrap before project ACK."""
+    require(type(procdir) is int and procdir >= 0 and type(pidfd) is int and pidfd >= 0
+            and type(expected) is int and expected in (64, 256), 'KERNEL_DESCRIPTOR_LIMIT_MISMATCH')
+    require(not select.select([pidfd], [], [], 0)[0], 'BOOTSTRAP_EXITED_BEFORE_DESCRIPTOR_PROOF')
+    fd = os.open('limits', os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC, dir_fd=procdir)
+    try:
+        raw = os.read(fd, 8193)
+    finally:
+        os.close(fd)
+    soft, hard = _parse_descriptor_limits(raw, expected=expected)
+    require(not select.select([pidfd], [], [], 0)[0], 'BOOTSTRAP_EXITED_BEFORE_DESCRIPTOR_PROOF')
+    return {'soft': soft, 'hard': hard, 'source': 'PINNED_BOOTSTRAP_PROC_LIMITS'}
+
+
 def _systemd_properties(operation):
     """Properties for already registered operations; parsing grants no authority."""
     limits = SandboxOperation.parse(operation).to_dict()['payload']
@@ -826,12 +861,12 @@ def _systemd_properties(operation):
         'CPUQuota=100%',
         'CPUQuotaPeriodSec=100ms',
         'NoNewPrivileges=yes',
-        ('LimitAS=4398046511104' if limits.get('resource_profile') == 'HEADLESS_RENDER_V1'
+        ('LimitAS=4398046511104' if limits.get('resource_profile') in ('HEADLESS_RENDER_V1', 'HEADLESS_RENDER_V2')
          else 'LimitAS=536870912'),
         'LimitCPU=15',
         'LimitFSIZE=8388608',
         'LimitCORE=0',
-        'LimitNOFILE=64',
+        ('LimitNOFILE=256' if limits.get('resource_profile') == 'HEADLESS_RENDER_V2' else 'LimitNOFILE=64'),
         'RuntimeMaxSec=32s',
         'TimeoutStopSec=2s',
         'KillMode=control-group',
@@ -1935,6 +1970,15 @@ class LinuxSandboxBroker:
                     len(self.config.profile()["runtime"]) + len(inputs["files"]) + 2
                 )
                 receipt["observations"]["scratch_tmpfs_bytes"] = scratch
+                resource_profile = json.loads(request.operation_bytes)['payload'].get('resource_profile')
+                profile = self.config.profile()
+                require(profile.get('resource_profile') == resource_profile, 'KERNEL_RESOURCE_PROFILE_MISMATCH')
+                descriptor_limit = 256 if resource_profile == 'HEADLESS_RENDER_V2' else 64
+                if resource_profile == 'HEADLESS_RENDER_V2':
+                    require(type(profile.get('descriptor_limit')) is int
+                            and profile['descriptor_limit'] == descriptor_limit, 'KERNEL_DESCRIPTOR_PROFILE_MISMATCH')
+                receipt['observations']['descriptor_limits_before_project_ack'] = _observe_descriptor_limits(
+                    procdir, peerpidfd, expected=descriptor_limit)
                 release_check()
                 peer.sendall(b"Y")
                 receipt["project_code_started"] = True

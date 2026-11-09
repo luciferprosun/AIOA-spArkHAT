@@ -42,7 +42,7 @@ class HermeticRenderRecipeTests(unittest.TestCase):
         recipe = self.recipe()
         self.assertEqual('NONE', recipe.authority)
         manifest = json.loads(recipe.manifest_bytes())
-        self.assertEqual('HEADLESS_RENDER_V1', manifest['resource_profile'])
+        self.assertEqual('HEADLESS_RENDER_V2', manifest['resource_profile'])
         self.assertEqual('OFF', manifest['network'])
         self.assertEqual(hashlib.sha256(recipe.bundle[0][1]).hexdigest(), manifest['bundle']['index.html']['sha256'])
         self.assertNotIn('expected_text', manifest)

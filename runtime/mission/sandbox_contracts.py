@@ -64,7 +64,8 @@ class SandboxOperation:
                 'INVALID_SANDBOX_OPERATION')
         ceilings = RESOURCE_CEILINGS
         if 'resource_profile' in payload:
-            require(type(payload['resource_profile']) is str and payload['resource_profile'] == 'HEADLESS_RENDER_V1',
+            require(type(payload['resource_profile']) is str
+                    and payload['resource_profile'] in ('HEADLESS_RENDER_V1', 'HEADLESS_RENDER_V2'),
                     'INVALID_SANDBOX_RESOURCE_PROFILE')
             ceilings = RENDER_RESOURCE_CEILINGS
         for name in ('workspace', 'task_id', 'step_id', 'recipe_id', 'project_root_ref'):

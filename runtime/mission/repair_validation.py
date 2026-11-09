@@ -637,7 +637,7 @@ class CoreSandboxValidation:
         _pin_prepared_spec(self.journal, step, recipe.recipe_spec())
         config = step.route.executor.config
         profile = config.profile()
-        require(profile.get('resource_profile') == 'HEADLESS_RENDER_V1'
+        require(profile.get('resource_profile') in ('HEADLESS_RENDER_V1', 'HEADLESS_RENDER_V2')
                 and profile.get('ipc_profile') in ('RENDER_UNIX_SOCKETPAIR_V1', 'RENDER_UNIX_LISTENER_V1')
                 and profile.get('network') == 'OFF'
                 and profile.get('host_socket_creation') == 'DENIED'
@@ -646,6 +646,9 @@ class CoreSandboxValidation:
         if profile['ipc_profile'] == 'RENDER_UNIX_LISTENER_V1':
             require(profile.get('private_listener_creation') == 'UNIX_STREAM_ONLY'
                     and profile.get('host_connect') == 'DENIED', 'RENDER_KERNEL_PROFILE_REQUIRED')
+        if profile['resource_profile'] == 'HEADLESS_RENDER_V2':
+            require(type(profile.get('descriptor_limit')) is int
+                    and profile['descriptor_limit'] == 256, 'RENDER_KERNEL_PROFILE_REQUIRED')
         warrant = step.arguments['warrant']
         key = canonical_sha256(['aioa.trusted-render-validation.v1', warrant.digest()])
         prior = self.journal._run(principal, Capability.COMMIT,
