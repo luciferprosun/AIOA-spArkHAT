@@ -107,6 +107,7 @@ SOURCE_FILES += ('runtime/meta_hackathon/chat.py','runtime/meta_hackathon/chat_s
         'clients/android/app/src/main/java/eu/sparkhat/aioa/companion/ChatView.kt')
 SOURCE_FILES += ('runtime/mcp_bridge/native_read.py','runtime/meta_hackathon/native_tools.py')
 SOURCE_FILES += ('runtime/secret_redaction.py','runtime/failure_boundary.py')
+SOURCE_FILES += ('runtime/mission/dependency_lock.py', 'runtime/mission/function_isolation.py', 'runtime/mission/python_function_worker.py', 'runtime/mission/python_function_child.py', 'runtime/mission/repository_worker.py', 'runtime/mission/render_recipe.py', 'runtime/mission/render_worker.py', 'runtime/mission/render_runtime.py', 'runtime/mission/render_observation.py', 'runtime/mission/repair_validation.py', 'runtime/mission/worker.py', 'runtime/mission/codex_worker.py', 'runtime/mission/patchset.py', 'runtime/mission/repair.py', 'runtime/mission/patch_capsule.py', 'runtime/mission/coding_tasks.py')
 SOURCE_FILES += ('runtime/mobile_gateway/desktop.py','runtime/critical_loop/preset.py','web/white-hole.svg')
 SOURCE_FILES += ('runtime/meta_hackathon/advisory.py','runtime/tools/command_grammar.py',
         'runtime/knowledge/grammar/command_patterns.json','runtime/communication/contracts.py',

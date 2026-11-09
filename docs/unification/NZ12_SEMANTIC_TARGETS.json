@@ -8323,176 +8323,180 @@
     },
     "runtime/mission/sandbox_linux.py": {
       "path": "runtime/mission/sandbox_linux.py",
-      "git_blob": "74bf5bc1afe2c47864e1dcff7092919d6ddb2679",
-      "sha256": "c0a36c15396a5ebd862ead36d95692be06935d0e088537aa0458ec5f37298b75",
+      "git_blob": "abe355f789aa9d89b645673f751874f7384e7f25",
+      "sha256": "1db9bae81b09722e9ffb9e3e02c2dbb1eb90d0578b950dd07041de9bc6b0cb5e",
       "definitions": [
         {
           "name": "now",
-          "line": 38
+          "line": 39
         },
         {
           "name": "sync_directory",
-          "line": 42
+          "line": 43
         },
         {
           "name": "sha",
-          "line": 50
+          "line": 51
         },
         {
           "name": "read_evidence_file",
-          "line": 54
+          "line": 55
         },
         {
           "name": "exact_cgroup",
-          "line": 104
+          "line": 105
         },
         {
           "name": "mountid",
-          "line": 108
+          "line": 109
         },
         {
           "name": "populated",
-          "line": 115
+          "line": 116
         },
         {
           "name": "command_result",
-          "line": 122
+          "line": 123
         },
         {
           "name": "bounded_line",
-          "line": 139
+          "line": 140
         },
         {
           "name": "build_filter",
-          "line": 165
+          "line": 166
         },
         {
           "name": "TrustedSandboxConfig",
-          "line": 254
+          "line": 275
         },
         {
           "name": "_host_json",
-          "line": 272
+          "line": 293
         },
         {
           "name": "save_host_config",
-          "line": 279
+          "line": 300
         },
         {
           "name": "load_host_config",
-          "line": 310
+          "line": 331
         },
         {
           "name": "prepare_linux_sandbox",
-          "line": 389
+          "line": 410
         },
         {
           "name": "git_storage_identity",
-          "line": 583
+          "line": 621
+        },
+        {
+          "name": "_systemd_properties",
+          "line": 735
         },
         {
           "name": "LinuxSandboxBroker",
-          "line": 697
+          "line": 760
         },
         {
           "name": "profile",
-          "line": 262
+          "line": 283
         },
         {
           "name": "inputs",
-          "line": 265
+          "line": 286
         },
         {
           "name": "runtime",
-          "line": 268
+          "line": 289
         },
         {
           "name": "private",
-          "line": 314
+          "line": 335
         },
         {
           "name": "walk",
-          "line": 601
+          "line": 639
         },
         {
           "name": "__init__",
-          "line": 698
+          "line": 761
         },
         {
           "name": "__call__",
-          "line": 709
+          "line": 772
         },
         {
           "name": "_git_directory",
-          "line": 713
+          "line": 776
         },
         {
           "name": "_git_publish_new",
-          "line": 754
+          "line": 817
         },
         {
           "name": "_git_existing_object",
-          "line": 793
+          "line": 856
         },
         {
           "name": "_git_plumbing",
-          "line": 838
+          "line": 901
         },
         {
           "name": "dispatch",
-          "line": 1433
+          "line": 1496
         },
         {
           "name": "_run",
-          "line": 1504
+          "line": 1567
         },
         {
           "name": "verify",
-          "line": 1986
+          "line": 2030
         },
         {
           "name": "hold",
-          "line": 931
+          "line": 994
         },
         {
           "name": "sealed",
-          "line": 936
+          "line": 999
         },
         {
           "name": "read_local",
-          "line": 1001
+          "line": 1064
         },
         {
           "name": "lock_stamp",
-          "line": 1074
+          "line": 1137
         },
         {
           "name": "check_lock",
-          "line": 1086
+          "line": 1149
         },
         {
           "name": "check_lock_parent",
-          "line": 1096
+          "line": 1159
         },
         {
           "name": "lock_new",
-          "line": 1116
+          "line": 1179
         },
         {
           "name": "check_ref_transaction",
-          "line": 1232
+          "line": 1295
         },
         {
           "name": "guarded_cleanup",
-          "line": 1892
+          "line": 1936
         },
         {
           "name": "release",
-          "line": 1140
+          "line": 1203
         },
         {
           "name": "reap_owned",
-          "line": 1921
+          "line": 1965
         }
       ],
       "symbolic_callees": [
@@ -8520,11 +8524,13 @@
         "SandboxOperation",
         "SandboxOperation().to_dict",
         "SandboxOperation.parse",
+        "SandboxOperation.parse().to_dict",
         "SandboxRecipe",
         "SandboxRegistry",
         "TrustedSandboxConfig",
         "ValueError",
         "_host_json",
+        "_systemd_properties",
         "all",
         "any",
         "approved.append",
@@ -8577,6 +8583,7 @@
         "datetime.now",
         "datetime.now().isoformat",
         "decoder.decompress",
+        "deny.difference_update",
         "deny.update",
         "descriptors.items",
         "destination.chmod",
@@ -8600,6 +8607,7 @@
         "fd_path",
         "fds.extend",
         "fields[data].split",
+        "frozenset",
         "getattr",
         "git_storage_identity",
         "guarded_cleanup",
@@ -8699,6 +8707,7 @@
         "proc.kill",
         "proc.stdin.flush",
         "proc.stdin.write",
+        "profile.update",
         "re.fullmatch",
         "read_evidence_file",
         "read_local",
@@ -8717,6 +8726,7 @@
         "right.split",
         "root.absolute",
         "root.mkdir",
+        "rows.append",
         "rows.extend",
         "run.mkdir",
         "runtime.items",
@@ -8787,8 +8797,8 @@
         "zlib.compress",
         "zlib.decompressobj"
       ],
-      "call_site_count": 892,
-      "call_sites_sha256": "49370ef839383be0fcd67fd564b4ce753949d9f0179f76ec10e09bb2d19e2ad0"
+      "call_site_count": 908,
+      "call_sites_sha256": "bc1d77394466ee27ea205df69e267974451f5398b6a69c29ea9f8662610cc67b"
     },
     "runtime/nonzero_cloudops/adapters/portable.py": {
       "path": "runtime/nonzero_cloudops/adapters/portable.py",
@@ -10983,8 +10993,8 @@
     },
     "runtime/mission/git_publish.py": {
       "path": "runtime/mission/git_publish.py",
-      "git_blob": "ac445af0bc818e5af47f84b11689a7dbfd54c659",
-      "sha256": "127f503bf24a5a83e58b8dd40e623586e57833de6eb668cafef60dd8375b646c",
+      "git_blob": "5a3aa49bec4122f16304d4f61f2191ca8b14e2f3",
+      "sha256": "300f14a63ca2c445e1ee08407ec4dea00c2d73c6b7cff126e13c854808a0be3d",
       "definitions": [
         {
           "name": "LocalGitPlan",
@@ -11012,27 +11022,27 @@
         },
         {
           "name": "VerifiedPatchSet",
-          "line": 1782
+          "line": 1779
         },
         {
           "name": "_bounded_git",
-          "line": 1933
+          "line": 1930
         },
         {
           "name": "GitSourceSnapshot",
-          "line": 1987
+          "line": 1984
         },
         {
           "name": "_git_target_identity_fd",
-          "line": 2194
+          "line": 2191
         },
         {
           "name": "_git_target_identity",
-          "line": 2247
+          "line": 2244
         },
         {
           "name": "LocalPatchGitPlan",
-          "line": 2269
+          "line": 2266
         },
         {
           "name": "__post_init__",
@@ -11156,179 +11166,179 @@
         },
         {
           "name": "_local_proofs",
-          "line": 829
+          "line": 830
         },
         {
           "name": "_local_history",
-          "line": 942
+          "line": 939
         },
         {
           "name": "_historical_local_check",
-          "line": 981
+          "line": 978
         },
         {
           "name": "_prospective_local",
-          "line": 988
+          "line": 985
         },
         {
           "name": "_local_check",
-          "line": 994
+          "line": 991
         },
         {
           "name": "approve_local_patch",
-          "line": 1012
+          "line": 1009
         },
         {
           "name": "_local_warrant",
-          "line": 1057
+          "line": 1054
         },
         {
           "name": "_dispatch_local_patch",
-          "line": 1073
+          "line": 1070
         },
         {
           "name": "_complete_local_patch",
-          "line": 1133
+          "line": 1130
         },
         {
           "name": "__init__",
-          "line": 1241
+          "line": 1238
         },
         {
           "name": "dependency_root",
-          "line": 1279
+          "line": 1276
         },
         {
           "name": "operation",
-          "line": 1316
+          "line": 1313
         },
         {
           "name": "validate",
-          "line": 1358
+          "line": 1355
         },
         {
           "name": "_save",
-          "line": 1390
+          "line": 1387
         },
         {
           "name": "begin_step",
-          "line": 1427
+          "line": 1424
         },
         {
           "name": "bind_api",
-          "line": 1522
+          "line": 1519
         },
         {
           "name": "record_credential_scope",
-          "line": 1540
+          "line": 1537
         },
         {
           "name": "result",
-          "line": 1565
+          "line": 1562
         },
         {
           "name": "complete",
-          "line": 1580
+          "line": 1577
         },
         {
           "name": "dispatch",
-          "line": 1725
+          "line": 1722
         },
         {
           "name": "reconcile",
-          "line": 1734
+          "line": 1731
         },
         {
           "name": "__post_init__",
-          "line": 1794
+          "line": 1791
         },
         {
           "name": "authority",
-          "line": 1882
+          "line": 1879
         },
         {
           "name": "digest",
-          "line": 1886
+          "line": 1883
         },
         {
           "name": "preview",
-          "line": 1900
+          "line": 1897
         },
         {
           "name": "create_only_plan",
-          "line": 1916
+          "line": 1913
         },
         {
           "name": "__post_init__",
-          "line": 1997
+          "line": 1994
         },
         {
           "name": "digest",
-          "line": 2043
+          "line": 2040
         },
         {
           "name": "capture",
-          "line": 2058
+          "line": 2055
         },
         {
           "name": "verify",
-          "line": 2149
+          "line": 2146
         },
         {
           "name": "export_tree_sha256",
-          "line": 2161
+          "line": 2158
         },
         {
           "name": "verify_export",
-          "line": 2166
+          "line": 2163
         },
         {
           "name": "export",
-          "line": 2175
+          "line": 2172
         },
         {
           "name": "__post_init__",
-          "line": 2278
+          "line": 2275
         },
         {
           "name": "files",
-          "line": 2311
+          "line": 2308
         },
         {
           "name": "operation_id",
-          "line": 2321
+          "line": 2318
         },
         {
           "name": "ref",
-          "line": 2325
+          "line": 2322
         },
         {
           "name": "target_fingerprint",
-          "line": 2329
+          "line": 2326
         },
         {
           "name": "tree_objects",
-          "line": 2341
+          "line": 2338
         },
         {
           "name": "tree_sha",
-          "line": 2374
+          "line": 2371
         },
         {
           "name": "commit_data",
-          "line": 2378
+          "line": 2375
         },
         {
           "name": "commit_sha",
-          "line": 2399
+          "line": 2396
         },
         {
           "name": "objects",
-          "line": 2403
+          "line": 2400
         },
         {
           "name": "digest",
-          "line": 2411
+          "line": 2408
         },
         {
           "name": "load",
@@ -11336,47 +11346,47 @@
         },
         {
           "name": "proofs",
-          "line": 816
+          "line": 817
         },
         {
           "name": "mark",
-          "line": 1080
+          "line": 1077
         },
         {
           "name": "save",
-          "line": 1182
+          "line": 1179
         },
         {
           "name": "start",
-          "line": 1485
+          "line": 1482
         },
         {
           "name": "save",
-          "line": 1545
+          "line": 1542
         },
         {
           "name": "read",
-          "line": 1570
+          "line": 1567
         },
         {
           "name": "save",
-          "line": 1655
+          "line": 1652
         },
         {
           "name": "binding_check",
-          "line": 1953
+          "line": 1950
         },
         {
           "name": "git",
-          "line": 2080
+          "line": 2077
         },
         {
           "name": "current",
-          "line": 2090
+          "line": 2087
         },
         {
           "name": "approve",
-          "line": 1031
+          "line": 1028
         }
       ],
       "symbolic_callees": [
@@ -11595,6 +11605,7 @@
         "self.result_bytes",
         "self.source.source_base_sha.encode",
         "self.target_guard",
+        "self.test_profile.accepts_observer",
         "self.title.encode",
         "self.title.strip",
         "self.tree_sha.encode",
@@ -11627,7 +11638,7 @@
         "zip"
       ],
       "call_site_count": 871,
-      "call_sites_sha256": "0e404e8c923b038ec6c7899447c89f1f78b51c0f6eed50e68961548a78c84913"
+      "call_sites_sha256": "b3e8b7085665dbdc689f3f65238f1624b8e90e5b8b390c5003cc6741a0263dd3"
     },
     "runtime/core_admission.py": {
       "path": "runtime/core_admission.py",
@@ -13518,8 +13529,8 @@
     },
     "runtime/mission/repair_validation.py": {
       "path": "runtime/mission/repair_validation.py",
-      "git_blob": "c5e8081757ad101a5bcb5173a8220ee0d50feb20",
-      "sha256": "2cf389d2c934f0cd7aa1e9923c89ffdd35e72232e8b4972af61562d4a5e3dd8e",
+      "git_blob": "e9b331f282407eadca885a8577e8a9148ff615e1",
+      "sha256": "8724cea381949441df130df9b9e9e13445b4831c627748314960feb2ceda6064",
       "definitions": [
         {
           "name": "TrustedTestProfile",
@@ -13570,12 +13581,16 @@
           "line": 392
         },
         {
-          "name": "CoreSandboxValidation",
+          "name": "_store_validation_evidence",
           "line": 566
         },
         {
+          "name": "CoreSandboxValidation",
+          "line": 595
+        },
+        {
           "name": "_CoreValidationSession",
-          "line": 636
+          "line": 761
         },
         {
           "name": "__post_init__",
@@ -13606,38 +13621,51 @@
           "line": 439
         },
         {
+          "name": "save",
+          "line": 575
+        },
+        {
           "name": "__init__",
-          "line": 567
+          "line": 596
+        },
+        {
+          "name": "render",
+          "line": 621
+        },
+        {
+          "name": "read_render",
+          "line": 667
+        },
+        {
+          "name": "_read_render_record",
+          "line": 680
         },
         {
           "name": "open",
-          "line": 587
+          "line": 712
         },
         {
           "name": "__init__",
-          "line": 637
+          "line": 762
         },
         {
           "name": "run",
-          "line": 642
+          "line": 767
         },
         {
           "name": "close",
-          "line": 750
+          "line": 842
         },
         {
           "name": "save",
           "line": 536
-        },
-        {
-          "name": "save",
-          "line": 697
         }
       ],
       "symbolic_callees": [
         "<dynamic>.exists",
         "BoundedPatchSetPolicy",
         "BoundedPatchSetPolicy().evaluate",
+        "EffectWarrant.from_dict",
         "JsonlFramer",
         "OperationBinding.bind",
         "Path",
@@ -13654,6 +13682,7 @@
         "_pin_prepared_spec",
         "_settle_sandbox_receipt",
         "_snapshot",
+        "_store_validation_evidence",
         "all",
         "append_domain_event",
         "bounded_int",
@@ -13661,13 +13690,17 @@
         "canonical_json_bytes",
         "canonical_sha256",
         "config.inputs",
+        "config.profile",
         "config.registry.validate",
         "contains_sensitive_material",
         "data.decode",
+        "data.get",
+        "data.pop",
         "dataclass",
         "decode_test_report",
         "dict",
         "digest",
+        "digest_id",
         "entry[data].encode",
         "expected_spec[data].items",
         "failure_boundary",
@@ -13682,32 +13715,40 @@
         "item[data].encode",
         "journal._load",
         "journal._run",
+        "journal.ledger.clock",
         "json.loads",
         "len",
         "logical_id",
         "matching.append",
         "names.add",
         "normalize_patch_relative_path",
+        "observation.encode",
         "observe_source",
+        "oracle.get",
         "p.is_absolute",
         "pack_workspace",
         "parser.feed",
         "parser.finish",
         "patchset.verify_digest",
         "path.casefold",
+        "profile.get",
         "re.fullmatch",
         "read_evidence_file",
         "receipt.get",
+        "recipe.__post_init__",
+        "recipe.recipe_spec",
+        "recipe.verify_observation",
         "require",
         "resolved.outcome.to_dict",
+        "result.outcome.to_dict",
         "rows.append",
+        "self._read_render_record",
+        "self.journal._load",
         "self.journal._run",
         "self.journal.ledger.clock",
+        "self.journal.ledger.core.require",
         "self.output_root.mkdir",
         "self.output_root.resolve",
-        "self.owner.journal._load",
-        "self.owner.journal._run",
-        "self.owner.journal.ledger.clock",
         "self.owner.profile.context",
         "self.owner.profile.decode_observation",
         "self.prepare",
@@ -13716,12 +13757,14 @@
         "self.profile.materialization_spec",
         "self.profile.observation_spec",
         "self.profile.validate_patch",
+        "self.render_capsules.identity.sign",
         "self.route.core.require",
         "self.source_snapshot.verify",
         "self.source_snapshot.verify_export",
         "set",
         "sorted",
         "stdout.encode",
+        "step.__post_init__",
         "step.route.dispatch",
         "step.route.executor.config.root.glob",
         "step.route.reconcile",
@@ -13731,102 +13774,102 @@
         "tx.get",
         "tx.insert",
         "type",
+        "verify",
         "warrant.digest",
         "warrant.to_dict",
         "workspace_tree_digest"
       ],
-      "call_site_count": 282,
-      "call_sites_sha256": "79d0a5457e4b23fe3b06b5a72fad5bb99912e899868a5146811e8dce47ac9987"
+      "call_site_count": 361,
+      "call_sites_sha256": "58f1ff8c5c7397b1b393b9b2ffdd0c01c346d1787b443b4dd7c8dada750ba0e9"
     },
     "runtime/mission/sandbox_contracts.py": {
       "path": "runtime/mission/sandbox_contracts.py",
-      "git_blob": "0a97557b295242ec1a9dc1b50b2b473b4cc19197",
-      "sha256": "c6e33cd5ad9029670177893214d79560ee75edd2eac822725f8c8266795ba69b",
+      "git_blob": "2ebc2413c8ef891548231ea1a6b7fbcbbee5ea65",
+      "sha256": "6631a3accc16c470b9ec8bf5f409b71c85e5e62115d62a11827b5785272b0c15",
       "definitions": [
         {
           "name": "_identity",
-          "line": 28
+          "line": 34
         },
         {
           "name": "_digest",
-          "line": 33
-        },
-        {
-          "name": "SandboxOperation",
           "line": 39
         },
         {
+          "name": "SandboxOperation",
+          "line": 45
+        },
+        {
           "name": "SandboxDispatchRequest",
-          "line": 86
+          "line": 97
         },
         {
           "name": "ToolVariant",
-          "line": 126
+          "line": 137
         },
         {
           "name": "tool_variant",
-          "line": 141
+          "line": 152
         },
         {
           "name": "SandboxRecipe",
-          "line": 149
+          "line": 160
         },
         {
           "name": "SandboxRegistry",
-          "line": 180
+          "line": 194
         },
         {
           "name": "__post_init__",
-          "line": 42
+          "line": 48
         },
         {
           "name": "parse",
-          "line": 73
+          "line": 84
         },
         {
           "name": "to_dict",
-          "line": 77
+          "line": 88
         },
         {
           "name": "digest",
-          "line": 81
+          "line": 92
         },
         {
           "name": "__post_init__",
-          "line": 100
+          "line": 111
         },
         {
           "name": "to_dict",
-          "line": 114
+          "line": 125
         },
         {
           "name": "digest",
-          "line": 121
+          "line": 132
         },
         {
           "name": "__post_init__",
-          "line": 166
+          "line": 178
         },
         {
           "name": "payload",
-          "line": 172
-        },
-        {
-          "name": "__post_init__",
           "line": 184
         },
         {
+          "name": "__post_init__",
+          "line": 198
+        },
+        {
           "name": "payload",
-          "line": 191
+          "line": 205
         },
         {
           "name": "validate",
-          "line": 198
+          "line": 212
         }
       ],
       "symbolic_callees": [
         "MappingProxyType",
-        "RESOURCE_CEILINGS.items",
         "SandboxOperation",
         "SandboxOperation.parse",
         "ToolVariant",
@@ -13835,6 +13878,7 @@
         "all",
         "canonical_json_bytes",
         "canonical_sha256",
+        "ceilings.items",
         "cls",
         "dataclass",
         "fields",
@@ -13847,6 +13891,7 @@
         "parsed.to_dict",
         "re.fullmatch",
         "require",
+        "result.pop",
         "selected[data].payload",
         "self.payload",
         "self.to_dict",
@@ -13854,13 +13899,13 @@
         "tuple",
         "type"
       ],
-      "call_site_count": 91,
-      "call_sites_sha256": "2e802da9219b205bbcb875b9fdb1338822621c78553d9adc5777cbf6d6ead4c9"
+      "call_site_count": 95,
+      "call_sites_sha256": "7b5311156ae22ce8cf8a8b9bdd8aded541822e16adfbf1da245ee8310da7bb38"
     },
     "runtime/mission/project_recipe.py": {
       "path": "runtime/mission/project_recipe.py",
-      "git_blob": "2c77ddf5584d1af1d9c6899eeea3248d62eee66c",
-      "sha256": "79ed80b36fbdd9827f26e71748beaa49b1940c6a478199b17bdff33b29b59fa3",
+      "git_blob": "34e8f246afd813ac4d4c3e478e31acaedd4bba02",
+      "sha256": "0f6040a1684adea592f14e27c0ed3e691abb3fb4b580064fe42c040f3119d46a",
       "definitions": [
         {
           "name": "_require",
@@ -13900,15 +13945,15 @@
         },
         {
           "name": "_recipe_value",
-          "line": 365
+          "line": 370
         },
         {
           "name": "PythonFunctionCase",
-          "line": 405
+          "line": 410
         },
         {
           "name": "PythonRepositoryRecipe",
-          "line": 453
+          "line": 458
         },
         {
           "name": "__post_init__",
@@ -13972,55 +14017,63 @@
         },
         {
           "name": "check",
-          "line": 377
+          "line": 382
         },
         {
           "name": "__post_init__",
-          "line": 414
+          "line": 419
         },
         {
           "name": "call_payload",
-          "line": 443
+          "line": 448
         },
         {
           "name": "__post_init__",
-          "line": 469
+          "line": 477
         },
         {
           "name": "manifest_bytes",
-          "line": 538
+          "line": 553
         },
         {
           "name": "from_manifest",
-          "line": 568
+          "line": 589
         },
         {
           "name": "load_file",
-          "line": 630
+          "line": 670
         },
         {
           "name": "digest",
-          "line": 648
+          "line": 688
         },
         {
           "name": "validate_patch",
-          "line": 675
+          "line": 723
+        },
+        {
+          "name": "trusted_observer",
+          "line": 738
+        },
+        {
+          "name": "accepts_observer",
+          "line": 742
         },
         {
           "name": "context",
-          "line": 689
+          "line": 750
         },
         {
           "name": "materialization_spec",
-          "line": 700
+          "line": 761
         },
         {
           "name": "observation_spec",
-          "line": 762
+          "line": 823
         },
         {
           "name": "decode_observation",
-          "line": 787
+          "line": 864
         }
       ],
       "symbolic_callees": [
@@ -14040,6 +14093,7 @@
         "SandboxRegistry",
         "SensorBridgePlan",
         "ValueError",
+        "__import__",
         "_hash",
         "_json",
         "_json_bytes",
@@ -14071,6 +14125,7 @@
         "item.values",
         "json.dumps",
         "json.dumps().encode",
+        "json.loads",
         "k.endswith",
         "len",
         "list",
@@ -14103,6 +14158,8 @@
         "root.exists",
         "root.mkdir",
         "root.with_name",
+        "row.get",
+        "row.items",
         "self.__post_init__",
         "self.arguments_json.decode",
         "self.context",
@@ -14110,13 +14167,18 @@
         "self.files",
         "self.files().items",
         "self.manifest",
+        "self.manifest_bytes",
         "self.plan_bytes",
         "self.result_bytes",
         "self.validate_patch",
+        "self.wheel_lock.__post_init__",
+        "self.wheel_lock.inputs",
+        "self.wheel_lock.manifest_bytes",
         "set",
         "snapshot_python_runtime",
         "sorted",
         "source.resolve",
+        "spec[data].update",
         "stages.append",
         "stat.S_ISREG",
         "stdout.encode",
@@ -14131,11 +14193,13 @@
         "tuple",
         "type",
         "validate_program",
+        "value.update",
+        "wheel_lock.manifest_bytes",
         "workspace_tree_digest",
         "zip"
       ],
-      "call_site_count": 360,
-      "call_sites_sha256": "a530ad196b223c4a4f347f7271930e913629ccd83d51376887c6f3b2bbf2674c"
+      "call_site_count": 415,
+      "call_sites_sha256": "9ec096b43e7677bcf232fb1337076a39e1adfd8b9ae1ab06310e7004f42b2cbc"
     },
     "runtime/mission/install_plan.py": {
       "path": "runtime/mission/install_plan.py",
@@ -15100,6 +15164,1110 @@
         "type"
       ],
       "call_sites_sha256": "a4b7f13f50409337d912be3e1bef701b7bd15965d560de5a1a4882da05049ac5"
+    },
+    "runtime/meta_hackathon/runtime_adapter.py": {
+      "path": "runtime/meta_hackathon/runtime_adapter.py",
+      "git_blob": "3c529f6ee7ee896f2af4a70b11485f72115e58b0",
+      "sha256": "6615fdb2f592323e4d3864602a5faaaa3b46972ecfb23b0478482cca471733d0",
+      "definitions": [
+        {
+          "name": "sealed_source_path",
+          "line": 120
+        },
+        {
+          "name": "current_source",
+          "line": 134
+        },
+        {
+          "name": "OfflineMetaComposition",
+          "line": 141
+        },
+        {
+          "name": "_desktop_operator_uid",
+          "line": 228
+        },
+        {
+          "name": "NativeMobileComposition",
+          "line": 258
+        },
+        {
+          "name": "__init__",
+          "line": 142
+        },
+        {
+          "name": "enable_unified",
+          "line": 183
+        },
+        {
+          "name": "close",
+          "line": 219
+        },
+        {
+          "name": "__init__",
+          "line": 265
+        },
+        {
+          "name": "_initialize",
+          "line": 313
+        },
+        {
+          "name": "operator_principal",
+          "line": 383
+        },
+        {
+          "name": "_chat_authority",
+          "line": 389
+        },
+        {
+          "name": "_chat_credit_authority",
+          "line": 409
+        },
+        {
+          "name": "qualify_tls",
+          "line": 431
+        },
+        {
+          "name": "_require_qualified_operator",
+          "line": 478
+        },
+        {
+          "name": "public_settings",
+          "line": 484
+        },
+        {
+          "name": "model_calls",
+          "line": 490
+        },
+        {
+          "name": "operator_auth_status",
+          "line": 496
+        },
+        {
+          "name": "renew_operator",
+          "line": 508
+        },
+        {
+          "name": "operator_request",
+          "line": 579
+        },
+        {
+          "name": "close",
+          "line": 641
+        },
+        {
+          "name": "fixture",
+          "line": 164
+        },
+        {
+          "name": "inspect",
+          "line": 628
+        },
+        {
+          "name": "revoke",
+          "line": 620
+        },
+        {
+          "name": "record",
+          "line": 554
+        }
+      ],
+      "call_site_count": 412,
+      "symbolic_callees": [
+        "<dynamic>.exists",
+        "AdmissionError",
+        "ChromeReadAdapter",
+        "CoreAdmission",
+        "CoreDualGovernor",
+        "CoreWarrantLedger",
+        "DurableFactory",
+        "FixtureReadDriver",
+        "GovernorPolicy",
+        "Identity",
+        "Limits",
+        "LocalCoreRecordFactory",
+        "LocalOwnerAssignment",
+        "MetaModelProvider",
+        "MissionService",
+        "MobileGateway",
+        "OwnerScope",
+        "Pairing",
+        "Pairing().owner",
+        "Path",
+        "Path().absolute",
+        "Path().is_absolute",
+        "Path().lstat",
+        "Path().read_text",
+        "Path().resolve",
+        "ProviderManager",
+        "TransactionRunner",
+        "ValueError",
+        "_desktop_operator_uid",
+        "advisory_dispatch",
+        "any",
+        "authentication.get",
+        "base.is_symlink",
+        "base64.b64encode",
+        "base64.b64encode().decode",
+        "budget_dispatch",
+        "callable",
+        "canonical_sha256",
+        "capabilities.add",
+        "certificate.not_valid_after.replace",
+        "certificate.not_valid_after.replace().timestamp",
+        "certificate.public_bytes",
+        "certificate.public_key",
+        "certificate.public_key().public_bytes",
+        "chat_read_context",
+        "client.getresponse",
+        "client.request",
+        "context.wrap_socket",
+        "create_runtime",
+        "data.pop",
+        "datetime.now",
+        "datetime.now().timestamp",
+        "device.payload.get",
+        "dict",
+        "dispatch",
+        "ec.SECP256R1",
+        "ec.generate_private_key",
+        "failure_boundary",
+        "fcntl.flock",
+        "frozenset",
+        "hasattr",
+        "hashlib.sha256",
+        "hashlib.sha256().digest",
+        "hashlib.sha256().hexdigest",
+        "http.client.HTTPConnection",
+        "int",
+        "invalidate_console",
+        "json.dumps",
+        "json.dumps().encode",
+        "json.loads",
+        "key.private_bytes",
+        "key_metadata",
+        "key_path.exists",
+        "key_path.lstat",
+        "len",
+        "line.split",
+        "load_host_config",
+        "op.startswith",
+        "os.close",
+        "os.fdopen",
+        "os.fstat",
+        "os.fsync",
+        "os.getpid",
+        "os.getuid",
+        "os.open",
+        "os.read",
+        "path.exists",
+        "path.is_symlink",
+        "path.lstat",
+        "peer.close",
+        "peer.getpeercert",
+        "peer.version",
+        "plain",
+        "prepare_sensorbridge_sandbox",
+        "prior.payload.get",
+        "r.payload.get",
+        "raw.rfind",
+        "raw[data].split",
+        "registry",
+        "request.estimate",
+        "response.read",
+        "save_host_config",
+        "sealed_source_path",
+        "sealed_source_path().read_bytes",
+        "secrets.token_hex",
+        "self._initialize",
+        "self._meta_key_path.lstat",
+        "self._operator_renew_attempts.add",
+        "self._operator_renew_lock.acquire",
+        "self._operator_renew_lock.release",
+        "self._require_qualified_operator",
+        "self.chat_governor.start_epoch",
+        "self.close",
+        "self.core.close",
+        "self.core.local_operator",
+        "self.manager.configure_meta",
+        "self.missions._lock.acquire",
+        "self.missions._lock.release",
+        "self.missions._workers.values",
+        "self.missions.bind_agent_tools",
+        "self.missions.bind_chat",
+        "self.missions.close",
+        "self.missions.source_probe",
+        "self.mobile._get",
+        "self.mobile._record",
+        "self.mobile._run",
+        "self.mobile.clock",
+        "self.mobile.issue_enrollment",
+        "self.model_calls",
+        "self.operator_auth_status",
+        "self.operator_principal",
+        "self.public_settings",
+        "self.renew_operator",
+        "self.root.is_symlink",
+        "self.root.lstat",
+        "self.root.mkdir",
+        "self.root.resolve",
+        "self.runner.close",
+        "self.runtime.close",
+        "self.source_probe",
+        "serialization.NoEncryption",
+        "serialization.load_pem_private_key",
+        "session.stdout.splitlines",
+        "set",
+        "signing_key_identity",
+        "socket.create_connection",
+        "sorted",
+        "source_probe",
+        "ssl.create_default_context",
+        "stat.S_ISDIR",
+        "stat.S_ISREG",
+        "state.exists",
+        "state.is_symlink",
+        "state.stat",
+        "str",
+        "stream.fileno",
+        "stream.flush",
+        "stream.write",
+        "subprocess.run",
+        "subprocess.run().stdout.strip",
+        "threading.Lock",
+        "time.monotonic",
+        "time.time",
+        "tuple",
+        "tx.get",
+        "tx.scan",
+        "type",
+        "urlsplit",
+        "validate_existing_profile",
+        "value.get",
+        "value.pop",
+        "wire.HEX32.fullmatch",
+        "wire.Identity",
+        "wire.MobileError",
+        "wire.canonical",
+        "wire.digest",
+        "wire.origin",
+        "wire.public_key",
+        "wire.strict_json",
+        "wire.unbase64",
+        "wire.verify",
+        "worker.is_alive",
+        "x509.load_der_x509_certificate"
+      ],
+      "call_sites_sha256": "1bdbc4784338f7fea1a3e3fd7fa3039cf2f99d406ac1852cd8a4f018f4f17d62"
+    },
+    "runtime/mission/dependency_lock.py": {
+      "path": "runtime/mission/dependency_lock.py",
+      "git_blob": "8ee51dee63e66b69461bd08d738035f16f19847e",
+      "sha256": "3d0b2339bb548f09e13734a7d563eae1bb8ed35767adc16c0498ea4a7cf0a52a",
+      "definitions": [
+        {
+          "name": "_require",
+          "line": 23
+        },
+        {
+          "name": "_json",
+          "line": 28
+        },
+        {
+          "name": "_headers",
+          "line": 33
+        },
+        {
+          "name": "_wheel_members",
+          "line": 46
+        },
+        {
+          "name": "LockedWheel",
+          "line": 124
+        },
+        {
+          "name": "PythonWheelLock",
+          "line": 159
+        },
+        {
+          "name": "__post_init__",
+          "line": 131
+        },
+        {
+          "name": "members",
+          "line": 148
+        },
+        {
+          "name": "manifest",
+          "line": 152
+        },
+        {
+          "name": "__post_init__",
+          "line": 162
+        },
+        {
+          "name": "authority",
+          "line": 175
+        },
+        {
+          "name": "manifest_bytes",
+          "line": 178
+        },
+        {
+          "name": "digest",
+          "line": 184
+        },
+        {
+          "name": "inputs",
+          "line": 187
+        }
+      ],
+      "call_site_count": 147,
+      "symbolic_callees": [
+        "BytesParser",
+        "BytesParser().parsebytes",
+        "ValueError",
+        "_headers",
+        "_json",
+        "_require",
+        "_wheel_members",
+        "all",
+        "any",
+        "archive.infolist",
+        "archive.read",
+        "base64.urlsafe_b64encode",
+        "base64.urlsafe_b64encode().rstrip",
+        "base64.urlsafe_b64encode().rstrip().decode",
+        "content.decode",
+        "csv.reader",
+        "dataclass",
+        "field",
+        "folded.add",
+        "hashlib.sha256",
+        "hashlib.sha256().digest",
+        "hashlib.sha256().hexdigest",
+        "io.BytesIO",
+        "io.StringIO",
+        "json.dumps",
+        "json.dumps().encode",
+        "key.lower",
+        "len",
+        "list",
+        "max",
+        "members.items",
+        "members[data].decode",
+        "metadata.get",
+        "name.casefold",
+        "name.encode",
+        "name.endswith",
+        "name.split",
+        "package.replace",
+        "paths.intersection",
+        "paths.update",
+        "raw.decode",
+        "raw.startswith",
+        "re.fullmatch",
+        "re.sub",
+        "re.sub().lower",
+        "self.__post_init__",
+        "self.distribution.replace",
+        "self.manifest_bytes",
+        "set",
+        "sorted",
+        "stat.S_IMODE",
+        "stat.S_ISREG",
+        "str",
+        "tuple",
+        "type",
+        "value.is_multipart",
+        "wheel.get",
+        "wheel.manifest",
+        "wheel.members",
+        "zipfile.ZipFile"
+      ],
+      "call_sites_sha256": "693502b944e93727c146132a3b0346daef340ad9c899fd82b6ac2e263a5276e9"
+    },
+    "runtime/mission/function_isolation.py": {
+      "path": "runtime/mission/function_isolation.py",
+      "git_blob": "9ba28dc7ec3e92d11fdab920e9e0a028e07041b3",
+      "sha256": "828f034c1799ae85ff8d61551934b2e5e1fcd8b65440bc00d9cf2f0826a10582",
+      "definitions": [
+        {
+          "name": "require",
+          "line": 35
+        },
+        {
+          "name": "_require_confined_single_thread",
+          "line": 40
+        },
+        {
+          "name": "_Ruleset",
+          "line": 49
+        },
+        {
+          "name": "_PathBeneath",
+          "line": 54
+        },
+        {
+          "name": "_LandlockKernel",
+          "line": 59
+        },
+        {
+          "name": "_kernel",
+          "line": 78
+        },
+        {
+          "name": "restrict_function_process",
+          "line": 82
+        },
+        {
+          "name": "__init__",
+          "line": 60
+        },
+        {
+          "name": "create",
+          "line": 65
+        },
+        {
+          "name": "add",
+          "line": 69
+        },
+        {
+          "name": "restrict",
+          "line": 74
+        }
+      ],
+      "call_site_count": 47,
+      "symbolic_callees": [
+        "Path",
+        "Path().is_file",
+        "Path().read_text",
+        "ValueError",
+        "_LandlockKernel",
+        "_PathBeneath",
+        "_Ruleset",
+        "_kernel",
+        "_require_confined_single_thread",
+        "ctypes.CDLL",
+        "ctypes.byref",
+        "ctypes.c_int",
+        "ctypes.c_long",
+        "ctypes.c_size_t",
+        "ctypes.c_uint",
+        "ctypes.c_void_p",
+        "ctypes.sizeof",
+        "kernel.add",
+        "kernel.create",
+        "kernel.restrict",
+        "len",
+        "os.close",
+        "os.listdir",
+        "os.open",
+        "os.statvfs",
+        "platform.machine",
+        "require",
+        "self.libc.syscall"
+      ],
+      "call_sites_sha256": "fc831fa229491ccbfaeebb407b1be08cbab1149d17c4bcb58ad2d81c71d41078"
+    },
+    "runtime/mission/python_function_child.py": {
+      "path": "runtime/mission/python_function_child.py",
+      "git_blob": "bfb0a5f8bb7d9913dc33bb6618d6c6400edcd4ef",
+      "sha256": "bfe238f312dff931b31ba2ffc5fd9330f78007f5aaea70aca0617826e59140d0",
+      "definitions": [
+        {
+          "name": "require",
+          "line": 12
+        },
+        {
+          "name": "run",
+          "line": 17
+        }
+      ],
+      "call_site_count": 46,
+      "symbolic_callees": [
+        "Path",
+        "Path().is_file",
+        "Path().read_bytes",
+        "Path().read_text",
+        "ValueError",
+        "all",
+        "boundary[data]",
+        "function",
+        "getattr",
+        "importlib.import_module",
+        "int",
+        "isolation[data]",
+        "json.dumps",
+        "json.loads",
+        "len",
+        "os.statvfs",
+        "print",
+        "raw.encode",
+        "re.fullmatch",
+        "redirect_stdout",
+        "require",
+        "root.split",
+        "run",
+        "runpy.run_path",
+        "set",
+        "str",
+        "type"
+      ],
+      "call_sites_sha256": "aee5a196a9f68d07887ce632a2f61ed49c584fe2fb1f5b440042f9a94541600e"
+    },
+    "runtime/mission/python_function_worker.py": {
+      "path": "runtime/mission/python_function_worker.py",
+      "git_blob": "8a939c728776e8351a1178c4a23e6ad07c9e808b",
+      "sha256": "88db37cec4565226eac8a7fcc6f7b464066dbb56a7861ae112c15a624e9a5745",
+      "definitions": [
+        {
+          "name": "require",
+          "line": 20
+        },
+        {
+          "name": "confined",
+          "line": 25
+        },
+        {
+          "name": "canonical",
+          "line": 32
+        },
+        {
+          "name": "strict",
+          "line": 37
+        },
+        {
+          "name": "wheel_lock",
+          "line": 48
+        },
+        {
+          "name": "install",
+          "line": 75
+        },
+        {
+          "name": "verify_installed",
+          "line": 98
+        },
+        {
+          "name": "stage_workspace",
+          "line": 126
+        },
+        {
+          "name": "one_call",
+          "line": 148
+        },
+        {
+          "name": "observe",
+          "line": 191
+        },
+        {
+          "name": "pairs",
+          "line": 38
+        },
+        {
+          "name": "scan",
+          "line": 102
+        }
+      ],
+      "call_site_count": 182,
+      "symbolic_callees": [
+        "Path",
+        "Path().is_file",
+        "Path().read_bytes",
+        "Path().read_text",
+        "Path().write_bytes",
+        "ValueError",
+        "actual.append",
+        "bytearray",
+        "bytes",
+        "canonical",
+        "confined",
+        "dict",
+        "enumerate",
+        "hashlib.sha256",
+        "hashlib.sha256().hexdigest",
+        "importlib.util.module_from_spec",
+        "importlib.util.spec_from_file_location",
+        "install",
+        "installed.append",
+        "item[data].encode",
+        "json.dumps",
+        "json.dumps().encode",
+        "json.loads",
+        "len",
+        "lock.manifest_bytes",
+        "manifest.get",
+        "max",
+        "module.LockedWheel",
+        "module.PythonWheelLock",
+        "observe",
+        "one_call",
+        "os.close",
+        "os.listdir",
+        "os.open",
+        "os.read",
+        "os.set_blocking",
+        "os.stat",
+        "os.statvfs",
+        "output.extend",
+        "print",
+        "process.kill",
+        "process.poll",
+        "process.stdout.close",
+        "process.stdout.fileno",
+        "process.wait",
+        "raw.decode",
+        "reply.get",
+        "reply[data].isalnum",
+        "reply[data].isascii",
+        "require",
+        "results.append",
+        "root.mkdir",
+        "row[data].endswith",
+        "runpy.run_path",
+        "scan",
+        "selector.close",
+        "selector.get_map",
+        "selector.register",
+        "selector.select",
+        "selector.unregister",
+        "selectors.DefaultSelector",
+        "set",
+        "sorted",
+        "spec.loader.exec_module",
+        "stage_workspace",
+        "stat.S_ISDIR",
+        "str",
+        "strict",
+        "subprocess.Popen",
+        "support[data]",
+        "time.monotonic",
+        "tuple",
+        "type",
+        "verify_installed",
+        "wheel.members",
+        "wheel_lock",
+        "wheels.append"
+      ],
+      "call_sites_sha256": "7679fb527e27ffa52c3ba2ebbc6379478d056decf328303bf9da41d1cb97f33f"
+    },
+    "runtime/mission/render_observation.py": {
+      "path": "runtime/mission/render_observation.py",
+      "git_blob": "bed242e069e9e3948f80d0d72d95d717b1509a39",
+      "sha256": "4b133edab1adf95354f14583aa17a9aa192044ea3bf8e39c6ed81b33725965c5",
+      "definitions": [
+        {
+          "name": "_require",
+          "line": 11
+        },
+        {
+          "name": "_paeth",
+          "line": 16
+        },
+        {
+          "name": "decode_png_summary",
+          "line": 22
+        }
+      ],
+      "call_site_count": 59,
+      "symbolic_callees": [
+        "ValueError",
+        "_paeth",
+        "_require",
+        "abs",
+        "all",
+        "ancillary.add",
+        "binascii.crc32",
+        "bytearray",
+        "bytes",
+        "compressed.extend",
+        "enumerate",
+        "hashlib.sha256",
+        "hashlib.sha256().hexdigest",
+        "inflater.decompress",
+        "int",
+        "len",
+        "min",
+        "range",
+        "raw.startswith",
+        "set",
+        "struct.unpack",
+        "type",
+        "zlib.decompressobj"
+      ],
+      "call_sites_sha256": "e70e7cff7b124e47fcdba539feb0f521e733aa36d84e1d39b50da2f96ad65138"
+    },
+    "runtime/mission/render_recipe.py": {
+      "path": "runtime/mission/render_recipe.py",
+      "git_blob": "3cdce51996b83fa3188756047601e53ec15deebd",
+      "sha256": "675d4d0653b70faf94b7cb704382596bd9d8f51b0d720e451f783717bfdf5f25",
+      "definitions": [
+        {
+          "name": "require",
+          "line": 14
+        },
+        {
+          "name": "canonical",
+          "line": 19
+        },
+        {
+          "name": "HtmlRenderRecipe",
+          "line": 25
+        },
+        {
+          "name": "__post_init__",
+          "line": 31
+        },
+        {
+          "name": "authority",
+          "line": 55
+        },
+        {
+          "name": "manifest_bytes",
+          "line": 58
+        },
+        {
+          "name": "digest",
+          "line": 70
+        },
+        {
+          "name": "recipe_spec",
+          "line": 73
+        },
+        {
+          "name": "verify_observation",
+          "line": 88
+        },
+        {
+          "name": "pairs",
+          "line": 93
+        }
+      ],
+      "call_site_count": 85,
+      "symbolic_callees": [
+        "Path",
+        "Path().read_bytes",
+        "Path().with_name",
+        "Path().with_name().read_bytes",
+        "ValueError",
+        "all",
+        "base64.b64decode",
+        "canonical",
+        "contains_sensitive_material",
+        "data.decode",
+        "dataclass",
+        "decode_png_summary",
+        "dict",
+        "encoded.isascii",
+        "field",
+        "files.update",
+        "hashlib.sha256",
+        "hashlib.sha256().hexdigest",
+        "json.dumps",
+        "json.dumps().encode",
+        "json.loads",
+        "len",
+        "list",
+        "require",
+        "seen.add",
+        "self.manifest_bytes",
+        "set",
+        "type",
+        "value.encode"
+      ],
+      "call_sites_sha256": "6e23e7ff683638635fb9c92cb39ab7c34268b2c98f449574d37ec36d6a5e37b3"
+    },
+    "runtime/mission/render_runtime.py": {
+      "path": "runtime/mission/render_runtime.py",
+      "git_blob": "682e43149f782ef35f8ffbc2b12b0d59d2af08d7",
+      "sha256": "ddecfc976359416472ca99331ff9dfb64cf38a6b4fc8648c8894de16f43642ef",
+      "definitions": [
+        {
+          "name": "require",
+          "line": 20
+        },
+        {
+          "name": "parse_renderer_dependencies",
+          "line": 25
+        },
+        {
+          "name": "_identity",
+          "line": 47
+        },
+        {
+          "name": "_copy_root_owned",
+          "line": 52
+        },
+        {
+          "name": "snapshot_renderer_runtime",
+          "line": 83
+        },
+        {
+          "name": "prepare_html_render_sandbox",
+          "line": 112
+        }
+      ],
+      "call_site_count": 89,
+      "symbolic_callees": [
+        "Path",
+        "Path().absolute",
+        "Path().lstat",
+        "SandboxRegistry",
+        "ValueError",
+        "_copy_root_owned",
+        "_identity",
+        "all",
+        "destination.open",
+        "digest.hexdigest",
+        "digest.update",
+        "enumerate",
+        "files.update",
+        "hashlib.sha256",
+        "len",
+        "line.strip",
+        "match.group",
+        "os.close",
+        "os.fchmod",
+        "os.fstat",
+        "os.fsync",
+        "os.open",
+        "os.read",
+        "output.splitlines",
+        "parse_renderer_dependencies",
+        "path.split",
+        "path.startswith",
+        "paths.add",
+        "prepare_linux_sandbox",
+        "re.fullmatch",
+        "recipe.__post_init__",
+        "recipe.recipe_spec",
+        "replace",
+        "require",
+        "resolved.lstat",
+        "root.exists",
+        "root.with_name",
+        "set",
+        "snapshot_python_runtime",
+        "snapshot_renderer_runtime",
+        "sorted",
+        "source.resolve",
+        "stat.S_ISREG",
+        "str",
+        "str().startswith",
+        "stream.fileno",
+        "stream.flush",
+        "stream.write",
+        "subprocess.run",
+        "tuple",
+        "type"
+      ],
+      "call_sites_sha256": "43dfe5e0a179042bfc0838ffbdf0319ce212a328f1cdc4b292d9d589c604ad1f"
+    },
+    "runtime/mission/render_worker.py": {
+      "path": "runtime/mission/render_worker.py",
+      "git_blob": "2e9cf475e17a57485e3741f198da1e0ea23577f9",
+      "sha256": "6222640b3745be7a7ae28aa906e03a108d462435dd4d6a9797658c432e402161",
+      "definitions": [
+        {
+          "name": "require",
+          "line": 14
+        },
+        {
+          "name": "confined",
+          "line": 19
+        },
+        {
+          "name": "chrome_argv",
+          "line": 27
+        },
+        {
+          "name": "chrome_exec",
+          "line": 37
+        },
+        {
+          "name": "run",
+          "line": 51
+        },
+        {
+          "name": "event",
+          "line": 75
+        }
+      ],
+      "call_site_count": 109,
+      "symbolic_callees": [
+        "<dynamic>.open",
+        "Path",
+        "Path().is_file",
+        "Path().mkdir",
+        "Path().read_bytes",
+        "Path().read_text",
+        "Path().write_bytes",
+        "ValueError",
+        "base64.b64decode",
+        "chrome_argv",
+        "chrome_exec",
+        "config[data].items",
+        "confined",
+        "document.get",
+        "document.get().get",
+        "fcntl.fcntl",
+        "hashlib.sha256",
+        "hashlib.sha256().hexdigest",
+        "int",
+        "json.dumps",
+        "json.dumps().encode",
+        "json.loads",
+        "len",
+        "os.close",
+        "os.dup2",
+        "os.execve",
+        "os.pipe",
+        "os.statvfs",
+        "pipe.call",
+        "range",
+        "require",
+        "result.get",
+        "run",
+        "runpy.run_path",
+        "set",
+        "site.mkdir",
+        "str",
+        "stream.write",
+        "subprocess.Popen",
+        "support[data]",
+        "sys.stdout.buffer.write",
+        "time.sleep",
+        "type",
+        "value.get",
+        "value.get().get"
+      ],
+      "call_sites_sha256": "7a06979daca1e5f0470330d0023d5723f22faec89d70eed66330da2e1f72acc0"
+    },
+    "runtime/mobile_gateway/chrome_console.py": {
+      "path": "runtime/mobile_gateway/chrome_console.py",
+      "git_blob": "678deb657d537e6d45e5fa28269c87190cd2fcfe",
+      "sha256": "fba69e08b3002a4898eba337ebea1f4c098c3c01ff0bcc677ea16c8eafd6a2e9",
+      "definitions": [
+        {
+          "name": "validate",
+          "line": 21
+        },
+        {
+          "name": "launch",
+          "line": 30
+        },
+        {
+          "name": "cleanup_owned",
+          "line": 48
+        },
+        {
+          "name": "Pipe",
+          "line": 58
+        },
+        {
+          "name": "wait_for_document",
+          "line": 97
+        },
+        {
+          "name": "open_document",
+          "line": 107
+        },
+        {
+          "name": "deliver_once",
+          "line": 118
+        },
+        {
+          "name": "run",
+          "line": 131
+        },
+        {
+          "name": "__init__",
+          "line": 59
+        },
+        {
+          "name": "call",
+          "line": 64
+        },
+        {
+          "name": "stop_owned",
+          "line": 168
+        },
+        {
+          "name": "invoke",
+          "line": 172
+        }
+      ],
+      "call_site_count": 132,
+      "symbolic_callees": [
+        "Path",
+        "Path().resolve",
+        "Path.home",
+        "Pipe",
+        "SystemExit",
+        "ValueError",
+        "callable",
+        "child.stdin.close",
+        "child.stdin.write",
+        "child.stdout.close",
+        "child.stdout.readline",
+        "cleanup_owned",
+        "data.clear",
+        "data.get",
+        "deliver_once",
+        "directory.is_symlink",
+        "directory.lstat",
+        "executable.stat",
+        "failure_boundary",
+        "invoke",
+        "json.dumps",
+        "json.dumps().encode",
+        "json.loads",
+        "json.loads().get",
+        "len",
+        "open_document",
+        "origin",
+        "os.close",
+        "os.getpgid",
+        "os.getuid",
+        "os.killpg",
+        "os.pipe",
+        "os.read",
+        "os.umask",
+        "os.write",
+        "pipe.call",
+        "print",
+        "process.kill",
+        "process.poll",
+        "process.terminate",
+        "process.wait",
+        "range",
+        "re.fullmatch",
+        "result.get",
+        "run",
+        "select.select",
+        "self.buffer.split",
+        "self.on_event",
+        "set",
+        "signal.signal",
+        "stat.S_ISDIR",
+        "stat.S_ISREG",
+        "state.is_symlink",
+        "state.lstat",
+        "state.mkdir",
+        "str",
+        "subprocess.Popen",
+        "sys.stdin.buffer.readline",
+        "tempfile.TemporaryDirectory",
+        "time.monotonic",
+        "time.sleep",
+        "type",
+        "urlsplit",
+        "validate",
+        "value.get",
+        "value.get().get",
+        "wait_for_document"
+      ],
+      "call_sites_sha256": "05bcbd6cdf7bb37382ea6742d11d5f9cc6c9ff1b5ac86cba5b8da00b919ea809"
     }
   },
   "dispositions": {
@@ -15110,6 +16278,6 @@
     "DUPLICATE_VERIFIED": 16,
     "EXCLUDED_UNSAFE": 2
   },
-  "current_target_binding_note": "NZ13-C refresh of current tracked blob/AST identities only. NZ12 role assessments/qualification remain historical, not new parity evidence. Exact candidate SHA is bound by the external source-policy receipt.",
+  "current_target_binding_note": "NZ13-D current tracked blob/AST identities only. NZ12 assessments remain historical; function/render profiles require exact-head broker, confinement, Chrome and installed qualification. No model, production Native, unrestricted setup or full parity certification is implied.",
   "nz12_binding_before_nz13_sha256": "cfca6195089170934076cd15ac80a5b26786e947338b089dd75926d545b971b2"
 }

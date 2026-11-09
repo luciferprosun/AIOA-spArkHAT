@@ -811,6 +811,7 @@ class CoreRemoteGitRoute:
             Path(target_repository),
         )
         instance.target_guard, instance.owner_check = target_guard, check
+        instance.test_profile = profile
         instance.historical_operation = None
 
         def proofs(tx):
@@ -901,12 +902,8 @@ class CoreRemoteGitRoute:
             core_require(row is not None, "GIT_VALIDATION_REQUIRED")
             data = row.payload
             core_require(
-                (
-                    data.get("trusted_observer") == "BOUNDED_AST_JSON_ORACLE_V2"
-                    or (
-                        historical
-                        and data.get("trusted_observer") == "EXTERNAL_JSON_ORACLE"
-                    )
+                self.test_profile.accepts_observer(
+                    data.get("trusted_observer"), historical=historical
                 )
                 and data.get("stage") == stage
                 and data.get("status") == "PASS"

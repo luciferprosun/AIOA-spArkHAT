@@ -6,7 +6,6 @@ secret, browser extension or alternate frontend is involved. TLS stays enabled.
 """
 import json
 import os
-from pathlib import Path
 import re
 import select
 import signal
@@ -15,7 +14,9 @@ import subprocess
 import sys
 import tempfile
 import time
+from pathlib import Path
 from urllib.parse import urlsplit
+
 
 def validate(data):
     from .wire import origin
@@ -55,7 +56,11 @@ def cleanup_owned(process,*,group=False,timeout=5):
         process.wait(timeout=timeout)
 
 class Pipe:
-    def __init__(self,write_fd,read_fd):self.writer,self.reader,self.sequence,self.buffer=write_fd,read_fd,0,b''
+    def __init__(self, write_fd, read_fd, *, on_event=None):
+        if on_event is not None and not callable(on_event):
+            raise ValueError('CHROME_EVENT_HANDLER')
+        self.writer, self.reader, self.sequence, self.buffer = write_fd, read_fd, 0, b''
+        self.on_event = on_event
     def call(self,method,params=None,session=None):
         self.sequence+=1;identity=self.sequence
         command={'id':identity,'method':method,'params':params or {}}
@@ -70,9 +75,16 @@ class Pipe:
             while b'\0' in self.buffer:
                 raw,self.buffer=self.buffer.split(b'\0',1)
                 value=json.loads(raw)
-                if value.get('id')==identity:
+                if type(value) is not dict:
+                    raise ValueError('CHROME_REPLY_SHAPE')
+                if type(value.get('id')) is int and value['id']==identity:
                     if 'error' in value:raise ValueError('CHROME_COMMAND_FAILED')
                     return value.get('result',{})
+                if ('id' not in value and type(value.get('method')) is str
+                        and self.on_event is not None):
+                    # Only trusted collectors receive observations. Their return
+                    # values cannot acknowledge this command or grant authority.
+                    self.on_event(value)
             remaining=deadline-time.monotonic()
             if remaining<=0:break
             if not select.select([self.reader],[],[],remaining)[0]:break
@@ -146,8 +158,8 @@ def run(data):
             # Hold the anonymous pipe while the owner's Chrome window is open.
             # No background model call or mutation is performed by this helper.
             while process.poll() is None:
-                if select.select([parent_read],[],[],1)[0]:
-                    if not os.read(parent_read,65536):break
+                if select.select([parent_read],[],[],1)[0] and not os.read(parent_read,65536):
+                    break
         finally:
             os.close(parent_write);os.close(parent_read)
             cleanup_owned(process,group=True,timeout=2)
@@ -155,9 +167,15 @@ def run(data):
 if __name__=='__main__':
     def stop_owned(signum,frame):raise SystemExit(0)
     signal.signal(signal.SIGTERM,stop_owned)
-    try:
+    from runtime.failure_boundary import RepairBoundaryError, failure_boundary
+
+    def invoke():
         raw=sys.stdin.buffer.readline(2049)
         if len(raw)>2048:raise ValueError()
         run(json.loads(raw))
-    except Exception:
+
+    try:
+        with failure_boundary('CHROME_CONSOLE_BOUNDARY'):
+            invoke()
+    except (ValueError, RepairBoundaryError):
         print(json.dumps({'status':'CONSOLE_OPEN_UNKNOWN_NO_RETRY'}),flush=True)

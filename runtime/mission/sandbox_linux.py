@@ -26,6 +26,7 @@ from runtime.memory_patch.contracts.serialization import (
     canonical_sha256,
 )
 from runtime.mission.sandbox_contracts import (
+    RENDER_RESOURCE_CEILINGS,
     RESOURCE_CEILINGS,
     SandboxDispatchRequest,
     SandboxOperation,
@@ -162,7 +163,10 @@ def bounded_line(stream, seconds=8, *, cancel=None):
     raise ValueError("BOUNDED_PROTOCOL_LINE_MISSING")
 
 
-def build_filter(*, final):
+def build_filter(*, final, ipc_profile=None):
+    if ipc_profile is not None and (type(ipc_profile) is not str
+            or ipc_profile != 'RENDER_UNIX_SOCKETPAIR_V1' or final is not True):
+        raise ValueError('UNAPPROVED_SANDBOX_IPC_PROFILE')
     # Linux x86_64 only. Each filter rejects other ABIs and x32 first.
     rows = [
         (0x20, 0, 0, 4),
@@ -172,6 +176,21 @@ def build_filter(*, final):
         (0x35, 0, 1, 0x40000000),
         (0x06, 0, 0, 0x80000000),
     ]
+    if ipc_profile == 'RENDER_UNIX_SOCKETPAIR_V1':
+        # Only fresh Unix stream/seqpacket pairs. socket()/connect() remain
+        # denied, including the mounted host handoff socket. Bootstrap closes
+        # all fd>=3 before untrusted code; no host socket FD can be inherited.
+        pair = [
+            (0x20, 0, 0, 20), (0x15, 0, 11, 0),
+            (0x20, 0, 0, 16), (0x15, 0, 9, 1),
+            (0x20, 0, 0, 28), (0x15, 0, 7, 0),
+            (0x20, 0, 0, 24), (0x54, 0, 0, 0xFFF7F7F0), (0x15, 0, 4, 0),
+            (0x20, 0, 0, 24), (0x54, 0, 0, 0xF),
+            (0x15, 2, 0, 1), (0x15, 1, 0, 5),
+            (0x06, 0, 0, 0x00050001), (0x06, 0, 0, 0x7FFF0000),
+        ]
+        rows.append((0x15, 0, len(pair), 53))
+        rows.extend(pair)
     deny = {
         101,
         133,
@@ -229,6 +248,8 @@ def build_filter(*, final):
         deny.update(
             {41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 288, 299, 307}
         )
+    if ipc_profile == 'RENDER_UNIX_SOCKETPAIR_V1':
+        deny.difference_update({46, 47, 53})
     for number in sorted(deny):
         rows.extend([(0x15, 0, 1, number), (0x06, 0, 0, 0x00050001)])
     rows.extend([(0x15, 0, 1, 435), (0x06, 0, 0, 0x00050026)])  # clone3 ENOSYS
@@ -386,7 +407,7 @@ def load_host_config(root, *, trusted_root):
     )
 
 
-def prepare_linux_sandbox(root, runtime_manifest, *, workspace, recipes):
+def prepare_linux_sandbox(root, runtime_manifest, *, workspace, recipes, resource_profile=None):
     """Explicit operator preparation: compile packaged trusted C, pin runtime/inputs.
 
     recipes is a trusted mapping id -> {files:{name:bytes},expected:{artifact:bytes}}.
@@ -402,6 +423,15 @@ def prepare_linux_sandbox(root, runtime_manifest, *, workspace, recipes):
         and not sys.flags.optimize,
         "TRUSTED_SANDBOX_CONFIGURATION_REQUIRED",
     )
+    require(resource_profile is None or type(resource_profile) is str and resource_profile == 'HEADLESS_RENDER_V1',
+            'INVALID_SANDBOX_RESOURCE_PROFILE')
+    renderer = resource_profile == 'HEADLESS_RENDER_V1'
+    resource_ceilings = RENDER_RESOURCE_CEILINGS if renderer else RESOURCE_CEILINGS
+    chrome_targets = frozenset('/opt/google/chrome/' + name for name in (
+        'chrome', 'chrome_crashpad_handler', 'icudtl.dat', 'resources.pak',
+        'chrome_100_percent.pak', 'chrome_200_percent.pak', 'v8_context_snapshot.bin',
+        'locales/en-US.pak'))
+    chrome_targets = chrome_targets | {'/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'}
     root = root.absolute()
     root.mkdir(mode=0o700, parents=True, exist_ok=False)
     native = Path(__file__).parent / "native"
@@ -433,7 +463,8 @@ def prepare_linux_sandbox(root, runtime_manifest, *, workspace, recipes):
         pins[name] = {"source_sha256": sha(source), "binary_sha256": sha(destination)}
     for name, final in [("setup_filter", False), ("final_filter", True)]:
         path = root / (name + ".bpf")
-        path.write_bytes(build_filter(final=final))
+        path.write_bytes(build_filter(final=final, ipc_profile=(
+            'RENDER_UNIX_SOCKETPAIR_V1' if renderer and final else None)))
         path.chmod(0o400)
         pins[name] = sha(path)
     for target, entry in runtime_manifest.items():
@@ -444,6 +475,7 @@ def prepare_linux_sandbox(root, runtime_manifest, *, workspace, recipes):
                 or target.startswith(
                     ("/usr/lib/python3.12/", "/usr/bin/python3.12", "/lib/", "/lib64/")
                 )
+                or renderer and target in chrome_targets
             )
             and ".." not in target.split("/"),
             "UNAPPROVED_RUNTIME_PATH",
@@ -458,6 +490,7 @@ def prepare_linux_sandbox(root, runtime_manifest, *, workspace, recipes):
         )
         runtime[target] = {**entry, "mode": stat.S_IMODE(metadata.st_mode)}
     require("/usr/bin/python3.12" in runtime, "PINNED_RUNTIME_REQUIRED")
+    require(not renderer or '/opt/google/chrome/chrome' in runtime, 'PINNED_RENDERER_REQUIRED')
     env = {
         "PATH": "/usr/bin:/bin",
         "LANG": "C.UTF-8",
@@ -479,12 +512,15 @@ def prepare_linux_sandbox(root, runtime_manifest, *, workspace, recipes):
         "bwrap_sha256": sha("/usr/bin/bwrap"),
         "worker_sha256": sha(Path(__file__).with_name("sandbox_worker.py")),
         "backend_sha256": sha(__file__),
-        "resources": dict(RESOURCE_CEILINGS),
+        "resources": dict(resource_ceilings),
         "env": env,
         "network": "OFF",
         "namespaces": 7,
         "retained_python_extensions": "manifest exact; includes host test and Tk extension closure",
     }
+    if renderer:
+        profile.update(resource_profile=resource_profile, ipc_profile='RENDER_UNIX_SOCKETPAIR_V1',
+                       host_socket_creation='DENIED', inherited_control_fds=0)
     digest = canonical_sha256(profile)
     env_digest = canonical_sha256(env)
     inputs = {}
@@ -548,6 +584,8 @@ def prepare_linux_sandbox(root, runtime_manifest, *, workspace, recipes):
                 digest,
                 input_digest,
                 env_digest,
+                pids_max=resource_ceilings['pids_max'],
+                resource_profile=resource_profile,
             )
         )
     return TrustedSandboxConfig(
@@ -692,6 +730,31 @@ def git_storage_identity(root):
         raise ValueError("GIT_STORAGE_LINK_OR_CHANGE") from error
     require(set(identities) == set(GIT_CRITICAL_DIRECTORIES), "GIT_STORAGE_REQUIRED")
     return tuple((name, identities[name]) for name in GIT_CRITICAL_DIRECTORIES)
+
+
+def _systemd_properties(operation):
+    """Properties for already registered operations; parsing grants no authority."""
+    limits = SandboxOperation.parse(operation).to_dict()['payload']
+    return (
+        'Delegate=yes',
+        'DelegateSubgroup=supervisor',
+        'Slice=app.slice',
+        'MemoryMax=536870912',
+        'MemorySwapMax=0',
+        "TasksMax=" + str(limits["pids_max"]),
+        'CPUQuota=100%',
+        'CPUQuotaPeriodSec=100ms',
+        'NoNewPrivileges=yes',
+        'LimitAS=536870912',
+        'LimitCPU=15',
+        'LimitFSIZE=8388608',
+        'LimitCORE=0',
+        'LimitNOFILE=64',
+        'RuntimeMaxSec=32s',
+        'TimeoutStopSec=2s',
+        'KillMode=control-group',
+        'UMask=0077',
+    )
 
 
 class LinuxSandboxBroker:
@@ -1549,26 +1612,7 @@ class LinuxSandboxBroker:
                     "--expand-environment=no",
                     "--unit=" + unit,
                 ]
-                for prop in [
-                    "Delegate=yes",
-                    "DelegateSubgroup=supervisor",
-                    "Slice=app.slice",
-                    "MemoryMax=536870912",
-                    "MemorySwapMax=0",
-                    "TasksMax=16",
-                    "CPUQuota=100%",
-                    "CPUQuotaPeriodSec=100ms",
-                    "NoNewPrivileges=yes",
-                    "LimitAS=536870912",
-                    "LimitCPU=15",
-                    "LimitFSIZE=8388608",
-                    "LimitCORE=0",
-                    "LimitNOFILE=64",
-                    "RuntimeMaxSec=32s",
-                    "TimeoutStopSec=2s",
-                    "KillMode=control-group",
-                    "UMask=0077",
-                ]:
+                for prop in _systemd_properties(json.loads(request.operation_bytes)):
                     argv += ["--property=" + prop]
                 argv += [
                     "/usr/bin/env",

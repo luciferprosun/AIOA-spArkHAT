@@ -61,14 +61,15 @@ class LegacyObservationProjection:
     This never edits canonical history or obtains a transaction write method.
     """
 
-    def __init__(self, transaction, marker="EXTERNAL_JSON_ORACLE"):
+    def __init__(self, transaction, marker="EXTERNAL_JSON_ORACLE", *, current_marker="BOUNDED_AST_JSON_ORACLE_V2"):
         self.transaction = transaction
         self.marker = marker
+        self.current_marker = current_marker
         self.projected = 0
 
     def get(self, kind, record_id):
         row = self.transaction.get(kind, record_id)
-        if row is not None and row.payload.get("trusted_observer") == "BOUNDED_AST_JSON_ORACLE_V2":
+        if row is not None and row.payload.get("trusted_observer") == self.current_marker:
             self.projected += 1
             return replace(row, payload={**row.payload, "trusted_observer": self.marker})
         return row
@@ -80,8 +81,10 @@ class LegacyObservationProjection:
 class SandboxPreparer:
     """Operator fixture: all jobs still traverse the real Core START and broker."""
 
-    def __init__(self, fixture, manifest, root):
+    def __init__(self, fixture, manifest, root, *, resource_profile=None):
+        assert resource_profile is None or resource_profile == 'HEADLESS_RENDER_V1'
         self.fixture, self.manifest, self.root = fixture, manifest, root
+        self.resource_profile = resource_profile
         self.configs = []
 
     def steps(self, specs):
@@ -91,6 +94,7 @@ class SandboxPreparer:
             self.manifest,
             workspace="workspace-1",
             recipes={str(i): spec for i, (_, spec) in enumerate(specs)},
+            **({'resource_profile': self.resource_profile} if self.resource_profile is not None else {}),
         )
         # The existing hard ceiling includes namespace setup and the final
         # trusted Core release check. Full-history release alone takes 3.5s on
@@ -415,7 +419,7 @@ def exercise_active_stop(
     }
 
 
-def main(manifest_path, root, *, worker_factory=SyntheticWorker):
+def main(manifest_path, root, *, worker_factory=SyntheticWorker, profile_factory=None, candidate_transform=None):
     producer_class = getattr(repair, "SandboxedCandidateProducer", None)
     assert callable(producer_class), (
         "neutral WorkerPort to sandbox materializer producer is missing"
@@ -441,10 +445,13 @@ def main(manifest_path, root, *, worker_factory=SyntheticWorker):
             fixture.now + 200,
         )
         original_profile = case.profile()
+        if profile_factory is not None:
+            # Explicit trusted acceptance fixture only; never a model/HTTP field.
+            original_profile = profile_factory(original_profile)
         manifest_file = root / "operator-recipe.json"
         manifest_file.write_bytes(original_profile.manifest_bytes())
         manifest_file.chmod(0o600)
-        profile = type(original_profile).load_file(manifest_file)
+        profile = type(original_profile).load_file(manifest_file, wheel_lock=original_profile.wheel_lock)
         recovery_profile = replace(profile, stages=tuple(
             (stage, tuple(replace(case, case_id="recovered-" + case.case_id) for case in cases))
             for stage, cases in profile.stages
@@ -467,6 +474,8 @@ def main(manifest_path, root, *, worker_factory=SyntheticWorker):
                 'def slug(text):\n    return "-".join(text.lower().split())\n',
             )
         )
+        if candidate_transform is not None:
+            candidates = candidate_transform(candidates)
         target = BareRepository(root / "target.git", case.repo.files)
         target.mark_disposable()
         assert target.base == snapshot.source_base_sha
@@ -701,7 +710,7 @@ def main(manifest_path, root, *, worker_factory=SyntheticWorker):
         )
         assert approved["state"] == "APPROVED"
         def reject_legacy_fresh(transaction):
-            legacy = LegacyObservationProjection(transaction)
+            legacy = LegacyObservationProjection(transaction, current_marker=profile.trusted_observer)
             try:
                 route._local_proofs(legacy)
             except ValueError as error:
@@ -742,14 +751,14 @@ def main(manifest_path, root, *, worker_factory=SyntheticWorker):
         )
         assert len(writes) == 1
         def accept_legacy_readback(transaction):
-            unknown = LegacyObservationProjection(transaction, marker="UNKNOWN_OBSERVER_VERSION")
+            unknown = LegacyObservationProjection(transaction, marker="UNKNOWN_OBSERVER_VERSION", current_marker=profile.trusted_observer)
             try:
                 route._local_proofs(unknown, historical=True)
             except ValueError as error:
                 assert str(error) == "GIT_VALIDATION_BINDING", str(error)
             else:
                 raise AssertionError("unknown observer version accepted as historical proof")
-            legacy = LegacyObservationProjection(transaction)
+            legacy = LegacyObservationProjection(transaction, current_marker=profile.trusted_observer)
             route._local_proofs(legacy, historical=True)
             assert legacy.projected == 3
 

@@ -296,7 +296,7 @@ class PreparedValidationStep:
 
     def __post_init__(self):
         require(
-            self.stage in (*TEST_STAGES, "MATERIALIZE")
+            self.stage in (*TEST_STAGES, "MATERIALIZE", "RENDER")
             and type(self.route) is CoreToolRoute
             and self.route.bound_variant is SANDBOX
             and type(self.route.executor) is LinuxSandboxBroker,
@@ -563,8 +563,37 @@ class CoreRepositoryMaterializer:
         return final
 
 
+def _store_validation_evidence(journal, step, data, stored):
+    """One canonical record/audit writer for Python and rendered observations."""
+    labels = {'aioa.trusted-validation.v1': 'TRUSTED_TEST_REPORT',
+              'aioa.trusted-render-validation.v1': 'TRUSTED_RENDER_REPORT'}
+    require(data.get('schema') in labels, 'VALIDATION_RECORD_SCHEMA')
+    require(type(step) is PreparedValidationStep and step.route.journal is journal, 'SECOND_CORE_DENIED')
+    warrant = step.arguments['warrant']
+    key = canonical_sha256([data['schema'], warrant.digest()])
+
+    def save(tx):
+        current = journal._load(tx, warrant)[1]
+        require(current['resolution'] == stored, 'VALIDATION_CORE_CHANGED')
+        prior = tx.get(RecordKind.OPERATION, key)
+        if prior is not None:
+            require(canonical_json_bytes(prior.payload) == canonical_json_bytes(data), 'VALIDATION_RECORD_CONFLICT')
+            return
+        row = StoredRecord(RecordKind.OPERATION, key, step.route.scope, 1, data)
+        tx.insert(row)
+        binding = OperationBinding.bind('validation-' + key, labels[data['schema']],
+                                         {'record_digest': row.payload_digest})
+        append_domain_event(tx, binding, event_id='validation-audit-' + key,
+                            proof_id='validation-proof-' + key, resource_id=key, before=None,
+                            after=data['status'], content_digest=row.payload_digest,
+                            at=journal.ledger.clock())
+
+    journal._run(step.principal, Capability.COMMIT, save)
+    return key
+
+
 class CoreSandboxValidation:
-    def __init__(self, journal, prepare, *, profile=None, cancel=None):
+    def __init__(self, journal, prepare, *, profile=None, cancel=None, render_capsules=None):
         from runtime.mission.project_recipe import PythonRepositoryRecipe
 
         require(
@@ -577,12 +606,108 @@ class CoreSandboxValidation:
             "FIXED_TEST_PROFILE",
         )
         require(cancel is None or type(cancel) is CancellationToken, "CANCEL_TOKEN")
+        if render_capsules is not None:
+            from runtime.mission.patch_capsule import CorePatchCapsules
+            require(type(render_capsules) is CorePatchCapsules and render_capsules.journal is journal,
+                    'RENDER_CAPSULE_BINDING_REQUIRED')
+        self.render_capsules = render_capsules
         self.journal, self.prepare, self.profile, self.cancel = (
             journal,
             prepare,
             profile,
             cancel,
         )
+
+    def render(self, principal, step, recipe):
+        """One approved broker operation and an external PNG/document oracle.
+
+        PASS means this fixed bundle rendered, never deployment/job completion.
+        Failed or missing observations raise; no PASS record or retry is made.
+        """
+        self.journal.ledger.core.require(principal, Capability.COMMIT, scope=self.journal.ledger.scope)
+        require(self.profile is None, 'RENDER_PROFILE_REQUIRED')
+        from runtime.mission.render_recipe import HtmlRenderRecipe
+
+        require(type(recipe) is HtmlRenderRecipe, 'RENDER_OPERATOR_RECIPE_REQUIRED')
+        recipe.__post_init__()
+        require(type(step) is PreparedValidationStep and step.stage == 'RENDER', 'RENDER_PREPARED_STEP_REQUIRED')
+        step.__post_init__()
+        require(self.render_capsules is not None, 'RENDER_CAPSULE_BINDING_REQUIRED')
+        require(step.principal.actor_session_id == principal.actor_session_id, 'RENDER_PRINCIPAL_BINDING')
+        _pin_prepared_spec(self.journal, step, recipe.recipe_spec())
+        config = step.route.executor.config
+        profile = config.profile()
+        require(profile.get('resource_profile') == 'HEADLESS_RENDER_V1'
+                and profile.get('ipc_profile') == 'RENDER_UNIX_SOCKETPAIR_V1'
+                and profile.get('network') == 'OFF'
+                and profile.get('host_socket_creation') == 'DENIED'
+                and type(profile.get('inherited_control_fds')) is int
+                and profile['inherited_control_fds'] == 0, 'RENDER_KERNEL_PROFILE_REQUIRED')
+        warrant = step.arguments['warrant']
+        key = canonical_sha256(['aioa.trusted-render-validation.v1', warrant.digest()])
+        prior = self.journal._run(principal, Capability.COMMIT,
+                                 lambda tx: self._read_render_record(tx, key, warrant.digest()))
+        if prior is not None:
+            return {'record_id': key, **prior}
+        raw, receipt, _ = _collect_sandbox_receipt(self.journal, step, self.cancel)
+        stored = _settle_sandbox_receipt(self.journal, step, raw, receipt)
+        observation = receipt['observations']['worker_terminal']['stdout']
+        result = recipe.verify_observation(observation.encode())
+        warrant = step.arguments['warrant']
+        data = {'schema': 'aioa.trusted-render-validation.v1', 'status': 'PASS', 'authority': 'NONE',
+                'profile_digest': recipe.digest, 'sandbox_profile_digest': config.profile_digest,
+                'warrant_digest': warrant.digest(), 'operation_digest': warrant.operation_hash,
+                'warrant': warrant.to_dict(), 'evidence_digest': hashlib.sha256(raw).hexdigest(),
+                'oracle': result}
+        require(len(canonical_json_bytes(data)) <= 8192, 'RENDER_RECORD_BOUND')
+        data['signature'] = self.render_capsules.identity.sign(data)
+        key = _store_validation_evidence(self.journal, step, data, stored)
+        return {'record_id': key, **data}
+
+    def read_render(self, principal, warrant_digest):
+        """Read only canonical metadata, never invoke a renderer or replay START."""
+        self.journal.ledger.core.require(principal, Capability.READ, scope=self.journal.ledger.scope)
+        from lab.archaioa.contracts import digest_id
+        try:
+            digest_id(warrant_digest, "warrant_digest")
+        except ValueError:
+            raise ValueError('INVALID_DIGEST') from None
+        key = canonical_sha256(['aioa.trusted-render-validation.v1', warrant_digest])
+
+        return self.journal._run(principal, Capability.READ,
+                                 lambda tx: self._read_render_record(tx, key, warrant_digest))
+
+    def _read_render_record(self, tx, key, warrant_digest):
+        from lab.archaioa.warrant import EffectWarrant
+        from runtime.mobile_gateway.wire import verify
+
+        row = tx.get(RecordKind.OPERATION, key)
+        if row is None:
+            return None
+        require(self.render_capsules is not None, 'RENDER_CAPSULE_BINDING_REQUIRED')
+        raw = canonical_json_bytes(row.payload)
+        require(len(raw) <= 8192, 'RENDER_RECORD_BOUND')
+        data = json.loads(raw)
+        require(set(data) == {'schema', 'status', 'authority', 'profile_digest', 'sandbox_profile_digest',
+                             'warrant_digest', 'operation_digest', 'warrant', 'evidence_digest', 'oracle', 'signature'},
+                'RENDER_RECORD_INTEGRITY')
+        signature = data.pop('signature')
+        verify(self.render_capsules.identity.spki, signature, data)
+        require(data.get('schema') == 'aioa.trusted-render-validation.v1'
+                and data.get('warrant_digest') == warrant_digest
+                and data.get('status') == 'PASS' and data.get('authority') == 'NONE', 'RENDER_RECORD_INTEGRITY')
+        warrant = EffectWarrant.from_dict(data['warrant'])
+        require(warrant.digest() == warrant_digest and warrant.operation_hash == data['operation_digest'],
+                'RENDER_RECORD_WARRANT')
+        intent = self.journal._load(tx, warrant)[1]
+        require(intent is not None and intent['resolution'] is not None, 'RENDER_RECORD_UNRESOLVED')
+        result = Reconciliation.from_dict(intent['resolution'])
+        require(result.outcome.to_dict()['contract_type'] == 'Applied'
+                and result.receipt.digest == 'sha256:' + data['evidence_digest'], 'RENDER_RECORD_RECEIPT')
+        oracle = data['oracle']
+        require(type(oracle) is dict and oracle.get('status') == 'PASS' and oracle.get('authority') == 'NONE'
+                and oracle.get('recipe_digest') == data['profile_digest'], 'RENDER_RECORD_ORACLE')
+        return {**data, 'signature': signature}
 
     def open(self, root, patchset):
         from runtime.mission.project_recipe import PythonRepositoryRecipe
@@ -687,46 +812,13 @@ class _CoreValidationSession:
                     "warrant": warrant.to_dict(),
                 }
                 if type(self.owner.profile) is PythonRepositoryRecipe:
-                    data["trusted_observer"] = "BOUNDED_AST_JSON_ORACLE_V2"
+                    data["trusted_observer"] = self.owner.profile.trusted_observer
                     data["source_base_sha"] = self.patchset.source_base_sha
                     data["test_count"] = self.owner.profile.context(
                         stage, self.patchset
                     )["test_count"]
-                key = canonical_sha256(["aioa.trusted-validation.v1", warrant.digest()])
+                _store_validation_evidence(self.owner.journal, step, data, stored)
 
-                def save(tx):
-                    current = self.owner.journal._load(tx, warrant)[1]
-                    require(current["resolution"] == stored, "VALIDATION_CORE_CHANGED")
-                    prior = tx.get(RecordKind.OPERATION, key)
-                    if prior is not None:
-                        require(
-                            canonical_json_bytes(prior.payload)
-                            == canonical_json_bytes(data),
-                            "VALIDATION_RECORD_CONFLICT",
-                        )
-                        return
-                    row = StoredRecord(
-                        RecordKind.OPERATION, key, step.route.scope, 1, data
-                    )
-                    tx.insert(row)
-                    binding = OperationBinding.bind(
-                        "validation-" + key,
-                        "TRUSTED_TEST_REPORT",
-                        {"record_digest": row.payload_digest},
-                    )
-                    append_domain_event(
-                        tx,
-                        binding,
-                        event_id="validation-audit-" + key,
-                        proof_id="validation-proof-" + key,
-                        resource_id=key,
-                        before=None,
-                        after=status,
-                        content_digest=row.payload_digest,
-                        at=self.owner.journal.ledger.clock(),
-                    )
-
-                self.owner.journal._run(step.principal, Capability.COMMIT, save)
         except (ValueError, RepairBoundaryError) as error:
             status, code = "UNKNOWN", None
             self.failure_code = (

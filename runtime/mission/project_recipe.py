@@ -276,12 +276,13 @@ def prepare_sensorbridge_sandbox(root, *, workspace):
     )
 
 
-def snapshot_python_runtime(root, *, include_git=False):
+def snapshot_python_runtime(root, *, include_git=False, include_function_isolation=False):
     """Trusted system-only runtime capture for the existing sandbox manifest."""
     import os
     import stat
     import subprocess
 
+    _require(type(include_function_isolation) is bool, 'FUNCTION_ISOLATION_RUNTIME_FLAG')
     root = Path(root)
     root.mkdir(mode=0o700, parents=True, exist_ok=False)
     files = {
@@ -323,6 +324,10 @@ def snapshot_python_runtime(root, *, include_git=False):
     ):
         for p in Path("/usr/lib/python3.12/lib-dynload").glob(pattern):
             files[str(p)] = p
+    if include_function_isolation:
+        extensions = tuple(Path('/usr/lib/python3.12/lib-dynload').glob('_ctypes.*.so'))
+        _require(len(extensions) == 1, 'FUNCTION_ISOLATION_RUNTIME_UNAVAILABLE')
+        files[str(extensions[0])] = extensions[0]
     for name in tuple(files):
         if name.endswith(".py"):
             continue
@@ -453,8 +458,9 @@ class PythonFunctionCase:
 class PythonRepositoryRecipe:
     """Static bounded repository recipe, distinct from model instructions.
 
-    A restricted Python AST/JSON function language is evaluated in the existing
-    credentialless Linux sandbox. Arbitrary Python execution is unsupported.
+    The default profile evaluates a restricted AST/JSON language. The explicit
+    v3 function profile runs normal Python in a mandatory confined child with
+    operator-pinned pure wheels. Both use the existing credentialless sandbox.
     A trusted host oracle checks returned JSON values; guest assertions,
     counters, exit text and PASS claims confer no authority.
     """
@@ -465,8 +471,17 @@ class PythonRepositoryRecipe:
     import_roots: tuple[str, ...]
     stages: tuple = field(repr=False)
     command: tuple[str, ...]
+    execution_profile: str = 'RESTRICTED_AST_JSON_V2'
+    wheel_lock: object = field(default=None, repr=False)
 
     def __post_init__(self):
+        _require(self.execution_profile in ('RESTRICTED_AST_JSON_V2', 'ISOLATED_PYTHON_FUNCTIONS_V1'),
+                 "RECIPE_EXECUTION_PROFILE")
+        if self.wheel_lock is not None:
+            from runtime.mission.dependency_lock import PythonWheelLock
+            _require(self.execution_profile == 'ISOLATED_PYTHON_FUNCTIONS_V1'
+                     and type(self.wheel_lock) is PythonWheelLock, "RECIPE_OPERATOR_WHEEL_LOCK")
+            self.wheel_lock.__post_init__()
         from runtime.mission.contracts import logical_id
         from runtime.mission.patchset import (
             _protected_change,
@@ -537,7 +552,7 @@ class PythonRepositoryRecipe:
 
     def manifest_bytes(self):
         self.__post_init__()
-        return _json(
+        value = (
             {
                 "schema": "aioa.python-repository-recipe.v2",
                 "repository_id": self.repository_id,
@@ -564,12 +579,36 @@ class PythonRepositoryRecipe:
             }
         )
 
+        if self.execution_profile == 'ISOLATED_PYTHON_FUNCTIONS_V1':
+            value.update(schema='aioa.python-repository-recipe.v3', execution_profile=self.execution_profile,
+                         isolation_policy='LANDLOCK_ABI6_MANDATORY_V1',
+                         wheel_lock=None if self.wheel_lock is None else json.loads(self.wheel_lock.manifest_bytes()))
+        return _json(value)
+
     @classmethod
-    def from_manifest(cls, raw):
+    def from_manifest(cls, raw, *, wheel_lock=None):
         from runtime.mission.repair_validation import _json_bytes
 
         _require(type(raw) is bytes and 0 < len(raw) <= 65536, "PYTHON_MANIFEST_BOUND")
         row = _json_bytes(raw)
+        extra = {}
+        if type(row) is dict and row.get('schema') == 'aioa.python-repository-recipe.v3':
+            _require(set(row) == {'schema', 'repository_id', 'source_base_sha', 'allowed_paths',
+                                  'import_roots', 'command', 'stages', 'execution_profile', 'wheel_lock', 'isolation_policy'}
+                     and row['execution_profile'] == 'ISOLATED_PYTHON_FUNCTIONS_V1'
+                     and row['isolation_policy'] == 'LANDLOCK_ABI6_MANDATORY_V1', 'PYTHON_MANIFEST_SCHEMA')
+            if row['wheel_lock'] is None:
+                _require(wheel_lock is None, 'PYTHON_OPERATOR_LOCK_MISMATCH')
+            else:
+                from runtime.mission.dependency_lock import PythonWheelLock
+                _require(type(wheel_lock) is PythonWheelLock
+                         and json.loads(wheel_lock.manifest_bytes()) == row['wheel_lock'],
+                         'PYTHON_OPERATOR_LOCK_REQUIRED')
+            extra = {'execution_profile': row['execution_profile'], 'wheel_lock': wheel_lock}
+            row = {key: value for key, value in row.items() if key not in ('execution_profile', 'wheel_lock', 'isolation_policy')}
+            row['schema'] = 'aioa.python-repository-recipe.v2'
+        else:
+            _require(wheel_lock is None, 'PYTHON_OPERATOR_LOCK_MISMATCH')
         _require(
             type(row) is dict
             and set(row)
@@ -624,10 +663,11 @@ class PythonRepositoryRecipe:
             tuple(row["import_roots"]),
             tuple(stages),
             tuple(row["command"]),
+            **extra,
         )
 
     @classmethod
-    def load_file(cls, path):
+    def load_file(cls, path, *, wheel_lock=None):
         import os
 
         from runtime.mission.sandbox_linux import read_evidence_file
@@ -642,10 +682,18 @@ class PythonRepositoryRecipe:
             info.st_uid == os.getuid() and not info.st_mode & 0o077,
             "PYTHON_PRIVATE_MANIFEST_REQUIRED",
         )
-        return cls.from_manifest(read_evidence_file(path.parent, path.name, 65536))
+        return cls.from_manifest(read_evidence_file(path.parent, path.name, 65536), wheel_lock=wheel_lock)
 
     @property
     def digest(self):
+        if self.execution_profile == 'ISOLATED_PYTHON_FUNCTIONS_V1':
+            value = json.loads(self.manifest_bytes())
+            value['worker_files'] = {name: _hash(Path(__file__).with_name(name).read_bytes()) for name in
+                                     ('python_function_worker.py', 'python_function_child.py',
+                                      'repository_worker.py', 'dependency_lock.py', 'function_isolation.py')}
+            import runtime.failure_boundary
+            value['worker_files']['failure_boundary.py'] = _hash(Path(runtime.failure_boundary.__file__).read_bytes())
+            return _hash(_json(value))
         return _hash(
             _json(
                 {
@@ -685,6 +733,19 @@ class PythonRepositoryRecipe:
         _require(
             all(c.path in self.allowed_paths for c in patch.files), "RECIPE_PATH_DENIED"
         )
+
+    @property
+    def trusted_observer(self):
+        return ('ISOLATED_PYTHON_FUNCTION_ORACLE_V1' if self.execution_profile == 'ISOLATED_PYTHON_FUNCTIONS_V1'
+                else 'BOUNDED_AST_JSON_ORACLE_V2')
+
+    def accepts_observer(self, marker, *, historical=False):
+        self.__post_init__()
+        _require(type(historical) is bool, 'RECIPE_OBSERVER_HISTORY_FLAG')
+        known = ('BOUNDED_AST_JSON_ORACLE_V2', 'ISOLATED_PYTHON_FUNCTION_ORACLE_V1',
+                 'EXTERNAL_JSON_ORACLE')
+        return type(marker) is str and (marker == self.trusted_observer
+                                        or historical and marker in known)
 
     def context(self, stage, patch):
         self.validate_patch(patch)
@@ -768,7 +829,7 @@ class PythonRepositoryRecipe:
             "RECIPE_TREE_BINDING",
         )
         context = self.context(stage, patch)
-        return {
+        spec = {
             "files": {
                 "recipe.py": Path(__file__)
                 .with_name("repository_worker.py")
@@ -783,6 +844,22 @@ class PythonRepositoryRecipe:
             },
             "expected": {"calls-complete.txt": b"PYTHON_CALLS_FINISHED\n"},
         }
+
+        if self.execution_profile == 'ISOLATED_PYTHON_FUNCTIONS_V1':
+            root = Path(__file__).parent
+            spec['files'].update({
+                'recipe.py': (root / 'python_function_worker.py').read_bytes(),
+                'function_child.py': (root / 'python_function_child.py').read_bytes(),
+                'function_policy.py': (root / 'function_isolation.py').read_bytes(),
+                'failure_boundary.py': Path(__import__('runtime.failure_boundary', fromlist=['__file__']).__file__).read_bytes(),
+                'repository_support.py': (root / 'repository_worker.py').read_bytes(),
+                'wheel_policy.py': (root / 'dependency_lock.py').read_bytes(),
+                'python-wheel-lock.json': b'null',
+                'mode.json': _json({'mode': 'observe', 'profile': self.execution_profile}),
+            })
+            if self.wheel_lock is not None:
+                spec['files'].update(self.wheel_lock.inputs())
+        return spec
 
     def decode_observation(self, stdout, stage, patch):
         from runtime.mission.codex_worker import JsonlFramer

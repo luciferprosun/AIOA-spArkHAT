@@ -4,12 +4,15 @@ The operation precedes a human session grant. A dispatch request is constructed
 by the trusted Core adapter only after its live START acknowledgement. Its
 digest never feeds back into the operation, completion, grant or warrant.
 """
-from dataclasses import dataclass, fields
-from types import MappingProxyType
 import json
 import re
+from dataclasses import dataclass, fields
+from types import MappingProxyType
 
-from runtime.memory_patch.contracts.serialization import canonical_json_bytes, canonical_sha256
+from runtime.memory_patch.contracts.serialization import (
+    canonical_json_bytes,
+    canonical_sha256,
+)
 from runtime.mission.warrant import require
 
 PYTHON_ARGV = ('/usr/bin/python3.12', '-I', '-S', '-B', '/inputs/recipe.py')
@@ -18,6 +21,9 @@ RESOURCE_CEILINGS = MappingProxyType({
     'cpu_quota_us': 100000, 'cpu_period_us': 100000, 'pids_max': 16,
     'work_bytes': 33554432, 'tmp_bytes': 16777216, 'artifacts_bytes': 8388608,
 })
+RENDER_RESOURCE_CEILINGS = MappingProxyType({**RESOURCE_CEILINGS, 'pids_max': 64})
+
+
 PAYLOAD_FIELDS = frozenset({
     'tool', 'workspace', 'task_id', 'step_id', 'recipe_id', 'argv', 'project_root_ref',
     'sandbox_profile_digest', 'tool_input_digest', 'network_profile', 'env_policy_digest',
@@ -53,9 +59,14 @@ class SandboxOperation:
         _digest(operation['target_fingerprint'], prefixed=True)
         _identity(operation['expected_target_revision'])
         payload = operation['payload']
-        require(type(payload) is dict and set(payload) == PAYLOAD_FIELDS
+        require(type(payload) is dict and set(payload) in (PAYLOAD_FIELDS, PAYLOAD_FIELDS | {'resource_profile'})
                 and payload['tool'] == 'run_recipe' and payload['network_profile'] == 'OFF',
                 'INVALID_SANDBOX_OPERATION')
+        ceilings = RESOURCE_CEILINGS
+        if 'resource_profile' in payload:
+            require(type(payload['resource_profile']) is str and payload['resource_profile'] == 'HEADLESS_RENDER_V1',
+                    'INVALID_SANDBOX_RESOURCE_PROFILE')
+            ceilings = RENDER_RESOURCE_CEILINGS
         for name in ('workspace', 'task_id', 'step_id', 'recipe_id', 'project_root_ref'):
             _identity(payload[name])
         for name in ('sandbox_profile_digest', 'tool_input_digest', 'env_policy_digest'):
@@ -64,7 +75,7 @@ class SandboxOperation:
         # A future executable/argv profile needs a separately reviewed registry.
         require(type(payload['argv']) is list and tuple(payload['argv']) == PYTHON_ARGV,
                 'UNAPPROVED_SANDBOX_ARGV')
-        for name, ceiling in RESOURCE_CEILINGS.items():
+        for name, ceiling in ceilings.items():
             require(type(payload[name]) is int and 0 < payload[name] <= ceiling,
                     'INVALID_SANDBOX_LIMIT')
         require(payload['cpu_quota_us'] <= payload['cpu_period_us'], 'INVALID_SANDBOX_LIMIT')
@@ -162,6 +173,7 @@ class SandboxRecipe:
     tmp_bytes: int = 16777216
     artifacts_bytes: int = 8388608
     argv: tuple[str, ...] = PYTHON_ARGV
+    resource_profile: str | None = None
 
     def __post_init__(self):
         require(type(self.argv) is tuple, 'INVALID_SANDBOX_RECIPE')
@@ -172,6 +184,8 @@ class SandboxRecipe:
     def payload(self, workspace, task_id, step_id):
         result = {field.name: getattr(self, field.name) for field in fields(self)}
         result['argv'] = list(self.argv)
+        if self.resource_profile is None:
+            result.pop('resource_profile')
         return {**result, 'tool': 'run_recipe', 'workspace': workspace, 'task_id': task_id,
                 'step_id': step_id, 'network_profile': 'OFF'}
 
