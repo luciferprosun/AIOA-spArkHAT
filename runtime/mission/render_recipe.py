@@ -58,7 +58,7 @@ class HtmlRenderRecipe:
     def manifest_bytes(self):
         return canonical({
             'schema': 'aioa.hermetic-html-recipe.v1', 'authority': 'NONE',
-            'resource_profile': 'HEADLESS_RENDER_V2', 'network': 'OFF',
+            'resource_profile': 'HEADLESS_RENDER_V3', 'network': 'OFF',
             'transport': 'CDP_PIPE', 'viewport': list(self.viewport),
             'bundle': {name: {'sha256': hashlib.sha256(data).hexdigest(), 'bytes': len(data)}
                        for name, data in self.bundle},

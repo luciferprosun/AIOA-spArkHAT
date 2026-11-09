@@ -158,7 +158,7 @@ def main(manifest_path, root):
         fx = fixture.fx
         identity = kernel.support.Identity(kernel.support.ec.generate_private_key(kernel.support.ec.SECP256R1()))
         capsules = CorePatchCapsules(fx.journal, identity, source_probe=lambda: None)
-        preparer = kernel.SandboxPreparer(fixture, manifest, root, resource_profile='HEADLESS_RENDER_V2')
+        preparer = kernel.SandboxPreparer(fixture, manifest, root, resource_profile='HEADLESS_RENDER_V3')
         validator = CoreSandboxValidation(fx.journal, reject_dispatch, render_capsules=capsules)
         recipe = HtmlRenderRecipe((('index.html', HTML),), (320, 200),
                                   'Offline render', 'Core render verified')

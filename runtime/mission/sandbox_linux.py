@@ -26,8 +26,9 @@ from runtime.memory_patch.contracts.serialization import (
     canonical_json_bytes,
     canonical_sha256,
 )
+from runtime.mission import sandbox_contracts
 from runtime.mission.sandbox_contracts import (
-    RENDER_RESOURCE_CEILINGS,
+    RENDER_PROFILE_CEILINGS,
     RESOURCE_CEILINGS,
     SandboxDispatchRequest,
     SandboxOperation,
@@ -35,6 +36,9 @@ from runtime.mission.sandbox_contracts import (
     SandboxRegistry,
 )
 from runtime.mission.warrant import require
+
+# Preserve the earlier export while selection uses the shared closed map.
+RENDER_RESOURCE_CEILINGS = sandbox_contracts.RENDER_RESOURCE_CEILINGS
 
 
 def now():
@@ -498,13 +502,13 @@ def prepare_linux_sandbox(root, runtime_manifest, *, workspace, recipes, resourc
         "TRUSTED_SANDBOX_CONFIGURATION_REQUIRED",
     )
     require(resource_profile is None or type(resource_profile) is str
-            and resource_profile in ('HEADLESS_RENDER_V1', 'HEADLESS_RENDER_V2'),
+            and resource_profile in RENDER_PROFILE_CEILINGS,
             'INVALID_SANDBOX_RESOURCE_PROFILE')
-    renderer = resource_profile in ('HEADLESS_RENDER_V1', 'HEADLESS_RENDER_V2')
+    renderer = resource_profile is not None
     require(renderer_ipc is None or renderer and type(renderer_ipc) is str
             and renderer_ipc == 'RENDER_UNIX_LISTENER_V1', 'UNAPPROVED_SANDBOX_IPC_PROFILE')
     ipc_profile = (renderer_ipc or 'RENDER_UNIX_SOCKETPAIR_V1') if renderer else None
-    resource_ceilings = RENDER_RESOURCE_CEILINGS if renderer else RESOURCE_CEILINGS
+    resource_ceilings = RENDER_PROFILE_CEILINGS[resource_profile] if renderer else RESOURCE_CEILINGS
     chrome_targets = frozenset('/opt/google/chrome/' + name for name in (
         'chrome', 'chrome_crashpad_handler', 'icudtl.dat', 'resources.pak',
         'chrome_100_percent.pak', 'chrome_200_percent.pak', 'v8_context_snapshot.bin',
@@ -604,7 +608,7 @@ def prepare_linux_sandbox(root, runtime_manifest, *, workspace, recipes, resourc
                        virtual_address_limit_bytes=4 * 1024**4)
         if ipc_profile == 'RENDER_UNIX_LISTENER_V1':
             profile.update(private_listener_creation='UNIX_STREAM_ONLY', host_connect='DENIED')
-        if resource_profile == 'HEADLESS_RENDER_V2':
+        if resource_profile in ('HEADLESS_RENDER_V2', 'HEADLESS_RENDER_V3'):
             profile['descriptor_limit'] = 256
     digest = canonical_sha256(profile)
     env_digest = canonical_sha256(env)
@@ -861,12 +865,13 @@ def _systemd_properties(operation):
         'CPUQuota=100%',
         'CPUQuotaPeriodSec=100ms',
         'NoNewPrivileges=yes',
-        ('LimitAS=4398046511104' if limits.get('resource_profile') in ('HEADLESS_RENDER_V1', 'HEADLESS_RENDER_V2')
+        ('LimitAS=4398046511104' if limits.get('resource_profile') in RENDER_PROFILE_CEILINGS
          else 'LimitAS=536870912'),
         'LimitCPU=15',
         'LimitFSIZE=8388608',
         'LimitCORE=0',
-        ('LimitNOFILE=256' if limits.get('resource_profile') == 'HEADLESS_RENDER_V2' else 'LimitNOFILE=64'),
+        ('LimitNOFILE=256' if limits.get('resource_profile') in ('HEADLESS_RENDER_V2', 'HEADLESS_RENDER_V3')
+         else 'LimitNOFILE=64'),
         'RuntimeMaxSec=32s',
         'TimeoutStopSec=2s',
         'KillMode=control-group',
@@ -1973,8 +1978,8 @@ class LinuxSandboxBroker:
                 resource_profile = json.loads(request.operation_bytes)['payload'].get('resource_profile')
                 profile = self.config.profile()
                 require(profile.get('resource_profile') == resource_profile, 'KERNEL_RESOURCE_PROFILE_MISMATCH')
-                descriptor_limit = 256 if resource_profile == 'HEADLESS_RENDER_V2' else 64
-                if resource_profile == 'HEADLESS_RENDER_V2':
+                descriptor_limit = 256 if resource_profile in ('HEADLESS_RENDER_V2', 'HEADLESS_RENDER_V3') else 64
+                if resource_profile in ('HEADLESS_RENDER_V2', 'HEADLESS_RENDER_V3'):
                     require(type(profile.get('descriptor_limit')) is int
                             and profile['descriptor_limit'] == descriptor_limit, 'KERNEL_DESCRIPTOR_PROFILE_MISMATCH')
                 receipt['observations']['descriptor_limits_before_project_ack'] = _observe_descriptor_limits(

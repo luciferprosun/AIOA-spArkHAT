@@ -8323,192 +8323,192 @@
     },
     "runtime/mission/sandbox_linux.py": {
       "path": "runtime/mission/sandbox_linux.py",
-      "git_blob": "e2376a4a0b4ab066682afe75f95bd902da412c79",
-      "sha256": "1f9518be531eca216abcf6c021949c47ef13396cafad2fcd3557b540d04a42d3",
+      "git_blob": "426c676081717dae7e98c435d0d70e0bfff74f35",
+      "sha256": "36857c23929a058f63ed5aefe00fd43d4dc49bf1f6404e434b053b501422ed26",
       "definitions": [
         {
           "name": "now",
-          "line": 40
-        },
-        {
-          "name": "sync_directory",
           "line": 44
         },
         {
-          "name": "sha",
-          "line": 52
+          "name": "sync_directory",
+          "line": 48
         },
         {
-          "name": "read_evidence_file",
+          "name": "sha",
           "line": 56
         },
         {
-          "name": "exact_cgroup",
-          "line": 106
+          "name": "read_evidence_file",
+          "line": 60
         },
         {
-          "name": "mountid",
+          "name": "exact_cgroup",
           "line": 110
         },
         {
+          "name": "mountid",
+          "line": 114
+        },
+        {
           "name": "populated",
-          "line": 117
+          "line": 121
         },
         {
           "name": "command_result",
-          "line": 124
+          "line": 128
         },
         {
           "name": "bounded_line",
-          "line": 141
+          "line": 145
         },
         {
           "name": "build_filter",
-          "line": 167
+          "line": 171
         },
         {
           "name": "TrustedSandboxConfig",
-          "line": 348
+          "line": 352
         },
         {
           "name": "_host_json",
-          "line": 366
+          "line": 370
         },
         {
           "name": "save_host_config",
-          "line": 373
+          "line": 377
         },
         {
           "name": "load_host_config",
-          "line": 404
-        },
-        {
-          "name": "prepare_linux_sandbox",
-          "line": 483
-        },
-        {
-          "name": "git_storage_identity",
-          "line": 706
-        },
-        {
-          "name": "_parse_descriptor_limits",
-          "line": 820
-        },
-        {
-          "name": "_observe_descriptor_limits",
-          "line": 836
-        },
-        {
-          "name": "_systemd_properties",
-          "line": 851
-        },
-        {
-          "name": "LinuxSandboxBroker",
-          "line": 877
-        },
-        {
-          "name": "profile",
-          "line": 356
-        },
-        {
-          "name": "inputs",
-          "line": 359
-        },
-        {
-          "name": "runtime",
-          "line": 362
-        },
-        {
-          "name": "private",
           "line": 408
         },
         {
+          "name": "prepare_linux_sandbox",
+          "line": 487
+        },
+        {
+          "name": "git_storage_identity",
+          "line": 710
+        },
+        {
+          "name": "_parse_descriptor_limits",
+          "line": 824
+        },
+        {
+          "name": "_observe_descriptor_limits",
+          "line": 840
+        },
+        {
+          "name": "_systemd_properties",
+          "line": 855
+        },
+        {
+          "name": "LinuxSandboxBroker",
+          "line": 882
+        },
+        {
+          "name": "profile",
+          "line": 360
+        },
+        {
+          "name": "inputs",
+          "line": 363
+        },
+        {
+          "name": "runtime",
+          "line": 366
+        },
+        {
+          "name": "private",
+          "line": 412
+        },
+        {
           "name": "walk",
-          "line": 724
+          "line": 728
         },
         {
           "name": "__init__",
-          "line": 878
+          "line": 883
         },
         {
           "name": "__call__",
-          "line": 889
+          "line": 894
         },
         {
           "name": "_git_directory",
-          "line": 893
+          "line": 898
         },
         {
           "name": "_git_publish_new",
-          "line": 934
+          "line": 939
         },
         {
           "name": "_git_existing_object",
-          "line": 973
+          "line": 978
         },
         {
           "name": "_git_plumbing",
-          "line": 1018
+          "line": 1023
         },
         {
           "name": "dispatch",
-          "line": 1613
+          "line": 1618
         },
         {
           "name": "_run",
-          "line": 1684
+          "line": 1689
         },
         {
           "name": "verify",
-          "line": 2156
+          "line": 2161
         },
         {
           "name": "listener_call",
-          "line": 242
+          "line": 246
         },
         {
           "name": "hold",
-          "line": 1111
-        },
-        {
-          "name": "sealed",
           "line": 1116
         },
         {
+          "name": "sealed",
+          "line": 1121
+        },
+        {
           "name": "read_local",
-          "line": 1181
+          "line": 1186
         },
         {
           "name": "lock_stamp",
-          "line": 1254
+          "line": 1259
         },
         {
           "name": "check_lock",
-          "line": 1266
+          "line": 1271
         },
         {
           "name": "check_lock_parent",
-          "line": 1276
+          "line": 1281
         },
         {
           "name": "lock_new",
-          "line": 1296
+          "line": 1301
         },
         {
           "name": "check_ref_transaction",
-          "line": 1412
+          "line": 1417
         },
         {
           "name": "guarded_cleanup",
-          "line": 2062
+          "line": 2067
         },
         {
           "name": "release",
-          "line": 1320
+          "line": 1325
         },
         {
           "name": "reap_owned",
-          "line": 2091
+          "line": 2096
         }
       ],
       "symbolic_callees": [
@@ -8824,7 +8824,7 @@
         "zlib.decompressobj"
       ],
       "call_site_count": 976,
-      "call_sites_sha256": "bfdf0e551ae3fda8249b2260ad8737ff8ba501e5ac7c6fae8a7fb6d7f284e2ed"
+      "call_sites_sha256": "d0e96e7010e0eeb86bdce1f5f9702b264e5f22f1b3ab076c9f367e46c109657b"
     },
     "runtime/nonzero_cloudops/adapters/portable.py": {
       "path": "runtime/nonzero_cloudops/adapters/portable.py",
@@ -13555,8 +13555,8 @@
     },
     "runtime/mission/repair_validation.py": {
       "path": "runtime/mission/repair_validation.py",
-      "git_blob": "29b6816ebc756ff0465230b956b49872d3a7ea86",
-      "sha256": "40cf0d4853b1c22acbb6825d7d26a8160a3967f0dc40fa6ded6a50ea0fc737b3",
+      "git_blob": "37857e3a0b1bc5d3d6548939bcc48cc940fb2783",
+      "sha256": "7cf77c46e46e70e332c3658a731f17c23eb76ffd14f2c6d9d5b60620e44fe35e",
       "definitions": [
         {
           "name": "TrustedTestProfile",
@@ -13616,7 +13616,7 @@
         },
         {
           "name": "_CoreValidationSession",
-          "line": 767
+          "line": 772
         },
         {
           "name": "__post_init__",
@@ -13660,27 +13660,27 @@
         },
         {
           "name": "read_render",
-          "line": 673
+          "line": 678
         },
         {
           "name": "_read_render_record",
-          "line": 686
+          "line": 691
         },
         {
           "name": "open",
-          "line": 718
+          "line": 723
         },
         {
           "name": "__init__",
-          "line": 768
-        },
-        {
-          "name": "run",
           "line": 773
         },
         {
+          "name": "run",
+          "line": 778
+        },
+        {
           "name": "close",
-          "line": 848
+          "line": 853
         },
         {
           "name": "save",
@@ -13766,6 +13766,7 @@
         "recipe.verify_observation",
         "require",
         "resolved.outcome.to_dict",
+        "resources.get",
         "result.outcome.to_dict",
         "rows.append",
         "self._read_render_record",
@@ -13805,93 +13806,93 @@
         "warrant.to_dict",
         "workspace_tree_digest"
       ],
-      "call_site_count": 367,
-      "call_sites_sha256": "29a687a6f1457f6b70e59d26e24e0370943285ec81071c4cec8ee626d0084c53"
+      "call_site_count": 372,
+      "call_sites_sha256": "e51ed8f1ee9d8bf1a9f10fbe66af8ec2666427fc3947d6a034c089e7fa6ff440"
     },
     "runtime/mission/sandbox_contracts.py": {
       "path": "runtime/mission/sandbox_contracts.py",
-      "git_blob": "759c774e1ef48b4043f787f157f8c536a9966dc6",
-      "sha256": "72d6db44d907c68245ffc3ab4f542e779bb4ac5748662b8f94f7ffe23f63aeac",
+      "git_blob": "a85f2fbdc261b4b1f774052f4677f2e39dd44846",
+      "sha256": "0a5080e0a2ce65b95e6090f86788a52c94ac2e59014bd8180d30a8227015c870",
       "definitions": [
         {
           "name": "_identity",
-          "line": 34
-        },
-        {
-          "name": "_digest",
           "line": 39
         },
         {
+          "name": "_digest",
+          "line": 44
+        },
+        {
           "name": "SandboxOperation",
-          "line": 45
+          "line": 50
         },
         {
           "name": "SandboxDispatchRequest",
-          "line": 98
+          "line": 103
         },
         {
           "name": "ToolVariant",
-          "line": 138
+          "line": 143
         },
         {
           "name": "tool_variant",
-          "line": 153
+          "line": 158
         },
         {
           "name": "SandboxRecipe",
-          "line": 161
+          "line": 166
         },
         {
           "name": "SandboxRegistry",
-          "line": 195
+          "line": 200
         },
         {
           "name": "__post_init__",
-          "line": 48
+          "line": 53
         },
         {
           "name": "parse",
-          "line": 85
+          "line": 90
         },
         {
           "name": "to_dict",
-          "line": 89
+          "line": 94
         },
         {
           "name": "digest",
-          "line": 93
+          "line": 98
         },
         {
           "name": "__post_init__",
-          "line": 112
+          "line": 117
         },
         {
           "name": "to_dict",
-          "line": 126
+          "line": 131
         },
         {
           "name": "digest",
-          "line": 133
+          "line": 138
         },
         {
           "name": "__post_init__",
-          "line": 179
+          "line": 184
         },
         {
           "name": "payload",
-          "line": 185
+          "line": 190
         },
         {
           "name": "__post_init__",
-          "line": 199
+          "line": 204
         },
         {
           "name": "payload",
-          "line": 206
+          "line": 211
         },
         {
           "name": "validate",
-          "line": 213
+          "line": 218
         }
       ],
       "symbolic_callees": [
@@ -13925,8 +13926,8 @@
         "tuple",
         "type"
       ],
-      "call_site_count": 95,
-      "call_sites_sha256": "35a5cfde8a85783dc577b8bb403d2f872303e51fe922b7806cd0c05c1ac90258"
+      "call_site_count": 97,
+      "call_sites_sha256": "4aa059160d64a750dd85d6251114d1a96388e20cdc773baa85e12d88c4a54b81"
     },
     "runtime/mission/project_recipe.py": {
       "path": "runtime/mission/project_recipe.py",
@@ -15925,8 +15926,8 @@
     },
     "runtime/mission/render_recipe.py": {
       "path": "runtime/mission/render_recipe.py",
-      "git_blob": "61a927b973fc1f4fb50dd1cfd59d2b483af92f5c",
-      "sha256": "4004af12c5f4fcc7f70f9d7795617a636590013db6888fcd870c55e94ad58330",
+      "git_blob": "575c791f3ac253f5a50add295e0c634bc0c27245",
+      "sha256": "aa50a58f7020ba6c303cc83b3baf17aab569954d332ed1110deefc9630a49a24",
       "definitions": [
         {
           "name": "require",
@@ -16005,8 +16006,8 @@
     },
     "runtime/mission/render_runtime.py": {
       "path": "runtime/mission/render_runtime.py",
-      "git_blob": "a6283c005e5acbc61897c918b21ca47490aab43a",
-      "sha256": "1f4dc4c90e816598053b0e686fd24465f1fdd2700801ff66c8e6f7da8ca9bdc2",
+      "git_blob": "59f29179c3a304da1d24a8b70d9602f15d1a643f",
+      "sha256": "c57a268682dface61620a256bf821e5acaea751afd9c772cc433f14987c7e343",
       "definitions": [
         {
           "name": "require",
@@ -16304,6 +16305,6 @@
     "DUPLICATE_VERIFIED": 16,
     "EXCLUDED_UNSAFE": 2
   },
-  "current_target_binding_note": "NZ13-D7 current tracked blob/AST identities only. NZ12 assessments remain historical; function/render profiles require exact-head broker, confinement, Chrome and installed qualification. No model, production Native, unrestricted setup or full parity certification is implied.",
+  "current_target_binding_note": "NZ13-D8 current tracked blob/AST identities only. NZ12 assessments remain historical; function/render profiles require exact-head broker, confinement, Chrome and installed qualification. No model, production Native, unrestricted setup or full parity certification is implied.",
   "nz12_binding_before_nz13_sha256": "cfca6195089170934076cd15ac80a5b26786e947338b089dd75926d545b971b2"
 }

@@ -22,6 +22,11 @@ RESOURCE_CEILINGS = MappingProxyType({
     'work_bytes': 33554432, 'tmp_bytes': 16777216, 'artifacts_bytes': 8388608,
 })
 RENDER_RESOURCE_CEILINGS = MappingProxyType({**RESOURCE_CEILINGS, 'pids_max': 64})
+RENDER_PROFILE_CEILINGS = MappingProxyType({
+    'HEADLESS_RENDER_V1': RENDER_RESOURCE_CEILINGS,
+    'HEADLESS_RENDER_V2': RENDER_RESOURCE_CEILINGS,
+    'HEADLESS_RENDER_V3': MappingProxyType({**RENDER_RESOURCE_CEILINGS, 'pids_max': 128}),
+})
 
 
 PAYLOAD_FIELDS = frozenset({
@@ -65,9 +70,9 @@ class SandboxOperation:
         ceilings = RESOURCE_CEILINGS
         if 'resource_profile' in payload:
             require(type(payload['resource_profile']) is str
-                    and payload['resource_profile'] in ('HEADLESS_RENDER_V1', 'HEADLESS_RENDER_V2'),
+                    and payload['resource_profile'] in RENDER_PROFILE_CEILINGS,
                     'INVALID_SANDBOX_RESOURCE_PROFILE')
-            ceilings = RENDER_RESOURCE_CEILINGS
+            ceilings = RENDER_PROFILE_CEILINGS[payload['resource_profile']]
         for name in ('workspace', 'task_id', 'step_id', 'recipe_id', 'project_root_ref'):
             _identity(payload[name])
         for name in ('sandbox_profile_digest', 'tool_input_digest', 'env_policy_digest'):

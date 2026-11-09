@@ -83,7 +83,8 @@ class SandboxPreparer:
     """Operator fixture: all jobs still traverse the real Core START and broker."""
 
     def __init__(self, fixture, manifest, root, *, resource_profile=None):
-        assert resource_profile is None or resource_profile in ('HEADLESS_RENDER_V1', 'HEADLESS_RENDER_V2')
+        assert resource_profile is None or resource_profile in (
+            'HEADLESS_RENDER_V1', 'HEADLESS_RENDER_V2', 'HEADLESS_RENDER_V3')
         self.fixture, self.manifest, self.root = fixture, manifest, root
         self.resource_profile = resource_profile
         self.configs = []
@@ -109,7 +110,8 @@ class SandboxPreparer:
                 config.registry.workspace,
                 tuple(
                     replace(recipe, timeout_ms=20000,
-                            max_output_bytes=(16384 if self.resource_profile in ('HEADLESS_RENDER_V1', 'HEADLESS_RENDER_V2')
+                            max_output_bytes=(16384 if self.resource_profile in (
+                                'HEADLESS_RENDER_V1', 'HEADLESS_RENDER_V2', 'HEADLESS_RENDER_V3')
                                               else recipe.max_output_bytes))
                     for recipe in config.registry.recipes
                 ),
@@ -196,7 +198,8 @@ class SandboxPreparer:
                 policy_revision=2,
                 capabilities=("PROJECT_WRITE", "SANDBOX_EXEC"),
                 completion_digest=completion.digest,
-                output_bytes=(16384 if self.resource_profile in ('HEADLESS_RENDER_V1', 'HEADLESS_RENDER_V2')
+                output_bytes=(16384 if self.resource_profile in (
+                    'HEADLESS_RENDER_V1', 'HEADLESS_RENDER_V2', 'HEADLESS_RENDER_V3')
                               else f.grant.output_bytes),
             )
             route.create_session(fx.p(support.Capability.OWNER_APPROVAL), grant)

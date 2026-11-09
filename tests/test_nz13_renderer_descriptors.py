@@ -71,7 +71,8 @@ class RendererDescriptorTests(unittest.TestCase):
         recipe = render_recipe.HtmlRenderRecipe((('index.html', b'<title>T</title><h1>Text</h1>'),),
                                                 (320, 200), 'T', 'Text')
         manifest = json.loads(recipe.manifest_bytes())
-        self.assertEqual(V2, manifest['resource_profile'])
+        # Keep this original test ID while the fixed current recipe advances.
+        self.assertEqual('HEADLESS_RENDER_V3', manifest['resource_profile'])
         self.assertNotIn('nofile', manifest)
         self.assertNotIn('descriptor_limit', manifest)
 
