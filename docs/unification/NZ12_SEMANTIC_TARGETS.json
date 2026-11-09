@@ -8323,8 +8323,8 @@
     },
     "runtime/mission/sandbox_linux.py": {
       "path": "runtime/mission/sandbox_linux.py",
-      "git_blob": "679ccb1b722d42d5eab218cf273003cfb89578e2",
-      "sha256": "84e9de919b49d9d98035fbca12738732932f8d3884bf661c39547a07a361ab41",
+      "git_blob": "f8efb179351bd0531e9410a303d33dba28f82cbc",
+      "sha256": "9b27196a87fb8b02459ecf34a09271da8e49ad43cf5e779fd0a2eab114ef4431",
       "definitions": [
         {
           "name": "now",
@@ -8368,135 +8368,135 @@
         },
         {
           "name": "TrustedSandboxConfig",
-          "line": 297
+          "line": 303
         },
         {
           "name": "_host_json",
-          "line": 315
+          "line": 321
         },
         {
           "name": "save_host_config",
-          "line": 322
+          "line": 328
         },
         {
           "name": "load_host_config",
-          "line": 353
+          "line": 359
         },
         {
           "name": "prepare_linux_sandbox",
-          "line": 432
+          "line": 438
         },
         {
           "name": "git_storage_identity",
-          "line": 644
+          "line": 650
         },
         {
           "name": "_systemd_properties",
-          "line": 758
+          "line": 764
         },
         {
           "name": "LinuxSandboxBroker",
-          "line": 784
+          "line": 790
         },
         {
           "name": "profile",
-          "line": 305
-        },
-        {
-          "name": "inputs",
-          "line": 308
-        },
-        {
-          "name": "runtime",
           "line": 311
         },
         {
+          "name": "inputs",
+          "line": 314
+        },
+        {
+          "name": "runtime",
+          "line": 317
+        },
+        {
           "name": "private",
-          "line": 357
+          "line": 363
         },
         {
           "name": "walk",
-          "line": 662
+          "line": 668
         },
         {
           "name": "__init__",
-          "line": 785
+          "line": 791
         },
         {
           "name": "__call__",
-          "line": 796
+          "line": 802
         },
         {
           "name": "_git_directory",
-          "line": 800
+          "line": 806
         },
         {
           "name": "_git_publish_new",
-          "line": 841
+          "line": 847
         },
         {
           "name": "_git_existing_object",
-          "line": 880
+          "line": 886
         },
         {
           "name": "_git_plumbing",
-          "line": 925
+          "line": 931
         },
         {
           "name": "dispatch",
-          "line": 1520
+          "line": 1526
         },
         {
           "name": "_run",
-          "line": 1591
+          "line": 1597
         },
         {
           "name": "verify",
-          "line": 2054
+          "line": 2060
         },
         {
           "name": "hold",
-          "line": 1018
+          "line": 1024
         },
         {
           "name": "sealed",
-          "line": 1023
+          "line": 1029
         },
         {
           "name": "read_local",
-          "line": 1088
+          "line": 1094
         },
         {
           "name": "lock_stamp",
-          "line": 1161
+          "line": 1167
         },
         {
           "name": "check_lock",
-          "line": 1173
+          "line": 1179
         },
         {
           "name": "check_lock_parent",
-          "line": 1183
+          "line": 1189
         },
         {
           "name": "lock_new",
-          "line": 1203
+          "line": 1209
         },
         {
           "name": "check_ref_transaction",
-          "line": 1319
+          "line": 1325
         },
         {
           "name": "guarded_cleanup",
-          "line": 1960
+          "line": 1966
         },
         {
           "name": "release",
-          "line": 1227
+          "line": 1233
         },
         {
           "name": "reap_owned",
-          "line": 1989
+          "line": 1995
         }
       ],
       "symbolic_callees": [
@@ -8802,7 +8802,7 @@
         "zlib.decompressobj"
       ],
       "call_site_count": 921,
-      "call_sites_sha256": "4d7f73600454e72d0aa7eabcdfa2d565ad6f46502e08706664897b7c519016db"
+      "call_sites_sha256": "0846a9afc4fec334327fd1ee71251fa6478a492185556112d17f273354a0eae2"
     },
     "runtime/nonzero_cloudops/adapters/portable.py": {
       "path": "runtime/nonzero_cloudops/adapters/portable.py",
@@ -16282,6 +16282,6 @@
     "DUPLICATE_VERIFIED": 16,
     "EXCLUDED_UNSAFE": 2
   },
-  "current_target_binding_note": "NZ13-D3 current tracked blob/AST identities only. NZ12 assessments remain historical; function/render profiles require exact-head broker, confinement, Chrome and installed qualification. No model, production Native, unrestricted setup or full parity certification is implied.",
+  "current_target_binding_note": "NZ13-D4 current tracked blob/AST identities only. NZ12 assessments remain historical; function/render profiles require exact-head broker, confinement, Chrome and installed qualification. No model, production Native, unrestricted setup or full parity certification is implied.",
   "nz12_binding_before_nz13_sha256": "cfca6195089170934076cd15ac80a5b26786e947338b089dd75926d545b971b2"
 }

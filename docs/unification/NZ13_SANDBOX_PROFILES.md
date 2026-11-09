@@ -26,13 +26,15 @@ denial must be demonstrated before qualification; the larger virtual allowance
 alone does not certify browser execution.
 
 Renderer IPC permits fresh Unix stream/seqpacket pairs and the single
-`SOL_SOCKET/SO_PASSCRED` option with a four-byte value. The filter bounds the
-descriptor and option arguments; it cannot prove descriptor provenance or
-inspect the pointed value. Isolation also requires bootstrap to close every
+`SOL_SOCKET/SO_PASSCRED` option with a four-byte setter value and a getter for
+that same flag. The filter bounds descriptor and option arguments; it cannot
+prove descriptor provenance or inspect pointed values/lengths. Getter output
+and length are guest pointers validated by the kernel. Isolation also requires bootstrap to close every
 inherited descriptor above stderr and provide only DEVNULL/bounded pipes at
 stdin/stdout/stderr. Unix abstract auto-binding remains inside the job's
-private network namespace. Socket creation, connect, bind, listen, getsockopt,
-other socket options and INET access remain denied.
+private network namespace. Socket creation, connect, bind, listen, other
+getsockopt options, other socket options and INET access remain denied.
+IPC credential flags never grant Core owner authority.
 
 Function validation uses an independently supplied expected result. Child
 exceptions, malformed output, timeout, lost acknowledgement or unverifiable

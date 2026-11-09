@@ -116,9 +116,36 @@ class RenderFilterTests(unittest.TestCase):
 
     def test_credential_option_never_opens_getsockopt_or_a_network_socket(self):
         raw = self.renderer()
-        for number in (41, 42, 49, 50, 55, 101, 438):
+        for number in (41, 42, 49, 50, 101, 438):
             with self.subTest(number=number):
                 self.assertEqual(DENY, evaluate(raw, number, (3, 1, 16, 0x1000, 4)))
+        self.assertEqual(DENY, evaluate(raw, 55, (3, 1, socket.SO_ERROR, 0x1000, 0x2000)))
+        self.assertEqual(DENY, evaluate(build_filter(final=True), 55, (3, 1, 16, 0x1000, 0x2000)))
+
+    def test_renderer_can_query_only_its_private_pair_credential_flag(self):
+        raw = self.renderer()
+        for descriptor in (0, 3, 63):
+            for value_pointer, length_pointer in ((0x1000, 0x2000), (2**40, 2**41)):
+                with self.subTest(descriptor=descriptor, pointer=value_pointer):
+                    self.assertEqual(ALLOW, evaluate(raw, 55, (
+                        descriptor, socket.SOL_SOCKET, socket.SO_PASSCRED, value_pointer, length_pointer)))
+
+    def test_private_credential_getter_refuses_unapproved_options_levels_and_high_bits(self):
+        raw = self.renderer()
+        for descriptor, level, option in ((64, 1, 16), (2**32 + 3, 1, 16),
+                                          (3, 0, 16), (3, 2**32 + 1, 16),
+                                          (3, 1, socket.SO_ERROR), (3, 1, socket.SO_PEERCRED),
+                                          (3, 1, 2**32 + 16)):
+            with self.subTest(descriptor=descriptor, level=level, option=option):
+                self.assertEqual(DENY, evaluate(raw, 55, (descriptor, level, option, 0x1000, 0x2000)))
+
+    def test_getter_length_is_an_opaque_pointer_not_a_model_selected_integer_size(self):
+        raw = self.renderer()
+        for length_pointer in (0, 4, 0x2000, 2**40):
+            with self.subTest(pointer=length_pointer):
+                self.assertEqual(ALLOW, evaluate(raw, 55, (3, 1, 16, 0x1000, length_pointer)))
+        # The kernel still validates and bounds these guest pointers. Classic
+        # BPF neither dereferences them nor turns IPC flags into owner auth.
 
     def test_renderer_keeps_abi_namespace_and_ptrace_denials(self):
         raw = self.renderer()
