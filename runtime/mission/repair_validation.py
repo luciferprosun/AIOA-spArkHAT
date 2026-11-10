@@ -331,6 +331,9 @@ def _pin_prepared_spec(journal, step, expected_spec):
         set(spec["files"]) == set(files) and spec["expected"] == expected,
         "VALIDATION_INPUTS",
     )
+    from runtime.mission.sandbox_contracts import sandbox_input_limits
+
+    maximum = sandbox_input_limits(config.profile().get('input_profile'))['per_file_bytes']
     for name, data in files.items():
         require(
             spec["manifest"][name] == hashlib.sha256(data).hexdigest(),
@@ -338,7 +341,7 @@ def _pin_prepared_spec(journal, step, expected_spec):
         )
         path = Path(spec["files"][name])
         require(
-            read_evidence_file(path.parent, path.name) == data,
+            read_evidence_file(path.parent, path.name, maximum) == data,
             "VALIDATION_INPUT_CHANGED",
         )
 

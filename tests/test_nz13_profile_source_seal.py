@@ -5,6 +5,7 @@ from pathlib import PurePosixPath
 from runtime.meta_hackathon.runtime_adapter import SOURCE_FILES
 
 REQUIRED = {
+    'runtime/mission/python_test_contracts.py',
     'runtime/mission/dependency_lock.py', 'runtime/mission/function_isolation.py',
     'runtime/mission/python_function_worker.py', 'runtime/mission/python_function_child.py',
     'runtime/mission/repository_worker.py', 'runtime/mission/render_recipe.py',

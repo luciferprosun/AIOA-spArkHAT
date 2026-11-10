@@ -82,11 +82,14 @@ class LegacyObservationProjection:
 class SandboxPreparer:
     """Operator fixture: all jobs still traverse the real Core START and broker."""
 
-    def __init__(self, fixture, manifest, root, *, resource_profile=None):
+    def __init__(self, fixture, manifest, root, *, resource_profile=None, input_profile=None):
         assert resource_profile is None or resource_profile in (
             'HEADLESS_RENDER_V1', 'HEADLESS_RENDER_V2', 'HEADLESS_RENDER_V3')
         self.fixture, self.manifest, self.root = fixture, manifest, root
+        assert input_profile is None or input_profile == 'PYTEST_WHEELS_V1'
+        assert resource_profile is None or input_profile is None
         self.resource_profile = resource_profile
+        self.input_profile = input_profile
         self.configs = []
 
     def steps(self, specs):
@@ -100,6 +103,7 @@ class SandboxPreparer:
                 'renderer_ipc': ('RENDER_UNIX_MOJO_V1' if self.resource_profile == 'HEADLESS_RENDER_V3'
                                  else 'RENDER_UNIX_LISTENER_V1')}
                if self.resource_profile is not None else {}),
+            **({'input_profile': self.input_profile} if self.input_profile is not None else {}),
         )
         # The existing hard ceiling includes namespace setup and the final
         # trusted Core release check. Full-history release alone takes 3.5s on
@@ -114,6 +118,7 @@ class SandboxPreparer:
                     replace(recipe, timeout_ms=20000,
                             max_output_bytes=(16384 if self.resource_profile in (
                                 'HEADLESS_RENDER_V1', 'HEADLESS_RENDER_V2', 'HEADLESS_RENDER_V3')
+                                              or self.input_profile == 'PYTEST_WHEELS_V1'
                                               else recipe.max_output_bytes))
                     for recipe in config.registry.recipes
                 ),
@@ -202,6 +207,7 @@ class SandboxPreparer:
                 completion_digest=completion.digest,
                 output_bytes=(16384 if self.resource_profile in (
                     'HEADLESS_RENDER_V1', 'HEADLESS_RENDER_V2', 'HEADLESS_RENDER_V3')
+                              or self.input_profile == 'PYTEST_WHEELS_V1'
                               else f.grant.output_bytes),
             )
             route.create_session(fx.p(support.Capability.OWNER_APPROVAL), grant)
@@ -305,6 +311,8 @@ def exercise_active_stop(
                         "src/textutil.py",
                         "def slug(text):\n    while True:\n        pass\n",
                     ),
+                    *((CandidateFile("src/extra.py", "def title(text):\n    return text.title()\n"),)
+                      if getattr(profile, 'sandbox_input_profile', None) == 'PYTEST_WHEELS_V1' else ()),
                 )
             )
             worker = SyntheticWorker((candidate,), clock=lambda: fixture.now)
@@ -480,7 +488,7 @@ def review_denial_broker_contract(steps, receipts):
 
 
 def main(manifest_path, root, *, worker_factory=SyntheticWorker, profile_factory=None,
-         candidate_transform=None, expected_review_denial=None):
+         candidate_transform=None, expected_review_denial=None, source_files=None):
     assert expected_review_denial in (None, 'REVIEW_FIXTURE_BYPASS'), 'EXPECTED_REVIEW_DENIAL_SELECTOR'
     producer_class = getattr(repair, "SandboxedCandidateProducer", None)
     assert callable(producer_class), (
@@ -491,6 +499,12 @@ def main(manifest_path, root, *, worker_factory=SyntheticWorker, profile_factory
         "test_source_is_actual_git_commit_tree_and_independently_exported_bytes"
     )
     case.setUp()
+    if source_files is not None:
+        # Trusted local test data only; no model, API or runtime registration.
+        assert type(source_files) is dict and 1 <= len(source_files) <= 32
+        assert all(type(name) is str and type(raw) is bytes
+                   and len(raw) <= 65536 for name, raw in source_files.items())
+        case.repo = BareRepository(case.root / 'pytest-source.git', source_files)
     fixture = fixture_core()
     try:
         fx = fixture.fx
@@ -520,7 +534,8 @@ def main(manifest_path, root, *, worker_factory=SyntheticWorker, profile_factory
         ))
         assert recovery_profile.digest != profile.digest
         preparer = SandboxPreparer(
-            fixture, json.loads(manifest_path.read_text())["manifest"], root
+            fixture, json.loads(manifest_path.read_text())["manifest"], root,
+            input_profile=getattr(profile, 'sandbox_input_profile', None),
         )
         candidates = tuple(
             CandidatePatch(
@@ -638,7 +653,14 @@ def main(manifest_path, root, *, worker_factory=SyntheticWorker, profile_factory
             principal=fx.p(support.Capability.READ),
         )
         if expected_review_denial is not None:
-            summary = review_denial_contract(reviewed, expected_failure_code=expected_review_denial)
+            try:
+                summary = review_denial_contract(reviewed, expected_failure_code=expected_review_denial)
+            except AssertionError:
+                # Canonical private fixture state only, never credentials.
+                diagnostic = {key: reviewed.get(key) for key in ('state', 'run_result')}
+                with (root / 'unexpected-controller-state.json').open('x') as stream:
+                    json.dump(diagnostic, stream, indent=2)
+                raise
             # This diagnostic candidate must remain denied by independent
             # coding review. Git setup is a fixture; no Git effect is approved.
             assert target.git('show-ref', '--head') == negative_target_refs

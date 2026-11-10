@@ -29,6 +29,25 @@ RENDER_PROFILE_CEILINGS = MappingProxyType({
 })
 
 
+# Input storage policy only. This selector adds no CPU/memory/IPC authority.
+DEFAULT_INPUT_LIMITS = MappingProxyType({
+    'files': 16, 'per_file_bytes': 1048576, 'total_bytes': 16777216,
+})
+SANDBOX_INPUT_PROFILES = MappingProxyType({
+    'PYTEST_WHEELS_V1': MappingProxyType({
+        'files': 24, 'per_file_bytes': 2097152, 'total_bytes': 8388608,
+    }),
+})
+
+
+def sandbox_input_limits(profile):
+    if profile is None:
+        return DEFAULT_INPUT_LIMITS
+    require(type(profile) is str and profile in SANDBOX_INPUT_PROFILES,
+            'INVALID_SANDBOX_INPUT_PROFILE')
+    return SANDBOX_INPUT_PROFILES[profile]
+
+
 PAYLOAD_FIELDS = frozenset({
     'tool', 'workspace', 'task_id', 'step_id', 'recipe_id', 'argv', 'project_root_ref',
     'sandbox_profile_digest', 'tool_input_digest', 'network_profile', 'env_policy_digest',
@@ -64,10 +83,14 @@ class SandboxOperation:
         _digest(operation['target_fingerprint'], prefixed=True)
         _identity(operation['expected_target_revision'])
         payload = operation['payload']
-        require(type(payload) is dict and set(payload) in (PAYLOAD_FIELDS, PAYLOAD_FIELDS | {'resource_profile'})
+        require(type(payload) is dict and set(payload) in (PAYLOAD_FIELDS, PAYLOAD_FIELDS | {'resource_profile'},
+                                                         PAYLOAD_FIELDS | {'input_profile'})
                 and payload['tool'] == 'run_recipe' and payload['network_profile'] == 'OFF',
                 'INVALID_SANDBOX_OPERATION')
         ceilings = RESOURCE_CEILINGS
+        if 'input_profile' in payload:
+            require(payload['input_profile'] is not None, 'INVALID_SANDBOX_INPUT_PROFILE')
+            sandbox_input_limits(payload['input_profile'])
         if 'resource_profile' in payload:
             require(type(payload['resource_profile']) is str
                     and payload['resource_profile'] in RENDER_PROFILE_CEILINGS,
@@ -184,6 +207,7 @@ class SandboxRecipe:
     artifacts_bytes: int = 8388608
     argv: tuple[str, ...] = PYTHON_ARGV
     resource_profile: str | None = None
+    input_profile: str | None = None
 
     def __post_init__(self):
         require(type(self.argv) is tuple, 'INVALID_SANDBOX_RECIPE')
@@ -196,6 +220,8 @@ class SandboxRecipe:
         result['argv'] = list(self.argv)
         if self.resource_profile is None:
             result.pop('resource_profile')
+        if self.input_profile is None:
+            result.pop('input_profile')
         return {**result, 'tool': 'run_recipe', 'workspace': workspace, 'task_id': task_id,
                 'step_id': step_id, 'network_profile': 'OFF'}
 

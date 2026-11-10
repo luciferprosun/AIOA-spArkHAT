@@ -79,8 +79,13 @@ def _kernel():
     return _LandlockKernel()
 
 
-def restrict_function_process():
+def restrict_function_process(*, profile='FUNCTION_V1', index=None):
     _require_confined_single_thread()
+    require(type(profile) is str and profile in (
+        'FUNCTION_V1', 'PYTEST_FRAMEWORK_V1', 'PYTEST_ORACLE_V1')
+        and (profile in ('FUNCTION_V1', 'PYTEST_FRAMEWORK_V1') and index is None
+             or profile == 'PYTEST_ORACLE_V1' and type(index) is int and 0 <= index < 8),
+        'FUNCTION_CHILD_DOMAIN_REQUIRED')
     kernel = _kernel()
     require(kernel.abi >= 6, 'FUNCTION_LANDLOCK_ABI_REQUIRED')
     read = READ_FILE | READ_DIR
@@ -89,9 +94,18 @@ def restrict_function_process():
     paths = (
         ('/usr/lib/python3.12', read), ('/lib', read), ('/lib64', read),
         ('/usr/bin/python3.12', READ_FILE | EXECUTE),
-        ('/work/project', read), ('/work/dependencies', read), ('/tmp', temporary),
+        ('/work/dependencies', read),
         ('/dev/null', READ_FILE | WRITE_FILE), ('/dev/urandom', READ_FILE),
     )
+    if profile == 'FUNCTION_V1':
+        scratch = '/tmp'
+        paths += (('/work/project', read), (scratch, temporary))
+    elif profile == 'PYTEST_FRAMEWORK_V1':
+        scratch = '/tmp/pytest-framework'
+        paths += (('/work/project', read), ('/work/tests', read), (scratch, temporary))
+    else:
+        scratch = '/tmp/oracle-' + str(index)
+        paths += (('/work/oracle-project', read), (scratch, temporary))
     ruleset = kernel.create(HANDLED_FS, SCOPED)
     require(ruleset >= 0, 'FUNCTION_LANDLOCK_RULESET_REQUIRED')
     try:
@@ -104,6 +118,11 @@ def restrict_function_process():
         require(kernel.restrict(ruleset) == 0, 'FUNCTION_LANDLOCK_ENFORCEMENT_REQUIRED')
     finally:
         os.close(ruleset)
-    return {'schema': 'aioa.function-child-isolation.v1', 'landlock_abi': kernel.abi,
-            'parent_proc_access': 'DENIED', 'workspace_access': 'READ_ONLY',
-            'signal_scope': 'DESCENDANTS_ONLY', 'inherited_by_descendants': True}
+    result = {'schema': 'aioa.function-child-isolation.v1', 'landlock_abi': kernel.abi,
+              'parent_proc_access': 'DENIED', 'workspace_access': 'READ_ONLY',
+              'signal_scope': 'DESCENDANTS_ONLY', 'inherited_by_descendants': True}
+    if profile != 'FUNCTION_V1':
+        result.update(schema='aioa.function-child-isolation.v2', domain=profile,
+                      scratch_root=scratch,
+                      source_test_access='READ_ONLY' if profile == 'PYTEST_FRAMEWORK_V1' else 'DENIED')
+    return result

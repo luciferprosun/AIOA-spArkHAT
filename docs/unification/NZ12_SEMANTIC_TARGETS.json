@@ -8323,8 +8323,8 @@
     },
     "runtime/mission/sandbox_linux.py": {
       "path": "runtime/mission/sandbox_linux.py",
-      "git_blob": "5942afe5796ceb2f0026ee73690be85a7bd2256e",
-      "sha256": "33d5185145db42bbb23319d0aa2ee121b770159d71421980b3a30c39de8c1abd",
+      "git_blob": "e896de8816fb6d3da776cc9a0e7ec0ad461352e5",
+      "sha256": "003732d8d141f080b033a424faf65dcfe4e8a494a6c522ad5b2257b61cc947b5",
       "definitions": [
         {
           "name": "now",
@@ -8388,23 +8388,23 @@
         },
         {
           "name": "git_storage_identity",
-          "line": 723
+          "line": 734
         },
         {
           "name": "_parse_descriptor_limits",
-          "line": 837
+          "line": 848
         },
         {
           "name": "_observe_descriptor_limits",
-          "line": 853
+          "line": 864
         },
         {
           "name": "_systemd_properties",
-          "line": 868
+          "line": 879
         },
         {
           "name": "LinuxSandboxBroker",
-          "line": 895
+          "line": 906
         },
         {
           "name": "profile",
@@ -8424,43 +8424,43 @@
         },
         {
           "name": "walk",
-          "line": 741
+          "line": 752
         },
         {
           "name": "__init__",
-          "line": 896
-        },
-        {
-          "name": "__call__",
           "line": 907
         },
         {
+          "name": "__call__",
+          "line": 918
+        },
+        {
           "name": "_git_directory",
-          "line": 911
+          "line": 922
         },
         {
           "name": "_git_publish_new",
-          "line": 952
+          "line": 963
         },
         {
           "name": "_git_existing_object",
-          "line": 991
+          "line": 1002
         },
         {
           "name": "_git_plumbing",
-          "line": 1036
+          "line": 1047
         },
         {
           "name": "dispatch",
-          "line": 1631
+          "line": 1642
         },
         {
           "name": "_run",
-          "line": 1702
+          "line": 1719
         },
         {
           "name": "verify",
-          "line": 2174
+          "line": 2191
         },
         {
           "name": "listener_call",
@@ -8468,47 +8468,47 @@
         },
         {
           "name": "hold",
-          "line": 1129
+          "line": 1140
         },
         {
           "name": "sealed",
-          "line": 1134
+          "line": 1145
         },
         {
           "name": "read_local",
-          "line": 1199
+          "line": 1210
         },
         {
           "name": "lock_stamp",
-          "line": 1272
+          "line": 1283
         },
         {
           "name": "check_lock",
-          "line": 1284
+          "line": 1295
         },
         {
           "name": "check_lock_parent",
-          "line": 1294
+          "line": 1305
         },
         {
           "name": "lock_new",
-          "line": 1314
+          "line": 1325
         },
         {
           "name": "check_ref_transaction",
-          "line": 1430
+          "line": 1441
         },
         {
           "name": "guarded_cleanup",
-          "line": 2080
+          "line": 2097
         },
         {
           "name": "release",
-          "line": 1338
+          "line": 1349
         },
         {
           "name": "reap_owned",
-          "line": 2109
+          "line": 2126
         }
       ],
       "symbolic_callees": [
@@ -8711,6 +8711,7 @@
         "os.unlink",
         "os.write",
         "out[data].decode",
+        "p.get",
         "p[data].items",
         "path.chmod",
         "path.exists",
@@ -8756,6 +8757,7 @@
         "run.mkdir",
         "runtime.items",
         "runtime_manifest.items",
+        "sandbox_contracts.sandbox_input_limits",
         "sealed",
         "seen.add",
         "select.select",
@@ -8782,6 +8784,7 @@
         "source.seek",
         "source.write",
         "spec[data].items",
+        "spec[data].values",
         "stack.callback",
         "stack.enter_context",
         "stamp",
@@ -8800,6 +8803,7 @@
         "struct.unpack",
         "subprocess.Popen",
         "subprocess.run",
+        "sum",
         "sync_directory",
         "target.split",
         "target.startswith",
@@ -8823,8 +8827,8 @@
         "zlib.compress",
         "zlib.decompressobj"
       ],
-      "call_site_count": 978,
-      "call_sites_sha256": "c36d54a8e7b3f5c5c07a316f93baead9f5e88d65daa3e1d93ee2a5996b263d25"
+      "call_site_count": 998,
+      "call_sites_sha256": "a710b3b0c2a94c3316662b19ae29dd23ffafa720c62293b16e46b9b377c89bb9"
     },
     "runtime/nonzero_cloudops/adapters/portable.py": {
       "path": "runtime/nonzero_cloudops/adapters/portable.py",
@@ -13672,8 +13676,8 @@
     },
     "runtime/mission/repair_validation.py": {
       "path": "runtime/mission/repair_validation.py",
-      "git_blob": "29c68c33de8d354192729c2811828b5fb5a23e80",
-      "sha256": "9aee95ed924c1520e06ec4f4b6eadb01dc4da451a4d55752f641d7be47e9ae6a",
+      "git_blob": "03411cd5f9afbbc6167e3a4f98289be4605fedde",
+      "sha256": "2601c17b85ca087aae69013d5d86ac0f40e830766b850ec26a55cb863a507dc9",
       "definitions": [
         {
           "name": "TrustedTestProfile",
@@ -13709,31 +13713,31 @@
         },
         {
           "name": "_collect_sandbox_receipt",
-          "line": 346
+          "line": 349
         },
         {
           "name": "_clean_receipt",
-          "line": 363
+          "line": 366
         },
         {
           "name": "_settle_sandbox_receipt",
-          "line": 371
+          "line": 374
         },
         {
           "name": "CoreRepositoryMaterializer",
-          "line": 392
+          "line": 395
         },
         {
           "name": "_store_validation_evidence",
-          "line": 566
+          "line": 569
         },
         {
           "name": "CoreSandboxValidation",
-          "line": 595
+          "line": 598
         },
         {
           "name": "_CoreValidationSession",
-          "line": 779
+          "line": 782
         },
         {
           "name": "__post_init__",
@@ -13757,51 +13761,51 @@
         },
         {
           "name": "__init__",
-          "line": 395
+          "line": 398
         },
         {
           "name": "materialize",
-          "line": 439
+          "line": 442
         },
         {
           "name": "save",
-          "line": 575
+          "line": 578
         },
         {
           "name": "__init__",
-          "line": 596
+          "line": 599
         },
         {
           "name": "render",
-          "line": 621
+          "line": 624
         },
         {
           "name": "read_render",
-          "line": 685
+          "line": 688
         },
         {
           "name": "_read_render_record",
-          "line": 698
+          "line": 701
         },
         {
           "name": "open",
-          "line": 730
+          "line": 733
         },
         {
           "name": "__init__",
-          "line": 780
+          "line": 783
         },
         {
           "name": "run",
-          "line": 785
+          "line": 788
         },
         {
           "name": "close",
-          "line": 860
+          "line": 863
         },
         {
           "name": "save",
-          "line": 536
+          "line": 539
         }
       ],
       "symbolic_callees": [
@@ -13834,6 +13838,7 @@
         "canonical_sha256",
         "config.inputs",
         "config.profile",
+        "config.profile().get",
         "config.registry.validate",
         "contains_sensitive_material",
         "data.decode",
@@ -13886,6 +13891,7 @@
         "resources.get",
         "result.outcome.to_dict",
         "rows.append",
+        "sandbox_input_limits",
         "self._read_render_record",
         "self.journal._load",
         "self.journal._run",
@@ -13923,93 +13929,97 @@
         "warrant.to_dict",
         "workspace_tree_digest"
       ],
-      "call_site_count": 376,
-      "call_sites_sha256": "5831e5dde5dad16ff3dab1e753a78a25c555912a13c3227050ba313fc48687e9"
+      "call_site_count": 379,
+      "call_sites_sha256": "efc46592b5b5c277524870eb42c4c32e3f0932e187183863a40bd297e92fb736"
     },
     "runtime/mission/sandbox_contracts.py": {
       "path": "runtime/mission/sandbox_contracts.py",
-      "git_blob": "26f48b7e23a257047ce071c321826f144ec903ab",
-      "sha256": "b49ec86325a90d5c22b0c43f8402ae6eb9ddecf2e6971075ccfe42fcc2c8e028",
+      "git_blob": "e3862428a1df750a074526cf2ae46be01e2f826d",
+      "sha256": "00aa6aad8a559da45b739ecf67d66b8a08eba111bfaea3c00c3bc449b96a6767",
       "definitions": [
         {
+          "name": "sandbox_input_limits",
+          "line": 43
+        },
+        {
           "name": "_identity",
-          "line": 39
+          "line": 58
         },
         {
           "name": "_digest",
-          "line": 44
+          "line": 63
         },
         {
           "name": "SandboxOperation",
-          "line": 50
+          "line": 69
         },
         {
           "name": "SandboxDispatchRequest",
-          "line": 103
+          "line": 126
         },
         {
           "name": "ToolVariant",
-          "line": 143
+          "line": 166
         },
         {
           "name": "tool_variant",
-          "line": 162
+          "line": 185
         },
         {
           "name": "SandboxRecipe",
-          "line": 170
+          "line": 193
         },
         {
           "name": "SandboxRegistry",
-          "line": 204
+          "line": 230
         },
         {
           "name": "__post_init__",
-          "line": 53
+          "line": 72
         },
         {
           "name": "parse",
-          "line": 90
+          "line": 113
         },
         {
           "name": "to_dict",
-          "line": 94
-        },
-        {
-          "name": "digest",
-          "line": 98
-        },
-        {
-          "name": "__post_init__",
           "line": 117
         },
         {
+          "name": "digest",
+          "line": 121
+        },
+        {
+          "name": "__post_init__",
+          "line": 140
+        },
+        {
           "name": "to_dict",
-          "line": 131
+          "line": 154
         },
         {
           "name": "digest",
-          "line": 138
+          "line": 161
         },
         {
           "name": "__post_init__",
-          "line": 188
+          "line": 212
         },
         {
           "name": "payload",
-          "line": 194
+          "line": 218
         },
         {
           "name": "__post_init__",
-          "line": 208
+          "line": 234
         },
         {
           "name": "payload",
-          "line": 215
+          "line": 241
         },
         {
           "name": "validate",
-          "line": 222
+          "line": 248
         }
       ],
       "symbolic_callees": [
@@ -14036,6 +14046,7 @@
         "re.fullmatch",
         "require",
         "result.pop",
+        "sandbox_input_limits",
         "selected[data].payload",
         "self.payload",
         "self.to_dict",
@@ -14043,181 +14054,189 @@
         "tuple",
         "type"
       ],
-      "call_site_count": 98,
-      "call_sites_sha256": "b95b021acbffafc3c06b846f1701e0136ff0631a8f67ae2c82516da11356f0f7"
+      "call_site_count": 106,
+      "call_sites_sha256": "efddd0870f5153d335d59ef899cb5ef9f9f28c51e5da7712b4830fdad786719a"
     },
     "runtime/mission/project_recipe.py": {
       "path": "runtime/mission/project_recipe.py",
-      "git_blob": "34e8f246afd813ac4d4c3e478e31acaedd4bba02",
-      "sha256": "0f6040a1684adea592f14e27c0ed3e691abb3fb4b580064fe42c040f3119d46a",
+      "git_blob": "802b0ab701851df7e069b34f2152dd1402e8fc92",
+      "sha256": "c0caa6d5fab7a329ca2832411fa0809e4a18d31c58b776275dc216df71931a95",
       "definitions": [
         {
           "name": "_require",
-          "line": 16
+          "line": 19
         },
         {
           "name": "_json",
-          "line": 21
+          "line": 24
         },
         {
           "name": "_hash",
-          "line": 27
+          "line": 30
         },
         {
           "name": "_validate_seed",
-          "line": 31
+          "line": 34
         },
         {
           "name": "ProjectSeed",
-          "line": 48
+          "line": 51
         },
         {
           "name": "PythonProjectPlan",
-          "line": 60
+          "line": 63
         },
         {
           "name": "SensorBridgePlan",
-          "line": 164
+          "line": 167
         },
         {
           "name": "prepare_sensorbridge_sandbox",
-          "line": 239
+          "line": 242
         },
         {
           "name": "snapshot_python_runtime",
-          "line": 279
+          "line": 282
         },
         {
           "name": "_recipe_value",
-          "line": 370
+          "line": 373
         },
         {
           "name": "PythonFunctionCase",
-          "line": 410
+          "line": 413
         },
         {
           "name": "PythonRepositoryRecipe",
-          "line": 458
+          "line": 461
         },
         {
           "name": "__post_init__",
-          "line": 55
+          "line": 58
         },
         {
           "name": "__post_init__",
-          "line": 68
+          "line": 71
         },
         {
           "name": "authority",
-          "line": 86
-        },
-        {
-          "name": "plan_bytes",
           "line": 89
         },
         {
+          "name": "plan_bytes",
+          "line": 92
+        },
+        {
           "name": "digest",
-          "line": 103
+          "line": 106
         },
         {
           "name": "target_fingerprint",
-          "line": 107
+          "line": 110
         },
         {
           "name": "result_bytes",
-          "line": 122
+          "line": 125
         },
         {
           "name": "recipe_spec",
-          "line": 137
+          "line": 140
         },
         {
           "name": "__post_init__",
-          "line": 169
+          "line": 172
         },
         {
           "name": "authority",
-          "line": 173
-        },
-        {
-          "name": "files",
           "line": 176
         },
         {
+          "name": "files",
+          "line": 179
+        },
+        {
           "name": "manifest",
-          "line": 184
+          "line": 187
         },
         {
           "name": "plan_bytes",
-          "line": 190
+          "line": 193
         },
         {
           "name": "digest",
-          "line": 201
-        },
-        {
-          "name": "recipe_spec",
           "line": 204
         },
         {
+          "name": "recipe_spec",
+          "line": 207
+        },
+        {
           "name": "check",
-          "line": 382
+          "line": 385
         },
         {
           "name": "__post_init__",
-          "line": 419
+          "line": 422
         },
         {
           "name": "call_payload",
-          "line": 448
+          "line": 451
         },
         {
           "name": "__post_init__",
-          "line": 477
+          "line": 482
+        },
+        {
+          "name": "_require_observation_budget",
+          "line": 592
         },
         {
           "name": "manifest_bytes",
-          "line": 553
+          "line": 611
         },
         {
           "name": "from_manifest",
-          "line": 589
+          "line": 658
         },
         {
           "name": "load_file",
-          "line": 670
+          "line": 760
         },
         {
           "name": "digest",
-          "line": 688
+          "line": 778
         },
         {
           "name": "validate_patch",
-          "line": 723
+          "line": 817
+        },
+        {
+          "name": "sandbox_input_profile",
+          "line": 832
         },
         {
           "name": "trusted_observer",
-          "line": 738
+          "line": 837
         },
         {
           "name": "accepts_observer",
-          "line": 742
+          "line": 843
         },
         {
           "name": "context",
-          "line": 750
+          "line": 851
         },
         {
           "name": "materialization_spec",
-          "line": 761
+          "line": 862
         },
         {
           "name": "observation_spec",
-          "line": 823
+          "line": 924
         },
         {
           "name": "decode_observation",
-          "line": 864
+          "line": 991
         }
       ],
       "symbolic_callees": [
@@ -14230,9 +14249,11 @@
         "Path().glob",
         "Path().read_bytes",
         "Path().rglob",
+        "Path().stem.casefold",
         "Path().with_name",
         "Path().with_name().read_bytes",
         "ProjectSeed",
+        "PytestSuite.from_manifest",
         "PythonFunctionCase",
         "SandboxRegistry",
         "SensorBridgePlan",
@@ -14261,8 +14282,10 @@
         "destination.open",
         "dict",
         "enumerate",
+        "extra.get",
         "field",
         "files.items",
+        "folded.startswith",
         "hashlib.sha256",
         "hashlib.sha256().hexdigest",
         "item.encode",
@@ -14276,9 +14299,11 @@
         "logical_id",
         "math.isfinite",
         "name.endswith",
+        "name.startswith",
         "next",
         "normalize_patch_relative_path",
         "observed.get",
+        "old.startswith",
         "os.fchmod",
         "os.fsync",
         "os.getuid",
@@ -14287,24 +14312,32 @@
         "parser.feed",
         "parser.finish",
         "patch.verify_digest",
+        "path.casefold",
+        "path.endswith",
         "path.is_absolute",
         "path.lstat",
         "path.resolve",
+        "path.split",
         "plan.recipe_spec",
         "prepare_linux_sandbox",
         "re.findall",
         "re.fullmatch",
         "read_evidence_file",
+        "recipe.manifest_bytes",
+        "relative.split",
         "replace",
         "resolved.lstat",
         "resolved.read_bytes",
         "resolved.stat",
+        "results.append",
         "root.exists",
         "root.mkdir",
         "root.with_name",
         "row.get",
         "row.items",
+        "seen.add",
         "self.__post_init__",
+        "self._require_observation_budget",
         "self.arguments_json.decode",
         "self.context",
         "self.expected_json.decode",
@@ -14313,6 +14346,10 @@
         "self.manifest",
         "self.manifest_bytes",
         "self.plan_bytes",
+        "self.pytest_suite.__post_init__",
+        "self.pytest_suite.check_observation",
+        "self.pytest_suite.manifest_bytes",
+        "self.pytest_suite.node_ids",
         "self.result_bytes",
         "self.validate_patch",
         "self.wheel_lock.__post_init__",
@@ -14322,6 +14359,7 @@
         "snapshot_python_runtime",
         "sorted",
         "source.resolve",
+        "source_files.items",
         "spec[data].update",
         "stages.append",
         "stat.S_ISREG",
@@ -14338,12 +14376,14 @@
         "type",
         "validate_program",
         "value.update",
+        "value[data].update",
+        "wheel.members",
         "wheel_lock.manifest_bytes",
         "workspace_tree_digest",
         "zip"
       ],
-      "call_site_count": 415,
-      "call_sites_sha256": "9ec096b43e7677bcf232fb1337076a39e1adfd8b9ae1ab06310e7004f42b2cbc"
+      "call_site_count": 525,
+      "call_sites_sha256": "91a677e4958496dc3d76054b3aa33e2938bebae1390d27ade3cd78c07a9ad277"
     },
     "runtime/mission/install_plan.py": {
       "path": "runtime/mission/install_plan.py",
@@ -15395,8 +15435,8 @@
     },
     "runtime/meta_hackathon/runtime_adapter.py": {
       "path": "runtime/meta_hackathon/runtime_adapter.py",
-      "git_blob": "5a425f64b37cc135b7befa4f92883d2e0f4e5e8e",
-      "sha256": "96dc9c654efbca12cfdbf4ec4ddb6a3ed0a2ea1f0575ae6dc24ea80353ac6f73",
+      "git_blob": "7de4e5e8e264776d30fa4e823ee0316bd300b080",
+      "sha256": "33ceaf759f541808904bf8e28958c9b84daad2ab90e592ffe164e762444b997e",
       "definitions": [
         {
           "name": "sealed_source_path",
@@ -15689,71 +15729,117 @@
     },
     "runtime/mission/dependency_lock.py": {
       "path": "runtime/mission/dependency_lock.py",
-      "git_blob": "8ee51dee63e66b69461bd08d738035f16f19847e",
-      "sha256": "3d0b2339bb548f09e13734a7d563eae1bb8ed35767adc16c0498ea4a7cf0a52a",
+      "git_blob": "b854adf76ca5f4b48d5e4c298188ce551473ddbd",
+      "sha256": "6bf2ad78a5cd4c2dc94762b149f645d208bf6798a9592b4eff17abffe4c0efe3",
       "definitions": [
         {
           "name": "_require",
-          "line": 23
+          "line": 24
         },
         {
           "name": "_json",
-          "line": 28
+          "line": 29
         },
         {
           "name": "_headers",
-          "line": 33
+          "line": 34
         },
         {
           "name": "_wheel_members",
-          "line": 46
+          "line": 52
         },
         {
           "name": "LockedWheel",
-          "line": 124
+          "line": 156
         },
         {
           "name": "PythonWheelLock",
-          "line": 159
+          "line": 191
+        },
+        {
+          "name": "_FrameworkPin",
+          "line": 226
+        },
+        {
+          "name": "FrameworkWheel",
+          "line": 250
+        },
+        {
+          "name": "PytestWheelLock",
+          "line": 282
         },
         {
           "name": "__post_init__",
-          "line": 131
+          "line": 163
         },
         {
           "name": "members",
-          "line": 148
+          "line": 180
         },
         {
           "name": "manifest",
-          "line": 152
-        },
-        {
-          "name": "__post_init__",
-          "line": 162
-        },
-        {
-          "name": "authority",
-          "line": 175
-        },
-        {
-          "name": "manifest_bytes",
-          "line": 178
-        },
-        {
-          "name": "digest",
           "line": 184
         },
         {
+          "name": "__post_init__",
+          "line": 194
+        },
+        {
+          "name": "authority",
+          "line": 207
+        },
+        {
+          "name": "manifest_bytes",
+          "line": 210
+        },
+        {
+          "name": "digest",
+          "line": 216
+        },
+        {
           "name": "inputs",
-          "line": 187
+          "line": 219
+        },
+        {
+          "name": "__post_init__",
+          "line": 257
+        },
+        {
+          "name": "members",
+          "line": 270
+        },
+        {
+          "name": "manifest",
+          "line": 275
+        },
+        {
+          "name": "__post_init__",
+          "line": 285
+        },
+        {
+          "name": "authority",
+          "line": 305
+        },
+        {
+          "name": "manifest_bytes",
+          "line": 308
+        },
+        {
+          "name": "digest",
+          "line": 315
+        },
+        {
+          "name": "inputs",
+          "line": 318
         }
       ],
-      "call_site_count": 147,
+      "call_site_count": 231,
       "symbolic_callees": [
         "BytesParser",
         "BytesParser().parsebytes",
+        "MappingProxyType",
         "ValueError",
+        "_FrameworkPin",
         "_headers",
         "_json",
         "_require",
@@ -15770,6 +15856,7 @@
         "dataclass",
         "field",
         "folded.add",
+        "folded.startswith",
         "hashlib.sha256",
         "hashlib.sha256().digest",
         "hashlib.sha256().hexdigest",
@@ -15778,17 +15865,22 @@
         "json.dumps",
         "json.dumps().encode",
         "key.lower",
+        "keys.count",
         "len",
         "list",
         "max",
         "members.items",
         "members[data].decode",
         "metadata.get",
+        "metadata.get_all",
         "name.casefold",
         "name.encode",
         "name.endswith",
         "name.split",
         "package.replace",
+        "parts[data].startswith",
+        "path.startswith",
+        "paths.add",
         "paths.intersection",
         "paths.update",
         "raw.decode",
@@ -15796,14 +15888,17 @@
         "re.fullmatch",
         "re.sub",
         "re.sub().lower",
+        "root.endswith",
         "self.__post_init__",
         "self.distribution.replace",
         "self.manifest_bytes",
         "set",
         "sorted",
+        "stat.S_IFMT",
         "stat.S_IMODE",
         "stat.S_ISREG",
         "str",
+        "sum",
         "tuple",
         "type",
         "value.is_multipart",
@@ -15812,12 +15907,12 @@
         "wheel.members",
         "zipfile.ZipFile"
       ],
-      "call_sites_sha256": "693502b944e93727c146132a3b0346daef340ad9c899fd82b6ac2e263a5276e9"
+      "call_sites_sha256": "166d4ee807da33b5906ee929fe3673117ae55c11164efa9fa0766eca76462c69"
     },
     "runtime/mission/function_isolation.py": {
       "path": "runtime/mission/function_isolation.py",
-      "git_blob": "9ba28dc7ec3e92d11fdab920e9e0a028e07041b3",
-      "sha256": "828f034c1799ae85ff8d61551934b2e5e1fcd8b65440bc00d9cf2f0826a10582",
+      "git_blob": "f2652294728cde386ba8c5643267a158f8b29839",
+      "sha256": "55eec9ed4f9159634dd27513e1c2dd6d22bec258bfc3f4c170566553a54e2626",
       "definitions": [
         {
           "name": "require",
@@ -15864,7 +15959,7 @@
           "line": 74
         }
       ],
-      "call_site_count": 47,
+      "call_site_count": 52,
       "symbolic_callees": [
         "Path",
         "Path().is_file",
@@ -15893,60 +15988,133 @@
         "os.statvfs",
         "platform.machine",
         "require",
-        "self.libc.syscall"
+        "result.update",
+        "self.libc.syscall",
+        "str",
+        "type"
       ],
-      "call_sites_sha256": "fc831fa229491ccbfaeebb407b1be08cbab1149d17c4bcb58ad2d81c71d41078"
+      "call_sites_sha256": "8e0dbf833c3ddc5773f6ad3f5b40cdf5b40358189f7bdbc5aab67c18dd427141"
     },
     "runtime/mission/python_function_child.py": {
       "path": "runtime/mission/python_function_child.py",
-      "git_blob": "bfb0a5f8bb7d9913dc33bb6618d6c6400edcd4ef",
-      "sha256": "bfe238f312dff931b31ba2ffc5fd9330f78007f5aaea70aca0617826e59140d0",
+      "git_blob": "184de7d69d793c5eacad646a117ae9da1937a0d2",
+      "sha256": "24653aff84344e238ff342df15fd30c8ecaa243e4fe3f825b2b810ab1065da46",
       "definitions": [
         {
           "name": "require",
           "line": 12
         },
         {
-          "name": "run",
+          "name": "_require_sandbox",
           "line": 17
+        },
+        {
+          "name": "_function_domain",
+          "line": 25
+        },
+        {
+          "name": "_framework_args",
+          "line": 35
+        },
+        {
+          "name": "_check_pytest_environment",
+          "line": 51
+        },
+        {
+          "name": "_check_framework_origins",
+          "line": 56
+        },
+        {
+          "name": "FrameworkRecorder",
+          "line": 66
+        },
+        {
+          "name": "run_pytest",
+          "line": 110
+        },
+        {
+          "name": "run",
+          "line": 142
+        },
+        {
+          "name": "__init__",
+          "line": 69
+        },
+        {
+          "name": "demand",
+          "line": 73
+        },
+        {
+          "name": "pytest_collection_finish",
+          "line": 78
+        },
+        {
+          "name": "pytest_runtest_logreport",
+          "line": 84
+        },
+        {
+          "name": "result",
+          "line": 93
         }
       ],
-      "call_site_count": 46,
+      "call_site_count": 150,
       "symbolic_callees": [
+        "FrameworkRecorder",
         "Path",
         "Path().is_file",
         "Path().read_bytes",
         "Path().read_text",
         "ValueError",
+        "_check_framework_origins",
+        "_check_pytest_environment",
+        "_framework_args",
+        "_function_domain",
+        "_require_sandbox",
         "all",
         "boundary[data]",
+        "env.get",
+        "events.values",
+        "expected.items",
         "function",
         "getattr",
+        "hasattr",
         "importlib.import_module",
         "int",
         "isolation[data]",
         "json.dumps",
         "json.loads",
         "len",
+        "list",
+        "modules[data].main",
+        "name.split",
+        "node.split",
         "os.statvfs",
+        "policy[data].from_manifest",
         "print",
         "raw.encode",
         "re.fullmatch",
+        "recorder.result",
         "redirect_stdout",
         "require",
+        "results.append",
         "root.split",
         "run",
+        "run_pytest",
         "runpy.run_path",
+        "self.demand",
         "set",
+        "sorted",
         "str",
+        "suite.node_ids",
+        "tuple",
         "type"
       ],
-      "call_sites_sha256": "aee5a196a9f68d07887ce632a2f61ed49c584fe2fb1f5b440042f9a94541600e"
+      "call_sites_sha256": "802777d00ad091a712bb5e173af72c0660e1baf18e224febfd3e72dfbba0df26"
     },
     "runtime/mission/python_function_worker.py": {
       "path": "runtime/mission/python_function_worker.py",
-      "git_blob": "8a939c728776e8351a1178c4a23e6ad07c9e808b",
-      "sha256": "88db37cec4565226eac8a7fcc6f7b464066dbb56a7861ae112c15a624e9a5745",
+      "git_blob": "b98087a7168805c1d2960e568cfd31dcd0f304e3",
+      "sha256": "6fadefac9acc11daeb9dbb8506405e104999c508336cc1e47cf5b53b18d8d2ad",
       "definitions": [
         {
           "name": "require",
@@ -15965,28 +16133,52 @@
           "line": 37
         },
         {
-          "name": "wheel_lock",
+          "name": "_input_policy",
           "line": 48
         },
         {
+          "name": "decode_wheel_lock",
+          "line": 61
+        },
+        {
+          "name": "wheel_lock",
+          "line": 92
+        },
+        {
           "name": "install",
-          "line": 75
+          "line": 97
         },
         {
           "name": "verify_installed",
-          "line": 98
+          "line": 120
         },
         {
-          "name": "stage_workspace",
-          "line": 126
-        },
-        {
-          "name": "one_call",
+          "name": "_workspace_root",
           "line": 148
         },
         {
+          "name": "stage_workspace",
+          "line": 153
+        },
+        {
+          "name": "verify_workspace",
+          "line": 175
+        },
+        {
+          "name": "_observation_profile",
+          "line": 184
+        },
+        {
+          "name": "child_call_config",
+          "line": 193
+        },
+        {
+          "name": "one_call",
+          "line": 211
+        },
+        {
           "name": "observe",
-          "line": 191
+          "line": 256
         },
         {
           "name": "pairs",
@@ -15994,24 +16186,36 @@
         },
         {
           "name": "scan",
-          "line": 102
+          "line": 124
+        },
+        {
+          "name": "verify_views",
+          "line": 278
         }
       ],
-      "call_site_count": 182,
+      "call_site_count": 248,
       "symbolic_callees": [
         "Path",
         "Path().is_file",
+        "Path().mkdir",
         "Path().read_bytes",
         "Path().read_text",
         "Path().write_bytes",
         "ValueError",
+        "_input_policy",
+        "_observation_profile",
+        "_workspace_root",
         "actual.append",
         "bytearray",
         "bytes",
+        "callable",
         "canonical",
+        "child_call_config",
         "confined",
+        "decode_wheel_lock",
         "dict",
         "enumerate",
+        "env.update",
         "hashlib.sha256",
         "hashlib.sha256().hexdigest",
         "importlib.util.module_from_spec",
@@ -16024,10 +16228,9 @@
         "json.loads",
         "len",
         "lock.manifest_bytes",
+        "lock_class",
         "manifest.get",
         "max",
-        "module.LockedWheel",
-        "module.PythonWheelLock",
         "observe",
         "one_call",
         "os.close",
@@ -16038,16 +16241,20 @@
         "os.stat",
         "os.statvfs",
         "output.extend",
+        "policy.PytestSuite.from_manifest",
         "print",
         "process.kill",
         "process.poll",
         "process.stdout.close",
         "process.stdout.fileno",
         "process.wait",
+        "range",
         "raw.decode",
+        "read_wheel",
         "reply.get",
         "reply[data].isalnum",
         "reply[data].isascii",
+        "report.update",
         "require",
         "results.append",
         "root.mkdir",
@@ -16068,16 +16275,21 @@
         "str",
         "strict",
         "subprocess.Popen",
+        "suite.check_observation",
+        "suite.workspace_archive_bytes",
         "support[data]",
         "time.monotonic",
         "tuple",
         "type",
         "verify_installed",
+        "verify_views",
+        "verify_workspace",
         "wheel.members",
+        "wheel_class",
         "wheel_lock",
         "wheels.append"
       ],
-      "call_sites_sha256": "7679fb527e27ffa52c3ba2ebbc6379478d056decf328303bf9da41d1cb97f33f"
+      "call_sites_sha256": "52664b5147f34d84510210892b76285a48c6a9388e4237b3258c321ea08e23e6"
     },
     "runtime/mission/render_observation.py": {
       "path": "runtime/mission/render_observation.py",
@@ -17584,6 +17796,120 @@
         "warrant.digest"
       ],
       "call_sites_sha256": "c05ebfe1c0dd75f6c07036649aa6c169a943145e9d0fe96b814b360cea91f724"
+    },
+    "runtime/mission/python_test_contracts.py": {
+      "path": "runtime/mission/python_test_contracts.py",
+      "git_blob": "6b559592250ea096ecfeae2e0b4e00af5e097031",
+      "sha256": "7e2dff7ca8108a600dadb6fe9e34a9d12b5a76d54699b9c42cb7a1978cdc1e4c",
+      "definitions": [
+        {
+          "name": "_require",
+          "line": 13
+        },
+        {
+          "name": "_json",
+          "line": 18
+        },
+        {
+          "name": "_hash",
+          "line": 22
+        },
+        {
+          "name": "_json_bytes",
+          "line": 26
+        },
+        {
+          "name": "PytestSuite",
+          "line": 44
+        },
+        {
+          "name": "pairs",
+          "line": 27
+        },
+        {
+          "name": "__post_init__",
+          "line": 50
+        },
+        {
+          "name": "authority",
+          "line": 98
+        },
+        {
+          "name": "_payload",
+          "line": 101
+        },
+        {
+          "name": "manifest_bytes",
+          "line": 107
+        },
+        {
+          "name": "digest",
+          "line": 112
+        },
+        {
+          "name": "from_manifest",
+          "line": 116
+        },
+        {
+          "name": "node_ids",
+          "line": 139
+        },
+        {
+          "name": "workspace_archive_bytes",
+          "line": 144
+        },
+        {
+          "name": "check_observation",
+          "line": 150
+        }
+      ],
+      "call_site_count": 147,
+      "symbolic_callees": [
+        "Path",
+        "Path().name.startswith",
+        "ValueError",
+        "_hash",
+        "_json",
+        "_json_bytes",
+        "_require",
+        "all",
+        "any",
+        "cls",
+        "dataclass",
+        "dict",
+        "field",
+        "folded.startswith",
+        "frozenset",
+        "hashlib.sha256",
+        "hashlib.sha256().hexdigest",
+        "json.dumps",
+        "json.dumps().encode",
+        "json.loads",
+        "len",
+        "list",
+        "name.casefold",
+        "name.endswith",
+        "name.split",
+        "names.append",
+        "node.split",
+        "old.startswith",
+        "part.endswith",
+        "raw.decode",
+        "re.fullmatch",
+        "seen.add",
+        "self.__post_init__",
+        "self._payload",
+        "self.manifest_bytes",
+        "self.node_ids",
+        "set",
+        "sorted",
+        "suite.manifest_bytes",
+        "text.encode",
+        "tuple",
+        "type",
+        "zip"
+      ],
+      "call_sites_sha256": "5847b26cbdcd10dac11c5084c6bf3681efe1e273eba1fb138981774256fc703f"
     }
   },
   "dispositions": {
@@ -17594,6 +17920,6 @@
     "DUPLICATE_VERIFIED": 16,
     "EXCLUDED_UNSAFE": 2
   },
-  "current_target_binding_note": "NZ13-F7 current blob/AST identities, including one registered managed Portable bridge on the existing Core and injected existing executor. Actual private SQLite and inventory tests exercise exact USD0, write-boundary release, full independent readback, STOP and ACK loss. Historical69 NZ12 decisions are unchanged. Product INIT/rearm/no-effect, Native activation and physical dependency source closure, model, full69 parity and final exact-source qualification remain open.",
+  "current_target_binding_note": "NZ13-F8 current blob/AST identities add one pure pinned pytest Suite contract to the existing Core validation/worker/broker and Native source seal. Actual local positive evidence is bound to its own working map: real pytest fixtures/parameters/resource, source repair, independent oracles, capsule/fixture approval/local Git ADD+MODIFY, ACK recovery and STOP. Physical domain negatives and final same-SHA qualification remain separate required gates. Historical69 decisions are unchanged; product INIT/rearm/no-effect/Native/model/full69 parity remain open.",
   "nz12_binding_before_nz13_sha256": "cfca6195089170934076cd15ac80a5b26786e947338b089dd75926d545b971b2"
 }

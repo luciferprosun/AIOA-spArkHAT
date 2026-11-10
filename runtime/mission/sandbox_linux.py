@@ -494,7 +494,7 @@ def load_host_config(root, *, trusted_root):
 
 
 def prepare_linux_sandbox(root, runtime_manifest, *, workspace, recipes, resource_profile=None,
-                          renderer_ipc=None):
+                          renderer_ipc=None, input_profile=None):
     """Explicit operator preparation: compile packaged trusted C, pin runtime/inputs.
 
     recipes is a trusted mapping id -> {files:{name:bytes},expected:{artifact:bytes}}.
@@ -513,6 +513,9 @@ def prepare_linux_sandbox(root, runtime_manifest, *, workspace, recipes, resourc
     require(resource_profile is None or type(resource_profile) is str
             and resource_profile in RENDER_PROFILE_CEILINGS,
             'INVALID_SANDBOX_RESOURCE_PROFILE')
+    input_limits = sandbox_contracts.sandbox_input_limits(input_profile)
+    require(input_profile is None or resource_profile is None,
+            'INCOMPATIBLE_SANDBOX_INPUT_PROFILE')
     renderer = resource_profile is not None
     require(renderer_ipc is None or renderer and type(renderer_ipc) is str
             and (renderer_ipc == 'RENDER_UNIX_LISTENER_V1'
@@ -623,6 +626,8 @@ def prepare_linux_sandbox(root, runtime_manifest, *, workspace, recipes, resourc
             profile.update(private_connected_send='NULL_ADDRESS_ONLY', private_send_fd_limit=256)
         if resource_profile in ('HEADLESS_RENDER_V2', 'HEADLESS_RENDER_V3'):
             profile['descriptor_limit'] = 256
+    if input_profile is not None:
+        profile.update(input_profile=input_profile, input_limits=dict(input_limits))
     digest = canonical_sha256(profile)
     env_digest = canonical_sha256(env)
     inputs = {}
@@ -633,11 +638,16 @@ def prepare_linux_sandbox(root, runtime_manifest, *, workspace, recipes, resourc
             and set(spec) == {"files", "expected"}
             and type(spec["files"]) is dict
             and "recipe.py" in spec["files"]
-            and 0 < len(spec["files"]) <= 16
+            and 0 < len(spec["files"]) <= input_limits["files"]
             and type(spec["expected"]) is dict
             and 0 < len(spec["expected"]) <= 8,
             "INVALID_TRUSTED_RECIPE",
         )
+        if input_profile is not None:
+            require(all(type(data) is bytes for data in spec['files'].values()),
+                    'INVALID_TRUSTED_INPUT')
+            require(sum(len(data) for data in spec['files'].values()) <= input_limits['total_bytes'],
+                    'TRUSTED_INPUT_SUM_BOUND')
         directory = root / ("input-" + str(len(inputs)))
         directory.mkdir(mode=0o700)
         files = {}
@@ -649,7 +659,7 @@ def prepare_linux_sandbox(root, runtime_manifest, *, workspace, recipes, resourc
                 and "/" not in name
                 and name not in (".", "..")
                 and type(data) is bytes
-                and len(data) <= 1048576,
+                and len(data) <= input_limits["per_file_bytes"],
                 "INVALID_TRUSTED_INPUT",
             )
             destination = directory / name
@@ -688,6 +698,7 @@ def prepare_linux_sandbox(root, runtime_manifest, *, workspace, recipes, resourc
                 env_digest,
                 pids_max=resource_ceilings['pids_max'],
                 resource_profile=resource_profile,
+                input_profile=input_profile,
             )
         )
     return TrustedSandboxConfig(
@@ -1637,6 +1648,12 @@ class LinuxSandboxBroker:
             SandboxOperation(request.operation_bytes).to_dict()
         )
         p = self.config.profile()
+        input_profile = json.loads(request.operation_bytes)['payload'].get('input_profile')
+        require(p.get('input_profile') == input_profile, 'PINNED_INPUT_PROFILE_MISMATCH')
+        input_limits = sandbox_contracts.sandbox_input_limits(input_profile)
+        require(input_profile is None and 'input_limits' not in p
+                or input_profile is not None and p.get('input_limits') == dict(input_limits),
+                'PINNED_INPUT_LIMITS_MISMATCH')
         inputs = self.config.inputs()[
             json.loads(request.operation_bytes)["payload"]["recipe_id"]
         ]

@@ -78,3 +78,16 @@ class NativeMainSealTests(unittest.TestCase):
         self.assertEqual(1, dispatch.call_count)
         self.assertEqual(self.initial, api.current_source())
         self.assertEqual(40, len(self.host.source[0]))
+
+
+    def test_pytest_contract_is_sealed_exactly_once(self):
+        self.assertEqual(1, api.SOURCE_FILES.count('runtime/mission/python_test_contracts.py'))
+
+    def test_same_head_pytest_contract_drift_fences_before_owner_dispatch(self):
+        path = self.source_root / 'runtime/mission/python_test_contracts.py'
+        path.write_bytes(b'CHANGED_SYNTHETIC_PYTEST_CONTRACT\n')
+        self.assertEqual(self.initial[0], api.current_source()[0])
+        with patch('runtime.meta_hackathon.github_write.dispatch') as dispatch:
+            with self.assertRaises(AdmissionError):
+                self.host.operator_request(os.getuid(), {'op': 'github_prepare'})
+            dispatch.assert_not_called()
