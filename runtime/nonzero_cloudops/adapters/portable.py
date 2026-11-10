@@ -938,6 +938,24 @@ class PortableExecutor:
                 self.reconciled_calls += 1
         return receipt
 
+    def rearm(self, query: ResourceQuery, *, verifications: tuple[LocalVerificationEvidence, ...]) -> bool:
+        """One bounded fixed-demo attempt through the existing guarded Store."""
+        templates = tuple(item for item in default_mock_resources() if type(item) is ElasticIpResource)
+        if (type(query) is not ResourceQuery or len(templates) != 1
+                or (query.resource_type, query.resource_id, query.region) != (
+                    templates[0].resource_type, templates[0].resource_id, templates[0].region)
+                or self._state._initial_resources != default_mock_resources()):
+            raise PortablePolicyError('demo rearm requires the fixed default address template')
+        with self._counter_lock:
+            self.execute_calls += 1
+        applied = self._state.rearm_verified_demo_resource(query, verifications=verifications)
+        with self._counter_lock:
+            if applied is True:
+                self.mutation_calls += 1
+            elif applied is False:
+                self.reconciled_calls += 1
+        return applied
+
     def counters(self) -> tuple[int, int, int]:
         """Return execution, mutation, and reconciliation counters atomically."""
 

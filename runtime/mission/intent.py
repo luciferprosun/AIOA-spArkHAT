@@ -11,6 +11,7 @@ import json
 
 from lab.archaioa.outcome import Unknown
 from lab.archaioa.warrant import EffectWarrant
+
 from runtime.core_admission import Capability
 from runtime.memory_patch.contracts.serialization import (
     canonical_json_bytes,
@@ -169,16 +170,18 @@ class CoreIntentJournal:
                 and reservation.risk_units > 0, 'RESERVATION_BINDING')
         if zero:
             classes=('GITHUB_CREATE_COMMIT_PR_V1',) if remote_zero else ('READ', 'WORKSPACE_WRITE', 'SANDBOX_EXEC',
-                    'DEPENDENCY_INSTALL', 'GIT_COMMIT', 'GIT_PUSH', 'GITHUB_DRAFT_PR', 'PORTABLE_RELEASE_ELASTIC_IP')
+                    'DEPENDENCY_INSTALL', 'GIT_COMMIT', 'GIT_PUSH', 'GITHUB_DRAFT_PR', 'PORTABLE_RELEASE_ELASTIC_IP',
+                     'PORTABLE_REARM_DEMO_V1')
             require(warrant.operation_class in classes
                     and warrant.money_reservation_id == 'NONE'
                     and warrant.authority_scope.monetary_ceiling.amount == 0
                     and reservation.money_nano == 0, 'LOCAL_ZERO_CONTRACT')
             payload = operation['payload']
-            portable = not remote_zero and warrant.operation_class == 'PORTABLE_RELEASE_ELASTIC_IP'
+            portable = not remote_zero and warrant.operation_class in ('PORTABLE_RELEASE_ELASTIC_IP', 'PORTABLE_REARM_DEMO_V1')
             if portable:
                 require(warrant.authority_scope.monetary_ceiling.currency == 'USD', 'LOCAL_ZERO_USD_REQUIRED')
             expected_schema = ('aioa.github-remote-operation.v1' if remote_zero else
+                               'aioa.portable-rearm-operation.v1' if warrant.operation_class == 'PORTABLE_REARM_DEMO_V1' else
                                'aioa.portable-operation.v1' if portable else 'aioa.local-operation.v2')
             require(payload.get('schema') == expected_schema
                     and payload.get('principal_session_id', payload.get('session_id')) == principal.actor_session_id

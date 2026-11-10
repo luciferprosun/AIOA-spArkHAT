@@ -8832,8 +8832,8 @@
     },
     "runtime/nonzero_cloudops/adapters/portable.py": {
       "path": "runtime/nonzero_cloudops/adapters/portable.py",
-      "git_blob": "a2b86a24a7d99efaac1245580d037da1afc62002",
-      "sha256": "ac01e6d343a26ada477034797ec20d7edb6b175e2b33c68422030b987695f603",
+      "git_blob": "8764e72b2dce8e58fed2c9db59fe1b6b06421c67",
+      "sha256": "ead18ffe0b00abf421f067d537b795c6ef206c7a58d24822ef6d611aeccbabee",
       "definitions": [
         {
           "name": "PortableMutationError",
@@ -9048,16 +9048,20 @@
           "line": 917
         },
         {
-          "name": "counters",
+          "name": "rearm",
           "line": 941
         },
         {
+          "name": "counters",
+          "line": 959
+        },
+        {
           "name": "get_receipt",
-          "line": 947
+          "line": 965
         },
         {
           "name": "verify",
-          "line": 950
+          "line": 968
         }
       ],
       "symbolic_callees": [
@@ -9156,6 +9160,7 @@
         "self._state.execute",
         "self._state.get_receipt",
         "self._state.get_resource",
+        "self._state.rearm_verified_demo_resource",
         "self._state.verify",
         "self._target_guard_identity",
         "self._validate_execution_binding",
@@ -9175,8 +9180,8 @@
         "validate_local_path",
         "values.items"
       ],
-      "call_site_count": 330,
-      "call_sites_sha256": "6cb92d761021c13cdc36d4128280ec1aecdf50e9ac3065612a0ac57e02ba17c0"
+      "call_site_count": 338,
+      "call_sites_sha256": "d37d2ee86d74b8902ca6a457503ad0adb78734c784f17d9c81e7015609a54463"
     },
     "runtime/main.py": {
       "path": "runtime/main.py",
@@ -10733,92 +10738,92 @@
     },
     "runtime/mission/intent.py": {
       "path": "runtime/mission/intent.py",
-      "git_blob": "6e825cb131db8572b9e01e542117f23f472fe081",
-      "sha256": "40ff73b94d5230276fac978b7fc4d0cf93bbd438b41a4c5f89b903639c88f735",
+      "git_blob": "a77b6416d0258e4294311b9b0850462a7c260437",
+      "sha256": "d44620999e1e25cabdb329b3ad21070d242f1a0a08dab3c27acd527658e2ad99",
       "definitions": [
         {
           "name": "CoreIntentJournal",
-          "line": 34
-        },
-        {
-          "name": "__init__",
           "line": 35
         },
         {
+          "name": "__init__",
+          "line": 36
+        },
+        {
           "name": "_key",
-          "line": 42
+          "line": 43
         },
         {
           "name": "_run",
-          "line": 46
+          "line": 47
         },
         {
           "name": "_load",
-          "line": 50
+          "line": 51
         },
         {
           "name": "_save",
-          "line": 93
+          "line": 94
         },
         {
           "name": "_public",
-          "line": 109
+          "line": 110
         },
         {
           "name": "start",
-          "line": 113
+          "line": 114
         },
         {
           "name": "start_in_transaction",
-          "line": 117
+          "line": 118
         },
         {
           "name": "start_local_zero",
-          "line": 128
+          "line": 129
         },
         {
           "name": "start_remote_zero",
-          "line": 137
+          "line": 138
         },
         {
           "name": "_start_in_transaction",
-          "line": 146
+          "line": 147
         },
         {
           "name": "inspect",
-          "line": 241
+          "line": 244
         },
         {
           "name": "reconcile",
-          "line": 248
+          "line": 251
         },
         {
           "name": "apply_resolution_in_transaction",
-          "line": 268
+          "line": 271
         },
         {
           "name": "delivery",
-          "line": 288
+          "line": 291
         },
         {
           "name": "acknowledge_delivery",
-          "line": 298
+          "line": 301
         },
         {
           "name": "read",
-          "line": 242
+          "line": 245
         },
         {
           "name": "read",
-          "line": 257
+          "line": 260
         },
         {
           "name": "read",
-          "line": 290
+          "line": 293
         },
         {
           "name": "change",
-          "line": 299
+          "line": 302
         }
       ],
       "symbolic_callees": [
@@ -10881,7 +10886,7 @@
         "warrant.digest"
       ],
       "call_site_count": 182,
-      "call_sites_sha256": "dd992388facdc9dc21123752a565572fb24f97af36418f52cebeca97f76f569a"
+      "call_sites_sha256": "f90396356e9b72eb30544da63c396a98f7f2a267a40ad22710e1e9f9dd9af4fa"
     },
     "runtime/mcp_bridge/github_remote.py": {
       "path": "runtime/mcp_bridge/github_remote.py",
@@ -14006,8 +14011,8 @@
     },
     "runtime/mission/sandbox_contracts.py": {
       "path": "runtime/mission/sandbox_contracts.py",
-      "git_blob": "e3862428a1df750a074526cf2ae46be01e2f826d",
-      "sha256": "00aa6aad8a559da45b739ecf67d66b8a08eba111bfaea3c00c3bc449b96a6767",
+      "git_blob": "77bf35e4d2781049a085c49ecfb7bcc5b27274d0",
+      "sha256": "2bf5ce600936471ac79e658de2d4261c97f6f07d7778aaedd6d045a1e502cd24",
       "definitions": [
         {
           "name": "sandbox_input_limits",
@@ -14035,15 +14040,15 @@
         },
         {
           "name": "tool_variant",
-          "line": 185
+          "line": 187
         },
         {
           "name": "SandboxRecipe",
-          "line": 193
+          "line": 195
         },
         {
           "name": "SandboxRegistry",
-          "line": 230
+          "line": 232
         },
         {
           "name": "__post_init__",
@@ -14075,23 +14080,23 @@
         },
         {
           "name": "__post_init__",
-          "line": 212
+          "line": 214
         },
         {
           "name": "payload",
-          "line": 218
+          "line": 220
         },
         {
           "name": "__post_init__",
-          "line": 234
+          "line": 236
         },
         {
           "name": "payload",
-          "line": 241
+          "line": 243
         },
         {
           "name": "validate",
-          "line": 248
+          "line": 250
         }
       ],
       "symbolic_callees": [
@@ -14126,8 +14131,8 @@
         "tuple",
         "type"
       ],
-      "call_site_count": 106,
-      "call_sites_sha256": "efddd0870f5153d335d59ef899cb5ef9f9f28c51e5da7712b4830fdad786719a"
+      "call_site_count": 107,
+      "call_sites_sha256": "d271024004e3832c13d432e141b5d160fe10060be578014bdba4932514c23ed0"
     },
     "runtime/mission/project_recipe.py": {
       "path": "runtime/mission/project_recipe.py",
@@ -14631,256 +14636,256 @@
     },
     "runtime/mission/tools.py": {
       "path": "runtime/mission/tools.py",
-      "git_blob": "a58d225303428f4bbba93c63baef833878f4085e",
-      "sha256": "9d2f25e52009030149ecdb5f8b2210527334e508fac8b4709e0cc8e338242139",
+      "git_blob": "77a2ded27582e2dc23e281c788986ca342343f87",
+      "sha256": "485d23b3ac7e3633df43a41e4528fcb7c41b109b4a6fba536031f144835b90e1",
       "definitions": [
         {
           "name": "ToolCapability",
-          "line": 70
+          "line": 75
         },
         {
           "name": "tool_capability",
-          "line": 95
+          "line": 102
         },
         {
           "name": "application_path",
-          "line": 103
+          "line": 110
         },
         {
           "name": "TargetSnapshot",
-          "line": 120
+          "line": 127
         },
         {
           "name": "ToolDispatchLimits",
-          "line": 131
+          "line": 138
         },
         {
           "name": "SessionGrant",
-          "line": 148
+          "line": 155
         },
         {
           "name": "LocalSessionGrant",
-          "line": 201
+          "line": 208
         },
         {
           "name": "CoreToolRoute",
-          "line": 205
+          "line": 212
         },
         {
           "name": "__post_init__",
-          "line": 125
+          "line": 132
         },
         {
           "name": "__post_init__",
-          "line": 141
+          "line": 148
         },
         {
           "name": "__post_init__",
-          "line": 164
+          "line": 171
         },
         {
           "name": "to_dict",
-          "line": 182
+          "line": 189
         },
         {
           "name": "parse",
-          "line": 187
+          "line": 194
         },
         {
           "name": "digest",
-          "line": 196
+          "line": 203
         },
         {
           "name": "__init__",
-          "line": 207
+          "line": 214
         },
         {
           "name": "_require_target_binding",
-          "line": 233
+          "line": 241
         },
         {
           "name": "_target_snapshot",
-          "line": 256
+          "line": 264
         },
         {
           "name": "_context_target_snapshot",
-          "line": 268
-        },
-        {
-          "name": "_probe_target",
           "line": 276
         },
         {
-          "name": "_run",
-          "line": 280
+          "name": "_probe_target",
+          "line": 284
         },
         {
-          "name": "session_key",
+          "name": "_run",
           "line": 288
         },
         {
+          "name": "session_key",
+          "line": 296
+        },
+        {
           "name": "_session",
-          "line": 292
+          "line": 300
         },
         {
           "name": "create_session",
-          "line": 325
+          "line": 333
         },
         {
           "name": "validate_registered_local",
-          "line": 349
+          "line": 358
         },
         {
           "name": "dispatch_registered_local",
-          "line": 376
+          "line": 385
         },
         {
           "name": "revoke_session",
-          "line": 381
+          "line": 390
         },
         {
           "name": "_revoke_session",
-          "line": 386
+          "line": 395
         },
         {
           "name": "operation",
-          "line": 394
+          "line": 403
         },
         {
           "name": "_synthetic_operation",
-          "line": 408
+          "line": 417
         },
         {
           "name": "_operation",
-          "line": 420
+          "line": 429
         },
         {
           "name": "_snapshot_operation",
-          "line": 449
-        },
-        {
-          "name": "_ddr",
           "line": 458
         },
         {
-          "name": "_context_key",
-          "line": 465
-        },
-        {
-          "name": "_context",
+          "name": "_ddr",
           "line": 468
         },
         {
+          "name": "_context_key",
+          "line": 475
+        },
+        {
+          "name": "_context",
+          "line": 478
+        },
+        {
           "name": "_mode",
-          "line": 528
+          "line": 538
         },
         {
           "name": "_sandbox_scope",
-          "line": 534
+          "line": 544
         },
         {
           "name": "_portable_scope",
-          "line": 549
-        },
-        {
-          "name": "_sandbox_request",
           "line": 559
         },
         {
+          "name": "_sandbox_request",
+          "line": 581
+        },
+        {
           "name": "_native_job",
-          "line": 572
+          "line": 594
         },
         {
           "name": "authorize",
-          "line": 588
+          "line": 610
         },
         {
           "name": "authorize_exact",
-          "line": 593
+          "line": 615
         },
         {
           "name": "_authorize",
-          "line": 607
+          "line": 629
         },
         {
           "name": "_check",
-          "line": 692
+          "line": 718
         },
         {
           "name": "_retained",
-          "line": 716
+          "line": 742
         },
         {
           "name": "dispatch",
-          "line": 732
+          "line": 758
         },
         {
           "name": "_dispatch",
-          "line": 746
+          "line": 772
         },
         {
           "name": "inspect",
-          "line": 862
+          "line": 888
         },
         {
           "name": "reconcile",
-          "line": 872
+          "line": 898
         },
         {
           "name": "_reconcile",
-          "line": 877
+          "line": 903
         },
         {
           "name": "checked",
-          "line": 283
+          "line": 291
         },
         {
           "name": "change",
-          "line": 327
+          "line": 335
         },
         {
           "name": "change",
-          "line": 387
+          "line": 396
         },
         {
           "name": "change",
-          "line": 618
+          "line": 640
         },
         {
           "name": "start",
-          "line": 754
+          "line": 780
         },
         {
           "name": "readback",
-          "line": 805
+          "line": 831
         },
         {
           "name": "read",
-          "line": 863
+          "line": 889
         },
         {
           "name": "read",
-          "line": 878
+          "line": 904
         },
         {
           "name": "change",
-          "line": 907
+          "line": 933
         },
         {
           "name": "prepare",
-          "line": 814
+          "line": 840
         },
         {
           "name": "release_check",
-          "line": 827
-        },
-        {
-          "name": "record_ack",
           "line": 853
         },
         {
+          "name": "record_ack",
+          "line": 879
+        },
+        {
           "name": "check",
-          "line": 829
+          "line": 855
         }
       ],
       "symbolic_callees": [
@@ -14902,9 +14907,6 @@
         "MappingProxyType",
         "Money",
         "OwnerScope",
-        "PortableOperation.parse",
-        "PortableOperation.parse().domain_input.to_dict",
-        "PortableOperation.parse().to_dict",
         "PurePosixPath",
         "ReservationRequest",
         "SandboxDispatchRequest",
@@ -14915,6 +14917,8 @@
         "ToolDispatchLimits",
         "TransactionContext",
         "_PortableStartAck.issue_in_transaction",
+        "_portable_operation",
+        "_portable_operation().to_dict",
         "all",
         "any",
         "application_path",
@@ -14964,6 +14968,8 @@
         "operation.to_dict",
         "operation[data].get",
         "ord",
+        "parsed.domain_input.to_dict",
+        "parsed.request.to_dict",
         "parsed.to_dict",
         "part.lower",
         "part.startswith",
@@ -15058,8 +15064,8 @@
         "warrant.operation_hash.removeprefix",
         "warrant.to_dict"
       ],
-      "call_site_count": 560,
-      "call_sites_sha256": "f762846b75ebc7c4787b508280b16355145e456ac107946947b7b9d479d8983e"
+      "call_site_count": 570,
+      "call_sites_sha256": "de77a3b38a6d750dc6e675867d2bce0f9403a6ecf6718410e7cdb145e5171d73"
     },
     "runtime/mission/verification.py": {
       "path": "runtime/mission/verification.py",
@@ -17063,151 +17069,155 @@
     },
     "runtime/mission/target_projection.py": {
       "path": "runtime/mission/target_projection.py",
-      "git_blob": "66970bfb051d61d1053a4d241248aa9458da433d",
-      "sha256": "a9d0e99db7d66c96890981a279ce4cb93cfd1e67e8a82f76acb0cca081cd9baa",
+      "git_blob": "3cc2ff795798c39716effc08c8c16b3579376a39",
+      "sha256": "98821a7ba52e70b024e4b9077e7e02e7da85f99c52d2b1693df762f117d3f961",
       "definitions": [
         {
           "name": "_json",
-          "line": 61
+          "line": 67
         },
         {
           "name": "_digest",
-          "line": 65
-        },
-        {
-          "name": "CoreTargetProjection",
           "line": 71
         },
         {
+          "name": "CoreTargetProjection",
+          "line": 77
+        },
+        {
           "name": "__init__",
-          "line": 74
+          "line": 80
         },
         {
           "name": "history_key",
-          "line": 87
+          "line": 93
         },
         {
           "name": "_revision",
-          "line": 91
+          "line": 97
         },
         {
           "name": "_context",
-          "line": 94
+          "line": 100
         },
         {
           "name": "prepare_existing_adoption",
-          "line": 108
+          "line": 114
         },
         {
           "name": "_adoption_gate",
-          "line": 138
+          "line": 144
         },
         {
           "name": "_target_rows",
-          "line": 150
+          "line": 156
         },
         {
           "name": "_require_no_named_adoption",
-          "line": 157
+          "line": 163
         },
         {
           "name": "_require_no_adoption_warrants",
-          "line": 167
+          "line": 173
         },
         {
           "name": "_registration",
-          "line": 181
+          "line": 187
         },
         {
           "name": "_require_adoption_warrant",
-          "line": 202
+          "line": 208
         },
         {
           "name": "_adoption_commitment",
-          "line": 219
+          "line": 225
         },
         {
           "name": "adopt_existing_in_transaction",
-          "line": 223
+          "line": 229
         },
         {
           "name": "_check_registered_genesis",
-          "line": 263
+          "line": 269
         },
         {
           "name": "encode_existing_baseline",
-          "line": 291
+          "line": 297
         },
         {
           "name": "_require_warrant_binding",
-          "line": 303
-        },
-        {
-          "name": "_liability_entry",
           "line": 309
         },
         {
+          "name": "_liability_entry",
+          "line": 315
+        },
+        {
           "name": "_check_no_release_certificate",
-          "line": 319
+          "line": 325
         },
         {
           "name": "_observation",
-          "line": 344
-        },
-        {
-          "name": "_write_observation",
           "line": 350
         },
         {
+          "name": "_write_observation",
+          "line": 356
+        },
+        {
           "name": "_write_operation_binding",
-          "line": 362
+          "line": 374
+        },
+        {
+          "name": "_require_rearm_input",
+          "line": 397
         },
         {
           "name": "_details",
-          "line": 371
+          "line": 434
         },
         {
           "name": "_checked_details",
-          "line": 378
+          "line": 441
         },
         {
           "name": "load",
-          "line": 514
+          "line": 590
         },
         {
           "name": "_save_head",
-          "line": 518
+          "line": 594
         },
         {
           "name": "_flight",
-          "line": 522
+          "line": 598
         },
         {
           "name": "start_in_transaction",
-          "line": 530
+          "line": 606
         },
         {
           "name": "before_release_in_transaction",
-          "line": 549
+          "line": 627
         },
         {
           "name": "record_ack_in_transaction",
-          "line": 567
+          "line": 646
         },
         {
           "name": "apply_resolution_in_transaction",
-          "line": 576
+          "line": 659
         },
         {
           "name": "check_history_in_transaction",
-          "line": 619
+          "line": 711
         },
         {
           "name": "prepare",
-          "line": 124
+          "line": 130
         }
       ],
-      "call_site_count": 375,
+      "call_site_count": 409,
       "symbolic_callees": [
         "EffectWarrant.from_dict",
         "ExistingTargetAdoption",
@@ -17220,10 +17230,10 @@
         "TargetBinding",
         "TargetExecutionAck",
         "TargetObservation",
-        "TargetWriteObservation.parse",
         "TransactionContext",
         "Unknown",
         "Unknown().to_dict",
+        "VerifiedRearmTargetSettlement",
         "VerifiedTargetSettlement",
         "WarrantError",
         "_digest",
@@ -17232,11 +17242,13 @@
         "all",
         "any",
         "asdict",
+        "bool",
         "candidate.payload.get",
         "canonical_json_bytes",
         "canonical_sha256",
         "certificate.require_resolution",
         "cls",
+        "codec.parse",
         "enumerate",
         "format",
         "genesis.get",
@@ -17245,18 +17257,21 @@
         "governor._load",
         "governor._now",
         "histories.get",
+        "histories.values",
         "history.get",
         "history.update",
         "history_rows.sort",
         "journal.ledger.core.require",
         "json.loads",
         "len",
+        "observed.require_ack",
         "observed.to_dict",
         "opaque_id",
         "projection._adoption_gate",
         "projection._context",
         "projection._require_no_named_adoption",
         "projection.runner.run",
+        "releases.add",
         "request.digest",
         "request.evidence",
         "request.operation",
@@ -17278,6 +17293,7 @@
         "self._registration",
         "self._require_adoption_warrant",
         "self._require_no_adoption_warrants",
+        "self._require_rearm_input",
         "self._require_warrant_binding",
         "self._revision",
         "self._save_head",
@@ -17288,6 +17304,7 @@
         "self.binding.evidence",
         "self.binding.require_ack",
         "self.binding.require_observation",
+        "self.binding.require_rearm_write",
         "self.binding.require_write",
         "self.core.require",
         "self.encode_existing_baseline",
@@ -17301,8 +17318,8 @@
         "self.journal.ledger.consume_in_transaction",
         "self.journal.ledger.require_active_in_transaction",
         "self.liability._load",
-        "self.load",
         "set",
+        "sorted",
         "state.update",
         "state[data].items",
         "state[data].values",
@@ -17314,216 +17331,259 @@
         "type",
         "value.get",
         "verified.certificate.to_dict",
+        "verified.execution_ack.to_dict",
         "verified.require_live",
+        "verified.write_observation.require_ack",
+        "verified.write_observation.to_dict",
         "warrant.digest",
         "warrant.to_dict",
         "witness.payload.get"
       ],
-      "call_sites_sha256": "2ca329489aecb23c366abcb2664f7cee84f629f33cb51868a620493554a4de73"
+      "call_sites_sha256": "08ec7027af4e771b0ba76d32f0274c026046a072ab7f4d71b5cf0825b6c3e6a7"
     },
     "runtime/mission/target_settlement.py": {
       "path": "runtime/mission/target_settlement.py",
-      "git_blob": "1b40ed9cec2997cbfe4407a26610efd5ee68801c",
-      "sha256": "bd39abec63deb920bf6a2c0055a4196b6a8e6bf4041d6228732315f503e12826",
+      "git_blob": "420577c2487e82a82208c074b318c5e4ab72e98f",
+      "sha256": "cd7d9b63bb8326354addaea8099d5824594371f71b15b4179ff023e225795f7c",
       "definitions": [
         {
           "name": "_root",
-          "line": 23
+          "line": 24
         },
         {
           "name": "TargetBinding",
-          "line": 32
+          "line": 33
         },
         {
           "name": "TargetExecutionAck",
-          "line": 80
+          "line": 89
         },
         {
           "name": "TargetObservation",
-          "line": 105
+          "line": 114
         },
         {
           "name": "VerifiedTargetSettlement",
-          "line": 142
+          "line": 151
         },
         {
           "name": "TargetWriteObservation",
-          "line": 157
+          "line": 166
+        },
+        {
+          "name": "TargetRearmWriteObservation",
+          "line": 208
+        },
+        {
+          "name": "VerifiedRearmTargetSettlement",
+          "line": 262
         },
         {
           "name": "TargetSettlementPort",
-          "line": 199
+          "line": 289
         },
         {
           "name": "ExistingTargetAdoption",
-          "line": 229
+          "line": 319
         },
         {
           "name": "FencedNoReleaseCertificate",
-          "line": 294
-        },
-        {
-          "name": "VerifiedNoReleaseSettlement",
-          "line": 369
-        },
-        {
-          "name": "__post_init__",
-          "line": 44
-        },
-        {
-          "name": "digest",
-          "line": 50
-        },
-        {
-          "name": "evidence",
-          "line": 55
-        },
-        {
-          "name": "require_observation",
-          "line": 59
-        },
-        {
-          "name": "require_ack",
-          "line": 65
-        },
-        {
-          "name": "require_write",
-          "line": 71
-        },
-        {
-          "name": "__post_init__",
-          "line": 93
-        },
-        {
-          "name": "to_dict",
-          "line": 100
-        },
-        {
-          "name": "__post_init__",
-          "line": 129
-        },
-        {
-          "name": "__post_init__",
-          "line": 146
-        },
-        {
-          "name": "__post_init__",
-          "line": 177
-        },
-        {
-          "name": "to_dict",
-          "line": 188
-        },
-        {
-          "name": "parse",
-          "line": 192
-        },
-        {
-          "name": "start_in_transaction",
-          "line": 215
-        },
-        {
-          "name": "before_release_in_transaction",
-          "line": 216
-        },
-        {
-          "name": "record_ack_in_transaction",
-          "line": 217
-        },
-        {
-          "name": "apply_resolution_in_transaction",
-          "line": 218
-        },
-        {
-          "name": "check_history_in_transaction",
-          "line": 219
-        },
-        {
-          "name": "__post_init__",
-          "line": 243
-        },
-        {
-          "name": "target_revision",
-          "line": 250
-        },
-        {
-          "name": "target_key",
-          "line": 254
-        },
-        {
-          "name": "to_dict",
-          "line": 259
-        },
-        {
-          "name": "from_dict",
-          "line": 263
-        },
-        {
-          "name": "digest",
-          "line": 277
-        },
-        {
-          "name": "evidence",
-          "line": 280
-        },
-        {
-          "name": "operation",
-          "line": 284
-        },
-        {
-          "name": "__post_init__",
-          "line": 312
-        },
-        {
-          "name": "to_dict",
-          "line": 324
-        },
-        {
-          "name": "parse",
-          "line": 328
-        },
-        {
-          "name": "digest",
-          "line": 333
-        },
-        {
-          "name": "readback_digest",
-          "line": 336
-        },
-        {
-          "name": "receipt",
-          "line": 343
-        },
-        {
-          "name": "readback",
-          "line": 348
-        },
-        {
-          "name": "require_resolution",
-          "line": 353
-        },
-        {
-          "name": "__post_init__",
-          "line": 376
-        },
-        {
-          "name": "require_live",
           "line": 384
         },
         {
+          "name": "VerifiedNoReleaseSettlement",
+          "line": 459
+        },
+        {
+          "name": "__post_init__",
+          "line": 45
+        },
+        {
+          "name": "digest",
+          "line": 51
+        },
+        {
+          "name": "evidence",
+          "line": 56
+        },
+        {
+          "name": "require_observation",
+          "line": 60
+        },
+        {
+          "name": "require_ack",
+          "line": 66
+        },
+        {
+          "name": "require_write",
+          "line": 72
+        },
+        {
+          "name": "require_rearm_write",
+          "line": 80
+        },
+        {
+          "name": "__post_init__",
+          "line": 102
+        },
+        {
+          "name": "to_dict",
+          "line": 109
+        },
+        {
+          "name": "__post_init__",
+          "line": 138
+        },
+        {
+          "name": "__post_init__",
+          "line": 155
+        },
+        {
+          "name": "__post_init__",
+          "line": 186
+        },
+        {
+          "name": "to_dict",
+          "line": 197
+        },
+        {
+          "name": "parse",
+          "line": 201
+        },
+        {
+          "name": "__post_init__",
+          "line": 224
+        },
+        {
+          "name": "to_dict",
+          "line": 234
+        },
+        {
+          "name": "parse",
+          "line": 238
+        },
+        {
+          "name": "ack_digest",
+          "line": 242
+        },
+        {
+          "name": "require_ack",
+          "line": 245
+        },
+        {
+          "name": "readback_digest",
+          "line": 255
+        },
+        {
+          "name": "__post_init__",
+          "line": 269
+        },
+        {
+          "name": "start_in_transaction",
+          "line": 305
+        },
+        {
+          "name": "before_release_in_transaction",
+          "line": 306
+        },
+        {
+          "name": "record_ack_in_transaction",
+          "line": 307
+        },
+        {
+          "name": "apply_resolution_in_transaction",
+          "line": 308
+        },
+        {
+          "name": "check_history_in_transaction",
+          "line": 309
+        },
+        {
+          "name": "__post_init__",
+          "line": 333
+        },
+        {
+          "name": "target_revision",
+          "line": 340
+        },
+        {
+          "name": "target_key",
+          "line": 344
+        },
+        {
+          "name": "to_dict",
+          "line": 349
+        },
+        {
+          "name": "from_dict",
+          "line": 353
+        },
+        {
+          "name": "digest",
+          "line": 367
+        },
+        {
+          "name": "evidence",
+          "line": 370
+        },
+        {
+          "name": "operation",
+          "line": 374
+        },
+        {
+          "name": "__post_init__",
+          "line": 402
+        },
+        {
+          "name": "to_dict",
+          "line": 414
+        },
+        {
+          "name": "parse",
+          "line": 418
+        },
+        {
+          "name": "digest",
+          "line": 423
+        },
+        {
+          "name": "readback_digest",
+          "line": 426
+        },
+        {
+          "name": "receipt",
+          "line": 433
+        },
+        {
+          "name": "readback",
+          "line": 438
+        },
+        {
+          "name": "require_resolution",
+          "line": 443
+        },
+        {
+          "name": "__post_init__",
+          "line": 466
+        },
+        {
+          "name": "require_live",
+          "line": 474
+        },
+        {
           "name": "__copy__",
-          "line": 388
+          "line": 478
         },
         {
           "name": "__deepcopy__",
-          "line": 391
+          "line": 481
         },
         {
           "name": "__reduce_ex__",
-          "line": 394
+          "line": 484
         }
       ],
-      "call_site_count": 129,
+      "call_site_count": 166,
       "symbolic_callees": [
         "EvidenceRef",
         "OwnerScope",
@@ -17539,9 +17599,12 @@
         "field",
         "getattr",
         "len",
+        "observed.readback_digest",
+        "observed.require_ack",
         "opaque_id",
         "require",
         "self._witness.require_live",
+        "self.ack_digest",
         "self.binding.digest",
         "self.certificate.require_resolution",
         "self.digest",
@@ -17557,7 +17620,7 @@
         "value.items",
         "warrant.digest"
       ],
-      "call_sites_sha256": "d7032aee9e8c7e56f6d83bf7244368826b4f358b07fc847dd61de609c4888446"
+      "call_sites_sha256": "bf19420bac9f152b14efe59b06c6a8392b200e7697f0c485c5fe264f09ef008b"
     },
     "runtime/nonzero_cloudops/state/files.py": {
       "path": "runtime/nonzero_cloudops/state/files.py",
@@ -17669,228 +17732,361 @@
     },
     "runtime/mission/portable_target.py": {
       "path": "runtime/mission/portable_target.py",
-      "git_blob": "ac85a1ee1b56a47ca1a98bc7f74a97bc63c0b91b",
-      "sha256": "1277f5a1bdd0d4660c154c296b89b6c2fcbceb3f7832cd7410bf1277aa8edc7e",
+      "git_blob": "1105ee42317c29f2767ca7793fb45c34a42da840",
+      "sha256": "44aa666dc5310747bef60eb3e569c62a6bdf4f7cd7f9e0982f23737b7d06d16e",
       "definitions": [
         {
           "name": "_inventory",
-          "line": 66
+          "line": 78
         },
         {
           "name": "PortableDomainInput",
-          "line": 86
-        },
-        {
-          "name": "PortableOperation",
-          "line": 171
-        },
-        {
-          "name": "CorePortableTarget",
-          "line": 249
-        },
-        {
-          "name": "_PortableStartAck",
-          "line": 500
-        },
-        {
-          "name": "_PortableWriteAck",
-          "line": 530
-        },
-        {
-          "name": "CorePortableWriteRelease",
-          "line": 539
-        },
-        {
-          "name": "_PortableGuardCapture",
-          "line": 632
-        },
-        {
-          "name": "_PortableNoReleaseWitness",
-          "line": 656
-        },
-        {
-          "name": "__post_init__",
           "line": 98
         },
         {
-          "name": "authority",
-          "line": 159
+          "name": "PortableOperation",
+          "line": 183
         },
         {
-          "name": "to_dict",
-          "line": 162
+          "name": "_rearm_root",
+          "line": 268
         },
         {
-          "name": "__post_init__",
-          "line": 180
+          "name": "_rearm_bytes",
+          "line": 273
         },
         {
-          "name": "parse",
-          "line": 215
+          "name": "_rearm_time",
+          "line": 285
         },
         {
-          "name": "create",
-          "line": 220
+          "name": "_rearm_template",
+          "line": 296
         },
         {
-          "name": "domain_input",
-          "line": 234
+          "name": "_rearm_consumed",
+          "line": 306
         },
         {
-          "name": "authority",
-          "line": 238
+          "name": "PortableRearmDomainInput",
+          "line": 321
         },
         {
-          "name": "digest",
-          "line": 242
+          "name": "PortableRearmRequest",
+          "line": 379
         },
         {
-          "name": "to_dict",
-          "line": 245
+          "name": "PortableRearmOperation",
+          "line": 424
         },
         {
-          "name": "__init__",
-          "line": 256
+          "name": "_portable_operation",
+          "line": 502
         },
         {
-          "name": "_require_config",
-          "line": 271
-        },
-        {
-          "name": "require_route_binding",
-          "line": 282
-        },
-        {
-          "name": "_read",
-          "line": 294
-        },
-        {
-          "name": "_now",
-          "line": 298
-        },
-        {
-          "name": "target_guard",
-          "line": 305
-        },
-        {
-          "name": "_capture_guard",
-          "line": 320
-        },
-        {
-          "name": "probe",
-          "line": 337
-        },
-        {
-          "name": "__call__",
-          "line": 351
-        },
-        {
-          "name": "_domain_projection",
-          "line": 354
-        },
-        {
-          "name": "candidate_observation",
-          "line": 375
-        },
-        {
-          "name": "dispatch",
-          "line": 413
-        },
-        {
-          "name": "verify",
-          "line": 427
-        },
-        {
-          "name": "_verify_no_release",
-          "line": 458
-        },
-        {
-          "name": "__init__",
+          "name": "CorePortableTarget",
           "line": 509
         },
         {
+          "name": "_PortableStartAck",
+          "line": 930
+        },
+        {
+          "name": "_PortableWriteAck",
+          "line": 960
+        },
+        {
+          "name": "CorePortableWriteRelease",
+          "line": 969
+        },
+        {
+          "name": "_PortableGuardCapture",
+          "line": 1066
+        },
+        {
+          "name": "_PortableNoReleaseWitness",
+          "line": 1090
+        },
+        {
+          "name": "__post_init__",
+          "line": 110
+        },
+        {
+          "name": "authority",
+          "line": 171
+        },
+        {
+          "name": "to_dict",
+          "line": 174
+        },
+        {
+          "name": "__post_init__",
+          "line": 192
+        },
+        {
+          "name": "parse",
+          "line": 227
+        },
+        {
+          "name": "create",
+          "line": 232
+        },
+        {
+          "name": "domain_input",
+          "line": 246
+        },
+        {
+          "name": "authority",
+          "line": 250
+        },
+        {
+          "name": "digest",
+          "line": 254
+        },
+        {
+          "name": "to_dict",
+          "line": 257
+        },
+        {
+          "name": "__post_init__",
+          "line": 328
+        },
+        {
+          "name": "authority",
+          "line": 367
+        },
+        {
+          "name": "digest",
+          "line": 371
+        },
+        {
+          "name": "to_dict",
+          "line": 374
+        },
+        {
+          "name": "__post_init__",
+          "line": 383
+        },
+        {
+          "name": "create",
+          "line": 402
+        },
+        {
+          "name": "digest",
+          "line": 412
+        },
+        {
+          "name": "authority",
+          "line": 416
+        },
+        {
+          "name": "to_dict",
+          "line": 419
+        },
+        {
+          "name": "__post_init__",
+          "line": 428
+        },
+        {
+          "name": "parse",
+          "line": 466
+        },
+        {
+          "name": "create",
+          "line": 471
+        },
+        {
+          "name": "domain_input",
+          "line": 483
+        },
+        {
+          "name": "request",
+          "line": 487
+        },
+        {
+          "name": "digest",
+          "line": 491
+        },
+        {
+          "name": "authority",
+          "line": 495
+        },
+        {
+          "name": "to_dict",
+          "line": 498
+        },
+        {
+          "name": "__init__",
+          "line": 516
+        },
+        {
+          "name": "_require_config",
+          "line": 531
+        },
+        {
+          "name": "require_route_binding",
+          "line": 542
+        },
+        {
+          "name": "_read",
+          "line": 554
+        },
+        {
+          "name": "_now",
+          "line": 558
+        },
+        {
+          "name": "target_guard",
+          "line": 565
+        },
+        {
+          "name": "_capture_guard",
+          "line": 580
+        },
+        {
+          "name": "probe",
+          "line": 597
+        },
+        {
+          "name": "__call__",
+          "line": 611
+        },
+        {
+          "name": "_rearm_snapshot",
+          "line": 614
+        },
+        {
+          "name": "prepare_rearm",
+          "line": 691
+        },
+        {
+          "name": "_domain_projection",
+          "line": 695
+        },
+        {
+          "name": "candidate_observation",
+          "line": 716
+        },
+        {
+          "name": "_rearm_projection",
+          "line": 756
+        },
+        {
+          "name": "_rearm_candidate_observation",
+          "line": 773
+        },
+        {
+          "name": "dispatch",
+          "line": 799
+        },
+        {
+          "name": "verify",
+          "line": 831
+        },
+        {
+          "name": "_verify_rearm",
+          "line": 864
+        },
+        {
+          "name": "_verify_no_release",
+          "line": 888
+        },
+        {
+          "name": "__init__",
+          "line": 939
+        },
+        {
           "name": "issue_in_transaction",
-          "line": 514
+          "line": 944
         },
         {
           "name": "take",
-          "line": 524
+          "line": 954
         },
         {
           "name": "__init__",
-          "line": 533
+          "line": 963
         },
         {
           "name": "__init__",
-          "line": 545
+          "line": 975
         },
         {
           "name": "from_live_ack",
-          "line": 562
+          "line": 995
         },
         {
           "name": "require_live_binding",
-          "line": 566
+          "line": 999
         },
         {
           "name": "require_store",
-          "line": 579
+          "line": 1012
         },
         {
           "name": "_cancel_check",
-          "line": 583
+          "line": 1016
         },
         {
           "name": "authorize_write",
-          "line": 586
+          "line": 1019
         },
         {
           "name": "consume_write_ack",
-          "line": 613
+          "line": 1046
         },
         {
           "name": "close",
-          "line": 624
+          "line": 1058
         },
         {
           "name": "__post_init__",
-          "line": 643
+          "line": 1077
         },
         {
           "name": "require_live",
-          "line": 647
+          "line": 1081
         },
         {
           "name": "__post_init__",
-          "line": 661
+          "line": 1095
         },
         {
           "name": "require_live",
-          "line": 665
+          "line": 1099
         },
         {
           "name": "read",
-          "line": 322
+          "line": 582
         },
         {
           "name": "read",
-          "line": 341
+          "line": 601
         },
         {
           "name": "read",
-          "line": 444
+          "line": 623
+        },
+        {
+          "name": "read",
+          "line": 850
+        },
+        {
+          "name": "read",
+          "line": 866
         },
         {
           "name": "checked",
-          "line": 468
+          "line": 898
         },
         {
           "name": "release",
-          "line": 603
+          "line": 1036
         }
       ],
-      "call_site_count": 371,
+      "call_site_count": 689,
       "symbolic_callees": [
+        "<dynamic>.get",
         "Applied",
         "DecisionDependencyRoot",
         "EffectWarrant.from_dict",
@@ -17902,20 +18098,30 @@
         "LocalExecutionIntent.create",
         "LocalExecutionReceipt.model_validate",
         "NotApplied",
+        "OwnerScope",
         "PortableDomainInput",
         "PortableOperation.parse",
+        "PortableOperation.parse().domain_input.to_dict",
+        "PortableRearmDomainInput",
+        "PortableRearmOperation.parse",
+        "PortableRearmRequest",
         "PortableStateStore._payload",
         "PortableStateStore._validate_execution_binding",
         "Reconciliation",
         "RemediationProposal.model_validate",
         "ResourceEvidence.model_validate",
+        "ResourceQuery.model_validate",
+        "TargetBinding",
         "TargetExecutionAck",
         "TargetObservation",
+        "TargetRearmWriteObservation",
         "TargetSnapshot",
         "TargetWriteObservation",
         "ToolDispatchLimits",
         "TransactionContext",
+        "UUID",
         "VerifiedNoReleaseSettlement",
+        "VerifiedRearmTargetSettlement",
         "VerifiedTargetSettlement",
         "_PortableGuardCapture",
         "_PortableNoReleaseWitness",
@@ -17923,13 +18129,25 @@
         "_RESOURCE_ADAPTER.validate_python",
         "_canonical_inventory_bytes",
         "_inventory",
+        "_portable_operation",
+        "_rearm_bytes",
+        "_rearm_consumed",
+        "_rearm_root",
+        "_rearm_template",
+        "_rearm_template().model_dump",
+        "_rearm_time",
         "ack.take",
         "adapter._binding.digest",
         "adapter._require_config",
         "all",
         "any",
+        "asdict",
         "before_receipts.items",
+        "before_resources.pop",
         "callable",
+        "candidate.ack_digest",
+        "candidate.readback_digest",
+        "candidate.require_ack",
         "candidate.to_dict",
         "canonical_json_bytes",
         "canonical_sha256",
@@ -17938,20 +18156,37 @@
         "certificate.readback",
         "certificate.readback_digest",
         "certificate.receipt",
+        "checked.to_dict",
         "cls",
         "cls.parse",
+        "codec.parse",
+        "current[data].items",
         "dataclass",
+        "datetime.fromisoformat",
+        "default_mock_resources",
         "dict",
+        "domain.to_dict",
         "domain_input.to_dict",
+        "entry.get",
+        "entry.payload.get",
         "entry.require_outer_owner",
         "evidence.stable_fingerprint",
         "expected_resources.pop",
+        "expires_at.isoformat",
         "field",
+        "fixed.digest",
+        "flight_warrant.digest",
+        "flight_warrant.to_dict",
         "get_ident",
         "getattr",
         "getpid",
+        "governor._clock",
+        "governor._epoch",
+        "governor._load",
+        "governor._now",
         "hashlib.sha256",
         "hashlib.sha256().hexdigest",
+        "histories.values",
         "isinstance",
         "json.loads",
         "len",
@@ -17959,13 +18194,23 @@
         "object",
         "object.__setattr__",
         "opaque_id",
+        "operation.domain_input.to_dict",
+        "operation.get",
+        "operation.to_dict",
         "original.to_dict",
         "pack.to_dict",
         "parsed.domain_input.to_dict",
+        "parsed.isoformat",
         "parsed.model_dump",
+        "parsed.request.to_dict",
+        "parsed.utcoffset",
         "projection.core.require",
+        "proofs.append",
+        "query.model_dump",
         "receipts.get",
         "receipts.values",
+        "request.to_dict",
+        "requested_at.isoformat",
         "require",
         "resources.get",
         "route.core.require",
@@ -17981,8 +18226,12 @@
         "self._lock_lifetime.require_live",
         "self._now",
         "self._read",
+        "self._rearm_candidate_observation",
+        "self._rearm_projection",
+        "self._rearm_snapshot",
         "self._require_config",
         "self._verify_no_release",
+        "self._verify_rearm",
         "self.adapter._binding.evidence",
         "self.adapter.candidate_observation",
         "self.adapter.require_route_binding",
@@ -17991,7 +18240,10 @@
         "self.entry.require_outer_owner",
         "self.executor.execute",
         "self.executor.get_receipt",
+        "self.executor.rearm",
         "self.operation.to_dict",
+        "self.projection._details",
+        "self.projection._flight",
         "self.projection._liability_entry",
         "self.projection.core.require",
         "self.projection.journal._load",
@@ -18006,19 +18258,26 @@
         "self.route.target_settlement.before_release_in_transaction",
         "self.store._core_write_lifetime",
         "self.store._current_guard_entry",
+        "self.store._payload",
         "self.store.observe_guarded_inventory",
         "self.store.target_guard",
         "self.store.verify",
         "self.to_dict",
         "set",
+        "sorted",
         "store._check_target_guard",
+        "str",
+        "template.model_dump",
         "timedelta",
+        "tuple",
+        "tx.scan",
         "type",
+        "value.get",
         "verified.model_dump",
         "warrant.digest",
         "warrant.to_dict"
       ],
-      "call_sites_sha256": "d30b73f791758401b6c6c7f476880012cfeacc76be89b8fd19502233638cb6ab"
+      "call_sites_sha256": "6193fd8985b83c079f4356987b8b9cd6d2901dedc0f7b306bd24ff1e043fd364"
     },
     "runtime/mission/python_test_contracts.py": {
       "path": "runtime/mission/python_test_contracts.py",
@@ -18143,6 +18402,6 @@
     "DUPLICATE_VERIFIED": 16,
     "EXCLUDED_UNSAFE": 2
   },
-  "current_target_binding_note": "NZ13-F9 current blob/AST identities bind the same-Core fresh-fence STARTED-only no-release settlement, physical guard/process lifetime and write-port checks. Local source-only Core/SQLite/fresh-process tests and scoped independent reviews are bound to their own exact working maps. These identities do not certify product INIT/rearm, RELEASED no-effect, source-hidden packaging, Native, model inference or full69 parity. Historical69 decisions remain unchanged; final exact-SHA qualification and owner publication gates are separate.",
+  "current_target_binding_note": "NZ13 explicit local REARM current blob/AST identities only: closed policy5 uses the same Core write port, durable executor ACK and independent full readback. Focused 98-case Core/SQLite/guard/ACK controls passed sequentially on Python3.12 and3.11 on working map fabb74f9dd88c81610bb769abad533798aaca5b8d249708bf487377ac61bc979. These current identities do not qualify product physical INIT, policy5 STARTED no-release, source-hidden installed artifacts, Native, model/provider inference or full69 parity. Historical69 assessments/source/MIT remain unchanged; final exact-SHA qualification and owner publication gates are separate.",
   "nz12_binding_before_nz13_sha256": "cfca6195089170934076cd15ac80a5b26786e947338b089dd75926d545b971b2"
 }

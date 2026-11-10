@@ -2,17 +2,23 @@
 
 Fact codecs grant no authority. One live CoreToolRoute acknowledgment, current
 owner approval, an adopted target and its held guard bind the synchronous write.
-No provider, product INIT/rearm or production Native activation occurs here.
+Product physical INIT and automatic rearm remain closed; no Native activation occurs here.
 """
 import hashlib
 import json
 from contextlib import contextmanager
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timedelta
 from os import getpid
 from threading import get_ident
 from types import MethodType
+from uuid import UUID
 
+from lab.archaioa.decision_root import DecisionDependencyRoot
+from lab.archaioa.evidence import EvidenceRef
+from lab.archaioa.faults import opaque_id
+from lab.archaioa.outcome import Applied, NotApplied
+from lab.archaioa.warrant import EffectWarrant
 from nonzero_cloudops.adapters.portable import (
     _RESOURCE_ADAPTER,
     PortableExecutor,
@@ -22,6 +28,7 @@ from nonzero_cloudops.adapters.portable import (
     _NonTransferableGuardValue,
     _PortableGuardEntry,
 )
+from nonzero_cloudops.adapters.resources import default_mock_resources
 from nonzero_cloudops.models import (
     ApprovalDecision,
     ElasticIpResource,
@@ -33,28 +40,33 @@ from nonzero_cloudops.models import (
     RemediationOperation,
     RemediationProposal,
     ResourceEvidence,
+    ResourceQuery,
 )
 from nonzero_cloudops.models.public_enums import AuthorityGate
 
-from lab.archaioa.decision_root import DecisionDependencyRoot
-from lab.archaioa.evidence import EvidenceRef
-from lab.archaioa.faults import opaque_id
-from lab.archaioa.outcome import Applied, NotApplied
-from lab.archaioa.warrant import EffectWarrant
-from runtime.core_admission import Capability
+from runtime.core_admission import Capability, OwnerScope
 from runtime.memory_patch.contracts.serialization import (
     canonical_json_bytes,
     canonical_sha256,
 )
-from runtime.memory_patch.persistence.ports import TransactionContext
+from runtime.memory_patch.persistence.ports import RecordKind, TransactionContext
+from runtime.mission.intent import INTENT_KINDS
 from runtime.mission.liability import Reconciliation
-from runtime.mission.target_projection import REGISTERED_HEAD, CoreTargetProjection
+from runtime.mission.target_projection import (
+    MAX_TARGET_HISTORY,
+    PHYSICAL_HISTORY,
+    REGISTERED_HEAD,
+    CoreTargetProjection,
+)
 from runtime.mission.target_settlement import (
     FencedNoReleaseCertificate,
+    TargetBinding,
     TargetExecutionAck,
     TargetObservation,
+    TargetRearmWriteObservation,
     TargetWriteObservation,
     VerifiedNoReleaseSettlement,
+    VerifiedRearmTargetSettlement,
     VerifiedTargetSettlement,
 )
 from runtime.mission.warrant import require
@@ -246,6 +258,254 @@ class PortableOperation:
         return json.loads(self.canonical_operation)
 
 
+PORTABLE_REARM_INPUT = 'aioa.portable-rearm-domain-input.v1'
+PORTABLE_REARM_REQUEST = 'aioa.portable-rearm-request.v1'
+PORTABLE_REARM_SCHEMA = 'aioa.portable-rearm-operation.v1'
+PORTABLE_REARM_CLASS = 'PORTABLE_REARM_DEMO_V1'
+PORTABLE_REARM_TEMPLATE = 'aioa.portable-demo-eip-template.v1'
+
+
+def _rearm_root(value):
+    require(type(value) is str and len(value) == 64
+            and all(character in '0123456789abcdef' for character in value), 'PORTABLE_REARM_DIGEST')
+
+
+def _rearm_bytes(raw, schema, fields, maximum):
+    require(type(raw) is bytes and 0 < len(raw) <= maximum, 'PORTABLE_REARM_BYTES')
+    try:
+        value = json.loads(raw)
+        require(canonical_json_bytes(value) == raw, 'PORTABLE_REARM_CANONICAL')
+    except (TypeError, ValueError, RecursionError):
+        require(False, 'PORTABLE_REARM_CANONICAL')
+    require(type(value) is dict and set(value) == fields and value['schema'] == schema,
+            'PORTABLE_REARM_SHAPE')
+    return value
+
+
+def _rearm_time(value):
+    require(type(value) is str, 'PORTABLE_REARM_TIME')
+    try:
+        parsed = datetime.fromisoformat(value)
+    except ValueError:
+        require(False, 'PORTABLE_REARM_TIME')
+    require(parsed.tzinfo is not None and parsed.utcoffset() == timedelta(0)
+            and parsed.isoformat() == value, 'PORTABLE_REARM_TIME')
+    return parsed
+
+
+def _rearm_template(query):
+    require(type(query) is ResourceQuery, 'PORTABLE_REARM_QUERY')
+    selected = tuple(resource for resource in default_mock_resources() if type(resource) is ElasticIpResource)
+    require(len(selected) == 1, 'PORTABLE_REARM_FIXED_TEMPLATE')
+    template = selected[0]
+    require((query.resource_type, query.resource_id, query.region)
+            == (template.resource_type, template.resource_id, template.region), 'PORTABLE_REARM_QUERY')
+    return template
+
+
+def _rearm_consumed(query, resources, receipts):
+    template = _rearm_template(query)
+    require((query.resource_type, query.resource_id, query.region) not in resources,
+            'PORTABLE_REARM_RESOURCE_PRESENT')
+    relevant = tuple(receipts[key] for key in sorted(receipts) if (
+        receipts[key].target_resource_type == query.resource_type
+        and receipts[key].target_resource_id == query.resource_id
+        and receipts[key].before_resource.region == query.region))
+    require(relevant and all(receipt.operation_type is RemediationOperation.RELEASE_ELASTIC_IP
+            and receipt.before_resource == template and receipt.after_resource is None for receipt in relevant),
+            'PORTABLE_REARM_RELEASE_SET')
+    return relevant
+
+
+@dataclass(frozen=True, slots=True)
+class PortableRearmDomainInput:
+    """Complete guarded facts for one fixed demo restoration; never authority."""
+    canonical_input: bytes = field(repr=False)
+    state_root: str = field(init=False)
+    resources_root: str = field(init=False)
+    receipts_root: str = field(init=False)
+
+    def __post_init__(self):
+        value = _rearm_bytes(self.canonical_input, PORTABLE_REARM_INPUT, {
+            'schema', 'binding', 'head_revision', 'generation', 'target_revision', 'history_digest',
+            'epoch', 'query', 'template_version', 'template_digest', 'template',
+            'release_receipt_hashes', 'inventory', 'state_root', 'resources_root', 'receipts_root'}, PORTABLE_INPUT_MAX_BYTES)
+        binding = value['binding']
+        require(type(binding) is dict and set(binding) == {'scope', 'workspace', 'target_id',
+                'incarnation', 'guard_fingerprint'} and type(binding['scope']) is dict
+                and set(binding['scope']) == {'tenant_id', 'owner_id', 'space_id', 'slot_id'},
+                'PORTABLE_REARM_BINDING')
+        fixed = TargetBinding(**{**binding, 'scope': OwnerScope(**binding['scope'])})
+        require(asdict(fixed) == binding, 'PORTABLE_REARM_BINDING')
+        require(type(value['head_revision']) is int and value['head_revision'] >= 1
+                and type(value['generation']) is int and 1 <= value['generation'] < MAX_TARGET_HISTORY
+                and type(value['epoch']) is int and 0 < value['epoch'] < 2**63,
+                'PORTABLE_REARM_REVISION')
+        opaque_id(value['target_revision'], 'rearm target revision')
+        _rearm_root(value['history_digest'])
+        try:
+            query = ResourceQuery.model_validate(value['query'])
+        except (TypeError, ValueError):
+            require(False, 'PORTABLE_REARM_QUERY')
+        require(query.model_dump(mode='json') == value['query'], 'PORTABLE_REARM_QUERY')
+        template = _rearm_template(query).model_dump(mode='json')
+        require(value['template_version'] == PORTABLE_REARM_TEMPLATE and value['template'] == template
+                and value['template_digest'] == canonical_sha256({'schema': PORTABLE_REARM_TEMPLATE, 'resource': template}),
+                'PORTABLE_REARM_FIXED_TEMPLATE')
+        resources, receipts = _inventory(value['inventory'])
+        relevant = _rearm_consumed(query, resources, receipts)
+        hashes = value['release_receipt_hashes']
+        require(type(hashes) is list and hashes == sorted({receipt.receipt_hash for receipt in relevant})
+                and len(hashes) == len(relevant), 'PORTABLE_REARM_COMPLETE_RECEIPTS')
+        for name, part in [('state_root', value['inventory']), ('resources_root', value['inventory']['resources']),
+                           ('receipts_root', value['inventory']['receipts'])]:
+            digest = hashlib.sha256(_canonical_inventory_bytes(part)).hexdigest()
+            require(value[name] == digest, 'PORTABLE_REARM_ROOT_BINDING')
+            object.__setattr__(self, name, digest)
+
+    @property
+    def authority(self):
+        return 'NONE'
+
+    @property
+    def digest(self):
+        return hashlib.sha256(self.canonical_input).hexdigest()
+
+    def to_dict(self):
+        return json.loads(self.canonical_input)
+
+
+@dataclass(frozen=True, slots=True)
+class PortableRearmRequest:
+    """Exact immutable owner-request facts, separate from release domain records."""
+    canonical_request: bytes = field(repr=False)
+
+    def __post_init__(self):
+        value = _rearm_bytes(self.canonical_request, PORTABLE_REARM_REQUEST, {
+            'schema', 'domain_digest', 'request_id', 'run_id', 'actor_session_id',
+            'assignment_revision', 'decision_nonce_hash', 'requested_at', 'expires_at'}, 4096)
+        for name in ('domain_digest', 'actor_session_id', 'decision_nonce_hash'):
+            _rearm_root(value[name])
+        opaque_id(value['request_id'], 'rearm request')
+        require(type(value['run_id']) is str, 'PORTABLE_REARM_RUN')
+        try:
+            run = UUID(value['run_id'])
+        except ValueError:
+            require(False, 'PORTABLE_REARM_RUN')
+        require(run.version == 7 and str(run) == value['run_id'], 'PORTABLE_REARM_RUN')
+        require(type(value['assignment_revision']) is int and value['assignment_revision'] >= 1,
+                'PORTABLE_REARM_OWNER_ASSIGNMENT')
+        start, end = _rearm_time(value['requested_at']), _rearm_time(value['expires_at'])
+        require(timedelta(0) < end - start <= timedelta(seconds=300), 'PORTABLE_REARM_REQUEST_LIFETIME')
+
+    @classmethod
+    def create(cls, *, domain_input, request_id, run_id, actor_session_id, assignment_revision,
+               decision_nonce_hash, requested_at, expires_at):
+        require(type(domain_input) is PortableRearmDomainInput and type(requested_at) is datetime
+                and type(expires_at) is datetime, 'PORTABLE_REARM_REQUEST_FACTS')
+        return cls(canonical_json_bytes({'schema': PORTABLE_REARM_REQUEST, 'domain_digest': domain_input.digest,
+            'request_id': request_id, 'run_id': run_id, 'actor_session_id': actor_session_id,
+            'assignment_revision': assignment_revision, 'decision_nonce_hash': decision_nonce_hash,
+            'requested_at': requested_at.isoformat(), 'expires_at': expires_at.isoformat()}))
+
+    @property
+    def digest(self):
+        return hashlib.sha256(self.canonical_request).hexdigest()
+
+    @property
+    def authority(self):
+        return 'NONE'
+
+    def to_dict(self):
+        return json.loads(self.canonical_request)
+
+
+@dataclass(frozen=True, slots=True)
+class PortableRearmOperation:
+    """Closed policy5 input; the same Core exact-owner warrant still decides."""
+    canonical_operation: bytes = field(repr=False)
+
+    def __post_init__(self):
+        raw = self.canonical_operation
+        require(type(raw) is bytes and 0 < len(raw) <= 65536, 'PORTABLE_REARM_OPERATION_BYTES')
+        try:
+            value = json.loads(raw)
+            require(canonical_json_bytes(value) == raw, 'PORTABLE_REARM_OPERATION_CANONICAL')
+        except (TypeError, ValueError, RecursionError):
+            require(False, 'PORTABLE_REARM_OPERATION_CANONICAL')
+        require(type(value) is dict and set(value) == {'operation_class', 'target_fingerprint',
+                'expected_target_revision', 'payload'} and value['operation_class'] == PORTABLE_REARM_CLASS,
+                'PORTABLE_REARM_OPERATION_SHAPE')
+        payload = value['payload']
+        require(type(payload) is dict and set(payload) == {'schema', 'tool', 'workspace', 'task_id', 'session_id',
+                'principal_session_id', 'policy_epoch', 'target_binding_digest', 'domain_input', 'request'}
+                and payload['schema'] == PORTABLE_REARM_SCHEMA and payload['tool'] == 'rearm_demo',
+                'PORTABLE_REARM_OPERATION_SHAPE')
+        for name in ('workspace', 'task_id', 'session_id'):
+            opaque_id(payload[name], 'rearm ' + name)
+        for name in ('principal_session_id', 'target_binding_digest'):
+            _rearm_root(payload[name])
+        domain = PortableRearmDomainInput(canonical_json_bytes(payload['domain_input']))
+        facts = domain.to_dict()
+        request = PortableRearmRequest(canonical_json_bytes(payload['request']))
+        owner = request.to_dict()
+        binding = facts['binding']
+        fixed = TargetBinding(**{**binding, 'scope': OwnerScope(**binding['scope'])})
+        require(payload['workspace'] == binding['workspace']
+                and payload['target_binding_digest'] == fixed.digest()
+                and value['target_fingerprint'] == 'sha256:' + domain.state_root
+                and value['expected_target_revision'] == facts['target_revision']
+                and type(payload['policy_epoch']) is int and payload['policy_epoch'] == facts['epoch'],
+                'PORTABLE_REARM_OPERATION_BINDING')
+        require(owner['domain_digest'] == domain.digest
+                and owner['actor_session_id'] == payload['principal_session_id']
+                and owner['run_id'] not in {receipt['run_id'] for receipt in facts['inventory']['receipts']},
+                'PORTABLE_REARM_REQUEST_BINDING')
+
+    @classmethod
+    def parse(cls, value):
+        require(type(value) is dict, 'PORTABLE_REARM_OPERATION_SHAPE')
+        return cls(canonical_json_bytes(value))
+
+    @classmethod
+    def create(cls, *, workspace, task_id, session_id, principal_session_id, policy_epoch,
+               target_binding_digest, target_revision, domain_input, request):
+        require(type(domain_input) is PortableRearmDomainInput and type(request) is PortableRearmRequest,
+                'PORTABLE_REARM_TYPED_FACTS')
+        return cls.parse({'operation_class': PORTABLE_REARM_CLASS,
+            'target_fingerprint': 'sha256:' + domain_input.state_root, 'expected_target_revision': target_revision,
+            'payload': {'schema': PORTABLE_REARM_SCHEMA, 'tool': 'rearm_demo', 'workspace': workspace,
+                'task_id': task_id, 'session_id': session_id, 'principal_session_id': principal_session_id,
+                'policy_epoch': policy_epoch, 'target_binding_digest': target_binding_digest,
+                'domain_input': domain_input.to_dict(), 'request': request.to_dict()}})
+
+    @property
+    def domain_input(self):
+        return PortableRearmDomainInput(canonical_json_bytes(self.to_dict()['payload']['domain_input']))
+
+    @property
+    def request(self):
+        return PortableRearmRequest(canonical_json_bytes(self.to_dict()['payload']['request']))
+
+    @property
+    def digest(self):
+        return 'sha256:' + hashlib.sha256(self.canonical_operation).hexdigest()
+
+    @property
+    def authority(self):
+        return 'NONE'
+
+    def to_dict(self):
+        return json.loads(self.canonical_operation)
+
+
+def _portable_operation(value):
+    require(type(value) is dict and type(value.get('operation_class')) is str, 'PORTABLE_OPERATION_SHAPE')
+    codec = {PORTABLE_OPERATION_CLASS: PortableOperation, PORTABLE_REARM_CLASS: PortableRearmOperation}.get(value.get('operation_class'))
+    require(codec is not None, 'PORTABLE_OPERATION_CLASS_DENIED')
+    return codec.parse(value)
+
+
 class CorePortableTarget:
     """One host-bound storage bridge; execution stays in the existing executor.
 
@@ -351,6 +611,87 @@ class CorePortableTarget:
     def __call__(self, *args, **kwargs):
         require(False, 'PORTABLE_RELEASE_PORT_REQUIRED')
 
+    def _rearm_snapshot(self, query, *, flight_warrant=None):
+        self._require_config()
+        template = _rearm_template(query)
+        require(self.store._initial_resources == default_mock_resources(), 'PORTABLE_REARM_FIXED_TEMPLATE')
+        observed = self.store.observe_guarded_inventory()
+        require(observed.guard_fingerprint == self._binding.guard_fingerprint, 'PORTABLE_TARGET_GUARD_BINDING')
+        inventory = json.loads(observed.canonical_state)
+        resources, receipts = _inventory(inventory)
+        relevant = _rearm_consumed(query, resources, receipts)
+        def read(tx):
+            row, state, histories = self.projection._details(tx)
+            require(state['schema'] == REGISTERED_HEAD, 'TARGET_PHYSICAL_ADOPTION_REQUIRED')
+            flight = state['in_flight']
+            if flight_warrant is None:
+                require(flight is None, 'PORTABLE_REARM_UNSETTLED_TARGET')
+            else:
+                require(type(flight_warrant) is EffectWarrant and type(flight) is dict
+                        and flight['phase'] == 'STARTED' and flight['warrant'] == flight_warrant.to_dict()
+                        and flight['warrant_digest'] == flight_warrant.digest()
+                        and flight['write_observation'] is None and flight['ack'] is None,
+                        'PORTABLE_REARM_CURRENT_START')
+            governor = self.projection.journal.governor
+            current = governor._load(tx)
+            governor._epoch(current, current['epoch'])
+            governor._clock(current, governor._now())
+            require(current['kill'] is False, 'KILL_SWITCH')
+            allowed = set() if flight_warrant is None else {flight_warrant.risk_reservation_id}
+            require({key for key, entry in current['reservations'].items() if entry['state'] == 'UNKNOWN'} <= allowed,
+                    'UNRESOLVED_INTENT')
+            rows = tx.scan(RecordKind.OPERATION, limit=1024)
+            require(len(rows) < 1024, 'TARGET_HISTORY_SCAN_QUOTA')
+            unknown = [entry.payload for entry in rows if entry.payload.get('schema') in INTENT_KINDS
+                       and entry.payload.get('resolution') is None]
+            require(all(flight_warrant is not None and entry.get('warrant_digest') == flight_warrant.digest()
+                        for entry in unknown), 'UNRESOLVED_INTENT')
+            require((state['state_root'], state['resources_root'], state['receipts_root'])
+                    == (observed.state_root, observed.resources_root, observed.receipts_root), 'PORTABLE_TARGET_STATE_DRIFT')
+            releases = {}
+            for history in histories.values():
+                if history['schema'] != PHYSICAL_HISTORY:
+                    continue
+                warrant = EffectWarrant.from_dict(history['warrant'])
+                _intent_row, intent = self.projection.journal._load(tx, warrant)
+                operation = PortableOperation.parse(intent['operation'])
+                pack = operation.domain_input.to_dict()
+                proposal, evidence = pack['proposal'], pack['evidence']['resource']
+                if (proposal['target_resource_type'], proposal['target_resource_id'], evidence['region']) == (
+                        str(query.resource_type), query.resource_id, query.region):
+                    digest = history['write_observation']['receipt_digest']
+                    require(digest not in releases, 'PORTABLE_REARM_RELEASE_HISTORY')
+                    releases[digest] = (warrant, operation.to_dict(), history['write_observation'])
+            require(set(releases) == {receipt.receipt_hash for receipt in relevant}
+                    and len(releases) == len(relevant), 'PORTABLE_REARM_COMPLETE_CORE_HISTORY')
+            return row.revision - (flight_warrant is not None), state, current['epoch'], releases
+        revision, state, epoch, releases = self._read(read)
+        proofs = []
+        for receipt in relevant:
+            warrant, operation, historical_write = releases[receipt.receipt_hash]
+            original = PortableOperation.parse(operation).domain_input.to_dict()['inventory']
+            before_resources, before_receipts = _inventory(original)
+            require(before_resources.pop((query.resource_type, query.resource_id, query.region), None) == template
+                    and receipt.idempotency_key not in before_receipts, 'PORTABLE_REARM_RELEASE_HISTORY')
+            before_receipts[receipt.idempotency_key] = receipt
+            candidate = _canonical_inventory_bytes(self.store._payload(before_resources, before_receipts))
+            checked = self.candidate_observation(operation, warrant, candidate, observed.guard_fingerprint)
+            require(checked.to_dict() == historical_write, 'PORTABLE_REARM_RELEASE_HISTORY')
+            proofs.append(self.store.verify(receipt, verified_at=self._now()))
+        domain = PortableRearmDomainInput(canonical_json_bytes({
+            'schema': PORTABLE_REARM_INPUT, 'binding': asdict(self._binding), 'head_revision': revision,
+            'generation': state['generation'], 'target_revision': state['target_revision'],
+            'history_digest': state['history_digest'], 'epoch': epoch, 'query': query.model_dump(mode='json'),
+            'template_version': PORTABLE_REARM_TEMPLATE, 'template': template.model_dump(mode='json'),
+            'template_digest': canonical_sha256({'schema': PORTABLE_REARM_TEMPLATE, 'resource': template.model_dump(mode='json')}),
+            'release_receipt_hashes': sorted(receipt.receipt_hash for receipt in relevant), 'inventory': inventory,
+            'state_root': observed.state_root, 'resources_root': observed.resources_root, 'receipts_root': observed.receipts_root}))
+        return domain, tuple(proofs)
+
+    def prepare_rearm(self, query):
+        """Read-only host preparation under the existing named target guard."""
+        return self._rearm_snapshot(query)[0]
+
     def _domain_projection(self, operation, warrant):
         parsed = PortableOperation.parse(operation)
         require(type(warrant) is EffectWarrant and parsed.digest == warrant.operation_hash
@@ -374,6 +715,8 @@ class CorePortableTarget:
 
     def candidate_observation(self, operation, warrant, candidate, guard_fingerprint):
         self._require_config()
+        if operation.get('operation_class') == PORTABLE_REARM_CLASS:
+            return self._rearm_candidate_observation(operation, warrant, candidate, guard_fingerprint)
         parsed, proposal, evidence, approval, intent = self._domain_projection(operation, warrant)
         require(type(candidate) is bytes and 0 < len(candidate) <= 65536, 'PORTABLE_WRITE_CANDIDATE_BYTES')
         try:
@@ -410,11 +753,72 @@ class CorePortableTarget:
             hashlib.sha256(_canonical_inventory_bytes(value['receipts'])).hexdigest(),
             canonical_sha256(intent.idempotency_key), receipt.receipt_hash)
 
+    def _rearm_projection(self, operation, warrant):
+        parsed = PortableRearmOperation.parse(operation)
+        require(type(warrant) is EffectWarrant and parsed.digest == warrant.operation_hash
+                and warrant.operation_class == PORTABLE_REARM_CLASS
+                and warrant.target_fingerprint == operation['target_fingerprint']
+                and warrant.expected_target_revision == operation['expected_target_revision']
+                and warrant.authority_scope.monetary_ceiling.amount == 0
+                and warrant.authority_scope.monetary_ceiling.currency == 'USD'
+                and warrant.money_reservation_id == 'NONE' and warrant.risk_reservation_id != 'NONE',
+                'PORTABLE_REARM_WARRANT_BINDING')
+        request, domain = parsed.request.to_dict(), parsed.domain_input.to_dict()
+        require(domain['binding'] == asdict(self._binding)
+                and request['decision_nonce_hash'] == canonical_sha256(warrant.nonce)
+                and _rearm_time(request['requested_at']) <= warrant.issued_at < _rearm_time(request['expires_at'])
+                and warrant.expires_at <= _rearm_time(request['expires_at']), 'PORTABLE_REARM_WARRANT_REQUEST_BINDING')
+        return parsed
+
+    def _rearm_candidate_observation(self, operation, warrant, candidate, guard_fingerprint):
+        parsed = self._rearm_projection(operation, warrant)
+        require(type(candidate) is bytes and 0 < len(candidate) <= 65536, 'PORTABLE_REARM_CANDIDATE_BYTES')
+        try:
+            value = json.loads(candidate)
+            require(_canonical_inventory_bytes(value) == candidate, 'PORTABLE_REARM_CANDIDATE_CANONICAL')
+            resources, receipts = _inventory(value)
+        except (TypeError, ValueError, RecursionError):
+            require(False, 'PORTABLE_REARM_CANDIDATE_INVALID')
+        domain = parsed.domain_input
+        facts = domain.to_dict()
+        before_resources, before_receipts = _inventory(facts['inventory'])
+        query = ResourceQuery.model_validate(facts['query'])
+        template = _rearm_template(query)
+        key = (query.resource_type, query.resource_id, query.region)
+        require(key not in before_resources, 'PORTABLE_REARM_RESOURCE_PRESENT')
+        expected = {**before_resources, key: template}
+        require(resources == expected and receipts == before_receipts
+                and value['receipts'] == facts['inventory']['receipts'], 'PORTABLE_REARM_EXACT_RESOURCE_ONLY_DELTA')
+        require(guard_fingerprint == self._binding.guard_fingerprint, 'PORTABLE_TARGET_GUARD_BINDING')
+        return TargetRearmWriteObservation(self._binding.digest(), warrant.operation_hash, warrant.digest(),
+            guard_fingerprint, domain.state_root, domain.resources_root, domain.receipts_root,
+            hashlib.sha256(candidate).hexdigest(), hashlib.sha256(_canonical_inventory_bytes(value['resources'])).hexdigest(),
+            hashlib.sha256(_canonical_inventory_bytes(value['receipts'])).hexdigest(), domain.digest,
+            parsed.request.digest, facts['template_digest'])
+
     def dispatch(self, operation, warrant, limits, release):
         self._require_config()
+        parsed = _portable_operation(operation)
         require(type(release) is CorePortableWriteRelease and release.adapter is self
-                and release.warrant == warrant and release.operation == PortableOperation.parse(operation)
+                and release.warrant == warrant and release.operation == parsed
                 and release.limits == limits, 'PORTABLE_RELEASE_PORT_REQUIRED')
+        if type(parsed) is PortableRearmOperation:
+            self._rearm_projection(operation, warrant)
+            domain, proofs = self._rearm_snapshot(ResourceQuery.model_validate(parsed.domain_input.to_dict()['query']),
+                                                 flight_warrant=warrant)
+            require(domain == parsed.domain_input, 'PORTABLE_REARM_PREPARATION_CHANGED')
+            with self.store._core_write_lifetime(release):
+                applied = self.executor.rearm(ResourceQuery.model_validate(domain.to_dict()['query']), verifications=proofs)
+            require(applied is True, 'PORTABLE_REARM_EXECUTOR_NO_EFFECT')
+            candidate = release._write_observation
+            require(type(candidate) is TargetRearmWriteObservation and release._consumed, 'PORTABLE_REARM_WRITE_ACK_REQUIRED')
+            observed = self.store.observe_guarded_inventory()
+            require((observed.state_root, observed.resources_root, observed.receipts_root, observed.guard_fingerprint)
+                    == (candidate.after_root, candidate.resources_root, candidate.receipts_root, candidate.guard_fingerprint),
+                    'PORTABLE_REARM_EXECUTION_READBACK')
+            digest = candidate.ack_digest()
+            return TargetExecutionAck(warrant.operation_hash, warrant.digest(), self._binding.digest(),
+                observed.state_root, 'portable-rearm-ack-' + digest, digest)
         _parsed, proposal, evidence, approval, intent = self._domain_projection(operation, warrant)
         with self.store._core_write_lifetime(release):
             receipt = self.executor.execute(proposal=proposal, evidence=evidence, approval=approval, intent=intent)
@@ -426,6 +830,8 @@ class CorePortableTarget:
 
     def verify(self, operation, warrant):
         self._require_config()
+        if operation.get('operation_class') == PORTABLE_REARM_CLASS:
+            return self._verify_rearm(operation, warrant)
         _parsed, _proposal, _evidence, _approval, intent = self._domain_projection(operation, warrant)
         receipt = self.executor.get_receipt(intent.idempotency_key)
         if receipt is None:
@@ -454,6 +860,30 @@ class CorePortableTarget:
             return VerifiedTargetSettlement(resolution, target)
         return self._read(read)
 
+
+    def _verify_rearm(self, operation, warrant):
+        self._rearm_projection(operation, warrant)
+        def read(tx):
+            row, state = self.projection._flight(tx, warrant)
+            flight = state['in_flight']
+            require(flight['phase'] == 'RELEASED' and flight['ack'] is not None,
+                    'PORTABLE_REARM_DURABLE_EXECUTION_ACK_REQUIRED')
+            return row.revision, state['generation'], flight['write_observation'], flight['ack']
+        revision, generation, write, durable_ack = self._read(read)
+        acknowledgment = TargetExecutionAck(**durable_ack)
+        observed = self.store.observe_guarded_inventory()
+        candidate = self._rearm_candidate_observation(operation, warrant, observed.canonical_state, observed.guard_fingerprint)
+        require(candidate.to_dict() == write, 'PORTABLE_REARM_READBACK_RELEASE_BINDING')
+        candidate.require_ack(acknowledgment)
+        receipt = EvidenceRef(acknowledgment.ack_id, 'receipt', 'sha256:' + acknowledgment.ack_digest, 'portable-rearm-core-ack-v1')
+        readback = EvidenceRef('portable-rearm-readback-' + candidate.readback_digest(),
+                              'independent-readback', 'sha256:' + candidate.readback_digest(), 'portable-rearm-v1')
+        resolution = Reconciliation(warrant.operation_hash, Applied(acknowledgment.ack_id), receipt, readback)
+        target = TargetObservation(self.projection.scope, self.projection.workspace, self._binding.target_id,
+            self._binding.incarnation, revision, generation, warrant.operation_hash, candidate.before_root,
+            candidate.after_root, candidate.resources_root, candidate.receipts_root, candidate.guard_fingerprint,
+            acknowledgment.ack_id, acknowledgment.ack_digest, candidate.readback_digest())
+        return VerifiedRearmTargetSettlement(resolution, target, candidate, acknowledgment)
 
     def _verify_no_release(self, operation, warrant):
         capture = getattr(self.store._held_lock, 'core_no_release_capture', None)
@@ -531,7 +961,7 @@ class _PortableWriteAck:
     __slots__ = ('consumed', 'observation', 'release')
 
     def __init__(self, release, observation, issuer):
-        require(issuer is _WRITE_ACK_ISSUER and type(observation) is TargetWriteObservation,
+        require(issuer is _WRITE_ACK_ISSUER and type(observation) in (TargetWriteObservation, TargetRearmWriteObservation),
                 'PORTABLE_WRITE_ACK_ISSUER')
         self.release, self.observation, self.consumed = release, observation, False
 
@@ -549,13 +979,16 @@ class CorePortableWriteRelease:
         route.executor.require_route_binding(route)
         ack.take(route, warrant)
         self.route, self.principal, self.session_id = route, principal, session_id
-        self.warrant, self.operation = warrant, PortableOperation.parse(operation)
+        self.warrant, self.operation = warrant, _portable_operation(operation)
+        require(route.bound_variant.operation_class == self.operation.to_dict()['operation_class'],
+                'PORTABLE_WRITE_PORT_OPERATION_BINDING')
         self.completion, self.limits, self.adapter = completion, limits, route.executor
         self.cancel = cancel
         self._thread, self._pid = get_ident(), getpid()
         self._lock_lifetime = self.adapter.store._current_guard_entry()._lifetime
         self._guard = getattr(self.adapter.store._held_lock, 'target_binding', None)
         self._active, self._attempted, self._consumed = True, False, False
+        self._write_observation = None
         self.require_store(self.adapter.store)
 
     @classmethod
@@ -620,6 +1053,7 @@ class CorePortableWriteRelease:
                 'PORTABLE_FRESH_WRITE_ACK_REQUIRED')
         acknowledgment.consumed = True
         self._consumed = True
+        self._write_observation = acknowledgment.observation
 
     def close(self):
         self._active = False

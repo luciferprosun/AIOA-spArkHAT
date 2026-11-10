@@ -15,6 +15,7 @@ from lab.archaioa.authority import RiskLevel
 from lab.archaioa.faults import FaultTrace, opaque_id
 from lab.archaioa.outcome import Applied, NotApplied, Unknown
 from lab.archaioa.warrant import EffectWarrant
+
 from runtime.core_admission import Capability, OwnerScope
 from runtime.memory_patch.contracts.serialization import (
     canonical_json_bytes,
@@ -38,8 +39,10 @@ from runtime.mission.target_settlement import (
     TargetBinding,
     TargetExecutionAck,
     TargetObservation,
+    TargetRearmWriteObservation,
     TargetWriteObservation,
     VerifiedNoReleaseSettlement,
+    VerifiedRearmTargetSettlement,
     VerifiedTargetSettlement,
 )
 from runtime.mission.warrant import KIND as WARRANT_KIND
@@ -50,12 +53,15 @@ HEAD = TARGET_HEAD_KIND
 HISTORY = 'aioa-core-target-history.v1'
 PHYSICAL_HISTORY = 'aioa-core-target-history-portable.v1'
 PHYSICAL_NO_RELEASE_HISTORY = 'aioa-core-target-history-portable-no-release.v1'
-_HISTORY_SCHEMAS = (HISTORY, PHYSICAL_HISTORY, PHYSICAL_NO_RELEASE_HISTORY)
+PHYSICAL_REARM_HISTORY = 'aioa-core-target-history-portable-rearm.v1'
+_HISTORY_SCHEMAS = (HISTORY, PHYSICAL_HISTORY, PHYSICAL_NO_RELEASE_HISTORY, PHYSICAL_REARM_HISTORY)
 REGISTRATION = 'aioa-core-target-registration.v1'
 REGISTERED_GENESIS = 'aioa-core-target-registered-genesis.v1'
 REGISTERED_HEAD = 'aioa-core-target-registered-head.v1'
 MAX_TARGET_HISTORY = 128
 PORTABLE_CLASS = 'PORTABLE_RELEASE_ELASTIC_IP'
+PORTABLE_REARM_CLASS = 'PORTABLE_REARM_DEMO_V1'
+_PORTABLE_CLASSES = (PORTABLE_CLASS, PORTABLE_REARM_CLASS)
 
 
 def _json(value):
@@ -348,25 +354,82 @@ class CoreTargetProjection:
         return observation
 
     def _write_observation(self, warrant, value, before, *, target=None):
-        observation = value if type(value) is TargetWriteObservation else TargetWriteObservation.parse(value)
-        self.binding.require_write(warrant, observation)
-        require(warrant.operation_class == PORTABLE_CLASS
+        rearm = warrant.operation_class == PORTABLE_REARM_CLASS
+        codec = TargetRearmWriteObservation if rearm else TargetWriteObservation
+        observation = value if type(value) is codec else codec.parse(value)
+        if rearm:
+            self.binding.require_rearm_write(warrant, observation)
+        else:
+            self.binding.require_write(warrant, observation)
+        require(warrant.operation_class in _PORTABLE_CLASSES
                 and (observation.before_root, observation.before_resources_root, observation.before_receipts_root)
                 == tuple(before), 'TARGET_WRITE_BEFORE_BINDING')
         if target is not None:
-            require((observation.after_root, observation.resources_root, observation.receipts_root,
-                     observation.receipt_digest) == (target.after_root, target.resources_root,
-                        target.receipts_root, target.receipt_digest), 'TARGET_WRITE_READBACK_BINDING')
+            require((observation.after_root, observation.resources_root, observation.receipts_root)
+                    == (target.after_root, target.resources_root, target.receipts_root), 'TARGET_WRITE_READBACK_BINDING')
+            if not rearm:
+                require(observation.receipt_digest == target.receipt_digest, 'TARGET_WRITE_READBACK_BINDING')
         return observation
 
     def _write_operation_binding(self, observation, operation):
         payload = operation['payload']
+        if type(observation) is TargetRearmWriteObservation:
+            domain, request = payload['domain_input'], payload['request']
+            require(operation['operation_class'] == PORTABLE_REARM_CLASS
+                    and payload['schema'] == 'aioa.portable-rearm-operation.v1' and payload['tool'] == 'rearm_demo'
+                    and payload['target_binding_digest'] == self.binding.digest()
+                    and domain['binding'] == asdict(self.binding)
+                    and observation.domain_digest == canonical_sha256(domain)
+                    and observation.request_digest == canonical_sha256(request)
+                    and request['domain_digest'] == observation.domain_digest
+                    and observation.template_digest == domain['template_digest']
+                    and (observation.before_root, observation.before_resources_root, observation.before_receipts_root)
+                    == (domain['state_root'], domain['resources_root'], domain['receipts_root']),
+                    'TARGET_REARM_WRITE_OPERATION_BINDING')
+            return
         proposal = payload['domain_input']['proposal']
         require(payload['schema'] == 'aioa.portable-operation.v1'
                 and payload['target_binding_digest'] == self.binding.digest()
                 and observation.receipt_key_digest == canonical_sha256(
                     'local-exec:' + proposal['run_id'] + ':' + proposal['proposal_hash']),
                 'TARGET_WRITE_OPERATION_BINDING')
+
+    def _require_rearm_input(self, tx, warrant, operation, *, head_revision, state, histories):
+        payload = operation['payload']
+        domain, request = payload['domain_input'], payload['request']
+        require(operation['operation_class'] == PORTABLE_REARM_CLASS
+                and payload['schema'] == 'aioa.portable-rearm-operation.v1'
+                and domain['schema'] == 'aioa.portable-rearm-domain-input.v1'
+                and domain['binding'] == asdict(self.binding)
+                and domain['head_revision'] == head_revision
+                and domain['generation'] == state['generation']
+                and domain['target_revision'] == state['target_revision']
+                and domain['history_digest'] == state['history_digest']
+                and domain['epoch'] == warrant.lease_epoch
+                and (domain['state_root'], domain['resources_root'], domain['receipts_root'])
+                == (state['state_root'], state['resources_root'], state['receipts_root']),
+                'TARGET_REARM_PREIMAGE_BINDING')
+        query = domain['query']
+        releases = set()
+        release_count = 0
+        for history in histories.values():
+            prior = EffectWarrant.from_dict(history['warrant'])
+            _row, intent = self.journal._load(tx, prior)
+            previous = intent['operation']['payload']
+            if prior.operation_class in _PORTABLE_CLASSES:
+                previous_run = (previous['request']['run_id'] if prior.operation_class == PORTABLE_REARM_CLASS
+                                else previous['domain_input']['proposal']['run_id'])
+                require(previous_run != request['run_id'] and prior.task_id != warrant.task_id
+                        and previous['session_id'] != payload['session_id'] and prior.nonce != warrant.nonce,
+                        'TARGET_REARM_NEW_RUN_REQUIRED')
+            if history['schema'] == PHYSICAL_HISTORY:
+                evidence = previous['domain_input']['evidence']['resource']
+                if (evidence['resource_type'], evidence['resource_id'], evidence['region']) == (
+                        query['resource_type'], query['resource_id'], query['region']):
+                    releases.add(history['write_observation']['receipt_digest'])
+                    release_count += 1
+        require(domain['release_receipt_hashes'] == sorted(releases) and release_count == len(releases)
+                and bool(releases), 'TARGET_REARM_COMPLETE_CORE_HISTORY')
 
     def _details(self, tx):
         self._context(tx)
@@ -425,15 +488,18 @@ class CoreTargetProjection:
             history_fields = {'schema', 'target_key', 'binding_digest', 'generation', 'previous_digest',
                               'warrant_digest', 'warrant', 'liability_id', 'observation', 'resolution', 'head_revision_after'}
             no_release = history.get('schema') == PHYSICAL_NO_RELEASE_HISTORY
-            physical = history.get('schema') in (PHYSICAL_HISTORY, PHYSICAL_NO_RELEASE_HISTORY)
-            extra_fields = {'no_release_certificate'} if no_release else ({'write_observation'} if physical else set())
+            rearm = history.get('schema') == PHYSICAL_REARM_HISTORY
+            physical = history.get('schema') in (PHYSICAL_HISTORY, PHYSICAL_NO_RELEASE_HISTORY, PHYSICAL_REARM_HISTORY)
+            extra_fields = ({'execution_ack', 'write_observation'} if rearm else {'no_release_certificate'}
+                            if no_release else {'write_observation'} if physical else set())
             require(set(history) == history_fields | extra_fields
                     and record.revision == 1 and type(history['generation']) is int
                     and history['generation'] == generation and history['previous_digest'] == digest
                     and history['binding_digest'] == self.binding.digest(), 'TARGET_HISTORY_INTEGRITY')
             warrant = EffectWarrant.from_dict(history['warrant'])
             self._require_warrant_binding(warrant)
-            require(physical == (warrant.operation_class == PORTABLE_CLASS)
+            require(physical == (warrant.operation_class in _PORTABLE_CLASSES)
+                    and rearm == (warrant.operation_class == PORTABLE_REARM_CLASS)
                     and (registered or not physical), 'TARGET_PHYSICAL_HISTORY_PROFILE')
             observation = self._observation(history['observation'])
             resolution = Reconciliation.from_dict(history['resolution'])
@@ -449,11 +515,15 @@ class CoreTargetProjection:
                     and history['head_revision_after'] == observation.expected_head_revision + 1,
                     'TARGET_HISTORY_INTEGRITY')
             # Durable no-release history validates facts without reviving a live witness.
-            if not no_release:
+            if not no_release and not rearm:
                 VerifiedTargetSettlement(resolution, observation)
             if physical and not no_release:
-                self._write_observation(warrant, history['write_observation'],
-                                        (root, resources, receipts), target=observation)
+                observed = self._write_observation(warrant, history['write_observation'],
+                    (root, resources, receipts), target=observation)
+                if rearm:
+                    acknowledgment = TargetExecutionAck(**history['execution_ack'])
+                    self.binding.require_ack(warrant, acknowledgment)
+                    VerifiedRearmTargetSettlement(resolution, observation, observed, acknowledgment)
             intent_row, intent = self.journal._load(tx, warrant)
             require(intent_row is not None and intent['resolution'] == history['resolution'],
                     'TARGET_HISTORY_INTENT_REQUIRED')
@@ -469,8 +539,11 @@ class CoreTargetProjection:
                     row_revision=last_head_revision + 1, state=prior, intent_revision=intent_row.revision - 1,
                     intent=before_intent, liability_id=history['liability_id'])
             elif physical:
-                self._write_operation_binding(TargetWriteObservation.parse(history['write_observation']),
-                                              intent['operation'])
+                self._write_operation_binding(observed, intent['operation'])
+                if rearm:
+                    self._require_rearm_input(tx, warrant, intent['operation'], head_revision=last_head_revision,
+                        state={'generation': generation - 1, 'target_revision': revision, 'history_digest': digest,
+                            'state_root': root, 'resources_root': resources, 'receipts_root': receipts}, histories=histories)
             require(self._liability_entry(tx, warrant, history['resolution']) == history['liability_id'],
                     'TARGET_HISTORY_LIABILITY_REQUIRED')
             histories[warrant.digest()] = history
@@ -485,7 +558,7 @@ class CoreTargetProjection:
         else:
             require(type(flight) is dict and 'warrant' in flight, 'TARGET_IN_FLIGHT_INTEGRITY')
             warrant = EffectWarrant.from_dict(flight['warrant'])
-            physical = warrant.operation_class == PORTABLE_CLASS
+            physical = warrant.operation_class in _PORTABLE_CLASSES
             fields = {'phase', 'warrant', 'warrant_digest', 'ack'}
             require(set(flight) == (fields | {'write_observation'} if physical else fields)
                     and flight['phase'] in ('STARTED', 'RELEASED'), 'TARGET_IN_FLIGHT_INTEGRITY')
@@ -506,7 +579,10 @@ class CoreTargetProjection:
                     self._write_operation_binding(observed, intent['operation'])
             if flight['ack'] is not None:
                 require(flight['phase'] == 'RELEASED', 'TARGET_ACK_PHASE')
-                self.binding.require_ack(warrant, TargetExecutionAck(**flight['ack']))
+                acknowledgment = TargetExecutionAck(**flight['ack'])
+                self.binding.require_ack(warrant, acknowledgment)
+                if warrant.operation_class == PORTABLE_REARM_CLASS:
+                    observed.require_ack(acknowledgment)
                 offset += 1
             require(row.revision == last_head_revision + offset, 'TARGET_HEAD_REVISION')
         return row, head, histories
@@ -530,8 +606,8 @@ class CoreTargetProjection:
     def start_in_transaction(self, tx, warrant, operation, snapshot):
         self._context(tx, write=True)
         self._require_warrant_binding(warrant)
-        row, state = self.load(tx)
-        physical = warrant.operation_class == PORTABLE_CLASS
+        row, state, histories = self._details(tx)
+        physical = warrant.operation_class in _PORTABLE_CLASSES
         require(not physical or state['schema'] == REGISTERED_HEAD, 'TARGET_PHYSICAL_ADOPTION_REQUIRED')
         require(state['in_flight'] is None and state['generation'] < MAX_TARGET_HISTORY, 'TARGET_IN_FLIGHT_OR_QUOTA')
         require(snapshot.fingerprint == warrant.target_fingerprint == 'sha256:' + state['state_root']
@@ -540,6 +616,8 @@ class CoreTargetProjection:
                 and self.binding.evidence() in snapshot.ddr.evidence_refs, 'TARGET_START_BINDING')
         intent_row, intent = self.journal._load(tx, warrant)
         require(intent_row is not None and intent['resolution'] is None, 'TARGET_START_INTENT_REQUIRED')
+        if warrant.operation_class == PORTABLE_REARM_CLASS:
+            self._require_rearm_input(tx, warrant, operation, head_revision=row.revision, state=state, histories=histories)
         state['in_flight'] = {'phase': 'STARTED', 'warrant': warrant.to_dict(),
                               'warrant_digest': warrant.digest(), 'ack': None}
         if physical:
@@ -553,8 +631,9 @@ class CoreTargetProjection:
                 and snapshot.fingerprint == 'sha256:' + state['state_root']
                 and snapshot.revision == state['target_revision']
                 and 'sha256:' + canonical_sha256(operation) == warrant.operation_hash, 'TARGET_RELEASE_BINDING')
-        if warrant.operation_class == PORTABLE_CLASS:
-            require(type(write_observation) is TargetWriteObservation, 'TARGET_WRITE_OBSERVATION_REQUIRED')
+        if warrant.operation_class in _PORTABLE_CLASSES:
+            codec = TargetRearmWriteObservation if warrant.operation_class == PORTABLE_REARM_CLASS else TargetWriteObservation
+            require(type(write_observation) is codec, 'TARGET_WRITE_OBSERVATION_REQUIRED')
             observed = self._write_observation(warrant, write_observation,
                 (state['state_root'], state['resources_root'], state['receipts_root']))
             self._write_operation_binding(observed, operation)
@@ -570,12 +649,16 @@ class CoreTargetProjection:
         self.binding.require_ack(warrant, acknowledgment)
         row, state = self._flight(tx, warrant)
         require(state['in_flight']['phase'] == 'RELEASED' and state['in_flight']['ack'] is None, 'TARGET_ACK_PHASE')
+        if warrant.operation_class == PORTABLE_REARM_CLASS:
+            observed = self._write_observation(warrant, state['in_flight']['write_observation'],
+                (state['state_root'], state['resources_root'], state['receipts_root']))
+            observed.require_ack(acknowledgment)
         state['in_flight']['ack'] = acknowledgment.to_dict()
         self._save_head(tx, row, state)
 
     def apply_resolution_in_transaction(self, tx, warrant, epoch, verified):
         self._context(tx, write=True)
-        require(type(verified) in (VerifiedTargetSettlement, VerifiedNoReleaseSettlement),
+        require(type(verified) in (VerifiedTargetSettlement, VerifiedNoReleaseSettlement, VerifiedRearmTargetSettlement),
                 'VERIFIED_TARGET_OBSERVATION_REQUIRED')
         self.binding.require_observation(verified.target)
         row, state = self._flight(tx, warrant)
@@ -596,6 +679,13 @@ class CoreTargetProjection:
                 and target.before_root == state['state_root']
                 and target.operation_digest == warrant.operation_hash, 'STALE_TARGET_OBSERVATION')
         acknowledgment = state['in_flight']['ack']
+        rearm = warrant.operation_class == PORTABLE_REARM_CLASS
+        require((type(verified) is VerifiedRearmTargetSettlement) == rearm, 'TARGET_REARM_SETTLEMENT_PROFILE')
+        if rearm:
+            require(acknowledgment is not None and acknowledgment == verified.execution_ack.to_dict()
+                    and state['in_flight']['write_observation'] == verified.write_observation.to_dict(),
+                    'TARGET_REARM_DURABLE_ACK_REQUIRED')
+            verified.write_observation.require_ack(verified.execution_ack)
         require(acknowledgment is None or acknowledgment['target_root'] == target.after_root, 'TARGET_ACK_READBACK_MISMATCH')
         generation = state['generation'] + 1
         history = {'schema': HISTORY, 'target_key': self.head_key, 'binding_digest': self.binding.digest(),
@@ -606,10 +696,12 @@ class CoreTargetProjection:
                    'head_revision_after': row.revision + 1}
         if no_release:
             history.update(schema=PHYSICAL_NO_RELEASE_HISTORY, no_release_certificate=verified.certificate.to_dict())
-        elif warrant.operation_class == PORTABLE_CLASS:
+        elif warrant.operation_class in _PORTABLE_CLASSES:
             observed = self._write_observation(warrant, state['in_flight']['write_observation'],
                 (state['state_root'], state['resources_root'], state['receipts_root']), target=target)
-            history.update(schema=PHYSICAL_HISTORY, write_observation=observed.to_dict())
+            history.update(schema=PHYSICAL_REARM_HISTORY if rearm else PHYSICAL_HISTORY, write_observation=observed.to_dict())
+            if rearm:
+                history['execution_ack'] = acknowledgment
         tx.insert(StoredRecord(RecordKind.OPERATION, self.history_key(warrant), self.scope, 1, history))
         state.update(generation=generation, state_root=target.after_root,
                      resources_root=target.resources_root, receipts_root=target.receipts_root,

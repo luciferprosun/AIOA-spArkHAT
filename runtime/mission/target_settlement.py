@@ -10,7 +10,8 @@ from typing import Protocol, runtime_checkable
 from lab.archaioa.contracts import digest_id
 from lab.archaioa.evidence import EvidenceRef
 from lab.archaioa.faults import opaque_id
-from lab.archaioa.outcome import NotApplied
+from lab.archaioa.outcome import Applied, NotApplied
+
 from runtime.core_admission import CoreAdmission, OwnerScope
 from runtime.memory_patch.contracts.serialization import canonical_sha256
 from runtime.memory_patch.persistence.ports import TransactionRunner
@@ -74,6 +75,14 @@ class TargetBinding:
                 and observation.guard_fingerprint == self.guard_fingerprint
                 and observation.operation_digest == warrant.operation_hash
                 and observation.warrant_digest == warrant.digest(), 'TARGET_WRITE_OBSERVATION_BINDING')
+
+
+    def require_rearm_write(self, warrant, observation):
+        require(type(observation) is TargetRearmWriteObservation
+                and observation.binding_digest == self.digest()
+                and observation.guard_fingerprint == self.guard_fingerprint
+                and observation.operation_digest == warrant.operation_hash
+                and observation.warrant_digest == warrant.digest(), 'TARGET_REARM_WRITE_BINDING')
 
 
 @dataclass(frozen=True, slots=True)
@@ -193,6 +202,87 @@ class TargetWriteObservation:
         require(type(value) is dict and set(value) == set(cls.__dataclass_fields__),
                 'TARGET_WRITE_OBSERVATION_SHAPE')
         return cls(**value)
+
+
+@dataclass(frozen=True, slots=True)
+class TargetRearmWriteObservation:
+    """Closed resource-only delta; the receipt collection is byte-identical."""
+    binding_digest: str
+    operation_digest: str
+    warrant_digest: str
+    guard_fingerprint: str
+    before_root: str
+    before_resources_root: str
+    before_receipts_root: str
+    after_root: str
+    resources_root: str
+    receipts_root: str
+    domain_digest: str
+    request_digest: str
+    template_digest: str
+
+    def __post_init__(self):
+        digest_id(self.operation_digest, 'rearm operation')
+        digest_id(self.warrant_digest, 'rearm warrant')
+        for name in ('binding_digest', 'guard_fingerprint', 'before_root', 'before_resources_root',
+                     'before_receipts_root', 'after_root', 'resources_root', 'receipts_root',
+                     'domain_digest', 'request_digest', 'template_digest'):
+            _root(getattr(self, name))
+        require(self.before_root != self.after_root and self.before_resources_root != self.resources_root
+                and self.before_receipts_root == self.receipts_root, 'TARGET_REARM_RESOURCE_ONLY_DELTA')
+
+    def to_dict(self):
+        return asdict(self)
+
+    @classmethod
+    def parse(cls, value):
+        require(type(value) is dict and set(value) == set(cls.__dataclass_fields__), 'TARGET_REARM_WRITE_SHAPE')
+        return cls(**value)
+
+    def ack_digest(self):
+        return canonical_sha256({'schema': 'aioa.portable-rearm-executor-ack.v1', 'write_observation': self.to_dict()})
+
+    def require_ack(self, acknowledgment):
+        require(type(acknowledgment) is TargetExecutionAck
+                and acknowledgment.operation_digest == self.operation_digest
+                and acknowledgment.warrant_digest == self.warrant_digest
+                and acknowledgment.binding_digest == self.binding_digest
+                and acknowledgment.target_root == self.after_root
+                and acknowledgment.ack_digest == self.ack_digest()
+                and acknowledgment.ack_id == 'portable-rearm-ack-' + acknowledgment.ack_digest,
+                'TARGET_REARM_EXECUTION_ACK_REQUIRED')
+
+    def readback_digest(self):
+        return canonical_sha256({'schema': 'aioa.portable-rearm-complete-readback.v1',
+            'write_observation': self.to_dict(), 'state_root': self.after_root,
+            'resources_root': self.resources_root, 'receipts_root': self.receipts_root})
+
+
+@dataclass(frozen=True, slots=True)
+class VerifiedRearmTargetSettlement:
+    """Independently read complete state plus the previously durable Core ACK."""
+    resolution: Reconciliation
+    target: TargetObservation
+    write_observation: TargetRearmWriteObservation
+    execution_ack: TargetExecutionAck
+
+    def __post_init__(self):
+        require(type(self.write_observation) is TargetRearmWriteObservation
+                and type(self.target) is TargetObservation and type(self.resolution) is Reconciliation
+                and type(self.resolution.outcome) is Applied, 'VERIFIED_REARM_TARGET_REQUIRED')
+        observed, target, resolution, acknowledgment = self.write_observation, self.target, self.resolution, self.execution_ack
+        observed.require_ack(acknowledgment)
+        require((target.operation_digest, target.before_root, target.after_root, target.resources_root,
+                 target.receipts_root, target.guard_fingerprint) == (observed.operation_digest,
+                    observed.before_root, observed.after_root, observed.resources_root,
+                    observed.receipts_root, observed.guard_fingerprint), 'TARGET_REARM_READBACK_BINDING')
+        receipt = EvidenceRef(acknowledgment.ack_id, 'receipt', 'sha256:' + acknowledgment.ack_digest, 'portable-rearm-core-ack-v1')
+        readback = EvidenceRef('portable-rearm-readback-' + observed.readback_digest(),
+                              'independent-readback', 'sha256:' + observed.readback_digest(), 'portable-rearm-v1')
+        require(resolution.operation_digest == observed.operation_digest
+                and resolution.receipt == receipt and resolution.readback == readback
+                and target.receipt_id == acknowledgment.ack_id and target.receipt_digest == acknowledgment.ack_digest
+                and target.readback_digest == observed.readback_digest(), 'TARGET_REARM_EVIDENCE_BINDING')
 
 
 @runtime_checkable
