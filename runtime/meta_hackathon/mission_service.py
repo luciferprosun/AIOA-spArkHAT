@@ -5,6 +5,7 @@ database, browser process or paid transport is constructed here.
 """
 import hashlib
 import json
+import os
 import threading
 import uuid
 from contextlib import contextmanager
@@ -230,25 +231,41 @@ class MissionService:
         from .native_authority import NativeOwnedWorkHandle
         cancel=cancel or CancellationToken();done=threading.Event()
         foundation=self._native_foundation
+        broker=None
+        if foundation is not None and kind=='AGENT':
+            from .agent_operations import _local_binding
+            _,_,broker=_local_binding(self,args[0])
         handle=None
         def invoke():
+            returned=False
             try:
-                if kind=='MISSION_LIVE':self._execute_live(*args,cancel)
-                elif kind=='MISSION_OFFLINE':
-                    record,task,call,warrant,now=args
-                    self._execute(record,task,call,warrant,cancel,now)
-                elif kind=='AGENT':
-                    from . import agent_operations
-                    agent_operations._execute(self,*args,cancel)
-                elif kind=='GITHUB_PENDING':
-                    from . import github_write
-                    slot=args[0]
-                    github_write._worker(slot['host'],slot['data'],slot['warrant'],cancel,reconcile=slot['reconcile'])
-                elif kind=='GITHUB':
-                    from . import github_write
-                    host,data,warrant,reconcile=args
-                    github_write._worker(host,data,warrant,cancel,reconcile=reconcile)
-            finally:done.set()
+                with failure_boundary('NATIVE_WORKER_CALLBACK_FAILED'):
+                    if kind=='MISSION_LIVE':self._execute_live(*args,cancel)
+                    elif kind=='MISSION_OFFLINE':
+                        record,task,call,warrant,now=args
+                        self._execute(record,task,call,warrant,cancel,now)
+                    elif kind=='AGENT':
+                        from . import agent_operations
+                        agent_operations._execute(self,*args,cancel)
+                    elif kind=='GITHUB_PENDING':
+                        from . import github_write
+                        slot=args[0]
+                        github_write._worker(slot['host'],slot['data'],slot['warrant'],cancel,reconcile=slot['reconcile'])
+                    elif kind=='GITHUB':
+                        from . import github_write
+                        host,data,warrant,reconcile=args
+                        github_write._worker(host,data,warrant,cancel,reconcile=reconcile)
+                returned=True
+            except (ValueError,RepairBoundaryError):
+                pass  # Fixed boundary text only; no callback/credential text escapes.
+            finally:
+                if handle is not None:
+                    if returned:
+                        with foundation.lifecycle.lock:
+                            require(foundation.lifecycle._handles.get(identity) is handle,'NATIVE_WORK_REQUIRED')
+                            handle.returned=(threading.current_thread(),done,os.getpid(),kind)
+                    else:foundation.lifecycle.quarantine(handle)
+                done.set()
         require(kind in ('MISSION_LIVE','MISSION_OFFLINE','AGENT','GITHUB','GITHUB_PENDING'),'NATIVE_PRODUCER_REQUIRED')
         thread=threading.Thread(target=invoke,daemon=True)
         if foundation is not None:
@@ -257,12 +274,128 @@ class MissionService:
             with foundation.lifecycle.lock:
                 handle=foundation.lifecycle.begin_work(producer,role,identity,cancel,thread,done)
                 require(type(handle) is NativeOwnedWorkHandle,'NATIVE_WORK_REQUIRED')
+                handle.kind=kind;handle.context=args
+                handle.broker=broker
+                if kind=='AGENT':handle.target=args[0]['approval_payload']['operation']['target_fingerprint']
+                elif kind=='GITHUB_PENDING':handle.target=args[0]['data']['operation']['target_fingerprint']
                 self._cancels[identity]=cancel;self._workers[identity]=thread
         return cancel,thread,handle
 
     def _start_native_worker(self,thread,handle):
         if handle is not None:self._native_foundation.lifecycle.before_start(handle)
         thread.start()  # No lifecycle lock remains held.
+
+    def _native_operation_snapshot(self,handle):
+        """Original returned worker + actual join + exact same-Core retained joins."""
+        from lab.archaioa.warrant import EffectWarrant
+        from runtime.memory_patch.errors import MemoryPatchError
+        from runtime.mission.sandbox_linux import LinuxSandboxBroker
+        from runtime.mission.tools import CoreToolRoute
+        from runtime.mobile_gateway.service import SCHEMA
+
+        from . import agent_operations, github_write
+        from .native_authority import NativeOwnedWorkHandle
+        foundation=self._native_foundation
+        require(type(handle) is NativeOwnedWorkHandle and handle.foundation is foundation,'NATIVE_WORK_REQUIRED')
+        returned=handle.returned
+        if (type(returned) is not tuple or len(returned)!=4 or returned[0] is not handle.thread
+                or returned[1] is not handle.done or returned[2]!=os.getpid() or returned[3]!=handle.kind
+                or not handle.started or not handle.done.is_set() or handle.thread is threading.current_thread()
+                or handle.thread.ident is None or handle.quarantined):return None
+        try:
+            with foundation.lifecycle.lock:
+                require(foundation.lifecycle._handles.get(handle.task_id) is handle
+                    and self._workers.get(handle.task_id) is handle.thread
+                    and self._cancels.get(handle.task_id) is handle.cancel,'NATIVE_WORK_BINDING')
+            handle.thread.join(timeout=0)
+            if handle.thread.is_alive():return None
+            if handle.kind=='AGENT':
+                data,warrant=handle.context
+                require(handle.producer is self and handle.role=='LEGACY_MISSION' and data['task_id']==handle.task_id
+                        and self.agent_journal is foundation.intent_journal and self.agent_governor is foundation.governor,
+                        'NATIVE_WORK_BINDING')
+                route=self._agent_routes[data['config_ref']];broker=self._agent_brokers[data['config_ref']]
+                require(type(route) is CoreToolRoute and route.journal is foundation.intent_journal
+                        and type(broker) is LinuxSandboxBroker and broker is handle.broker
+                        and broker._active_cancel is None and broker._quarantined is False,'NATIVE_CLEANUP_UNPROVEN')
+                operation=data['approval_payload']['operation'];key=handle.task_id;schema=agent_operations.KIND
+                fields=('task_id','task_digest','preview_digest','source_sha','capsule_digest','config_ref')
+            elif handle.kind=='GITHUB_PENDING':
+                slot=handle.context[0];data,warrant=slot['data'],slot['warrant']
+                require(slot['host'] is foundation.owner and slot['reconcile'] is False
+                        and handle.producer is foundation.owner and handle.role=='NATIVE_GITHUB'
+                        and handle.task_id=='github-'+data['operation_id'],'NATIVE_WORK_BINDING')
+                operation=data['operation'];key='native-github-'+data['operation_id'];schema=SCHEMA
+                fields=('operation_id','source_chat_request_id','source_reply_sha256','source_sha','capsule_digest','core_instance_id','review_digest')
+            else:return None
+            require(type(warrant) is EffectWarrant and warrant.task_id==handle.task_id
+                    and warrant.operation_hash=='sha256:'+canonical_sha256(operation)
+                    and handle.target==operation['target_fingerprint'],'NATIVE_WORK_BINDING')
+            def read(tx):
+                if handle.kind=='GITHUB_PENDING':github_write.retained_in_transaction(tx)
+                row=tx.get(RecordKind.OPERATION,key)
+                require(row is not None and row.payload.get('schema')==schema,'NATIVE_WORK_BINDING')
+                row.verify();value=plain(row.payload)
+                require(all(type(value.get(name)) is type(data[name]) and value.get(name)==data[name] for name in fields)
+                        and type(value.get('warrant')) is dict
+                        and EffectWarrant.from_dict(value['warrant']).digest()==warrant.digest(),'NATIVE_WORK_BINDING')
+                _,_,active=self.ledger._load(tx,warrant)
+                require(active.digest()==warrant.digest(),'NATIVE_WORK_BINDING')
+                _,intent=foundation.intent_journal._load(tx,warrant)
+                require(intent is not None and canonical_sha256(intent['operation'])==canonical_sha256(operation),'NATIVE_INTENT_REQUIRED')
+                return row,value,plain(intent),warrant
+            return self._run(Capability.READ,read)
+        except (ValueError,MemoryPatchError,OSError,RuntimeError,KeyError,TypeError,AttributeError):return None
+
+    def _native_retirement_observation(self,handle):
+        """Join and canonical evidence are observed outside every lifecycle lock."""
+        from runtime.memory_patch.errors import MemoryPatchError
+
+        from .native_authority import NativeOwnedWorkHandle
+        require(type(handle) is NativeOwnedWorkHandle and handle.foundation is self._native_foundation,
+                'NATIVE_WORK_REQUIRED')
+        returned=handle.returned
+        if handle.kind in ('AGENT','GITHUB_PENDING'):
+            snapshot=self._native_operation_snapshot(handle)
+            if snapshot is None:return None
+            row,value,intent,warrant=snapshot
+            resolution=intent.get('resolution')
+            if type(resolution) is not dict or resolution.get('outcome',{}).get('contract_type')!='Applied':return None
+            if handle.kind=='AGENT':
+                receipt=value.get('receipt')
+                if (value.get('state')!='AGENT_COMPLETED' or type(receipt) is not dict
+                        or receipt.get('schema')!='aioa.agent.local-receipt.v2'
+                        or receipt.get('task_id')!=handle.task_id or receipt.get('warrant_digest')!=warrant.digest()
+                        or receipt.get('operation_digest')!=warrant.operation_hash
+                        or receipt.get('local_readback_verified') is not True or receipt.get('model_invoked') is not False
+                        or receipt.get('mode')!='OFFLINE_FIXTURE' or receipt.get('resolution',{}).get('outcome')!=resolution['outcome']
+                        or handle.broker._active_cancel is not None or handle.broker._quarantined is not False):return None
+            elif value.get('state')!='GITHUB_VERIFIED':return None
+            return (returned,handle.thread,handle.cancel,handle.done,row.payload_digest,row.revision,handle.broker,handle.target)
+        if (handle.producer is not self or handle.role!='LEGACY_MISSION' or handle.kind!='MISSION_OFFLINE'
+                or type(returned) is not tuple or len(returned)!=4 or returned[0] is not handle.thread
+                or returned[1] is not handle.done or returned[2]!=os.getpid() or returned[3]!=handle.kind
+                or not handle.started or not handle.done.is_set() or handle.thread is threading.current_thread()
+                or handle.thread.ident is None or handle.quarantined):return None
+        try:
+            handle.thread.join(timeout=0)
+            if handle.thread.is_alive():return None
+            record,_,_,warrant,_=handle.context
+            require(record['task_id']==handle.task_id and warrant.task_id==handle.task_id,'NATIVE_WORK_BINDING')
+            row=self._get(handle.task_id);row.verify();value=plain(row.payload)
+            require(value['state']=='OFFLINE_FIXTURE' and value.get('warrant_digest')==warrant.digest()
+                    and value.get('task_id')==handle.task_id and type(value.get('result')) is dict
+                    and value['result'].get('status')=='OFFLINE_LINKED_UNVERIFIED'
+                    and type(value.get('browser_receipt')) is dict,'NATIVE_WORK_NOT_SETTLED')
+        except (ValueError,MemoryPatchError,OSError,RuntimeError):return None
+        return (returned,handle.thread,handle.cancel,handle.done,row.payload_digest,row.revision,'MISSION_RETURN_JOIN')
+
+    def _retire_native_workers(self):
+        foundation=self._native_foundation
+        if foundation is None:return
+        with foundation.lifecycle.lock:
+            handles=tuple(handle for handle in foundation.lifecycle._handles.values() if not handle.synchronous)
+        for handle in handles:foundation.lifecycle.retire_work(handle)
 
     @contextmanager
     def _native_synchronous(self,identity,kind):
@@ -273,21 +406,24 @@ class MissionService:
         from .native_authority import NativePhase, deny
         lifecycle=foundation.lifecycle
         parent=None
-        if kind=='AGENT_SETTLEMENT':
+        if kind in ('AGENT_SETTLEMENT','GITHUB_SETTLEMENT'):
             with lifecycle.lock:
                 parent=lifecycle._handles.get(identity)
-                deny(parent is not None and parent.producer is self and parent.foundation is foundation
-                     and lifecycle.phase in (NativePhase.CAPACITY_ADMIN,NativePhase.ACTIVE)
-                     and lifecycle._fence is None)
-            role,producer='LEGACY_MISSION',self
+                role='LEGACY_MISSION' if kind=='AGENT_SETTLEMENT' else 'NATIVE_GITHUB'
+                producer=self if kind=='AGENT_SETTLEMENT' else foundation.owner
+                deny(parent is not None and parent.producer is producer and parent.role==role and parent.foundation is foundation
+                     and not parent.synchronous and not parent.quarantined
+                     and lifecycle.phase in (NativePhase.CAPACITY_ADMIN,NativePhase.ACTIVE) and lifecycle._fence is None)
         else:
             deny(kind in ('GITHUB_PREFLIGHT','GITHUB_CONTROL'))
             lifecycle.require_execution()
             role,producer='NATIVE_GITHUB',foundation.owner
         token=parent.cancel if parent is not None else CancellationToken()
         handle=lifecycle.begin_synchronous(producer,role,'sync-'+kind.lower()+'-'+identity,token,parent=parent)
+        handle.kind=kind
         if parent is not None:lifecycle._boundary.settlement_handle=handle
         try:
+            if parent is not None:deny(self._native_operation_snapshot(parent) is not None)
             yield handle
         except BaseException:
             lifecycle.quarantine(handle)
@@ -297,6 +433,7 @@ class MissionService:
         finally:
             handle.done.set()
             if parent is not None:del lifecycle._boundary.settlement_handle
+        if parent is not None:self._retire_native_workers()
 
     def retained_in_transaction(self,tx):
         rows=tx.scan(RecordKind.OPERATION,limit=1024,states=tuple(state.value for state in MissionState))

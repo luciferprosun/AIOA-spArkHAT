@@ -390,6 +390,10 @@ class NativeMobileComposition:
         try:fcntl.flock(self._lease,fcntl.LOCK_EX|fcntl.LOCK_NB)
         except OSError:os.close(self._lease);raise AdmissionError() from None
         self._closed=False
+        self._native_close_lock=threading.Lock()
+        self._native_close_owner=None
+        self._native_close_steps={}
+        self._native_close_uncertain=False
         try:
             if self._existing_profile is not None and (validate_existing_profile(root)!=self._existing_profile
                     or signing_key_identity(root)!=self._existing_host_key):raise AdmissionError()
@@ -786,7 +790,8 @@ class NativeMobileComposition:
         from .advisory import dispatch as advisory_dispatch
         if op in ADVISORY_OPS:return advisory_dispatch(self,owner,value)
         if op.startswith('github_'):
-            from .github_write import dispatch
+            from .github_write import _owner_reconcile, dispatch
+            if self.foundation is not None and op=='github_write_reconcile':return _owner_reconcile(self,owner,value)
             return dispatch(self,owner,value)
         if op in ('budget_review','budget_approve'):
             from runtime.mobile_gateway.operator_chat import budget_dispatch
@@ -833,28 +838,50 @@ class NativeMobileComposition:
         from .native_tools import registry
         return {**self.public_settings(),**self.mobile._run(Capability.READ,inspect), 'components':registry(self)}
 
-    def close(self):
-        if self._host_composition is not None:
-            from .native_authority import NativePhase
+    def _close_native(self):
+        """One cleanup owner; uncertain stages are readback-only thereafter."""
+        from .native_authority import NativePhase
+        token=object()
+        with self._native_close_lock:
             if self._closed:return {'status':'CLOSED','closed':True}
-            foundation=self.foundation
+            if self._native_close_uncertain:return {'status':'QUARANTINED','closed':False}
+            if self._native_close_owner is not None:return {'status':'DRAINING','closed':False}
+            self._native_close_owner=token
+        foundation=self.foundation
+        try:
             if foundation is None or not foundation.lifecycle.drain():
                 return {'status':'QUARANTINED','closed':False}
-            try:
-                self.missions.close()
-                if any(worker.is_alive() for worker in self.missions._workers.values()):
-                    foundation.lifecycle._phase=NativePhase.QUARANTINED
-                    return {'status':'QUARANTINED','closed':False}
-                self.runtime.close()
-                self.runner.close()
-                self.core.close()
-                os.close(self._lease)
-            except BaseException:
-                foundation.lifecycle._phase=NativePhase.QUARANTINED
-                raise
-            self._closed=True
-            foundation.lifecycle._phase=NativePhase.CLOSED
+            for stage in ('MISSIONS','RUNTIME','RUNNER','CORE','LEASE'):
+                with self._native_close_lock:
+                    if self._native_close_steps.get(stage)=='CLOSED':continue
+                    self._native_close_steps[stage]='ATTEMPTING'
+                try:
+                    if stage=='MISSIONS':
+                        self.missions.close()
+                        if any(worker.is_alive() for worker in self.missions._workers.values()):
+                            with self._native_close_lock:
+                                self._native_close_steps[stage]='UNKNOWN';self._native_close_uncertain=True
+                            with foundation.lifecycle.lock:foundation.lifecycle._phase=NativePhase.QUARANTINED
+                            return {'status':'QUARANTINED','closed':False}
+                    elif stage=='RUNTIME':self.runtime.close()
+                    elif stage=='RUNNER':self.runner.close()
+                    elif stage=='CORE':self.core.close()
+                    else:os.close(self._lease)
+                except BaseException:
+                    with self._native_close_lock:
+                        self._native_close_steps[stage]='UNKNOWN';self._native_close_uncertain=True
+                    with foundation.lifecycle.lock:foundation.lifecycle._phase=NativePhase.QUARANTINED
+                    raise
+                with self._native_close_lock:self._native_close_steps[stage]='CLOSED'
+            with self._native_close_lock, foundation.lifecycle.lock:
+                self._closed=True;foundation.lifecycle._phase=NativePhase.CLOSED
             return {'status':'CLOSED','closed':True}
+        finally:
+            with self._native_close_lock:
+                if self._native_close_owner is token:self._native_close_owner=None
+
+    def close(self):
+        if self._host_composition is not None:return self._close_native()
         if self._closed:return
         self._closed=True
         try:

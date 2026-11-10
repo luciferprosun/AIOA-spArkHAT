@@ -521,6 +521,9 @@ class NativeOwnedWorkHandle:
     quarantined: bool = False
     synchronous: bool = False
     parent: object = None
+    kind: str = ''
+    context: tuple = ()
+    returned: object = None
 
 
 class NativeLifecycle:
@@ -577,7 +580,8 @@ class NativeLifecycle:
         token=object()
         with self.lock:
             deny(len(self._calls)<64 and (self._phase is NativePhase.CAPACITY_ADMIN or
-                 operation=='operator_auth_status' and self._phase is NativePhase.FENCED))
+                 operation=='operator_auth_status' and self._phase is NativePhase.FENCED
+                  or operation=='github_write_reconcile' and self._phase is NativePhase.ACTIVE))
             self._calls.add(token)
         try:yield
         finally:
@@ -585,6 +589,9 @@ class NativeLifecycle:
 
     def require_ingress(self, operation):
         with self.lock:
+            if operation=='github_write_reconcile':
+                deny(self._phase in (NativePhase.CAPACITY_ADMIN,NativePhase.ACTIVE) and self._fence is None)
+                return
             deny(self._phase is NativePhase.CAPACITY_ADMIN)
             if self._fence is not None:
                 deny(operation in CAPACITY_FIELDS or operation == 'operator_auth_status')
@@ -642,17 +649,23 @@ class NativeLifecycle:
             handle.cleanup=('SYNCHRONOUS_BOUNDARY_RETURN',os.getpid(),threading.get_ident(),handle.done)
             del self._handles[handle.task_id];self.work_generation+=1
 
-    def retire_work(self, handle, *, cleanup):
+    def retire_work(self, handle):
+        """Only the fixed actual producer observes return/join/terminal cleanup."""
         deny(type(handle) is NativeOwnedWorkHandle)
-        # Thread and cleanup observations are outside the lifecycle lock.
-        finished = handle.done.is_set() and not handle.thread.is_alive()
         with self.lock:
-            deny(self._handles.get(handle.task_id) is handle)
-            if not finished or cleanup is None:
-                handle.quarantined = True; self.work_generation += 1
-                return False
-            handle.cleanup = cleanup
-            del self._handles[handle.task_id]; self.work_generation += 1
+            if self._handles.get(handle.task_id) is not handle:return False
+            if handle.synchronous or handle.quarantined:return False
+        service=self.foundation.owner.missions
+        cleanup=service._native_retirement_observation(handle)
+        if cleanup is None:return False
+        with self.lock:
+            deny(self._handles.get(handle.task_id) is handle and handle.returned is cleanup[0]
+                 and handle.thread is cleanup[1] and handle.cancel is cleanup[2] and handle.done is cleanup[3]
+                 and service._workers.get(handle.task_id) is handle.thread
+                 and service._cancels.get(handle.task_id) is handle.cancel and not handle.quarantined)
+            handle.cleanup=cleanup
+            del service._workers[handle.task_id];del service._cancels[handle.task_id]
+            del self._handles[handle.task_id];self.work_generation+=1
             return True
 
     def invalidate_admission(self):
@@ -667,6 +680,7 @@ class NativeLifecycle:
 
     def begin_capacity_review(self, request_id: str) -> NativeCapacityFence:
         codec.hexdigest(request_id, 32)
+        self.foundation.owner.missions._retire_native_workers()
         with self.lock:
             self._coverage()
             deny(self._fence is None and not self._handles)
@@ -720,6 +734,7 @@ class NativeLifecycle:
             fence.close()
 
     def drain(self):
+        self.foundation.owner.missions._retire_native_workers()
         with self.lock:
             if self._phase is NativePhase.CLOSED: return True
             owner=self.foundation.owner
@@ -794,8 +809,12 @@ class NativeCoreAccess:
             if use is NativeAccessUse.SETTLEMENT:
                 deny(type(settlement) is NativeOwnedWorkHandle and lifecycle._handles.get(settlement.task_id) is settlement
                      and settlement.parent is not None and lifecycle._handles.get(settlement.parent.task_id) is settlement.parent
-                     and settlement.thread is threading.current_thread())
-            deny(lifecycle.phase is NativePhase.CAPACITY_ADMIN and not owner._closed
+                     and settlement.thread is threading.current_thread()
+                     and settlement.kind in ('AGENT_SETTLEMENT','GITHUB_SETTLEMENT')
+                     and settlement.parent.foundation is f and purpose in (Capability.READ,Capability.COMMIT)
+                     and lifecycle._fence is None)
+            deny((lifecycle.phase is NativePhase.CAPACITY_ADMIN or
+                  use is NativeAccessUse.SETTLEMENT and lifecycle.phase is NativePhase.ACTIVE) and not owner._closed
                  and purpose in (Capability.READ, Capability.MANAGE, Capability.COMMIT, Capability.OWNER_APPROVAL)
                  and use in (NativeAccessUse.READ, NativeAccessUse.CONTROL, NativeAccessUse.CAPACITY, NativeAccessUse.SETTLEMENT)
                  and len(self._originals) + lifecycle._capturing < 64)
@@ -808,7 +827,8 @@ class NativeCoreAccess:
             principal = owner.core.local_operator(purpose)
             row = owner.runner.run(TransactionContext(principal, purpose), self.native_row)
             with lifecycle.lock:
-                deny(expected == lifecycle._snapshot() and not owner._closed and lifecycle.phase is NativePhase.CAPACITY_ADMIN)
+                deny(expected == lifecycle._snapshot() and not owner._closed
+                     and (lifecycle.phase is NativePhase.CAPACITY_ADMIN or use is NativeAccessUse.SETTLEMENT and lifecycle.phase is NativePhase.ACTIVE))
                 return _original(NativeAuthorityCapture, self, owner=owner, core=owner.core, runner=owner.runner,
                     ledger=owner.ledger, principal=principal, purpose=purpose, use=use, instance_id=owner.instance_id,
                     assignment_revision=principal.assignment_revision, admission_generation=lifecycle.admission_generation,
@@ -834,12 +854,15 @@ class NativeCoreAccess:
                  and capture.fence_sequence == lifecycle.fence_sequence
                  and capture.source == owner.source and capture.composition_digest == f.spec.digest
                  and capture.auth_deadline == owner._auth_deadline and capture.tls_expires == owner._tls_expires
-                 and lifecycle.phase is NativePhase.CAPACITY_ADMIN and owner.tls_verified is True)
+                 and (lifecycle.phase is NativePhase.CAPACITY_ADMIN or capture.use is NativeAccessUse.SETTLEMENT and lifecycle.phase is NativePhase.ACTIVE)
+                 and owner.tls_verified is True)
         if capture.use is NativeAccessUse.SETTLEMENT:
             deny(type(capture.work_handle) is NativeOwnedWorkHandle
                  and lifecycle._handles.get(capture.work_handle.task_id) is capture.work_handle
                  and getattr(lifecycle._boundary,'settlement_handle',None) is capture.work_handle
-                 and capture.work_handle.thread is threading.current_thread())
+                 and capture.work_handle.thread is threading.current_thread()
+                 and lifecycle._handles.get(capture.work_handle.parent.task_id) is capture.work_handle.parent
+                 and capture.work_handle.parent.foundation is f and lifecycle._fence is None)
         now, mono = datetime.now(UTC), time.monotonic()
         with lifecycle.lock:
             observed=self._originals.get(id(capture))

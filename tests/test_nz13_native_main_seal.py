@@ -189,3 +189,71 @@ class NativeMainSealTests(unittest.TestCase):
             path.rmdir()
             path.write_bytes(original)
         self.assertEqual(self.initial, api.current_source())
+
+
+class FoundationSourceSealReviewTests(unittest.TestCase):
+    """Both new source leaves gate actual owner/capacity on fresh owned data."""
+    paths = ('runtime/meta_hackathon/native_authority.py', 'runtime/mission/execution_capacity.py')
+
+    def source_host(self):
+        from tempfile import mkdtemp
+
+        import nz13_native_foundation_support as fx
+
+        from runtime.meta_hackathon.native_authority import NativeHostCompositionConfig
+        root = Path(mkdtemp(prefix='owned-review-source-')); fx.OWNED_ROOTS.append(str(root))
+        source_root = root / 'source'
+        for relative in api.SOURCE_FILES:
+            path = source_root / relative
+            path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+            path.write_bytes(b'SYNTHETIC_SEALED_SOURCE_ONLY\n')
+        self.enterContext(patch.object(api, 'ROOT', source_root))
+        self.enterContext(patch.object(api.subprocess, 'run', return_value=SimpleNamespace(stdout='a' * 40)))
+        data_root = root / 'data'; data_root.mkdir(mode=0o700)
+        data = fx.config_data(data_root)
+        source = api.current_source()
+        data['host_source'] = {'source_sha': source[0], 'capsule_digest': source[1]}
+        authentication = {'uid': os.getuid(), 'method': 'SYNTHETIC_TEST_ONLY'}
+        with patch.object(api, '_desktop_operator_uid', return_value=(os.getuid(), authentication)):
+            host = api.NativeMobileComposition(root / 'native', origin='https://fixture.example.org',
+                source_probe=api.current_source, host_composition=NativeHostCompositionConfig.from_dict(data))
+        self.addCleanup(host.close); fx.fixture_tls(host); fx.initialize(host)
+        return host, source_root
+
+    def assert_mutation_denied(self, mode):
+        import nz13_native_foundation_support as fx
+
+        from runtime.memory_patch.errors import MemoryPatchError
+        for relative in self.paths:
+            with self.subTest(path=relative, mode=mode):
+                host, source_root = self.source_host()
+                path = source_root / relative
+                if mode == 'drift': path.write_bytes(b'CHANGED_NEW_SOURCE_ONLY\n')
+                elif mode == 'missing': path.unlink()
+                else:
+                    target = path.parent / 'owned-unsealed-copy'
+                    target.write_bytes(path.read_bytes()); path.unlink(); path.symlink_to(target)
+                with patch.object(host.foundation.governor, 'execution_capacity_review') as review:
+                    with self.assertRaises((AdmissionError, ValueError, OSError, MemoryPatchError)): fx.review(host)
+                    review.assert_not_called()
+                with self.assertRaises((AdmissionError, ValueError, OSError)): host.operator_principal()
+
+    def test_new_foundation_and_codec_drift_deny_before_capacity_or_owner(self):
+        self.assert_mutation_denied('drift')
+
+    def test_new_foundation_and_codec_missing_deny_before_capacity_or_owner(self):
+        self.assert_mutation_denied('missing')
+
+    def test_new_foundation_and_codec_symlink_deny_before_capacity_or_owner(self):
+        self.assert_mutation_denied('symlink')
+
+    def test_both_new_source_paths_have_unchanged_positive_capacity_control(self):
+        import nz13_native_foundation_support as fx
+        for relative in self.paths:
+            with self.subTest(path=relative):
+                host, _ = self.source_host()
+                self.assertEqual(1, api.SOURCE_FILES.count(relative))
+                with patch.object(host.foundation.governor, 'execution_capacity_review',
+                                  wraps=host.foundation.governor.execution_capacity_review) as review:
+                    self.assertEqual('REVIEWED', fx.review(host)['status'])
+                    self.assertEqual(1, review.call_count)

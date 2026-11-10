@@ -30,6 +30,7 @@ from runtime.mission.governor import ReservationRequest
 from runtime.mission.intent import CoreIntentJournal
 from runtime.mission.warrant import approval_digest, require
 from runtime.mobile_gateway import wire
+from runtime.mobile_gateway.service import SCHEMA as MOBILE_SCHEMA
 from runtime.mobile_gateway.service import plain
 from runtime.providers.exact import CancellationToken
 
@@ -58,7 +59,9 @@ def blockers(host):
     host._require_qualified_operator()
     governor=getattr(host.missions,'_chat_governor',None)
     if governor is None:return ['NATIVE_CHAT_GOVERNOR_REQUIRED']
-    state=governor.inspect(host.core.local_operator(Capability.READ))
+    state=(_run(host,Capability.READ,governor._load) if getattr(host,'foundation',None) is not None
+           and getattr(host.foundation.lifecycle._boundary,'settlement_handle',None) is not None
+           else governor.inspect(host.core.local_operator(Capability.READ)))
     reasons=[]
     if state['kill']:reasons.append('KILL_SWITCH')
     if any(r['state']=='UNKNOWN' for r in state['reservations'].values()):
@@ -67,8 +70,15 @@ def blockers(host):
     return reasons
 
 
+def _run(host,purpose,callback):
+    foundation=getattr(host,'foundation',None)
+    if foundation is not None and getattr(foundation.lifecycle._boundary,'settlement_handle',None) is not None:
+        return host.missions._run(purpose,callback)
+    return host.mobile._run(purpose,callback)
+
+
 def _get(host,operation_id):
-    return host.mobile._get('native-github-'+operation_id)
+    return _run(host,Capability.READ,lambda tx:tx.get(RecordKind.OPERATION,'native-github-'+operation_id))
 
 
 def _worker_active(host,operation_id):
@@ -84,21 +94,37 @@ def _preflight_interrupted(host,data):
 
 
 def retained_in_transaction(tx):
+    """Validate every Native GitHub domain row before selecting live states."""
     states=('GITHUB_PROPOSAL_READING','GITHUB_PROPOSAL_FAILED','GITHUB_PROPOSED','GITHUB_APPROVAL_PENDING',
         'GITHUB_APPROVED','GITHUB_RUNNING','GITHUB_RECONCILING','GITHUB_UNKNOWN','GITHUB_VERIFIED')
-    rows=tx.scan(RecordKind.OPERATION,limit=1024,states=states)
+    rows=tx.scan(RecordKind.OPERATION,limit=1024)
     require(len(rows)<1024,'GITHUB_HISTORY_LIMIT')
+    by_id={row.record_id:row for row in rows};selected=[]
     for row in rows:
-        require(row.record_id=='native-github-'+row.payload.get('operation_id','')
-                and row.payload.get('state') in states,'GITHUB_HISTORY_INTEGRITY')
-    return tuple(rows)
+        row.verify()
+        state=row.payload.get('state');schema=row.payload.get('schema')
+        belongs=(row.record_id.startswith('native-github-')
+                 or schema==MOBILE_SCHEMA and type(state) is str and state.startswith('GITHUB_'))
+        if not belongs:continue
+        operation_id=row.payload.get('operation_id')
+        require(schema==MOBILE_SCHEMA and type(operation_id) is str and wire.HEX32.fullmatch(operation_id),
+                'GITHUB_HISTORY_INTEGRITY')
+        if row.record_id.startswith('native-github-source-'):
+            request=row.payload.get('source_chat_request_id')
+            require(state=='GITHUB_SOURCE_BINDING' and type(request) is str and wire.HEX32.fullmatch(request)
+                    and row.record_id=='native-github-source-'+request,'GITHUB_HISTORY_INTEGRITY')
+            operation=by_id.get('native-github-'+operation_id)
+            require(operation is not None and operation.payload.get('schema')==MOBILE_SCHEMA
+                    and operation.payload.get('operation_id')==operation_id,'GITHUB_HISTORY_INTEGRITY')
+        else:
+            require(row.record_id=='native-github-'+operation_id and state in states,'GITHUB_HISTORY_INTEGRITY')
+            selected.append(row)
+    return tuple(selected)
 
 
 def history(host):
     host._require_qualified_operator()
-    states=('GITHUB_PROPOSAL_READING','GITHUB_PROPOSAL_FAILED','GITHUB_PROPOSED','GITHUB_APPROVAL_PENDING',
-        'GITHUB_APPROVED','GITHUB_RUNNING','GITHUB_RECONCILING','GITHUB_UNKNOWN','GITHUB_VERIFIED')
-    rows=host.mobile._run(Capability.READ,lambda tx:tx.scan(RecordKind.OPERATION,limit=1024,states=states))
+    rows=_run(host,Capability.READ,retained_in_transaction)
     rows=[r.payload for r in rows if r.payload.get('core_instance_id') and r.payload.get('source_chat_request_id')]
     rows.sort(key=lambda p:p['created_at'],reverse=True)
     return {'operations':[{'operation_id':p['operation_id'],
@@ -109,15 +135,18 @@ def history(host):
 
 
 def _save(host,operation_id,data,*,expected=None):
+    foundation=getattr(host,'foundation',None)
+    settling=foundation is not None and getattr(foundation.lifecycle._boundary,'settlement_handle',None) is not None
+    if settling:host._require_qualified_operator()
     def mutation(tx):
-        host._require_qualified_operator()
+        if not settling:host._require_qualified_operator()
         key='native-github-'+operation_id;prior=tx.get(RecordKind.OPERATION,key)
         require(expected is None or prior is not None and prior.payload['state'] in expected,
                 'GITHUB_OPERATION_STATE_CHANGED')
         saved=dict(data)
         if prior is not None and prior.payload.get('stop_requested') is True:saved['stop_requested']=True
         host.mobile._record(tx,key,saved,prior,at=int(time.time()))
-    host.mobile._run(Capability.COMMIT,mutation)
+    _run(host,Capability.COMMIT,mutation)
 
 
 def _decode(data):
@@ -222,7 +251,7 @@ def _propose(host,value,message,*,cancel=None):
             'source_reply_sha256':pending['source_reply_sha256'],'source_chat_request_id':value['chat_request_id']},at=now)
         host.mobile._record(tx,'native-github-'+operation_id,pending,at=now)
         return operation_id,True
-    bound,first=host.mobile._run(Capability.COMMIT,reserve)
+    bound,first=_run(host,Capability.COMMIT,reserve)
     if not first:return view(host,bound)
     try:
         with failure_boundary('OWNED_WORK_CALLBACK_FAILED'):
@@ -286,7 +315,7 @@ def view(host,operation_id):
             result['blockers'].append('GITHUB_OWNER_OR_SOURCE_CHANGED')
         if time.time()>=data['expires_at']:result['blockers'].append('GITHUB_REVIEW_EXPIRED')
         if data.get('stop_requested') is True:result['blockers'].append('GITHUB_STOPPED')
-        saved=host.mobile._get('github-result-'+operation_id)
+        saved=_run(host,Capability.READ,lambda tx:tx.get(RecordKind.OPERATION,'github-result-'+operation_id))
         if saved is not None:result['result']=plain(saved.payload['result'])
         result['approval_available']=data['state']=='GITHUB_PROPOSED' and not result['blockers']
         active=_worker_active(host,operation_id)
@@ -330,7 +359,18 @@ def _worker(host,data,warrant,cancel,*,reconcile=False):
             route=_route(host,data,write=not reconcile)
             commit=host.core.local_operator(Capability.COMMIT)
             if reconcile:
-                outcome=route.reconcile(commit,warrant,cancel=cancel)
+                foundation=getattr(host,'foundation',None)
+                settlement=(foundation is not None and getattr(foundation.lifecycle._boundary,'settlement_handle',None) is not None)
+                if settlement:
+                    from .native_authority import NativeAccessUse
+                    capture=foundation.access.capture(Capability.COMMIT,use=NativeAccessUse.SETTLEMENT)
+                    try:
+                        foundation.access.require_capture(capture,Capability.COMMIT)
+                        outcome=route.reconcile(capture.principal,warrant,cancel=cancel)
+                        foundation.access.require_capture(capture,Capability.COMMIT)
+                    finally:capture.close()
+                else:outcome=route.reconcile(commit,warrant,cancel=cancel)
+
             else:
                 data={**data,'state':'GITHUB_RUNNING'}
                 _save(host,operation_id,data,expected={'GITHUB_APPROVED'})
@@ -350,7 +390,30 @@ def _worker(host,data,warrant,cancel,*,reconcile=False):
             return  # Existing START/receipts stay durable and never grant retry.
 
 
+def _owner_reconcile(host,owner,value):
+    """Existing private Unix owner control; retained readback, never execution."""
+    require(getattr(host,'foundation',None) is not None,'NATIVE_SETTLEMENT_PARENT_REQUIRED')
+    if (set(value)!={'op','operation_id'} or value.get('op')!='github_write_reconcile'
+            or type(value.get('operation_id')) is not str or not wire.HEX32.fullmatch(value['operation_id'])):
+        raise wire.MobileError(400)
+    identity=value['operation_id']
+    with host.missions._native_synchronous('github-'+identity,'GITHUB_SETTLEMENT') as owned:
+        host._require_qualified_operator()
+        host.core.require(owner,Capability.OWNER_APPROVAL,scope=host.missions.scope)
+        snapshot=host.missions._native_operation_snapshot(owned.parent)
+        require(snapshot is not None,'NATIVE_SETTLEMENT_PARENT_REQUIRED')
+        _,data,_,warrant=snapshot
+        data=dict(data);data.pop('schema',None)
+        require(data['state'] in ('GITHUB_APPROVED','GITHUB_RUNNING','GITHUB_RECONCILING','GITHUB_UNKNOWN','GITHUB_VERIFIED')
+                and not owned.cancel.cancelled,'GITHUB_SETTLEMENT_UNAVAILABLE')
+        _save(host,identity,{**data,'state':'GITHUB_RECONCILING'},expected={data['state']})
+        _worker(host,data,warrant,owned.cancel,reconcile=True)
+        return view(host,identity)
+
+
 def dispatch(host,owner,value):
+    require(getattr(host,'foundation',None) is None or value.get('op')!='github_write_reconcile',
+            'PRIVATE_NATIVE_SETTLEMENT_REQUIRED')
     host.missions._native_execution_gate()
     with host.missions._native_synchronous(value.get('operation_id','control'),'GITHUB_CONTROL') as owned:
         return _dispatch(host,owner,value,owned=owned)
@@ -380,7 +443,7 @@ def _dispatch(host,owner,value,*,owned=None):
             if host.mobile._get(host.ledger._key(warrant)) is not None:host.ledger.revoke(owner,warrant)
         return view(host,identity)
     with host.missions._lock:
-        native=None;worker_args={}
+        native=None;worker_args={'host':host,'data':data}
         if host.missions._native_foundation is not None:
             # The closed worker slot is populated by this source path only.
             native=host.missions._prepare_native_worker('github-'+identity,'GITHUB_PENDING',(worker_args,),

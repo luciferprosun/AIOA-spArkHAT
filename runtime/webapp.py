@@ -128,6 +128,9 @@ class WebRuntimeService:
         from runtime.mobile_gateway import wire
         from runtime.mobile_gateway.operator_chat import READ_OPS
         from runtime.mobile_gateway.pairing import OWNER_FIELDS
+        if (getattr(self.meta_owner, 'foundation', None) is not None and type(value) is dict
+                and value.get('op') == 'github_write_reconcile'):
+            raise wire.MobileError(403)
         if (not self.mobile_only or self._mobile_console_uid is None or
                 type(value) is not dict or type(value.get('op')) is not str or
                 value['op'] not in {*OWNER_FIELDS, 'status','tool_read','tool_readback','tool_proposal',*READ_OPS,*GITHUB_OPS,*ADVISORY_OPS}):
