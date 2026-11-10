@@ -32,6 +32,7 @@ from runtime.providers.config import ProviderManager
 from runtime.providers.meta_model_api import MODEL, MetaModelProvider
 
 from .mission_service import MissionService
+from .native_authority import NativeHostCompositionConfig
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -124,6 +125,7 @@ SOURCE_FILES += ('runtime/main.py',)
 
 # Immutable job/config joins are part of the same existing broker authority.
 SOURCE_FILES += ('runtime/mission/sandbox_bindings.py',)
+SOURCE_FILES += ('runtime/meta_hackathon/native_authority.py', 'runtime/mission/execution_capacity.py')
 
 
 # Fixed reviewed physical Portable/Core closure; string pins never import the extra.
@@ -341,10 +343,15 @@ class NativeMobileComposition:
     persistent record adapter carries all mobile records and native audit/outbox.
     This is neither OfflineMetaComposition nor a promotion of its fixture data.
     """
-    def __init__(self,root,*,origin,source_probe=current_source,chat=False,key_path=None,existing_profile=False):
+    def __init__(self,root,*,origin,source_probe=current_source,chat=False,key_path=None,existing_profile=False,
+                 host_composition: NativeHostCompositionConfig | None = None):
         import time
 
         from runtime.mobile_gateway import wire
+        if host_composition is not None and (type(host_composition) is not NativeHostCompositionConfig or chat is not False):
+            raise AdmissionError()
+        self._host_composition=host_composition
+        self.foundation=None
         self.origin=wire.origin(origin)
         if self.origin=='https://fixture.invalid':raise AdmissionError()
         from runtime.mobile_gateway.desktop import (
@@ -405,11 +412,16 @@ class NativeMobileComposition:
         # caller-supplied approval flag or a synthetic fixture assignment.
         admitted=self.operator_authentication['uid']==os.getuid()
         capabilities={Capability.READ,Capability.COMMIT,Capability.OWNER_APPROVAL}
-        if self.chat_enabled:capabilities.add(Capability.MANAGE)
+        if self.chat_enabled or self._host_composition is not None:capabilities.add(Capability.MANAGE)
+        hats={'mobile-status'};models={MODEL if self.chat_enabled else 'NO_MODEL_PAIRING'}
+        if self._host_composition is not None:
+            hats.add(self._host_composition.project_source.workspace_id)
+            models.add('aioa/offline-host-worker-v1')
         self.core=CoreAdmission(LocalOwnerAssignment(scope,frozenset(capabilities),
-            frozenset({'mobile-status'}),frozenset({MODEL if self.chat_enabled else 'NO_MODEL_PAIRING'}),operator_approved=admitted))
+            frozenset(hats),frozenset(models),operator_approved=admitted))
         self.instance_id=self.core.local_operator(Capability.READ).actor_session_id
         self.runtime=create_runtime(inspection_only=True)
+        if self._host_composition is not None:self.runtime._owns_memory_patch_admission=False
         self.runtime._memory_patch_admission=self.core
         self.runner=TransactionRunner(self.core,LocalCoreRecordFactory(self.root/'core-records.sqlite3',self.core,
             expected_file=self._existing_profile))
@@ -458,11 +470,23 @@ class NativeMobileComposition:
             'mobile-operator-'+self.instance_id,{'state':'MOBILE_OPERATOR_ADMISSION',
                 'authentication':self.operator_authentication,'source_sha':self.source[0],
                 'capsule_digest':self.source[1],'core_instance_id':self.instance_id},at=now))
+        if self._host_composition is not None:
+            from .native_authority import NativeAuthorityFoundation
+            NativeAuthorityFoundation.bind_owner(self,self._host_composition)
 
     def operator_principal(self):
         import time
-        if (self._closed or os.getuid()!=self.uid or time.monotonic()>=self._auth_deadline
-                or tuple(self.source_probe())!=self.source):raise AdmissionError()
+        if self.foundation is None:
+            if (self._closed or os.getuid()!=self.uid or time.monotonic()>=self._auth_deadline
+                    or tuple(self.source_probe())!=self.source):raise AdmissionError()
+            return self.core.local_operator(Capability.OWNER_APPROVAL)
+        try:
+            current=tuple(self.source_probe())
+            if (self._closed or os.getuid()!=self.uid or time.monotonic()>=self._auth_deadline
+                    or current!=self.source):raise AdmissionError()
+        except (ValueError,OSError):
+            if self.foundation is not None:self.foundation.lifecycle.invalidate_admission()
+            raise
         return self.core.local_operator(Capability.OWNER_APPROVAL)
 
     def _chat_authority(self,task):
@@ -555,7 +579,7 @@ class NativeMobileComposition:
         finally:peer.close()
 
     def _require_qualified_operator(self):
-        """No transaction or model ledger reads: safe inside a Core callback."""
+        """Qualify actual Native source/TLS outside transactions and lifecycle locks."""
         import time
         self.operator_principal()
         if not self.tls_verified or time.time()>=self._tls_expires:raise AdmissionError()
@@ -580,6 +604,9 @@ class NativeMobileComposition:
         if row is None:raise AdmissionError()
         current=tuple(self.source_probe())==self.source
         ready=current and self.tls_verified and time.time()<self._tls_expires and time.monotonic()<self._auth_deadline
+        if self.foundation is not None:
+            from .native_authority import NativePhase
+            ready=ready and self.foundation.lifecycle.phase is NativePhase.CAPACITY_ADMIN
         return {'schema':'aioa.operator-auth-status.v1','state':'READY' if ready else 'AUTH_REQUIRED',
             'source_sha':self.source[0],'capsule_digest':self.source[1],'core_instance_id':self.instance_id,
             'admission_revision':row.revision,'current_source':current,'automatic_retry':False}
@@ -594,6 +621,7 @@ class NativeMobileComposition:
         import time
 
         from runtime.mobile_gateway import wire
+        if self.foundation is not None:return self._renew_foundation(value,invalidate_console)
         if not callable(invalidate_console):raise AdmissionError()
         if set(value)!={'op','request_id','source_sha','capsule_digest','core_instance_id','admission_revision'}:
             raise wire.MobileError(400)
@@ -655,7 +683,91 @@ class NativeMobileComposition:
             finally:self.missions._lock.release()
         finally:self._operator_renew_lock.release()
 
+    def _renew_foundation(self,value,invalidate_console):
+        import time
+
+        from runtime.memory_patch.persistence.ports import TransactionContext
+        from runtime.mobile_gateway import wire
+
+        from .native_authority import NativeCapacityCoreView, NativePhase
+        if not callable(invalidate_console) or set(value)!={'op','request_id','source_sha','capsule_digest','core_instance_id','admission_revision'}:
+            raise AdmissionError()
+        if (type(value['request_id']) is not str or not wire.HEX32.fullmatch(value['request_id'])
+                or type(value['admission_revision']) is not int):raise AdmissionError()
+        if not self._operator_renew_lock.acquire(timeout=1):raise AdmissionError()
+        lifecycle=self.foundation.lifecycle
+        renewing=False
+        try:
+            with lifecycle.lock:
+                if self._closed or lifecycle._renewing or lifecycle.phase not in (NativePhase.CAPACITY_ADMIN,NativePhase.FENCED):raise AdmissionError()
+                lifecycle._renewing+=1;renewing=True
+            status=self.operator_auth_status()
+            if (not status['current_source'] or any(value[k]!=status[k] for k in
+                    ('source_sha','capsule_digest','core_instance_id'))):raise AdmissionError()
+            lifecycle.invalidate_admission()
+            self._auth_deadline=0
+            with lifecycle.lock:
+                if lifecycle._calls or lifecycle._capturing or self.foundation.access._originals or lifecycle._handles:
+                    raise AdmissionError()
+                generation=lifecycle.admission_generation
+            principal=self.core.local_operator(Capability.READ)
+            view=self.runner.run(TransactionContext(principal,Capability.READ),
+                lambda tx:NativeCapacityCoreView.read_in_transaction(tx,self.foundation))
+            view.require_idle()
+            identity='mobile-operator-renew-'+value['request_id']
+            prior=self.mobile._get(identity)
+            if prior is not None:
+                if prior.payload.get('request_digest')!=canonical_sha256(value):raise AdmissionError()
+                return dict(status,renewal='READBACK_ONLY')
+            if value['admission_revision']!=status['admission_revision']:raise AdmissionError()
+            if value['request_id'] in self._operator_renew_attempts or len(self._operator_renew_attempts)>=128:raise AdmissionError()
+            self._operator_renew_attempts.add(value['request_id'])
+            uid,authentication=_desktop_operator_uid()  # No service/lifecycle lock held.
+            new_deadline=time.monotonic()+3600
+            with lifecycle.lock:
+                if lifecycle.admission_generation!=generation or lifecycle.phase is not NativePhase.FENCED:raise AdmissionError()
+            if (uid!=self.uid or authentication.get('uid')!=self.uid or self._closed
+                    or tuple(self.source_probe())!=self.source or not self.tls_verified
+                    or time.time()>=self._tls_expires):raise AdmissionError()
+            self._credit_observation=self._credit_policy_binding=None
+            state=self.foundation.governor.inspect(self.core.local_operator(Capability.READ))
+            epoch=self.foundation.governor.start_epoch(self.core.local_operator(Capability.MANAGE)) if state['epoch'] else None
+            now=int(time.time())
+            def record(tx):
+                from runtime.memory_patch.persistence.ports import RecordKind
+                key='mobile-operator-'+self.instance_id
+                old=tx.get(RecordKind.OPERATION,key)
+                if (old is None or old.revision!=value['admission_revision']
+                        or lifecycle.admission_generation!=generation or lifecycle.phase is not NativePhase.FENCED):raise AdmissionError()
+                self.mobile._record(tx,key,{'state':'MOBILE_OPERATOR_ADMISSION','authentication':authentication,
+                    'source_sha':self.source[0],'capsule_digest':self.source[1],
+                    'core_instance_id':self.instance_id,'policy_epoch':epoch},old,at=now)
+                self.mobile._record(tx,identity,{'state':'MOBILE_OPERATOR_RENEW_AUTHENTICATED',
+                    'request_digest':canonical_sha256(value),'source_sha':self.source[0],'capsule_digest':self.source[1],
+                    'core_instance_id':self.instance_id,'policy_epoch':epoch},at=now)
+            self.mobile._run(Capability.COMMIT,record)
+            invalidate_console()
+            if tuple(self.source_probe())!=self.source or time.time()>=self._tls_expires:raise AdmissionError()
+            with lifecycle.lock:
+                if lifecycle.admission_generation!=generation or lifecycle.phase is not NativePhase.FENCED:raise AdmissionError()
+                self.operator_authentication=authentication
+                self._auth_deadline=new_deadline
+                lifecycle._phase=NativePhase.CAPACITY_ADMIN
+            return dict(self.operator_auth_status(),state='READY',renewal='AUTHENTICATED')
+        finally:
+            if renewing:
+                with lifecycle.lock:lifecycle._renewing-=1
+            self._operator_renew_lock.release()
+
     def operator_request(self,peer_uid,value,*,invalidate_console=None):
+        if self.foundation is not None:
+            from .native_authority import CAPACITY_FIELDS
+            if type(value) is dict and value.get('op') not in {*CAPACITY_FIELDS,'operator_renew'}:
+                with self.foundation.lifecycle.operator_call(value.get('op')):
+                    return self._operator_request(peer_uid,value,invalidate_console=invalidate_console)
+        return self._operator_request(peer_uid,value,invalidate_console=invalidate_console)
+
+    def _operator_request(self,peer_uid,value,*,invalidate_console=None):
         """Called only by the private socket after kernel SO_PEERCRED lookup."""
         from runtime.memory_patch.persistence.ports import RecordKind
         from runtime.mobile_gateway import wire
@@ -665,6 +777,10 @@ class NativeMobileComposition:
         op=value['op']
         if value=={'op':'operator_auth_status'}:return self.operator_auth_status()
         if op=='operator_renew':return self.renew_operator(value,invalidate_console)
+        if self.foundation is not None:
+            from .native_authority import CAPACITY_FIELDS
+            if op in CAPACITY_FIELDS:return self.foundation.controller.dispatch(peer_uid,value)
+            self.foundation.lifecycle.require_ingress(op)
         owner=self.operator_principal()
         from .advisory import OPS as ADVISORY_OPS
         from .advisory import dispatch as advisory_dispatch
@@ -718,6 +834,27 @@ class NativeMobileComposition:
         return {**self.public_settings(),**self.mobile._run(Capability.READ,inspect), 'components':registry(self)}
 
     def close(self):
+        if self._host_composition is not None:
+            from .native_authority import NativePhase
+            if self._closed:return {'status':'CLOSED','closed':True}
+            foundation=self.foundation
+            if foundation is None or not foundation.lifecycle.drain():
+                return {'status':'QUARANTINED','closed':False}
+            try:
+                self.missions.close()
+                if any(worker.is_alive() for worker in self.missions._workers.values()):
+                    foundation.lifecycle._phase=NativePhase.QUARANTINED
+                    return {'status':'QUARANTINED','closed':False}
+                self.runtime.close()
+                self.runner.close()
+                self.core.close()
+                os.close(self._lease)
+            except BaseException:
+                foundation.lifecycle._phase=NativePhase.QUARANTINED
+                raise
+            self._closed=True
+            foundation.lifecycle._phase=NativePhase.CLOSED
+            return {'status':'CLOSED','closed':True}
         if self._closed:return
         self._closed=True
         try:

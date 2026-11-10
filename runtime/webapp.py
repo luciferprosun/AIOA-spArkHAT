@@ -1166,15 +1166,13 @@ def make_mobile_operator_server(owner, *, service=None):
                             service._mobile_console_delivery=(delivery,time.monotonic()+30,uid)
                             data={'delivery':delivery,'url':owner.origin+'/devices'}
                     elif value.get('op')=='operator_renew' and service is not None:
-                        if not service.lock.acquire(timeout=1):raise wire.MobileError(409)
-                        try:
-                            def invalidate():
+                        def invalidate():
+                            with service.lock:
                                 service._mobile_console_uid=None
                                 service._mobile_console_cookie=None
                                 service._mobile_console_delivery=None
                                 service.csrf_token=secrets.token_urlsafe(32)
-                            data=owner.operator_request(uid,value,invalidate_console=invalidate)
-                        finally:service.lock.release()
+                        data=owner.operator_request(uid,value,invalidate_console=invalidate)
                     else:data=owner.operator_request(uid,value)
                     result={'ok':True,'data':data}
                     if len(wire.canonical(result))>wire.RESPONSE_LIMIT:raise wire.MobileError(413)
@@ -1278,6 +1276,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument('--chat-request-id',help='Public exact chat request ID for local financial review')
     parser.add_argument('--budget-usd',default='148',help='Proposed total local allocation; configuration never approves paid calls')
     parser.add_argument('--observed-credit-usd',help='Fresh credit value personally read by the operator in the Meta dashboard; never inferred from model output')
+    parser.add_argument('--native-host-composition',help='Explicit private closed Native host data; capacity administration only')
     parser.add_argument('--mobile-tls-certificate')
     parser.add_argument('--mobile-tls-key')
     parser.add_argument('--device-spki',help='Exact public phone SPKI for native enrollment/revocation')
@@ -1288,6 +1287,7 @@ def _parser() -> argparse.ArgumentParser:
 
 def main() -> None:
     args = _parser().parse_args()
+    if args.native_host_composition and not args.mobile_native:raise SystemExit('NATIVE_HOST_COMPOSITION_REQUIRES_NATIVE')
     if args.mobile_chat_direct and args.mobile_operator not in ('desktop','chat-session-start'):
         raise SystemExit('DIRECT_CHAT_REQUIRES_NATIVE_OWNER_CHANNEL')
     if args.mobile_operator:
@@ -1354,7 +1354,12 @@ def main() -> None:
             # Reserve the exact listener before PolicyKit/Core admission. An
             # occupied port cannot change an existing journal or policy epoch.
             server=ThreadingHTTPServer((args.host,args.port),AOIAWebHandler)
-            owner=NativeMobileComposition(args.state_dir,origin=args.mobile_origin,chat=args.mobile_chat,existing_profile=args.mobile_existing_profile)
+            from runtime.meta_hackathon.native_authority import (
+                NativeHostCompositionConfig,
+            )
+            host_spec=NativeHostCompositionConfig.load(args.native_host_composition) if args.native_host_composition else None
+            owner=NativeMobileComposition(args.state_dir,origin=args.mobile_origin,chat=args.mobile_chat,existing_profile=args.mobile_existing_profile,
+                                          host_composition=host_spec)
             service=WebRuntimeService(runtime=owner.runtime,meta_missions=owner.missions,meta_owner=owner,mobile_gateway=owner.mobile)
             server=make_server(args.host,args.port,service,tls_certificate=Path(args.mobile_tls_certificate),tls_key=Path(args.mobile_tls_key),reserved_server=server)
             worker=threading.Thread(target=server.serve_forever,daemon=True);worker.start();http_started=True

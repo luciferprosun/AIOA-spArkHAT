@@ -228,6 +228,7 @@ class AgentRuntime:
         self._memory_patch_service = None
         self._memory_patch_admission = (None if coding_tasks is None
                                         else coding_tasks.journal.ledger.core)
+        self._owns_memory_patch_admission = True
         self._memory_patch_closed = False
         self._memory_patch_init_lock = threading.RLock()
         self.cpl_cost_policy = None
@@ -384,7 +385,7 @@ class AgentRuntime:
             self._memory_patch_closed = True
             if self._memory_patch_service is not None:
                 self._memory_patch_service.close()
-            if self._memory_patch_admission is not None:
+            if self._memory_patch_admission is not None and self._owns_memory_patch_admission:
                 self._memory_patch_admission.close()
         with self._nonzero_init_lock:
             self._nonzero_closed = True

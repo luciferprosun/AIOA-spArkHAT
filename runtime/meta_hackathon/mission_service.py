@@ -3,32 +3,55 @@
 Model output is advisory. No credential loading, owner admission, standalone
 database, browser process or paid transport is constructed here.
 """
-from dataclasses import dataclass, replace
-from datetime import timedelta, timezone
-from decimal import Decimal
-from enum import Enum
 import hashlib
 import json
 import threading
 import uuid
+from contextlib import contextmanager
+from dataclasses import dataclass, replace
+from datetime import UTC, timedelta
+from decimal import Decimal
+from enum import Enum
 
 from lab.archaioa.authority import AuthorityScope, Money, RiskLevel
 from lab.archaioa.decision_root import DecisionDependencyRoot
 from lab.archaioa.evidence import EvidenceRef
 from lab.archaioa.warrant import EffectWarrant, RevisionPolicy
 from runtime.browser_agent.chrome_read_adapter import OfflineFixtureRead
-from runtime.browser_agent.offline_adapter import FIXTURE_ORIGIN, FIXTURE_TEXT, FIXTURE_URL
+from runtime.browser_agent.offline_adapter import (
+    FIXTURE_ORIGIN,
+    FIXTURE_TEXT,
+    FIXTURE_URL,
+)
 from runtime.core_admission import Capability
-from runtime.memory_patch.contracts.serialization import canonical_json_bytes, canonical_sha256
-from runtime.memory_patch.persistence.ports import RecordKind, StoredRecord, TransactionContext
+from runtime.failure_boundary import RepairBoundaryError, failure_boundary
+from runtime.memory_patch.contracts.serialization import (
+    canonical_json_bytes,
+    canonical_sha256,
+)
+from runtime.memory_patch.persistence.ports import (
+    RecordKind,
+    StoredRecord,
+    TransactionContext,
+)
 from runtime.mission.warrant import CoreWarrantLedger, approval_digest
 from runtime.providers.exact import CancellationToken
-from runtime.providers.meta_model_api import MetaPlanRequest, MetaLiveBinding, MODEL, PROVIDER, MetaAPIError
+from runtime.providers.meta_model_api import (
+    MODEL,
+    PROVIDER,
+    MetaLiveBinding,
+    MetaPlanRequest,
+)
 from runtime.providers.meta_receipts import MetaReceiptView
 from runtime.providers.tool_calling import ToolCall
+
 from .contracts import BrowserTaskV1
 from .mission_read_offline import read_operation, run_read_once
-from .offline_receipts import BudgetReservation, MOCK_RESPONSE_SCHEMA, OfflineReceiptLedger
+from .offline_receipts import (
+    MOCK_RESPONSE_SCHEMA,
+    BudgetReservation,
+    OfflineReceiptLedger,
+)
 from .provider_offline import build_offline_envelope
 
 KIND = 'aioa.meta.mission.v1'
@@ -63,7 +86,7 @@ def require(value, code='META_MISSION_DENIED'):
 
 
 def plain(value): return json.loads(canonical_json_bytes(value))
-def utc(value): return value.astimezone(timezone.utc).isoformat().replace('+00:00', 'Z')
+def utc(value): return value.astimezone(UTC).isoformat().replace('+00:00', 'Z')
 
 
 @dataclass(frozen=True)
@@ -102,6 +125,7 @@ class MissionService:
         self._workers, self._cancels = {}, {}
         self._live_bindings = {}
         self._closed = False
+        self._native_foundation = None
         # Pending work is never resumed on restart; old ACKs cannot grant dispatch.
         for row in self._rows():
             if row.payload['state'] in ACTIVE:
@@ -112,10 +136,12 @@ class MissionService:
         chat.initialize(self)
 
     def bind_chat(self, governor, authority_probe, **context_binding):
+        self._native_execution_gate()
         from . import chat
         return chat.bind(self,governor,authority_probe,**context_binding)
 
     def chat_propose(self, payload, reader, **identity):
+        self._native_execution_gate()
         from . import chat
         return chat.propose(self,payload,reader,**identity)
 
@@ -136,6 +162,7 @@ class MissionService:
         return chat.review(self,request_id,reader)
 
     def chat_approve(self, request_id, review_digest, owner_principal):
+        self._native_execution_gate()
         from . import chat
         return chat.approve(self,request_id,review_digest,owner_principal)
 
@@ -144,10 +171,12 @@ class MissionService:
         return chat.stop(self,request_id,reader,**scope)
 
     def bind_agent_tools(self, config, owner_principal):
+        self._native_execution_gate()
         from . import agent_operations
         return agent_operations.bind_tools(self, config, owner_principal)
 
     def propose_agent(self, payload, reader, *, device_id='local-host'):
+        self._native_execution_gate()
         from . import agent_operations
         return agent_operations.propose(self, payload, reader, device_id=device_id)
 
@@ -156,10 +185,12 @@ class MissionService:
         return agent_operations.run(self, task_id, preview_digest, owner_principal)
 
     def propose_git(self, source_task_id, request_id, reader, *, device_id='local-host'):
+        self._native_execution_gate()
         from . import agent_operations
         return agent_operations.propose_git(self, source_task_id, request_id, reader, device_id=device_id)
 
     def propose_install(self, payload, request_id, reader, *, device_id='local-host'):
+        self._native_execution_gate()
         from . import agent_operations
         return agent_operations.propose_install(self, payload, request_id, reader, device_id=device_id)
 
@@ -191,7 +222,104 @@ class MissionService:
         return self.manager.unified_catalog(receipt_view=MetaReceiptView(self.ledger,source_reader=self.source_probe),
                                             last_fixture_invocation=invocation)
 
+    def _native_execution_gate(self):
+        if self._native_foundation is not None:self._native_foundation.lifecycle.require_execution()
+
+    def _prepare_native_worker(self,identity,kind,args,*,cancel=None):
+        """Closed actual producers publish identical thread/token before SQL."""
+        from .native_authority import NativeOwnedWorkHandle
+        cancel=cancel or CancellationToken();done=threading.Event()
+        foundation=self._native_foundation
+        handle=None
+        def invoke():
+            try:
+                if kind=='MISSION_LIVE':self._execute_live(*args,cancel)
+                elif kind=='MISSION_OFFLINE':
+                    record,task,call,warrant,now=args
+                    self._execute(record,task,call,warrant,cancel,now)
+                elif kind=='AGENT':
+                    from . import agent_operations
+                    agent_operations._execute(self,*args,cancel)
+                elif kind=='GITHUB_PENDING':
+                    from . import github_write
+                    slot=args[0]
+                    github_write._worker(slot['host'],slot['data'],slot['warrant'],cancel,reconcile=slot['reconcile'])
+                elif kind=='GITHUB':
+                    from . import github_write
+                    host,data,warrant,reconcile=args
+                    github_write._worker(host,data,warrant,cancel,reconcile=reconcile)
+            finally:done.set()
+        require(kind in ('MISSION_LIVE','MISSION_OFFLINE','AGENT','GITHUB','GITHUB_PENDING'),'NATIVE_PRODUCER_REQUIRED')
+        thread=threading.Thread(target=invoke,daemon=True)
+        if foundation is not None:
+            role='NATIVE_GITHUB' if kind in ('GITHUB','GITHUB_PENDING') else 'LEGACY_MISSION'
+            producer=foundation.owner if kind in ('GITHUB','GITHUB_PENDING') else self
+            with foundation.lifecycle.lock:
+                handle=foundation.lifecycle.begin_work(producer,role,identity,cancel,thread,done)
+                require(type(handle) is NativeOwnedWorkHandle,'NATIVE_WORK_REQUIRED')
+                self._cancels[identity]=cancel;self._workers[identity]=thread
+        return cancel,thread,handle
+
+    def _start_native_worker(self,thread,handle):
+        if handle is not None:self._native_foundation.lifecycle.before_start(handle)
+        thread.start()  # No lifecycle lock remains held.
+
+    @contextmanager
+    def _native_synchronous(self,identity,kind):
+        foundation=self._native_foundation
+        if foundation is None:
+            yield None
+            return
+        from .native_authority import NativePhase, deny
+        lifecycle=foundation.lifecycle
+        parent=None
+        if kind=='AGENT_SETTLEMENT':
+            with lifecycle.lock:
+                parent=lifecycle._handles.get(identity)
+                deny(parent is not None and parent.producer is self and parent.foundation is foundation
+                     and lifecycle.phase in (NativePhase.CAPACITY_ADMIN,NativePhase.ACTIVE)
+                     and lifecycle._fence is None)
+            role,producer='LEGACY_MISSION',self
+        else:
+            deny(kind in ('GITHUB_PREFLIGHT','GITHUB_CONTROL'))
+            lifecycle.require_execution()
+            role,producer='NATIVE_GITHUB',foundation.owner
+        token=parent.cancel if parent is not None else CancellationToken()
+        handle=lifecycle.begin_synchronous(producer,role,'sync-'+kind.lower()+'-'+identity,token,parent=parent)
+        if parent is not None:lifecycle._boundary.settlement_handle=handle
+        try:
+            yield handle
+        except BaseException:
+            lifecycle.quarantine(handle)
+            raise
+        else:
+            lifecycle.complete_synchronous(handle)
+        finally:
+            handle.done.set()
+            if parent is not None:del lifecycle._boundary.settlement_handle
+
+    def retained_in_transaction(self,tx):
+        rows=tx.scan(RecordKind.OPERATION,limit=1024,states=tuple(state.value for state in MissionState))
+        require(len(rows)<1024,'META_MISSION_HISTORY_LIMIT')
+        selected=tuple(row for row in rows if row.payload.get('schema')==KIND)
+        for row in selected:
+            require(row.record_id==row.payload.get('task_id') and row.payload.get('state') in {state.value for state in MissionState},
+                    'META_MISSION_INTEGRITY')
+        return selected
+
     def _run(self, purpose, callback):
+        foundation=self._native_foundation
+        if foundation is not None and getattr(foundation.lifecycle._boundary,'settlement_handle',None) is not None:
+            from .native_authority import NativeAccessUse
+            capture=foundation.access.capture(purpose,use=NativeAccessUse.SETTLEMENT)
+            try:
+                def guarded(tx):
+                    foundation.access.require_capture(capture,purpose,tx=tx)
+                    result=callback(tx)
+                    foundation.access.require_capture(capture,purpose,tx=tx)
+                    return result
+                return self.runner.run(TransactionContext(capture.principal,purpose),guarded)
+            finally:capture.close()
         principal = self.core.local_operator(purpose)
         return self.runner.run(TransactionContext(principal, purpose), callback)
 
@@ -266,6 +394,7 @@ class MissionService:
         The host brings an exact, already-approved Core operation. This binds
         transport data, never creates authority, a reservation or a warrant.
         """
+        self._native_execution_gate()
         require(type(request) is MetaPlanRequest and type(binding) is MetaLiveBinding,
                 'META_NATIVE_AUTHORITY_NOT_BOUND')
         require(binding.ledger is self.ledger and self.manager._meta_provider.mode == 'LIVE',
@@ -310,6 +439,7 @@ class MissionService:
         return replace(warrant, approval_digest=approval_digest(warrant))
 
     def run(self, identity, preview_digest, owner_principal):
+        self._native_execution_gate()
         self.core.require(owner_principal, Capability.OWNER_APPROVAL, scope=self.scope)
         with self._lock:
             record = plain(self._get(identity).payload)
@@ -318,12 +448,19 @@ class MissionService:
                 require(record['preview_digest'] == preview_digest, 'META_MISSION_NOT_PREVIEWED')
                 request, binding = self._live_bindings[identity]
                 binding.check(request)
+                native=None
+                if self._native_foundation is not None:
+                    native=self._prepare_native_worker(identity,'MISSION_LIVE',(record,request,binding))
                 self._change(identity, {'LIVE_PENDING_AUTHORIZATION'}, 'RUNNING',
                              {'native_spend_binding':'CONSUMING'})
                 del self._live_bindings[identity]
-                cancel = CancellationToken(); self._cancels[identity] = cancel
-                thread = threading.Thread(target=self._execute_live, args=(record, request, binding, cancel), daemon=True)
-                self._workers[identity] = thread; thread.start()
+                if native is not None:
+                    cancel,thread,handle=native
+                    self._start_native_worker(thread,handle)
+                else:
+                    cancel = CancellationToken(); self._cancels[identity] = cancel
+                    thread = threading.Thread(target=self._execute_live, args=(record, request, binding, cancel), daemon=True)
+                    self._workers[identity] = thread; thread.start()
                 return self.evidence(identity, self.core.local_operator(Capability.READ))
             require(record['state'] == 'PREVIEWED' and record['preview_digest'] == preview_digest,
                     'META_MISSION_NOT_PREVIEWED')
@@ -334,31 +471,41 @@ class MissionService:
             call = ToolCall(raw['id'], raw['function']['name'], raw['function']['arguments'])
             operation = read_operation(task, call, expected_content_sha256=hashlib.sha256(FIXTURE_TEXT.encode()).hexdigest(), initial_utc=now)
             warrant = self._warrant(record, operation, now)
+            native=None
+            if self._native_foundation is not None:
+                native=self._prepare_native_worker(identity,'MISSION_OFFLINE',(record,task,call,warrant,now))
             try:
-                self.ledger.approve(owner_principal, warrant)
-                self._change(identity, {'PREVIEWED'}, 'RUNNING', {'warrant_digest': warrant.digest()})
-            except Exception:
+                with failure_boundary('OWNED_WORK_CALLBACK_FAILED'):
+                    self.ledger.approve(owner_principal, warrant)
+                    self._change(identity, {'PREVIEWED'}, 'RUNNING', {'warrant_digest': warrant.digest()})
+            except (ValueError, RepairBoundaryError):
+                if native is not None:self._native_foundation.lifecycle.quarantine(native[2])
                 self._change(identity, {'PREVIEWED', 'RUNNING'}, 'UNKNOWN', {'error': 'META_APPROVAL_ACK_UNKNOWN'})
                 raise MissionError('META_APPROVAL_ACK_UNKNOWN') from None
-            cancel = CancellationToken(); self._cancels[identity] = cancel
-            thread = threading.Thread(target=self._execute, args=(record, task, call, warrant, cancel, now), daemon=True)
-            self._workers[identity] = thread; thread.start()
+            if native is not None:
+                cancel,thread,handle=native
+                self._start_native_worker(thread,handle)
+            else:
+                cancel = CancellationToken(); self._cancels[identity] = cancel
+                thread = threading.Thread(target=self._execute, args=(record, task, call, warrant, cancel, now), daemon=True)
+                self._workers[identity] = thread; thread.start()
             return self.evidence(identity, self.core.local_operator(Capability.READ))
 
     def _execute_live(self, record, request, binding, cancel):
         identity = record['task_id']
         try:
-            plan = self.manager.generate_meta_plan(request, cancel, live_binding=binding)
-            diagnostics = self.manager._meta_provider.diagnostics()
-            receipt = diagnostics['last_live_receipt']
-            require(receipt is not None and receipt['request_digest'] == request.digest,
-                    'META_RECEIPT_READBACK_UNKNOWN')
-            # A paid plan never authorizes browser dispatch. No fixture result is
-            # substituted for LIVE; containment and exact READ authority are separate.
-            self._change(identity, {'RUNNING'}, 'STOPPED' if cancel.cancelled else 'BLOCKED',
-                {'provider_receipt':receipt, 'proposal':plan.call.to_wire(), 'stopped':cancel.cancelled,
-                 'native_spend_binding':'CONSUMED', 'error':'CHROME_LIVE_BLOCKED_CONTAINMENT'})
-        except Exception:
+            with failure_boundary('OWNED_WORK_CALLBACK_FAILED'):
+                plan = self.manager.generate_meta_plan(request, cancel, live_binding=binding)
+                diagnostics = self.manager._meta_provider.diagnostics()
+                receipt = diagnostics['last_live_receipt']
+                require(receipt is not None and receipt['request_digest'] == request.digest,
+                        'META_RECEIPT_READBACK_UNKNOWN')
+                # A paid plan never authorizes browser dispatch. No fixture result is
+                # substituted for LIVE; containment and exact READ authority are separate.
+                self._change(identity, {'RUNNING'}, 'STOPPED' if cancel.cancelled else 'BLOCKED',
+                    {'provider_receipt':receipt, 'proposal':plan.call.to_wire(), 'stopped':cancel.cancelled,
+                     'native_spend_binding':'CONSUMED', 'error':'CHROME_LIVE_BLOCKED_CONTAINMENT'})
+        except (ValueError, RepairBoundaryError):
             self._change(identity, {'RUNNING'}, 'STOPPED' if cancel.cancelled else 'UNKNOWN',
                 {'stopped':cancel.cancelled, 'native_spend_binding':'NOT_REUSABLE',
                  'error':'META_PROVIDER_READBACK_UNKNOWN'})
@@ -366,23 +513,24 @@ class MissionService:
     def _execute(self, record, task, call, warrant, cancel, initial):
         identity = record['task_id']
         try:
-            reader = OfflineFixtureRead(self.browser, cancel, self.ledger.clock,
-                lambda: self.source_probe() == (record['source_sha'], record['capsule_digest']))
-            receipt = make_mock_receipt(task, record['correlation_id'], self.ledger.clock())
-            result = run_read_once(ledger=self.ledger,
-                read_principal=self.core.local_operator(Capability.READ),
-                commit_principal=self.core.local_operator(Capability.COMMIT), task=task, call=call, warrant=warrant,
-                current_source_sha=self.source_probe()[0], expected_content_sha256=hashlib.sha256(FIXTURE_TEXT.encode()).hexdigest(),
-                initial_utc=initial, provider_receipt=receipt, cancel=cancel, fixture_reader=reader)
-            state = 'STOPPED' if cancel.cancelled else ('OFFLINE_FIXTURE' if result['status'] == 'OFFLINE_LINKED_UNVERIFIED' else 'UNKNOWN')
-            if reader.last_receipt is not None:
-                reader.last_receipt.update(correlation_id=record['correlation_id'], provider_id=PROVIDER,
-                    model_id=MODEL, deadline=record['deadline'], budget_usd='0',
-                    allowed_origins=record['allowed_origins'], capsule_digest=record['capsule_digest'],
-                    stopped=cancel.cancelled)
-            self._change(identity, {'RUNNING'}, state, {'result': result, 'browser_receipt': reader.last_receipt,
-                                                       'stopped': cancel.cancelled})
-        except Exception:
+            with failure_boundary('OWNED_WORK_CALLBACK_FAILED'):
+                reader = OfflineFixtureRead(self.browser, cancel, self.ledger.clock,
+                    lambda: self.source_probe() == (record['source_sha'], record['capsule_digest']))
+                receipt = make_mock_receipt(task, record['correlation_id'], self.ledger.clock())
+                result = run_read_once(ledger=self.ledger,
+                    read_principal=self.core.local_operator(Capability.READ),
+                    commit_principal=self.core.local_operator(Capability.COMMIT), task=task, call=call, warrant=warrant,
+                    current_source_sha=self.source_probe()[0], expected_content_sha256=hashlib.sha256(FIXTURE_TEXT.encode()).hexdigest(),
+                    initial_utc=initial, provider_receipt=receipt, cancel=cancel, fixture_reader=reader)
+                state = 'STOPPED' if cancel.cancelled else ('OFFLINE_FIXTURE' if result['status'] == 'OFFLINE_LINKED_UNVERIFIED' else 'UNKNOWN')
+                if reader.last_receipt is not None:
+                    reader.last_receipt.update(correlation_id=record['correlation_id'], provider_id=PROVIDER,
+                        model_id=MODEL, deadline=record['deadline'], budget_usd='0',
+                        allowed_origins=record['allowed_origins'], capsule_digest=record['capsule_digest'],
+                        stopped=cancel.cancelled)
+                self._change(identity, {'RUNNING'}, state, {'result': result, 'browser_receipt': reader.last_receipt,
+                                                           'stopped': cancel.cancelled})
+        except (ValueError, RepairBoundaryError):
             self._change(identity, {'RUNNING'}, 'STOPPED' if cancel.cancelled else 'UNKNOWN',
                          {'error': 'META_READBACK_UNKNOWN', 'stopped': cancel.cancelled})
 
