@@ -8323,268 +8323,288 @@
     },
     "runtime/mission/sandbox_linux.py": {
       "path": "runtime/mission/sandbox_linux.py",
-      "git_blob": "3bb7e45ba3f09275fe4f9a73e205f0048a4a3e15",
-      "sha256": "8d62ef2ea6e010e6a6a65b25dc3842c32e541fa9c1beb8eecee3619698428a23",
+      "git_blob": "d9441fe0b5c864598ac32e9c7497a2439a7be70c",
+      "sha256": "fa27bf24ea03bfb7343c569f50ad4fc953d9e9208411a90a33bcc2158796c31e",
       "definitions": [
         {
           "name": "now",
-          "line": 53
+          "line": 54
         },
         {
           "name": "sync_directory",
-          "line": 57
+          "line": 58
         },
         {
           "name": "sha",
-          "line": 65
+          "line": 66
         },
         {
           "name": "read_evidence_file",
-          "line": 69
+          "line": 70
         },
         {
           "name": "exact_cgroup",
-          "line": 119
+          "line": 120
         },
         {
           "name": "mountid",
-          "line": 123
+          "line": 124
         },
         {
           "name": "populated",
-          "line": 130
+          "line": 131
         },
         {
           "name": "command_result",
-          "line": 137
+          "line": 138
         },
         {
           "name": "bounded_line",
-          "line": 154
+          "line": 155
         },
         {
           "name": "build_filter",
-          "line": 180
+          "line": 181
         },
         {
           "name": "TrustedSandboxConfig",
-          "line": 370
+          "line": 371
         },
         {
           "name": "_host_json",
-          "line": 388
+          "line": 389
         },
         {
           "name": "save_host_config",
-          "line": 395
+          "line": 396
         },
         {
           "name": "load_host_config",
-          "line": 426
+          "line": 427
         },
         {
           "name": "prepare_linux_sandbox",
-          "line": 502
+          "line": 504
         },
         {
           "name": "git_storage_identity",
-          "line": 741
+          "line": 743
         },
         {
           "name": "_parse_descriptor_limits",
-          "line": 855
+          "line": 857
         },
         {
           "name": "_observe_descriptor_limits",
-          "line": 871
+          "line": 873
         },
         {
           "name": "_systemd_properties",
-          "line": 886
+          "line": 888
+        },
+        {
+          "name": "_cache_identity",
+          "line": 915
+        },
+        {
+          "name": "_directory_identity",
+          "line": 920
+        },
+        {
+          "name": "_private_descriptor",
+          "line": 926
         },
         {
           "name": "_private_path",
-          "line": 913
+          "line": 980
         },
         {
           "name": "_private_bytes",
-          "line": 924
+          "line": 985
         },
         {
           "name": "_config_identity",
-          "line": 947
+          "line": 999
         },
         {
           "name": "LinuxSandboxBroker",
-          "line": 955
+          "line": 1007
         },
         {
           "name": "profile",
-          "line": 378
+          "line": 379
         },
         {
           "name": "inputs",
-          "line": 381
+          "line": 382
         },
         {
           "name": "runtime",
-          "line": 384
+          "line": 385
         },
         {
           "name": "private",
-          "line": 430
+          "line": 431
         },
         {
           "name": "walk",
-          "line": 759
+          "line": 761
+        },
+        {
+          "name": "check_ancestry",
+          "line": 933
         },
         {
           "name": "__init__",
-          "line": 956
+          "line": 1008
         },
         {
           "name": "config",
-          "line": 981
+          "line": 1033
         },
         {
           "name": "binding_policy",
-          "line": 986
+          "line": 1038
         },
         {
           "name": "bind_route",
-          "line": 989
+          "line": 1041
         },
         {
           "name": "require_route_binding",
-          "line": 1000
+          "line": 1052
         },
         {
           "name": "_source_check",
-          "line": 1013
+          "line": 1065
         },
         {
           "name": "_validate_config",
-          "line": 1021
+          "line": 1073
         },
         {
           "name": "_derive_binding",
-          "line": 1085
+          "line": 1139
         },
         {
           "name": "_pin_specs",
-          "line": 1124
+          "line": 1178
         },
         {
           "name": "capture_config",
-          "line": 1132
+          "line": 1186
         },
         {
           "name": "require_capture",
-          "line": 1154
+          "line": 1211
         },
         {
           "name": "revalidate_capture",
-          "line": 1160
+          "line": 1217
         },
         {
           "name": "publish_binding",
-          "line": 1175
+          "line": 1233
         },
         {
           "name": "binding_for_operation",
-          "line": 1195
+          "line": 1253
         },
         {
           "name": "restore_capture",
-          "line": 1210
+          "line": 1268
         },
         {
           "name": "close",
-          "line": 1237
+          "line": 1296
         },
         {
           "name": "__call__",
-          "line": 1242
+          "line": 1301
         },
         {
           "name": "_git_directory",
-          "line": 1246
+          "line": 1305
         },
         {
           "name": "_git_publish_new",
-          "line": 1287
+          "line": 1346
         },
         {
           "name": "_git_existing_object",
-          "line": 1326
+          "line": 1385
         },
         {
           "name": "_git_plumbing",
-          "line": 1371
+          "line": 1430
         },
         {
           "name": "dispatch",
-          "line": 1966
+          "line": 2025
         },
         {
           "name": "_run",
-          "line": 2070
+          "line": 2129
         },
         {
           "name": "verify",
-          "line": 2545
+          "line": 2604
         },
         {
           "name": "listener_call",
-          "line": 255
+          "line": 256
+        },
+        {
+          "name": "check_leaf",
+          "line": 968
         },
         {
           "name": "hold",
-          "line": 1464
+          "line": 1523
         },
         {
           "name": "sealed",
-          "line": 1469
+          "line": 1528
         },
         {
           "name": "read_local",
-          "line": 1534
+          "line": 1593
         },
         {
           "name": "lock_stamp",
-          "line": 1607
+          "line": 1666
         },
         {
           "name": "check_lock",
-          "line": 1619
+          "line": 1678
         },
         {
           "name": "check_lock_parent",
-          "line": 1629
+          "line": 1688
         },
         {
           "name": "lock_new",
-          "line": 1649
+          "line": 1708
         },
         {
           "name": "check_ref_transaction",
-          "line": 1765
+          "line": 1824
         },
         {
           "name": "bound_release",
-          "line": 1977
+          "line": 2036
         },
         {
           "name": "guarded_cleanup",
-          "line": 2451
+          "line": 2510
         },
         {
           "name": "release",
-          "line": 1673
+          "line": 1732
         },
         {
           "name": "reap_owned",
-          "line": 2480
+          "line": 2539
         }
       ],
       "symbolic_callees": [
@@ -8620,14 +8640,18 @@
         "SandboxRegistry",
         "TrustedSandboxConfig",
         "ValueError",
+        "_cache_identity",
         "_config_identity",
+        "_directory_identity",
         "_host_json",
         "_observe_descriptor_limits",
         "_parse_descriptor_limits",
         "_private_bytes",
+        "_private_descriptor",
         "_private_path",
         "_systemd_properties",
         "all",
+        "ancestry.append",
         "any",
         "approved.append",
         "arguments[data].encode",
@@ -8651,6 +8675,9 @@
         "canonical_sha256",
         "capture.config.registry.validate",
         "cgpath.exists",
+        "check",
+        "check_ancestry",
+        "check_leaf",
         "check_lock",
         "check_lock_parent",
         "check_ref_transaction",
@@ -8694,6 +8721,7 @@
         "decoder.decompress",
         "deny.difference_update",
         "deny.update",
+        "descriptors.append",
         "descriptors.items",
         "destination.chmod",
         "destination.open",
@@ -8852,6 +8880,7 @@
         "request.to_dict",
         "requested.startswith",
         "require",
+        "reversed",
         "right.split",
         "root.absolute",
         "root.mkdir",
@@ -8926,6 +8955,7 @@
         "tempfile.mkdtemp",
         "text.splitlines",
         "time.monotonic",
+        "trusted.is_absolute",
         "tuple",
         "type",
         "uuid.uuid4",
@@ -8941,8 +8971,8 @@
         "zlib.compress",
         "zlib.decompressobj"
       ],
-      "call_site_count": 1295,
-      "call_sites_sha256": "be34a523a4c0e69f6f06c6fceb5ae08b99d68e3fc3471cdd3d86a3c643198d9f"
+      "call_site_count": 1337,
+      "call_sites_sha256": "f6b15a57f972c5999089db9aa952ffa682bfc99f8f2af24e0583ab771608616b"
     },
     "runtime/nonzero_cloudops/adapters/portable.py": {
       "path": "runtime/nonzero_cloudops/adapters/portable.py",
@@ -14751,8 +14781,8 @@
     },
     "runtime/mission/tools.py": {
       "path": "runtime/mission/tools.py",
-      "git_blob": "8377d99f2e0fc731d83ca3cac7da5b46110ef017",
-      "sha256": "496875556a961fa70e21142ac0fe9a06924979ada02b0ee2c8960470ea6d1d7f",
+      "git_blob": "179b8dd4238eee297c8986efb9507467b8d7e35a",
+      "sha256": "6aeaa03a5556b4298efe1dbc28bbf77132bda2f6f18e3315e0e271db36eed1dd",
       "definitions": [
         {
           "name": "ToolCapability",
@@ -14824,231 +14854,231 @@
         },
         {
           "name": "_target_snapshot",
-          "line": 288
+          "line": 292
         },
         {
           "name": "_context_target_snapshot",
-          "line": 300
+          "line": 304
         },
         {
           "name": "_probe_target",
-          "line": 308
-        },
-        {
-          "name": "_run",
           "line": 312
         },
         {
-          "name": "session_key",
-          "line": 320
+          "name": "_run",
+          "line": 316
         },
         {
-          "name": "_session",
+          "name": "session_key",
           "line": 324
         },
         {
+          "name": "_session",
+          "line": 328
+        },
+        {
           "name": "create_session",
-          "line": 357
+          "line": 361
         },
         {
           "name": "validate_registered_local",
-          "line": 382
+          "line": 386
         },
         {
           "name": "dispatch_registered_local",
-          "line": 409
+          "line": 413
         },
         {
           "name": "revoke_session",
-          "line": 414
+          "line": 418
         },
         {
           "name": "_revoke_session",
-          "line": 419
+          "line": 423
         },
         {
           "name": "operation",
-          "line": 427
+          "line": 431
         },
         {
           "name": "sandbox_config_for_operation",
-          "line": 444
+          "line": 448
         },
         {
           "name": "_sandbox_record",
-          "line": 451
+          "line": 455
         },
         {
           "name": "bind_sandbox_job",
-          "line": 458
+          "line": 462
         },
         {
           "name": "restore_sandbox_bindings",
-          "line": 539
+          "line": 543
         },
         {
           "name": "_historical_request",
-          "line": 563
+          "line": 567
         },
         {
           "name": "sandbox_receipt",
-          "line": 571
+          "line": 575
         },
         {
           "name": "_sandbox_receipt_after_dispatch",
-          "line": 574
+          "line": 578
         },
         {
           "name": "_sandbox_receipt",
-          "line": 577
+          "line": 581
         },
         {
           "name": "_synthetic_operation",
-          "line": 604
+          "line": 612
         },
         {
           "name": "_operation",
-          "line": 616
+          "line": 624
         },
         {
           "name": "_snapshot_operation",
-          "line": 649
+          "line": 657
         },
         {
           "name": "_ddr",
-          "line": 659
+          "line": 667
         },
         {
           "name": "_context_key",
-          "line": 673
+          "line": 681
         },
         {
           "name": "_context",
-          "line": 676
+          "line": 684
         },
         {
           "name": "_mode",
-          "line": 753
+          "line": 761
         },
         {
           "name": "_sandbox_scope",
-          "line": 759
+          "line": 767
         },
         {
           "name": "_portable_scope",
-          "line": 774
+          "line": 782
         },
         {
           "name": "_sandbox_request",
-          "line": 796
-        },
-        {
-          "name": "_sandbox_request_value",
           "line": 804
         },
         {
+          "name": "_sandbox_request_value",
+          "line": 812
+        },
+        {
           "name": "_native_job",
-          "line": 815
+          "line": 823
         },
         {
           "name": "authorize",
-          "line": 831
+          "line": 839
         },
         {
           "name": "authorize_exact",
-          "line": 836
+          "line": 844
         },
         {
           "name": "_authorize",
-          "line": 850
+          "line": 858
         },
         {
           "name": "_check",
-          "line": 947
+          "line": 955
         },
         {
           "name": "_retained",
-          "line": 978
+          "line": 986
         },
         {
           "name": "dispatch",
-          "line": 994
+          "line": 1002
         },
         {
           "name": "_dispatch",
-          "line": 1008
-        },
-        {
-          "name": "inspect",
-          "line": 1124
-        },
-        {
-          "name": "reconcile",
-          "line": 1134
-        },
-        {
-          "name": "_reconcile",
-          "line": 1139
-        },
-        {
-          "name": "checked",
-          "line": 315
-        },
-        {
-          "name": "change",
-          "line": 359
-        },
-        {
-          "name": "change",
-          "line": 420
-        },
-        {
-          "name": "change",
-          "line": 861
-        },
-        {
-          "name": "start",
           "line": 1016
         },
         {
-          "name": "readback",
-          "line": 1067
+          "name": "inspect",
+          "line": 1132
         },
         {
-          "name": "read",
-          "line": 1125
+          "name": "reconcile",
+          "line": 1142
         },
         {
-          "name": "read",
-          "line": 1140
+          "name": "_reconcile",
+          "line": 1147
+        },
+        {
+          "name": "checked",
+          "line": 319
         },
         {
           "name": "change",
-          "line": 1173
+          "line": 363
         },
         {
-          "name": "save",
-          "line": 495
+          "name": "change",
+          "line": 424
+        },
+        {
+          "name": "change",
+          "line": 869
+        },
+        {
+          "name": "start",
+          "line": 1024
+        },
+        {
+          "name": "readback",
+          "line": 1075
         },
         {
           "name": "read",
-          "line": 549
+          "line": 1133
+        },
+        {
+          "name": "read",
+          "line": 1148
+        },
+        {
+          "name": "change",
+          "line": 1181
+        },
+        {
+          "name": "save",
+          "line": 499
+        },
+        {
+          "name": "read",
+          "line": 553
         },
         {
           "name": "prepare",
-          "line": 1076
+          "line": 1084
         },
         {
           "name": "release_check",
-          "line": 1089
+          "line": 1097
         },
         {
           "name": "record_ack",
-          "line": 1115
+          "line": 1123
         },
         {
           "name": "check",
-          "line": 1091
+          "line": 1099
         }
       ],
       "symbolic_callees": [
@@ -15083,6 +15113,7 @@
         "_PortableStartAck.issue_in_transaction",
         "_portable_operation",
         "_portable_operation().to_dict",
+        "_private_bytes",
         "all",
         "allowed.append",
         "allowed.sort",
@@ -15264,8 +15295,8 @@
         "warrant.to_dict",
         "zip"
       ],
-      "call_site_count": 740,
-      "call_sites_sha256": "7562669a1dcbf3e81fe86b56c758dc195971140d8e088284ed802469454ffbe6"
+      "call_site_count": 743,
+      "call_sites_sha256": "7c2eca303a40deddafeb512985bf9d117b0bd2ba5054849f6de5abfa0d083f07"
     },
     "runtime/mission/verification.py": {
       "path": "runtime/mission/verification.py",

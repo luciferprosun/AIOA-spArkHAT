@@ -2,6 +2,7 @@
 import hashlib
 import json
 import os
+import stat
 import unittest
 from dataclasses import replace
 from datetime import UTC, datetime
@@ -457,10 +458,11 @@ class SandboxJobBindingTests(unittest.TestCase):
             route.restore_sandbox_bindings(self.p(Capability.READ),task_ids=('still-live',))
 
     def test_addendum_existing_legacy_context_survives_managed_metadata(self):
-        broker,route,_capture=self.managed()
+        config=self.prepare(0)
+        earlier=LinuxSandboxBroker(config)
         legacy=CoreToolRoute(self.journal,self.liability,workspace='workspace-1',policy_revision=2,
-            probe=lambda:self.snapshot,executor=broker,target_guard=lambda:self.guard,clock=lambda:self.now,
-            verifier=broker.verify,variant='sandbox',sandbox_registry=broker.config.registry)
+            probe=lambda:self.snapshot,executor=earlier,target_guard=lambda:self.guard,clock=lambda:self.now,
+            verifier=earlier.verify,variant='sandbox',sandbox_registry=earlier.config.registry)
         step,_handle,_claim=self.start(legacy,None,'legacy-history',bind=False)
         _operation,trace,graph,_completion,_envelope=self.parts(legacy,None,'legacy-history')
         def start(tx):
@@ -468,6 +470,12 @@ class SandboxJobBindingTests(unittest.TestCase):
                                                step.arguments['reservation'])
             self.liability.record_unknown_in_transaction(tx,trace,graph,datetime.fromtimestamp(self.now,UTC))
         legacy._run(self.p(),Capability.COMMIT,start)
+        earlier.close()
+        policy=TrustedSandboxBindingPolicy(self.root,'workspace-1',config.profile_digest,self.profile,
+            self.source_snapshot,self.source_support.repo.path,self.base)
+        broker=LinuxSandboxBroker(config,binding_policy=policy);route=self.route(broker)
+        capture=broker.capture_config(config,binding_input=self.binding_inputs[0],recipe_stages=(('0','MATERIALIZE'),))
+        self.bind(route,capture,self.parts(route,capture,'later-managed-metadata'))
         # Pure historical accounting can validate an older context while the
         # managed dispatch boundary still rejects an absent config identity.
         context=route._run(self.p(Capability.READ),Capability.READ,
@@ -502,6 +510,444 @@ class SandboxJobBindingTests(unittest.TestCase):
              self.assertRaisesRegex(ValueError,'STALE_EPOCH'):
             route.dispatch(step.principal,**step.arguments)
         self.assertEqual(2,claim.governor_epoch)
+
+    def test_FIX_I01_fresh_legacy_route_cannot_downgrade_managed_job(self):
+        broker,route,capture=self.managed()
+        step,_handle,_claim=self.start(route,capture,'managed-no-downgrade')
+        operation,trace,graph,completion,_envelope=self.parts(route,capture,'managed-no-downgrade')
+        before=tuple(self.store.db.execute('SELECT * FROM core_records_v1 ORDER BY scope_key,kind,record_id'))
+        exposure=self.gov.inspect(self.p(Capability.READ))
+        with patch.object(broker,'_run',side_effect=AssertionError('legacy worker')) as worker:
+            with self.assertRaisesRegex(ValueError,'SANDBOX_MANAGED_ROUTE_REQUIRED'):
+                legacy=CoreToolRoute(self.journal,self.liability,workspace='workspace-1',policy_revision=2,
+                    probe=lambda:self.snapshot,executor=broker,target_guard=lambda:self.guard,clock=lambda:self.now,
+                    verifier=broker.verify,variant='sandbox',sandbox_registry=broker.config.registry)
+                legacy.authorize(self.p(),'managed-no-downgrade',operation,completion,graph,trace,
+                    nonce='legacy-downgrade',model_id=LOCAL_MODEL,money_nano=1,risk_units=5)
+            self.assertEqual(0,worker.call_count)
+        self.assertEqual(before,tuple(self.store.db.execute('SELECT * FROM core_records_v1 ORDER BY scope_key,kind,record_id')))
+        self.assertEqual(exposure,self.gov.inspect(self.p(Capability.READ)))
+        self.assertEqual(3,route._run(self.p(Capability.READ),Capability.READ,
+            lambda tx:route._context(tx,step.arguments['warrant'])[0])['job_version'])
+
+    def test_FIX_I02_parent_swap_refused_before_foreign_read(self):
+        for family in ('descriptor','input','runtime','artifact'):
+            with self.subTest(family=family):self._parent_swap_case(family)
+
+    def _parent_swap_case(self,family):
+        from runtime.mission.sandbox_linux import _private_bytes
+        owned=self.root/('race-'+family);owned.mkdir(mode=0o700)
+        parent=owned/'parent';parent.mkdir(mode=0o700)
+        foreign=owned/'foreign';foreign.mkdir(mode=0o700)
+        leaf=parent/'payload';leaf.write_bytes(b'identical owned private bytes');leaf.chmod(0o600)
+        other=foreign/'payload';other.write_bytes(leaf.read_bytes());other.chmod(0o600)
+        self.assertEqual(hashlib.sha256(leaf.read_bytes()).digest(),hashlib.sha256(other.read_bytes()).digest())
+        swapped=[];foreign_reads=[]
+        original_resolve=Path.resolve;original_open=os.open;original_read=os.read
+        foreign_identity=(other.stat().st_dev,other.stat().st_ino)
+        def swap():
+            if not swapped:
+                parent.rename(owned/'retained-parent');parent.symlink_to(foreign,target_is_directory=True)
+                swapped.append(family)
+        def resolve(path,*args,**kwargs):
+            result=original_resolve(path,*args,**kwargs)
+            if path==leaf:swap()
+            return result
+        def open_file(path,*args,**kwargs):
+            # Exercise the replacement reader's pinned-parent cut point,
+            # too: no vacuous PASS when pathname resolve is removed.
+            if path=='payload' and kwargs.get('dir_fd') is not None:swap()
+            return original_open(path,*args,**kwargs)
+        def read_file(fd,*args):
+            info=os.fstat(fd)
+            if (info.st_dev,info.st_ino)==foreign_identity:foreign_reads.append(family)
+            return original_read(fd,*args)
+        caught=None
+        with patch.object(Path,'resolve',resolve),patch.object(os,'open',open_file),patch.object(os,'read',read_file):
+            try:_private_bytes(leaf,owned,1024)
+            except ValueError as error:caught=str(error)
+        print('PARENT_SWAP',family,'exercised',len(swapped),'foreign_reads',len(foreign_reads),'denial',caught)
+        self.assertEqual([family],swapped,'owned parent swap must actually execute')
+        self.assertEqual([],foreign_reads,'foreign bytes must never be read')
+        self.assertIsNotNone(caught)
+        self.assertRegex(caught,'SANDBOX_CACHE_(PATH_DENIED|CHANGED)')
+
+
+    def test_FIX_I03_private_reader_uid_denial_precedes_read(self):
+        for family in ('descriptor','input','runtime','artifact'):
+            with self.subTest(family=family):self._foreign_uid_case(family)
+
+    def _foreign_uid_case(self,family):
+        from runtime.mission.sandbox_linux import _private_bytes
+        target=self.root/('uid-'+family);target.write_bytes(b'owned private bytes');target.chmod(0o600)
+        identity=target.stat();original=os.fstat
+        def foreign_uid(fd):
+            info=original(fd)
+            if (info.st_dev,info.st_ino)==(identity.st_dev,identity.st_ino):
+                fields=list(info);fields[4]=os.getuid()+1;return os.stat_result(fields)
+            return info
+        with patch.object(os,'fstat',foreign_uid),patch.object(os,'read',wraps=os.read) as reader:
+            with self.assertRaisesRegex(ValueError,'SANDBOX_PRIVATE_CACHE_REQUIRED'):
+                _private_bytes(target,self.root,1024)
+            self.assertEqual(0,reader.call_count)
+
+    def test_FIX_I02_managed_receipt_parent_swap_refused_before_foreign_read(self):
+        broker,route,capture=self.managed()
+        step,handle,_claim=self.start(route,capture,'receipt-parent-race')
+        operation,trace,graph,_completion,_envelope=self.parts(route,capture,'receipt-parent-race')
+        def unknown(tx):
+            self.journal.start_in_transaction(tx,step.arguments['warrant'],operation,step.arguments['reservation'])
+            self.liability.record_unknown_in_transaction(tx,trace,graph,datetime.fromtimestamp(self.now,UTC))
+        route._run(self.p(),Capability.COMMIT,unknown)
+        request=route._run(self.p(Capability.READ),Capability.READ,
+            lambda tx:route._historical_request(tx,operation,step.arguments['warrant']))
+        run=capture.config.root/('run-'+request.digest);run.mkdir(mode=0o700)
+        foreign=self.root/'foreign-receipt-cache';foreign.mkdir(mode=0o700)
+        foreign_run=foreign/run.name;foreign_run.mkdir(mode=0o700)
+        # Locator-only read fixture, never a fabricated Applied/kernel receipt.
+        value={'request':request.to_dict(),'dispatch_digest':request.digest,
+            'operation_digest':request.operation_digest,'warrant_digest':step.arguments['warrant'].digest(),
+            'profile_digest':capture.config.profile_digest,'job_config_binding_digest':handle.digest,
+            'config_digest':capture.config_digest}
+        raw=canonical_json_bytes(value)
+        for target in (run/'receipt.json',foreign_run/'receipt.json'):
+            target.write_bytes(raw);target.chmod(0o600)
+        self.assertEqual(raw,route.sandbox_receipt(self.p(Capability.READ),operation=operation,
+            warrant=step.arguments['warrant'])[0])
+        before=self._stored_rows();exposure=self.gov.inspect(self.p(Capability.READ))
+        parent=capture.config.root;swapped=[];foreign_reads=[]
+        foreign_info=(foreign_run/'receipt.json').stat()
+        original_open=os.open;original_read=os.read
+        def open_file(path,*args,**kwargs):
+            if str(path) in (str(run),run.name) and not swapped:
+                parent.rename(self.root/'retained-receipt-cache');parent.symlink_to(foreign,target_is_directory=True)
+                swapped.append('managed-receipt')
+            return original_open(path,*args,**kwargs)
+        def read_file(fd,*args):
+            info=os.fstat(fd)
+            if (info.st_dev,info.st_ino)==(foreign_info.st_dev,foreign_info.st_ino):foreign_reads.append(1)
+            return original_read(fd,*args)
+        caught=None
+        with patch.object(os,'open',open_file),patch.object(os,'read',read_file), \
+             patch.object(broker,'_run',side_effect=AssertionError('receipt worker')) as worker:
+            try:route.sandbox_receipt(self.p(Capability.READ),operation=operation,warrant=step.arguments['warrant'])
+            except ValueError as error:caught=str(error)
+            self.assertEqual(0,worker.call_count)
+        print('MANAGED_RECEIPT_PARENT_SWAP','exercised',len(swapped),'foreign_reads',len(foreign_reads),'denial',caught)
+        self.assertEqual(['managed-receipt'],swapped)
+        self.assertEqual([],foreign_reads)
+        self.assertIsNotNone(caught);self.assertRegex(caught,'SANDBOX_CACHE_(PATH_DENIED|CHANGED)')
+        self.assertEqual(before,self._stored_rows());self.assertEqual(exposure,self.gov.inspect(self.p(Capability.READ)))
+
+    def test_FIX_I02_owned_transit_preserves_private_input_compatibility(self):
+        from runtime.mission.sandbox_linux import _private_bytes
+        transit=self.root/'owned-transit';transit.mkdir(mode=0o700);transit.chmod(0o775)
+        private=transit/'private-input';private.mkdir(mode=0o700)
+        target=private/'snapshot';target.write_bytes(b'approved private retained input');target.chmod(0o600)
+        self.assertEqual(b'approved private retained input',_private_bytes(target,self.root,1024))
+        for component,mode in ((self.root,0o755),(private,0o755),(target,0o644)):
+            previous=stat.S_IMODE(component.stat().st_mode)
+            component.chmod(mode)
+            try:
+                with self.assertRaisesRegex(ValueError,'SANDBOX_PRIVATE_CACHE_REQUIRED'):
+                    _private_bytes(target,self.root,1024)
+            finally:component.chmod(previous)
+
+    def test_FIX_I02_whole_root_identity_precedes_validation_and_restore(self):
+        for mode in ('validation','restore'):
+            with self.subTest(mode=mode):self._whole_root_identity_case(mode)
+
+    def _whole_root_identity_case(self,mode):
+        import runtime.mission.sandbox_linux as backend
+        owned=SandboxJobBindingTests();owned.setUp()
+        try:
+            broker,route,capture=owned.managed()
+            owned.start(route,capture,'root-identity')
+            broker.revalidate_capture(capture)
+            if mode=='restore':
+                broker.close();broker=LinuxSandboxBroker(capture.config,binding_policy=broker.binding_policy)
+                route=owned.route(broker)
+                handles=route.restore_sandbox_bindings(owned.p(Capability.READ),task_ids=('root-identity',))
+                self.assertEqual('HISTORY_ONLY',handles[0].mode)
+            original=capture.config.root;replacement=owned.root/'replacement-root';replacement.mkdir(mode=0o700)
+            members=['worker_gate','bootstrap','setup_filter.bpf','final_filter.bpf','host-config.json']
+            for entry in capture.config.inputs().values():
+                members.extend(str(Path(filename).relative_to(original)) for filename in entry['files'].values())
+            foreign=set()
+            for name in members:
+                origin=original/name;raw=origin.read_bytes();target=replacement/name
+                if target.parent!=replacement and not target.parent.exists():target.parent.mkdir(mode=0o700)
+                target.write_bytes(raw);target.chmod(stat.S_IMODE(origin.stat().st_mode))
+                self.assertEqual(hashlib.sha256(raw).digest(),hashlib.sha256(target.read_bytes()).digest())
+                info=target.stat();foreign.add((info.st_dev,info.st_ino))
+            initial=original.stat();replacement_inode=replacement.stat().st_ino
+            before=owned._stored_rows();exposure=owned.gov.inspect(owned.p(Capability.READ))
+            mappings=dict(broker._bindings);swapped=[];restored=[];foreign_reads=[]
+            path_reader=backend._private_path;byte_reader=backend._private_bytes;read_file=os.read
+            def swap():
+                original.rename(owned.root/'retained-original-root');replacement.rename(original);swapped.append(1)
+            def path_check(path,*args,**kwargs):
+                info=path_reader(path,*args,**kwargs)
+                if Path(path)==original and kwargs.get('directory') and not swapped:swap()
+                return info
+            def bytes_check(path,*args,**kwargs):
+                if Path(path)==original/'host-config.json' and not swapped:swap()
+                return byte_reader(path,*args,**kwargs)
+            def read_check(fd,*args):
+                info=os.fstat(fd)
+                if (info.st_dev,info.st_ino) in foreign:
+                    foreign_reads.append(1)
+                    if not restored:
+                        original.rename(owned.root/'retained-replacement-root')
+                        (owned.root/'retained-original-root').rename(original);restored.append(1)
+                return read_file(fd,*args)
+            with patch.object(backend,'_private_path',side_effect=path_check if mode=='validation' else path_reader), \
+                 patch.object(backend,'_private_bytes',side_effect=bytes_check if mode=='restore' else byte_reader), \
+                 patch.object(os,'read',side_effect=read_check), \
+                 patch.object(broker,'_run',side_effect=AssertionError('root worker')) as worker:
+                with self.assertRaisesRegex(ValueError,'SANDBOX_(CAPTURE|CACHE)_CHANGED'):
+                    if mode=='validation':broker.revalidate_capture(capture)
+                    else:route.restore_sandbox_bindings(owned.p(Capability.READ),task_ids=('root-identity',))
+                self.assertEqual(0,worker.call_count)
+            self.assertEqual([1],swapped);self.assertNotEqual(initial.st_ino,replacement_inode)
+            self.assertEqual([],foreign_reads,'root mismatch must deny before bytes, including ABA')
+            self.assertEqual(before,owned._stored_rows());self.assertEqual(exposure,owned.gov.inspect(owned.p(Capability.READ)))
+            self.assertEqual(mappings,broker._bindings)
+            print('WHOLE_ROOT_DENIED',mode,'original_inode',initial.st_ino,'replacement_inode',replacement_inode,
+                  'foreign_reads',len(foreign_reads),'worker',0,'Y',0,flush=True)
+        finally:owned.doCleanups()
+
+    def _stored_rows(self):
+        return tuple(tuple(row) for row in self.store.db.execute(
+            'SELECT * FROM core_records_v1 ORDER BY scope_key,kind,record_id'))
+
+    def _replace_corrupt_row(self,kind,identity,change):
+        from runtime.memory_patch.adapters.cockroach.repositories import (
+            canonical_record,
+        )
+        row=self.store.db.execute('SELECT record_json FROM core_records_v1 WHERE kind=? AND record_id=?',
+                                  (kind.value,identity)).fetchone()
+        value=json.loads(row[0]);change(value)
+        record=StoredRecord(RecordKind(value['kind']),value['record_id'],OwnerScope(**value['scope']),
+                            value['revision'],value['payload'])
+        self.store.db.execute('UPDATE core_records_v1 SET revision=?,record_json=?,record_digest=? WHERE kind=? AND record_id=?',
+            (record.revision,canonical_record(record),record.payload_digest,kind.value,identity))
+        self.store.db.commit()
+
+    def _corrupt_audit_chain(self,identity,field,value):
+        # Rehash the event and its descendants so event-type/content checks,
+        # rather than an accidental stale event hash, remain exercised.
+        rows=self.store.db.execute('SELECT record_id,record_json FROM core_records_v1 WHERE kind=?',
+                                   (RecordKind.AUDIT.value,)).fetchall()
+        rows=sorted(rows,key=lambda row:json.loads(row[1])['payload']['sequence_number'])
+        previous=None
+        for record_id,raw in rows:
+            payload=json.loads(raw)['payload']
+            if record_id==identity:
+                if field.startswith('content_hashes.'):
+                    payload['content_hashes'][field.split('.')[1]]=value
+                else:payload[field]=value
+            payload['previous_event_hash']=previous
+            payload['event_hash']=canonical_sha256({k:v for k,v in payload.items() if k!='event_hash'})
+            previous=payload['event_hash']
+            self._replace_corrupt_row(RecordKind.AUDIT,record_id,lambda data,payload=payload:data.update(payload=payload))
+            for proof_id,proof_raw in self.store.db.execute('SELECT record_id,record_json FROM core_records_v1 WHERE kind=?',
+                                                          (RecordKind.OUTBOX.value,)).fetchall():
+                if json.loads(proof_raw)['payload'].get('event_id')==record_id:
+                    self._replace_corrupt_row(RecordKind.OUTBOX,proof_id,
+                        lambda data,digest=previous:data['payload'].update(event_digest=digest))
+
+    def test_FIX_I03_binding_history_corruption_matrix(self):
+        cases=(
+            'binding.remove','binding.kind','binding.scope','binding.revision','binding.content','binding.operation_digest',
+            'audit.remove','audit.kind','audit.scope','audit.revision','audit.event_kind','audit.content','audit.operation_digest',
+            'outbox.remove','outbox.kind','outbox.scope','outbox.revision','outbox.proof_id','outbox.event_id',
+            'outbox.event_digest','outbox.operation_digest','outbox.extra_field','pending.core_hash','pending.revision2',
+            'published.revision1','published.revision3','published.hash_none','published.hash_int',
+            'published.hash_short','published.hash_nonhex','published.hash_prefixed','published.proof_id',
+            'published.event_digest','published.operation_digest','published.scope','published.state')
+        for name in cases:
+            with self.subTest(corruption=name):self._binding_corruption_case(name)
+
+    def _binding_corruption_case(self,name):
+        owned=SandboxJobBindingTests();owned.setUp()
+        try:
+            broker,route,capture=owned.managed()
+            step,handle,_claim=owned.start(route,capture,'corrupt-history')
+            operation,trace,graph,_completion,_envelope=owned.parts(route,capture,'corrupt-history')
+            def unknown(tx):
+                owned.journal.start_in_transaction(tx,step.arguments['warrant'],operation,step.arguments['reservation'])
+                owned.liability.record_unknown_in_transaction(tx,trace,graph,datetime.fromtimestamp(owned.now,UTC))
+            route._run(owned.p(),Capability.COMMIT,unknown)
+            exposure=owned.gov.inspect(owned.p(Capability.READ))
+            key=binding_key(owned.scope,owned.gov.policy.deployment_id,'workspace-1','corrupt-history')
+            audit='sandbox-binding-audit-'+key;proof='sandbox-binding-proof-'+key
+            family,field=name.split('.')
+            if family=='published':
+                from runtime.memory_patch.audit import (
+                    CorePublicationReceipt,
+                    mark_published,
+                )
+                def publish(tx):
+                    row=tx.get(RecordKind.OUTBOX,proof)
+                    return mark_published(tx,row,CorePublicationReceipt(proof,row.payload['event_digest'],
+                        row.payload['operation_digest'],'a'*64))
+                route._run(owned.p(),Capability.COMMIT,publish)
+            positive=route._run(owned.p(Capability.READ),Capability.READ,lambda tx:read_binding(
+                tx,owned.scope,owned.gov.policy.deployment_id,'workspace-1','corrupt-history',expected_digest=handle.digest))
+            self.assertEqual(handle.digest,canonical_sha256(positive))
+            original=owned._stored_rows()
+            kind={'binding':RecordKind.OPERATION,'audit':RecordKind.AUDIT}.get(family,RecordKind.OUTBOX)
+            identity=key if family=='binding' else audit if family=='audit' else proof
+            if field=='remove':
+                owned.store.db.execute('DELETE FROM core_records_v1 WHERE kind=? AND record_id=?',(kind.value,identity))
+                owned.store.db.commit()
+            elif family=='audit' and field in ('event_kind','content','operation_digest'):
+                target={'event_kind':'event_type','content':'content_hashes.content',
+                        'operation_digest':'content_hashes.operation'}[field]
+                owned._corrupt_audit_chain(audit,target,'OTHER_DOMAIN_EVENT' if field=='event_kind' else 'f'*64)
+            else:
+                def corrupt(data):
+                    payload=data['payload']
+                    if field=='kind':data['kind']=RecordKind.RECEIPT.value
+                    elif field=='scope':data['scope']['owner_id']='foreign-owner'
+                    elif field in ('revision','revision2','revision1','revision3'):
+                        data['revision']={'revision':2,'revision2':2,'revision1':1,'revision3':3}[field]
+                    elif family=='binding' and field=='content':payload['config_digest']='f'*64
+                    elif family=='binding' and field=='operation_digest':payload['allowed_operations'][0]['operation_digest']='sha256:'+'f'*64
+                    elif field in ('proof_id','event_id'):payload[field]='foreign-'+field
+                    elif field in ('event_digest','operation_digest'):payload[field]='f'*64
+                    elif field=='extra_field':payload['extra']='not-authority'
+                    elif field in ('core_hash','hash_none'):payload['core_entry_hash']='a'*64 if field=='core_hash' else None
+                    elif field=='hash_int':payload['core_entry_hash']=7
+                    elif field=='hash_short':payload['core_entry_hash']='a'*63
+                    elif field=='hash_nonhex':payload['core_entry_hash']='z'*64
+                    elif field=='hash_prefixed':payload['core_entry_hash']='sha256:'+'a'*64
+                    elif field=='state':payload['state']='PENDING'
+                    else:raise AssertionError(name)
+                owned._replace_corrupt_row(kind,identity,corrupt)
+            corrupted=owned._stored_rows();self.assertNotEqual(original,corrupted)
+            broker.close();restored=LinuxSandboxBroker(broker.config,binding_policy=broker.binding_policy)
+            history=owned.route(restored)
+            denial='SANDBOX_(JOB_BINDING_REQUIRED|BINDING_(INTEGRITY|AUDIT|OUTBOX))|PROVENANCE_CORRUPT|INTEGRITY_FAILED'
+            with patch.object(restored,'_run',side_effect=AssertionError('corrupt worker')) as worker, \
+                 patch.object(restored,'publish_binding',side_effect=AssertionError('corrupt LIVE')) as publication, \
+                 patch.object(owned.gov,'claim_job',side_effect=AssertionError('corrupt claim')) as claims:
+                with self.assertRaisesRegex((ValueError,MemoryPatchError),denial):
+                    history._run(owned.p(Capability.READ),Capability.READ,lambda tx:read_binding(
+                        tx,owned.scope,owned.gov.policy.deployment_id,'workspace-1','corrupt-history',expected_digest=handle.digest))
+                with self.assertRaisesRegex((ValueError,MemoryPatchError),denial):
+                    history.restore_sandbox_bindings(owned.p(Capability.READ),task_ids=('corrupt-history',))
+                self.assertEqual((0,0,0),(worker.call_count,publication.call_count,claims.call_count))
+            self.assertEqual(corrupted,owned._stored_rows(),'reader must not repair corrupt history')
+            self.assertEqual(handle.record_bytes,broker._bindings['corrupt-history'][0].record_bytes)
+            self.assertFalse(restored._bindings)
+            # SQL equality includes governor exposure/reservations, all
+            # job/claim/context/intent/liability history and audit rows.
+            self.assertTrue(exposure['reservations'])
+            print('CORRUPTION_DENIED',name,'root',owned.root,'rows',len(corrupted),'ACKS',0)
+        finally:owned.doCleanups()
+
+    def test_FIX_I03_exact_64_job_quota_retains_history(self):
+        broker,route,capture=self.managed()
+        handles=[]
+        for index in range(64):
+            parts=self.parts(route,capture,'quota-64-'+str(index));handles.append(self.bind(route,capture,parts))
+        self.assertEqual(64,len(broker._bindings))
+        before=self._stored_rows();exposure=self.gov.inspect(self.p(Capability.READ))
+        with patch.object(broker,'_run',side_effect=AssertionError('quota worker')) as worker:
+            with self.assertRaisesRegex(ValueError,'SANDBOX_JOB_QUOTA'):
+                self.bind(route,capture,self.parts(route,capture,'quota-65-denied'))
+            self.assertEqual(0,worker.call_count)
+        self.assertEqual(before,self._stored_rows());self.assertEqual(exposure,self.gov.inspect(self.p(Capability.READ)))
+        self.assertEqual(handles[0].digest,broker._bindings['quota-64-0'][0].digest)
+        self.assertIs(handles[0],self.bind(route,capture,self.parts(route,capture,'quota-64-0')))
+        self.assertEqual(before,self._stored_rows());self.assertEqual(64,len(broker._bindings))
+        broker.close();history_broker=LinuxSandboxBroker(broker.config,binding_policy=broker.binding_policy)
+        history=self.route(history_broker)
+        for index in range(64):
+            # The exact raw reader still validates every retained record; no
+            # restoration of capacity or fabricated submit/claim is required.
+            value=history._run(self.p(Capability.READ),Capability.READ,lambda tx,index=index:read_binding(
+                tx,self.scope,self.gov.policy.deployment_id,'workspace-1','quota-64-'+str(index),expected_digest=handles[index].digest))
+            self.assertEqual('quota-64-'+str(index),value['task_id'])
+        self.assertEqual(before,self._stored_rows());self.assertFalse(history_broker._bindings)
+        fresh=prepare_linux_sandbox(self.root/'after-close-config',self.manifest,workspace='workspace-1',recipes={'0':self.specs[0]})
+        fresh=replace(fresh,registry=replace(fresh.registry,recipes=tuple(replace(recipe,timeout_ms=20000) for recipe in fresh.registry.recipes)))
+        recaptured=history_broker.capture_config(fresh,binding_input=self.binding_inputs[0],recipe_stages=(('0','MATERIALIZE'),))
+        with self.assertRaisesRegex(ValueError,'SANDBOX_JOB_QUOTA'):
+            self.bind(history,recaptured,self.parts(history,recaptured,'quota-after-close-denied'))
+        self.assertEqual(before,self._stored_rows());self.assertFalse(history_broker._bindings)
+
+
+    def test_FIX_I03_restore_file_source_mutation_and_link_matrix(self):
+        for family in ('descriptor','input','runtime','source'):
+            for change in ('mutation','symlink','hardlink','parent_symlink','type','mode'):
+                with self.subTest(family=family,change=change):
+                    owned=SandboxJobBindingTests();owned.setUp()
+                    try:
+                        broker,route,capture=owned.managed()
+                        _step,handle,_claim=owned.start(route,capture,'restore-file')
+                        before=owned._stored_rows();exposure=owned.gov.inspect(owned.p(Capability.READ))
+                        broker.revalidate_capture(capture)  # Independent positive control.
+                        broker.close();restored=LinuxSandboxBroker(broker.config,binding_policy=broker.binding_policy)
+                        history=owned.route(restored)
+                        if family=='descriptor':target=capture.config.root/'host-config.json'
+                        elif family=='input':target=Path(next(iter(capture.config.inputs()['0']['files'].values())))
+                        elif family=='runtime':target=Path(next(iter(capture.config.runtime().values()))['snapshot'])
+                        else:target=owned.base/'src/textutil.py'
+                        raw=target.read_bytes();preserved=owned.root/'retained-original-file'
+                        if change=='mutation':
+                            preserved.write_bytes(raw);preserved.chmod(0o600)
+                            mode=stat.S_IMODE(target.stat().st_mode)
+                            self.assertEqual(raw,target.read_bytes());target.chmod(mode|0o200)
+                            target.write_bytes(raw+b' ');target.chmod(mode)
+                        elif change=='symlink':
+                            target.rename(preserved);target.symlink_to(preserved)
+                        elif change=='hardlink':os.link(target,preserved)
+                        elif change=='parent_symlink':
+                            parent=target.parent;retained=parent.with_name(parent.name+'-retained')
+                            parent.rename(retained);parent.symlink_to(retained,target_is_directory=True)
+                        elif change=='type':
+                            target.rename(preserved);target.mkdir(mode=0o700)
+                        elif change=='mode':target.chmod(0o666)
+                        denial=('PATCHSET_[A-Z_]+|GIT_SOURCE_EXPORT_DRIFT' if family=='source' else
+                                'SANDBOX_(CACHE_[A-Z_]+|PRIVATE_CACHE_REQUIRED|BINDING_INTEGRITY)|PINNED_(INPUT|RUNTIME)_CHANGED')
+                        with patch('runtime.mission.sandbox_linux.prepare_linux_sandbox',side_effect=AssertionError('restore prepare')), \
+                             patch.object(restored,'_run',side_effect=AssertionError('restore worker')) as worker, \
+                             patch.object(restored,'publish_binding',wraps=restored.publish_binding) as publication:
+                            with self.assertRaisesRegex(ValueError,denial):
+                                history.restore_sandbox_bindings(owned.p(Capability.READ),task_ids=('restore-file',))
+                            self.assertEqual(0,worker.call_count)
+                            self.assertTrue(all(call.kwargs.get('historical') is True for call in publication.call_args_list))
+                        self.assertEqual(before,owned._stored_rows());self.assertEqual(exposure,owned.gov.inspect(owned.p(Capability.READ)))
+                        self.assertFalse(restored._bindings)
+                        self.assertEqual(handle.record_bytes,broker._bindings['restore-file'][0].record_bytes)
+                        print('RESTORE_FILE_DENIED',family,change,'positive_control',True,'root',owned.root,'ACKS',0,flush=True)
+                    finally:owned.doCleanups()
+
+    def test_FIX_I03_unfiltered_audit_1024_quota_does_not_append(self):
+        from runtime.memory_patch.audit import domain_chain
+        from runtime.memory_patch.contracts.serialization import to_canonical_data
+        _broker,route,capture=self.managed()
+        parts=self.parts(route,capture,'audit-limit');handle=self.bind(route,capture,parts)
+        exposure=self.gov.inspect(self.p(Capability.READ))
+        def fill(tx):
+            events=domain_chain(tx);previous=events[-1]
+            for index in range(len(events),1024):
+                event=replace(previous,audit_event_id='owned-audit-quota-'+str(index),sequence_number=index,
+                    previous_event_hash=previous.event_hash,resource_id='owned-audit-resource-'+str(index))
+                tx.insert(StoredRecord(RecordKind.AUDIT,event.audit_event_id,self.scope,1,to_canonical_data(event)))
+                previous=event
+        route._run(self.p(),Capability.COMMIT,fill)
+        before=self._stored_rows()
+        with self.assertRaisesRegex(MemoryPatchError,'QUOTA_EXCEEDED'):
+            route._run(self.p(Capability.READ),Capability.READ,lambda tx:read_binding(tx,self.scope,
+                self.gov.policy.deployment_id,'workspace-1','audit-limit',expected_digest=handle.digest))
+        with self.assertRaisesRegex(MemoryPatchError,'QUOTA_EXCEEDED'):
+            self.bind(route,capture,self.parts(route,capture,'audit-overflow-denied'))
+        self.assertEqual(before,self._stored_rows());self.assertEqual(exposure,self.gov.inspect(self.p(Capability.READ)))
+
 
 
 class LowThresholdSandboxCircuitTests(unittest.TestCase):

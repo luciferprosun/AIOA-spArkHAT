@@ -262,6 +262,10 @@ class CoreToolRoute:
         return self._sandbox_jobs
 
     def _require_target_binding(self):
+        if self.bound_variant is SANDBOX:
+            from runtime.mission.sandbox_linux import LinuxSandboxBroker
+            require(self.sandbox_jobs or type(self.executor) is not LinuxSandboxBroker
+                    or self.executor.binding_policy is None,'SANDBOX_MANAGED_ROUTE_REQUIRED')
         if self.sandbox_jobs:self.executor.require_route_binding(self)
         port = self.target_settlement
         require(port is self._target_port_binding, 'TARGET_PORT_BINDING_CHANGED')
@@ -575,7 +579,10 @@ class CoreToolRoute:
         return self._sandbox_receipt(principal,Capability.COMMIT,operation=operation,warrant=warrant)
 
     def _sandbox_receipt(self,principal,purpose,*,operation,warrant):
-        from runtime.mission.sandbox_linux import read_evidence_file
+        from runtime.mission.sandbox_linux import (
+            _private_bytes,
+            read_evidence_file,
+        )
         self.core.require(principal,purpose,scope=self.scope)
         if not self.sandbox_jobs:
             # Preserve the legacy selector for existing single-config callers.
@@ -592,7 +599,8 @@ class CoreToolRoute:
         handle,capture=self.executor.binding_for_operation(operation,historical=True)
         config=self.executor.revalidate_capture(capture)
         run=config.root/('run-'+request.digest)
-        raw=read_evidence_file(run,'receipt.json');receipt=json.loads(raw)
+        raw=_private_bytes(run/'receipt.json',self.executor.binding_policy.trusted_root,1048576,
+            expected_root=(config.root,json.loads(capture.root_identity_bytes)));receipt=json.loads(raw)
         require(receipt.get('request')==request.to_dict() and receipt.get('dispatch_digest')==request.digest
                 and receipt.get('operation_digest')==request.operation_digest
                 and receipt.get('warrant_digest')==warrant.digest()

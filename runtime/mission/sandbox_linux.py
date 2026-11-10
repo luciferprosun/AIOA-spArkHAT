@@ -18,6 +18,7 @@ import subprocess
 import sys
 import tempfile
 import uuid
+from contextlib import contextmanager
 from dataclasses import asdict, dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
@@ -423,7 +424,7 @@ def save_host_config(config):
     sync_directory(config.root)
 
 
-def load_host_config(root, *, trusted_root):
+def load_host_config(root, *, trusted_root, root_identity=None):
     root = Path(root).absolute()
     trusted = Path(trusted_root).absolute()
 
@@ -451,7 +452,8 @@ def load_host_config(root, *, trusted_root):
     path = root / "host-config.json"
     info = private(path)
     require(info.st_size <= 4194304, "SANDBOX_CACHE_BOUNDS")
-    raw = _private_bytes(path, trusted, 4194304)
+    raw = _private_bytes(path, trusted, 4194304,
+        expected_root=(root,root_identity) if root_identity is not None else None)
     value = json.loads(raw)
     require(
         set(value)
@@ -910,38 +912,88 @@ def _systemd_properties(operation):
     )
 
 
-def _private_path(path, trusted, *, directory=False):
-    path, trusted = Path(path), Path(trusted)
-    require(path.is_absolute() and path.is_relative_to(trusted)
-            and '..' not in path.parts and path.resolve() == path, 'SANDBOX_CACHE_PATH_DENIED')
-    info = path.lstat()
-    require(info.st_uid == os.getuid() and not info.st_mode & 0o077
-            and (stat.S_ISDIR(info.st_mode) if directory else
-                 stat.S_ISREG(info.st_mode) and info.st_nlink == 1), 'SANDBOX_PRIVATE_CACHE_REQUIRED')
-    return info
+def _cache_identity(info):
+    return (info.st_dev,info.st_ino,info.st_mode,info.st_uid,info.st_nlink,
+            info.st_size,info.st_mtime_ns,info.st_ctime_ns)
 
 
-def _private_bytes(path, trusted, maximum):
-    path = Path(path)
-    _private_path(path.parent, trusted, directory=True)
-    before = _private_path(path, trusted)
-    require(before.st_size <= maximum, 'SANDBOX_CACHE_BOUNDS')
-    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC)
+def _directory_identity(info):
+    return {'device':info.st_dev,'inode':info.st_ino,
+            'uid':info.st_uid,'mode':stat.S_IMODE(info.st_mode)}
+
+
+@contextmanager
+def _private_descriptor(path, trusted, *, directory=False, expected_root=None):
+    """Pin every component and recheck its name before accessing leaf bytes."""
+    path,trusted=Path(path),Path(trusted)
+    require(path.is_absolute() and trusted.is_absolute() and path.is_relative_to(trusted)
+            and '..' not in path.parts and '..' not in trusted.parts,'SANDBOX_CACHE_PATH_DENIED')
+    descriptors=[];ancestry=[]
+    flags=os.O_RDONLY|os.O_NOFOLLOW|os.O_CLOEXEC|os.O_DIRECTORY
+    def check_ancestry():
+        for parent,name,child,initial in ancestry:
+            named=os.stat(name,dir_fd=parent,follow_symlinks=False)
+            opened=os.fstat(child)
+            identity=lambda info:(info.st_dev,info.st_ino,info.st_mode,info.st_uid)
+            require(identity(named)==identity(opened)==identity(initial),'SANDBOX_CACHE_CHANGED')
     try:
-        raw = bytearray()
-        while len(raw) <= maximum:
-            part = os.read(fd, min(65536, maximum + 1 - len(raw)))
-            if not part:
-                break
-            raw.extend(part)
-        opened, after, named = os.fstat(fd), os.fstat(fd), path.lstat()
-        identity = lambda i: (i.st_dev,i.st_ino,i.st_mode,i.st_uid,i.st_nlink,
-                              i.st_size,i.st_mtime_ns,i.st_ctime_ns)
-        require(identity(before)==identity(opened)==identity(after)==identity(named)
-                and len(raw)==before.st_size, 'SANDBOX_CACHE_CHANGED')
-        return bytes(raw)
+        current=os.open('/',flags);descriptors.append(current)
+        components=path.parts[1:] if directory else path.parent.parts[1:]
+        for index,name in enumerate(components,1):
+            before=os.stat(name,dir_fd=current,follow_symlinks=False)
+            child=os.open(name,flags,dir_fd=current);descriptors.append(child)
+            ancestry.append((current,name,child,before));current=child
+            info=os.fstat(child)
+            if expected_root is not None and Path(path.anchor,*components[:index])==expected_root[0]:
+                require(_directory_identity(info)==expected_root[1],'SANDBOX_CAPTURE_CHANGED')
+            if index>=len(trusted.parts)-1:
+                # Owned transit remains below the private anchor. Preserve the
+                # private-mode rule for that anchor and the final parent.
+                require(info.st_uid==os.getuid() and (index not in (len(trusted.parts)-1,len(components))
+                        or not info.st_mode & 0o077),
+                        'SANDBOX_PRIVATE_CACHE_REQUIRED')
+        if directory:
+            info=os.fstat(current)
+            require(info.st_uid==os.getuid() and not info.st_mode & 0o077,
+                    'SANDBOX_PRIVATE_CACHE_REQUIRED')
+            check_ancestry();yield current,info,check_ancestry;check_ancestry()
+        else:
+            before=os.stat(path.name,dir_fd=current,follow_symlinks=False)
+            leaf=os.open(path.name,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK|os.O_CLOEXEC,
+                         dir_fd=current);descriptors.append(leaf)
+            opened=os.fstat(leaf)
+            require(stat.S_ISREG(opened.st_mode) and opened.st_nlink==1
+                    and opened.st_uid==os.getuid() and not opened.st_mode & 0o077,
+                    'SANDBOX_PRIVATE_CACHE_REQUIRED')
+            def check_leaf():
+                check_ancestry()
+                named=os.stat(path.name,dir_fd=current,follow_symlinks=False)
+                require(_cache_identity(before)==_cache_identity(os.fstat(leaf))==_cache_identity(named),
+                        'SANDBOX_CACHE_CHANGED')
+            check_leaf();yield leaf,opened,check_leaf;check_leaf()
+    except OSError as error:
+        raise ValueError('SANDBOX_CACHE_PATH_DENIED') from error
     finally:
-        os.close(fd)
+        for descriptor in reversed(descriptors):os.close(descriptor)
+
+
+def _private_path(path, trusted, *, directory=False, expected_root=None):
+    with _private_descriptor(path,trusted,directory=directory,expected_root=expected_root) as (_fd,info,_check):
+        return info
+
+
+def _private_bytes(path, trusted, maximum, *, expected_root=None):
+    with _private_descriptor(path,trusted,expected_root=expected_root) as (fd,before,check):
+        require(before.st_size<=maximum,'SANDBOX_CACHE_BOUNDS')
+        raw=bytearray()
+        while len(raw)<=maximum:
+            check()
+            part=os.read(fd,min(65536,maximum+1-len(raw)))
+            if not part:break
+            raw.extend(part)
+        check()
+        require(len(raw)==before.st_size,'SANDBOX_CACHE_CHANGED')
+        return bytes(raw)
 
 
 def _config_identity(config):
@@ -1018,13 +1070,16 @@ class LinuxSandboxBroker:
         policy.source_snapshot.verify(policy.source_repository)
         policy.source_snapshot.verify_export(policy.base_root)
 
-    def _validate_config(self, config):
+    def _validate_config(self, config, *, root_identity=None):
         policy=self.binding_policy
         require(type(config) is TrustedSandboxConfig
                 and config.root.parent==policy.trusted_root, 'SANDBOX_BINDING_ROOT_DENIED')
         root_member(config.root.name)
         _private_path(policy.trusted_root,policy.trusted_root,directory=True)
-        info=_private_path(config.root,policy.trusted_root,directory=True)
+        info=_private_path(config.root,policy.trusted_root,directory=True,
+            expected_root=(config.root,root_identity) if root_identity is not None else None)
+        root_identity=_directory_identity(info)
+        expected_root=(config.root,root_identity)
         profile=config.profile()
         require(config.profile_bytes==canonical_json_bytes(profile)
                 and canonical_sha256(profile)==config.profile_digest==policy.profile_digest
@@ -1038,7 +1093,7 @@ class LinuxSandboxBroker:
         for name,pin in profile['native'].items():
             require(name in ('worker_gate','bootstrap','setup_filter','final_filter'), 'SANDBOX_BINDING_PROFILE')
             filename=name+('.bpf' if name.endswith('filter') else '')
-            raw=_private_bytes(config.root/filename,policy.trusted_root,4194304)
+            raw=_private_bytes(config.root/filename,policy.trusted_root,4194304,expected_root=expected_root)
             require(hashlib.sha256(raw).hexdigest()==(pin['binary_sha256'] if type(pin) is dict else pin),
                     'PINNED_NATIVE_CHANGED')
             if type(pin) is dict:
@@ -1048,7 +1103,7 @@ class LinuxSandboxBroker:
         require({key:{field:entry[field] for field in ('sha256','bytes','mode')}
                  for key,entry in runtime.items()}==profile['runtime'],'PINNED_RUNTIME_CHANGED')
         for entry in runtime.values():
-            raw=_private_bytes(entry['snapshot'],policy.trusted_root,entry['bytes'])
+            raw=_private_bytes(entry['snapshot'],policy.trusted_root,entry['bytes'],expected_root=expected_root)
             require(len(raw)==entry['bytes'] and hashlib.sha256(raw).hexdigest()==entry['sha256']
                     and stat.S_IMODE(Path(entry['snapshot']).lstat().st_mode)==entry['mode'],
                     'PINNED_RUNTIME_CHANGED')
@@ -1067,7 +1122,7 @@ class LinuxSandboxBroker:
                 root_member(name)
                 require(Path(filename)==config.root/('input-'+str(index))/name,
                         'SANDBOX_CACHE_INPUT_DENIED')
-                raw=_private_bytes(filename,policy.trusted_root,limits['per_file_bytes']);size+=len(raw)
+                raw=_private_bytes(filename,policy.trusted_root,limits['per_file_bytes'],expected_root=expected_root);size+=len(raw)
                 require(hashlib.sha256(raw).hexdigest()==entry['manifest'][name],'PINNED_INPUT_CHANGED')
             require(size<=limits['total_bytes'],'TRUSTED_INPUT_SUM_BOUND')
             for name,pin in entry['expected'].items():
@@ -1079,8 +1134,7 @@ class LinuxSandboxBroker:
             require(entry['digest']==input_digest and recipe==replace(template,
                     recipe_id=recipe.recipe_id,project_root_ref='trusted-input-'+input_digest[:24],
                     tool_input_digest=input_digest), 'SANDBOX_REGISTRY_BINDING')
-        return canonical_json_bytes({'device':info.st_dev,'inode':info.st_ino,
-                                     'uid':info.st_uid,'mode':stat.S_IMODE(info.st_mode)})
+        return canonical_json_bytes(root_identity)
 
     def _derive_binding(self, binding_input, recipe_stages):
         from runtime.mission.patchset import observe_source
@@ -1133,7 +1187,9 @@ class LinuxSandboxBroker:
         self.require_route_binding(self._binding_owner)
         require(not self._closed,'SANDBOX_BROKER_CLOSED')
         specs,provenance=self._derive_binding(binding_input,recipe_stages)
-        identity=self._validate_config(config);self._pin_specs(config,specs)
+        prior=self._captures.get(config.root.name) if type(config) is TrustedSandboxConfig else None
+        identity=self._validate_config(config,root_identity=json.loads(prior.root_identity_bytes) if prior else None)
+        self._pin_specs(config,specs)
         value=_config_identity(config);config_digest=canonical_sha256(json.loads(value))
         for capture in self._captures.values():
             if capture.config_digest==config_digest:
@@ -1145,7 +1201,8 @@ class LinuxSandboxBroker:
                 return capture
         require(len(self._captures)<self.binding_policy.max_configs,'SANDBOX_CONFIG_QUOTA')
         save_host_config(config)
-        raw=_private_bytes(config.root/'host-config.json',self.binding_policy.trusted_root,4194304)
+        raw=_private_bytes(config.root/'host-config.json',self.binding_policy.trusted_root,4194304,
+            expected_root=(config.root,json.loads(identity)))
         capture=CapturedSandboxConfig(config,value,config_digest,hashlib.sha256(raw).hexdigest(),
                                       identity,provenance,binding_input)
         self._captures[config.root.name]=capture
@@ -1159,7 +1216,8 @@ class LinuxSandboxBroker:
 
     def revalidate_capture(self, capture):
         self.require_capture(capture)
-        identity=self._validate_config(capture.config)
+        expected_root=(capture.config.root,json.loads(capture.root_identity_bytes))
+        identity=self._validate_config(capture.config,root_identity=expected_root[1])
         self._source_check()
         if capture.binding_input is not None:
             stages=tuple(tuple(p) for p in json.loads(capture.provenance_bytes)['recipe_stages'])
@@ -1168,7 +1226,7 @@ class LinuxSandboxBroker:
             require(provenance==capture.provenance_bytes,'SANDBOX_BINDING_SOURCE')
         require(identity==capture.root_identity_bytes and _config_identity(capture.config)==capture.identity_bytes
                 and hashlib.sha256(_private_bytes(capture.config.root/'host-config.json',
-                    self.binding_policy.trusted_root,4194304)).hexdigest()==capture.host_config_sha256,
+                    self.binding_policy.trusted_root,4194304,expected_root=expected_root)).hexdigest()==capture.host_config_sha256,
                 'SANDBOX_CAPTURE_CHANGED')
         return capture.config
 
@@ -1210,8 +1268,9 @@ class LinuxSandboxBroker:
     def restore_capture(self, value):
         self.require_route_binding(self._binding_owner)
         root=self.binding_policy.trusted_root/root_member(value['root_ref'])
-        config=load_host_config(root,trusted_root=self.binding_policy.trusted_root)
-        identity=self._validate_config(config);self._source_check()
+        expected_root=(root,value['root_identity'])
+        config=load_host_config(root,trusted_root=self.binding_policy.trusted_root,root_identity=expected_root[1])
+        identity=self._validate_config(config,root_identity=expected_root[1]);self._source_check()
         provenance=value['provenance'];policy=self.binding_policy
         from runtime.mission.patchset import observe_source
         source=observe_source(policy.base_root,repository_id=policy.recipe.repository_id,
@@ -1219,7 +1278,7 @@ class LinuxSandboxBroker:
         require(provenance['repository_recipe_digest']==policy.recipe.digest
                 and provenance['source_snapshot_digest']==policy.source_snapshot.digest
                 and provenance['source_identity']==asdict(source),'SANDBOX_BINDING_SOURCE')
-        raw=_private_bytes(root/'host-config.json',policy.trusted_root,4194304)
+        raw=_private_bytes(root/'host-config.json',policy.trusted_root,4194304,expected_root=expected_root)
         capture=CapturedSandboxConfig(config,_config_identity(config),value['config_digest'],
             hashlib.sha256(raw).hexdigest(),identity,canonical_json_bytes(provenance),None)
         require(canonical_sha256(json.loads(capture.identity_bytes))==value['config_digest'],
@@ -2575,7 +2634,9 @@ class LinuxSandboxBroker:
             path = run / "receipt.json"
             if not path.exists() and not path.is_symlink():
                 continue
-            raw = read_evidence_file(run, "receipt.json")
+            raw = (_private_bytes(path,self.binding_policy.trusted_root,1048576,
+                       expected_root=(config.root,json.loads(capture.root_identity_bytes)))
+                   if binding is not None else read_evidence_file(run, "receipt.json"))
             receipt = json.loads(raw)
             if (
                 receipt.get("operation_digest") == inner_digest
@@ -2614,7 +2675,8 @@ class LinuxSandboxBroker:
         expected = config.inputs()[inner["payload"]["recipe_id"]]["expected"]
         for name,pin in expected.items():
             if binding is not None:
-                data=_private_bytes(run/('artifact-'+name),self.binding_policy.trusted_root,pin['bytes'])
+                data=_private_bytes(run/('artifact-'+name),self.binding_policy.trusted_root,pin['bytes'],
+                    expected_root=(config.root,json.loads(capture.root_identity_bytes)))
             else:
                 # Preserve legacy v1 support for an empty expected artifact.
                 fd=os.open(run/('artifact-'+name),os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK|os.O_CLOEXEC)

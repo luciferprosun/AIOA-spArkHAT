@@ -159,13 +159,21 @@ class ActualSandboxJobBindingTests(unittest.TestCase):
         manifest_path.write_bytes(json.dumps(manifest,sort_keys=True,indent=2).encode())
         manifest_path.chmod(0o600)
         broker.close();self.runner.close();self.core.close()
-        child=Path('/media/l/LSC_DATA3/AIOA_NZ13_PRIVATE_20261108/scripts/nz13_task2_history_readback_r1.py')
-        result=subprocess.run([__import__('sys').executable,'-I','-B',str(child),str(manifest_path)],
-            capture_output=True,timeout=120,check=False,env=dict(os.environ))
-        (self.root/'restart.log').write_bytes(result.stdout+result.stderr)
+        child=Path('/media/l/LSC_DATA3/AIOA_NZ13_PRIVATE_20261108/scripts/nz13_task2_history_readback_fix1_r4.py')
+        self.assertEqual('e31eba6543404d9150591bcd5bd14929670ef84987143ed260af556063ab7c5c',hashlib.sha256(child.read_bytes()).hexdigest())
+        try:
+            result=subprocess.run([__import__('sys').executable,'-I','-B',str(child),str(manifest_path)],
+                capture_output=True,timeout=360,check=False,env=dict(os.environ))
+        except subprocess.TimeoutExpired as failure:
+            (self.root/'restart-timeout.stdout').write_bytes(failure.stdout or b'')
+            (self.root/'restart-timeout.stderr').write_bytes(failure.stderr or b'')
+            raise
+        (self.root/'restart-fix1.log').write_bytes(result.stdout+result.stderr)
         self.assertEqual(0,result.returncode,result.stderr.decode())
-        report=json.loads((self.root/'restart-result.json').read_bytes())
+        report=json.loads((self.root/'restart-fix1-result.json').read_bytes())
         self.assertEqual(('HISTORY_ONLY',0,8),(report['mode'],report['project_acks'],report['readbacks']))
+        self.assertEqual(8,len(report['negative_readback_cases']))
+        self.assertTrue(all(case['baseline']=='Applied' and case['metadata_restore']=='HISTORY_ONLY' and case['verification']=='DENIED' and case['sql_unchanged'] and case['exposure_unchanged'] for case in report['negative_readback_cases']))
         print('ACTUAL_TASK2_FIXTURE',self.root,'ACKS',len(receipts),'BROKER',id(broker),'ROUTE',id(route))
 
 
