@@ -9,6 +9,7 @@ import json
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
+from os import getpid
 from threading import get_ident
 from types import MethodType
 
@@ -18,6 +19,8 @@ from nonzero_cloudops.adapters.portable import (
     PortableInventoryObservation,
     PortableStateStore,
     _canonical_inventory_bytes,
+    _NonTransferableGuardValue,
+    _PortableGuardEntry,
 )
 from nonzero_cloudops.models import (
     ApprovalDecision,
@@ -36,7 +39,7 @@ from nonzero_cloudops.models.public_enums import AuthorityGate
 from lab.archaioa.decision_root import DecisionDependencyRoot
 from lab.archaioa.evidence import EvidenceRef
 from lab.archaioa.faults import opaque_id
-from lab.archaioa.outcome import Applied
+from lab.archaioa.outcome import Applied, NotApplied
 from lab.archaioa.warrant import EffectWarrant
 from runtime.core_admission import Capability
 from runtime.memory_patch.contracts.serialization import (
@@ -47,9 +50,11 @@ from runtime.memory_patch.persistence.ports import TransactionContext
 from runtime.mission.liability import Reconciliation
 from runtime.mission.target_projection import REGISTERED_HEAD, CoreTargetProjection
 from runtime.mission.target_settlement import (
+    FencedNoReleaseCertificate,
     TargetExecutionAck,
     TargetObservation,
     TargetWriteObservation,
+    VerifiedNoReleaseSettlement,
     VerifiedTargetSettlement,
 )
 from runtime.mission.warrant import require
@@ -300,7 +305,34 @@ class CorePortableTarget:
     def target_guard(self):
         self._require_config()
         with self.store.target_guard():
-            yield
+            entry = self.store._current_guard_entry()
+            capture = self._capture_guard(entry) if entry.owns_outer_lock else None
+            previous = getattr(self.store._held_lock, 'core_no_release_capture', None)
+            self.store._held_lock.core_no_release_capture = capture
+            try:
+                yield
+            finally:
+                if previous is None:
+                    del self.store._held_lock.core_no_release_capture
+                else:
+                    self.store._held_lock.core_no_release_capture = previous
+
+    def _capture_guard(self, entry):
+        entry.require_outer_owner(self.store)
+        def read(tx):
+            row, state = self.projection.load(tx)
+            flight = state['in_flight']
+            intent_revision, intent_bytes, consumption_digest, liability_id = 0, b'', '', ''
+            if flight is not None:
+                warrant = EffectWarrant.from_dict(flight['warrant'])
+                intent_row, intent = self.projection.journal._load(tx, warrant)
+                require(intent_row is not None, 'NO_RELEASE_CAPTURE_INTENT_REQUIRED')
+                intent_revision, intent_bytes = intent_row.revision, canonical_json_bytes(intent)
+                consumption_digest = canonical_sha256(self.projection.journal.ledger._receipt(warrant))
+                liability_id = self.projection._liability_entry(tx, warrant, None)
+            return _PortableGuardCapture(self, entry, row.revision, canonical_json_bytes(state),
+                intent_revision, intent_bytes, consumption_digest, liability_id, _NO_RELEASE_ISSUER)
+        return self._read(read)
 
     def probe(self):
         self._require_config()
@@ -396,6 +428,8 @@ class CorePortableTarget:
         self._require_config()
         _parsed, _proposal, _evidence, _approval, intent = self._domain_projection(operation, warrant)
         receipt = self.executor.get_receipt(intent.idempotency_key)
+        if receipt is None:
+            return self._verify_no_release(operation, warrant)
         require(type(receipt) is LocalExecutionReceipt, 'PORTABLE_DURABLE_RECEIPT_REQUIRED')
         verified = self.store.verify(receipt, verified_at=self._now())
         observed = self.store.observe_guarded_inventory()
@@ -419,6 +453,44 @@ class CorePortableTarget:
                 candidate.receipts_root, candidate.guard_fingerprint, receipt_id, receipt.receipt_hash, readback)
             return VerifiedTargetSettlement(resolution, target)
         return self._read(read)
+
+
+    def _verify_no_release(self, operation, warrant):
+        capture = getattr(self.store._held_lock, 'core_no_release_capture', None)
+        require(type(capture) is _PortableGuardCapture, 'NO_RELEASE_FRESH_GUARD_REQUIRED')
+        capture.require_live(self)
+        state = json.loads(capture.head_bytes)
+        flight = state['in_flight']
+        require(state['schema'] == REGISTERED_HEAD and type(flight) is dict
+                and flight['phase'] == 'STARTED' and flight['write_observation'] is None
+                and flight['ack'] is None and flight['warrant_digest'] == warrant.digest()
+                and flight['warrant'] == warrant.to_dict(), 'NO_RELEASE_CAPTURED_START_REQUIRED')
+        def checked(tx):
+            row, current = self.projection.load(tx)
+            intent_row, intent = self.projection.journal._load(tx, warrant)
+            require(row.revision == capture.head_revision and canonical_json_bytes(current) == capture.head_bytes
+                    and intent_row is not None and intent_row.revision == capture.intent_revision
+                    and canonical_json_bytes(intent) == capture.intent_bytes,
+                    'NO_RELEASE_CAPTURE_CHANGED')
+        self._read(checked)
+        observed = self.store.observe_guarded_inventory()
+        require(observed.guard_fingerprint == self._binding.guard_fingerprint
+                and (observed.state_root, observed.resources_root, observed.receipts_root)
+                == (state['state_root'], state['resources_root'], state['receipts_root']),
+                'NO_RELEASE_COMPLETE_ROOT_DRIFT')
+        certificate = FencedNoReleaseCertificate(self._binding.digest(), warrant.operation_hash,
+            warrant.digest(), capture.head_revision, state['generation'], capture.intent_revision,
+            state['history_digest'], hashlib.sha256(capture.head_bytes).hexdigest(),
+            hashlib.sha256(capture.intent_bytes).hexdigest(), capture.consumption_digest, capture.liability_id,
+            observed.state_root, observed.resources_root, observed.receipts_root, observed.guard_fingerprint)
+        resolution = Reconciliation(warrant.operation_hash, NotApplied(), certificate.receipt(), certificate.readback())
+        target = TargetObservation(self.projection.scope, self.projection.workspace,
+            self._binding.target_id, self._binding.incarnation, capture.head_revision, state['generation'],
+            warrant.operation_hash, observed.state_root, observed.state_root, observed.resources_root,
+            observed.receipts_root, observed.guard_fingerprint, certificate.receipt().evidence_id,
+            certificate.digest(), certificate.readback_digest())
+        witness = _PortableNoReleaseWitness(capture, certificate, _NO_RELEASE_ISSUER)
+        return VerifiedNoReleaseSettlement(resolution, target, certificate, witness)
 
 
 _START_ACK_ISSUER = object()
@@ -480,7 +552,8 @@ class CorePortableWriteRelease:
         self.warrant, self.operation = warrant, PortableOperation.parse(operation)
         self.completion, self.limits, self.adapter = completion, limits, route.executor
         self.cancel = cancel
-        self._thread = get_ident()
+        self._thread, self._pid = get_ident(), getpid()
+        self._lock_lifetime = self.adapter.store._current_guard_entry()._lifetime
         self._guard = getattr(self.adapter.store._held_lock, 'target_binding', None)
         self._active, self._attempted, self._consumed = True, False, False
         self.require_store(self.adapter.store)
@@ -490,13 +563,21 @@ class CorePortableWriteRelease:
         require(cls is CorePortableWriteRelease, 'PORTABLE_RELEASE_PORT_REQUIRED')
         return cls(route, principal, session_id, warrant, operation, completion, limits, ack, cancel)
 
-    def require_store(self, store):
-        require(self._active and get_ident() == self._thread and store is self.adapter.store
-                and type(self._guard) is dict
+    def require_live_binding(self, store):
+        """Pure binding check; never read the filesystem inside a Core retry."""
+        require(self._active and get_ident() == self._thread and getpid() == self._pid
+                and store is self.adapter.store and type(self._guard) is dict
                 and getattr(store._held_lock, 'target_binding', None) is self._guard
-                and getattr(store._held_lock, 'exclusive', None) is True, 'PORTABLE_LIVE_WRITE_PORT_REQUIRED')
+                and getattr(store._held_lock, 'exclusive', None) is True
+                and self._guard.get('failed') is False
+                and self._guard.get('identity') == self._lock_lifetime._identity,
+                'PORTABLE_LIVE_WRITE_PORT_REQUIRED')
+        self._lock_lifetime.require_live(store)
         self.adapter.require_route_binding(self.route)
         self.route.core.require(self.principal, Capability.COMMIT, scope=self.route.scope)
+
+    def require_store(self, store):
+        self.require_live_binding(store)
         store._check_target_guard()
 
     def _cancel_check(self):
@@ -542,3 +623,59 @@ class CorePortableWriteRelease:
 
     def close(self):
         self._active = False
+
+
+_NO_RELEASE_ISSUER = object()
+
+
+@dataclass(frozen=True, slots=True)
+class _PortableGuardCapture(_NonTransferableGuardValue):
+    adapter: object
+    entry: _PortableGuardEntry
+    head_revision: int
+    head_bytes: bytes
+    intent_revision: int
+    intent_bytes: bytes
+    consumption_digest: str
+    liability_id: str
+    _issuer: object = field(repr=False, compare=False)
+
+    def __post_init__(self):
+        require(self._issuer is _NO_RELEASE_ISSUER and type(self.adapter) is CorePortableTarget
+                and type(self.entry) is _PortableGuardEntry, 'NO_RELEASE_CAPTURE_ISSUER')
+
+    def require_live(self, adapter):
+        require(adapter is self.adapter and getattr(adapter.store._held_lock, 'core_no_release_capture', None) is self,
+                'NO_RELEASE_CURRENT_CAPTURE_REQUIRED')
+        self.entry.require_outer_owner(adapter.store)
+        require(getattr(adapter.store._held_lock, 'write_release', None) is None, 'NO_RELEASE_ACTIVE_WRITE_PORT')
+        adapter._require_config()
+
+
+@dataclass(frozen=True, slots=True)
+class _PortableNoReleaseWitness(_NonTransferableGuardValue):
+    capture: _PortableGuardCapture
+    certificate: FencedNoReleaseCertificate
+    _issuer: object = field(repr=False, compare=False)
+
+    def __post_init__(self):
+        require(self._issuer is _NO_RELEASE_ISSUER and type(self.capture) is _PortableGuardCapture
+                and type(self.certificate) is FencedNoReleaseCertificate, 'NO_RELEASE_WITNESS_ISSUER')
+
+    def require_live(self, verified, *, projection=None, warrant=None):
+        # Pure reference/process/configuration checks only; no imports or I/O.
+        capture, certificate = self.capture, self.certificate
+        adapter = capture.adapter
+        capture.require_live(adapter)
+        require(verified.certificate is certificate
+                and certificate.binding_digest == adapter._binding.digest()
+                and certificate.head_digest == hashlib.sha256(capture.head_bytes).hexdigest()
+                and certificate.intent_digest == hashlib.sha256(capture.intent_bytes).hexdigest()
+                and certificate.expected_head_revision == capture.head_revision
+                and certificate.intent_revision == capture.intent_revision
+                and certificate.consumption_digest == capture.consumption_digest
+                and certificate.liability_id == capture.liability_id, 'NO_RELEASE_LIVE_PROOF_BINDING')
+        if projection is not None:
+            require(projection is adapter.projection and type(warrant) is EffectWarrant
+                    and certificate.warrant_digest == warrant.digest()
+                    and certificate.operation_digest == warrant.operation_hash, 'NO_RELEASE_CORE_BINDING')

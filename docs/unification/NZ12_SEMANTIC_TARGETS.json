@@ -8832,8 +8832,8 @@
     },
     "runtime/nonzero_cloudops/adapters/portable.py": {
       "path": "runtime/nonzero_cloudops/adapters/portable.py",
-      "git_blob": "7d91d714658cde208891c0c0395c02389bde056f",
-      "sha256": "bd966ce10f99f4d610df279bbd1273401c329c15de488fe2c988c89f94f263d3",
+      "git_blob": "a2b86a24a7d99efaac1245580d037da1afc62002",
+      "sha256": "ac01e6d343a26ada477034797ec20d7edb6b175e2b33c68422030b987695f603",
       "definitions": [
         {
           "name": "PortableMutationError",
@@ -8856,20 +8856,32 @@
           "line": 78
         },
         {
+          "name": "_NonTransferableGuardValue",
+          "line": 126
+        },
+        {
+          "name": "_PortableLockLifetime",
+          "line": 139
+        },
+        {
+          "name": "_PortableGuardEntry",
+          "line": 168
+        },
+        {
           "name": "_managed_layout_for",
-          "line": 123
+          "line": 197
         },
         {
           "name": "PortableStateStore",
-          "line": 145
+          "line": 219
         },
         {
           "name": "PortableResourceReader",
-          "line": 770
+          "line": 878
         },
         {
           "name": "PortableExecutor",
-          "line": 791
+          "line": 899
         },
         {
           "name": "__post_init__",
@@ -8880,124 +8892,172 @@
           "line": 119
         },
         {
+          "name": "__copy__",
+          "line": 129
+        },
+        {
+          "name": "__deepcopy__",
+          "line": 132
+        },
+        {
+          "name": "__reduce_ex__",
+          "line": 135
+        },
+        {
           "name": "__init__",
-          "line": 148
+          "line": 143
         },
         {
-          "name": "_require_managed_ready",
-          "line": 189
+          "name": "require_live",
+          "line": 151
         },
         {
-          "name": "path",
-          "line": 218
+          "name": "expire",
+          "line": 163
         },
         {
-          "name": "_lock",
+          "name": "__post_init__",
+          "line": 174
+        },
+        {
+          "name": "authority",
+          "line": 180
+        },
+        {
+          "name": "require_live",
+          "line": 183
+        },
+        {
+          "name": "require_outer_owner",
+          "line": 191
+        },
+        {
+          "name": "__init__",
           "line": 222
         },
         {
+          "name": "_require_managed_ready",
+          "line": 263
+        },
+        {
+          "name": "path",
+          "line": 292
+        },
+        {
+          "name": "_lock",
+          "line": 296
+        },
+        {
           "name": "_target_guard_identity",
-          "line": 252
+          "line": 336
         },
         {
           "name": "_check_target_guard",
-          "line": 269
+          "line": 353
+        },
+        {
+          "name": "_guard_entry_lifetime",
+          "line": 365
+        },
+        {
+          "name": "_current_guard_entry",
+          "line": 380
         },
         {
           "name": "target_guard",
-          "line": 281
+          "line": 388
         },
         {
           "name": "observe_guarded_inventory",
-          "line": 309
+          "line": 417
         },
         {
           "name": "_initial_snapshot",
-          "line": 329
+          "line": 437
         },
         {
           "name": "_load",
-          "line": 340
+          "line": 448
         },
         {
           "name": "_payload",
-          "line": 405
+          "line": 513
         },
         {
           "name": "_core_write_lifetime",
-          "line": 420
+          "line": 528
         },
         {
           "name": "_write",
-          "line": 435
+          "line": 543
         },
         {
           "name": "get_resource",
-          "line": 469
+          "line": 577
         },
         {
           "name": "assert_ready",
-          "line": 483
+          "line": 591
         },
         {
           "name": "get_receipt",
-          "line": 489
+          "line": 597
         },
         {
           "name": "_released_receipts",
-          "line": 494
+          "line": 602
         },
         {
           "name": "released_default_resource_receipts",
-          "line": 508
+          "line": 616
         },
         {
           "name": "rearm_verified_demo_resource",
-          "line": 524
+          "line": 632
         },
         {
           "name": "execute",
-          "line": 563
+          "line": 671
         },
         {
           "name": "_validate_execution_binding",
-          "line": 680
+          "line": 788
         },
         {
           "name": "verify",
-          "line": 716
+          "line": 824
         },
         {
           "name": "__init__",
-          "line": 773
+          "line": 881
         },
         {
           "name": "adapter_name",
-          "line": 781
+          "line": 889
         },
         {
           "name": "get_resource",
-          "line": 784
+          "line": 892
         },
         {
           "name": "__init__",
-          "line": 794
+          "line": 902
         },
         {
           "name": "execute",
-          "line": 809
+          "line": 917
         },
         {
           "name": "counters",
-          "line": 833
+          "line": 941
         },
         {
           "name": "get_receipt",
-          "line": 839
+          "line": 947
         },
         {
           "name": "verify",
-          "line": 842
+          "line": 950
         }
       ],
       "symbolic_callees": [
@@ -9020,19 +9080,24 @@
         "TypeAdapter",
         "TypeError",
         "ValueError",
+        "_PortableGuardEntry",
+        "_PortableLockLifetime",
         "_RESOURCE_ADAPTER.validate_python",
         "_canonical_inventory_bytes",
         "_managed_layout_for",
         "any",
         "atomic_write_private_json",
+        "binding.get",
         "callable",
         "compute_evidence_digest",
         "current.model_copy",
         "dataclass",
         "default_mock_resources",
+        "entry.require_live",
         "enumerate",
         "evidence.stable_fingerprint",
         "field",
+        "get_ident",
         "getattr",
         "hashlib.sha256",
         "hashlib.sha256().hexdigest",
@@ -9041,12 +9106,16 @@
         "json.dumps().encode",
         "json.loads",
         "len",
+        "lifetime.expire",
+        "lifetime.require_live",
         "local",
         "locked_private_file",
         "next",
+        "object",
         "object.__setattr__",
         "open_local_payload",
         "os.fstat",
+        "os.getpid",
         "os.getuid",
         "parent.lstat",
         "part.startswith",
@@ -9071,7 +9140,9 @@
         "seal_local_payload",
         "self._check_target_guard",
         "self._clock",
+        "self._guard_entry_lifetime",
         "self._initial_snapshot",
+        "self._lifetime.require_live",
         "self._load",
         "self._lock",
         "self._lock_path.lstat",
@@ -9091,6 +9162,7 @@
         "self._write",
         "self.observe_guarded_inventory",
         "self.read_calls.append",
+        "self.require_live",
         "set",
         "sorted",
         "stat.S_IMODE",
@@ -9103,8 +9175,8 @@
         "validate_local_path",
         "values.items"
       ],
-      "call_site_count": 287,
-      "call_sites_sha256": "64d442de3f71b43c147f8e4455756b7eb0f18f47cb2b2d7d1c1c105b0420a3d0"
+      "call_site_count": 330,
+      "call_sites_sha256": "6cb92d761021c13cdc36d4128280ec1aecdf50e9ac3065612a0ac57e02ba17c0"
     },
     "runtime/main.py": {
       "path": "runtime/main.py",
@@ -14559,256 +14631,256 @@
     },
     "runtime/mission/tools.py": {
       "path": "runtime/mission/tools.py",
-      "git_blob": "d279afa7a8af9820598e3071a4c5e5654ea55031",
-      "sha256": "c08c5fd375aff54ca9f98f29b02fd62b7c0c4ca01b49f4582a3ae8a411d096a5",
+      "git_blob": "a58d225303428f4bbba93c63baef833878f4085e",
+      "sha256": "9d2f25e52009030149ecdb5f8b2210527334e508fac8b4709e0cc8e338242139",
       "definitions": [
         {
           "name": "ToolCapability",
-          "line": 69
+          "line": 70
         },
         {
           "name": "tool_capability",
-          "line": 94
+          "line": 95
         },
         {
           "name": "application_path",
-          "line": 102
+          "line": 103
         },
         {
           "name": "TargetSnapshot",
-          "line": 119
+          "line": 120
         },
         {
           "name": "ToolDispatchLimits",
-          "line": 130
+          "line": 131
         },
         {
           "name": "SessionGrant",
-          "line": 147
+          "line": 148
         },
         {
           "name": "LocalSessionGrant",
-          "line": 200
+          "line": 201
         },
         {
           "name": "CoreToolRoute",
-          "line": 204
+          "line": 205
         },
         {
           "name": "__post_init__",
-          "line": 124
+          "line": 125
         },
         {
           "name": "__post_init__",
-          "line": 140
+          "line": 141
         },
         {
           "name": "__post_init__",
-          "line": 163
+          "line": 164
         },
         {
           "name": "to_dict",
-          "line": 181
+          "line": 182
         },
         {
           "name": "parse",
-          "line": 186
+          "line": 187
         },
         {
           "name": "digest",
-          "line": 195
+          "line": 196
         },
         {
           "name": "__init__",
-          "line": 206
+          "line": 207
         },
         {
           "name": "_require_target_binding",
-          "line": 232
+          "line": 233
         },
         {
           "name": "_target_snapshot",
-          "line": 255
+          "line": 256
         },
         {
           "name": "_context_target_snapshot",
-          "line": 267
+          "line": 268
         },
         {
           "name": "_probe_target",
-          "line": 275
+          "line": 276
         },
         {
           "name": "_run",
-          "line": 279
+          "line": 280
         },
         {
           "name": "session_key",
-          "line": 287
+          "line": 288
         },
         {
           "name": "_session",
-          "line": 291
+          "line": 292
         },
         {
           "name": "create_session",
-          "line": 324
+          "line": 325
         },
         {
           "name": "validate_registered_local",
-          "line": 348
+          "line": 349
         },
         {
           "name": "dispatch_registered_local",
-          "line": 375
+          "line": 376
         },
         {
           "name": "revoke_session",
-          "line": 380
+          "line": 381
         },
         {
           "name": "_revoke_session",
-          "line": 385
-        },
-        {
-          "name": "operation",
-          "line": 393
-        },
-        {
-          "name": "_synthetic_operation",
-          "line": 407
-        },
-        {
-          "name": "_operation",
-          "line": 419
-        },
-        {
-          "name": "_snapshot_operation",
-          "line": 448
-        },
-        {
-          "name": "_ddr",
-          "line": 457
-        },
-        {
-          "name": "_context_key",
-          "line": 464
-        },
-        {
-          "name": "_context",
-          "line": 467
-        },
-        {
-          "name": "_mode",
-          "line": 527
-        },
-        {
-          "name": "_sandbox_scope",
-          "line": 533
-        },
-        {
-          "name": "_portable_scope",
-          "line": 548
-        },
-        {
-          "name": "_sandbox_request",
-          "line": 558
-        },
-        {
-          "name": "_native_job",
-          "line": 571
-        },
-        {
-          "name": "authorize",
-          "line": 587
-        },
-        {
-          "name": "authorize_exact",
-          "line": 592
-        },
-        {
-          "name": "_authorize",
-          "line": 606
-        },
-        {
-          "name": "_check",
-          "line": 691
-        },
-        {
-          "name": "_retained",
-          "line": 715
-        },
-        {
-          "name": "dispatch",
-          "line": 731
-        },
-        {
-          "name": "_dispatch",
-          "line": 745
-        },
-        {
-          "name": "inspect",
-          "line": 861
-        },
-        {
-          "name": "reconcile",
-          "line": 871
-        },
-        {
-          "name": "_reconcile",
-          "line": 876
-        },
-        {
-          "name": "checked",
-          "line": 282
-        },
-        {
-          "name": "change",
-          "line": 326
-        },
-        {
-          "name": "change",
           "line": 386
         },
         {
-          "name": "change",
-          "line": 617
+          "name": "operation",
+          "line": 394
         },
         {
-          "name": "start",
-          "line": 753
+          "name": "_synthetic_operation",
+          "line": 408
         },
         {
-          "name": "readback",
-          "line": 804
+          "name": "_operation",
+          "line": 420
         },
         {
-          "name": "read",
+          "name": "_snapshot_operation",
+          "line": 449
+        },
+        {
+          "name": "_ddr",
+          "line": 458
+        },
+        {
+          "name": "_context_key",
+          "line": 465
+        },
+        {
+          "name": "_context",
+          "line": 468
+        },
+        {
+          "name": "_mode",
+          "line": 528
+        },
+        {
+          "name": "_sandbox_scope",
+          "line": 534
+        },
+        {
+          "name": "_portable_scope",
+          "line": 549
+        },
+        {
+          "name": "_sandbox_request",
+          "line": 559
+        },
+        {
+          "name": "_native_job",
+          "line": 572
+        },
+        {
+          "name": "authorize",
+          "line": 588
+        },
+        {
+          "name": "authorize_exact",
+          "line": 593
+        },
+        {
+          "name": "_authorize",
+          "line": 607
+        },
+        {
+          "name": "_check",
+          "line": 692
+        },
+        {
+          "name": "_retained",
+          "line": 716
+        },
+        {
+          "name": "dispatch",
+          "line": 732
+        },
+        {
+          "name": "_dispatch",
+          "line": 746
+        },
+        {
+          "name": "inspect",
           "line": 862
         },
         {
-          "name": "read",
+          "name": "reconcile",
+          "line": 872
+        },
+        {
+          "name": "_reconcile",
           "line": 877
         },
         {
+          "name": "checked",
+          "line": 283
+        },
+        {
           "name": "change",
-          "line": 905
+          "line": 327
+        },
+        {
+          "name": "change",
+          "line": 387
+        },
+        {
+          "name": "change",
+          "line": 618
+        },
+        {
+          "name": "start",
+          "line": 754
+        },
+        {
+          "name": "readback",
+          "line": 805
+        },
+        {
+          "name": "read",
+          "line": 863
+        },
+        {
+          "name": "read",
+          "line": 878
+        },
+        {
+          "name": "change",
+          "line": 907
         },
         {
           "name": "prepare",
-          "line": 813
+          "line": 814
         },
         {
           "name": "release_check",
-          "line": 826
+          "line": 827
         },
         {
           "name": "record_ack",
-          "line": 852
+          "line": 853
         },
         {
           "name": "check",
-          "line": 828
+          "line": 829
         }
       ],
       "symbolic_callees": [
@@ -14987,7 +15059,7 @@
         "warrant.to_dict"
       ],
       "call_site_count": 560,
-      "call_sites_sha256": "238589b81a9127b10deba272b044a788a57e0b49aab1461456d863c612926195"
+      "call_sites_sha256": "f762846b75ebc7c4787b508280b16355145e456ac107946947b7b9d479d8983e"
     },
     "runtime/mission/verification.py": {
       "path": "runtime/mission/verification.py",
@@ -16991,152 +17063,157 @@
     },
     "runtime/mission/target_projection.py": {
       "path": "runtime/mission/target_projection.py",
-      "git_blob": "1092e9850f7d5dd87140cf5a0a213b7f19df2551",
-      "sha256": "4553bae0009acb270901a4126cc18ac55af7add9828b1c5d537622238410a1a4",
+      "git_blob": "66970bfb051d61d1053a4d241248aa9458da433d",
+      "sha256": "a9d0e99db7d66c96890981a279ce4cb93cfd1e67e8a82f76acb0cca081cd9baa",
       "definitions": [
         {
           "name": "_json",
-          "line": 57
-        },
-        {
-          "name": "_digest",
           "line": 61
         },
         {
+          "name": "_digest",
+          "line": 65
+        },
+        {
           "name": "CoreTargetProjection",
-          "line": 67
+          "line": 71
         },
         {
           "name": "__init__",
-          "line": 70
+          "line": 74
         },
         {
           "name": "history_key",
-          "line": 83
-        },
-        {
-          "name": "_revision",
           "line": 87
         },
         {
+          "name": "_revision",
+          "line": 91
+        },
+        {
           "name": "_context",
-          "line": 90
+          "line": 94
         },
         {
           "name": "prepare_existing_adoption",
-          "line": 104
+          "line": 108
         },
         {
           "name": "_adoption_gate",
-          "line": 134
+          "line": 138
         },
         {
           "name": "_target_rows",
-          "line": 146
+          "line": 150
         },
         {
           "name": "_require_no_named_adoption",
-          "line": 153
+          "line": 157
         },
         {
           "name": "_require_no_adoption_warrants",
-          "line": 163
+          "line": 167
         },
         {
           "name": "_registration",
-          "line": 177
+          "line": 181
         },
         {
           "name": "_require_adoption_warrant",
-          "line": 198
+          "line": 202
         },
         {
           "name": "_adoption_commitment",
-          "line": 215
-        },
-        {
-          "name": "adopt_existing_in_transaction",
           "line": 219
         },
         {
+          "name": "adopt_existing_in_transaction",
+          "line": 223
+        },
+        {
           "name": "_check_registered_genesis",
-          "line": 259
+          "line": 263
         },
         {
           "name": "encode_existing_baseline",
-          "line": 287
+          "line": 291
         },
         {
           "name": "_require_warrant_binding",
-          "line": 299
+          "line": 303
         },
         {
           "name": "_liability_entry",
-          "line": 305
+          "line": 309
+        },
+        {
+          "name": "_check_no_release_certificate",
+          "line": 319
         },
         {
           "name": "_observation",
-          "line": 315
+          "line": 344
         },
         {
           "name": "_write_observation",
-          "line": 321
+          "line": 350
         },
         {
           "name": "_write_operation_binding",
-          "line": 333
+          "line": 362
         },
         {
           "name": "_details",
-          "line": 342
+          "line": 371
         },
         {
           "name": "_checked_details",
-          "line": 349
+          "line": 378
         },
         {
           "name": "load",
-          "line": 470
+          "line": 514
         },
         {
           "name": "_save_head",
-          "line": 474
+          "line": 518
         },
         {
           "name": "_flight",
-          "line": 478
+          "line": 522
         },
         {
           "name": "start_in_transaction",
-          "line": 486
+          "line": 530
         },
         {
           "name": "before_release_in_transaction",
-          "line": 505
+          "line": 549
         },
         {
           "name": "record_ack_in_transaction",
-          "line": 523
+          "line": 567
         },
         {
           "name": "apply_resolution_in_transaction",
-          "line": 532
+          "line": 576
         },
         {
           "name": "check_history_in_transaction",
-          "line": 563
+          "line": 619
         },
         {
           "name": "prepare",
-          "line": 120
+          "line": 124
         }
       ],
-      "call_site_count": 344,
+      "call_site_count": 375,
       "symbolic_callees": [
         "EffectWarrant.from_dict",
         "ExistingTargetAdoption",
         "ExistingTargetAdoption.from_dict",
         "FaultTrace.from_dict",
+        "FencedNoReleaseCertificate.parse",
         "OwnerScope",
         "Reconciliation.from_dict",
         "StoredRecord",
@@ -17145,6 +17222,8 @@
         "TargetObservation",
         "TargetWriteObservation.parse",
         "TransactionContext",
+        "Unknown",
+        "Unknown().to_dict",
         "VerifiedTargetSettlement",
         "WarrantError",
         "_digest",
@@ -17156,6 +17235,7 @@
         "candidate.payload.get",
         "canonical_json_bytes",
         "canonical_sha256",
+        "certificate.require_resolution",
         "cls",
         "enumerate",
         "format",
@@ -17187,6 +17267,7 @@
         "secrets.token_hex",
         "self._adoption_commitment",
         "self._adoption_gate",
+        "self._check_no_release_certificate",
         "self._check_registered_genesis",
         "self._checked_details",
         "self._context",
@@ -17232,159 +17313,222 @@
         "tx.scan",
         "type",
         "value.get",
+        "verified.certificate.to_dict",
+        "verified.require_live",
         "warrant.digest",
         "warrant.to_dict",
         "witness.payload.get"
       ],
-      "call_sites_sha256": "3dd9a3fd55be0d6e3b43671cf8d774b4b109fd285a2ecffd7d43417a98cb1102"
+      "call_sites_sha256": "2ca329489aecb23c366abcb2664f7cee84f629f33cb51868a620493554a4de73"
     },
     "runtime/mission/target_settlement.py": {
       "path": "runtime/mission/target_settlement.py",
-      "git_blob": "4769de85f85797ce31c7210a36439fce5af07a4c",
-      "sha256": "8ffc18002d53984bac61d7436621fa570e3709f5082ac111f32e0c8ce2578fe2",
+      "git_blob": "1b40ed9cec2997cbfe4407a26610efd5ee68801c",
+      "sha256": "bd39abec63deb920bf6a2c0055a4196b6a8e6bf4041d6228732315f503e12826",
       "definitions": [
         {
           "name": "_root",
-          "line": 22
+          "line": 23
         },
         {
           "name": "TargetBinding",
-          "line": 31
+          "line": 32
         },
         {
           "name": "TargetExecutionAck",
-          "line": 79
+          "line": 80
         },
         {
           "name": "TargetObservation",
-          "line": 104
+          "line": 105
         },
         {
           "name": "VerifiedTargetSettlement",
-          "line": 141
+          "line": 142
         },
         {
           "name": "TargetWriteObservation",
-          "line": 156
+          "line": 157
         },
         {
           "name": "TargetSettlementPort",
-          "line": 198
+          "line": 199
         },
         {
           "name": "ExistingTargetAdoption",
-          "line": 228
+          "line": 229
+        },
+        {
+          "name": "FencedNoReleaseCertificate",
+          "line": 294
+        },
+        {
+          "name": "VerifiedNoReleaseSettlement",
+          "line": 369
         },
         {
           "name": "__post_init__",
-          "line": 43
+          "line": 44
         },
         {
           "name": "digest",
-          "line": 49
+          "line": 50
         },
         {
           "name": "evidence",
-          "line": 54
+          "line": 55
         },
         {
           "name": "require_observation",
-          "line": 58
+          "line": 59
         },
         {
           "name": "require_ack",
-          "line": 64
+          "line": 65
         },
         {
           "name": "require_write",
-          "line": 70
+          "line": 71
         },
         {
           "name": "__post_init__",
-          "line": 92
+          "line": 93
         },
         {
           "name": "to_dict",
-          "line": 99
+          "line": 100
         },
         {
           "name": "__post_init__",
-          "line": 128
+          "line": 129
         },
         {
           "name": "__post_init__",
-          "line": 145
+          "line": 146
         },
         {
           "name": "__post_init__",
-          "line": 176
+          "line": 177
         },
         {
           "name": "to_dict",
-          "line": 187
+          "line": 188
         },
         {
           "name": "parse",
-          "line": 191
+          "line": 192
         },
         {
           "name": "start_in_transaction",
-          "line": 214
-        },
-        {
-          "name": "before_release_in_transaction",
           "line": 215
         },
         {
-          "name": "record_ack_in_transaction",
+          "name": "before_release_in_transaction",
           "line": 216
         },
         {
-          "name": "apply_resolution_in_transaction",
+          "name": "record_ack_in_transaction",
           "line": 217
         },
         {
-          "name": "check_history_in_transaction",
+          "name": "apply_resolution_in_transaction",
           "line": 218
         },
         {
+          "name": "check_history_in_transaction",
+          "line": 219
+        },
+        {
           "name": "__post_init__",
-          "line": 242
+          "line": 243
         },
         {
           "name": "target_revision",
-          "line": 249
+          "line": 250
         },
         {
           "name": "target_key",
-          "line": 253
+          "line": 254
         },
         {
           "name": "to_dict",
-          "line": 258
+          "line": 259
         },
         {
           "name": "from_dict",
-          "line": 262
+          "line": 263
         },
         {
           "name": "digest",
-          "line": 276
+          "line": 277
         },
         {
           "name": "evidence",
-          "line": 279
+          "line": 280
         },
         {
           "name": "operation",
-          "line": 283
+          "line": 284
+        },
+        {
+          "name": "__post_init__",
+          "line": 312
+        },
+        {
+          "name": "to_dict",
+          "line": 324
+        },
+        {
+          "name": "parse",
+          "line": 328
+        },
+        {
+          "name": "digest",
+          "line": 333
+        },
+        {
+          "name": "readback_digest",
+          "line": 336
+        },
+        {
+          "name": "receipt",
+          "line": 343
+        },
+        {
+          "name": "readback",
+          "line": 348
+        },
+        {
+          "name": "require_resolution",
+          "line": 353
+        },
+        {
+          "name": "__post_init__",
+          "line": 376
+        },
+        {
+          "name": "require_live",
+          "line": 384
+        },
+        {
+          "name": "__copy__",
+          "line": 388
+        },
+        {
+          "name": "__deepcopy__",
+          "line": 391
+        },
+        {
+          "name": "__reduce_ex__",
+          "line": 394
         }
       ],
-      "call_site_count": 83,
+      "call_site_count": 129,
       "symbolic_callees": [
         "EvidenceRef",
         "OwnerScope",
         "TargetBinding",
+        "TypeError",
         "_root",
         "all",
         "asdict",
@@ -17392,26 +17536,33 @@
         "cls",
         "dataclass",
         "digest_id",
+        "field",
         "getattr",
         "len",
         "opaque_id",
         "require",
+        "self._witness.require_live",
         "self.binding.digest",
+        "self.certificate.require_resolution",
         "self.digest",
+        "self.readback",
+        "self.readback_digest",
+        "self.receipt",
         "self.resolution.readback.digest.removeprefix",
         "self.resolution.receipt.digest.removeprefix",
         "self.scope.binding",
         "self.to_dict",
         "set",
         "type",
+        "value.items",
         "warrant.digest"
       ],
-      "call_sites_sha256": "5a3fc9bbdb3209972929a2d9216c17e3f48ec8657c13640698ad048494449195"
+      "call_sites_sha256": "d7032aee9e8c7e56f6d83bf7244368826b4f358b07fc847dd61de609c4888446"
     },
     "runtime/nonzero_cloudops/state/files.py": {
       "path": "runtime/nonzero_cloudops/state/files.py",
-      "git_blob": "86c94bf816c59a7b796e25c259a71d2c4df5b113",
-      "sha256": "8006c486027aab31ec0347d1b81d4815760ccffda5645a7c84a49ab1a19e778c",
+      "git_blob": "28141865f7483ce47bd9cb8f1dde3c620e0cc01c",
+      "sha256": "936743a3dd975b8d15a294d757b1d853af3e33af6c1625035fb91a31c6b23f22",
       "definitions": [
         {
           "name": "StateIntegrityError",
@@ -17447,7 +17598,7 @@
         },
         {
           "name": "atomic_write_private_json",
-          "line": 231
+          "line": 235
         },
         {
           "name": "pairs",
@@ -17458,7 +17609,7 @@
           "line": 173
         }
       ],
-      "call_site_count": 124,
+      "call_site_count": 126,
       "symbolic_callees": [
         "<dynamic>.throw",
         "Path",
@@ -17491,6 +17642,7 @@
         "os.fsencode",
         "os.fstat",
         "os.fsync",
+        "os.getpid",
         "os.getuid",
         "os.open",
         "os.replace",
@@ -17513,196 +17665,243 @@
         "type",
         "validate_local_path"
       ],
-      "call_sites_sha256": "ed7701a46610bae5309208fa35c3f91d901f3dcf1811bb86abf6175fbf50c25e"
+      "call_sites_sha256": "fb85aaf8ea35e16db56d3b3ee0e637af26eba07797feebe53aa23c591896a999"
     },
     "runtime/mission/portable_target.py": {
       "path": "runtime/mission/portable_target.py",
-      "git_blob": "d2c2f13d9b9785d2602f489c26ac7db8c81d2d6b",
-      "sha256": "0ec4489bbda90adcd161f29cbe3a45da65d41cee46d718134347aae4d1f71932",
+      "git_blob": "ac85a1ee1b56a47ca1a98bc7f74a97bc63c0b91b",
+      "sha256": "1277f5a1bdd0d4660c154c296b89b6c2fcbceb3f7832cd7410bf1277aa8edc7e",
       "definitions": [
         {
           "name": "_inventory",
-          "line": 61
+          "line": 66
         },
         {
           "name": "PortableDomainInput",
-          "line": 81
+          "line": 86
         },
         {
           "name": "PortableOperation",
-          "line": 166
+          "line": 171
         },
         {
           "name": "CorePortableTarget",
-          "line": 244
+          "line": 249
         },
         {
           "name": "_PortableStartAck",
-          "line": 428
+          "line": 500
         },
         {
           "name": "_PortableWriteAck",
-          "line": 458
+          "line": 530
         },
         {
           "name": "CorePortableWriteRelease",
-          "line": 467
+          "line": 539
+        },
+        {
+          "name": "_PortableGuardCapture",
+          "line": 632
+        },
+        {
+          "name": "_PortableNoReleaseWitness",
+          "line": 656
         },
         {
           "name": "__post_init__",
-          "line": 93
+          "line": 98
         },
         {
           "name": "authority",
-          "line": 154
+          "line": 159
         },
         {
           "name": "to_dict",
-          "line": 157
+          "line": 162
         },
         {
           "name": "__post_init__",
-          "line": 175
+          "line": 180
         },
         {
           "name": "parse",
-          "line": 210
-        },
-        {
-          "name": "create",
           "line": 215
         },
         {
+          "name": "create",
+          "line": 220
+        },
+        {
           "name": "domain_input",
-          "line": 229
+          "line": 234
         },
         {
           "name": "authority",
-          "line": 233
+          "line": 238
         },
         {
           "name": "digest",
-          "line": 237
+          "line": 242
         },
         {
           "name": "to_dict",
-          "line": 240
+          "line": 245
         },
         {
           "name": "__init__",
-          "line": 251
+          "line": 256
         },
         {
           "name": "_require_config",
-          "line": 266
+          "line": 271
         },
         {
           "name": "require_route_binding",
-          "line": 277
+          "line": 282
         },
         {
           "name": "_read",
-          "line": 289
+          "line": 294
         },
         {
           "name": "_now",
-          "line": 293
+          "line": 298
         },
         {
           "name": "target_guard",
-          "line": 300
-        },
-        {
-          "name": "probe",
           "line": 305
         },
         {
+          "name": "_capture_guard",
+          "line": 320
+        },
+        {
+          "name": "probe",
+          "line": 337
+        },
+        {
           "name": "__call__",
-          "line": 319
+          "line": 351
         },
         {
           "name": "_domain_projection",
-          "line": 322
+          "line": 354
         },
         {
           "name": "candidate_observation",
-          "line": 343
+          "line": 375
         },
         {
           "name": "dispatch",
-          "line": 381
+          "line": 413
         },
         {
           "name": "verify",
-          "line": 395
+          "line": 427
+        },
+        {
+          "name": "_verify_no_release",
+          "line": 458
         },
         {
           "name": "__init__",
-          "line": 437
+          "line": 509
         },
         {
           "name": "issue_in_transaction",
-          "line": 442
+          "line": 514
         },
         {
           "name": "take",
-          "line": 452
+          "line": 524
         },
         {
           "name": "__init__",
-          "line": 461
+          "line": 533
         },
         {
           "name": "__init__",
-          "line": 473
+          "line": 545
         },
         {
           "name": "from_live_ack",
-          "line": 489
+          "line": 562
+        },
+        {
+          "name": "require_live_binding",
+          "line": 566
         },
         {
           "name": "require_store",
-          "line": 493
+          "line": 579
         },
         {
           "name": "_cancel_check",
-          "line": 502
+          "line": 583
         },
         {
           "name": "authorize_write",
-          "line": 505
+          "line": 586
         },
         {
           "name": "consume_write_ack",
-          "line": 532
+          "line": 613
         },
         {
           "name": "close",
-          "line": 543
+          "line": 624
+        },
+        {
+          "name": "__post_init__",
+          "line": 643
+        },
+        {
+          "name": "require_live",
+          "line": 647
+        },
+        {
+          "name": "__post_init__",
+          "line": 661
+        },
+        {
+          "name": "require_live",
+          "line": 665
         },
         {
           "name": "read",
-          "line": 309
+          "line": 322
         },
         {
           "name": "read",
-          "line": 410
+          "line": 341
+        },
+        {
+          "name": "read",
+          "line": 444
+        },
+        {
+          "name": "checked",
+          "line": 468
         },
         {
           "name": "release",
-          "line": 522
+          "line": 603
         }
       ],
-      "call_site_count": 287,
+      "call_site_count": 371,
       "symbolic_callees": [
         "Applied",
         "DecisionDependencyRoot",
+        "EffectWarrant.from_dict",
         "EvidenceRef",
+        "FencedNoReleaseCertificate",
         "LocalApprovalDecisionRecord.create",
         "LocalApprovalRequestRecord.create",
         "LocalApprovalRequestRecord.model_validate",
         "LocalExecutionIntent.create",
         "LocalExecutionReceipt.model_validate",
+        "NotApplied",
         "PortableDomainInput",
         "PortableOperation.parse",
         "PortableStateStore._payload",
@@ -17716,12 +17915,17 @@
         "TargetWriteObservation",
         "ToolDispatchLimits",
         "TransactionContext",
+        "VerifiedNoReleaseSettlement",
         "VerifiedTargetSettlement",
+        "_PortableGuardCapture",
+        "_PortableNoReleaseWitness",
         "_PortableWriteAck",
         "_RESOURCE_ADAPTER.validate_python",
         "_canonical_inventory_bytes",
         "_inventory",
         "ack.take",
+        "adapter._binding.digest",
+        "adapter._require_config",
         "all",
         "any",
         "before_receipts.items",
@@ -17729,16 +17933,23 @@
         "candidate.to_dict",
         "canonical_json_bytes",
         "canonical_sha256",
+        "capture.require_live",
+        "certificate.digest",
+        "certificate.readback",
+        "certificate.readback_digest",
+        "certificate.receipt",
         "cls",
         "cls.parse",
         "dataclass",
         "dict",
         "domain_input.to_dict",
+        "entry.require_outer_owner",
         "evidence.stable_fingerprint",
         "expected_resources.pop",
         "field",
         "get_ident",
         "getattr",
+        "getpid",
         "hashlib.sha256",
         "hashlib.sha256().hexdigest",
         "isinstance",
@@ -17763,27 +17974,38 @@
         "self._binding.digest",
         "self._binding.evidence",
         "self._cancel_check",
+        "self._capture_guard",
         "self._clock",
         "self._domain_projection",
+        "self._guard.get",
+        "self._lock_lifetime.require_live",
         "self._now",
         "self._read",
         "self._require_config",
+        "self._verify_no_release",
         "self.adapter._binding.evidence",
         "self.adapter.candidate_observation",
         "self.adapter.require_route_binding",
+        "self.adapter.store._current_guard_entry",
         "self.candidate_observation",
+        "self.entry.require_outer_owner",
         "self.executor.execute",
         "self.executor.get_receipt",
         "self.operation.to_dict",
+        "self.projection._liability_entry",
         "self.projection.core.require",
+        "self.projection.journal._load",
+        "self.projection.journal.ledger._receipt",
         "self.projection.load",
         "self.projection.runner.run",
+        "self.require_live_binding",
         "self.require_store",
         "self.route._check",
         "self.route._run",
         "self.route.core.require",
         "self.route.target_settlement.before_release_in_transaction",
         "self.store._core_write_lifetime",
+        "self.store._current_guard_entry",
         "self.store.observe_guarded_inventory",
         "self.store.target_guard",
         "self.store.verify",
@@ -17793,9 +18015,10 @@
         "timedelta",
         "type",
         "verified.model_dump",
-        "warrant.digest"
+        "warrant.digest",
+        "warrant.to_dict"
       ],
-      "call_sites_sha256": "c05ebfe1c0dd75f6c07036649aa6c169a943145e9d0fe96b814b360cea91f724"
+      "call_sites_sha256": "d30b73f791758401b6c6c7f476880012cfeacc76be89b8fd19502233638cb6ab"
     },
     "runtime/mission/python_test_contracts.py": {
       "path": "runtime/mission/python_test_contracts.py",
@@ -17920,6 +18143,6 @@
     "DUPLICATE_VERIFIED": 16,
     "EXCLUDED_UNSAFE": 2
   },
-  "current_target_binding_note": "NZ13-F8 current blob/AST identities add one pure pinned pytest Suite contract to the existing Core validation/worker/broker and Native source seal. Actual local positive evidence is bound to its own working map: real pytest fixtures/parameters/resource, source repair, independent oracles, capsule/fixture approval/local Git ADD+MODIFY, ACK recovery and STOP. Physical domain negatives and final same-SHA qualification remain separate required gates. Historical69 decisions are unchanged; product INIT/rearm/no-effect/Native/model/full69 parity remain open.",
+  "current_target_binding_note": "NZ13-F9 current blob/AST identities bind the same-Core fresh-fence STARTED-only no-release settlement, physical guard/process lifetime and write-port checks. Local source-only Core/SQLite/fresh-process tests and scoped independent reviews are bound to their own exact working maps. These identities do not certify product INIT/rearm, RELEASED no-effect, source-hidden packaging, Native, model inference or full69 parity. Historical69 decisions remain unchanged; final exact-SHA qualification and owner publication gates are separate.",
   "nz12_binding_before_nz13_sha256": "cfca6195089170934076cd15ac80a5b26786e947338b089dd75926d545b971b2"
 }

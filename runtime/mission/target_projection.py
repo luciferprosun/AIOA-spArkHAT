@@ -4,7 +4,7 @@ No second runner, executor or approval authority is provided here. Exact owner
 adoption records management facts for existing inventory. A managed Portable
 release retains complete write-boundary facts in the same target history.
 The pure baseline codec alone does not authorize persistence or prove INIT.
-No-effect certification and automatic target creation/rearm stay closed.
+No-release certification requires a fresh physical fence; automatic INIT/rearm stays closed.
 """
 
 import json
@@ -13,7 +13,7 @@ from dataclasses import asdict
 
 from lab.archaioa.authority import RiskLevel
 from lab.archaioa.faults import FaultTrace, opaque_id
-from lab.archaioa.outcome import Applied
+from lab.archaioa.outcome import Applied, NotApplied, Unknown
 from lab.archaioa.warrant import EffectWarrant
 from runtime.core_admission import Capability, OwnerScope
 from runtime.memory_patch.contracts.serialization import (
@@ -34,10 +34,12 @@ from runtime.mission.target_settlement import (
     TARGET_HEAD_KIND,
     TARGET_SETTLEMENT_PROFILE,
     ExistingTargetAdoption,
+    FencedNoReleaseCertificate,
     TargetBinding,
     TargetExecutionAck,
     TargetObservation,
     TargetWriteObservation,
+    VerifiedNoReleaseSettlement,
     VerifiedTargetSettlement,
 )
 from runtime.mission.warrant import KIND as WARRANT_KIND
@@ -47,6 +49,8 @@ GENESIS = 'aioa-core-target-genesis.v1'
 HEAD = TARGET_HEAD_KIND
 HISTORY = 'aioa-core-target-history.v1'
 PHYSICAL_HISTORY = 'aioa-core-target-history-portable.v1'
+PHYSICAL_NO_RELEASE_HISTORY = 'aioa-core-target-history-portable-no-release.v1'
+_HISTORY_SCHEMAS = (HISTORY, PHYSICAL_HISTORY, PHYSICAL_NO_RELEASE_HISTORY)
 REGISTRATION = 'aioa-core-target-registration.v1'
 REGISTERED_GENESIS = 'aioa-core-target-registered-genesis.v1'
 REGISTERED_HEAD = 'aioa-core-target-registered-head.v1'
@@ -155,7 +159,7 @@ class CoreTargetProjection:
                     for key in (self.registration_key, self.genesis_key, self.head_key)),
                 'TARGET_ADOPTION_BARRIER')
         rows = self._target_rows(tx)
-        require(not any(row.payload.get('schema') == HISTORY
+        require(not any(row.payload.get('schema') in _HISTORY_SCHEMAS
                         and row.payload.get('target_key') == self.head_key for row in rows),
                 'TARGET_ADOPTION_BARRIER')
         self._require_no_adoption_warrants(rows)
@@ -235,7 +239,7 @@ class CoreTargetProjection:
         self.journal.ledger.require_active_in_transaction(tx, warrant, consumed=False)
         require(tx.get(RecordKind.OPERATION, self.head_key) is None
                 and tx.get(RecordKind.OPERATION, self.genesis_key) is None, 'TARGET_ADOPTION_BARRIER')
-        require(not any(candidate.payload.get('schema') == HISTORY
+        require(not any(candidate.payload.get('schema') in _HISTORY_SCHEMAS
                         and candidate.payload.get('target_key') == self.head_key
                         for candidate in self._target_rows(tx)), 'TARGET_ADOPTION_BARRIER')
         consumption = self.journal.ledger.consume_in_transaction(tx, warrant)
@@ -312,6 +316,31 @@ class CoreTargetProjection:
                 and (entry['record']['status'] == 'CLOSED') == (resolution is not None), 'TARGET_LIABILITY_BINDING')
         return identity
 
+    def _check_no_release_certificate(self, warrant, certificate, target, resolution, *,
+                                      row_revision, state, intent_revision, intent, liability_id):
+        require(type(certificate) is FencedNoReleaseCertificate, 'NO_RELEASE_CERTIFICATE_REQUIRED')
+        self.binding.require_observation(target)
+        certificate.require_resolution(target, resolution)
+        flight = state['in_flight']
+        require(warrant.operation_class == PORTABLE_CLASS and state['schema'] == REGISTERED_HEAD
+                and type(flight) is dict and flight['phase'] == 'STARTED' and flight['ack'] is None
+                and flight['write_observation'] is None and flight['warrant'] == warrant.to_dict()
+                and flight['warrant_digest'] == warrant.digest(), 'NO_RELEASE_START_REQUIRED')
+        require(certificate.binding_digest == self.binding.digest()
+                and certificate.warrant_digest == warrant.digest()
+                and certificate.operation_digest == warrant.operation_hash
+                and certificate.expected_head_revision == row_revision
+                and certificate.generation == state['generation']
+                and certificate.history_digest == state['history_digest']
+                and certificate.head_digest == canonical_sha256(state)
+                and certificate.intent_revision == intent_revision
+                and certificate.intent_digest == canonical_sha256(intent)
+                and certificate.consumption_digest == canonical_sha256(self.journal.ledger._receipt(warrant))
+                and certificate.liability_id == liability_id
+                and (certificate.state_root, certificate.resources_root, certificate.receipts_root)
+                == (state['state_root'], state['resources_root'], state['receipts_root']),
+                'NO_RELEASE_CERTIFICATE_BINDING')
+
     def _observation(self, value):
         require(type(value) is dict and type(value.get('scope')) is dict, 'TARGET_HISTORY_INTEGRITY')
         observation = TargetObservation(**{**value, 'scope': OwnerScope(**value['scope'])})
@@ -383,7 +412,7 @@ class CoreTargetProjection:
             require(tx.get(RecordKind.OPERATION, self.registration_key) is None,
                     'TARGET_ADOPTION_LEGACY_DOWNGRADE')
             self._require_no_adoption_warrants(rows)
-        history_rows = [candidate for candidate in rows if candidate.payload.get('schema') in (HISTORY, PHYSICAL_HISTORY)
+        history_rows = [candidate for candidate in rows if candidate.payload.get('schema') in _HISTORY_SCHEMAS
                         and candidate.payload.get('target_key') == self.head_key]
         require(len(history_rows) == head['generation'], 'TARGET_HISTORY_INTEGRITY')
         history_rows.sort(key=lambda candidate: candidate.payload['generation'])
@@ -395,8 +424,10 @@ class CoreTargetProjection:
             history = _json(record.payload)
             history_fields = {'schema', 'target_key', 'binding_digest', 'generation', 'previous_digest',
                               'warrant_digest', 'warrant', 'liability_id', 'observation', 'resolution', 'head_revision_after'}
-            physical = history.get('schema') == PHYSICAL_HISTORY
-            require(set(history) == (history_fields | {'write_observation'} if physical else history_fields)
+            no_release = history.get('schema') == PHYSICAL_NO_RELEASE_HISTORY
+            physical = history.get('schema') in (PHYSICAL_HISTORY, PHYSICAL_NO_RELEASE_HISTORY)
+            extra_fields = {'no_release_certificate'} if no_release else ({'write_observation'} if physical else set())
+            require(set(history) == history_fields | extra_fields
                     and record.revision == 1 and type(history['generation']) is int
                     and history['generation'] == generation and history['previous_digest'] == digest
                     and history['binding_digest'] == self.binding.digest(), 'TARGET_HISTORY_INTEGRITY')
@@ -406,7 +437,8 @@ class CoreTargetProjection:
                     and (registered or not physical), 'TARGET_PHYSICAL_HISTORY_PROFILE')
             observation = self._observation(history['observation'])
             resolution = Reconciliation.from_dict(history['resolution'])
-            require(type(resolution.outcome) is Applied and record.record_id == self.history_key(warrant)
+            require(type(resolution.outcome) is (NotApplied if no_release else Applied)
+                    and record.record_id == self.history_key(warrant)
                     and history['warrant_digest'] == warrant.digest() and warrant.digest() not in histories
                     and observation.generation == generation - 1 and observation.before_root == root
                     and observation.operation_digest == resolution.operation_digest == warrant.operation_hash
@@ -416,15 +448,27 @@ class CoreTargetProjection:
                     and type(history['head_revision_after']) is int
                     and history['head_revision_after'] == observation.expected_head_revision + 1,
                     'TARGET_HISTORY_INTEGRITY')
-            # Reconstruct the closed proof envelope as well as its raw fields.
-            VerifiedTargetSettlement(resolution, observation)
-            if physical:
+            # Durable no-release history validates facts without reviving a live witness.
+            if not no_release:
+                VerifiedTargetSettlement(resolution, observation)
+            if physical and not no_release:
                 self._write_observation(warrant, history['write_observation'],
                                         (root, resources, receipts), target=observation)
             intent_row, intent = self.journal._load(tx, warrant)
             require(intent_row is not None and intent['resolution'] == history['resolution'],
                     'TARGET_HISTORY_INTENT_REQUIRED')
-            if physical:
+            if no_release:
+                certificate = FencedNoReleaseCertificate.parse(history['no_release_certificate'])
+                prior = {**genesis, 'schema': REGISTERED_HEAD, 'generation': generation - 1,
+                    'state_root': root, 'resources_root': resources, 'receipts_root': receipts,
+                    'target_revision': revision, 'genesis_digest': head['genesis_digest'], 'history_digest': digest,
+                    'in_flight': {'phase': 'STARTED', 'warrant': warrant.to_dict(), 'warrant_digest': warrant.digest(),
+                                  'ack': None, 'write_observation': None}}
+                before_intent = {**intent, 'outcome': Unknown(intent['liability_id']).to_dict(), 'resolution': None}
+                self._check_no_release_certificate(warrant, certificate, observation, resolution,
+                    row_revision=last_head_revision + 1, state=prior, intent_revision=intent_row.revision - 1,
+                    intent=before_intent, liability_id=history['liability_id'])
+            elif physical:
                 self._write_operation_binding(TargetWriteObservation.parse(history['write_observation']),
                                               intent['operation'])
             require(self._liability_entry(tx, warrant, history['resolution']) == history['liability_id'],
@@ -531,13 +575,23 @@ class CoreTargetProjection:
 
     def apply_resolution_in_transaction(self, tx, warrant, epoch, verified):
         self._context(tx, write=True)
-        require(type(verified) is VerifiedTargetSettlement, 'VERIFIED_TARGET_OBSERVATION_REQUIRED')
+        require(type(verified) in (VerifiedTargetSettlement, VerifiedNoReleaseSettlement),
+                'VERIFIED_TARGET_OBSERVATION_REQUIRED')
         self.binding.require_observation(verified.target)
         row, state = self._flight(tx, warrant)
         target, resolution = verified.target, verified.resolution
         self.journal.governor._epoch(self.journal.governor._load(tx), epoch)
-        require(state['in_flight']['phase'] == 'RELEASED' and type(resolution.outcome) is Applied,
-                'TARGET_OWNED_APPLIED_CERTIFICATE_REQUIRED')
+        no_release = type(verified) is VerifiedNoReleaseSettlement
+        if no_release:
+            verified.require_live(self, warrant)
+            intent_row, intent = self.journal._load(tx, warrant)
+            require(intent_row is not None and intent['resolution'] is None, 'NO_RELEASE_UNRESOLVED_INTENT_REQUIRED')
+            self._check_no_release_certificate(warrant, verified.certificate, target, resolution,
+                row_revision=row.revision, state=state, intent_revision=intent_row.revision, intent=intent,
+                liability_id=self._liability_entry(tx, warrant, None))
+        else:
+            require(state['in_flight']['phase'] == 'RELEASED' and type(resolution.outcome) is Applied,
+                    'TARGET_OWNED_APPLIED_CERTIFICATE_REQUIRED')
         require(target.expected_head_revision == row.revision and target.generation == state['generation']
                 and target.before_root == state['state_root']
                 and target.operation_digest == warrant.operation_hash, 'STALE_TARGET_OBSERVATION')
@@ -550,7 +604,9 @@ class CoreTargetProjection:
                    'liability_id': self._liability_entry(tx, warrant, None),
                    'observation': asdict(target), 'resolution': resolution.to_dict(),
                    'head_revision_after': row.revision + 1}
-        if warrant.operation_class == PORTABLE_CLASS:
+        if no_release:
+            history.update(schema=PHYSICAL_NO_RELEASE_HISTORY, no_release_certificate=verified.certificate.to_dict())
+        elif warrant.operation_class == PORTABLE_CLASS:
             observed = self._write_observation(warrant, state['in_flight']['write_observation'],
                 (state['state_root'], state['resources_root'], state['receipts_root']), target=target)
             history.update(schema=PHYSICAL_HISTORY, write_observation=observed.to_dict())

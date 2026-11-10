@@ -218,12 +218,16 @@ def locked_private_file(path: Path, *, exclusive: bool, create: bool = True) -> 
         if stat.S_IMODE(metadata.st_mode) & 0o077:
             raise StateIntegrityError("local state lock must be owner-only")
         fcntl.flock(descriptor, fcntl.LOCK_EX if exclusive else fcntl.LOCK_SH)
+        acquiring_pid = os.getpid()
         try:
             # Borrowed only for identity checks while this same lock is held.
             # The existing context manager remains the sole descriptor owner.
             yield descriptor
         finally:
-            fcntl.flock(descriptor, fcntl.LOCK_UN)
+            # fork shares the open file description. A child closes its copy;
+            # only the process that acquired flock may explicitly unlock it.
+            if os.getpid() == acquiring_pid:
+                fcntl.flock(descriptor, fcntl.LOCK_UN)
     finally:
         os.close(descriptor)
 

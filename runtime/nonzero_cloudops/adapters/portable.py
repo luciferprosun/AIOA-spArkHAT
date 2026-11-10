@@ -12,7 +12,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from threading import Lock, RLock, local
+from threading import Lock, RLock, get_ident, local
 
 from pydantic import TypeAdapter, ValidationError
 
@@ -118,6 +118,80 @@ class PortableInventoryObservation:
     @property
     def authority(self):
         return 'NONE'
+
+
+_GUARD_LIFETIME_ISSUER = object()
+
+
+class _NonTransferableGuardValue:
+    __slots__ = ()
+
+    def __copy__(self):
+        raise TypeError('local guard values cannot be copied')
+
+    def __deepcopy__(self, _memo):
+        raise TypeError('local guard values cannot be copied')
+
+    def __reduce_ex__(self, _protocol):
+        raise TypeError('local guard values cannot be serialized')
+
+
+class _PortableLockLifetime(_NonTransferableGuardValue):
+    """Private lifetime of one physical flock; no effect or approval permit."""
+    __slots__ = ('_active', '_config', '_descriptor', '_identity', '_pid', '_store', '_thread')
+
+    def __init__(self, store, identity, issuer):
+        if issuer is not _GUARD_LIFETIME_ISSUER or type(store) is not PortableStateStore:
+            raise PortablePolicyError('local guard lifetime issuer is invalid')
+        self._store, self._pid, self._thread = store, os.getpid(), get_ident()
+        self._descriptor = store._held_lock.descriptor
+        self._config = (store._path, store._lock_path, store._managed_layout)
+        self._identity, self._active = identity, True
+
+    def require_live(self, store):
+        # Pure process/thread/config checks only. Physical identity checks stay
+        # outside retried Core transactions, in the enclosing target guard.
+        valid = (self._active and store is self._store and os.getpid() == self._pid
+                 and get_ident() == self._thread
+                 and (store._path, store._lock_path, store._managed_layout) == self._config
+                 and getattr(store._held_lock, 'guard_lifetime', None) is self
+                 and getattr(store._held_lock, 'exclusive', None) is True
+                 and getattr(store._held_lock, 'descriptor', None) == self._descriptor)
+        if not valid:
+            raise PortablePolicyError('local guard lifetime is not current')
+
+    def expire(self):
+        self._active = False
+
+
+@dataclass(frozen=True, slots=True)
+class _PortableGuardEntry(_NonTransferableGuardValue):
+    """One guard entry; nesting never claims a new physical acquisition."""
+    _lifetime: object = field(repr=False)
+    owns_outer_lock: bool
+    _issuer: object = field(repr=False)
+
+    def __post_init__(self):
+        if (type(self._lifetime) is not _PortableLockLifetime
+                or type(self.owns_outer_lock) is not bool or self._issuer is not _GUARD_LIFETIME_ISSUER):
+            raise PortablePolicyError('local guard entry issuer is invalid')
+
+    @property
+    def authority(self):
+        return 'NONE'
+
+    def require_live(self, store):
+        self._lifetime.require_live(store)
+        binding = getattr(store._held_lock, 'target_binding', None)
+        if (getattr(store._held_lock, 'guard_entry', None) is not self
+                or type(binding) is not dict or binding.get('failed') is not False
+                or binding.get('identity') != self._lifetime._identity):
+            raise PortablePolicyError('local guard entry is not current')
+
+    def require_outer_owner(self, store):
+        self.require_live(store)
+        if not self.owns_outer_lock:
+            raise PortablePolicyError('local guard entry did not acquire the outer lock')
 
 
 def _managed_layout_for(path):
@@ -226,6 +300,9 @@ class PortableStateStore:
             if held is not None:
                 if exclusive and not held:
                     raise CloudAdapterUnavailableError('local mock lock upgrade is denied')
+                lifetime = getattr(self._held_lock, 'guard_lifetime', None)
+                if lifetime is not None:
+                    lifetime.require_live(self)
                 self._check_target_guard()
                 try:
                     yield
@@ -239,9 +316,16 @@ class PortableStateStore:
                 with manager as descriptor:
                     self._held_lock.exclusive = exclusive
                     self._held_lock.descriptor = descriptor
+                    lifetime = None
                     try:
+                        if self._managed_layout is not None and exclusive:
+                            lifetime = _PortableLockLifetime(self, self._target_guard_identity(), _GUARD_LIFETIME_ISSUER)
+                            self._held_lock.guard_lifetime = lifetime
                         yield
                     finally:
+                        if lifetime is not None:
+                            lifetime.expire()
+                            del self._held_lock.guard_lifetime
                         del self._held_lock.exclusive
                         del self._held_lock.descriptor
             except (OSError, StateIntegrityError) as error:
@@ -278,6 +362,29 @@ class PortableStateStore:
             raise CloudAdapterUnavailableError('local mock target guard identity is unavailable') from error
 
     @contextmanager
+    def _guard_entry_lifetime(self, owns_outer_lock):
+        lifetime = getattr(self._held_lock, 'guard_lifetime', None)
+        if lifetime is None:
+            yield
+            return
+        previous = getattr(self._held_lock, 'guard_entry', None)
+        self._held_lock.guard_entry = _PortableGuardEntry(lifetime, owns_outer_lock, _GUARD_LIFETIME_ISSUER)
+        try:
+            yield
+        finally:
+            if previous is None:
+                del self._held_lock.guard_entry
+            else:
+                self._held_lock.guard_entry = previous
+
+    def _current_guard_entry(self):
+        entry = getattr(self._held_lock, 'guard_entry', None)
+        if type(entry) is not _PortableGuardEntry:
+            raise PortablePolicyError('local guard entry is unavailable')
+        entry.require_live(self)
+        return entry
+
+    @contextmanager
     def target_guard(self):
         """Serialize one fixed target lifetime using its existing file lock.
 
@@ -288,7 +395,8 @@ class PortableStateStore:
         protection against an uncooperative OS owner, or effect authority.
         Missing inventory still requires a separate Core initialization policy.
         """
-        with self._lock(exclusive=True):
+        owns_outer_lock = getattr(self._held_lock, 'exclusive', None) is None
+        with self._lock(exclusive=True), self._guard_entry_lifetime(owns_outer_lock):
             if getattr(self._held_lock, 'target_binding', None) is not None:
                 yield
                 return

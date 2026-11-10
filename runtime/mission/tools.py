@@ -53,6 +53,7 @@ from runtime.mission.target_settlement import (
     TARGET_SETTLEMENT_PROFILE,
     TargetBinding,
     TargetSettlementPort,
+    VerifiedNoReleaseSettlement,
     VerifiedTargetSettlement,
 )
 from runtime.mission.warrant import approval_digest, require
@@ -895,7 +896,8 @@ class CoreToolRoute:
         except (ValueError, RepairBoundaryError):
             require(False,'INDEPENDENT_READBACK_UNAVAILABLE')
         if self.target_settlement is not None:
-            require(type(observed) is VerifiedTargetSettlement, 'VERIFIED_TARGET_OBSERVATION_REQUIRED')
+            require(type(observed) in (VerifiedTargetSettlement, VerifiedNoReleaseSettlement),
+                    'VERIFIED_TARGET_OBSERVATION_REQUIRED')
             self._target_descriptor.require_observation(observed.target)
             resolution = observed.resolution
         else:

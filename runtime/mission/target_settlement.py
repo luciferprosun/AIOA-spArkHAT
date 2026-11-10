@@ -4,12 +4,13 @@ These values carry facts, never authority. The registered implementation must
 verify complete target roots, held guard, incarnation and canonical Core CAS.
 This protocol itself is not a physical target adapter or an INIT/rearm service.
 """
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from typing import Protocol, runtime_checkable
 
 from lab.archaioa.contracts import digest_id
 from lab.archaioa.evidence import EvidenceRef
 from lab.archaioa.faults import opaque_id
+from lab.archaioa.outcome import NotApplied
 from runtime.core_admission import CoreAdmission, OwnerScope
 from runtime.memory_patch.contracts.serialization import canonical_sha256
 from runtime.memory_patch.persistence.ports import TransactionRunner
@@ -284,3 +285,111 @@ class ExistingTargetAdoption:
         return {'operation_class': TARGET_ADOPTION_CLASS,
                 'target_fingerprint': 'sha256:' + self.state_root,
                 'expected_target_revision': self.target_revision, 'payload': self.to_dict()}
+
+
+FENCED_NO_RELEASE_PROFILE = 'aioa.portable-fenced-no-release.v1'
+
+
+@dataclass(frozen=True, slots=True)
+class FencedNoReleaseCertificate:
+    """Closed durable facts; these cannot replace a current physical fence."""
+    binding_digest: str
+    operation_digest: str
+    warrant_digest: str
+    expected_head_revision: int
+    generation: int
+    intent_revision: int
+    history_digest: str
+    head_digest: str
+    intent_digest: str
+    consumption_digest: str
+    liability_id: str
+    state_root: str
+    resources_root: str
+    receipts_root: str
+    guard_fingerprint: str
+
+    def __post_init__(self):
+        digest_id(self.operation_digest, 'no-release operation')
+        digest_id(self.warrant_digest, 'no-release warrant')
+        digest_id(self.liability_id, 'no-release liability')
+        require(type(self.expected_head_revision) is int and self.expected_head_revision >= 2
+                and type(self.generation) is int and self.generation >= 0
+                and type(self.intent_revision) is int and self.intent_revision >= 1,
+                'NO_RELEASE_CERTIFICATE_REVISION')
+        for name in ('binding_digest', 'history_digest', 'head_digest', 'intent_digest',
+                     'consumption_digest', 'state_root', 'resources_root', 'receipts_root', 'guard_fingerprint'):
+            _root(getattr(self, name))
+
+    def to_dict(self):
+        return {'schema': FENCED_NO_RELEASE_PROFILE, **asdict(self)}
+
+    @classmethod
+    def parse(cls, value):
+        require(type(value) is dict and set(value) == set(cls.__dataclass_fields__) | {'schema'}
+                and value['schema'] == FENCED_NO_RELEASE_PROFILE, 'NO_RELEASE_CERTIFICATE_SHAPE')
+        return cls(**{key: item for key, item in value.items() if key != 'schema'})
+
+    def digest(self):
+        return canonical_sha256(self.to_dict())
+
+    def readback_digest(self):
+        # Acyclic and separate from certificate/target/history commitments.
+        return canonical_sha256({'schema': 'aioa.portable-no-release-readback.v1',
+            'binding_digest': self.binding_digest, 'operation_digest': self.operation_digest,
+            'warrant_digest': self.warrant_digest, 'guard_fingerprint': self.guard_fingerprint,
+            'state_root': self.state_root, 'resources_root': self.resources_root, 'receipts_root': self.receipts_root})
+
+    def receipt(self):
+        digest = self.digest()
+        return EvidenceRef('portable-no-release-' + digest, 'no-effect-certificate',
+                           'sha256:' + digest, 'portable-no-release-v1')
+
+    def readback(self):
+        digest = self.readback_digest()
+        return EvidenceRef('portable-no-release-readback-' + digest, 'independent-readback',
+                           'sha256:' + digest, 'portable-no-release-v1')
+
+    def require_resolution(self, target, resolution):
+        require(type(target) is TargetObservation and type(resolution) is Reconciliation
+                and type(resolution.outcome) is NotApplied and resolution.outcome.evidence_refs == ()
+                and resolution.operation_digest == self.operation_digest
+                and resolution.receipt == self.receipt() and resolution.readback == self.readback(),
+                'NO_RELEASE_RESOLUTION_BINDING')
+        require(target.expected_head_revision == self.expected_head_revision
+                and target.generation == self.generation and target.operation_digest == self.operation_digest
+                and target.before_root == target.after_root == self.state_root
+                and target.resources_root == self.resources_root and target.receipts_root == self.receipts_root
+                and target.guard_fingerprint == self.guard_fingerprint
+                and target.receipt_id == self.receipt().evidence_id and target.receipt_digest == self.digest()
+                and target.readback_digest == self.readback_digest(), 'NO_RELEASE_TARGET_BINDING')
+
+
+@dataclass(frozen=True, slots=True)
+class VerifiedNoReleaseSettlement:
+    """Per-call live envelope. Durable history parses only the facts above."""
+    resolution: Reconciliation
+    target: TargetObservation
+    certificate: FencedNoReleaseCertificate
+    _witness: object = field(repr=False, compare=False)
+
+    def __post_init__(self):
+        require(type(self.certificate) is FencedNoReleaseCertificate, 'NO_RELEASE_CERTIFICATE_REQUIRED')
+        self.certificate.require_resolution(self.target, self.resolution)
+        # This constructor runs outside SQL, after the physical adapter exists.
+        from runtime.mission.portable_target import _PortableNoReleaseWitness
+        require(type(self._witness) is _PortableNoReleaseWitness, 'NO_RELEASE_LIVE_WITNESS_REQUIRED')
+        self._witness.require_live(self)
+
+    def require_live(self, projection, warrant):
+        # No lazy imports or target I/O in this final transaction check.
+        self._witness.require_live(self, projection=projection, warrant=warrant)
+
+    def __copy__(self):
+        raise TypeError('a live no-release envelope cannot be copied')
+
+    def __deepcopy__(self, memo):
+        raise TypeError('a live no-release envelope cannot be copied')
+
+    def __reduce_ex__(self, protocol):
+        raise TypeError('a live no-release envelope cannot be serialized')
