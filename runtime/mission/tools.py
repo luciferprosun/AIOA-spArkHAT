@@ -22,7 +22,6 @@ from lab.archaioa.evidence import EvidenceRef
 from lab.archaioa.faults import FaultTrace, classify_fault, opaque_id
 from lab.archaioa.taint import DependencyGraph, NodeKind
 from lab.archaioa.warrant import EffectWarrant, RevisionPolicy
-
 from runtime.core_admission import Capability, OwnerScope
 from runtime.failure_boundary import RepairBoundaryError, failure_boundary
 from runtime.memory_patch.contracts.serialization import (
@@ -39,6 +38,13 @@ from runtime.mission.completion import TaskCompletionBinding
 from runtime.mission.governor import ReservationRequest
 from runtime.mission.intent import INTENT_KINDS, CoreIntentJournal
 from runtime.mission.liability import CoreLiabilityLedger, Reconciliation
+from runtime.mission.sandbox_bindings import (
+    BINDING_SCHEMA,
+    BOUND_CONTEXT,
+    audit_descriptor,
+    binding_key,
+    read_binding,
+)
 from runtime.mission.sandbox_contracts import (
     PORTABLE,
     PORTABLE_REARM,
@@ -212,7 +218,7 @@ class LocalSessionGrant(SessionGrant):
 class CoreToolRoute:
     """Common Core adapter with explicit trusted variants; no default backend."""
     def __init__(self,journal,liability,*,workspace,policy_revision,probe,executor,target_guard=None,verifier=None,clock=None,
-                 variant='synthetic',sandbox_registry=None,target_settlement=None):
+                 variant='synthetic',sandbox_registry=None,target_settlement=None,sandbox_jobs=False):
         require(type(journal) is CoreIntentJournal and type(liability) is CoreLiabilityLedger
                 and journal.ledger.core is liability.core and journal.ledger.runner is liability.runner
                 and journal.ledger.scope==liability.scope and callable(probe) and callable(executor)
@@ -220,6 +226,18 @@ class CoreToolRoute:
         opaque_id(workspace,'workspace')
         require(type(policy_revision) is int and policy_revision in TOOL_POLICY_VERSIONS
                 and type(variant) is str and variant in ('synthetic','sandbox','portable'), 'INVALID_TOOL_ROUTE')
+        require(type(sandbox_jobs) is bool, 'INVALID_SANDBOX_JOBS_MODE')
+        self._sandbox_jobs=sandbox_jobs
+        if sandbox_jobs:
+            from runtime.mission.sandbox_linux import LinuxSandboxBroker
+            require(variant=='sandbox' and type(executor) is LinuxSandboxBroker
+                    and executor.binding_policy is not None and target_settlement is None
+                    and getattr(verifier,'__self__',None) is executor
+                    and getattr(verifier,'__func__',None) is LinuxSandboxBroker.verify,
+                    'SANDBOX_BINDING_OWNER')
+            require(sandbox_registry is None or sandbox_registry is executor.config.registry,
+                    'SANDBOX_BINDING_OWNER')
+            sandbox_registry=executor.config.registry
         self.bound_variant=tool_variant(policy_revision,
             'SANDBOX_EXEC' if variant=='sandbox' else ('PORTABLE_REARM_DEMO_V1' if policy_revision == 5
                 else 'PORTABLE_RELEASE_ELASTIC_IP') if variant=='portable' else 'PROJECT_WRITE')
@@ -236,9 +254,15 @@ class CoreToolRoute:
         self.target_settlement = target_settlement
         self._target_port_binding = target_settlement
         self._target_descriptor = getattr(target_settlement, 'binding', None)
+        if sandbox_jobs:self.executor.bind_route(self)
         self._require_target_binding()
 
+    @property
+    def sandbox_jobs(self):
+        return self._sandbox_jobs
+
     def _require_target_binding(self):
+        if self.sandbox_jobs:self.executor.require_route_binding(self)
         port = self.target_settlement
         require(port is self._target_port_binding, 'TARGET_PORT_BINDING_CHANGED')
         if port is None:
@@ -400,7 +424,8 @@ class CoreToolRoute:
                     {**state,'revoked':True}),expected_revision=row.revision)
         return self._run(principal,Capability.MANAGE,change)
 
-    def operation(self,proposal,snapshot):
+    def operation(self,proposal,snapshot,*,sandbox_config=None):
+        require(sandbox_config is None or self.sandbox_jobs, 'SANDBOX_CAPTURE_OWNER')
         if self.bound_variant in (PORTABLE, PORTABLE_REARM):
             from runtime.mission.portable_target import _portable_operation
             parsed = _portable_operation(proposal).to_dict()
@@ -408,11 +433,173 @@ class CoreToolRoute:
             return parsed
         if self.bound_variant is SANDBOX:
             require(type(snapshot) is TargetSnapshot,'INVALID_TARGET_SNAPSHOT')
+            registry=(self.executor.require_capture(sandbox_config).config.registry
+                      if self.sandbox_jobs else self.sandbox_registry)
             result={'operation_class':'SANDBOX_EXEC','target_fingerprint':snapshot.fingerprint,
                     'expected_target_revision':snapshot.revision,
-                    'payload':self.sandbox_registry.payload(proposal)}
-            return self.sandbox_registry.validate(result).to_dict()
+                    'payload':registry.payload(proposal)}
+            return registry.validate(result).to_dict()
         return self._synthetic_operation(proposal,snapshot)
+
+    def sandbox_config_for_operation(self,operation,*,historical=False):
+        require(type(historical) is bool and self.bound_variant is SANDBOX,'SANDBOX_BINDING_OWNER')
+        if self.sandbox_jobs:
+            return self.executor.binding_for_operation(operation,historical=historical)[1].config
+        self.sandbox_registry.validate(operation)
+        return self.executor.config
+
+    def _sandbox_record(self,tx,operation,*,historical=False):
+        handle,_=self.executor.binding_for_operation(operation,historical=historical)
+        value=read_binding(tx,self.scope,self.journal.governor.policy.deployment_id,self.workspace,
+                           handle.task_id,expected_digest=handle.digest)
+        require(canonical_json_bytes(value)==handle.record_bytes,'SANDBOX_BINDING_INTEGRITY')
+        return value
+
+    def bind_sandbox_job(self,principal,sandbox_config,*,envelope,completion,operations):
+        from runtime.memory_patch.audit import append_domain_event
+        from runtime.mission.job_contracts import JobEnvelope
+        from runtime.mission.jobs import load_job
+        require(self.sandbox_jobs,'SANDBOX_BINDING_OWNER')
+        self.core.require(principal,Capability.MANAGE,scope=self.scope)
+        require(type(envelope) is JobEnvelope and type(completion) is TaskCompletionBinding
+                and envelope.scope==completion.scope==self.scope
+                and envelope.task_id==completion.task_id
+                and envelope.model_id in principal.model_binding_ids
+                and type(operations) is tuple and 1<=len(operations)<=32
+                and all(type(op) is SandboxOperation for op in operations),'SANDBOX_BINDING_JOB')
+        require(envelope.task_id not in self.executor._uncertain_bindings,'SANDBOX_BINDING_COMMIT_UNKNOWN')
+        with self.target_guard():
+            capture=self.executor.require_capture(sandbox_config)
+            self.executor.revalidate_capture(capture)
+            allowed=[]
+            for operation in operations:
+                parsed=capture.config.registry.validate(operation.to_dict())
+                payload=parsed.to_dict()['payload']
+                require(payload['task_id']==envelope.task_id,'SANDBOX_OPERATION_BINDING')
+                allowed.append({'step_id':payload['step_id'],'operation_digest':parsed.digest})
+            allowed.sort(key=lambda item:item['step_id'])
+            require(len({p['step_id'] for p in allowed})==len(allowed),'SANDBOX_OPERATION_BINDING')
+            deployment=self.journal.governor.policy.deployment_id
+            value={'schema':BINDING_SCHEMA,'scope':list(self.scope.binding()),'deployment_id':deployment,
+                'workspace':self.workspace,'task_id':envelope.task_id,
+                'job_envelope_digest':envelope.envelope_digest,'completion_digest':completion.digest,
+                'allowed_operations':allowed,'config_digest':capture.config_digest,
+                'sandbox_profile_digest':capture.config.profile_digest,'root_ref':capture.config.root.name,
+                'host_config_sha256':capture.host_config_sha256,
+                'root_identity':json.loads(capture.root_identity_bytes),
+                'provenance':json.loads(capture.provenance_bytes)}
+            from runtime.mission.sandbox_bindings import validate_payload
+            validate_payload(value,self.scope,deployment,self.workspace,envelope.task_id)
+            key=binding_key(self.scope,deployment,self.workspace,envelope.task_id)
+            at=self.journal.ledger.clock()
+            def save(tx):
+                require(load_job(self.journal.governor,tx,envelope.task_id) is None,
+                        'SANDBOX_BINDING_AFTER_SUBMIT')
+                rows=tx.scan(RecordKind.OPERATION,limit=1024)
+                require(len(rows)<1024,'HISTORY_QUOTA')
+                existing=tx.get(RecordKind.OPERATION,key)
+                if existing is not None:
+                    prior=read_binding(tx,self.scope,deployment,self.workspace,envelope.task_id)
+                    require(canonical_json_bytes(prior)==canonical_json_bytes(value),'SANDBOX_CONFIG_REBIND')
+                    return prior
+                retained=[row for row in rows if row.payload.get('schema')==BINDING_SCHEMA]
+                require(len(retained)<self.executor.binding_policy.max_jobs,'SANDBOX_JOB_QUOTA')
+                roots={row.payload['root_ref'] for row in retained}
+                require(value['root_ref'] in roots or len(roots)<self.executor.binding_policy.max_configs,
+                        'SANDBOX_CONFIG_QUOTA')
+                provenance=value['provenance']
+                if provenance['kind']=='OBSERVE':
+                    patch=provenance['patchset_sha256']
+                    material=tx.get(RecordKind.OPERATION,canonical_sha256(['aioa.materialization.v1',patch]))
+                    require(material is not None and material.payload.get('state')=='MATERIALIZED'
+                            and material.payload.get('patchset_sha256')==patch
+                            and material.payload.get('profile_digest')==provenance['repository_recipe_digest']
+                            and material.payload.get('source_readback_digest')==provenance['source_snapshot_digest']
+                            and material.payload.get('source_base_sha')==provenance['source_identity']['source_base_sha']
+                            and material.payload.get('task_digest')==provenance['coding_task_digest']
+                            and material.payload.get('final_tree_sha256')==provenance['final_tree_sha256'],
+                            'SANDBOX_MATERIALIZATION_REQUIRED')
+                    from runtime.memory_patch.audit import require_record_audit
+                    require_record_audit(tx,material)
+                row=StoredRecord(RecordKind.OPERATION,key,self.scope,1,value)
+                tx.insert(row)
+                append_domain_event(tx,audit_descriptor(key,row),event_id='sandbox-binding-audit-'+key,
+                    proof_id='sandbox-binding-proof-'+key,resource_id=key,before=None,after='BOUND',
+                    content_digest=row.payload_digest,at=at)
+                return read_binding(tx,self.scope,deployment,self.workspace,envelope.task_id)
+            try:
+                committed=self._run(principal,Capability.MANAGE,save)
+            except CommitOutcomeUnknown:
+                self.executor._uncertain_bindings.add(envelope.task_id)
+                raise
+            # A retry or unknown commit cannot publish a LIVE process mapping.
+            return self.executor.publish_binding(committed,capture,
+                operations=tuple(sorted(op.operation_bytes for op in operations)))
+
+    def restore_sandbox_bindings(self,principal,*,task_ids):
+        require(self.sandbox_jobs and type(task_ids) is tuple and 1<=len(task_ids)<=64
+                and len(set(task_ids))==len(task_ids),'SANDBOX_BINDING_OWNER')
+        for task in task_ids:opaque_id(task,'task_id')
+        require(all(task not in self.executor._bindings
+                    or self.executor._bindings[task][0].mode=='HISTORY_ONLY' for task in task_ids),
+                'SANDBOX_RESTORE_LIVE_DENIED')
+        self.core.require(principal,Capability.READ,scope=self.scope)
+        deployment=self.journal.governor.policy.deployment_id
+        with self.target_guard():
+            def read(tx):
+                from runtime.mission.jobs import load_job
+                values=[]
+                for task in task_ids:
+                    job=load_job(self.journal.governor,tx,task)
+                    require(job is not None and 'sandbox_binding_digest' in job,'SANDBOX_JOB_BINDING_REQUIRED')
+                    values.append(read_binding(tx,self.scope,deployment,self.workspace,task,
+                                               expected_digest=job['sandbox_binding_digest']))
+                return values
+            values=self._run(principal,Capability.READ,read)
+            captures=tuple(self.executor.restore_capture(value) for value in values)
+            return tuple(self.executor.publish_binding(value,capture,historical=True)
+                         for value,capture in zip(values,captures,strict=True))
+
+    def _historical_request(self,tx,operation,warrant):
+        context,_,_,_=self._context(tx,warrant)
+        self._sandbox_record(tx,operation,historical=True)
+        _,_,grant=self._session(tx,context['session_id'],active=False)
+        _,intent=self.journal._load(tx,warrant)
+        require(intent is not None and intent['operation']==operation,'SANDBOX_START_BINDING')
+        return self._sandbox_request_value(grant,context,warrant,operation)
+
+    def sandbox_receipt(self,principal,*,operation,warrant):
+        return self._sandbox_receipt(principal,Capability.READ,operation=operation,warrant=warrant)
+
+    def _sandbox_receipt_after_dispatch(self,principal,*,operation,warrant):
+        return self._sandbox_receipt(principal,Capability.COMMIT,operation=operation,warrant=warrant)
+
+    def _sandbox_receipt(self,principal,purpose,*,operation,warrant):
+        from runtime.mission.sandbox_linux import read_evidence_file
+        self.core.require(principal,purpose,scope=self.scope)
+        if not self.sandbox_jobs:
+            # Preserve the legacy selector for existing single-config callers.
+            matches=[]
+            for run in self.executor.config.root.glob('run-*'):
+                if not (run/'receipt.json').exists():continue
+                raw=read_evidence_file(run,'receipt.json');value=json.loads(raw)
+                if value.get('warrant_digest')==warrant.digest():matches.append((raw,value,run))
+            require(len(matches)==1,'VALIDATION_RECEIPT_REQUIRED')
+            return matches[0]
+        operation=self._snapshot_operation(operation)
+        request=self._run(principal,purpose,
+                          lambda tx:self._historical_request(tx,operation,warrant))
+        handle,capture=self.executor.binding_for_operation(operation,historical=True)
+        config=self.executor.revalidate_capture(capture)
+        run=config.root/('run-'+request.digest)
+        raw=read_evidence_file(run,'receipt.json');receipt=json.loads(raw)
+        require(receipt.get('request')==request.to_dict() and receipt.get('dispatch_digest')==request.digest
+                and receipt.get('operation_digest')==request.operation_digest
+                and receipt.get('warrant_digest')==warrant.digest()
+                and receipt.get('profile_digest')==config.profile_digest
+                and receipt.get('job_config_binding_digest')==handle.digest
+                and receipt.get('config_digest')==capture.config_digest,'READBACK_BINDING')
+        return raw,receipt,run
 
     def _synthetic_operation(self,proposal,snapshot):
         require(type(proposal) is dict and set(proposal)=={'action','path','content'}
@@ -426,7 +613,9 @@ class CoreToolRoute:
         require(len(canonical_json_bytes(result))<=4096,'TOOL_INPUT_LIMIT')
         return result
 
-    def _operation(self,operation,snapshot,*,variant=None,historical=False):
+    def _operation(self,operation,snapshot,*,variant=None,historical=False,_legacy_history=False):
+        require(type(_legacy_history) is bool and (not _legacy_history or historical),
+                'TOOL_CONTEXT_INTEGRITY')
         variant=variant or self.bound_variant
         require(type(operation) is dict and type(operation.get('payload')) is dict,'INVALID_TOOL_OPERATION')
         require(operation.get('operation_class')==variant.operation_class,'INVALID_TOOL_OPERATION')
@@ -446,7 +635,9 @@ class CoreToolRoute:
             require(operation['payload']['workspace']==self.workspace
                     and operation['target_fingerprint']==snapshot.fingerprint
                     and operation['expected_target_revision']==snapshot.revision,'STALE_TOOL_BINDING')
-            if not historical:self.sandbox_registry.validate(parsed.to_dict())
+            if self.sandbox_jobs and not _legacy_history:
+                self.sandbox_config_for_operation(parsed.to_dict(),historical=historical)
+            elif not historical:self.sandbox_registry.validate(parsed.to_dict())
             return
         payload=operation['payload']
         require(set(payload)=={'tool','workspace','path','content'} and payload['workspace']==self.workspace,
@@ -465,9 +656,16 @@ class CoreToolRoute:
         return json.loads(encoded)
 
     @staticmethod
-    def _ddr(snapshot,completion,grant,reservation):
+    def _ddr(snapshot,completion,grant,reservation,sandbox_job=None):
         # Goal graph includes operation liability; keep goal binding in DDR to avoid a hash cycle.
-        return DecisionDependencyRoot(snapshot.ddr.evidence_refs+(EvidenceRef('required-completion',
+        extra=()
+        if sandbox_job is not None:
+            extra=(EvidenceRef('sandbox-config-binding','sandbox-job-binding',
+                    'sha256:'+sandbox_job['sandbox_binding_digest'],'v1'),
+                   EvidenceRef('sandbox-job-claim','sandbox-job-version',
+                    'sha256:'+canonical_sha256({'job_version':sandbox_job['version'],
+                                               'job_claim':sandbox_job['claim']}),'v1'))
+        return DecisionDependencyRoot(snapshot.ddr.evidence_refs+extra+(EvidenceRef('required-completion',
             'required-task-binding','sha256:'+completion.digest,'v1'),
             EvidenceRef('session-grant','human-root-grant','sha256:'+grant.digest,'v1'),
             EvidenceRef('tool-reservation','exact-reservation','sha256:'+canonical_sha256(reservation),'v1')))
@@ -479,16 +677,32 @@ class CoreToolRoute:
         row=tx.get(RecordKind.OPERATION,self._context_key(warrant))
         require(row is not None,'TOOL_AUTHORIZATION_REQUIRED')
         context=json.loads(canonical_json_bytes(row.payload))
-        require(set(context)=={'schema','session_id','grant_digest','completion','graph','trace',
-                              'warrant','reservation','target_ddr'} and context['schema'] in (CONTEXT, EXACT_CONTEXT, PORTABLE_CONTEXT, REARM_CONTEXT)
+        base_fields={'schema','session_id','grant_digest','completion','graph','trace',
+                     'warrant','reservation','target_ddr'}
+        managed=context.get('schema')==BOUND_CONTEXT
+        require(set(context)==(base_fields|{'job_config_binding_digest','job_version','job_claim'}
+                              if managed else base_fields) and context['schema'] in (CONTEXT, EXACT_CONTEXT, PORTABLE_CONTEXT, REARM_CONTEXT, BOUND_CONTEXT)
                 and EffectWarrant.from_dict(context['warrant'])==warrant,'TOOL_CONTEXT_INTEGRITY')
+        sandbox_job=None
+        if managed:
+            from runtime.mission.jobs import load_job
+            sandbox_job=load_job(self.journal.governor,tx,warrant.task_id,version=context['job_version'])
+            require(sandbox_job['state']=='STARTED' and sandbox_job['claim']==context['job_claim']
+                    and sandbox_job.get('sandbox_binding_digest')==context['job_config_binding_digest'],
+                    'SANDBOX_BINDING_JOB')
+            value=read_binding(tx,self.scope,self.journal.governor.policy.deployment_id,self.workspace,
+                               warrant.task_id,expected_digest=context['job_config_binding_digest'])
+            require(any(p['operation_digest']==warrant.operation_hash for p in value['allowed_operations']),
+                    'SANDBOX_OPERATION_BINDING')
         binding=TaskCompletionBinding.parse(context['completion'])
+        require(not managed or value['completion_digest']==binding.digest,'SANDBOX_BINDING_JOB')
         graph=DependencyGraph.from_dict(context['graph']);trace=FaultTrace.from_dict(context['trace'])
         require(binding.scope==self.scope and graph.task_id==trace.task_id==binding.task_id==warrant.task_id
                 and canonical_sha256(graph.to_dict())==binding.graph_digest
                 and trace.operation_digest==warrant.operation_hash,'TOOL_CONTEXT_INTEGRITY')
         _, session_state, grant=self._session(tx,context['session_id'],active=False)
-        require(context['schema'] == {3: EXACT_CONTEXT, 4: PORTABLE_CONTEXT, 5: REARM_CONTEXT}.get(grant.policy_revision, CONTEXT),
+        require(context['schema'] == (BOUND_CONTEXT if managed and grant.policy_revision==2 and warrant.operation_class=='SANDBOX_EXEC'
+                else {3: EXACT_CONTEXT, 4: PORTABLE_CONTEXT, 5: REARM_CONTEXT}.get(grant.policy_revision, CONTEXT)),
                 'TOOL_CONTEXT_POLICY_DOWNGRADE')
         witness = tx.get(RecordKind.APPROVAL, self.journal.ledger._key(warrant))
         if grant.policy_revision in (3, 4, 5):
@@ -517,7 +731,7 @@ class CoreToolRoute:
                 and request.task_id==warrant.task_id and request.provider_id==variant.provider_id
                 and request.request_digest==warrant.operation_hash.removeprefix('sha256:')
                 and request.risk_units>=5 and (request.money_nano == 0 if portable else request.money_nano > 0)
-                and self._ddr(snapshot,binding,grant,request)==warrant.decision_dependency_root,
+                and self._ddr(snapshot,binding,grant,request,sandbox_job)==warrant.decision_dependency_root,
                 'TOOL_CONTEXT_INTEGRITY')
         if portable:
             require(type(grant) is LocalSessionGrant and grant.money_nano == 0
@@ -527,7 +741,8 @@ class CoreToolRoute:
         require(stored_graph['graph']==graph.to_dict(),'DEPENDENCY_GRAPH_CONFLICT')
         prior,intent=self.journal._load(tx,warrant)
         if prior is not None:
-            self._operation(intent['operation'],snapshot,variant=variant,historical=True)
+            self._operation(intent['operation'],snapshot,variant=variant,historical=True,
+                            _legacy_history=not managed)
             if variant is SANDBOX:self._sandbox_scope(intent['operation'],binding,graph,trace,grant)
             if portable:self._portable_scope(intent['operation'], binding, grant, session_state, warrant=warrant)
             entry=stored_graph['entries'].get(classify_fault(trace).liability_id)
@@ -583,7 +798,13 @@ class CoreToolRoute:
         _,intent=self.journal._load(tx,warrant)
         require(intent is not None and intent['resolution'] is None
                 and intent['outcome']['contract_type']=='Unknown','SANDBOX_START_BINDING')
-        operation=self.sandbox_registry.validate(intent['operation'])
+        if self.sandbox_jobs:self._sandbox_record(tx,intent['operation'])
+        return self._sandbox_request_value(grant,context,warrant,intent['operation'])
+
+    def _sandbox_request_value(self,grant,context,warrant,raw_operation):
+        registry=(self.sandbox_config_for_operation(raw_operation,historical=True).registry
+                  if self.sandbox_jobs else self.sandbox_registry)
+        operation=registry.validate(raw_operation)
         payload=operation.to_dict()['payload']
         return SandboxDispatchRequest(operation.operation_bytes,warrant.operation_hash,
             payload['task_id'],payload['step_id'],context['session_id'],grant.digest,grant.epoch,
@@ -639,7 +860,12 @@ class CoreToolRoute:
         require(model_id in principal.model_binding_ids,'MODEL_BINDING_DENIED')
         def change(tx):
             _,session_state,grant=self._session(tx,session_id)
-            self._native_job(tx,completion)
+            sandbox_job=self._native_job(tx,completion)
+            if self.sandbox_jobs:
+                value=self._sandbox_record(tx,operation)
+                require(sandbox_job.get('sandbox_binding_digest')==canonical_sha256(value),
+                        'SANDBOX_JOB_BINDING_REQUIRED')
+            else:sandbox_job=None
             if self.bound_variant is SANDBOX:self._sandbox_scope(operation,completion,graph,trace,grant)
             portable = self.bound_variant in (PORTABLE, PORTABLE_REARM)
             if portable:self._portable_scope(operation, completion, grant, session_state)
@@ -681,7 +907,7 @@ class CoreToolRoute:
             warrant=EffectWarrant(warrant_id=nonce,task_id=completion.task_id,owner_scope=owner,
                 operation_class=operation['operation_class'],operation_hash=trace.operation_digest,
                 target_fingerprint=snapshot.fingerprint,expected_target_revision=snapshot.revision,
-                revision_policy=RevisionPolicy.REQUIRE,decision_dependency_root=self._ddr(snapshot,completion,grant,reservation),
+                revision_policy=RevisionPolicy.REQUIRE,decision_dependency_root=self._ddr(snapshot,completion,grant,reservation,sandbox_job),
                 lease_epoch=grant.epoch,authority_scope=scope,approval_digest='sha256:'+'0'*64,
                 money_reservation_id='NONE' if portable else reservation_id,risk_reservation_id=reservation_id,nonce=nonce,
                 issued_at=start,expires_at=end)
@@ -696,7 +922,7 @@ class CoreToolRoute:
                 rows = tx.scan(RecordKind.OPERATION, limit=1024)
                 require(len(rows) < 1024, 'TOOL_HISTORY_QUOTA')
                 for row in rows:
-                    if row.payload.get('schema') in (CONTEXT, EXACT_CONTEXT, PORTABLE_CONTEXT, REARM_CONTEXT):
+                    if row.payload.get('schema') in (CONTEXT, EXACT_CONTEXT, PORTABLE_CONTEXT, REARM_CONTEXT, BOUND_CONTEXT):
                         existing = EffectWarrant.from_dict(json.loads(canonical_json_bytes(row.payload['warrant'])))
                         require((existing.task_id, existing.operation_hash)
                                 != (warrant.task_id, warrant.operation_hash),
@@ -711,19 +937,29 @@ class CoreToolRoute:
             context={'schema':REARM_CONTEXT if self.bound_variant is PORTABLE_REARM else PORTABLE_CONTEXT if portable else EXACT_CONTEXT if exact else CONTEXT,'session_id':session_id,'grant_digest':grant.digest,
                      'completion':completion.to_dict(),'graph':graph.to_dict(),'trace':trace.to_dict(),
                      'warrant':warrant.to_dict(),'reservation':asdict(reservation),'target_ddr':snapshot.ddr.to_dict()}
+            if sandbox_job is not None:
+                context.update(schema=BOUND_CONTEXT,job_config_binding_digest=sandbox_job['sandbox_binding_digest'],
+                               job_version=sandbox_job['version'],job_claim=sandbox_job['claim'])
             tx.insert(StoredRecord(RecordKind.OPERATION,self._context_key(warrant),self.scope,1,context))
             return warrant
         return self._run(principal,purpose,change)
 
     def _check(self,tx,session_id,warrant,operation,completion,snapshot):
         _,session_state,grant=self._session(tx,session_id)
-        self._native_job(tx,completion,dispatch=True)
+        sandbox_job=self._native_job(tx,completion,dispatch=True)
         context,binding,graph,trace=self._context(tx,warrant)
         self._context_target_snapshot(warrant,context)
+        if self.sandbox_jobs:
+            value=self._sandbox_record(tx,operation)
+            require(sandbox_job.get('sandbox_binding_digest')==canonical_sha256(value)
+                    ==context['job_config_binding_digest']
+                    and sandbox_job['version']==context['job_version']
+                    and sandbox_job['claim']==context['job_claim'],'SANDBOX_BINDING_JOB')
+        else:sandbox_job=None
         require(context['session_id']==session_id and context['grant_digest']==grant.digest
                 and binding==completion and completion.digest==grant.completion_digest
                 and operation['operation_class'] in grant.capabilities
-                and self._ddr(snapshot,completion,grant,ReservationRequest(**context['reservation']))==warrant.decision_dependency_root,'STALE_TOOL_BINDING')
+                and self._ddr(snapshot,completion,grant,ReservationRequest(**context['reservation']),sandbox_job)==warrant.decision_dependency_root,'STALE_TOOL_BINDING')
         self._operation(operation,snapshot)
         if grant.policy_revision in (3, 4, 5):
             # This method runs after START only in the live ACK branch.
@@ -792,7 +1028,7 @@ class CoreToolRoute:
             known_intents=set();known_reservations=set()
             for row in rows:
                 c=json.loads(canonical_json_bytes(row.payload))
-                if c.get('schema') in (CONTEXT, EXACT_CONTEXT, PORTABLE_CONTEXT, REARM_CONTEXT):
+                if c.get('schema') in (CONTEXT, EXACT_CONTEXT, PORTABLE_CONTEXT, REARM_CONTEXT, BOUND_CONTEXT):
                     w=EffectWarrant.from_dict(c['warrant']);self._context(tx,w)
                     reservation_id = w.risk_reservation_id if c['schema'] in (PORTABLE_CONTEXT, REARM_CONTEXT) else w.money_reservation_id
                     known_intents.add(w.digest());known_reservations.add(reservation_id)
@@ -918,7 +1154,11 @@ class CoreToolRoute:
         require(self.verifier is not None,'INDEPENDENT_READBACK_REQUIRED')
         try:
             with failure_boundary('TOOL_READBACK_UNAVAILABLE'):
-                observed=self.verifier(intent['operation'],warrant)
+                if self.sandbox_jobs:
+                    request=self._run(principal,Capability.COMMIT,
+                        lambda tx:self._historical_request(tx,intent['operation'],warrant))
+                    observed=self.verifier(intent['operation'],warrant,request=request)
+                else:observed=self.verifier(intent['operation'],warrant)
         except (ValueError, RepairBoundaryError):
             require(False,'INDEPENDENT_READBACK_UNAVAILABLE')
         if self.target_settlement is not None:

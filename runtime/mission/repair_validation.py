@@ -318,7 +318,7 @@ def _pin_prepared_spec(journal, step, expected_spec):
         type(step) is PreparedValidationStep and step.route.journal is journal,
         "SECOND_CORE_DENIED",
     )
-    config = step.route.executor.config
+    config = step.route.sandbox_config_for_operation(step.arguments["operation"])
     operation = step.arguments["operation"]
     config.registry.validate(operation)
     spec = config.inputs()[operation["payload"]["recipe_id"]]
@@ -351,16 +351,7 @@ def _collect_sandbox_receipt(journal, step, cancel):
     require(step.route.journal is journal, "SECOND_CORE_DENIED")
     step.route.dispatch(step.principal, **step.arguments, cancel=cancel)
     warrant = step.arguments["warrant"]
-    matching = []
-    for run in step.route.executor.config.root.glob("run-*"):
-        if not (run / "receipt.json").exists():
-            continue
-        raw = read_evidence_file(run, "receipt.json")
-        receipt = _json_bytes(raw)
-        if receipt.get("warrant_digest") == warrant.digest():
-            matching.append((raw, receipt, run))
-    require(len(matching) == 1, "VALIDATION_RECEIPT_REQUIRED")
-    return matching[0]
+    return step.route._sandbox_receipt_after_dispatch(step.principal,operation=step.arguments['operation'],warrant=warrant)
 
 
 def _clean_receipt(receipt):
@@ -377,7 +368,8 @@ def _settle_sandbox_receipt(journal, step, raw, receipt):
         "VALIDATION_UNRESOLVED",
     )
     warrant = step.arguments["warrant"]
-    step.route.reconcile(step.principal, warrant, 1)
+    epoch=warrant.lease_epoch if step.route.sandbox_jobs else 1
+    step.route.reconcile(step.principal, warrant, epoch)
     stored = journal._run(
         step.principal,
         Capability.COMMIT,
@@ -406,6 +398,7 @@ class CoreRepositoryMaterializer:
         base_root,
         output_root,
         cancel=None,
+        sandbox_jobs=False,
     ):
         from runtime.mission.git_publish import GitSourceSnapshot
         from runtime.mission.project_recipe import PythonRepositoryRecipe
@@ -432,6 +425,8 @@ class CoreRepositoryMaterializer:
             ),
             "MATERIALIZATION_LOCATORS",
         )
+        require(type(sandbox_jobs) is bool,"INVALID_SANDBOX_JOBS_MODE")
+        self.sandbox_jobs=sandbox_jobs
         self.journal, self.prepare, self.profile = journal, prepare, profile
         self.source_snapshot, self.source_repository = (
             source_snapshot,
@@ -473,7 +468,10 @@ class CoreRepositoryMaterializer:
             worker_session_id=session.session_id,
             candidate=candidate,
         )
-        step = self.prepare(spec, predicted)
+        if self.sandbox_jobs:
+            from runtime.mission.sandbox_bindings import MaterializationBindingInput
+            step=self.prepare(spec,predicted,binding_input=MaterializationBindingInput(task,session,candidate))
+        else:step = self.prepare(spec, predicted)
         require(
             type(step) is PreparedValidationStep and step.stage == "MATERIALIZE",
             "MATERIALIZATION_PREPARED_STEP",
@@ -596,7 +594,7 @@ def _store_validation_evidence(journal, step, data, stored):
 
 
 class CoreSandboxValidation:
-    def __init__(self, journal, prepare, *, profile=None, cancel=None, render_capsules=None):
+    def __init__(self, journal, prepare, *, profile=None, cancel=None, render_capsules=None,sandbox_jobs=False):
         from runtime.mission.project_recipe import PythonRepositoryRecipe
 
         require(
@@ -613,6 +611,8 @@ class CoreSandboxValidation:
             from runtime.mission.patch_capsule import CorePatchCapsules
             require(type(render_capsules) is CorePatchCapsules and render_capsules.journal is journal,
                     'RENDER_CAPSULE_BINDING_REQUIRED')
+        require(type(sandbox_jobs) is bool,"INVALID_SANDBOX_JOBS_MODE")
+        self.sandbox_jobs=sandbox_jobs
         self.render_capsules = render_capsules
         self.journal, self.prepare, self.profile, self.cancel = (
             journal,
@@ -638,7 +638,7 @@ class CoreSandboxValidation:
         require(self.render_capsules is not None, 'RENDER_CAPSULE_BINDING_REQUIRED')
         require(step.principal.actor_session_id == principal.actor_session_id, 'RENDER_PRINCIPAL_BINDING')
         _pin_prepared_spec(self.journal, step, recipe.recipe_spec())
-        config = step.route.executor.config
+        config = step.route.sandbox_config_for_operation(step.arguments["operation"])
         profile = config.profile()
         require(profile.get('resource_profile') in ('HEADLESS_RENDER_V1', 'HEADLESS_RENDER_V2', 'HEADLESS_RENDER_V3')
                 and profile.get('ipc_profile') in (
@@ -748,7 +748,10 @@ class CoreSandboxValidation:
             )
         else:
             self.profile.validate_patch(patchset)
-        prepared = self.prepare(root, patchset)
+        if self.sandbox_jobs:
+            from runtime.mission.sandbox_bindings import ObservationBindingInput
+            prepared=self.prepare(root,patchset,binding_input=ObservationBindingInput(patchset,archive))
+        else:prepared = self.prepare(root, patchset)
         require(
             type(prepared) is tuple
             and len(prepared) == 3

@@ -18,6 +18,7 @@ from runtime.memory_patch.persistence.idempotency import OperationBinding, execu
 from runtime.memory_patch.persistence.ports import RecordKind, TransactionContext
 from runtime.mission.governor import ReservationRequest, _deny, _identity, _plain
 from runtime.mission.job_contracts import JobClaim, JobEnvelope
+from runtime.mission.sandbox_bindings import binding_for_job
 from runtime.providers.nvidia import OUTPUT_SCHEMA, ProviderResponse
 from runtime.service_guard.contracts import parse_proposal
 
@@ -28,7 +29,7 @@ STATES={'QUEUED','CLAIMED','STARTED','UNKNOWN','DONE'}
 def key(gov,task,version):return canonical_sha256((KIND,gov.policy.scope,gov.policy.deployment_id,task,version))
 def reservation_id(gov,task):return 'job-'+key(gov,task,0)
 
-def load_job(gov,tx,task):
+def load_job(gov,tx,task,*,version=None):
     domain_chain(tx)
     records=tx.scan(RecordKind.OPERATION,limit=1024)
     _deny(len(records)<1024,'HISTORY_QUOTA')
@@ -40,7 +41,8 @@ def load_job(gov,tx,task):
         o=p['outcome'];_deny(set(o)=={'job','prior_digest'},'GOVERNOR_INTEGRITY');j=o['job']
         envelope=JobEnvelope.parse(j['envelope'])
         base_keys={'version','envelope','state','claim','result_digest','reservation_id','last_now'}
-        _deny(set(j) in (base_keys,base_keys|{'completion_binding','completion_proof'})
+        completion_keys=base_keys|{'completion_binding','completion_proof'}
+        _deny(set(j) in (base_keys,completion_keys,completion_keys|{'sandbox_binding_digest'})
             and j['state'] in STATES and type(j['version']) is int and 1<=j['version']<=128
             and type(j['last_now']) is int and 0<=j['last_now']<=2**53
             and envelope.scope==gov.policy.scope and row.record_id==key(gov,envelope.task_id,j['version'])
@@ -75,7 +77,9 @@ def load_job(gov,tx,task):
             and outbox.payload['event_digest']==event.event_hash
             and outbox.payload['operation_digest']==canonical_sha256({'scope':gov.policy.scope.binding(),'operation':operation}),'GOVERNOR_INTEGRITY')
         if envelope.task_id==task:found.append(o)
-    current=None
+    current=None;selected=None
+    _deny(version is None or type(version) is int and 1<=version<=128,
+          'GOVERNOR_INTEGRITY')
     for o in sorted(found,key=lambda row:row['job']['version']):
         _deny(o['job']['version']==(1 if current is None else current['version']+1)
             and o['prior_digest']==canonical_sha256(current),'GOVERNOR_INTEGRITY')
@@ -84,8 +88,19 @@ def load_job(gov,tx,task):
                 _deny(current['state']!='DONE','GOVERNOR_INTEGRITY')
             _deny(canonical_sha256(o['job']['envelope'])==canonical_sha256(current['envelope'])
                 and canonical_sha256(o['job'].get('completion_binding'))==canonical_sha256(current.get('completion_binding'))
-                and o['job']['last_now']>=current['last_now'],'GOVERNOR_INTEGRITY')
+                and o['job'].get('sandbox_binding_digest')==current.get('sandbox_binding_digest')
+                 and o['job']['last_now']>=current['last_now'],'GOVERNOR_INTEGRITY')
         current=_plain(o['job'])
+        if current['version']==version:selected=current
+    if version is not None:
+        _deny(selected is not None,'GOVERNOR_INTEGRITY')
+        current=selected
+    if current is not None:
+        from runtime.mission.completion import TaskCompletionBinding
+        completion=(TaskCompletionBinding.parse(current['completion_binding'])
+                    if 'completion_binding' in current else None)
+        binding_for_job(gov,tx,JobEnvelope.parse(current['envelope']),completion,
+                        current.get('sandbox_binding_digest'))
     return current
 
 
@@ -117,7 +132,7 @@ def public(job):
     return result
 
 
-def change_job(gov,principal,action,*,task_id=None,envelope=None,worker_id=None,epoch=None,lease_seconds=None,claim=None,response=None,completion=None):
+def change_job(gov,principal,action,*,task_id=None,envelope=None,worker_id=None,epoch=None,lease_seconds=None,claim=None,response=None,completion=None,sandbox_binding_digest=None):
     purpose=Capability.READ if action=='inspect' else Capability.MANAGE if action in ('submit','takeover') else Capability.COMMIT
     gov._require(principal,purpose);now=None if action=='inspect' else gov._now()
     if envelope is not None:
@@ -131,6 +146,9 @@ def change_job(gov,principal,action,*,task_id=None,envelope=None,worker_id=None,
         completion=TaskCompletionBinding.parse(completion.to_dict())
         _deny(completion.scope==gov.policy.scope and completion.task_id==task_id,'INVALID_RESERVATION_REQUEST')
         completion_value=completion.to_dict()
+    if sandbox_binding_digest is not None:
+        from runtime.mission.sandbox_bindings import digest
+        _deny(action=='submit','INVALID_RESERVATION_REQUEST');digest(sandbox_binding_digest)
     if action == 'submit':
         _deny(envelope is not None, 'INVALID_RESERVATION_REQUEST')
         if envelope.offline_host:
@@ -159,14 +177,17 @@ def change_job(gov,principal,action,*,task_id=None,envelope=None,worker_id=None,
         _deny(state['epoch']>0,'STALE_EPOCH')
         if job is not None:_deny(now>=job['last_now'],'CLOCK_UNSAFE')
         if action=='submit':
+            binding_for_job(gov,tx,envelope,completion,sandbox_binding_digest)
             _deny(envelope.model_id in principal.model_binding_ids,'MODEL_BINDING_DENIED')
             if job is not None:
-                _deny(job['envelope']==envelope.as_dict() and job.get('completion_binding')==completion_value,
+                _deny(job['envelope']==envelope.as_dict() and job.get('completion_binding')==completion_value
+                      and job.get('sandbox_binding_digest')==sandbox_binding_digest,
                       'IDEMPOTENCY_CONFLICT');return public(job)
             _deny(now<envelope.deadline_at,'INVALID_RESERVATION_REQUEST')
             job={'version':0,'envelope':envelope.as_dict(),'state':'QUEUED','claim':None,'result_digest':None,
                 'reservation_id':reservation_id(gov,task_id),'last_now':now};changed=True
             if completion_value is not None:job.update(completion_binding=completion_value,completion_proof=None)
+            if sandbox_binding_digest is not None:job['sandbox_binding_digest']=sandbox_binding_digest
         else:
             _deny(job is not None,'RESERVATION_REQUIRED');env=JobEnvelope.parse(job['envelope'])
             if action == 'finish':

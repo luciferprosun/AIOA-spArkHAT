@@ -122,6 +122,9 @@ SOURCE_FILES += ('runtime/critical_loop/redaction.py','runtime/critical_loop/__i
 # Runtime construction is part of the same host authority source fence.
 SOURCE_FILES += ('runtime/main.py',)
 
+# Immutable job/config joins are part of the same existing broker authority.
+SOURCE_FILES += ('runtime/mission/sandbox_bindings.py',)
+
 
 # Fixed reviewed physical Portable/Core closure; string pins never import the extra.
 SOURCE_FILES += (

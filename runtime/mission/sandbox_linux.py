@@ -18,7 +18,7 @@ import subprocess
 import sys
 import tempfile
 import uuid
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -27,6 +27,15 @@ from runtime.memory_patch.contracts.serialization import (
     canonical_sha256,
 )
 from runtime.mission import sandbox_contracts
+from runtime.mission.sandbox_bindings import (
+    CONFIG_DOMAIN,
+    CapturedSandboxConfig,
+    MaterializationBindingInput,
+    ObservationBindingInput,
+    SandboxJobBinding,
+    TrustedSandboxBindingPolicy,
+    root_member,
+)
 from runtime.mission.sandbox_contracts import (
     RENDER_PROFILE_CEILINGS,
     RESOURCE_CEILINGS,
@@ -442,12 +451,7 @@ def load_host_config(root, *, trusted_root):
     path = root / "host-config.json"
     info = private(path)
     require(info.st_size <= 4194304, "SANDBOX_CACHE_BOUNDS")
-    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
-    try:
-        with os.fdopen(fd, "rb", closefd=False) as stream:
-            raw = stream.read(4194305)
-    finally:
-        os.close(fd)
+    raw = _private_bytes(path, trusted, 4194304)
     value = json.loads(raw)
     require(
         set(value)
@@ -466,6 +470,8 @@ def load_host_config(root, *, trusted_root):
     )
     require(
         value["profile"]["backend_sha256"] == sha(__file__)
+        and value["profile"].get("binding_source_sha256")
+        == sha(Path(__file__).with_name("sandbox_bindings.py"))
         and value["profile"]["worker_sha256"]
         == sha(Path(__file__).with_name("sandbox_worker.py")),
         "SANDBOX_CACHE_SOURCE_CHANGED",
@@ -610,6 +616,7 @@ def prepare_linux_sandbox(root, runtime_manifest, *, workspace, recipes, resourc
         "bwrap_sha256": sha("/usr/bin/bwrap"),
         "worker_sha256": sha(Path(__file__).with_name("sandbox_worker.py")),
         "backend_sha256": sha(__file__),
+        "binding_source_sha256": sha(Path(__file__).with_name("sandbox_bindings.py")),
         "resources": dict(resource_ceilings),
         "env": env,
         "network": "OFF",
@@ -903,17 +910,334 @@ def _systemd_properties(operation):
     )
 
 
+def _private_path(path, trusted, *, directory=False):
+    path, trusted = Path(path), Path(trusted)
+    require(path.is_absolute() and path.is_relative_to(trusted)
+            and '..' not in path.parts and path.resolve() == path, 'SANDBOX_CACHE_PATH_DENIED')
+    info = path.lstat()
+    require(info.st_uid == os.getuid() and not info.st_mode & 0o077
+            and (stat.S_ISDIR(info.st_mode) if directory else
+                 stat.S_ISREG(info.st_mode) and info.st_nlink == 1), 'SANDBOX_PRIVATE_CACHE_REQUIRED')
+    return info
+
+
+def _private_bytes(path, trusted, maximum):
+    path = Path(path)
+    _private_path(path.parent, trusted, directory=True)
+    before = _private_path(path, trusted)
+    require(before.st_size <= maximum, 'SANDBOX_CACHE_BOUNDS')
+    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC)
+    try:
+        raw = bytearray()
+        while len(raw) <= maximum:
+            part = os.read(fd, min(65536, maximum + 1 - len(raw)))
+            if not part:
+                break
+            raw.extend(part)
+        opened, after, named = os.fstat(fd), os.fstat(fd), path.lstat()
+        identity = lambda i: (i.st_dev,i.st_ino,i.st_mode,i.st_uid,i.st_nlink,
+                              i.st_size,i.st_mtime_ns,i.st_ctime_ns)
+        require(identity(before)==identity(opened)==identity(after)==identity(named)
+                and len(raw)==before.st_size, 'SANDBOX_CACHE_CHANGED')
+        return bytes(raw)
+    finally:
+        os.close(fd)
+
+
+def _config_identity(config):
+    return canonical_json_bytes({'domain':CONFIG_DOMAIN,'profile_digest':config.profile_digest,
+        'registry':{'workspace':config.registry.workspace,
+                    'recipes':[asdict(r) for r in config.registry.recipes]},
+        'inputs':{key:{field:value[field] for field in ('manifest','expected','digest')}
+                  for key,value in config.inputs().items()}})
+
+
 class LinuxSandboxBroker:
-    def __init__(self, config=None):
-        require(
-            type(config) is TrustedSandboxConfig and not sys.flags.optimize,
-            "TRUSTED_SANDBOX_CONFIGURATION_REQUIRED",
-        )
-        require(
-            config.profile_digest == canonical_sha256(config.profile()),
-            "PINNED_PROFILE_CHANGED",
-        )
-        self.config = config
+    def __init__(self, config=None, *, binding_policy=None):
+        require(type(config) is TrustedSandboxConfig and not sys.flags.optimize,
+                'TRUSTED_SANDBOX_CONFIGURATION_REQUIRED')
+        require(config.profile_digest == canonical_sha256(config.profile()), 'PINNED_PROFILE_CHANGED')
+        require(binding_policy is None or type(binding_policy) is TrustedSandboxBindingPolicy,
+                'SANDBOX_BINDING_POLICY_REQUIRED')
+        self._seed_config = config
+        self._binding_policy = binding_policy
+        self._binding_owner = None
+        self._owner_objects = None
+        self._captures = {}
+        self._bindings = {}
+        self._uncertain_bindings = set()
+        self._closed = False
+        self._active_cancel = None
+        self._quarantined = False
+        if binding_policy is not None:
+            require(config.profile_digest == binding_policy.profile_digest
+                    and config.registry.workspace == binding_policy.workspace,
+                    'SANDBOX_BINDING_POLICY_REQUIRED')
+            self._recipe_digest = binding_policy.recipe.digest
+            self._binding_source = sha(Path(__file__).with_name('sandbox_bindings.py'))
+            self._validate_config(config)
+
+    @property
+    def config(self):
+        """The immutable legacy seed; never the currently selected job config."""
+        return self._seed_config
+
+    @property
+    def binding_policy(self):
+        return self._binding_policy
+
+    def bind_route(self, route):
+        require(self.binding_policy is not None and self._binding_owner is None,
+                'SANDBOX_BINDING_OWNER')
+        prior=getattr(route.core,'_sandbox_binding_owner',None)
+        require(prior is None or prior._closed and prior._active_cancel is None,'SANDBOX_BINDING_OWNER')
+        self._binding_owner = route
+        route.core._sandbox_binding_owner=self
+        self._owner_objects = (route.core,route.runner,route.journal,route.journal.ledger,
+                               route.liability,route.journal.governor)
+        self.require_route_binding(route)
+
+    def require_route_binding(self, route):
+        require(route is not None and route is self._binding_owner and route.executor is self
+                and self._owner_objects is not None, 'SANDBOX_BINDING_OWNER')
+        expected=(route.core,route.runner,route.journal,route.journal.ledger,
+                  route.liability,route.journal.governor)
+        require(all(a is b for a,b in zip(expected,self._owner_objects,strict=True))
+                and route.core is route.journal.ledger.core is route.liability.core
+                    is route.journal.governor.core
+                and route.runner is route.journal.ledger.runner is route.liability.runner
+                    is route.journal.governor.runner
+                and route.workspace==self.binding_policy.workspace,
+                'SANDBOX_BINDING_OWNER')
+
+    def _source_check(self):
+        policy=self.binding_policy
+        require(policy.recipe.digest==self._recipe_digest
+                and sha(Path(__file__).with_name('sandbox_bindings.py'))==self._binding_source,
+                'SANDBOX_BINDING_SOURCE')
+        policy.source_snapshot.verify(policy.source_repository)
+        policy.source_snapshot.verify_export(policy.base_root)
+
+    def _validate_config(self, config):
+        policy=self.binding_policy
+        require(type(config) is TrustedSandboxConfig
+                and config.root.parent==policy.trusted_root, 'SANDBOX_BINDING_ROOT_DENIED')
+        root_member(config.root.name)
+        _private_path(policy.trusted_root,policy.trusted_root,directory=True)
+        info=_private_path(config.root,policy.trusted_root,directory=True)
+        profile=config.profile()
+        require(config.profile_bytes==canonical_json_bytes(profile)
+                and canonical_sha256(profile)==config.profile_digest==policy.profile_digest
+                and config.registry.workspace==policy.workspace
+                and profile.get('input_profile')==policy.recipe.sandbox_input_profile
+                and 'resource_profile' not in profile, 'SANDBOX_BINDING_PROFILE')
+        require(profile.get('binding_source_sha256')==self._binding_source
+                and sha(__file__)==profile['backend_sha256']
+                and sha(Path(__file__).with_name('sandbox_worker.py'))==profile['worker_sha256']
+                and sha('/usr/bin/bwrap')==profile['bwrap_sha256'],'PINNED_BACKEND_CHANGED')
+        for name,pin in profile['native'].items():
+            require(name in ('worker_gate','bootstrap','setup_filter','final_filter'), 'SANDBOX_BINDING_PROFILE')
+            filename=name+('.bpf' if name.endswith('filter') else '')
+            raw=_private_bytes(config.root/filename,policy.trusted_root,4194304)
+            require(hashlib.sha256(raw).hexdigest()==(pin['binary_sha256'] if type(pin) is dict else pin),
+                    'PINNED_NATIVE_CHANGED')
+            if type(pin) is dict:
+                require(sha(Path(__file__).parent/'native'/(name+'.c'))==pin['source_sha256'],
+                        'PINNED_NATIVE_CHANGED')
+        runtime=config.runtime()
+        require({key:{field:entry[field] for field in ('sha256','bytes','mode')}
+                 for key,entry in runtime.items()}==profile['runtime'],'PINNED_RUNTIME_CHANGED')
+        for entry in runtime.values():
+            raw=_private_bytes(entry['snapshot'],policy.trusted_root,entry['bytes'])
+            require(len(raw)==entry['bytes'] and hashlib.sha256(raw).hexdigest()==entry['sha256']
+                    and stat.S_IMODE(Path(entry['snapshot']).lstat().st_mode)==entry['mode'],
+                    'PINNED_RUNTIME_CHANGED')
+        inputs=config.inputs()
+        require(set(inputs)=={r.recipe_id for r in config.registry.recipes},'SANDBOX_BINDING_INPUT')
+        limits=sandbox_contracts.sandbox_input_limits(profile.get('input_profile'))
+        template=self.config.registry.recipes[0]
+        for index,recipe in enumerate(config.registry.recipes):
+            entry=inputs[recipe.recipe_id]
+            require(set(entry)=={'files','manifest','expected','digest'}
+                    and set(entry['files'])==set(entry['manifest'])
+                    and 1<=len(entry['files'])<=limits['files']
+                    and 1<=len(entry['expected'])<=8,'SANDBOX_BINDING_INPUT')
+            size=0
+            for name,filename in entry['files'].items():
+                root_member(name)
+                require(Path(filename)==config.root/('input-'+str(index))/name,
+                        'SANDBOX_CACHE_INPUT_DENIED')
+                raw=_private_bytes(filename,policy.trusted_root,limits['per_file_bytes']);size+=len(raw)
+                require(hashlib.sha256(raw).hexdigest()==entry['manifest'][name],'PINNED_INPUT_CHANGED')
+            require(size<=limits['total_bytes'],'TRUSTED_INPUT_SUM_BOUND')
+            for name,pin in entry['expected'].items():
+                root_member(name)
+                require(type(pin) is dict and set(pin)=={'bytes','sha256'}
+                        and type(pin['bytes']) is int and 0<=pin['bytes']<=1048576,
+                        'INVALID_EXPECTED_ARTIFACT')
+            input_digest=canonical_sha256({'files':entry['manifest'],'expected':entry['expected']})
+            require(entry['digest']==input_digest and recipe==replace(template,
+                    recipe_id=recipe.recipe_id,project_root_ref='trusted-input-'+input_digest[:24],
+                    tool_input_digest=input_digest), 'SANDBOX_REGISTRY_BINDING')
+        return canonical_json_bytes({'device':info.st_dev,'inode':info.st_ino,
+                                     'uid':info.st_uid,'mode':stat.S_IMODE(info.st_mode)})
+
+    def _derive_binding(self, binding_input, recipe_stages):
+        from runtime.mission.patchset import observe_source
+        from runtime.mission.repair import TEST_STAGES
+        policy=self.binding_policy
+        self._source_check()
+        require(type(recipe_stages) is tuple and 1<=len(recipe_stages)<=3
+                and all(type(p) is tuple and len(p)==2 for p in recipe_stages)
+                and len({p[0] for p in recipe_stages})==len(recipe_stages)
+                and len({p[1] for p in recipe_stages})==len(recipe_stages),'SANDBOX_BINDING_STAGE')
+        source=observe_source(policy.base_root,repository_id=policy.recipe.repository_id,
+            workspace_id=policy.workspace,source_base_sha=policy.recipe.source_base_sha)
+        require(all(p[1] in (*TEST_STAGES,'MATERIALIZE') for p in recipe_stages),
+                'SANDBOX_BINDING_STAGE')
+        if type(binding_input) is MaterializationBindingInput:
+            binding_input.__post_init__()
+            task,session=binding_input.task,binding_input.session
+            require(task.workspace_id==policy.workspace and task.repository_id==source.repository_id
+                    and task.source_base_sha==source.source_base_sha
+                    and tuple(p[1] for p in recipe_stages)==('MATERIALIZE',),'SANDBOX_BINDING_TASK')
+            patch,_archive,spec=policy.recipe.materialization_spec(policy.base_root,source=source,
+                task=task,worker_session_id=session.session_id,candidate=binding_input.candidate)
+            specs={recipe_stages[0][0]:spec};kind='MATERIALIZE'
+        else:
+            require(type(binding_input) is ObservationBindingInput,'SANDBOX_BINDING_INPUT')
+            binding_input.__post_init__();patch=binding_input.patchset
+            policy.recipe.validate_patch(patch)
+            require(all(p[1] in TEST_STAGES for p in recipe_stages),'SANDBOX_BINDING_STAGE')
+            specs={identity:policy.recipe.observation_spec(stage,binding_input.archive,patch)
+                   for identity,stage in recipe_stages};kind='OBSERVE'
+        require(patch.workspace_id==source.workspace_id and patch.repository_id==source.repository_id
+                and patch.source_base_sha==source.source_base_sha
+                and patch.base_tree_sha256==source.base_tree_sha256,'SANDBOX_BINDING_SOURCE')
+        provenance={'kind':kind,'repository_recipe_digest':policy.recipe.digest,
+            'source_snapshot_digest':policy.source_snapshot.digest,'source_identity':asdict(source),
+            'coding_task_id':patch.task_id,'coding_run_id':patch.run_id,'coding_task_digest':patch.task_digest,
+            'worker_session_id':patch.worker_session_id,'patchset_sha256':patch.patchset_sha256,
+            'final_tree_sha256':patch.final_tree_sha256,'recipe_stages':recipe_stages}
+        return specs,canonical_json_bytes(provenance)
+
+    def _pin_specs(self, config, specs):
+        require(tuple(specs)==tuple(r.recipe_id for r in config.registry.recipes),'SANDBOX_BINDING_STAGE')
+        for identity,spec in specs.items():
+            actual=config.inputs()[identity]
+            require(actual['manifest']=={n:hashlib.sha256(v).hexdigest() for n,v in spec['files'].items()}
+                    and actual['expected']=={n:{'sha256':hashlib.sha256(v).hexdigest(),'bytes':len(v)}
+                                             for n,v in spec['expected'].items()},'VALIDATION_INPUTS')
+
+    def capture_config(self, config, *, binding_input, recipe_stages):
+        self.require_route_binding(self._binding_owner)
+        require(not self._closed,'SANDBOX_BROKER_CLOSED')
+        specs,provenance=self._derive_binding(binding_input,recipe_stages)
+        identity=self._validate_config(config);self._pin_specs(config,specs)
+        value=_config_identity(config);config_digest=canonical_sha256(json.loads(value))
+        for capture in self._captures.values():
+            if capture.config_digest==config_digest:
+                require(capture.identity_bytes==value,'SANDBOX_CONFIG_COLLISION')
+            if capture.config.root==config.root:
+                require(capture.config is config and capture.identity_bytes==value
+                        and capture.provenance_bytes==provenance,'SANDBOX_CONFIG_REBIND')
+                self.revalidate_capture(capture)
+                return capture
+        require(len(self._captures)<self.binding_policy.max_configs,'SANDBOX_CONFIG_QUOTA')
+        save_host_config(config)
+        raw=_private_bytes(config.root/'host-config.json',self.binding_policy.trusted_root,4194304)
+        capture=CapturedSandboxConfig(config,value,config_digest,hashlib.sha256(raw).hexdigest(),
+                                      identity,provenance,binding_input)
+        self._captures[config.root.name]=capture
+        return capture
+
+    def require_capture(self, capture):
+        self.require_route_binding(self._binding_owner)
+        require(type(capture) is CapturedSandboxConfig
+                and self._captures.get(capture.config.root.name) is capture,'SANDBOX_CAPTURE_OWNER')
+        return capture
+
+    def revalidate_capture(self, capture):
+        self.require_capture(capture)
+        identity=self._validate_config(capture.config)
+        self._source_check()
+        if capture.binding_input is not None:
+            stages=tuple(tuple(p) for p in json.loads(capture.provenance_bytes)['recipe_stages'])
+            specs,provenance=self._derive_binding(capture.binding_input,stages)
+            self._pin_specs(capture.config,specs)
+            require(provenance==capture.provenance_bytes,'SANDBOX_BINDING_SOURCE')
+        require(identity==capture.root_identity_bytes and _config_identity(capture.config)==capture.identity_bytes
+                and hashlib.sha256(_private_bytes(capture.config.root/'host-config.json',
+                    self.binding_policy.trusted_root,4194304)).hexdigest()==capture.host_config_sha256,
+                'SANDBOX_CAPTURE_CHANGED')
+        return capture.config
+
+    def publish_binding(self, value, capture, *, historical=False, operations=()):
+        self.require_capture(capture)
+        task=value['task_id'];record=canonical_json_bytes(value)
+        prior=self._bindings.get(task)
+        if prior is not None:
+            require(prior[0].record_bytes==record and prior[1] is capture
+                    and (historical or prior[0].operation_bytes==operations),'SANDBOX_CONFIG_REBIND')
+            return prior[0]
+        require(len(self._bindings)<self.binding_policy.max_jobs,'SANDBOX_JOB_QUOTA')
+        require(value['config_digest']==capture.config_digest
+                and value['host_config_sha256']==capture.host_config_sha256
+                and value['root_ref']==capture.config.root.name
+                and value['root_identity']==json.loads(capture.root_identity_bytes)
+                and value['provenance']==json.loads(capture.provenance_bytes),'SANDBOX_BINDING_INTEGRITY')
+        require(historical or type(operations) is tuple and 1<=len(operations)<=32
+                and all(type(op) is bytes for op in operations),'SANDBOX_OPERATION_BINDING')
+        handle=SandboxJobBinding(record,'HISTORY_ONLY' if historical else 'LIVE',operations)
+        self._bindings[task]=(handle,capture)
+        return handle
+
+    def binding_for_operation(self, operation, *, historical=False):
+        self.require_route_binding(self._binding_owner)
+        parsed=SandboxOperation.parse(operation);payload=parsed.to_dict()['payload']
+        pair=self._bindings.get(payload['task_id'])
+        require(pair is not None,'SANDBOX_JOB_BINDING_REQUIRED')
+        handle,capture=pair;value=json.loads(handle.record_bytes)
+        require(historical or handle.mode=='LIVE' and not self._closed and not self._quarantined,
+                'SANDBOX_HISTORY_ONLY')
+        require({'step_id':payload['step_id'],'operation_digest':parsed.digest} in value['allowed_operations'],
+                'SANDBOX_OPERATION_BINDING')
+        require(handle.mode=='HISTORY_ONLY' or parsed.operation_bytes in handle.operation_bytes,
+                'SANDBOX_OPERATION_BINDING')
+        capture.config.registry.validate(operation)
+        return handle,capture
+
+    def restore_capture(self, value):
+        self.require_route_binding(self._binding_owner)
+        root=self.binding_policy.trusted_root/root_member(value['root_ref'])
+        config=load_host_config(root,trusted_root=self.binding_policy.trusted_root)
+        identity=self._validate_config(config);self._source_check()
+        provenance=value['provenance'];policy=self.binding_policy
+        from runtime.mission.patchset import observe_source
+        source=observe_source(policy.base_root,repository_id=policy.recipe.repository_id,
+            workspace_id=policy.workspace,source_base_sha=policy.recipe.source_base_sha)
+        require(provenance['repository_recipe_digest']==policy.recipe.digest
+                and provenance['source_snapshot_digest']==policy.source_snapshot.digest
+                and provenance['source_identity']==asdict(source),'SANDBOX_BINDING_SOURCE')
+        raw=_private_bytes(root/'host-config.json',policy.trusted_root,4194304)
+        capture=CapturedSandboxConfig(config,_config_identity(config),value['config_digest'],
+            hashlib.sha256(raw).hexdigest(),identity,canonical_json_bytes(provenance),None)
+        require(canonical_sha256(json.loads(capture.identity_bytes))==value['config_digest'],
+                'SANDBOX_CAPTURE_CHANGED')
+        prior=self._captures.get(root.name)
+        if prior is not None:
+            require(prior.identity_bytes==capture.identity_bytes
+                    and prior.provenance_bytes==capture.provenance_bytes,'SANDBOX_CONFIG_REBIND')
+            capture=prior
+        else:
+            require(len(self._captures)<policy.max_configs,'SANDBOX_CONFIG_QUOTA')
+            self._captures[root.name]=capture
+        return capture
+
+    def close(self):
+        self._closed=True
+        if self._active_cancel is not None:
+            self._active_cancel.cancel()
 
     def __call__(self, request):
         raise ValueError("LIVE_CORE_GATE_REQUIRED")
@@ -1644,24 +1968,41 @@ class LinuxSandboxBroker:
             type(request) is SandboxDispatchRequest and callable(release_check),
             "LIVE_CORE_GATE_REQUIRED",
         )
-        self.config.registry.validate(
+        config=self.config
+        binding=None
+        if self.binding_policy is not None:
+            binding,capture=self.binding_for_operation(SandboxOperation(request.operation_bytes).to_dict())
+            config=self.revalidate_capture(capture)
+            original_release=release_check
+            def bound_release():
+                require(self.binding_for_operation(SandboxOperation(request.operation_bytes).to_dict())
+                        ==(binding,capture),'SANDBOX_OPERATION_BINDING')
+                self.revalidate_capture(capture)
+                require(cancel is None or not cancel.cancelled,'SANDBOX_CANCELLED')
+                result=original_release()
+                require(not self._closed and (cancel is None or not cancel.cancelled),
+                        'SANDBOX_CANCELLED')
+                return result
+            release_check=bound_release
+        require(not self._closed,'SANDBOX_BROKER_CLOSED')
+        config.registry.validate(
             SandboxOperation(request.operation_bytes).to_dict()
         )
-        p = self.config.profile()
+        p = config.profile()
         input_profile = json.loads(request.operation_bytes)['payload'].get('input_profile')
         require(p.get('input_profile') == input_profile, 'PINNED_INPUT_PROFILE_MISMATCH')
         input_limits = sandbox_contracts.sandbox_input_limits(input_profile)
         require(input_profile is None and 'input_limits' not in p
                 or input_profile is not None and p.get('input_limits') == dict(input_limits),
                 'PINNED_INPUT_LIMITS_MISMATCH')
-        inputs = self.config.inputs()[
+        inputs = config.inputs()[
             json.loads(request.operation_bytes)["payload"]["recipe_id"]
         ]
         require(
-            canonical_sha256(p) == self.config.profile_digest, "PINNED_PROFILE_CHANGED"
+            canonical_sha256(p) == config.profile_digest, "PINNED_PROFILE_CHANGED"
         )
         for name, pin in p["native"].items():
-            path = self.config.root / (
+            path = config.root / (
                 name + (".bpf" if name.endswith("filter") else "")
             )
             expected = pin["binary_sha256"] if type(pin) is dict else pin
@@ -1680,12 +2021,12 @@ class LinuxSandboxBroker:
                     "bytes": entry["bytes"],
                     "mode": entry["mode"],
                 }
-                for key, entry in self.config.runtime().items()
+                for key, entry in config.runtime().items()
             }
             == p["runtime"],
             "PINNED_RUNTIME_CHANGED",
         )
-        for entry in self.config.runtime().values():
+        for entry in config.runtime().values():
             require(
                 sha(entry["snapshot"]) == entry["sha256"]
                 and stat.S_IMODE(Path(entry["snapshot"]).lstat().st_mode)
@@ -1695,28 +2036,38 @@ class LinuxSandboxBroker:
         for name, path in inputs["files"].items():
             require(sha(path) == inputs["manifest"][name], "PINNED_INPUT_CHANGED")
         release_check()  # early check; independent second check immediately before project ACK
-        run = self.config.root / ("run-" + request.digest)
+        run = config.root / ("run-" + request.digest)
         run.mkdir(mode=0o700, exist_ok=False)
-        sync_directory(self.config.root)
+        sync_directory(config.root)
         worker_config = {
-            "runtime": self.config.runtime(),
+            "runtime": config.runtime(),
             "inputs": inputs["files"],
             "limits": json.loads(request.operation_bytes)["payload"],
-            "gate": str(self.config.root / "worker_gate"),
-            "bootstrap": str(self.config.root / "bootstrap"),
-            "setup_filter": str(self.config.root / "setup_filter.bpf"),
-            "final_filter": str(self.config.root / "final_filter.bpf"),
+            "gate": str(config.root / "worker_gate"),
+            "bootstrap": str(config.root / "bootstrap"),
+            "setup_filter": str(config.root / "setup_filter.bpf"),
+            "final_filter": str(config.root / "final_filter.bpf"),
         }
         config_path = run / "worker.json"
         config_path.write_bytes(
             json.dumps(worker_config, sort_keys=True, separators=(",", ":")).encode()
         )
         config_path.chmod(0o400)
-        return self._run(
-            request, release_check, config_path, run, inputs, cancel=cancel
-        )
+        from runtime.providers.exact import CancellationToken
+        token=cancel if cancel is not None else CancellationToken()
+        self._active_cancel=token
+        try:
+            receipt=self._run(request,release_check,config_path,run,inputs,config=config,
+                              binding=binding,cancel=token)
+            if self.binding_policy is not None and not (receipt.get('cgroup_absent_after_cleanup') is True
+                    and receipt.get('unit_terminal_observed') is True
+                    and receipt.get('cgroup_populated_zero_directly_observed') is True):
+                self._quarantined=True
+            return receipt
+        finally:
+            self._active_cancel=None
 
-    def _run(self, request, release_check, config_path, run, inputs, *, cancel=None):
+    def _run(self, request, release_check, config_path, run, inputs, *, config, binding=None, cancel=None):
         from runtime.mission.repair import RepairBoundaryError, failure_boundary
 
         unit = "aioa-sandbox-" + uuid.uuid4().hex + ".service"
@@ -1730,11 +2081,14 @@ class LinuxSandboxBroker:
             "dispatch_digest": request.digest,
             "request": request.to_dict(),
             "warrant_digest": request.warrant_digest,
-            "profile_digest": self.config.profile_digest,
+            "profile_digest": config.profile_digest,
             "stage": "PREPARED",
             "observations": {},
             "cleanup": [],
         }
+        if binding is not None:
+            receipt.update(job_config_binding_digest=binding.digest,
+                           config_digest=canonical_sha256(json.loads(_config_identity(config))))
         proc = None
         peer = None
         listener = None
@@ -1924,7 +2278,7 @@ class LinuxSandboxBroker:
                 with os.fdopen(exe, "rb") as stream:
                     assert (
                         hashlib.sha256(stream.read(1048576)).hexdigest()
-                        == self.config.profile()["native"]["bootstrap"]["binary_sha256"]
+                        == config.profile()["native"]["bootstrap"]["binary_sha256"]
                     )
                 assert not select.select([peerpidfd], [], [], 0)[0]
                 status = Path("/proc/" + str(pid) + "/status").read_text()
@@ -1972,7 +2326,7 @@ class LinuxSandboxBroker:
                     and "ro" in mounts["/proc"]["options"],
                     "KERNEL_ROOT_READONLY_REQUIRED",
                 )
-                for target in self.config.profile()["runtime"]:
+                for target in config.profile()["runtime"]:
                     require(
                         "ro" in mounts[target]["options"],
                         "KERNEL_RUNTIME_READONLY_REQUIRED",
@@ -2002,11 +2356,11 @@ class LinuxSandboxBroker:
                     finally:
                         os.close(scratch_fd)
                 receipt["observations"]["readonly_mounts_verified"] = (
-                    len(self.config.profile()["runtime"]) + len(inputs["files"]) + 2
+                    len(config.profile()["runtime"]) + len(inputs["files"]) + 2
                 )
                 receipt["observations"]["scratch_tmpfs_bytes"] = scratch
                 resource_profile = json.loads(request.operation_bytes)['payload'].get('resource_profile')
-                profile = self.config.profile()
+                profile = config.profile()
                 require(profile.get('resource_profile') == resource_profile, 'KERNEL_RESOURCE_PROFILE_MISMATCH')
                 descriptor_limit = 256 if resource_profile in ('HEADLESS_RENDER_V2', 'HEADLESS_RENDER_V3') else 64
                 if resource_profile in ('HEADLESS_RENDER_V2', 'HEADLESS_RENDER_V3'):
@@ -2185,10 +2539,10 @@ class LinuxSandboxBroker:
                 stream.flush()
                 os.fsync(stream.fileno())
             sync_directory(run)
-            sync_directory(self.config.root)
+            sync_directory(config.root)
         return receipt
 
-    def verify(self, operation, warrant):
+    def verify(self, operation, warrant, *, request=None):
         from lab.archaioa.evidence import EvidenceRef
         from lab.archaioa.outcome import Applied
         from runtime.mission.liability import Reconciliation
@@ -2206,10 +2560,18 @@ class LinuxSandboxBroker:
                 and inner["payload"]["task_id"] == warrant.task_id,
                 "READBACK_BINDING",
             )
-        self.config.registry.validate(inner)
+        config=self.config
+        binding=None
+        locator=request
+        if self.binding_policy is not None:
+            require(type(locator) is SandboxDispatchRequest,'SANDBOX_HISTORICAL_REQUEST_REQUIRED')
+            binding,capture=self.binding_for_operation(inner,historical=True)
+            config=self.revalidate_capture(capture)
+        config.registry.validate(inner)
         inner_digest = SandboxOperation.parse(inner).digest
         candidates = []
-        for run in self.config.root.glob("run-*"):
+        runs=(config.root/('run-'+locator.digest),) if locator is not None else config.root.glob('run-*')
+        for run in runs:
             path = run / "receipt.json"
             if not path.exists() and not path.is_symlink():
                 continue
@@ -2226,6 +2588,11 @@ class LinuxSandboxBroker:
         require(stored.pop("schema") == "aioa.sandbox-dispatch.v1", "READBACK_BINDING")
         stored["operation_bytes"] = canonical_json_bytes(stored.pop("operation"))
         request = SandboxDispatchRequest(**stored)
+        if locator is not None:
+            require(request==locator,'READBACK_BINDING')
+        if binding is not None:
+            require(receipt.get('job_config_binding_digest')==binding.digest
+                    and receipt.get('config_digest')==capture.config_digest,'READBACK_BINDING')
         require(
             request.digest == receipt["dispatch_digest"]
             and run.name == "run-" + request.digest
@@ -2237,29 +2604,28 @@ class LinuxSandboxBroker:
         require(
             receipt["status"] == "READBACK_VERIFIED"
             and receipt["cgroup_populated_zero_directly_observed"]
+            and receipt["observations"].get("worker_populated_zero_before_readback") is True
+            and receipt["observations"].get("worker_populated_zero_after_readback") is True
             and receipt["cgroup_absent_after_cleanup"]
             and receipt["unit_terminal_observed"]
-            and receipt["profile_digest"] == self.config.profile_digest,
+            and receipt["profile_digest"] == config.profile_digest,
             "UNRESOLVED_READBACK",
         )
-        expected = self.config.inputs()[inner["payload"]["recipe_id"]]["expected"]
-        for name, pin in expected.items():
-            fd = os.open(
-                run / ("artifact-" + name),
-                os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC,
-            )
-            try:
-                meta = os.fstat(fd)
-                data = os.read(fd, pin["bytes"] + 1)
-                require(
-                    stat.S_ISREG(meta.st_mode)
-                    and meta.st_nlink == 1
-                    and len(data) == pin["bytes"]
-                    and hashlib.sha256(data).hexdigest() == pin["sha256"],
-                    "ARTIFACT_DIGEST_MISMATCH",
-                )
-            finally:
-                os.close(fd)
+        expected = config.inputs()[inner["payload"]["recipe_id"]]["expected"]
+        for name,pin in expected.items():
+            if binding is not None:
+                data=_private_bytes(run/('artifact-'+name),self.binding_policy.trusted_root,pin['bytes'])
+            else:
+                # Preserve legacy v1 support for an empty expected artifact.
+                fd=os.open(run/('artifact-'+name),os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK|os.O_CLOEXEC)
+                try:
+                    meta=os.fstat(fd)
+                    data=os.read(fd,pin['bytes']+1)
+                    require(stat.S_ISREG(meta.st_mode) and meta.st_nlink==1,'ARTIFACT_DIGEST_MISMATCH')
+                finally:
+                    os.close(fd)
+            require(len(data)==pin['bytes'] and hashlib.sha256(data).hexdigest()==pin['sha256'],
+                    'ARTIFACT_DIGEST_MISMATCH')
         receipt_id = "sandbox-" + receipt["dispatch_digest"][:32]
         return Reconciliation(
             digest,

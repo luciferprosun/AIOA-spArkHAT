@@ -8323,192 +8323,268 @@
     },
     "runtime/mission/sandbox_linux.py": {
       "path": "runtime/mission/sandbox_linux.py",
-      "git_blob": "e896de8816fb6d3da776cc9a0e7ec0ad461352e5",
-      "sha256": "003732d8d141f080b033a424faf65dcfe4e8a494a6c522ad5b2257b61cc947b5",
+      "git_blob": "3bb7e45ba3f09275fe4f9a73e205f0048a4a3e15",
+      "sha256": "8d62ef2ea6e010e6a6a65b25dc3842c32e541fa9c1beb8eecee3619698428a23",
       "definitions": [
         {
           "name": "now",
-          "line": 44
+          "line": 53
         },
         {
           "name": "sync_directory",
-          "line": 48
+          "line": 57
         },
         {
           "name": "sha",
-          "line": 56
+          "line": 65
         },
         {
           "name": "read_evidence_file",
-          "line": 60
+          "line": 69
         },
         {
           "name": "exact_cgroup",
-          "line": 110
+          "line": 119
         },
         {
           "name": "mountid",
-          "line": 114
+          "line": 123
         },
         {
           "name": "populated",
-          "line": 121
+          "line": 130
         },
         {
           "name": "command_result",
-          "line": 128
+          "line": 137
         },
         {
           "name": "bounded_line",
-          "line": 145
+          "line": 154
         },
         {
           "name": "build_filter",
-          "line": 171
+          "line": 180
         },
         {
           "name": "TrustedSandboxConfig",
-          "line": 361
+          "line": 370
         },
         {
           "name": "_host_json",
-          "line": 379
+          "line": 388
         },
         {
           "name": "save_host_config",
-          "line": 386
+          "line": 395
         },
         {
           "name": "load_host_config",
-          "line": 417
+          "line": 426
         },
         {
           "name": "prepare_linux_sandbox",
-          "line": 496
+          "line": 502
         },
         {
           "name": "git_storage_identity",
-          "line": 734
+          "line": 741
         },
         {
           "name": "_parse_descriptor_limits",
-          "line": 848
+          "line": 855
         },
         {
           "name": "_observe_descriptor_limits",
-          "line": 864
+          "line": 871
         },
         {
           "name": "_systemd_properties",
-          "line": 879
+          "line": 886
+        },
+        {
+          "name": "_private_path",
+          "line": 913
+        },
+        {
+          "name": "_private_bytes",
+          "line": 924
+        },
+        {
+          "name": "_config_identity",
+          "line": 947
         },
         {
           "name": "LinuxSandboxBroker",
-          "line": 906
+          "line": 955
         },
         {
           "name": "profile",
-          "line": 369
+          "line": 378
         },
         {
           "name": "inputs",
-          "line": 372
+          "line": 381
         },
         {
           "name": "runtime",
-          "line": 375
+          "line": 384
         },
         {
           "name": "private",
-          "line": 421
+          "line": 430
         },
         {
           "name": "walk",
-          "line": 752
+          "line": 759
         },
         {
           "name": "__init__",
-          "line": 907
+          "line": 956
         },
         {
-          "name": "__call__",
-          "line": 918
+          "name": "config",
+          "line": 981
         },
         {
-          "name": "_git_directory",
-          "line": 922
+          "name": "binding_policy",
+          "line": 986
         },
         {
-          "name": "_git_publish_new",
-          "line": 963
+          "name": "bind_route",
+          "line": 989
         },
         {
-          "name": "_git_existing_object",
-          "line": 1002
+          "name": "require_route_binding",
+          "line": 1000
         },
         {
-          "name": "_git_plumbing",
-          "line": 1047
+          "name": "_source_check",
+          "line": 1013
         },
         {
-          "name": "dispatch",
-          "line": 1642
+          "name": "_validate_config",
+          "line": 1021
         },
         {
-          "name": "_run",
-          "line": 1719
+          "name": "_derive_binding",
+          "line": 1085
         },
         {
-          "name": "verify",
-          "line": 2191
+          "name": "_pin_specs",
+          "line": 1124
         },
         {
-          "name": "listener_call",
-          "line": 246
+          "name": "capture_config",
+          "line": 1132
         },
         {
-          "name": "hold",
-          "line": 1140
+          "name": "require_capture",
+          "line": 1154
         },
         {
-          "name": "sealed",
-          "line": 1145
+          "name": "revalidate_capture",
+          "line": 1160
         },
         {
-          "name": "read_local",
+          "name": "publish_binding",
+          "line": 1175
+        },
+        {
+          "name": "binding_for_operation",
+          "line": 1195
+        },
+        {
+          "name": "restore_capture",
           "line": 1210
         },
         {
+          "name": "close",
+          "line": 1237
+        },
+        {
+          "name": "__call__",
+          "line": 1242
+        },
+        {
+          "name": "_git_directory",
+          "line": 1246
+        },
+        {
+          "name": "_git_publish_new",
+          "line": 1287
+        },
+        {
+          "name": "_git_existing_object",
+          "line": 1326
+        },
+        {
+          "name": "_git_plumbing",
+          "line": 1371
+        },
+        {
+          "name": "dispatch",
+          "line": 1966
+        },
+        {
+          "name": "_run",
+          "line": 2070
+        },
+        {
+          "name": "verify",
+          "line": 2545
+        },
+        {
+          "name": "listener_call",
+          "line": 255
+        },
+        {
+          "name": "hold",
+          "line": 1464
+        },
+        {
+          "name": "sealed",
+          "line": 1469
+        },
+        {
+          "name": "read_local",
+          "line": 1534
+        },
+        {
           "name": "lock_stamp",
-          "line": 1283
+          "line": 1607
         },
         {
           "name": "check_lock",
-          "line": 1295
+          "line": 1619
         },
         {
           "name": "check_lock_parent",
-          "line": 1305
+          "line": 1629
         },
         {
           "name": "lock_new",
-          "line": 1325
+          "line": 1649
         },
         {
           "name": "check_ref_transaction",
-          "line": 1441
+          "line": 1765
+        },
+        {
+          "name": "bound_release",
+          "line": 1977
         },
         {
           "name": "guarded_cleanup",
-          "line": 2097
+          "line": 2451
         },
         {
           "name": "release",
-          "line": 1349
+          "line": 1673
         },
         {
           "name": "reap_owned",
-          "line": 2126
+          "line": 2480
         }
       ],
       "symbolic_callees": [
@@ -8517,6 +8593,8 @@
         "<dynamic>.open",
         "<dynamic>.splitlines",
         "Applied",
+        "CancellationToken",
+        "CapturedSandboxConfig",
         "EvidenceRef",
         "ExitStack",
         "Path",
@@ -8533,6 +8611,7 @@
         "Path().with_name",
         "Reconciliation",
         "SandboxDispatchRequest",
+        "SandboxJobBinding",
         "SandboxOperation",
         "SandboxOperation().to_dict",
         "SandboxOperation.parse",
@@ -8541,9 +8620,12 @@
         "SandboxRegistry",
         "TrustedSandboxConfig",
         "ValueError",
+        "_config_identity",
         "_host_json",
         "_observe_descriptor_limits",
         "_parse_descriptor_limits",
+        "_private_bytes",
+        "_private_path",
         "_systemd_properties",
         "all",
         "any",
@@ -8552,6 +8634,7 @@
         "array.array",
         "asdict",
         "binding_check",
+        "binding_input.__post_init__",
         "block.append",
         "block.extend",
         "bounded_line",
@@ -8566,6 +8649,7 @@
         "candidates.append",
         "canonical_json_bytes",
         "canonical_sha256",
+        "capture.config.registry.validate",
         "cgpath.exists",
         "check_lock",
         "check_lock_parent",
@@ -8583,9 +8667,14 @@
         "conditions.append",
         "config.defaults",
         "config.inputs",
+        "config.inputs().items",
         "config.profile",
         "config.read_string",
+        "config.registry.validate",
+        "config.root.glob",
         "config.runtime",
+        "config.runtime().items",
+        "config.runtime().values",
         "config.sections",
         "config[data].get",
         "config_path.chmod",
@@ -8612,6 +8701,7 @@
         "dict",
         "directory.is_symlink",
         "directory.mkdir",
+        "entry[data].items",
         "entry[data].values",
         "enumerate",
         "environment.items",
@@ -8659,6 +8749,7 @@
         "listener.listen",
         "listener.settimeout",
         "listener_call",
+        "load_host_config",
         "lock_new",
         "lock_stamp",
         "locks.append",
@@ -8675,9 +8766,11 @@
         "nonce.encode",
         "now",
         "object_id.encode",
+        "observe_source",
         "oid",
         "operation.get",
         "operation.get().get",
+        "original_release",
         "os.chmod",
         "os.close",
         "os.dup",
@@ -8713,8 +8806,10 @@
         "out[data].decode",
         "p.get",
         "p[data].items",
+        "parsed.to_dict",
         "path.chmod",
         "path.exists",
+        "path.is_absolute",
         "path.is_relative_to",
         "path.is_symlink",
         "path.lstat",
@@ -8725,6 +8820,11 @@
         "peer.recvmsg",
         "peer.sendall",
         "peer.settimeout",
+        "policy.recipe.materialization_spec",
+        "policy.recipe.observation_spec",
+        "policy.recipe.validate_patch",
+        "policy.source_snapshot.verify",
+        "policy.source_snapshot.verify_export",
         "populated",
         "private",
         "proc.communicate",
@@ -8733,7 +8833,9 @@
         "proc.stdin.write",
         "profile.get",
         "profile.update",
+        "profile[data].items",
         "raw.decode",
+        "raw.extend",
         "re.fullmatch",
         "read_evidence_file",
         "read_local",
@@ -8746,18 +8848,22 @@
         "recipes.items",
         "ref",
         "release_check",
+        "replace",
         "request.to_dict",
         "requested.startswith",
         "require",
         "right.split",
         "root.absolute",
         "root.mkdir",
+        "root_member",
         "rows.append",
         "rows.extend",
         "run.mkdir",
         "runtime.items",
+        "runtime.values",
         "runtime_manifest.items",
         "sandbox_contracts.sandbox_input_limits",
+        "save_host_config",
         "sealed",
         "seen.add",
         "select.select",
@@ -8767,14 +8873,19 @@
         "selector.select",
         "selector.unregister",
         "selectors.DefaultSelector",
+        "self._active_cancel.cancel",
+        "self._bindings.get",
+        "self._captures.get",
+        "self._captures.values",
+        "self._derive_binding",
+        "self._pin_specs",
         "self._run",
-        "self.config.inputs",
-        "self.config.profile",
-        "self.config.registry.validate",
-        "self.config.root.glob",
-        "self.config.runtime",
-        "self.config.runtime().items",
-        "self.config.runtime().values",
+        "self._source_check",
+        "self._validate_config",
+        "self.binding_for_operation",
+        "self.require_capture",
+        "self.require_route_binding",
+        "self.revalidate_capture",
         "set",
         "sha",
         "shown.get",
@@ -8785,6 +8896,7 @@
         "source.write",
         "spec[data].items",
         "spec[data].values",
+        "specs.items",
         "stack.callback",
         "stack.enter_context",
         "stamp",
@@ -8819,16 +8931,18 @@
         "uuid.uuid4",
         "value.endswith",
         "value.get",
+        "value[data].get",
         "value[data].values",
         "values.get",
         "values[data].strip",
         "walk",
         "warrant.digest",
+        "zip",
         "zlib.compress",
         "zlib.decompressobj"
       ],
-      "call_site_count": 998,
-      "call_sites_sha256": "a710b3b0c2a94c3316662b19ae29dd23ffafa720c62293b16e46b9b377c89bb9"
+      "call_site_count": 1295,
+      "call_sites_sha256": "be34a523a4c0e69f6f06c6fceb5ae08b99d68e3fc3471cdd3d86a3c643198d9f"
     },
     "runtime/nonzero_cloudops/adapters/portable.py": {
       "path": "runtime/nonzero_cloudops/adapters/portable.py",
@@ -13753,8 +13867,8 @@
     },
     "runtime/mission/repair_validation.py": {
       "path": "runtime/mission/repair_validation.py",
-      "git_blob": "03411cd5f9afbbc6167e3a4f98289be4605fedde",
-      "sha256": "2601c17b85ca087aae69013d5d86ac0f40e830766b850ec26a55cb863a507dc9",
+      "git_blob": "8c09759a1192d2b35d81613bcbe7cf32770f2042",
+      "sha256": "06a789a10c6e7f80fb94935359640c0deaa198a7b5ba3234a179c465e75556b0",
       "definitions": [
         {
           "name": "TrustedTestProfile",
@@ -13794,27 +13908,27 @@
         },
         {
           "name": "_clean_receipt",
-          "line": 366
+          "line": 357
         },
         {
           "name": "_settle_sandbox_receipt",
-          "line": 374
+          "line": 365
         },
         {
           "name": "CoreRepositoryMaterializer",
-          "line": 395
+          "line": 387
         },
         {
           "name": "_store_validation_evidence",
-          "line": 569
+          "line": 567
         },
         {
           "name": "CoreSandboxValidation",
-          "line": 598
+          "line": 596
         },
         {
           "name": "_CoreValidationSession",
-          "line": 782
+          "line": 785
         },
         {
           "name": "__post_init__",
@@ -13838,19 +13952,19 @@
         },
         {
           "name": "__init__",
-          "line": 398
+          "line": 390
         },
         {
           "name": "materialize",
-          "line": 442
+          "line": 437
         },
         {
           "name": "save",
-          "line": 578
+          "line": 576
         },
         {
           "name": "__init__",
-          "line": 599
+          "line": 597
         },
         {
           "name": "render",
@@ -13870,27 +13984,28 @@
         },
         {
           "name": "__init__",
-          "line": 783
+          "line": 786
         },
         {
           "name": "run",
-          "line": 788
+          "line": 791
         },
         {
           "name": "close",
-          "line": 863
+          "line": 866
         },
         {
           "name": "save",
-          "line": 539
+          "line": 537
         }
       ],
       "symbolic_callees": [
-        "<dynamic>.exists",
         "BoundedPatchSetPolicy",
         "BoundedPatchSetPolicy().evaluate",
         "EffectWarrant.from_dict",
         "JsonlFramer",
+        "MaterializationBindingInput",
+        "ObservationBindingInput",
         "OperationBinding.bind",
         "Path",
         "Reconciliation.from_dict",
@@ -13944,7 +14059,6 @@
         "json.loads",
         "len",
         "logical_id",
-        "matching.append",
         "names.add",
         "normalize_patch_relative_path",
         "observation.encode",
@@ -13992,9 +14106,10 @@
         "sorted",
         "stdout.encode",
         "step.__post_init__",
+        "step.route._sandbox_receipt_after_dispatch",
         "step.route.dispatch",
-        "step.route.executor.config.root.glob",
         "step.route.reconcile",
+        "step.route.sandbox_config_for_operation",
         "str",
         "tree.files.items",
         "tuple",
@@ -14006,8 +14121,8 @@
         "warrant.to_dict",
         "workspace_tree_digest"
       ],
-      "call_site_count": 379,
-      "call_sites_sha256": "efc46592b5b5c277524870eb42c4c32e3f0932e187183863a40bd297e92fb736"
+      "call_site_count": 381,
+      "call_sites_sha256": "ee4fcb7b28d281629b1a303ebacfde82214e7df362d2eef6465515cb59c84cbc"
     },
     "runtime/mission/sandbox_contracts.py": {
       "path": "runtime/mission/sandbox_contracts.py",
@@ -14636,259 +14751,308 @@
     },
     "runtime/mission/tools.py": {
       "path": "runtime/mission/tools.py",
-      "git_blob": "77a2ded27582e2dc23e281c788986ca342343f87",
-      "sha256": "485d23b3ac7e3633df43a41e4528fcb7c41b109b4a6fba536031f144835b90e1",
+      "git_blob": "8377d99f2e0fc731d83ca3cac7da5b46110ef017",
+      "sha256": "496875556a961fa70e21142ac0fe9a06924979ada02b0ee2c8960470ea6d1d7f",
       "definitions": [
         {
           "name": "ToolCapability",
-          "line": 75
+          "line": 81
         },
         {
           "name": "tool_capability",
-          "line": 102
+          "line": 108
         },
         {
           "name": "application_path",
-          "line": 110
+          "line": 116
         },
         {
           "name": "TargetSnapshot",
-          "line": 127
+          "line": 133
         },
         {
           "name": "ToolDispatchLimits",
-          "line": 138
+          "line": 144
         },
         {
           "name": "SessionGrant",
-          "line": 155
+          "line": 161
         },
         {
           "name": "LocalSessionGrant",
-          "line": 208
-        },
-        {
-          "name": "CoreToolRoute",
-          "line": 212
-        },
-        {
-          "name": "__post_init__",
-          "line": 132
-        },
-        {
-          "name": "__post_init__",
-          "line": 148
-        },
-        {
-          "name": "__post_init__",
-          "line": 171
-        },
-        {
-          "name": "to_dict",
-          "line": 189
-        },
-        {
-          "name": "parse",
-          "line": 194
-        },
-        {
-          "name": "digest",
-          "line": 203
-        },
-        {
-          "name": "__init__",
           "line": 214
         },
         {
-          "name": "_require_target_binding",
-          "line": 241
+          "name": "CoreToolRoute",
+          "line": 218
         },
         {
-          "name": "_target_snapshot",
+          "name": "__post_init__",
+          "line": 138
+        },
+        {
+          "name": "__post_init__",
+          "line": 154
+        },
+        {
+          "name": "__post_init__",
+          "line": 177
+        },
+        {
+          "name": "to_dict",
+          "line": 195
+        },
+        {
+          "name": "parse",
+          "line": 200
+        },
+        {
+          "name": "digest",
+          "line": 209
+        },
+        {
+          "name": "__init__",
+          "line": 220
+        },
+        {
+          "name": "sandbox_jobs",
+          "line": 261
+        },
+        {
+          "name": "_require_target_binding",
           "line": 264
         },
         {
-          "name": "_context_target_snapshot",
-          "line": 276
-        },
-        {
-          "name": "_probe_target",
-          "line": 284
-        },
-        {
-          "name": "_run",
+          "name": "_target_snapshot",
           "line": 288
         },
         {
-          "name": "session_key",
-          "line": 296
-        },
-        {
-          "name": "_session",
+          "name": "_context_target_snapshot",
           "line": 300
         },
         {
+          "name": "_probe_target",
+          "line": 308
+        },
+        {
+          "name": "_run",
+          "line": 312
+        },
+        {
+          "name": "session_key",
+          "line": 320
+        },
+        {
+          "name": "_session",
+          "line": 324
+        },
+        {
           "name": "create_session",
-          "line": 333
+          "line": 357
         },
         {
           "name": "validate_registered_local",
-          "line": 358
+          "line": 382
         },
         {
           "name": "dispatch_registered_local",
-          "line": 385
+          "line": 409
         },
         {
           "name": "revoke_session",
-          "line": 390
+          "line": 414
         },
         {
           "name": "_revoke_session",
-          "line": 395
+          "line": 419
         },
         {
           "name": "operation",
-          "line": 403
+          "line": 427
         },
         {
-          "name": "_synthetic_operation",
-          "line": 417
+          "name": "sandbox_config_for_operation",
+          "line": 444
         },
         {
-          "name": "_operation",
-          "line": 429
+          "name": "_sandbox_record",
+          "line": 451
         },
         {
-          "name": "_snapshot_operation",
+          "name": "bind_sandbox_job",
           "line": 458
         },
         {
+          "name": "restore_sandbox_bindings",
+          "line": 539
+        },
+        {
+          "name": "_historical_request",
+          "line": 563
+        },
+        {
+          "name": "sandbox_receipt",
+          "line": 571
+        },
+        {
+          "name": "_sandbox_receipt_after_dispatch",
+          "line": 574
+        },
+        {
+          "name": "_sandbox_receipt",
+          "line": 577
+        },
+        {
+          "name": "_synthetic_operation",
+          "line": 604
+        },
+        {
+          "name": "_operation",
+          "line": 616
+        },
+        {
+          "name": "_snapshot_operation",
+          "line": 649
+        },
+        {
           "name": "_ddr",
-          "line": 468
+          "line": 659
         },
         {
           "name": "_context_key",
-          "line": 475
+          "line": 673
         },
         {
           "name": "_context",
-          "line": 478
+          "line": 676
         },
         {
           "name": "_mode",
-          "line": 538
+          "line": 753
         },
         {
           "name": "_sandbox_scope",
-          "line": 544
+          "line": 759
         },
         {
           "name": "_portable_scope",
-          "line": 559
+          "line": 774
         },
         {
           "name": "_sandbox_request",
-          "line": 581
+          "line": 796
+        },
+        {
+          "name": "_sandbox_request_value",
+          "line": 804
         },
         {
           "name": "_native_job",
-          "line": 594
+          "line": 815
         },
         {
           "name": "authorize",
-          "line": 610
-        },
-        {
-          "name": "authorize_exact",
-          "line": 615
-        },
-        {
-          "name": "_authorize",
-          "line": 629
-        },
-        {
-          "name": "_check",
-          "line": 718
-        },
-        {
-          "name": "_retained",
-          "line": 742
-        },
-        {
-          "name": "dispatch",
-          "line": 758
-        },
-        {
-          "name": "_dispatch",
-          "line": 772
-        },
-        {
-          "name": "inspect",
-          "line": 888
-        },
-        {
-          "name": "reconcile",
-          "line": 898
-        },
-        {
-          "name": "_reconcile",
-          "line": 903
-        },
-        {
-          "name": "checked",
-          "line": 291
-        },
-        {
-          "name": "change",
-          "line": 335
-        },
-        {
-          "name": "change",
-          "line": 396
-        },
-        {
-          "name": "change",
-          "line": 640
-        },
-        {
-          "name": "start",
-          "line": 780
-        },
-        {
-          "name": "readback",
           "line": 831
         },
         {
-          "name": "read",
-          "line": 889
+          "name": "authorize_exact",
+          "line": 836
         },
         {
-          "name": "read",
-          "line": 904
+          "name": "_authorize",
+          "line": 850
+        },
+        {
+          "name": "_check",
+          "line": 947
+        },
+        {
+          "name": "_retained",
+          "line": 978
+        },
+        {
+          "name": "dispatch",
+          "line": 994
+        },
+        {
+          "name": "_dispatch",
+          "line": 1008
+        },
+        {
+          "name": "inspect",
+          "line": 1124
+        },
+        {
+          "name": "reconcile",
+          "line": 1134
+        },
+        {
+          "name": "_reconcile",
+          "line": 1139
+        },
+        {
+          "name": "checked",
+          "line": 315
         },
         {
           "name": "change",
-          "line": 933
+          "line": 359
+        },
+        {
+          "name": "change",
+          "line": 420
+        },
+        {
+          "name": "change",
+          "line": 861
+        },
+        {
+          "name": "start",
+          "line": 1016
+        },
+        {
+          "name": "readback",
+          "line": 1067
+        },
+        {
+          "name": "read",
+          "line": 1125
+        },
+        {
+          "name": "read",
+          "line": 1140
+        },
+        {
+          "name": "change",
+          "line": 1173
+        },
+        {
+          "name": "save",
+          "line": 495
+        },
+        {
+          "name": "read",
+          "line": 549
         },
         {
           "name": "prepare",
-          "line": 840
+          "line": 1076
         },
         {
           "name": "release_check",
-          "line": 853
+          "line": 1089
         },
         {
           "name": "record_ack",
-          "line": 879
+          "line": 1115
         },
         {
           "name": "check",
-          "line": 855
+          "line": 1091
         }
       ],
       "symbolic_callees": [
+        "<dynamic>.exists",
         "<dynamic>.get",
         "<dynamic>.parse",
         "AuthorityScope",
@@ -14920,10 +15084,15 @@
         "_portable_operation",
         "_portable_operation().to_dict",
         "all",
+        "allowed.append",
+        "allowed.sort",
         "any",
+        "append_domain_event",
         "application_path",
         "approval_digest",
         "asdict",
+        "audit_descriptor",
+        "binding_key",
         "by_id.get",
         "c.get",
         "c.get().get",
@@ -14932,9 +15101,12 @@
         "callback",
         "canonical_json_bytes",
         "canonical_sha256",
+        "capture.config.registry.validate",
         "classify_fault",
         "cls",
         "completion.to_dict",
+        "context.get",
+        "context.update",
         "dataclass",
         "datetime.fromisoformat",
         "datetime.fromtimestamp",
@@ -14961,6 +15133,8 @@
         "len",
         "list",
         "load_job",
+        "matches.append",
+        "material.payload.get",
         "min",
         "name.startswith",
         "opaque_id",
@@ -14977,10 +15151,19 @@
         "path.name.lower",
         "pending.extend",
         "pending.pop",
+        "read_binding",
+        "read_evidence_file",
+        "receipt.get",
+        "registry.payload",
+        "registry.validate",
+        "registry.validate().to_dict",
         "release.close",
         "replace",
+        "request.to_dict",
         "require",
+        "require_record_audit",
         "row.payload.get",
+        "sandbox_job.get",
         "seen.add",
         "self._authorize",
         "self._check",
@@ -14989,6 +15172,7 @@
         "self._context_target_snapshot",
         "self._ddr",
         "self._dispatch",
+        "self._historical_request",
         "self._mode",
         "self._native_job",
         "self._operation",
@@ -14999,7 +15183,10 @@
         "self._retained",
         "self._revoke_session",
         "self._run",
+        "self._sandbox_receipt",
+        "self._sandbox_record",
         "self._sandbox_request",
+        "self._sandbox_request_value",
         "self._sandbox_scope",
         "self._session",
         "self._snapshot_operation",
@@ -15012,8 +15199,16 @@
         "self.clock",
         "self.core.require",
         "self.executor",
+        "self.executor._uncertain_bindings.add",
+        "self.executor.bind_route",
+        "self.executor.binding_for_operation",
+        "self.executor.config.root.glob",
         "self.executor.dispatch",
+        "self.executor.publish_binding",
+        "self.executor.require_capture",
         "self.executor.require_route_binding",
+        "self.executor.restore_capture",
+        "self.executor.revalidate_capture",
         "self.journal._load",
         "self.journal._public",
         "self.journal._start_in_transaction",
@@ -15021,6 +15216,7 @@
         "self.journal.governor._epoch",
         "self.journal.governor._load",
         "self.journal.ledger._key",
+        "self.journal.ledger.clock",
         "self.journal.ledger.require_active_in_transaction",
         "self.journal.start_in_transaction",
         "self.liability._load",
@@ -15028,9 +15224,8 @@
         "self.liability.record_unknown_in_transaction",
         "self.probe",
         "self.runner.run",
-        "self.sandbox_registry.payload",
+        "self.sandbox_config_for_operation",
         "self.sandbox_registry.validate",
-        "self.sandbox_registry.validate().to_dict",
         "self.scope.binding",
         "self.session_key",
         "self.target_guard",
@@ -15043,6 +15238,7 @@
         "self.verifier",
         "set",
         "snapshot.ddr.to_dict",
+        "sorted",
         "state.get",
         "state.update",
         "state[data].get",
@@ -15059,13 +15255,17 @@
         "tx.replace",
         "tx.scan",
         "type",
+        "validate_payload",
+        "value.get",
+        "values.append",
         "w.digest",
         "warrant.digest",
         "warrant.operation_hash.removeprefix",
-        "warrant.to_dict"
+        "warrant.to_dict",
+        "zip"
       ],
-      "call_site_count": 570,
-      "call_sites_sha256": "de77a3b38a6d750dc6e675867d2bce0f9403a6ecf6718410e7cdb145e5171d73"
+      "call_site_count": 740,
+      "call_sites_sha256": "7562669a1dcbf3e81fe86b56c758dc195971140d8e088284ed802469454ffbe6"
     },
     "runtime/mission/verification.py": {
       "path": "runtime/mission/verification.py",
@@ -15513,111 +15713,110 @@
     },
     "runtime/meta_hackathon/runtime_adapter.py": {
       "path": "runtime/meta_hackathon/runtime_adapter.py",
-      "git_blob": "bd8e45a298f2cc382574faf79072b84e81a77bd5",
-      "sha256": "f7ead8160557cfb83a7e6438eb269bc83ea6569fc06b2031efda258d7967adba",
+      "git_blob": "e577f02fe6761d3d14be189b86fd653399fa1915",
+      "sha256": "63dacc530218f3e4964d386353b29b7f50bcaf95a0850e8bbd4de43681db2156",
       "definitions": [
         {
           "name": "sealed_source_path",
-          "line": 196
+          "line": 199
         },
         {
           "name": "current_source",
-          "line": 210
+          "line": 213
         },
         {
           "name": "OfflineMetaComposition",
-          "line": 217
+          "line": 220
         },
         {
           "name": "_desktop_operator_uid",
-          "line": 304
+          "line": 307
         },
         {
           "name": "NativeMobileComposition",
-          "line": 334
+          "line": 337
         },
         {
           "name": "__init__",
-          "line": 218
+          "line": 221
         },
         {
           "name": "enable_unified",
-          "line": 259
+          "line": 262
         },
         {
           "name": "close",
-          "line": 295
+          "line": 298
         },
         {
           "name": "__init__",
-          "line": 341
+          "line": 344
         },
         {
           "name": "_initialize",
-          "line": 389
+          "line": 392
         },
         {
           "name": "operator_principal",
-          "line": 459
+          "line": 462
         },
         {
           "name": "_chat_authority",
-          "line": 465
+          "line": 468
         },
         {
           "name": "_chat_credit_authority",
-          "line": 485
+          "line": 488
         },
         {
           "name": "qualify_tls",
-          "line": 507
+          "line": 510
         },
         {
           "name": "_require_qualified_operator",
-          "line": 554
+          "line": 557
         },
         {
           "name": "public_settings",
-          "line": 560
+          "line": 563
         },
         {
           "name": "model_calls",
-          "line": 566
+          "line": 569
         },
         {
           "name": "operator_auth_status",
-          "line": 572
+          "line": 575
         },
         {
           "name": "renew_operator",
-          "line": 584
+          "line": 587
         },
         {
           "name": "operator_request",
-          "line": 655
+          "line": 658
         },
         {
           "name": "close",
-          "line": 717
+          "line": 720
         },
         {
           "name": "fixture",
-          "line": 240
+          "line": 243
         },
         {
           "name": "inspect",
-          "line": 704
+          "line": 707
         },
         {
           "name": "revoke",
-          "line": 696
+          "line": 699
         },
         {
           "name": "record",
-          "line": 630
+          "line": 633
         }
       ],
-      "call_site_count": 412,
       "symbolic_callees": [
         "<dynamic>.exists",
         "AdmissionError",
@@ -15803,7 +16002,8 @@
         "worker.is_alive",
         "x509.load_der_x509_certificate"
       ],
-      "call_sites_sha256": "8625c6490444986940408ba6827baef546209d8409bce04849c617a118c78b21"
+      "call_site_count": 412,
+      "call_sites_sha256": "a3dc9aefd49fe48d80684144ccfae16609a0739abb62772de545f2e386ebe7fc"
     },
     "runtime/mission/dependency_lock.py": {
       "path": "runtime/mission/dependency_lock.py",
@@ -18392,6 +18592,120 @@
         "zip"
       ],
       "call_sites_sha256": "5847b26cbdcd10dac11c5084c6bf3681efe1e273eba1fb138981774256fc703f"
+    },
+    "runtime/mission/sandbox_bindings.py": {
+      "path": "runtime/mission/sandbox_bindings.py",
+      "git_blob": "d70d8abe77415738508abb982d630f4259e7bf38",
+      "sha256": "942685efde33f25022f42e8d04aa8a94b75f361b0c7ae4b279d30ee575a5b7d5",
+      "definitions": [
+        {
+          "name": "digest",
+          "line": 34
+        },
+        {
+          "name": "root_member",
+          "line": 40
+        },
+        {
+          "name": "TrustedSandboxBindingPolicy",
+          "line": 48
+        },
+        {
+          "name": "MaterializationBindingInput",
+          "line": 79
+        },
+        {
+          "name": "ObservationBindingInput",
+          "line": 94
+        },
+        {
+          "name": "CapturedSandboxConfig",
+          "line": 106
+        },
+        {
+          "name": "SandboxJobBinding",
+          "line": 117
+        },
+        {
+          "name": "binding_key",
+          "line": 131
+        },
+        {
+          "name": "audit_descriptor",
+          "line": 135
+        },
+        {
+          "name": "validate_payload",
+          "line": 140
+        },
+        {
+          "name": "read_binding",
+          "line": 190
+        },
+        {
+          "name": "binding_for_job",
+          "line": 227
+        },
+        {
+          "name": "__post_init__",
+          "line": 59
+        },
+        {
+          "name": "__post_init__",
+          "line": 84
+        },
+        {
+          "name": "__post_init__",
+          "line": 98
+        },
+        {
+          "name": "digest",
+          "line": 123
+        },
+        {
+          "name": "task_id",
+          "line": 127
+        }
+      ],
+      "symbolic_callees": [
+        "OperationBinding.bind",
+        "SourceIdentity",
+        "all",
+        "audit_descriptor",
+        "binding_key",
+        "canonical_json_bytes",
+        "canonical_sha256",
+        "dataclass",
+        "digest",
+        "event.content_hashes.get",
+        "frozenset",
+        "identity.values",
+        "isinstance",
+        "json.loads",
+        "len",
+        "list",
+        "logical_id",
+        "operation[data].startswith",
+        "p.is_absolute",
+        "re.fullmatch",
+        "read_binding",
+        "require",
+        "require_record_audit",
+        "root_member",
+        "row.payload.get",
+        "scope.binding",
+        "self.patchset.verify_digest",
+        "self.recipe.__post_init__",
+        "set",
+        "sorted",
+        "tuple",
+        "tx.get",
+        "tx.scan",
+        "type",
+        "validate_payload"
+      ],
+      "call_site_count": 131,
+      "call_sites_sha256": "39dec3459cac600bf7b4eb99ff63c09ffd5eac871986cd354b02d0e6da4c4e94"
     }
   },
   "dispositions": {
