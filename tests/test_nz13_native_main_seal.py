@@ -1,4 +1,4 @@
-"""Main-only drift fences a synthetic Native host before any mocked dispatch."""
+"""Same-HEAD source drift fences an owned synthetic Native before dispatch."""
 import os
 import unittest
 from pathlib import Path
@@ -9,6 +9,25 @@ from unittest.mock import patch
 from runtime.core_admission import AdmissionError
 from runtime.meta_hackathon import runtime_adapter as api
 
+G08_DRIFT_PATHS = (
+    'runtime/nonzero_cloudops/adapters/portable.py',
+    'runtime/nonzero_cloudops/state/files.py',
+    'runtime/nonzero_cloudops/models/contracts.py',
+    'runtime/nonzero_cloudops/models/digest.py',
+    'lab/archaioa/canonical.py',
+    'lab/archaioa/contracts.py',
+    'lab/archaioa/outcome.py',
+    'lab/archaioa/faults.py',
+    'runtime/nonzero_cloudops/models/__init__.py',
+    'lab/archaioa/__init__.py',
+    'runtime/__init__.py',
+    'runtime/memory_patch/adapters/cockroach/repositories.py',
+    'runtime/memory_patch/persistence/retry.py',
+    'runtime/mission/completion.py',
+    'runtime/mission/jobs.py',
+    'runtime/mission/job_contracts.py',
+)
+
 
 class NativeMainSealTests(unittest.TestCase):
     def setUp(self):
@@ -16,7 +35,7 @@ class NativeMainSealTests(unittest.TestCase):
         self.addCleanup(temporary.cleanup)
         self.root = Path(temporary.name)
         self.source_root = self.root / 'synthetic-source'
-        for relative in set(api.SOURCE_FILES) | {'runtime/main.py'}:
+        for relative in set(api.SOURCE_FILES) | set(G08_DRIFT_PATHS):
             path = self.source_root / relative
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(b'SYNTHETIC_SOURCE_ONLY\n')
@@ -91,3 +110,82 @@ class NativeMainSealTests(unittest.TestCase):
             with self.assertRaises(AdmissionError):
                 self.host.operator_request(os.getuid(), {'op': 'github_prepare'})
             dispatch.assert_not_called()
+
+    def _assert_source_denied_before_dispatch(self, errors=(AdmissionError,)):
+        with patch('runtime.meta_hackathon.github_write.dispatch',
+                   return_value={'mock_only': True}) as dispatch:
+            denied = False
+            try:
+                self.host.operator_request(os.getuid(), {'op': 'github_prepare'})
+            except errors:
+                denied = True
+            self.assertEqual((True, 0), (denied, dispatch.call_count),
+                             'Source gate must refuse drift before the existing dispatcher')
+
+    def test_same_head_physical_core_dependency_drift_fences_before_dispatch(self):
+        for relative in G08_DRIFT_PATHS:
+            with self.subTest(path=relative):
+                path = self.source_root / relative
+                original = path.read_bytes()
+                try:
+                    path.write_bytes(b'CHANGED_SYNTHETIC_DEPENDENCY_ONLY\n')
+                    self.assertEqual(self.initial[0], api.current_source()[0])
+                    self._assert_source_denied_before_dispatch()
+                finally:
+                    path.write_bytes(original)
+        self.assertEqual(self.initial, api.current_source())
+
+    def test_missing_physical_core_dependencies_fence_before_dispatch(self):
+        for relative in G08_DRIFT_PATHS:
+            with self.subTest(path=relative):
+                path = self.source_root / relative
+                original = path.read_bytes()
+                path.unlink()
+                try:
+                    self._assert_source_denied_before_dispatch((AdmissionError, ValueError, OSError))
+                finally:
+                    path.write_bytes(original)
+        self.assertEqual(self.initial, api.current_source())
+
+    def test_symlink_physical_core_dependency_leaves_fence_before_dispatch(self):
+        target = self.root / 'synthetic-unsealed-copy'
+        for relative in G08_DRIFT_PATHS:
+            with self.subTest(path=relative):
+                path = self.source_root / relative
+                original = path.read_bytes()
+                target.write_bytes(original)
+                path.unlink()
+                path.symlink_to(target)
+                try:
+                    self._assert_source_denied_before_dispatch((AdmissionError, ValueError, OSError))
+                finally:
+                    path.unlink()
+                    path.write_bytes(original)
+        self.assertEqual(self.initial, api.current_source())
+
+    def test_symlink_physical_core_dependency_parents_fence_before_dispatch(self):
+        parents = sorted({str(Path(name).parent) for name in G08_DRIFT_PATHS})
+        for index, relative in enumerate(parents):
+            with self.subTest(parent=relative):
+                path = self.source_root / relative
+                moved = self.root / f'synthetic-parent-{index}'
+                path.rename(moved)
+                path.symlink_to(moved, target_is_directory=True)
+                try:
+                    self._assert_source_denied_before_dispatch((AdmissionError, ValueError, OSError))
+                finally:
+                    path.unlink()
+                    moved.rename(path)
+        self.assertEqual(self.initial, api.current_source())
+
+    def test_nonregular_physical_source_leaf_fences_before_dispatch(self):
+        path = self.source_root / 'runtime/nonzero_cloudops/adapters/portable.py'
+        original = path.read_bytes()
+        path.unlink()
+        path.mkdir()
+        try:
+            self._assert_source_denied_before_dispatch((AdmissionError, ValueError, OSError))
+        finally:
+            path.rmdir()
+            path.write_bytes(original)
+        self.assertEqual(self.initial, api.current_source())

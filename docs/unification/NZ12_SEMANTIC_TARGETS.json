@@ -15513,108 +15513,108 @@
     },
     "runtime/meta_hackathon/runtime_adapter.py": {
       "path": "runtime/meta_hackathon/runtime_adapter.py",
-      "git_blob": "7de4e5e8e264776d30fa4e823ee0316bd300b080",
-      "sha256": "33ceaf759f541808904bf8e28958c9b84daad2ab90e592ffe164e762444b997e",
+      "git_blob": "bd8e45a298f2cc382574faf79072b84e81a77bd5",
+      "sha256": "f7ead8160557cfb83a7e6438eb269bc83ea6569fc06b2031efda258d7967adba",
       "definitions": [
         {
           "name": "sealed_source_path",
-          "line": 125
+          "line": 196
         },
         {
           "name": "current_source",
-          "line": 139
+          "line": 210
         },
         {
           "name": "OfflineMetaComposition",
-          "line": 146
+          "line": 217
         },
         {
           "name": "_desktop_operator_uid",
-          "line": 233
+          "line": 304
         },
         {
           "name": "NativeMobileComposition",
-          "line": 263
+          "line": 334
         },
         {
           "name": "__init__",
-          "line": 147
+          "line": 218
         },
         {
           "name": "enable_unified",
-          "line": 188
+          "line": 259
         },
         {
           "name": "close",
-          "line": 224
+          "line": 295
         },
         {
           "name": "__init__",
-          "line": 270
+          "line": 341
         },
         {
           "name": "_initialize",
-          "line": 318
+          "line": 389
         },
         {
           "name": "operator_principal",
-          "line": 388
+          "line": 459
         },
         {
           "name": "_chat_authority",
-          "line": 394
+          "line": 465
         },
         {
           "name": "_chat_credit_authority",
-          "line": 414
+          "line": 485
         },
         {
           "name": "qualify_tls",
-          "line": 436
+          "line": 507
         },
         {
           "name": "_require_qualified_operator",
-          "line": 483
+          "line": 554
         },
         {
           "name": "public_settings",
-          "line": 489
+          "line": 560
         },
         {
           "name": "model_calls",
-          "line": 495
+          "line": 566
         },
         {
           "name": "operator_auth_status",
-          "line": 501
+          "line": 572
         },
         {
           "name": "renew_operator",
-          "line": 513
-        },
-        {
-          "name": "operator_request",
           "line": 584
         },
         {
+          "name": "operator_request",
+          "line": 655
+        },
+        {
           "name": "close",
-          "line": 646
+          "line": 717
         },
         {
           "name": "fixture",
-          "line": 169
+          "line": 240
         },
         {
           "name": "inspect",
-          "line": 633
+          "line": 704
         },
         {
           "name": "revoke",
-          "line": 625
+          "line": 696
         },
         {
           "name": "record",
-          "line": 559
+          "line": 630
         }
       ],
       "call_site_count": 412,
@@ -15803,7 +15803,7 @@
         "worker.is_alive",
         "x509.load_der_x509_certificate"
       ],
-      "call_sites_sha256": "acef015162af89b00994acb028c3794e1163e2295553c156da4ab3d6c2f7a657"
+      "call_sites_sha256": "8625c6490444986940408ba6827baef546209d8409bce04849c617a118c78b21"
     },
     "runtime/mission/dependency_lock.py": {
       "path": "runtime/mission/dependency_lock.py",
@@ -18402,6 +18402,6 @@
     "DUPLICATE_VERIFIED": 16,
     "EXCLUDED_UNSAFE": 2
   },
-  "current_target_binding_note": "NZ13 explicit local REARM current blob/AST identities only: closed policy5 uses the same Core write port, durable executor ACK and independent full readback. Focused 98-case Core/SQLite/guard/ACK controls passed sequentially on Python3.12 and3.11 on working map fabb74f9dd88c81610bb769abad533798aaca5b8d249708bf487377ac61bc979. These current identities do not qualify product physical INIT, policy5 STARTED no-release, source-hidden installed artifacts, Native, model/provider inference or full69 parity. Historical69 assessments/source/MIT remain unchanged; final exact-SHA qualification and owner publication gates are separate.",
+  "current_target_binding_note": "NZ13 explicit local REARM current blob/AST identities only: closed policy5 uses the same Core write port, durable executor ACK and independent full readback. Focused 98-case Core/SQLite/guard/ACK controls passed sequentially on Python3.12 and3.11 on working map fabb74f9dd88c81610bb769abad533798aaca5b8d249708bf487377ac61bc979. These current identities do not qualify product physical INIT, policy5 STARTED no-release, source-hidden installed artifacts, Native, model/provider inference or full69 parity. Historical69 assessments/source/MIT remain unchanged; final exact-SHA qualification and owner publication gates are separate. G08 Task2 refreshes only runtime_adapter current blob/AST identity after extending the existing source fence with the recomputed finite F11 physical/Core closure. File equality, focused tests and this metadata do not activate Native/Portable factories or qualify full/product/installed/model gates; historical69 assessments, original source SHA and MIT attribution remain unchanged.",
   "nz12_binding_before_nz13_sha256": "cfca6195089170934076cd15ac80a5b26786e947338b089dd75926d545b971b2"
 }
