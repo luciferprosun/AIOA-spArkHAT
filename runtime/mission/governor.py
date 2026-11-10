@@ -5,20 +5,26 @@ providers. Hosted cross-owner accounting is unsupported. This service does not
 approve an effect, mint a principal, create a store, call a provider or resolve a
 credential. Constructors/imports are inert; operator configuration is explicit.
 """
-from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
-from enum import Enum
 import json
 import re
 import time
+from dataclasses import asdict, dataclass
+from datetime import UTC, datetime
+from enum import Enum
 
-from runtime.core_admission import Capability, CoreAdmission, OwnerScope
-from runtime.core_admission import CorePrincipal
+from runtime.core_admission import Capability, CoreAdmission, CorePrincipal, OwnerScope
 from runtime.memory_patch.audit import append_domain_event
-from runtime.memory_patch.contracts.serialization import canonical_json_bytes, canonical_sha256
+from runtime.memory_patch.contracts.serialization import (
+    canonical_json_bytes,
+    canonical_sha256,
+)
 from runtime.memory_patch.errors import ErrorCode, MemoryPatchError
 from runtime.memory_patch.persistence.idempotency import OperationBinding, execute_once
-from runtime.memory_patch.persistence.ports import RecordKind, TransactionContext, TransactionRunner
+from runtime.memory_patch.persistence.ports import (
+    RecordKind,
+    TransactionContext,
+    TransactionRunner,
+)
 
 MAX_AMOUNT = 2**63-1
 KIND = 'aioa-dual-governor-v1'
@@ -267,7 +273,7 @@ commit or refund it. A lost marker ACK never gives send permission on replay.
             append_domain_event(tx,binding,event_id='governor-'+binding.idempotency_key,
                 proof_id='governor-outbox-'+binding.idempotency_key,resource_id=binding.idempotency_key,
                 before=str(before['version']),after=str(state['version']),content_digest=canonical_sha256(state),
-                at=datetime.fromtimestamp(now,timezone.utc))
+                at=datetime.fromtimestamp(now,UTC))
             return outcome
         execute_once(tx,binding,append)
 
@@ -406,7 +412,7 @@ commit or refund it. A lost marker ACK never gives send permission on replay.
         self._require(principal,Capability.COMMIT)
         _deny(type(request) is ReservationRequest,'INVALID_RESERVATION_REQUEST')
         request=ReservationRequest(**asdict(request))
-        binding=canonical_sha256(request)
+        canonical_sha256(request)
         _deny(request.model_id in principal.model_binding_ids,'MODEL_BINDING_DENIED')
         now=self._now()
         def change(state):
@@ -533,6 +539,11 @@ retry. Circuit recovery from UNKNOWN is deliberately not treated as success.
     def finish_job(self,principal,claim,response):
         from runtime.mission.jobs import change_job
         return change_job(self,principal,'finish',claim=claim,response=response)
+
+    def finish_offline_host_job(self, principal, claim):
+        """Settle only the retained required-effect proof; never provider advice."""
+        from runtime.mission.jobs import change_job
+        return change_job(self, principal, 'finish_offline_host', claim=claim)
 
     def inspect_job(self,principal,task_id):
         from runtime.mission.jobs import change_job
