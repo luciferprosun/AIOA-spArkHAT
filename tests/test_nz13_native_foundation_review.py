@@ -631,3 +631,369 @@ class NativeFixBoundaryTests(ReviewFixture):
         self.assertFalse(self.host.core.configured); os.fstat(self.host._lease)
         self.assertEqual('UNKNOWN', self.host._native_close_steps['CORE'])
         self.assertNotIn('LEASE', self.host._native_close_steps)
+
+
+class FixedLiveMissionPort:
+    """Internal LIVE code kind, owned offline identity; no HTTP, key or model.
+
+    Only the external provider is fixed. MetaLiveBinding checks, canonical
+    MetaCallRecords ACKs, warrant consumption and governor history stay real.
+    Protocol receipt labels are synthetic test data, never LIVE certification.
+    """
+    mode = 'LIVE'
+    receipt_view = None
+
+    def __init__(self, service):
+        self.service = service
+        self.calls = 0
+        self.request = None
+        self._active_attempt_id = None
+        self.fail = False
+        self.stop = False
+
+    def generate_meta_plan(self, request, cancel, *, live_binding):
+        from decimal import Decimal
+
+        from runtime.providers.meta_model_api import ProviderPlan
+        from runtime.providers.meta_receipts import MetaCallRecords
+        from runtime.providers.tool_calling import ToolCall
+        self.calls += 1
+        self.request = request
+        live_binding.check(request)
+        records = MetaCallRecords(live_binding)
+        self._active_attempt_id = records.admit(request)
+        try:
+            live_binding.release_once(request)
+            records.change(request, 'IN_FLIGHT')
+            if self.fail:
+                records.change(request, 'UNKNOWN', error_code='META_NETWORK_UNKNOWN')
+                if self.stop: cancel.cancel()
+                raise ValueError('OWNED_FIXED_PROVIDER_UNKNOWN')
+            plan = ProviderPlan(ToolCall('owned-fixed-plan', 'navigate_read', json.dumps(request.plan_fields())),
+                request.digest, {'prompt_tokens': 50, 'completion_tokens': 30, 'total_tokens': 80},
+                'META_API_LIVE_VERIFIED', str((Decimal(50) * Decimal('1.25') + Decimal(30) * Decimal('4.25')) / 1000000),
+                model_id='aioa/offline-host-worker-v1', live_verified=True, binding=request.public_binding())
+            records.change(request, 'COMPLETED', result=plan, http_status=200)
+            if self.stop: cancel.cancel()
+            return plan
+        finally:
+            self._active_attempt_id = None
+
+    def receipt(self):
+        row = self.service._run(Capability.READ,
+            lambda tx: tx.get(RecordKind.RECEIPT, 'meta-api-' + self.request.digest))
+        if row is None: return None
+        row.verify()
+        return json.loads(canonical_json_bytes(row.payload))
+
+    def diagnostics(self):
+        return {'last_live_receipt': self.receipt()}
+
+
+def live_mission_port(case, host):
+    from dataclasses import replace
+    from datetime import timedelta
+    from decimal import Decimal
+    from types import SimpleNamespace
+
+    from lab.archaioa.authority import AuthorityScope, Money, RiskLevel
+    from lab.archaioa.decision_root import DecisionDependencyRoot
+    from lab.archaioa.evidence import EvidenceRef
+    from lab.archaioa.warrant import EffectWarrant, RevisionPolicy
+    from runtime.memory_patch.contracts.serialization import canonical_sha256
+    from runtime.meta_hackathon import mission_service
+    from runtime.meta_hackathon.contracts import BrowserTaskV1
+    from runtime.mission.governor import ReservationRequest
+    from runtime.mission.warrant import approval_digest
+    from runtime.providers import meta_model_api as api
+    # Keep the actual Native assignment, fixed offline model and every budget.
+    # MetaReceiptView's Muse-only validator is not patched or used as a proof.
+    case.enterContext(patch.object(api, 'MODEL', 'aioa/offline-host-worker-v1'))
+    case.enterContext(patch.object(mission_service, 'MODEL', 'aioa/offline-host-worker-v1'))
+    service = host.missions
+    port = FixedLiveMissionPort(service)
+    service.manager = SimpleNamespace(_meta_provider=port, generate_meta_plan=port.generate_meta_plan)
+    instruction = 'Read the owned fixture without dispatch.'
+    preview = service.preview({'mode': 'LIVE', 'instruction': instruction,
+        'target_url': 'https://docs.example.org/offline-fixture'}, host.core.local_operator(Capability.READ))
+    request = api.MetaPlanRequest(BrowserTaskV1.parse(preview['task']), instruction,
+        preview['correlation_id'], '.05', capsule_digest=preview['capsule_digest'])
+    operation = api.spend_operation(request.digest, request.public_binding())
+    now = host.ledger.clock()
+    epoch = host.foundation.governor.inspect(host.core.local_operator(Capability.READ))['epoch']
+    reservation = ReservationRequest('owned-live-spend', request.task.task_id, api.PROVIDER, api.MODEL,
+        canonical_sha256(operation), 50000000, 1)
+    commit = host.core.local_operator(Capability.COMMIT)
+    host.foundation.governor.reserve(commit, reservation, epoch)
+    authority = AuthorityScope(operation_classes=(api.SPEND_OPERATION,), target_scope=operation['target_fingerprint'],
+        risk_ceiling=RiskLevel.MODERATE, monetary_ceiling=Money(Decimal('.05'), 'USD'), not_before=now,
+        expires_at=now + timedelta(seconds=60), owner_scope=request.task.owner_scope_digest, task_scope=request.task.task_id)
+    warrant = EffectWarrant(warrant_id='owned-live-warrant', task_id=request.task.task_id,
+        owner_scope=request.task.owner_scope_digest, operation_class=api.SPEND_OPERATION,
+        operation_hash='sha256:' + canonical_sha256(operation), target_fingerprint=operation['target_fingerprint'],
+        expected_target_revision=request.task.source_sha, revision_policy=RevisionPolicy.REQUIRE,
+        decision_dependency_root=DecisionDependencyRoot((EvidenceRef('owned-live-task', 'task',
+            'sha256:' + request.task.digest, 'v1'),)), lease_epoch=epoch, authority_scope=authority,
+        approval_digest='sha256:' + '0' * 64, money_reservation_id=reservation.request_id,
+        risk_reservation_id=reservation.request_id, nonce='owned-live-nonce', issued_at=now, expires_at=now + timedelta(seconds=60))
+    warrant = replace(warrant, approval_digest=approval_digest(warrant))
+    host.ledger.approve(host.core.local_operator(Capability.OWNER_APPROVAL), warrant)
+    binding = api.MetaLiveBinding(host.ledger, host.foundation.governor, commit, warrant, reservation,
+        True, True, source_reader=host.source_probe)
+    from runtime.meta_hackathon.native_authority import NativePhase
+    host.foundation.lifecycle._phase = NativePhase.ACTIVE
+    bound = service.bind_live_request(preview['task_id'], request, binding)
+    return SimpleNamespace(port=port, bound=bound, request=request, binding=binding)
+
+
+class NativeLiveMissionRetirementTests(ReviewFixture):
+    def start_live(self, *, fail=False, stop=False):
+        port = live_mission_port(self, self.host)
+        port.port.fail, port.port.stop = fail, stop
+        self.host.missions.run(port.bound['task_id'], port.bound['preview_digest'],
+            self.host.core.local_operator(Capability.OWNER_APPROVAL))
+        handle = self.f.lifecycle._handles[port.bound['task_id']]
+        return port, handle
+
+    def joined(self, handle):
+        from runtime.meta_hackathon.native_authority import NativePhase
+        handle.thread.join(3)
+        self.assertFalse(handle.thread.is_alive())
+        self.assertTrue(handle.done.is_set())
+        self.f.lifecycle._phase = NativePhase.CAPACITY_ADMIN
+
+    def settle(self, port):
+        from runtime.memory_patch.contracts.serialization import canonical_sha256
+        receipt = port.port.receipt()
+        self.assertIsNotNone(receipt)
+        self.f.governor.settle(port.binding.principal, port.binding.reservation.request_id,
+            port.binding.warrant.lease_epoch, canonical_sha256(receipt))
+
+    def retained(self, handle):
+        before = self.rows()
+        with self.assertRaises((ValueError, MemoryPatchError)): fx.review(self.host)
+        self.assertIs(handle, self.f.lifecycle._handles[handle.task_id])
+        self.assertIs(handle.thread, self.host.missions._workers[handle.task_id])
+        self.assertIs(handle.cancel, self.host.missions._cancels[handle.task_id])
+        self.assertIsNone(handle.cleanup)
+        self.assertEqual(before, self.rows())
+        self.assertFalse(self.host.close()['closed'])
+        self.assertTrue(self.host.core.configured and self.host.runner.configured)
+        os.fstat(self.host._lease)
+
+    def positive(self, *, stop=False):
+        port, handle = self.start_live(stop=stop)
+        self.joined(handle)
+        value = self.host.missions._get(handle.task_id).payload
+        self.assertEqual(('STOPPED' if stop else 'BLOCKED', 'CONSUMED'),
+            (value['state'], value['native_spend_binding']))
+        self.assertEqual(1, port.port.calls)
+        original_thread, original_cancel = handle.thread, handle.cancel
+        self.settle(port)
+        run = self.host.runner.run
+        def pure(context, callback):
+            def invoke(tx):
+                with patch.object(self.host, 'source_probe', side_effect=AssertionError('SOURCE_IO_IN_RETIRE_TX')), \
+                     patch.object(self.host.missions, 'source_probe', side_effect=AssertionError('MISSION_SOURCE_IO_IN_RETIRE_TX')), \
+                     patch.object(self.host, '_require_qualified_operator', side_effect=AssertionError('AUTH_IO_IN_RETIRE_TX')):
+                    return callback(tx)
+            return run(context, invoke)
+        with patch.object(self.host.runner, 'run', side_effect=pure), \
+             patch.object(self.host.ledger, 'consume_in_transaction', side_effect=AssertionError('NO_RECONSUME')), \
+             patch.object(self.f.intent_journal, '_start_in_transaction', side_effect=AssertionError('NO_START')), \
+             patch.object(self.host.missions, '_prepare_native_worker', side_effect=AssertionError('NO_REPLACEMENT')):
+            self.assertEqual('REVIEWED', fx.review(self.host)['status'])
+        self.assertIs(handle.thread, original_thread)
+        self.assertIs(handle.cancel, original_cancel)
+        self.assertIsNotNone(handle.cleanup)
+        self.assertNotIn(handle.task_id, self.f.lifecycle._handles)
+        self.assertNotIn(handle.task_id, self.host.missions._workers)
+        self.assertNotIn(handle.task_id, self.host.missions._cancels)
+        self.assertEqual(1, port.port.calls)
+        self.assertTrue(self.host.close()['closed'])
+
+    def test_live_blocked_consumed_canonical_settlement_retires_original_and_closes(self):
+        self.positive()
+
+    def test_live_stopped_with_positive_receipt_settlement_retires_original_and_closes(self):
+        self.positive(stop=True)
+
+    def test_live_unknown_and_not_reusable_keep_original_ownership(self):
+        port, handle = self.start_live(fail=True)
+        self.joined(handle)
+        value = self.host.missions._get(handle.task_id).payload
+        self.assertEqual(('UNKNOWN', 'NOT_REUSABLE'), (value['state'], value['native_spend_binding']))
+        self.assertIsNone(port.port.receipt())
+        self.retained(handle)
+
+    def test_live_stopped_without_positive_receipt_keeps_original_ownership(self):
+        _, handle = self.start_live(fail=True, stop=True)
+        self.joined(handle)
+        value = self.host.missions._get(handle.task_id).payload
+        self.assertEqual(('STOPPED', 'NOT_REUSABLE'), (value['state'], value['native_spend_binding']))
+        self.retained(handle)
+
+    def test_live_completed_receipt_without_financial_settlement_is_retained(self):
+        port, handle = self.start_live()
+        self.joined(handle)
+        state = self.f.governor.inspect(self.host.core.local_operator(Capability.READ))
+        self.assertEqual('UNKNOWN', state['reservations'][port.binding.reservation.request_id]['state'])
+        self.assertIsNotNone(port.port.receipt())
+        self.retained(handle)
+
+    def test_live_missing_canonical_receipt_cannot_be_replaced_by_mission_copy(self):
+        from runtime.memory_patch.persistence.ports import TransactionView
+        port, handle = self.start_live()
+        self.joined(handle); self.settle(port)
+        get = TransactionView.get
+        def missing(tx, kind, identity):
+            if kind is RecordKind.RECEIPT and identity == 'meta-api-' + port.request.digest: return None
+            return get(tx, kind, identity)
+        with patch.object(TransactionView, 'get', missing): self.retained(handle)
+
+    def test_live_corrupt_or_foreign_canonical_receipt_is_retained(self):
+        port, handle = self.start_live()
+        self.joined(handle); self.settle(port)
+        def corrupt(tx):
+            row = tx.get(RecordKind.RECEIPT, 'meta-api-' + port.request.digest)
+            value = json.loads(canonical_json_bytes(row.payload))
+            value['warrant_digest'] = 'sha256:' + 'f' * 64
+            tx.replace(StoredRecord(row.kind, row.record_id, row.scope, row.revision + 1, value), expected_revision=row.revision)
+        self.host.runner.run(TransactionContext(port.binding.principal, Capability.COMMIT), corrupt)
+        self.retained(handle)
+
+    def test_live_settlement_with_foreign_evidence_digest_is_retained(self):
+        port, handle = self.start_live()
+        self.joined(handle)
+        self.f.governor.settle(port.binding.principal, port.binding.reservation.request_id,
+            port.binding.warrant.lease_epoch, 'f' * 64)
+        self.retained(handle)
+
+    def test_live_revoked_warrant_is_retained_after_receipt_and_settlement(self):
+        port, handle = self.start_live()
+        self.joined(handle); self.settle(port)
+        self.host.ledger.revoke(self.host.core.local_operator(Capability.OWNER_APPROVAL), port.binding.warrant)
+        self.retained(handle)
+
+    def test_live_unproven_transport_cleanup_is_retained(self):
+        from types import SimpleNamespace
+        port, handle = self.start_live()
+        self.joined(handle); self.settle(port)
+        handle.cancel.attach(SimpleNamespace(sock=None, close=lambda: None))
+        self.retained(handle)
+
+    def test_live_terminal_before_return_and_join_blocks_until_original_returns(self):
+        from runtime.meta_hackathon.native_authority import NativePhase
+        entered, release = threading.Event(), threading.Event()
+        change = self.host.missions._change
+        def hold(*args, **kwargs):
+            result = change(*args, **kwargs)
+            if args[2] == 'BLOCKED':
+                entered.set()
+                if not release.wait(4): raise AssertionError('OWNED_LIVE_RETURN_BARRIER_TIMEOUT')
+            return result
+        try:
+            with patch.object(self.host.missions, '_change', side_effect=hold):
+                port, handle = self.start_live()
+                self.assertTrue(entered.wait(3))
+                self.settle(port)
+                self.f.lifecycle._phase = NativePhase.CAPACITY_ADMIN
+                with self.assertRaises((ValueError, MemoryPatchError)): fx.review(self.host)
+                self.assertIsNone(handle.returned)
+                self.assertFalse(handle.done.is_set())
+                self.assertIs(handle, self.f.lifecycle._handles[handle.task_id])
+                release.set(); handle.thread.join(3)
+            self.assertEqual('REVIEWED', fx.review(self.host)['status'])
+            self.assertIsNotNone(handle.cleanup)
+        finally: release.set()
+
+    def test_live_quarantined_exception_after_terminal_is_retained(self):
+        execute = self.host.missions._execute_live
+        def failed_after_terminal(*args):
+            execute(*args)
+            raise ValueError('OWNED_LIVE_RETURN_UNPROVEN')
+        with patch.object(self.host.missions, '_execute_live', side_effect=failed_after_terminal):
+            port, handle = self.start_live()
+            self.joined(handle)
+        self.settle(port)
+        self.assertTrue(handle.quarantined)
+        self.retained(handle)
+
+    def test_live_expired_current_native_keeps_original_ownership(self):
+        port, handle = self.start_live()
+        self.joined(handle); self.settle(port)
+        self.host._tls_expires = time.time() - 1
+        self.retained(handle)
+
+
+    def test_live_canonical_worker_can_drain_and_close_without_prior_review(self):
+        port, handle = self.start_live()
+        self.joined(handle); self.settle(port)
+        self.assertTrue(self.f.lifecycle.drain())
+        self.assertIsNotNone(handle.cleanup)
+        self.assertNotIn(handle.task_id, self.f.lifecycle._handles)
+        self.assertNotIn(handle.task_id, self.host.missions._workers)
+        self.assertTrue(self.host.close()['closed'])
+
+    def test_live_copied_context_cannot_retire_the_original_worker(self):
+        port, handle = self.start_live()
+        self.joined(handle); self.settle(port)
+        handle.context = tuple(iter(handle.context))
+        self.retained(handle)
+
+    def test_live_missing_canonical_attempt_ack_is_retained(self):
+        from runtime.memory_patch.persistence.ports import TransactionView
+        port, handle = self.start_live()
+        self.joined(handle); self.settle(port)
+        get = TransactionView.get
+        def missing(tx, kind, identity):
+            if kind is RecordKind.OPERATION and identity == 'meta-api-attempt-' + port.request.digest: return None
+            return get(tx, kind, identity)
+        with patch.object(TransactionView, 'get', missing): self.retained(handle)
+
+    def test_live_missing_canonical_consumption_is_retained(self):
+        port, handle = self.start_live()
+        self.joined(handle); self.settle(port)
+        def remove_consumption(tx):
+            row = tx.get(RecordKind.OPERATION, self.host.ledger._key(port.binding.warrant))
+            value = json.loads(canonical_json_bytes(row.payload)); value['consumption'] = None
+            tx.replace(StoredRecord(row.kind, row.record_id, row.scope, row.revision + 1, value), expected_revision=row.revision)
+        self.host.runner.run(TransactionContext(port.binding.principal, Capability.COMMIT), remove_consumption)
+        self.retained(handle)
+
+    def test_live_current_source_drift_keeps_original_ownership(self):
+        port, handle = self.start_live()
+        self.joined(handle); self.settle(port)
+        self.host.source_probe = lambda: ('f' * 40, 'f' * 64)
+        self.retained(handle)
+
+    def test_live_returned_done_worker_still_requires_actual_thread_join(self):
+        from runtime.meta_hackathon.native_authority import NativePhase
+        entered, finish_worker = threading.Event(), threading.Event()
+        done_called, exit_thread = threading.Event(), threading.Event()
+        execute = self.host.missions._execute_live
+        def hold_execute(*args):
+            execute(*args)
+            entered.set()
+            if not finish_worker.wait(4): raise AssertionError('OWNED_LIVE_FINISH_TIMEOUT')
+        try:
+            with patch.object(self.host.missions, '_execute_live', side_effect=hold_execute):
+                port, handle = self.start_live()
+                self.assertTrue(entered.wait(3)); self.settle(port)
+                original_set = handle.done.set
+                def hold_done():
+                    original_set(); done_called.set()
+                    if not exit_thread.wait(4): raise AssertionError('OWNED_LIVE_JOIN_TIMEOUT')
+                with patch.object(handle.done, 'set', side_effect=hold_done):
+                    finish_worker.set(); self.assertTrue(done_called.wait(3))
+                    self.f.lifecycle._phase = NativePhase.CAPACITY_ADMIN
+                    self.assertTrue(handle.done.is_set() and handle.thread.is_alive())
+                    self.assertIsNotNone(handle.returned)
+                    with self.assertRaises((ValueError, MemoryPatchError)): fx.review(self.host)
+                    self.assertIs(handle, self.f.lifecycle._handles[handle.task_id])
+                    self.assertIsNone(handle.cleanup)
+                    exit_thread.set(); handle.thread.join(3)
+            self.assertEqual('REVIEWED', fx.review(self.host)['status'])
+            self.assertIsNotNone(handle.cleanup)
+        finally:
+            finish_worker.set(); exit_thread.set()

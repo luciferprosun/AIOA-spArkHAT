@@ -236,11 +236,15 @@ class MissionService:
             from .agent_operations import _local_binding
             _,_,broker=_local_binding(self,args[0])
         handle=None
+        work_context=(*args,self.manager,self.manager._meta_provider) if kind=='MISSION_LIVE' else args
         def invoke():
             returned=False
             try:
                 with failure_boundary('NATIVE_WORKER_CALLBACK_FAILED'):
-                    if kind=='MISSION_LIVE':self._execute_live(*args,cancel)
+                    if kind=='MISSION_LIVE':
+                        require(self.manager is work_context[3] and self.manager._meta_provider is work_context[4],
+                                'NATIVE_WORK_BINDING')
+                        self._execute_live(*args,cancel)
                     elif kind=='MISSION_OFFLINE':
                         record,task,call,warrant,now=args
                         self._execute(record,task,call,warrant,cancel,now)
@@ -263,7 +267,8 @@ class MissionService:
                     if returned:
                         with foundation.lifecycle.lock:
                             require(foundation.lifecycle._handles.get(identity) is handle,'NATIVE_WORK_REQUIRED')
-                            handle.returned=(threading.current_thread(),done,os.getpid(),kind)
+                            marker=(threading.current_thread(),done,os.getpid(),kind)
+                            handle.returned=(*marker,work_context) if kind=='MISSION_LIVE' else marker
                     else:foundation.lifecycle.quarantine(handle)
                 done.set()
         require(kind in ('MISSION_LIVE','MISSION_OFFLINE','AGENT','GITHUB','GITHUB_PENDING'),'NATIVE_PRODUCER_REQUIRED')
@@ -274,7 +279,7 @@ class MissionService:
             with foundation.lifecycle.lock:
                 handle=foundation.lifecycle.begin_work(producer,role,identity,cancel,thread,done)
                 require(type(handle) is NativeOwnedWorkHandle,'NATIVE_WORK_REQUIRED')
-                handle.kind=kind;handle.context=args
+                handle.kind=kind;handle.context=work_context
                 handle.broker=broker
                 if kind=='AGENT':handle.target=args[0]['approval_payload']['operation']['target_fingerprint']
                 elif kind=='GITHUB_PENDING':handle.target=args[0]['data']['operation']['target_fingerprint']
@@ -355,6 +360,7 @@ class MissionService:
         require(type(handle) is NativeOwnedWorkHandle and handle.foundation is self._native_foundation,
                 'NATIVE_WORK_REQUIRED')
         returned=handle.returned
+        if handle.kind=='MISSION_LIVE':return self._native_live_retirement_observation(handle)
         if handle.kind in ('AGENT','GITHUB_PENDING'):
             snapshot=self._native_operation_snapshot(handle)
             if snapshot is None:return None
@@ -389,6 +395,148 @@ class MissionService:
                     and type(value.get('browser_receipt')) is dict,'NATIVE_WORK_NOT_SETTLED')
         except (ValueError,MemoryPatchError,OSError,RuntimeError):return None
         return (returned,handle.thread,handle.cancel,handle.done,row.payload_digest,row.revision,'MISSION_RETURN_JOIN')
+
+    def _native_live_retirement_observation(self,handle):
+        """Original plan worker, canonical ACK/consumption and charged spend only.
+
+        A provider receipt is advisory. Only the same Core's completed attempt,
+        exact receipt and evidence-linked COMMITTED reservation prove settlement;
+        this READ never settles, refunds, consumes, dispatches or grants a retry.
+        """
+        from runtime.memory_patch.errors import MemoryPatchError
+        from runtime.mission.governor import ReservationRequest
+        from runtime.providers.meta_model_api import ProviderPlan, spend_operation
+        from runtime.providers.meta_receipts import KIND as ATTEMPT_KIND
+        from runtime.providers.meta_receipts import cost
+        from runtime.providers.tool_calling import strict_json
+
+        from .contracts import utc_timestamp
+        from .native_authority import NativeAccessUse
+        foundation=self._native_foundation;capture=None
+        try:
+            returned,context=handle.returned,handle.context
+            require(handle.producer is self and handle.role=='LEGACY_MISSION' and handle.kind=='MISSION_LIVE'
+                and type(context) is tuple and len(context)==5 and type(returned) is tuple and len(returned)==5
+                and returned[0] is handle.thread and returned[1] is handle.done and returned[2]==os.getpid()
+                and returned[3]==handle.kind and returned[4] is context and handle.started and handle.done.is_set()
+                and handle.thread is not threading.current_thread() and handle.thread.ident is not None
+                and not handle.quarantined,'NATIVE_WORK_BINDING')
+            with foundation.lifecycle.lock:
+                require(foundation.lifecycle._handles.get(handle.task_id) is handle
+                    and self._workers.get(handle.task_id) is handle.thread
+                    and self._cancels.get(handle.task_id) is handle.cancel,'NATIVE_WORK_BINDING')
+            handle.thread.join(timeout=0)
+            if handle.thread.is_alive():return None
+            record,request,binding,manager,provider=context
+            require(type(record) is dict and type(request) is MetaPlanRequest and type(binding) is MetaLiveBinding
+                and type(binding.warrant) is EffectWarrant and type(binding.reservation) is ReservationRequest
+                and type(handle.cancel) is CancellationToken and binding.ledger is self.ledger is foundation.ledger
+                and binding.governor is foundation.governor and self.manager is manager
+                and manager._meta_provider is provider and provider.mode=='LIVE' and provider._active_attempt_id is None
+                and binding.session_dispatch is False,'NATIVE_WORK_BINDING')
+            with handle.cancel._lock:
+                require(handle.cancel._connection is None and handle.cancel._socket is None,'NATIVE_CLEANUP_UNPROVEN')
+            capture=foundation.access.capture(Capability.READ,use=NativeAccessUse.READ)
+            source=self.source_probe()
+            public=request.public_binding();warrant=binding.warrant;reservation=binding.reservation
+            operation=spend_operation(request.digest,public)
+            require(source==foundation.owner.source==(request.task.source_sha,request.capsule_digest)
+                and binding.source_reader()==source and record['task_id']==request.task.task_id==handle.task_id
+                and record['task']==request.task.to_dict() and record['task_digest']==request.task.digest
+                and record['mode']=='LIVE' and record['state']=='LIVE_PENDING_AUTHORIZATION'
+                and record['native_spend_binding']=='BOUND' and record['provider_request_digest']==request.digest
+                and record['correlation_id']==request.correlation_id and record['capsule_digest']==request.capsule_digest
+                and record['instruction_sha256']==hashlib.sha256(request.instruction.encode()).hexdigest()
+                and record['owner_scope_digest']==request.task.owner_scope_digest==canonical_sha256(self.scope)
+                and record['provider_id']==public['provider_id'] and record['model_id']==public['model_id']
+                and public['model_id'] in capture.principal.model_binding_ids
+                and binding.principal.actor_session_id==capture.principal.actor_session_id==foundation.owner.instance_id
+                and binding.principal.assignment_revision==capture.principal.assignment_revision,'NATIVE_WORK_BINDING')
+            self.core.require(binding.principal,Capability.COMMIT,scope=self.scope)
+            self.ledger._check(warrant)
+            require(warrant.task_id==handle.task_id and warrant.operation_class==operation['operation_class']
+                and warrant.operation_hash=='sha256:'+canonical_sha256(operation)
+                and warrant.target_fingerprint==operation['target_fingerprint']
+                and warrant.expected_target_revision==request.task.source_sha and warrant.owner_scope==request.task.owner_scope_digest
+                and warrant.money_reservation_id==warrant.risk_reservation_id==reservation.request_id
+                and reservation.task_id==handle.task_id and reservation.provider_id==public['provider_id']
+                and reservation.model_id==public['model_id'] and reservation.request_digest==canonical_sha256(operation)
+                and public['model_id'] in binding.principal.model_binding_ids
+                and warrant.authority_scope.monetary_ceiling.currency=='USD'
+                and request.estimate()*10**9<=reservation.money_nano<=Decimal(request.budget_usd)*10**9<=50000000
+                and 0<reservation.money_nano<=warrant.authority_scope.monetary_ceiling.amount*10**9
+                and reservation.risk_units>0 and self.ledger.clock()<utc_timestamp(request.task.deadline_utc),
+                'NATIVE_WORK_BINDING')
+            def read(tx):
+                foundation.access.require_capture(capture,Capability.READ,tx=tx)
+                row=tx.get(RecordKind.OPERATION,handle.task_id)
+                attempt=tx.get(RecordKind.OPERATION,'meta-api-attempt-'+request.digest)
+                receipt=tx.get(RecordKind.RECEIPT,'meta-api-'+request.digest)
+                require(row is not None and attempt is not None and receipt is not None,'NATIVE_CLEANUP_UNPROVEN')
+                for retained in (row,attempt,receipt):
+                    retained.verify();require(retained.scope==self.scope,'NATIVE_WORK_BINDING')
+                value=plain(row.payload);data=plain(attempt.payload);proof=plain(receipt.payload)
+                mutable={'state','stopped','native_spend_binding','error','proposal','provider_receipt'}
+                require(set(value)==set(record) and all(value[k]==v for k,v in record.items() if k not in mutable)
+                    and value['schema']==KIND and value['state'] in ('BLOCKED','STOPPED')
+                    and value['stopped'] is (value['state']=='STOPPED') and value['stopped'] is handle.cancel.cancelled
+                    and value['native_spend_binding']=='CONSUMED' and value['error']=='CHROME_LIVE_BLOCKED_CONTAINMENT'
+                    and value['result'] is None and value['browser_receipt'] is None
+                    and value['verified'] is False and value['live_verified'] is False and value['dispatch_allowed'] is False,
+                    'NATIVE_WORK_NOT_SETTLED')
+                raw=value['proposal'];call=ToolCall(raw['id'],raw['function']['name'],raw['function']['arguments']);call.validate()
+                require(call.to_wire()==raw and call.name=='navigate_read'
+                    and strict_json(call.arguments_json)==request.plan_fields(),'NATIVE_WORK_BINDING')
+                approved,approval,active=self.ledger._load_unrevoked(tx,warrant);approved.verify()
+                witness=tx.get(RecordKind.APPROVAL,self.ledger._key(warrant))
+                require(witness is not None,'NATIVE_WORK_BINDING');witness.verify()
+                require(active==warrant and approval['consumption']==self.ledger._receipt(warrant)
+                    and witness.scope==self.scope and witness.payload.get('revoked') is False
+                    and witness.payload.get('session_id')==capture.principal.actor_session_id
+                    and witness.payload.get('assignment_revision')==capture.assignment_revision,'NATIVE_WORK_BINDING')
+                expected={'schema':ATTEMPT_KIND,'state':ATTEMPT_KIND+':COMPLETED',
+                    'attempt_id':'meta-api-attempt-'+request.digest,'attempt':1,'request_digest':request.digest,'binding':public,
+                    'policy_epoch':warrant.lease_epoch,'warrant_digest':warrant.digest(),'nonce_digest':canonical_sha256(warrant.nonce),
+                    'approval_record_id':self.ledger._key(warrant),'operation_digest':reservation.request_digest,
+                    'reservation_id':reservation.request_id,'input_bound':public['input_token_bound'],
+                    'output_bound':request.max_output_tokens,'cost_estimate':str(request.estimate()),'settled_cost':None,
+                    'http_status':200,'error_code':None,'created_at':data['created_at'],'sequence':data['sequence']}
+                require(canonical_json_bytes(data)==canonical_json_bytes(expected) and attempt.revision==3 and receipt.revision==1
+                    and type(data['sequence']) is int and 1<=data['sequence']<=1023
+                    and warrant.issued_at<=utc_timestamp(data['created_at'])<warrant.expires_at,'NATIVE_WORK_BINDING')
+                usage=proof['usage']
+                require(type(usage) is dict and set(usage)=={'prompt_tokens','completion_tokens','total_tokens'}
+                    and all(type(n) is int and n>=0 for n in usage.values())
+                    and usage['total_tokens']==usage['prompt_tokens']+usage['completion_tokens']
+                    and usage['prompt_tokens']<=public['input_token_bound'] and usage['completion_tokens']<=request.max_output_tokens,
+                    'NATIVE_WORK_BINDING')
+                from runtime.providers.meta_model_api import INPUT_PRICE, OUTPUT_PRICE
+                require(cost(proof['cost_estimate_usd'])==(Decimal(usage['prompt_tokens'])*INPUT_PRICE
+                    +Decimal(usage['completion_tokens'])*OUTPUT_PRICE)/1000000,'NATIVE_WORK_BINDING')
+                canonical=ProviderPlan(call,request.digest,usage,'META_API_LIVE_VERIFIED',proof['cost_estimate_usd'],
+                    provider_id=public['provider_id'],model_id=public['model_id'],live_verified=True,binding=public).receipt()
+                canonical.update(attempt_id=data['attempt_id'],attempt=1,policy_epoch=warrant.lease_epoch,
+                    warrant_digest=warrant.digest(),nonce_digest=canonical_sha256(warrant.nonce))
+                require(canonical_json_bytes(proof)==canonical_json_bytes(canonical)==canonical_json_bytes(value['provider_receipt']),
+                    'NATIVE_WORK_BINDING')
+                state=binding.governor._load(tx);entry=state['reservations'].get(reservation.request_id)
+                require(state['epoch']==warrant.lease_epoch and state['kill'] is False and entry is not None
+                    and all(entry[k]==getattr(reservation,k) for k in ReservationRequest.__dataclass_fields__)
+                    and entry['state']=='COMMITTED' and entry['evidence_digest']==canonical_sha256(proof),
+                    'NATIVE_WORK_NOT_SETTLED')
+                foundation.access.require_capture(capture,Capability.READ,tx=tx)
+                return (row.payload_digest,row.revision,attempt.payload_digest,receipt.payload_digest,
+                    approved.payload_digest,canonical_sha256(state))
+            observed=self.runner.run(TransactionContext(capture.principal,Capability.READ),read)
+            foundation.access.require_capture(capture,Capability.READ)
+            require(handle.returned is returned and handle.context is context and self.manager is manager
+                and manager._meta_provider is provider and provider._active_attempt_id is None,'NATIVE_WORK_BINDING')
+            with handle.cancel._lock:
+                require(handle.cancel._connection is None and handle.cancel._socket is None,'NATIVE_CLEANUP_UNPROVEN')
+            return (returned,handle.thread,handle.cancel,handle.done,*observed,'MISSION_LIVE_RETURN_JOIN')
+        except (ValueError,MemoryPatchError,OSError,RuntimeError,KeyError,TypeError,AttributeError):return None
+        finally:
+            if capture is not None:capture.close()
 
     def _retire_native_workers(self):
         foundation=self._native_foundation
