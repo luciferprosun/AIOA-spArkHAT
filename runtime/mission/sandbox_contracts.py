@@ -152,8 +152,11 @@ SYNTHETIC = ToolVariant('PROJECT_WRITE', 'write_file', 'synthetic', 'SYNTHETIC_O
                         'synthetic-tool-reservation')
 SANDBOX = ToolVariant('SANDBOX_EXEC', 'run_recipe', 'sandbox-exec', 'SANDBOX',
                       'sandbox-tool-reservation')
+PORTABLE = ToolVariant('PORTABLE_RELEASE_ELASTIC_IP', 'release_elastic_ip', 'portable-local',
+                       'PORTABLE_LOCAL', 'portable-tool-risk-reservation')
 # Exact-owner synthetic policy; all D10 profiles and legacy policies retained.
-TOOL_POLICY_VERSIONS = MappingProxyType({1: (SYNTHETIC,), 2: (SYNTHETIC, SANDBOX), 3: (SYNTHETIC,)})
+TOOL_POLICY_VERSIONS = MappingProxyType({1: (SYNTHETIC,), 2: (SYNTHETIC, SANDBOX),
+                                       3: (SYNTHETIC,), 4: (PORTABLE,)})
 
 
 def tool_variant(revision, operation_class):

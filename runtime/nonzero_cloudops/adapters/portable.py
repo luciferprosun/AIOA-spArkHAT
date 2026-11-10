@@ -416,21 +416,50 @@ class PortableStateStore:
             ],
         }
 
+    @contextmanager
+    def _core_write_lifetime(self, release):
+        """Bind one host-issued live Core port to this thread's held guard."""
+        from runtime.mission.portable_target import CorePortableWriteRelease
+        if (self._managed_layout is None or type(release) is not CorePortableWriteRelease
+                or getattr(self._held_lock, 'exclusive', None) is not True
+                or type(getattr(self._held_lock, 'target_binding', None)) is not dict
+                or getattr(self._held_lock, 'write_release', None) is not None):
+            raise PortablePolicyError('managed inventory needs one live Core write port')
+        release.require_store(self)
+        self._held_lock.write_release = release
+        try:
+            yield
+        finally:
+            del self._held_lock.write_release
+
     def _write(
         self,
         resources: Mapping[tuple[object, str, str], CloudResource],
         receipts: Mapping[str, LocalExecutionReceipt],
     ) -> None:
         self._require_managed_ready()
+        release = None
+        before = None
         if self._managed_layout is not None:
-            # No positive physical Core release is implemented by this profile.
-            raise PortablePolicyError('managed inventory requires a current Core physical release')
+            from runtime.mission.portable_target import CorePortableWriteRelease
+            release = getattr(self._held_lock, 'write_release', None)
+            if type(release) is not CorePortableWriteRelease:
+                raise PortablePolicyError('managed inventory requires a current Core physical release')
+            release.require_store(self)
+            before = self.observe_guarded_inventory()
         payload = self._payload(resources, receipts)
+        candidate = _canonical_inventory_bytes(payload) if release is not None else None
         try:
             envelope = seal_local_payload(
                 payload,
                 payload_type=_INVENTORY_PAYLOAD_TYPE,
             )
+            if release is not None:
+                # The complete payload is frozen before the fresh Core decision.
+                acknowledgment = release.authorize_write(self, before, candidate)
+                release.consume_write_ack(acknowledgment, self, before, candidate)
+                self._require_managed_ready()
+                self._check_target_guard()
             atomic_write_private_json(self._path, envelope)
         except (OSError, TypeError, ValueError) as error:
             raise CloudAdapterUnavailableError(

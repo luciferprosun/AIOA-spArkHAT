@@ -15,6 +15,7 @@ REQUIRED = {
     'runtime/mission/patch_capsule.py', 'runtime/mission/coding_tasks.py',
     'runtime/mission/target_settlement.py',
     'runtime/mission/target_projection.py',
+    'runtime/mission/portable_target.py',
 }
 
 

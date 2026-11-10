@@ -1,9 +1,10 @@
 """Host-owned target integrity facts in the existing Core transaction.
 
 No second runner, executor or approval authority is provided here. Exact owner
-adoption records management facts for existing inventory; physical Portable
-composition/release are not implemented. The pure baseline codec alone does not
-authorize persistence or prove INIT. No-effect certification stays closed.
+adoption records management facts for existing inventory. A managed Portable
+release retains complete write-boundary facts in the same target history.
+The pure baseline codec alone does not authorize persistence or prove INIT.
+No-effect certification and automatic target creation/rearm stay closed.
 """
 
 import json
@@ -36,6 +37,7 @@ from runtime.mission.target_settlement import (
     TargetBinding,
     TargetExecutionAck,
     TargetObservation,
+    TargetWriteObservation,
     VerifiedTargetSettlement,
 )
 from runtime.mission.warrant import KIND as WARRANT_KIND
@@ -44,10 +46,12 @@ from runtime.mission.warrant import WarrantError, require
 GENESIS = 'aioa-core-target-genesis.v1'
 HEAD = TARGET_HEAD_KIND
 HISTORY = 'aioa-core-target-history.v1'
+PHYSICAL_HISTORY = 'aioa-core-target-history-portable.v1'
 REGISTRATION = 'aioa-core-target-registration.v1'
 REGISTERED_GENESIS = 'aioa-core-target-registered-genesis.v1'
 REGISTERED_HEAD = 'aioa-core-target-registered-head.v1'
 MAX_TARGET_HISTORY = 128
+PORTABLE_CLASS = 'PORTABLE_RELEASE_ELASTIC_IP'
 
 
 def _json(value):
@@ -314,6 +318,27 @@ class CoreTargetProjection:
         self.binding.require_observation(observation)
         return observation
 
+    def _write_observation(self, warrant, value, before, *, target=None):
+        observation = value if type(value) is TargetWriteObservation else TargetWriteObservation.parse(value)
+        self.binding.require_write(warrant, observation)
+        require(warrant.operation_class == PORTABLE_CLASS
+                and (observation.before_root, observation.before_resources_root, observation.before_receipts_root)
+                == tuple(before), 'TARGET_WRITE_BEFORE_BINDING')
+        if target is not None:
+            require((observation.after_root, observation.resources_root, observation.receipts_root,
+                     observation.receipt_digest) == (target.after_root, target.resources_root,
+                        target.receipts_root, target.receipt_digest), 'TARGET_WRITE_READBACK_BINDING')
+        return observation
+
+    def _write_operation_binding(self, observation, operation):
+        payload = operation['payload']
+        proposal = payload['domain_input']['proposal']
+        require(payload['schema'] == 'aioa.portable-operation.v1'
+                and payload['target_binding_digest'] == self.binding.digest()
+                and observation.receipt_key_digest == canonical_sha256(
+                    'local-exec:' + proposal['run_id'] + ':' + proposal['proposal_hash']),
+                'TARGET_WRITE_OPERATION_BINDING')
+
     def _details(self, tx):
         self._context(tx)
         try:
@@ -358,7 +383,7 @@ class CoreTargetProjection:
             require(tx.get(RecordKind.OPERATION, self.registration_key) is None,
                     'TARGET_ADOPTION_LEGACY_DOWNGRADE')
             self._require_no_adoption_warrants(rows)
-        history_rows = [candidate for candidate in rows if candidate.payload.get('schema') == HISTORY
+        history_rows = [candidate for candidate in rows if candidate.payload.get('schema') in (HISTORY, PHYSICAL_HISTORY)
                         and candidate.payload.get('target_key') == self.head_key]
         require(len(history_rows) == head['generation'], 'TARGET_HISTORY_INTEGRITY')
         history_rows.sort(key=lambda candidate: candidate.payload['generation'])
@@ -368,13 +393,17 @@ class CoreTargetProjection:
         histories = {}
         for generation, record in enumerate(history_rows, 1):
             history = _json(record.payload)
-            require(set(history) == {'schema', 'target_key', 'binding_digest', 'generation', 'previous_digest',
-                    'warrant_digest', 'warrant', 'liability_id', 'observation', 'resolution', 'head_revision_after'}
+            history_fields = {'schema', 'target_key', 'binding_digest', 'generation', 'previous_digest',
+                              'warrant_digest', 'warrant', 'liability_id', 'observation', 'resolution', 'head_revision_after'}
+            physical = history.get('schema') == PHYSICAL_HISTORY
+            require(set(history) == (history_fields | {'write_observation'} if physical else history_fields)
                     and record.revision == 1 and type(history['generation']) is int
                     and history['generation'] == generation and history['previous_digest'] == digest
                     and history['binding_digest'] == self.binding.digest(), 'TARGET_HISTORY_INTEGRITY')
             warrant = EffectWarrant.from_dict(history['warrant'])
             self._require_warrant_binding(warrant)
+            require(physical == (warrant.operation_class == PORTABLE_CLASS)
+                    and (registered or not physical), 'TARGET_PHYSICAL_HISTORY_PROFILE')
             observation = self._observation(history['observation'])
             resolution = Reconciliation.from_dict(history['resolution'])
             require(type(resolution.outcome) is Applied and record.record_id == self.history_key(warrant)
@@ -389,9 +418,15 @@ class CoreTargetProjection:
                     'TARGET_HISTORY_INTEGRITY')
             # Reconstruct the closed proof envelope as well as its raw fields.
             VerifiedTargetSettlement(resolution, observation)
+            if physical:
+                self._write_observation(warrant, history['write_observation'],
+                                        (root, resources, receipts), target=observation)
             intent_row, intent = self.journal._load(tx, warrant)
             require(intent_row is not None and intent['resolution'] == history['resolution'],
                     'TARGET_HISTORY_INTENT_REQUIRED')
+            if physical:
+                self._write_operation_binding(TargetWriteObservation.parse(history['write_observation']),
+                                              intent['operation'])
             require(self._liability_entry(tx, warrant, history['resolution']) == history['liability_id'],
                     'TARGET_HISTORY_LIABILITY_REQUIRED')
             histories[warrant.digest()] = history
@@ -404,10 +439,14 @@ class CoreTargetProjection:
         if flight is None:
             require(row.revision == last_head_revision, 'TARGET_HEAD_REVISION')
         else:
-            require(type(flight) is dict and set(flight) == {'phase', 'warrant', 'warrant_digest', 'ack'}
-                    and flight['phase'] in ('STARTED', 'RELEASED'), 'TARGET_IN_FLIGHT_INTEGRITY')
+            require(type(flight) is dict and 'warrant' in flight, 'TARGET_IN_FLIGHT_INTEGRITY')
             warrant = EffectWarrant.from_dict(flight['warrant'])
+            physical = warrant.operation_class == PORTABLE_CLASS
+            fields = {'phase', 'warrant', 'warrant_digest', 'ack'}
+            require(set(flight) == (fields | {'write_observation'} if physical else fields)
+                    and flight['phase'] in ('STARTED', 'RELEASED'), 'TARGET_IN_FLIGHT_INTEGRITY')
             self._require_warrant_binding(warrant)
+            require(registered or not physical, 'TARGET_PHYSICAL_ADOPTION_REQUIRED')
             require(flight['warrant_digest'] == warrant.digest() and warrant.digest() not in histories
                     and warrant.target_fingerprint == 'sha256:' + root
                     and warrant.expected_target_revision == revision, 'TARGET_IN_FLIGHT_INTEGRITY')
@@ -415,6 +454,12 @@ class CoreTargetProjection:
             require(intent is not None and intent['resolution'] is None, 'TARGET_IN_FLIGHT_INTENT_REQUIRED')
             self._liability_entry(tx, warrant, None)
             offset = 1 if flight['phase'] == 'STARTED' else 2
+            if physical:
+                if flight['phase'] == 'STARTED':
+                    require(flight['write_observation'] is None, 'TARGET_WRITE_OBSERVATION_PHASE')
+                else:
+                    observed = self._write_observation(warrant, flight['write_observation'], (root, resources, receipts))
+                    self._write_operation_binding(observed, intent['operation'])
             if flight['ack'] is not None:
                 require(flight['phase'] == 'RELEASED', 'TARGET_ACK_PHASE')
                 self.binding.require_ack(warrant, TargetExecutionAck(**flight['ack']))
@@ -442,6 +487,8 @@ class CoreTargetProjection:
         self._context(tx, write=True)
         self._require_warrant_binding(warrant)
         row, state = self.load(tx)
+        physical = warrant.operation_class == PORTABLE_CLASS
+        require(not physical or state['schema'] == REGISTERED_HEAD, 'TARGET_PHYSICAL_ADOPTION_REQUIRED')
         require(state['in_flight'] is None and state['generation'] < MAX_TARGET_HISTORY, 'TARGET_IN_FLIGHT_OR_QUOTA')
         require(snapshot.fingerprint == warrant.target_fingerprint == 'sha256:' + state['state_root']
                 and snapshot.revision == warrant.expected_target_revision == state['target_revision']
@@ -451,15 +498,25 @@ class CoreTargetProjection:
         require(intent_row is not None and intent['resolution'] is None, 'TARGET_START_INTENT_REQUIRED')
         state['in_flight'] = {'phase': 'STARTED', 'warrant': warrant.to_dict(),
                               'warrant_digest': warrant.digest(), 'ack': None}
+        if physical:
+            state['in_flight']['write_observation'] = None
         self._save_head(tx, row, state)
 
-    def before_release_in_transaction(self, tx, warrant, operation, snapshot):
+    def before_release_in_transaction(self, tx, warrant, operation, snapshot, *, write_observation=None):
         self._context(tx, write=True)
         row, state = self._flight(tx, warrant)
         require(state['in_flight']['phase'] == 'STARTED'
                 and snapshot.fingerprint == 'sha256:' + state['state_root']
                 and snapshot.revision == state['target_revision']
                 and 'sha256:' + canonical_sha256(operation) == warrant.operation_hash, 'TARGET_RELEASE_BINDING')
+        if warrant.operation_class == PORTABLE_CLASS:
+            require(type(write_observation) is TargetWriteObservation, 'TARGET_WRITE_OBSERVATION_REQUIRED')
+            observed = self._write_observation(warrant, write_observation,
+                (state['state_root'], state['resources_root'], state['receipts_root']))
+            self._write_operation_binding(observed, operation)
+            state['in_flight']['write_observation'] = observed.to_dict()
+        else:
+            require(write_observation is None, 'TARGET_WRITE_PROFILE_MISMATCH')
         state['in_flight']['phase'] = 'RELEASED'
         self._save_head(tx, row, state)
 
@@ -493,6 +550,10 @@ class CoreTargetProjection:
                    'liability_id': self._liability_entry(tx, warrant, None),
                    'observation': asdict(target), 'resolution': resolution.to_dict(),
                    'head_revision_after': row.revision + 1}
+        if warrant.operation_class == PORTABLE_CLASS:
+            observed = self._write_observation(warrant, state['in_flight']['write_observation'],
+                (state['state_root'], state['resources_root'], state['receipts_root']), target=target)
+            history.update(schema=PHYSICAL_HISTORY, write_observation=observed.to_dict())
         tx.insert(StoredRecord(RecordKind.OPERATION, self.history_key(warrant), self.scope, 1, history))
         state.update(generation=generation, state_root=target.after_root,
                      resources_root=target.resources_root, receipts_root=target.receipts_root,

@@ -67,6 +67,13 @@ class TargetBinding:
                 and acknowledgment.warrant_digest == warrant.digest()
                 and acknowledgment.binding_digest == self.digest(), 'TARGET_EXECUTION_ACK_BINDING')
 
+    def require_write(self, warrant, observation):
+        require(type(observation) is TargetWriteObservation
+                and observation.binding_digest == self.digest()
+                and observation.guard_fingerprint == self.guard_fingerprint
+                and observation.operation_digest == warrant.operation_hash
+                and observation.warrant_digest == warrant.digest(), 'TARGET_WRITE_OBSERVATION_BINDING')
+
 
 @dataclass(frozen=True, slots=True)
 class TargetExecutionAck:
@@ -145,6 +152,48 @@ class VerifiedTargetSettlement:
                 'TARGET_RESOLUTION_EVIDENCE_BINDING')
 
 
+@dataclass(frozen=True, slots=True)
+class TargetWriteObservation:
+    """Frozen complete pre/candidate roots at a physical write boundary.
+
+    These host-observed facts are not a release permit. The existing Core must
+    join them to its current owner, intent, target, job and one live attempt.
+    No target I/O occurs while this value is used in a retried transaction.
+    """
+    binding_digest: str
+    operation_digest: str
+    warrant_digest: str
+    guard_fingerprint: str
+    before_root: str
+    before_resources_root: str
+    before_receipts_root: str
+    after_root: str
+    resources_root: str
+    receipts_root: str
+    receipt_key_digest: str
+    receipt_digest: str
+
+    def __post_init__(self):
+        digest_id(self.operation_digest, 'physical operation')
+        digest_id(self.warrant_digest, 'physical warrant')
+        for name in ('binding_digest', 'guard_fingerprint', 'before_root', 'before_resources_root',
+                     'before_receipts_root', 'after_root', 'resources_root', 'receipts_root',
+                     'receipt_key_digest', 'receipt_digest'):
+            _root(getattr(self, name))
+        require(self.before_root != self.after_root
+                and self.before_resources_root != self.resources_root
+                and self.before_receipts_root != self.receipts_root, 'TARGET_WRITE_EFFECT_REQUIRED')
+
+    def to_dict(self):
+        return asdict(self)
+
+    @classmethod
+    def parse(cls, value):
+        require(type(value) is dict and set(value) == set(cls.__dataclass_fields__),
+                'TARGET_WRITE_OBSERVATION_SHAPE')
+        return cls(**value)
+
+
 @runtime_checkable
 class TargetSettlementPort(Protocol):
     """Trusted host implementation on the SAME Core/runner/scope/workspace.
@@ -163,7 +212,7 @@ class TargetSettlementPort(Protocol):
     binding: TargetBinding
 
     def start_in_transaction(self, tx, warrant, operation, snapshot): ...
-    def before_release_in_transaction(self, tx, warrant, operation, snapshot): ...
+    def before_release_in_transaction(self, tx, warrant, operation, snapshot, *, write_observation=None): ...
     def record_ack_in_transaction(self, tx, warrant, acknowledgment: TargetExecutionAck): ...
     def apply_resolution_in_transaction(self, tx, warrant, epoch, verified): ...
     def check_history_in_transaction(self, tx, warrant, intent): ...

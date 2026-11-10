@@ -1,11 +1,10 @@
-"""Local synthetic capability composition on the existing native Core ports.
+"""Capability composition on the existing native Core ports.
 
-No host executor, credentials, signer, automatic principal, network or terminal
-state machine. Host-injected callbacks are trusted synthetic target adapters;
-they must enforce target CAS and share a lifecycle guard across every supported
-route/process. Calls are synchronous: no work may outlive the guard. A DB commit is not an external effect
-transaction. ACK loss/restart never grants a new attempt. Production target
-fencing, authentication and resource containment are separate gates.
+Legacy synthetic callbacks and the registered sandbox retain their profiles.
+Explicit Portable policy4 joins one managed target and existing executor to
+the same Core. No credentials, signer, automatic principal or network is
+introduced. Calls are synchronous and cannot outlive their guard. Database
+commit is not an external effect transaction; ACK loss never grants replay.
 """
 import json
 import time
@@ -29,6 +28,7 @@ from runtime.memory_patch.contracts.serialization import (
     canonical_json_bytes,
     canonical_sha256,
 )
+from runtime.memory_patch.errors import CommitOutcomeUnknown
 from runtime.memory_patch.persistence.ports import (
     RecordKind,
     StoredRecord,
@@ -36,10 +36,10 @@ from runtime.memory_patch.persistence.ports import (
 )
 from runtime.mission.completion import TaskCompletionBinding
 from runtime.mission.governor import ReservationRequest
-from runtime.mission.intent import KIND as INTENT_KIND
-from runtime.mission.intent import CoreIntentJournal
+from runtime.mission.intent import INTENT_KINDS, CoreIntentJournal
 from runtime.mission.liability import CoreLiabilityLedger, Reconciliation
 from runtime.mission.sandbox_contracts import (
+    PORTABLE,
     SANDBOX,
     SYNTHETIC,
     TOOL_POLICY_VERSIONS,
@@ -62,6 +62,8 @@ LOCAL_SESSION = 'aioa-local-zero-session-v2'
 CONTEXT = 'aioa-local-synthetic-effect-context-v1'
 EXACT_CONTEXT = 'aioa-local-exact-mock-effect-context-v1'
 EXACT_SESSION = 'aioa-local-exact-mock-session-v1'
+PORTABLE_SESSION = 'aioa-local-portable-session-v1'
+PORTABLE_CONTEXT = 'aioa-local-portable-effect-context-v1'
 
 
 class ToolCapability(str, Enum):
@@ -72,6 +74,7 @@ class ToolCapability(str, Enum):
     GITHUB_REMOTE_WRITE = 'GITHUB_REMOTE_WRITE'
     BROWSER_EXTERNAL_EFFECT = 'BROWSER_EXTERNAL_EFFECT'
     SYSTEM_INSTALL = 'SYSTEM_INSTALL'
+    PORTABLE_RELEASE_ELASTIC_IP = 'PORTABLE_RELEASE_ELASTIC_IP'
 
 
 # Trusted immutable policy, never tool annotations or model confirmation flags.
@@ -84,6 +87,7 @@ TOOL_CAPABILITIES = MappingProxyType({
     'shell_execute': ToolCapability.SANDBOX_EXEC, 'run_recipe': ToolCapability.SANDBOX_EXEC,
     'dependency_install': ToolCapability.DEPENDENCY_INSTALL,
     'git_push': ToolCapability.GITHUB_REMOTE_WRITE, 'system_install': ToolCapability.SYSTEM_INSTALL,
+    'release_elastic_ip': ToolCapability.PORTABLE_RELEASE_ELASTIC_IP,
 })
 
 
@@ -207,10 +211,10 @@ class CoreToolRoute:
                 and callable(target_guard) and (verifier is None or callable(verifier)), 'INVALID_TOOL_ROUTE')
         opaque_id(workspace,'workspace')
         require(type(policy_revision) is int and policy_revision in TOOL_POLICY_VERSIONS
-                and type(variant) is str and variant in ('synthetic','sandbox'), 'INVALID_TOOL_ROUTE')
+                and type(variant) is str and variant in ('synthetic','sandbox','portable'), 'INVALID_TOOL_ROUTE')
         self.bound_variant=tool_variant(policy_revision,
-            'SANDBOX_EXEC' if variant=='sandbox' else 'PROJECT_WRITE')
-        require((variant=='synthetic' and sandbox_registry is None)
+            'SANDBOX_EXEC' if variant=='sandbox' else 'PORTABLE_RELEASE_ELASTIC_IP' if variant=='portable' else 'PROJECT_WRITE')
+        require((variant in ('synthetic','portable') and sandbox_registry is None)
                 or (variant=='sandbox' and type(sandbox_registry) is SandboxRegistry
                     and sandbox_registry.workspace==workspace), 'INVALID_TOOL_ROUTE')
         self.sandbox_registry=sandbox_registry
@@ -229,10 +233,11 @@ class CoreToolRoute:
         port = self.target_settlement
         require(port is self._target_port_binding, 'TARGET_PORT_BINDING_CHANGED')
         if port is None:
+            require(self.bound_variant is not PORTABLE, 'TARGET_PORT_BINDING_REQUIRED')
             return
         require(isinstance(port, TargetSettlementPort)
                 and port.profile == TARGET_SETTLEMENT_PROFILE
-                and self.bound_variant is SYNTHETIC
+                and self.bound_variant in (SYNTHETIC, PORTABLE)
                 and port.core is self.core is self.journal.ledger.core is self.liability.core
                 and port.runner is self.runner is self.journal.ledger.runner is self.liability.runner
                 and port.scope == self.scope == self.journal.ledger.scope == self.liability.scope
@@ -240,6 +245,12 @@ class CoreToolRoute:
                 and type(port.binding) is TargetBinding and port.binding == self._target_descriptor
                 and port.binding.scope == self.scope and port.binding.workspace == self.workspace,
                 'TARGET_PORT_BINDING_REQUIRED')
+        if self.bound_variant is PORTABLE:
+            from runtime.mission.portable_target import CorePortableTarget
+            from runtime.mission.target_projection import CoreTargetProjection
+            require(type(port) is CoreTargetProjection and type(self.executor) is CorePortableTarget
+                    and self.executor.projection is port, 'PORTABLE_CORE_ADAPTER_REQUIRED')
+            self.executor.require_route_binding(self)
 
     def _target_snapshot(self, snapshot, *, insert=False):
         require(type(snapshot) is TargetSnapshot, 'INVALID_TARGET_SNAPSHOT')
@@ -282,9 +293,9 @@ class CoreToolRoute:
         require(row is not None,'SESSION_REQUIRED')
         state=json.loads(canonical_json_bytes(row.payload))
         fields = {'schema', 'grant', 'revoked', 'assignment_revision'}
-        exact = state.get('schema') == EXACT_SESSION
+        exact = state.get('schema') in (EXACT_SESSION, PORTABLE_SESSION)
         require(set(state) == (fields | {'owner_session_id'} if exact else fields)
-                and state['schema'] in (SESSION, LOCAL_SESSION, EXACT_SESSION)
+                and state['schema'] in (SESSION, LOCAL_SESSION, EXACT_SESSION, PORTABLE_SESSION)
                 and type(state['revoked']) is bool and type(state['assignment_revision']) is int,
                 'SESSION_INTEGRITY')
         if exact:
@@ -292,11 +303,13 @@ class CoreToolRoute:
             require(type(owner_session) is str and len(owner_session) == 64
                     and all(c in '0123456789abcdef' for c in owner_session),
                     'SESSION_INTEGRITY')
-        grant=(LocalSessionGrant if state['schema'] == LOCAL_SESSION else SessionGrant).parse(state['grant'])
+        grant=(LocalSessionGrant if state['schema'] in (LOCAL_SESSION, PORTABLE_SESSION) else SessionGrant).parse(state['grant'])
         require(grant.session_id==session_id and grant.scope==self.scope and grant.workspace==self.workspace
                 and grant.policy_revision in TOOL_POLICY_VERSIONS
                 and state['assignment_revision']>=1,'SESSION_BINDING')
-        require(exact == (grant.policy_revision == 3), 'SESSION_POLICY_DOWNGRADE')
+        expected = {3: EXACT_SESSION, 4: PORTABLE_SESSION}.get(grant.policy_revision)
+        require(state['schema'] == expected if expected is not None
+                else state['schema'] in (SESSION, LOCAL_SESSION), 'SESSION_POLICY_DOWNGRADE')
         if active:
             if exact:
                 require(state['owner_session_id'] == tx.context.principal.actor_session_id,
@@ -313,6 +326,9 @@ class CoreToolRoute:
         def change(tx):
             if grant.policy_revision == 3:
                 require(type(grant) is SessionGrant, 'EXACT_MOCK_GRANT_REQUIRED')
+            if grant.policy_revision == 4:
+                require(type(grant) is LocalSessionGrant
+                        and grant.capabilities == (PORTABLE.operation_class,), 'PORTABLE_LOCAL_GRANT_REQUIRED')
             require(grant.scope==self.scope and grant.workspace==self.workspace
                     and grant.policy_revision==self.policy_revision
                     and grant.issued_at<=self.clock()<grant.expires_at,'SESSION_BINDING')
@@ -323,8 +339,9 @@ class CoreToolRoute:
             state = {'schema': LOCAL_SESSION if type(grant) is LocalSessionGrant else SESSION,
                      'grant': grant.to_dict(), 'revoked': False,
                      'assignment_revision': principal.assignment_revision}
-            if grant.policy_revision == 3:
-                state.update(schema=EXACT_SESSION, owner_session_id=principal.actor_session_id)
+            if grant.policy_revision in (3, 4):
+                state.update(schema=EXACT_SESSION if grant.policy_revision == 3 else PORTABLE_SESSION,
+                             owner_session_id=principal.actor_session_id)
             tx.insert(StoredRecord(RecordKind.OPERATION, key, self.scope, 1, state))
         return self._run(principal,Capability.OWNER_APPROVAL,change)
 
@@ -374,6 +391,11 @@ class CoreToolRoute:
         return self._run(principal,Capability.MANAGE,change)
 
     def operation(self,proposal,snapshot):
+        if self.bound_variant is PORTABLE:
+            from runtime.mission.portable_target import PortableOperation
+            parsed = PortableOperation.parse(proposal).to_dict()
+            self._operation(parsed, snapshot)
+            return parsed
         if self.bound_variant is SANDBOX:
             require(type(snapshot) is TargetSnapshot,'INVALID_TARGET_SNAPSHOT')
             result={'operation_class':'SANDBOX_EXEC','target_fingerprint':snapshot.fingerprint,
@@ -398,6 +420,17 @@ class CoreToolRoute:
         variant=variant or self.bound_variant
         require(type(operation) is dict and type(operation.get('payload')) is dict,'INVALID_TOOL_OPERATION')
         require(operation.get('operation_class')==variant.operation_class,'INVALID_TOOL_OPERATION')
+        if variant is PORTABLE:
+            from runtime.mission.portable_target import PortableOperation
+            parsed = PortableOperation.parse(operation).to_dict()
+            require(type(snapshot) is TargetSnapshot and parsed['payload']['workspace'] == self.workspace
+                    and parsed['target_fingerprint'] == snapshot.fingerprint
+                    and parsed['expected_target_revision'] == snapshot.revision, 'STALE_TOOL_BINDING')
+            if not historical:
+                require(self.bound_variant is PORTABLE and self._target_descriptor is not None
+                        and parsed['payload']['target_binding_digest'] == self._target_descriptor.digest(),
+                        'PORTABLE_TARGET_BINDING')
+            return
         if variant is SANDBOX:
             parsed=SandboxOperation.parse(operation)
             require(operation['payload']['workspace']==self.workspace
@@ -416,7 +449,8 @@ class CoreToolRoute:
         # Caller-owned nested dictionaries must not cross trusted callback boundaries.
         require(type(operation) is dict and type(operation.get('payload')) is dict,'INVALID_TOOL_OPERATION')
         encoded=canonical_json_bytes(operation)
-        require(len(encoded)<=4096,'TOOL_INPUT_LIMIT')
+        maximum = 65536 if operation['payload'].get('schema') == 'aioa.portable-operation.v1' else 4096
+        require(len(encoded)<=maximum,'TOOL_INPUT_LIMIT')
         return json.loads(encoded)
 
     @staticmethod
@@ -435,7 +469,7 @@ class CoreToolRoute:
         require(row is not None,'TOOL_AUTHORIZATION_REQUIRED')
         context=json.loads(canonical_json_bytes(row.payload))
         require(set(context)=={'schema','session_id','grant_digest','completion','graph','trace',
-                              'warrant','reservation','target_ddr'} and context['schema'] in (CONTEXT, EXACT_CONTEXT)
+                              'warrant','reservation','target_ddr'} and context['schema'] in (CONTEXT, EXACT_CONTEXT, PORTABLE_CONTEXT)
                 and EffectWarrant.from_dict(context['warrant'])==warrant,'TOOL_CONTEXT_INTEGRITY')
         binding=TaskCompletionBinding.parse(context['completion'])
         graph=DependencyGraph.from_dict(context['graph']);trace=FaultTrace.from_dict(context['trace'])
@@ -443,10 +477,10 @@ class CoreToolRoute:
                 and canonical_sha256(graph.to_dict())==binding.graph_digest
                 and trace.operation_digest==warrant.operation_hash,'TOOL_CONTEXT_INTEGRITY')
         _, session_state, grant=self._session(tx,context['session_id'],active=False)
-        require((context['schema'] == EXACT_CONTEXT) == (grant.policy_revision == 3),
+        require(context['schema'] == {3: EXACT_CONTEXT, 4: PORTABLE_CONTEXT}.get(grant.policy_revision, CONTEXT),
                 'TOOL_CONTEXT_POLICY_DOWNGRADE')
         witness = tx.get(RecordKind.APPROVAL, self.journal.ledger._key(warrant))
-        if grant.policy_revision == 3:
+        if grant.policy_revision in (3, 4):
             # Historical structure only: fresh dispatch checks current
             # session/revocation/consumption below. Readback stays possible.
             require(witness is not None and set(witness.payload) == {
@@ -462,22 +496,29 @@ class CoreToolRoute:
         else:
             require(witness is None, 'TOOL_CONTEXT_POLICY_DOWNGRADE')
         variant=tool_variant(grant.policy_revision,warrant.operation_class)
+        portable = variant is PORTABLE
         request=ReservationRequest(**context['reservation'])
         snapshot=TargetSnapshot(warrant.target_fingerprint,warrant.expected_target_revision,
                                 DecisionDependencyRoot.from_dict(context['target_ddr']))
         require(context['grant_digest']==grant.digest and grant.completion_digest==binding.digest
-                and request.request_id==warrant.money_reservation_id==warrant.risk_reservation_id
+                and request.request_id==warrant.risk_reservation_id
+                and warrant.money_reservation_id == ('NONE' if portable else request.request_id)
                 and request.task_id==warrant.task_id and request.provider_id==variant.provider_id
                 and request.request_digest==warrant.operation_hash.removeprefix('sha256:')
-                and request.risk_units>=5 and request.money_nano>0
+                and request.risk_units>=5 and (request.money_nano == 0 if portable else request.money_nano > 0)
                 and self._ddr(snapshot,binding,grant,request)==warrant.decision_dependency_root,
                 'TOOL_CONTEXT_INTEGRITY')
+        if portable:
+            require(type(grant) is LocalSessionGrant and grant.money_nano == 0
+                    and warrant.authority_scope.monetary_ceiling.amount == 0
+                    and warrant.authority_scope.monetary_ceiling.currency == 'USD', 'TOOL_CONTEXT_ZERO_USD')
         _,stored_graph=self.liability._load(tx,warrant.task_id)
         require(stored_graph['graph']==graph.to_dict(),'DEPENDENCY_GRAPH_CONFLICT')
         prior,intent=self.journal._load(tx,warrant)
         if prior is not None:
             self._operation(intent['operation'],snapshot,variant=variant,historical=True)
             if variant is SANDBOX:self._sandbox_scope(intent['operation'],binding,graph,trace,grant)
+            if portable:self._portable_scope(intent['operation'], binding, grant, session_state)
             entry=stored_graph['entries'].get(classify_fault(trace).liability_id)
             require(entry is not None and intent['reservation']==canonical_sha256(request)
                     and intent['resolution']==entry['resolution'],'TOOL_RECONCILIATION_INTEGRITY')
@@ -502,6 +543,17 @@ class CoreToolRoute:
                 and classify_fault(trace).liability_id in step.liability_ids,'SANDBOX_STEP_BINDING')
         require(payload['timeout_ms']<=grant.deadline_seconds*1000
                 and payload['max_output_bytes']<=grant.output_bytes,'SESSION_SCOPE_DENIED')
+
+    @staticmethod
+    def _portable_scope(operation, completion, grant, session_state):
+        payload = operation['payload']
+        require(type(grant) is LocalSessionGrant and grant.policy_revision == 4
+                and payload['task_id'] == completion.task_id
+                and payload['workspace'] == grant.workspace
+                and payload['session_id'] == grant.session_id
+                and payload['policy_epoch'] == grant.epoch
+                and payload['principal_session_id'] == session_state['owner_session_id'],
+                'PORTABLE_SESSION_BINDING')
 
     def _sandbox_request(self,tx,grant,context,warrant):
         # Only called by the current synchronous live-ACK branch, never by replay.
@@ -533,19 +585,19 @@ class CoreToolRoute:
         return job
 
     def authorize(self,principal,session_id,operation,completion,graph,trace,*,nonce,model_id,money_nano,risk_units):
-        require(self.policy_revision != 3, 'EXACT_OWNER_APPROVAL_REQUIRED')
+        require(self.policy_revision not in (3, 4), 'EXACT_OWNER_APPROVAL_REQUIRED')
         return self._authorize(principal, session_id, operation, completion, graph, trace,
             nonce=nonce, model_id=model_id, money_nano=money_nano, risk_units=risk_units, exact=False)
 
     def authorize_exact(self, principal, session_id, operation, completion, graph, trace,
                         *, nonce, model_id, money_nano, risk_units):
-        """One exact owner witness in the existing ledger, explicit policy3 only.
+        """One exact owner witness in the existing ledger, explicit policies3/4.
 
         No model boolean, delegated v1 grant or reconstructed START ACK
         substitutes for this current-session OWNER_APPROVAL transaction.
         """
         self.core.require(principal, Capability.OWNER_APPROVAL, scope=self.scope)
-        require(self.policy_revision == 3, 'EXACT_OWNER_POLICY_REQUIRED')
+        require(self.policy_revision in (3, 4), 'EXACT_OWNER_POLICY_REQUIRED')
         operation = self._snapshot_operation(operation)
         with self.target_guard():
             return self._authorize(principal, session_id, operation, completion, graph, trace,
@@ -555,7 +607,7 @@ class CoreToolRoute:
                    *, nonce, model_id, money_nano, risk_units, exact):
         purpose = Capability.OWNER_APPROVAL if exact else Capability.COMMIT
         self.core.require(principal, purpose, scope=self.scope)
-        require(exact == (self.policy_revision == 3), 'EXACT_OWNER_POLICY_REQUIRED')
+        require(exact == (self.policy_revision in (3, 4)), 'EXACT_OWNER_POLICY_REQUIRED')
         operation=self._snapshot_operation(operation)
         require(type(completion) is TaskCompletionBinding and type(graph) is DependencyGraph
                 and type(trace) is FaultTrace,'INVALID_TOOL_BINDING')
@@ -563,15 +615,18 @@ class CoreToolRoute:
         snapshot=self._probe_target();self._operation(operation,snapshot)
         require(model_id in principal.model_binding_ids,'MODEL_BINDING_DENIED')
         def change(tx):
-            _,_,grant=self._session(tx,session_id)
+            _,session_state,grant=self._session(tx,session_id)
             self._native_job(tx,completion)
             if self.bound_variant is SANDBOX:self._sandbox_scope(operation,completion,graph,trace,grant)
+            portable = self.bound_variant is PORTABLE
+            if portable:self._portable_scope(operation, completion, grant, session_state)
             require(completion.scope==self.scope and completion.digest==grant.completion_digest
                     and completion.task_id==graph.task_id==trace.task_id
                     and completion.graph_digest==canonical_sha256(graph.to_dict())
                     and trace.operation_digest=='sha256:'+canonical_sha256(operation)
                     and operation['operation_class'] in grant.capabilities
-                    and type(money_nano) is int and 0<money_nano<=grant.money_nano
+                    and type(money_nano) is int
+                    and (money_nano == grant.money_nano == 0 if portable else 0 < money_nano <= grant.money_nano)
                     and type(risk_units) is int and 5<=risk_units<=grant.risk_units,'SESSION_SCOPE_DENIED')
             _,stored_graph=self.liability._load(tx,completion.task_id)
             require(stored_graph['graph']==graph.to_dict(),'DEPENDENCY_GRAPH_CONFLICT')
@@ -586,6 +641,13 @@ class CoreToolRoute:
                                            canonical_sha256(operation),money_nano,risk_units)
             start=datetime.fromtimestamp(self.clock(),UTC)
             end=datetime.fromtimestamp(grant.expires_at,UTC)
+            if portable:
+                from runtime.mission.portable_target import PortableOperation
+                domain = PortableOperation.parse(operation).domain_input.to_dict()
+                request_start = datetime.fromisoformat(domain['request']['requested_at'])
+                request_end = datetime.fromisoformat(domain['request']['expires_at'])
+                require(request_start <= start < request_end, 'PORTABLE_REQUEST_EXPIRED')
+                end = min(end, request_end)
             owner=canonical_sha256(self.scope)
             scope=AuthorityScope((operation['operation_class'],),snapshot.fingerprint,RiskLevel.MODERATE,
                 Money(Decimal(money_nano)/Decimal(10**9),'USD'),start,end,owner,completion.task_id)
@@ -594,7 +656,7 @@ class CoreToolRoute:
                 target_fingerprint=snapshot.fingerprint,expected_target_revision=snapshot.revision,
                 revision_policy=RevisionPolicy.REQUIRE,decision_dependency_root=self._ddr(snapshot,completion,grant,reservation),
                 lease_epoch=grant.epoch,authority_scope=scope,approval_digest='sha256:'+'0'*64,
-                money_reservation_id=reservation_id,risk_reservation_id=reservation_id,nonce=nonce,
+                money_reservation_id='NONE' if portable else reservation_id,risk_reservation_id=reservation_id,nonce=nonce,
                 issued_at=start,expires_at=end)
             warrant=replace(warrant,approval_digest=approval_digest(warrant))
             ledger=self.journal.ledger;ledger._check(warrant)
@@ -607,7 +669,7 @@ class CoreToolRoute:
                 rows = tx.scan(RecordKind.OPERATION, limit=1024)
                 require(len(rows) < 1024, 'TOOL_HISTORY_QUOTA')
                 for row in rows:
-                    if row.payload.get('schema') in (CONTEXT, EXACT_CONTEXT):
+                    if row.payload.get('schema') in (CONTEXT, EXACT_CONTEXT, PORTABLE_CONTEXT):
                         existing = EffectWarrant.from_dict(json.loads(canonical_json_bytes(row.payload['warrant'])))
                         require((existing.task_id, existing.operation_hash)
                                 != (warrant.task_id, warrant.operation_hash),
@@ -619,7 +681,7 @@ class CoreToolRoute:
             else:
                 ledger._save(tx,warrant,{'schema':'aioa-linear-warrant-v1','root':warrant.to_dict(),
                                         'active':warrant.to_dict(),'consumption':None})
-            context={'schema':EXACT_CONTEXT if exact else CONTEXT,'session_id':session_id,'grant_digest':grant.digest,
+            context={'schema':PORTABLE_CONTEXT if portable else EXACT_CONTEXT if exact else CONTEXT,'session_id':session_id,'grant_digest':grant.digest,
                      'completion':completion.to_dict(),'graph':graph.to_dict(),'trace':trace.to_dict(),
                      'warrant':warrant.to_dict(),'reservation':asdict(reservation),'target_ddr':snapshot.ddr.to_dict()}
             tx.insert(StoredRecord(RecordKind.OPERATION,self._context_key(warrant),self.scope,1,context))
@@ -627,7 +689,7 @@ class CoreToolRoute:
         return self._run(principal,purpose,change)
 
     def _check(self,tx,session_id,warrant,operation,completion,snapshot):
-        _,_,grant=self._session(tx,session_id)
+        _,session_state,grant=self._session(tx,session_id)
         self._native_job(tx,completion,dispatch=True)
         context,binding,graph,trace=self._context(tx,warrant)
         self._context_target_snapshot(warrant,context)
@@ -636,13 +698,14 @@ class CoreToolRoute:
                 and operation['operation_class'] in grant.capabilities
                 and self._ddr(snapshot,completion,grant,ReservationRequest(**context['reservation']))==warrant.decision_dependency_root,'STALE_TOOL_BINDING')
         self._operation(operation,snapshot)
-        if grant.policy_revision == 3:
+        if grant.policy_revision in (3, 4):
             # This method runs after START only in the live ACK branch.
             # A retained intent never grants another callback attempt.
             intent_row, _ = self.journal._load(tx, warrant)
             self.journal.ledger.require_active_in_transaction(
                 tx, warrant, consumed=intent_row is not None)
         if self.bound_variant is SANDBOX:self._sandbox_scope(operation,completion,graph,trace,grant)
+        if self.bound_variant is PORTABLE:self._portable_scope(operation, completion, grant, session_state)
         require(warrant.target_fingerprint==snapshot.fingerprint
                 and warrant.expected_target_revision==snapshot.revision,'STALE_TOOL_BINDING')
         _,stored=self.liability._load(tx,warrant.task_id)
@@ -669,7 +732,7 @@ class CoreToolRoute:
         self.core.require(principal,Capability.COMMIT,scope=self.scope)
         if cancel is not None:
             from runtime.providers.exact import CancellationToken
-            require(type(cancel) is CancellationToken and self.bound_variant is SANDBOX,
+            require(type(cancel) is CancellationToken and self.bound_variant in (SANDBOX, PORTABLE),
                     'SANDBOX_CANCEL_BINDING')
             require(not cancel.cancelled,'SANDBOX_CANCELLED')
         operation=self._snapshot_operation(operation)
@@ -681,6 +744,8 @@ class CoreToolRoute:
 
     def _dispatch(self,principal,*,session_id,warrant,operation,reservation,completion,cancel=None):
         self.core.require(principal,Capability.COMMIT,scope=self.scope)
+        portable = self.bound_variant is PORTABLE
+        marker_key = 'local_step_now' if portable else 'fixture_step_now'
         retained=self._run(principal,Capability.COMMIT,lambda tx:
             self._retained(tx,session_id,warrant,operation,reservation,completion))
         if retained is not None:return retained
@@ -689,7 +754,7 @@ class CoreToolRoute:
             # Competing START may have committed after the read above. Retained
             # observation never invokes target IO or activates expired authority.
             if self._retained(tx,session_id,warrant,operation,reservation,completion) is not None:
-                return {'fixture_step_now':False}
+                return {marker_key:False}
             grant,context,graph,trace=self._check(tx,session_id,warrant,operation,completion,snapshot)
             require(type(reservation) is ReservationRequest
                     and asdict(reservation)==context['reservation'],'RESERVATION_BINDING')
@@ -700,11 +765,12 @@ class CoreToolRoute:
             known_intents=set();known_reservations=set()
             for row in rows:
                 c=json.loads(canonical_json_bytes(row.payload))
-                if c.get('schema') in (CONTEXT, EXACT_CONTEXT):
+                if c.get('schema') in (CONTEXT, EXACT_CONTEXT, PORTABLE_CONTEXT):
                     w=EffectWarrant.from_dict(c['warrant']);self._context(tx,w)
-                    known_intents.add(w.digest());known_reservations.add(w.money_reservation_id)
+                    reservation_id = w.risk_reservation_id if c['schema'] == PORTABLE_CONTEXT else w.money_reservation_id
+                    known_intents.add(w.digest());known_reservations.add(reservation_id)
                     if c['session_id']==session_id:
-                        entry=state['reservations'].get(w.money_reservation_id)
+                        entry=state['reservations'].get(reservation_id)
                         intent_row,_=self.journal._load(tx,w)
                         require((entry is None)==(intent_row is None),'TOOL_ACCOUNTING_INTEGRITY')
                         if entry is not None:
@@ -714,21 +780,25 @@ class CoreToolRoute:
             # Reverse joins detect deleted/renamed context after START; no clean-by-absence accounting.
             for row in rows:
                 c=json.loads(canonical_json_bytes(row.payload))
-                if c.get('schema')==INTENT_KIND and c.get('operation',{}).get('payload',{}).get('tool') in {'write_file','run_recipe'}:
+                if c.get('schema') in INTENT_KINDS and c.get('operation',{}).get('payload',{}).get('tool') in {'write_file','run_recipe','release_elastic_ip'}:
                     require(c['warrant_digest'] in known_intents,'TOOL_CONTEXT_REQUIRED')
             for request_id,entry in state['reservations'].items():
-                if entry['provider_id'] in {'synthetic','sandbox-exec'}:
+                if entry['provider_id'] in {'synthetic','sandbox-exec','portable-local'}:
                     require(request_id in known_reservations,'TOOL_CONTEXT_REQUIRED')
             prior,_=self.journal._load(tx,warrant)
             if prior is None:
                 require(money+reservation.money_nano<=grant.money_nano
                         and risk+reservation.risk_units<=grant.risk_units,'SESSION_BUDGET_EXCEEDED')
-            result=self.journal.start_in_transaction(tx,warrant,operation,reservation)
-            if result['fixture_step_now']:
+            result=(self.journal._start_in_transaction(tx,warrant,operation,reservation,local_zero=True)
+                    if portable else self.journal.start_in_transaction(tx,warrant,operation,reservation))
+            if result[marker_key]:
                 if self.target_settlement is not None:
                     self.target_settlement.start_in_transaction(tx, warrant, operation, snapshot)
                 self.liability.record_unknown_in_transaction(tx,trace,graph,
                     datetime.fromtimestamp(self.clock(),UTC))
+                if portable:
+                    from runtime.mission.portable_target import _PortableStartAck
+                    result['_portable_ack'] = _PortableStartAck.issue_in_transaction(self, tx, warrant)
             return result
         result=self._run(principal,Capability.COMMIT,start)
         def readback(tx):
@@ -737,19 +807,19 @@ class CoreToolRoute:
             if self.target_settlement is not None:
                 self.target_settlement.check_history_in_transaction(tx, warrant, state)
             return {'mode': self._mode(tx,warrant), **self.journal._public(state)}
-        if result['fixture_step_now']:
+        if result[marker_key]:
             # Only this ACK grants the one attempt. Never recover an attempt from durable START.
             fresh=self._probe_target()
             def prepare(tx):
                 grant,context,_,_=self._check(tx,session_id,warrant,operation,completion,fresh)
                 if self.bound_variant is SANDBOX:
                     return self._sandbox_request(tx,grant,context,warrant)
-                if self.target_settlement is not None:
+                if self.target_settlement is not None and not portable:
                     self.target_settlement.before_release_in_transaction(tx, warrant, operation, fresh)
                 return ToolDispatchLimits(grant.deadline_seconds,grant.output_bytes,grant.egress)
             prepared=self._run(principal,Capability.COMMIT,prepare)
             try:
-                with failure_boundary('TOOL_EXECUTOR_UNKNOWN'):
+                with failure_boundary('TOOL_EXECUTOR_UNKNOWN', preserve=(CommitOutcomeUnknown,) if portable else ()):
                     if self.bound_variant is SANDBOX:
                         from runtime.mission.sandbox_linux import LinuxSandboxBroker
                         if type(self.executor) is LinuxSandboxBroker:
@@ -764,7 +834,19 @@ class CoreToolRoute:
                             else:self.executor.dispatch(prepared,release_check,cancel=cancel)
                         else:self.executor(prepared)
                     else:
-                        acknowledgment = self.executor(self._snapshot_operation(operation),warrant,prepared)
+                        if portable:
+                            from runtime.mission.portable_target import (
+                                CorePortableWriteRelease,
+                            )
+                            release = CorePortableWriteRelease.from_live_ack(self, principal, session_id,
+                                warrant, operation, completion, prepared, result['_portable_ack'], cancel=cancel)
+                            try:
+                                acknowledgment = self.executor.dispatch(
+                                    self._snapshot_operation(operation), warrant, prepared, release)
+                            finally:
+                                release.close()
+                        else:
+                            acknowledgment = self.executor(self._snapshot_operation(operation),warrant,prepared)
                         if self.target_settlement is not None and acknowledgment is not None:
                             self._target_descriptor.require_ack(warrant, acknowledgment)
                             def record_ack(tx):
