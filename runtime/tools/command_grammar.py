@@ -14,7 +14,6 @@ import unicodedata
 from pathlib import Path
 from typing import Any
 
-
 _PATTERN_PATH = (
     Path(__file__).resolve().parents[1]
     / "knowledge"
@@ -102,7 +101,7 @@ def _load_patterns() -> list[dict[str, Any]]:
     with _PATTERN_PATH.open("r", encoding="utf-8") as fh:
         data = json.load(fh)
     if not isinstance(data, list):
-        raise ValueError("command grammar patterns must be a list")
+        raise TypeError("command grammar patterns must be a list")
     return data
 
 
@@ -152,7 +151,7 @@ def _chmod_shape(tokens: list[str]) -> tuple[bool, list[str]]:
     if len(args) < 2:
         return False, ["missing_mode_or_path"]
     mode = args[0]
-    if re.fullmatch(r"[0-7]{3,4}", mode) or re.fullmatch(r"[ugoa]*[+-=][rwxXstugo,]+", mode):
+    if re.fullmatch(r"[0-7]{3,4}", mode) or re.fullmatch(r"[ugoa]*[-+=][rwxXstugo,]+", mode):
         reasons.append("valid_chmod_mode")
     else:
         return False, ["invalid_chmod_mode"]
