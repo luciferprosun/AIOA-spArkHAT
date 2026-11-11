@@ -12513,164 +12513,192 @@
     },
     "runtime/mission/coding_tasks.py": {
       "path": "runtime/mission/coding_tasks.py",
-      "git_blob": "f9e615b871131bbe03a52369895ca7363f494d24",
-      "sha256": "280abcdd060a60826deb2f773f2c2792aa3ef8b37222635a8a28cd92ad6b9311",
+      "git_blob": "8e91c424bd3057c71852dcfe9160cc6caab38e49",
+      "sha256": "64d6d353cce6ce06da4c8fd75436251792b75817b10fed4d839a25f27b88a815",
       "definitions": [
         {
           "name": "CodingRun",
-          "line": 52
+          "line": 59
         },
         {
           "name": "decode_coding_task_row",
-          "line": 100
+          "line": 107
+        },
+        {
+          "name": "decode_coding_backend_binding_row",
+          "line": 151
         },
         {
           "name": "CoreCodingTasks",
-          "line": 144
+          "line": 169
         },
         {
           "name": "coding_cli_request",
-          "line": 932
+          "line": 1088
         },
         {
           "name": "run_coding_cli",
-          "line": 937
+          "line": 1093
         },
         {
           "name": "coding_http_request",
-          "line": 966
+          "line": 1122
         },
         {
           "name": "run_coding_http_cli",
-          "line": 1058
+          "line": 1214
         },
         {
           "name": "__post_init__",
-          "line": 63
+          "line": 70
         },
         {
           "name": "__init__",
-          "line": 145
+          "line": 170
+        },
+        {
+          "name": "_require_coding_backend_host",
+          "line": 216
+        },
+        {
+          "name": "bind_coding_backend",
+          "line": 242
+        },
+        {
+          "name": "read_coding_backend",
+          "line": 316
+        },
+        {
+          "name": "_require_legacy_coding_task",
+          "line": 328
         },
         {
           "name": "runtime_view",
-          "line": 184
+          "line": 337
         },
         {
           "name": "_key",
-          "line": 211
+          "line": 364
         },
         {
           "name": "_load",
-          "line": 215
+          "line": 368
         },
         {
           "name": "_signed",
-          "line": 219
+          "line": 372
         },
         {
           "name": "_save",
-          "line": 231
+          "line": 384
         },
         {
           "name": "_view",
-          "line": 263
+          "line": 416
         },
         {
           "name": "_transition",
-          "line": 278
+          "line": 431
         },
         {
           "name": "_append_transition",
-          "line": 322
+          "line": 476
         },
         {
           "name": "_complete_history",
-          "line": 350
+          "line": 504
         },
         {
           "name": "_unresolved_intents",
-          "line": 358
+          "line": 512
         },
         {
           "name": "_start",
-          "line": 367
+          "line": 521
         },
         {
           "name": "_record_loop",
-          "line": 413
+          "line": 567
         },
         {
           "name": "_execute",
-          "line": 455
-        },
-        {
-          "name": "_active_cancel",
-          "line": 581
-        },
-        {
-          "name": "wait",
-          "line": 598
-        },
-        {
-          "name": "close",
           "line": 609
         },
         {
+          "name": "_active_cancel",
+          "line": 737
+        },
+        {
+          "name": "wait",
+          "line": 754
+        },
+        {
+          "name": "close",
+          "line": 765
+        },
+        {
           "name": "_effect",
-          "line": 623
+          "line": 779
         },
         {
           "name": "_controller_request",
-          "line": 644
+          "line": 800
         },
         {
           "name": "request",
-          "line": 757
+          "line": 913
         },
         {
           "name": "attach_review",
-          "line": 876
+          "line": 1032
         },
         {
           "name": "_attach_review_locked",
-          "line": 886
+          "line": 1042
+        },
+        {
+          "name": "read",
+          "line": 321
         },
         {
           "name": "change",
-          "line": 290
+          "line": 443
         },
         {
           "name": "save",
-          "line": 430
+          "line": 584
         },
         {
           "name": "cancel",
-          "line": 864
+          "line": 1020
         },
         {
           "name": "inspect",
-          "line": 892
+          "line": 1048
         },
         {
           "name": "save",
-          "line": 920
+          "line": 1076
+        },
+        {
+          "name": "publish",
+          "line": 272
         },
         {
           "name": "read",
-          "line": 188
+          "line": 341
         },
         {
           "name": "create",
-          "line": 798
+          "line": 954
         },
         {
           "name": "read",
-          "line": 817
+          "line": 973
         },
         {
           "name": "observe",
-          "line": 482
+          "line": 638
         }
       ],
       "symbolic_callees": [
@@ -12678,6 +12706,10 @@
         "BoundedRepairLoopCoordinator",
         "BoundedRepairLoopCoordinator().run",
         "CancellationToken",
+        "CodingBackendBindingV1",
+        "CodingBackendBindingV1.from_json",
+        "CodingRunPolicyV1.from_dict",
+        "CodingRunPolicyV1.from_dict().to_dict",
         "DiagnosticParser",
         "JsonlFramer",
         "OperationBinding.bind",
@@ -12685,16 +12717,23 @@
         "SourceIdentity",
         "StoredRecord",
         "Task",
+        "WarrantError",
+        "access.capture",
+        "access.require_capture",
         "active[data].cancel",
         "active[data].is_alive",
         "active[data].join",
+        "all",
         "any",
         "append_domain_event",
         "args.payload.encode",
         "asdict",
+        "binding.to_dict",
         "callable",
         "canonical_json_bytes",
         "canonical_sha256",
+        "capture.close",
+        "capture.principal.expires_at.timestamp",
         "coding_cli_request",
         "coding_http_request",
         "connection.close",
@@ -12702,16 +12741,19 @@
         "connection.request",
         "data[data].append",
         "dataclass",
+        "decode_coding_backend_binding_row",
         "decode_coding_task_row",
         "dict.fromkeys",
         "digest",
         "enumerate",
         "failure_boundary",
+        "foundation.require_bindings",
         "framer.feed",
         "framer.finish",
         "getattr",
         "http.client.HTTPConnection",
         "inspect",
+        "int",
         "isinstance",
         "item[data].cancel",
         "item[data].join",
@@ -12728,18 +12770,24 @@
         "os.read",
         "parser.add_argument",
         "parser.parse_args",
+        "principal.expires_at.timestamp",
         "print",
         "producer.stop",
+        "profile.to_dict",
         "re.fullmatch",
+        "registry._host_sources",
         "require",
         "response.read",
         "result.__post_init__",
+        "retained.to_dict",
         "route.approve_local_patch",
         "route.dispatch",
         "route.operation",
         "route.reconcile",
         "row.payload.get",
         "row.payload.get().get",
+        "row.verify",
+        "run_policy.to_dict",
         "runtime.coding_request",
         "self._active.get",
         "self._active.pop",
@@ -12756,6 +12804,8 @@
         "self._key",
         "self._load",
         "self._record_loop",
+        "self._require_coding_backend_host",
+        "self._require_legacy_coding_task",
         "self._save",
         "self._signed",
         "self._start",
@@ -12768,6 +12818,7 @@
         "self.capsules._fresh",
         "self.capsules.identity.sign",
         "self.capsules.prepare",
+        "self.coding_backend_registry.resolve",
         "self.effect_factory",
         "self.journal._run",
         "self.journal.ledger.clock",
@@ -12781,6 +12832,8 @@
         "threading.RLock",
         "threading.Thread",
         "threading.current_thread",
+        "time.monotonic",
+        "time.time",
         "token.cancel",
         "tuple",
         "tx.get",
@@ -12790,8 +12843,8 @@
         "type",
         "verify"
       ],
-      "call_site_count": 333,
-      "call_sites_sha256": "59d48e8b9639a5d3a00f925cc25036579bc5d627f6c6dea3daea499899a4baf1"
+      "call_site_count": 411,
+      "call_sites_sha256": "90892a7f453973acf8beec1111a4428cea721f69e97ae5624396f0ba95b94362"
     },
     "tests/test_hybrid_patchset.py": {
       "path": "tests/test_hybrid_patchset.py",
@@ -19570,8 +19623,8 @@
     },
     "runtime/providers/coding_contracts.py": {
       "path": "runtime/providers/coding_contracts.py",
-      "git_blob": "e21543a641f3409a3ceb4c3d6b5d1bdb383076b3",
-      "sha256": "fd8d5776e2e98a33dca7b3bc5ebc7e4adc9263a7686203ce061b845304bb9d53",
+      "git_blob": "5f18bd6133473c2e873d0023684c4d6bea181afa",
+      "sha256": "2e5d6c315b899d077fd33cd053677a267f1c91e4f8ff001265204967cce4651e",
       "definitions": [
         {
           "name": "CodingContractError",
@@ -19622,6 +19675,42 @@
           "line": 181
         },
         {
+          "name": "_choice_snapshot",
+          "line": 238
+        },
+        {
+          "name": "_policy_snapshot",
+          "line": 255
+        },
+        {
+          "name": "_coding_snapshot",
+          "line": 274
+        },
+        {
+          "name": "_coding_json",
+          "line": 286
+        },
+        {
+          "name": "CodingBackendChoiceV1",
+          "line": 296
+        },
+        {
+          "name": "CodingRunPolicyV1",
+          "line": 324
+        },
+        {
+          "name": "_binding_snapshot",
+          "line": 351
+        },
+        {
+          "name": "CodingBackendBindingV1",
+          "line": 373
+        },
+        {
+          "name": "CodingBackendRegistry",
+          "line": 401
+        },
+        {
           "name": "__init__",
           "line": 61
         },
@@ -19644,12 +19733,93 @@
         {
           "name": "selection_digest",
           "line": 219
+        },
+        {
+          "name": "__init__",
+          "line": 302
+        },
+        {
+          "name": "from_dict",
+          "line": 308
+        },
+        {
+          "name": "from_json",
+          "line": 312
+        },
+        {
+          "name": "to_dict",
+          "line": 315
+        },
+        {
+          "name": "digest",
+          "line": 319
+        },
+        {
+          "name": "__init__",
+          "line": 330
+        },
+        {
+          "name": "from_dict",
+          "line": 336
+        },
+        {
+          "name": "from_json",
+          "line": 340
+        },
+        {
+          "name": "to_dict",
+          "line": 343
+        },
+        {
+          "name": "digest",
+          "line": 347
+        },
+        {
+          "name": "__init__",
+          "line": 379
+        },
+        {
+          "name": "from_dict",
+          "line": 385
+        },
+        {
+          "name": "from_json",
+          "line": 389
+        },
+        {
+          "name": "to_dict",
+          "line": 392
+        },
+        {
+          "name": "digest",
+          "line": 396
+        },
+        {
+          "name": "__init__",
+          "line": 406
+        },
+        {
+          "name": "_host_sources",
+          "line": 420
+        },
+        {
+          "name": "resolve",
+          "line": 424
         }
       ],
       "symbolic_callees": [
+        "CodingBackendChoiceV1.from_dict",
+        "CodingBackendChoiceV1.from_dict().to_dict",
         "CodingContractError",
+        "CodingRunPolicyV1.from_dict",
+        "CodingRunPolicyV1.from_dict().to_dict",
+        "SelectedCodingProfileV2.from_dict",
+        "SelectedCodingProfileV2.from_dict().to_dict",
+        "SelectedCodingProfileV2.from_json",
         "_LIMITS.items",
         "_LIMITS.keys",
+        "_coding_json",
+        "_coding_snapshot",
         "_fields",
         "_full_slug",
         "_integer",
@@ -19660,29 +19830,38 @@
         "_validate",
         "canonical_json_bytes",
         "canonical_sha256",
+        "captured.to_dict",
+        "choice.to_dict",
         "cls",
         "cls.from_dict",
         "dataclass",
         "datetime.fromisoformat",
+        "entries.append",
         "field",
         "frozenset",
+        "identities.add",
         "json.loads",
         "len",
+        "min",
         "object.__setattr__",
         "part.lower",
         "pattern.fullmatch",
+        "profile.to_dict",
         "raw.decode",
         "re.compile",
+        "set",
+        "snapshot",
         "super",
         "super().__init__",
+        "tuple",
         "type",
         "value.encode",
         "value.items",
         "value.keys",
         "value.split"
       ],
-      "call_site_count": 109,
-      "call_sites_sha256": "0f72ff6fb0740e1770c11332740589cd7abaa382fe68289d2745df922710f2d1"
+      "call_site_count": 218,
+      "call_sites_sha256": "ac40ae074406acc52c19a13632303d179e09c378d639822e08ff21a6269b0897"
     }
   },
   "dispositions": {

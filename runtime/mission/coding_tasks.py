@@ -11,21 +11,28 @@ import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-from runtime.core_admission import Capability
+from runtime.core_admission import Capability, CoreActor, OwnerScope
 from runtime.memory_patch.audit import append_domain_event
 from runtime.memory_patch.contracts.serialization import (
     canonical_json_bytes,
     canonical_sha256,
 )
+from runtime.memory_patch.errors import MemoryPatchError
 from runtime.memory_patch.persistence.idempotency import OperationBinding
 from runtime.memory_patch.persistence.ports import RecordKind, StoredRecord
 from runtime.mission.contracts import logical_id
 from runtime.mission.intent import CoreIntentJournal
 from runtime.mission.patch_capsule import KIND as CAPSULE_KIND
 from runtime.mission.patch_capsule import CorePatchCapsules
-from runtime.mission.warrant import require
+from runtime.mission.warrant import WarrantError, require
 from runtime.mission.worker import Task
 from runtime.mobile_gateway.wire import verify
+from runtime.providers.coding_contracts import (
+    CodingBackendBindingV1,
+    CodingBackendChoiceV1,
+    CodingBackendRegistry,
+    CodingRunPolicyV1,
+)
 
 KIND = "aioa.coding-task.v1"
 HISTORY_LIMIT = 1024
@@ -141,6 +148,24 @@ def decode_coding_task_row(row, task_id, signer_spki):
     return row, data, task
 
 
+def decode_coding_backend_binding_row(row, task, scope):
+    """Pure strict historical decoder; a malformed present row never means absent."""
+    try:
+        require(type(row) is StoredRecord and type(task) is Task and type(scope) is OwnerScope,
+                "CODING_BACKEND_BINDING_INTEGRITY")
+        row.verify()
+        require(row.kind is RecordKind.OPERATION and row.scope == scope
+                and row.record_id == "coding-backend-" + task.digest
+                and type(row.revision) is int and row.revision == 1,
+                "CODING_BACKEND_BINDING_INTEGRITY")
+        binding = CodingBackendBindingV1.from_json(canonical_json_bytes(row.payload))
+        require(binding.to_dict()["task_digest"] == task.digest,
+                "CODING_BACKEND_BINDING_INTEGRITY")
+        return binding
+    except (ValueError, TypeError, MemoryPatchError, OverflowError, RecursionError):
+        raise WarrantError("CODING_BACKEND_BINDING_INTEGRITY") from None
+
+
 class CoreCodingTasks:
     def __init__(
         self,
@@ -151,6 +176,8 @@ class CoreCodingTasks:
         run_principal=None,
         effect_factory=None,
         clock=time.time,
+        coding_backend_registry=None,
+        coding_access=None,
     ):
         require(
             type(journal) is CoreIntentJournal
@@ -160,6 +187,11 @@ class CoreCodingTasks:
         )
         self.journal, self.capsules = journal, capsules
         self.scope = journal.ledger.scope
+        require((coding_backend_registry is None) == (coding_access is None),
+                "CODING_BACKEND_HOST_BINDING")
+        self.coding_backend_registry, self.coding_access = coding_backend_registry, coding_access
+        if coding_backend_registry is not None:
+            self._require_coding_backend_host()
         require(
             callable(clock)
             and (run_factory is None or callable(run_factory))
@@ -180,6 +212,127 @@ class CoreCodingTasks:
         self._active_lock = threading.RLock()
         self._active, self._effects = {}, {}
         self.closed = False
+
+    def _require_coding_backend_host(self):
+        from runtime.meta_hackathon.native_authority import (
+            NativeAuthorityFoundation,
+            NativeCoreAccess,
+        )
+
+        access, registry = self.coding_access, self.coding_backend_registry
+        require(type(access) is NativeCoreAccess and type(registry) is CodingBackendRegistry,
+                "CODING_BACKEND_HOST_BINDING")
+        foundation = access.foundation
+        require(type(foundation) is NativeAuthorityFoundation
+                and foundation.access is access
+                and foundation.intent_journal is self.journal
+                and foundation.owner.intent_journal is self.journal
+                and foundation.ledger is self.journal.ledger
+                and foundation.core is self.journal.ledger.core
+                and foundation.runner is self.journal.ledger.runner
+                and foundation.owner.core is foundation.core
+                and foundation.owner.runner is foundation.runner
+                and foundation.owner.ledger is foundation.ledger
+                and self.capsules.identity is foundation.owner.identity,
+                "CODING_BACKEND_HOST_BINDING")
+        require(all(source == foundation.owner.source for source in registry._host_sources()),
+                "CODING_BACKEND_SOURCE_BINDING")
+        foundation.require_bindings()
+
+    def bind_coding_backend(self, principal, task_id, choice, run_policy):
+        """Publish once through the original Native capture and canonical journal."""
+        from runtime.meta_hackathon.native_authority import NativeAccessUse
+
+        require(not self.closed, "CODING_CONTROLLER_CLOSED")
+        self.journal.ledger.core.require(principal, Capability.MANAGE, scope=self.scope)
+        require(principal.actor is CoreActor.OWNER_HUMAN, "CODING_BACKEND_OWNER_REQUIRED")
+        require(type(choice) is CodingBackendChoiceV1 and type(run_policy) is CodingRunPolicyV1,
+                "CODING_BACKEND_DATA_REQUIRED")
+        logical_id(task_id)
+        self._require_coding_backend_host()
+        access = self.coding_access
+        capture = access.capture(Capability.MANAGE, use=NativeAccessUse.CONTROL)
+        try:
+            access.require_capture(capture, Capability.MANAGE)
+            require(capture.use is NativeAccessUse.CONTROL
+                    and capture.principal.actor_session_id == principal.actor_session_id
+                    and capture.assignment_revision == principal.assignment_revision,
+                    "CODING_BACKEND_CALLER_BINDING")
+            profile = self.coding_backend_registry.resolve(choice)
+            selection = profile.to_dict()
+            require((selection["host_source"]["source_sha"],
+                     selection["host_source"]["capsule_digest"]) == capture.source,
+                    "CODING_BACKEND_SOURCE_BINDING")
+            # Capture caller data once. Retryable, proven rollbacks cannot retarget
+            # the choice, policy, session or initial timestamp.
+            policy = CodingRunPolicyV1.from_dict(run_policy.to_dict()).to_dict()
+            selected_at = int(time.time())
+            session = canonical_sha256(principal.actor_session_id)
+
+            def publish(tx):
+                require(not self.closed, "CODING_CONTROLLER_CLOSED")
+                self._require_coding_backend_host()
+                access.require_capture(capture, Capability.MANAGE, tx=tx)
+                self.journal.ledger.core.require(principal, Capability.MANAGE, scope=self.scope)
+                _, data, task = self._load(tx, task_id)
+                require(data["receipts"][-1]["receipt"]["state"] == "QUEUED",
+                        "CODING_BACKEND_TASK_NOT_QUEUED")
+                now, monotonic_now = time.time(), time.monotonic()
+                require(policy["task_digest"] == task.digest
+                        and policy["selection_digest"] == profile.selection_digest,
+                        "CODING_BACKEND_POLICY_BINDING")
+                require(policy["issued_at"] <= selected_at <= now < policy["expires_at"]
+                        and policy["expires_at"] <= task.deadline_at
+                        and policy["expires_at"] <= principal.expires_at.timestamp()
+                        and policy["expires_at"] <= capture.principal.expires_at.timestamp()
+                        and policy["expires_at"] <= capture.tls_expires
+                        and policy["expires_at"] <= now + (capture.auth_deadline - monotonic_now),
+                        "CODING_BACKEND_POLICY_EXPIRED")
+                row = tx.get(RecordKind.OPERATION, "coding-backend-" + task.digest)
+                if row is not None:
+                    retained = decode_coding_backend_binding_row(row, task, self.scope)
+                    body = retained.to_dict()
+                    require(body["selection"] == selection and body["run_policy"] == policy
+                            and body["selected_by_session_digest"] == session,
+                            "CODING_BACKEND_BINDING_CONFLICT")
+                    return retained
+                binding = CodingBackendBindingV1({
+                    "schema": "aioa.coding-backend-binding.v1", "task_digest": task.digest,
+                    "selection": selection, "selection_digest": profile.selection_digest,
+                    "run_policy": policy, "run_policy_digest": canonical_sha256(policy),
+                    "selected_by_session_digest": session, "selected_at": selected_at,
+                })
+                tx.insert(StoredRecord(RecordKind.OPERATION, "coding-backend-" + task.digest,
+                                       self.scope, 1, binding.to_dict()))
+                return binding
+
+            with self._active_lock:
+                # The existing runner retries proven rollback 40001 only. An
+                # unknown commit acknowledgment propagates without caller replay.
+                return self.journal._run(capture.principal, Capability.MANAGE, publish)
+        finally:
+            capture.close()
+
+    def read_coding_backend(self, principal, task_id):
+        """Read retained canonical data without current chooser/source/capture I/O."""
+        self.journal.ledger.core.require(principal, Capability.READ, scope=self.scope)
+        logical_id(task_id)
+
+        def read(tx):
+            task = self._load(tx, task_id)[2]
+            row = tx.get(RecordKind.OPERATION, "coding-backend-" + task.digest)
+            return None if row is None else decode_coding_backend_binding_row(row, task, self.scope)
+
+        return self.journal._run(principal, Capability.READ, read)
+
+    def _require_legacy_coding_task(self, tx, task_id):
+        task = self._load(tx, task_id)[2]
+        row = tx.get(RecordKind.OPERATION, "coding-backend-" + task.digest)
+        if row is not None:
+            decode_coding_backend_binding_row(row, task, self.scope)
+            require(False, "CODING_MODEL_WORKER_NOT_READY")
+        require(self.coding_backend_registry is None, "CODING_BACKEND_BINDING_REQUIRED")
+        return task
 
     def runtime_view(self, principal):
         """Read real signed records; never infer model certification or progress."""
@@ -289,6 +442,7 @@ class CoreCodingTasks:
     ):
         def change(tx):
             if admission:
+                self._require_legacy_coding_task(tx, task_id)
                 # This is the SAME Core transaction as QUEUED -> RUNNING.
                 # A restart must inspect prior claims, not reset local capacity.
                 rows = self._complete_history(tx)
@@ -465,7 +619,9 @@ class CoreCodingTasks:
         try:
             with failure_boundary("CODING_CONTROLLER_FAILED"):
                 task = self.journal._run(
-                    principal, Capability.COMMIT, lambda tx: self._load(tx, task_id)[2]
+                    principal,
+                    Capability.COMMIT,
+                    lambda tx: self._require_legacy_coding_task(tx, task_id),
                 )
                 run = self.run_factory(task, active["cancel"])
                 require(

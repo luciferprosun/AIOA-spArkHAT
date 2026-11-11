@@ -218,3 +218,219 @@ class SelectedCodingProfileV2:
     @property
     def selection_digest(self) -> str:
         return self._digest
+
+
+_CHOICE_FIELDS = frozenset((
+    "schema", "selection_id", "selection_revision", "backend", "model_id",
+    "selection_digest",
+))
+_POLICY_FIELDS = frozenset((
+    "schema", "task_digest", "selection_digest", "max_model_calls", "max_repairs",
+    "max_total_input_units", "max_total_output_tokens", "max_total_cost_nano_usd",
+    "model_risk_units", "issued_at", "expires_at",
+))
+_BINDING_FIELDS = frozenset((
+    "schema", "task_digest", "selection", "selection_digest", "run_policy",
+    "run_policy_digest", "selected_by_session_digest", "selected_at",
+))
+
+
+def _choice_snapshot(value):
+    body = _snapshot(value)
+    _fields(body, _CHOICE_FIELDS)
+    _require(body["schema"] == "aioa.coding-backend-choice.v1")
+    _match(body["selection_id"], _HEX32)
+    _integer(body["selection_revision"], 1)
+    _require(type(body["backend"]) is str and body["backend"] in _PAIRS)
+    if body["backend"] == "CODEX":
+        _require(body["model_id"] == "gpt-6.1-sol")
+    elif body["backend"] == "META_MUSE":
+        _require(body["model_id"] == "muse-spark-1.3")
+    else:
+        _full_slug(body["model_id"])
+    _match(body["selection_digest"], _HEX64)
+    return body
+
+
+def _policy_snapshot(value):
+    body = _snapshot(value)
+    _fields(body, _POLICY_FIELDS)
+    _require(body["schema"] == "aioa.coding-run-policy.v1")
+    _match(body["task_digest"], _HEX64)
+    _match(body["selection_digest"], _HEX64)
+    _integer(body["max_model_calls"], 1, 3)
+    calls = body["max_model_calls"]
+    _integer(body["max_repairs"], 0, min(2, calls - 1))
+    _integer(body["max_total_input_units"], 1, calls * 16896)
+    _integer(body["max_total_output_tokens"], 1, calls * 4096)
+    for name in ("max_total_cost_nano_usd", "model_risk_units"):
+        _integer(body[name], 1, 2**63 - 1)
+    for name in ("issued_at", "expires_at"):
+        _integer(body[name], 1, 2**53)
+    _require(body["issued_at"] < body["expires_at"] <= body["issued_at"] + 300)
+    return body
+
+
+def _coding_snapshot(value, snapshot, maximum):
+    """Capture one of the three closed inert DTOs; no authority or I/O."""
+    try:
+        _require(type(value) is dict)
+        body = snapshot(value)
+        wire = canonical_json_bytes(body)
+        _require(1 <= len(wire) <= maximum)
+        return wire, canonical_sha256(body)
+    except (ValueError, TypeError, OverflowError, UnicodeError, RecursionError, RuntimeError):
+        raise CodingContractError("CODING_PROFILE_DENIED") from None
+
+
+def _coding_json(raw, maximum):
+    _require(type(raw) is bytes and 1 <= len(raw) <= maximum)
+    try:
+        return json.loads(raw.decode("utf-8"), object_pairs_hook=_pairs,
+                          parse_float=_number_denied, parse_constant=_number_denied)
+    except (ValueError, TypeError, OverflowError, UnicodeError, RecursionError):
+        raise CodingContractError("CODING_PROFILE_DENIED") from None
+
+
+@dataclass(frozen=True, slots=True, init=False)
+class CodingBackendChoiceV1:
+    """An exact reference to finite host data, never a provider capability."""
+
+    _wire: bytes = field(repr=False)
+    _digest: str
+
+    def __init__(self, value: dict) -> None:
+        wire, digest = _coding_snapshot(value, _choice_snapshot, 4096)
+        object.__setattr__(self, "_wire", wire)
+        object.__setattr__(self, "_digest", digest)
+
+    @classmethod
+    def from_dict(cls, value: dict) -> CodingBackendChoiceV1:
+        return cls(value)
+
+    @classmethod
+    def from_json(cls, raw: bytes) -> CodingBackendChoiceV1:
+        return cls(_coding_json(raw, 4096))
+
+    def to_dict(self) -> dict:
+        return json.loads(self._wire)
+
+    @property
+    def digest(self) -> str:
+        return self._digest
+
+
+@dataclass(frozen=True, slots=True, init=False)
+class CodingRunPolicyV1:
+    """Bounded run data; monetary and risk limits grant no spending approval."""
+
+    _wire: bytes = field(repr=False)
+    _digest: str
+
+    def __init__(self, value: dict) -> None:
+        wire, digest = _coding_snapshot(value, _policy_snapshot, 4096)
+        object.__setattr__(self, "_wire", wire)
+        object.__setattr__(self, "_digest", digest)
+
+    @classmethod
+    def from_dict(cls, value: dict) -> CodingRunPolicyV1:
+        return cls(value)
+
+    @classmethod
+    def from_json(cls, raw: bytes) -> CodingRunPolicyV1:
+        return cls(_coding_json(raw, 4096))
+
+    def to_dict(self) -> dict:
+        return json.loads(self._wire)
+
+    @property
+    def digest(self) -> str:
+        return self._digest
+
+
+def _binding_snapshot(value):
+    # Snapshot each finite nested field independently. The S1 profile's depth
+    # and byte envelope stay unchanged when embedded in the larger witness.
+    _fields(value, _BINDING_FIELDS)
+    body = {name: _snapshot(value[name]) for name in _BINDING_FIELDS
+            if name not in ("selection", "run_policy")}
+    body["selection"] = SelectedCodingProfileV2.from_dict(value["selection"]).to_dict()
+    body["run_policy"] = CodingRunPolicyV1.from_dict(value["run_policy"]).to_dict()
+    _require(body["schema"] == "aioa.coding-backend-binding.v1")
+    for name in ("task_digest", "selection_digest", "run_policy_digest", "selected_by_session_digest"):
+        _match(body[name], _HEX64)
+    _integer(body["selected_at"], 1, 2**53)
+    policy = body["run_policy"]
+    _require(body["selection_digest"] == canonical_sha256(body["selection"])
+             and body["run_policy_digest"] == canonical_sha256(policy)
+             and policy["task_digest"] == body["task_digest"]
+             and policy["selection_digest"] == body["selection_digest"]
+             and policy["issued_at"] <= body["selected_at"] < policy["expires_at"])
+    return body
+
+
+@dataclass(frozen=True, slots=True, init=False)
+class CodingBackendBindingV1:
+    """The full immutable historical choice; no approval or execution claim."""
+
+    _wire: bytes = field(repr=False)
+    _digest: str
+
+    def __init__(self, value: dict) -> None:
+        wire, digest = _coding_snapshot(value, _binding_snapshot, 24576)
+        object.__setattr__(self, "_wire", wire)
+        object.__setattr__(self, "_digest", digest)
+
+    @classmethod
+    def from_dict(cls, value: dict) -> CodingBackendBindingV1:
+        return cls(value)
+
+    @classmethod
+    def from_json(cls, raw: bytes) -> CodingBackendBindingV1:
+        return cls(_coding_json(raw, 24576))
+
+    def to_dict(self) -> dict:
+        return json.loads(self._wire)
+
+    @property
+    def digest(self) -> str:
+        return self._digest
+
+
+@dataclass(frozen=True, slots=True, init=False)
+class CodingBackendRegistry:
+    """Finite trusted DATA, captured as canonical bytes with no live authority."""
+
+    _profiles: tuple[bytes, ...] = field(repr=False)
+
+    def __init__(self, profiles: tuple[SelectedCodingProfileV2, ...]) -> None:
+        _require(type(profiles) is tuple and 1 <= len(profiles) <= 16)
+        entries, identities = [], set()
+        for profile in profiles:
+            _require(type(profile) is SelectedCodingProfileV2)
+            captured = SelectedCodingProfileV2.from_dict(profile.to_dict())
+            _require(captured.selection_digest == profile.selection_digest)
+            body = captured.to_dict()
+            key = (body["selection_id"], body["selection_revision"])
+            _require(key not in identities)
+            identities.add(key)
+            entries.append(canonical_json_bytes(body))
+        object.__setattr__(self, "_profiles", tuple(entries))
+
+    def _host_sources(self):
+        return tuple((body["host_source"]["source_sha"], body["host_source"]["capsule_digest"])
+                     for body in (json.loads(wire) for wire in self._profiles))
+
+    def resolve(self, choice: CodingBackendChoiceV1) -> SelectedCodingProfileV2:
+        _require(type(choice) is CodingBackendChoiceV1)
+        selected = CodingBackendChoiceV1.from_dict(choice.to_dict()).to_dict()
+        for wire in self._profiles:
+            profile = SelectedCodingProfileV2.from_json(wire)
+            body = profile.to_dict()
+            if (body["selection_id"], body["selection_revision"]) == (
+                    selected["selection_id"], selected["selection_revision"]):
+                _require(body["backend"] == selected["backend"]
+                         and body["model_id"] == selected["model_id"]
+                         and profile.selection_digest == selected["selection_digest"])
+                return profile
+        raise CodingContractError("CODING_PROFILE_DENIED")
