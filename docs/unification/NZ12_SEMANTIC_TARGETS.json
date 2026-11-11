@@ -15824,8 +15824,8 @@
     },
     "runtime/meta_hackathon/runtime_adapter.py": {
       "path": "runtime/meta_hackathon/runtime_adapter.py",
-      "git_blob": "200094c415c20a0690604960525ddca713dc0b77",
-      "sha256": "902fc262181f086fb8128c988ee1eb75c1edb2c8ff9823cab8baed80f66a7107",
+      "git_blob": "e7904256b7f89eb39c6953fe3e6a6795fec977d8",
+      "sha256": "d768c39d201004c4dea2c52d128e127d8f0ac5346eafaead0cbe3a5151e7e49d",
       "definitions": [
         {
           "name": "sealed_source_path",
@@ -15869,59 +15869,59 @@
         },
         {
           "name": "operator_principal",
-          "line": 484
+          "line": 487
         },
         {
           "name": "_chat_authority",
-          "line": 499
+          "line": 502
         },
         {
           "name": "_chat_credit_authority",
-          "line": 519
+          "line": 522
         },
         {
           "name": "qualify_tls",
-          "line": 541
+          "line": 544
         },
         {
           "name": "_require_qualified_operator",
-          "line": 588
+          "line": 591
         },
         {
           "name": "public_settings",
-          "line": 594
+          "line": 597
         },
         {
           "name": "model_calls",
-          "line": 600
+          "line": 603
         },
         {
           "name": "operator_auth_status",
-          "line": 606
+          "line": 609
         },
         {
           "name": "renew_operator",
-          "line": 621
+          "line": 624
         },
         {
           "name": "_renew_foundation",
-          "line": 693
+          "line": 696
         },
         {
           "name": "operator_request",
-          "line": 769
+          "line": 772
         },
         {
           "name": "_operator_request",
-          "line": 777
+          "line": 780
         },
         {
           "name": "_close_native",
-          "line": 844
+          "line": 847
         },
         {
           "name": "close",
-          "line": 886
+          "line": 889
         },
         {
           "name": "fixture",
@@ -15929,19 +15929,19 @@
         },
         {
           "name": "inspect",
-          "line": 831
+          "line": 834
         },
         {
           "name": "record",
-          "line": 743
+          "line": 746
         },
         {
           "name": "revoke",
-          "line": 823
+          "line": 826
         },
         {
           "name": "record",
-          "line": 668
+          "line": 671
         }
       ],
       "symbolic_callees": [
@@ -16030,6 +16030,8 @@
         "line.split",
         "load_host_config",
         "models.add",
+        "models.discard",
+        "models.update",
         "object",
         "op.startswith",
         "os.close",
@@ -16060,6 +16062,7 @@
         "sealed_source_path().read_bytes",
         "secrets.token_hex",
         "self._close_native",
+        "self._host_composition.coding_model_ids",
         "self._initialize",
         "self._meta_key_path.lstat",
         "self._native_close_steps.get",
@@ -16150,8 +16153,8 @@
         "worker.is_alive",
         "x509.load_der_x509_certificate"
       ],
-      "call_site_count": 505,
-      "call_sites_sha256": "5a1ef57197fcb1daa690348925850007cd9aff19f44a8e11aed746323860df47"
+      "call_site_count": 508,
+      "call_sites_sha256": "8be6d4937858e83ab268e6fcea869b484fcf8280c37e9c3d5d259b0212806380"
     },
     "runtime/mission/dependency_lock.py": {
       "path": "runtime/mission/dependency_lock.py",
@@ -18857,340 +18860,344 @@
     },
     "runtime/meta_hackathon/native_authority.py": {
       "path": "runtime/meta_hackathon/native_authority.py",
-      "git_blob": "9576b9309118d405098f5c97dc7ddcb33121ccf6",
-      "sha256": "42ea714f96b03c6c733b6c76bd50b5a6443841188f6b284679bc3be6bea4ad78",
+      "git_blob": "b0ccbb4f3cf02ba8ab39db2f11f2f1a538cc0592",
+      "sha256": "8a30b83beb1e8eece4a66a50dcb3ef92c21e36d66687ff4ff4e7843fd336d609",
       "definitions": [
         {
           "name": "deny",
-          "line": 64
-        },
-        {
-          "name": "_private_bytes",
           "line": 69
         },
         {
+          "name": "_private_bytes",
+          "line": 74
+        },
+        {
           "name": "_path",
-          "line": 102
+          "line": 107
         },
         {
           "name": "_host_bytes",
-          "line": 110
+          "line": 115
         },
         {
           "name": "_directory_identity",
-          "line": 116
+          "line": 121
         },
         {
           "name": "NativePortableBindingConfig",
-          "line": 131
+          "line": 136
         },
         {
           "name": "NativeHostCompositionConfig",
-          "line": 165
+          "line": 170
         },
         {
           "name": "NativeAccessUse",
-          "line": 280
+          "line": 312
         },
         {
           "name": "CapacityStage",
-          "line": 288
+          "line": 320
         },
         {
           "name": "NativePhase",
-          "line": 294
-        },
-        {
-          "name": "_Original",
-          "line": 304
-        },
-        {
-          "name": "NativeAuthorityCapture",
           "line": 326
         },
         {
+          "name": "_Original",
+          "line": 336
+        },
+        {
+          "name": "NativeAuthorityCapture",
+          "line": 358
+        },
+        {
           "name": "NativeCapacityFence",
-          "line": 359
+          "line": 391
         },
         {
           "name": "NativeQuiescenceCapture",
-          "line": 373
+          "line": 405
         },
         {
           "name": "NativeCapacityHostCapture",
-          "line": 377
+          "line": 409
         },
         {
           "name": "_original",
-          "line": 403
+          "line": 435
         },
         {
           "name": "NativeCapacityCoreView",
-          "line": 414
+          "line": 446
         },
         {
           "name": "NativeOwnedWorkHandle",
-          "line": 509
+          "line": 541
         },
         {
           "name": "NativeLifecycle",
-          "line": 529
+          "line": 561
         },
         {
           "name": "NativeCoreAccess",
-          "line": 761
+          "line": 793
         },
         {
           "name": "NativeAuthorityFoundation",
-          "line": 886
-        },
-        {
-          "name": "_Pending",
-          "line": 957
-        },
-        {
-          "name": "NativeCapacityOwnerController",
-          "line": 964
-        },
-        {
-          "name": "from_dict",
-          "line": 142
-        },
-        {
-          "name": "from_dict",
-          "line": 175
-        },
-        {
-          "name": "load",
-          "line": 249
-        },
-        {
-          "name": "to_dict",
-          "line": 256
-        },
-        {
-          "name": "digest",
-          "line": 260
-        },
-        {
-          "name": "observe",
-          "line": 263
-        },
-        {
-          "name": "__new__",
-          "line": 307
-        },
-        {
-          "name": "__setattr__",
-          "line": 310
-        },
-        {
-          "name": "__copy__",
-          "line": 313
-        },
-        {
-          "name": "__deepcopy__",
-          "line": 316
-        },
-        {
-          "name": "__reduce_ex__",
-          "line": 319
-        },
-        {
-          "name": "close",
-          "line": 322
-        },
-        {
-          "name": "close",
-          "line": 355
-        },
-        {
-          "name": "require_live",
-          "line": 393
-        },
-        {
-          "name": "close",
-          "line": 396
-        },
-        {
-          "name": "to_dict",
-          "line": 417
-        },
-        {
-          "name": "digest",
-          "line": 421
-        },
-        {
-          "name": "read_in_transaction",
-          "line": 425
-        },
-        {
-          "name": "require_idle",
-          "line": 502
-        },
-        {
-          "name": "__init__",
-          "line": 530
-        },
-        {
-          "name": "phase",
-          "line": 545
-        },
-        {
-          "name": "_snapshot",
-          "line": 548
-        },
-        {
-          "name": "bind_producers",
-          "line": 551
-        },
-        {
-          "name": "_coverage",
-          "line": 562
-        },
-        {
-          "name": "operator_call",
-          "line": 579
-        },
-        {
-          "name": "require_ingress",
-          "line": 590
-        },
-        {
-          "name": "require_execution",
-          "line": 601
-        },
-        {
-          "name": "begin_work",
-          "line": 605
-        },
-        {
-          "name": "before_start",
-          "line": 616
-        },
-        {
-          "name": "quarantine",
-          "line": 623
-        },
-        {
-          "name": "begin_synchronous",
-          "line": 628
-        },
-        {
-          "name": "complete_synchronous",
-          "line": 642
-        },
-        {
-          "name": "retire_work",
-          "line": 652
-        },
-        {
-          "name": "invalidate_admission",
-          "line": 671
-        },
-        {
-          "name": "begin_capacity_review",
-          "line": 681
-        },
-        {
-          "name": "require_fence",
-          "line": 695
-        },
-        {
-          "name": "capture_quiescence",
-          "line": 707
-        },
-        {
-          "name": "abort",
-          "line": 730
-        },
-        {
-          "name": "drain",
-          "line": 736
-        },
-        {
-          "name": "__init__",
-          "line": 762
-        },
-        {
-          "name": "_register",
-          "line": 766
-        },
-        {
-          "name": "_require_original",
-          "line": 771
-        },
-        {
-          "name": "_close",
-          "line": 782
-        },
-        {
-          "name": "native_row",
-          "line": 790
-        },
-        {
-          "name": "capture",
-          "line": 804
-        },
-        {
-          "name": "require_capture",
-          "line": 843
-        },
-        {
-          "name": "bind_owner",
-          "line": 888
-        },
-        {
-          "name": "require_bindings",
           "line": 918
         },
         {
+          "name": "_Pending",
+          "line": 997
+        },
+        {
+          "name": "NativeCapacityOwnerController",
+          "line": 1004
+        },
+        {
+          "name": "from_dict",
+          "line": 147
+        },
+        {
+          "name": "from_dict",
+          "line": 181
+        },
+        {
+          "name": "load",
+          "line": 267
+        },
+        {
+          "name": "to_dict",
+          "line": 274
+        },
+        {
+          "name": "digest",
+          "line": 278
+        },
+        {
+          "name": "coding_model_ids",
+          "line": 281
+        },
+        {
+          "name": "observe",
+          "line": 295
+        },
+        {
+          "name": "__new__",
+          "line": 339
+        },
+        {
+          "name": "__setattr__",
+          "line": 342
+        },
+        {
+          "name": "__copy__",
+          "line": 345
+        },
+        {
+          "name": "__deepcopy__",
+          "line": 348
+        },
+        {
+          "name": "__reduce_ex__",
+          "line": 351
+        },
+        {
+          "name": "close",
+          "line": 354
+        },
+        {
+          "name": "close",
+          "line": 387
+        },
+        {
+          "name": "require_live",
+          "line": 425
+        },
+        {
+          "name": "close",
+          "line": 428
+        },
+        {
+          "name": "to_dict",
+          "line": 449
+        },
+        {
+          "name": "digest",
+          "line": 453
+        },
+        {
+          "name": "read_in_transaction",
+          "line": 457
+        },
+        {
+          "name": "require_idle",
+          "line": 534
+        },
+        {
           "name": "__init__",
-          "line": 965
+          "line": 562
         },
         {
-          "name": "capture_host",
-          "line": 969
+          "name": "phase",
+          "line": 577
         },
         {
-          "name": "require_host",
-          "line": 1002
+          "name": "_snapshot",
+          "line": 580
         },
         {
-          "name": "require_core_view",
-          "line": 1033
+          "name": "bind_producers",
+          "line": 583
         },
         {
-          "name": "_readback",
-          "line": 1037
+          "name": "_coverage",
+          "line": 594
         },
         {
-          "name": "_call",
-          "line": 1050
+          "name": "operator_call",
+          "line": 611
         },
         {
-          "name": "dispatch",
-          "line": 1060
+          "name": "require_ingress",
+          "line": 622
         },
         {
-          "name": "_initialize",
-          "line": 1153
+          "name": "require_execution",
+          "line": 633
         },
         {
-          "name": "identity",
-          "line": 89
+          "name": "begin_work",
+          "line": 637
         },
         {
-          "name": "read",
+          "name": "before_start",
+          "line": 648
+        },
+        {
+          "name": "quarantine",
+          "line": 655
+        },
+        {
+          "name": "begin_synchronous",
+          "line": 660
+        },
+        {
+          "name": "complete_synchronous",
+          "line": 674
+        },
+        {
+          "name": "retire_work",
+          "line": 684
+        },
+        {
+          "name": "invalidate_admission",
+          "line": 703
+        },
+        {
+          "name": "begin_capacity_review",
           "line": 713
         },
         {
+          "name": "require_fence",
+          "line": 727
+        },
+        {
+          "name": "capture_quiescence",
+          "line": 739
+        },
+        {
+          "name": "abort",
+          "line": 762
+        },
+        {
+          "name": "drain",
+          "line": 768
+        },
+        {
+          "name": "__init__",
+          "line": 794
+        },
+        {
+          "name": "_register",
+          "line": 798
+        },
+        {
+          "name": "_require_original",
+          "line": 803
+        },
+        {
+          "name": "_close",
+          "line": 814
+        },
+        {
+          "name": "native_row",
+          "line": 822
+        },
+        {
+          "name": "capture",
+          "line": 836
+        },
+        {
+          "name": "require_capture",
+          "line": 875
+        },
+        {
+          "name": "bind_owner",
+          "line": 920
+        },
+        {
+          "name": "require_bindings",
+          "line": 951
+        },
+        {
+          "name": "__init__",
+          "line": 1005
+        },
+        {
+          "name": "capture_host",
+          "line": 1009
+        },
+        {
+          "name": "require_host",
+          "line": 1042
+        },
+        {
+          "name": "require_core_view",
+          "line": 1073
+        },
+        {
+          "name": "_readback",
+          "line": 1077
+        },
+        {
+          "name": "_call",
+          "line": 1090
+        },
+        {
+          "name": "dispatch",
+          "line": 1100
+        },
+        {
+          "name": "_initialize",
+          "line": 1193
+        },
+        {
+          "name": "identity",
+          "line": 94
+        },
+        {
           "name": "read",
-          "line": 1041
+          "line": 745
+        },
+        {
+          "name": "read",
+          "line": 1081
         },
         {
           "name": "approve",
-          "line": 1125
+          "line": 1165
         }
       ],
       "symbolic_callees": [
@@ -19198,6 +19205,7 @@
         "<dynamic>.total_seconds",
         "AdmissionError",
         "CAPACITY_FIELDS.get",
+        "CodingBackendRegistry",
         "CoreDualGovernor",
         "CoreIntentJournal",
         "CoreLiabilityLedger",
@@ -19218,6 +19226,7 @@
         "PythonFunctionCase",
         "PythonRepositoryRecipe",
         "ResourceQuery.model_validate",
+        "SelectedCodingProfileV2.from_dict",
         "SourceIdentity",
         "TargetBinding",
         "TransactionContext",
@@ -19287,6 +19296,7 @@
         "foundation.liability._load",
         "foundation.owner.missions.retained_in_transaction",
         "foundation.require_bindings",
+        "frozenset",
         "getattr",
         "github_write.retained_in_transaction",
         "handle.cancel.cancel",
@@ -19340,6 +19350,7 @@
         "pending.warrant.digest",
         "pending.warrant.to_dict",
         "portable.inventory_path.is_relative_to",
+        "profile.to_dict",
         "projection.load",
         "query.model_dump",
         "quiescence.close",
@@ -19367,6 +19378,7 @@
         "self._require_original",
         "self._roles.get",
         "self.capture_host",
+        "self.coding_backend_registry._host_sources",
         "self.controller.require_host",
         "self.foundation.access._require_original",
         "self.foundation.access.require_capture",
@@ -19382,6 +19394,7 @@
         "self.require_core_view",
         "self.require_fence",
         "self.source_snapshot.verify_export",
+        "self.spec.coding_model_ids",
         "self.to_dict",
         "service._cancels.get",
         "service._native_retirement_observation",
@@ -19420,8 +19433,8 @@
         "warrants.get",
         "worker.is_alive"
       ],
-      "call_site_count": 664,
-      "call_sites_sha256": "d164752b049bf68d0f08c19c510ca3b4faac8eec58e999d97147c21823d16c18"
+      "call_site_count": 696,
+      "call_sites_sha256": "18daf031bb8d8727c87ee9ce5865b830f9f1ea173656352a764e54aadc395aff"
     },
     "runtime/mission/execution_capacity.py": {
       "path": "runtime/mission/execution_capacity.py",
@@ -19872,6 +19885,6 @@
     "DUPLICATE_VERIFIED": 16,
     "EXCLUDED_UNSAFE": 2
   },
-  "current_target_binding_note": "NZ13 explicit local REARM current blob/AST identities only: closed policy5 uses the same Core write port, durable executor ACK and independent full readback. Focused 98-case Core/SQLite/guard/ACK controls passed sequentially on Python3.12 and3.11 on working map fabb74f9dd88c81610bb769abad533798aaca5b8d249708bf487377ac61bc979. These current identities do not qualify product physical INIT, policy5 STARTED no-release, source-hidden installed artifacts, Native, model/provider inference or full69 parity. Historical69 assessments/source/MIT remain unchanged; final exact-SHA qualification and owner publication gates are separate. G08 Task2 refreshes only runtime_adapter current blob/AST identity after extending the existing source fence with the recomputed finite F11 physical/Core closure. File equality, focused tests and this metadata do not activate Native/Portable factories or qualify full/product/installed/model gates; historical69 assessments, original source SHA and MIT attribution remain unchanged.",
+  "current_target_binding_note": "NZ13 explicit local REARM current blob/AST identities only: closed policy5 uses the same Core write port, durable executor ACK and independent full readback. Focused 98-case Core/SQLite/guard/ACK controls passed sequentially on Python3.12 and3.11 on working map fabb74f9dd88c81610bb769abad533798aaca5b8d249708bf487377ac61bc979. These current identities do not qualify product physical INIT, policy5 STARTED no-release, source-hidden installed artifacts, Native, model/provider inference or full69 parity. Historical69 assessments/source/MIT remain unchanged; final exact-SHA qualification and owner publication gates are separate. G08 Task2 refreshes only runtime_adapter current blob/AST identity after extending the existing source fence with the recomputed finite F11 physical/Core closure. File equality, focused tests and this metadata do not activate Native/Portable factories or qualify full/product/installed/model gates; historical69 assessments, original source SHA and MIT attribution remain unchanged. Native coding admission Task1 refreshes only the two existing Native modules current blob/AST identities: explicit closed host configV2 retains a same-composition registry and derives model eligibility at the original Core constructor. V1 and the chat/host exclusion remain; eligibility supplies no selection, approval, spending, model call or LIVE certification. Shared S2, S3-S5, physical Native and final Master qualification remain separate. All69 historical source/blob/MIT assessments and source_modules are unchanged.",
   "nz12_binding_before_nz13_sha256": "cfca6195089170934076cd15ac80a5b26786e947338b089dd75926d545b971b2"
 }

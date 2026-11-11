@@ -41,6 +41,11 @@ from runtime.mission.target_projection import CoreTargetProjection
 from runtime.mission.target_settlement import TargetBinding
 from runtime.mission.warrant import KIND as WARRANT_KIND
 from runtime.mission.warrant import CoreWarrantLedger
+from runtime.providers.coding_contracts import (
+    CodingBackendRegistry,
+    CodingContractError,
+    SelectedCodingProfileV2,
+)
 
 if TYPE_CHECKING:
     from .runtime_adapter import NativeMobileComposition
@@ -170,6 +175,7 @@ class NativeHostCompositionConfig:
     portable: NativePortableBindingConfig
     _descriptor_path: Path | None = None
     _descriptor_bytes: bytes | None = None
+    coding_backend_registry: CodingBackendRegistry | None = None
 
     @classmethod
     def from_dict(cls, value):
@@ -179,10 +185,22 @@ class NativeHostCompositionConfig:
             PythonRepositoryRecipe,
         )
         from runtime.mission.sandbox_contracts import PYTHON_ARGV
-        codec.exact(value, CONFIG_FIELDS)
-        deny(value['schema'] == 'aioa.native-host-composition.v1' and value['profile'] == 'OWNED_OFFLINE_PROOF_V1')
+        v2 = type(value) is dict and value.get('schema') == 'aioa.native-host-composition.v2'
+        codec.exact(value, CONFIG_FIELDS | {'coding_profiles'} if v2 else CONFIG_FIELDS)
+        deny(value['schema'] in ('aioa.native-host-composition.v1', 'aioa.native-host-composition.v2')
+             and value['profile'] == 'OWNED_OFFLINE_PROOF_V1')
         codec.exact(value['host_source'], {'source_sha', 'capsule_digest'})
         codec.hexdigest(value['host_source']['source_sha'], 40); codec.hexdigest(value['host_source']['capsule_digest'])
+        registry = None
+        if v2:
+            profiles = value['coding_profiles']
+            deny(type(profiles) is list and 1 <= len(profiles) <= 16)
+            try:
+                captured = tuple(SelectedCodingProfileV2.from_dict(profile) for profile in profiles)
+                registry = CodingBackendRegistry(captured)
+            except CodingContractError as error:
+                raise AdmissionError() from error
+            deny(all(profile.to_dict()['host_source'] == value['host_source'] for profile in captured))
         codec.hexdigest(value['bootstrap_policy_digest'])
         codec.exact(value['project_source'], set(SourceIdentity.__dataclass_fields__))
         project = SourceIdentity(**value['project_source'])
@@ -243,7 +261,7 @@ class NativeHostCompositionConfig:
         deny(all(not portable.inventory_path.is_relative_to(root) and not root.is_relative_to(portable.inventory_path.parent)
                  for root in roots))
         raw = _host_bytes(value); deny(len(raw) <= 2097152)
-        return cls(raw, project, snapshot, recipe, portable)
+        return cls(raw, project, snapshot, recipe, portable, coding_backend_registry=registry)
 
     @classmethod
     def load(cls, path):
@@ -259,6 +277,20 @@ class NativeHostCompositionConfig:
     @property
     def digest(self):
         return hashlib.sha256(self._bytes).hexdigest()
+
+    def coding_model_ids(self) -> frozenset[str]:
+        """Pure eligibility from the retained full profiles; no selection or spend."""
+        value = self.to_dict()
+        registry = self.coding_backend_registry
+        if registry is None:
+            deny(value['schema'] == 'aioa.native-host-composition.v1' and 'coding_profiles' not in value)
+            return frozenset()
+        profiles = value.get('coding_profiles')
+        deny(type(registry) is CodingBackendRegistry and value['schema'] == 'aioa.native-host-composition.v2'
+             and type(profiles) is list and 1 <= len(profiles) <= 16)
+        deny(registry._profiles == tuple(canonical_json_bytes(profile) for profile in profiles)
+             and all(profile['host_source'] == value['host_source'] for profile in profiles))
+        return frozenset(profile['model_id'] for profile in profiles)
 
     def observe(self, owner):
         """Host-owned source/config/root observations, never called in SQL."""
@@ -891,6 +923,7 @@ class NativeAuthorityFoundation:
              and getattr(owner, 'foundation', None) is None and owner._host_composition is spec)
         self = cls()
         self.owner, self.spec = owner, spec
+        self.coding_backend_registry = spec.coding_backend_registry
         self.core, self.runner, self.ledger = owner.core, owner.runner, owner.ledger
         self.runtime,self.missions,self.mobile,self.identity=owner.runtime,owner.missions,owner.mobile,owner.identity
         self.lifecycle = NativeLifecycle(self)
@@ -925,6 +958,13 @@ class NativeAuthorityFoundation:
         from .mission_service import MissionService
         from .runtime_adapter import NativeMobileComposition
         owner = self.owner
+        deny(owner.foundation is self and type(self.spec) is NativeHostCompositionConfig
+             and owner._host_composition is self.spec and type(self.access) is NativeCoreAccess
+             and self.access.foundation is self
+             and self.coding_backend_registry is self.spec.coding_backend_registry)
+        self.spec.coding_model_ids()
+        if self.coding_backend_registry is not None:
+            deny(all(source == owner.source for source in self.coding_backend_registry._host_sources()))
         deny(type(owner) is NativeMobileComposition and type(owner.runtime) is AgentRuntime
              and owner.runtime is self.runtime and type(owner.missions) is MissionService and owner.missions is self.missions
              and type(owner.mobile) is MobileGateway and owner.mobile is self.mobile

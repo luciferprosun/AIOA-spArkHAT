@@ -424,6 +424,9 @@ class NativeMobileComposition:
         if self._host_composition is not None:
             hats.add(self._host_composition.project_source.workspace_id)
             models.add('aioa/offline-host-worker-v1')
+            if self._host_composition.coding_backend_registry is not None:
+                models.discard('NO_MODEL_PAIRING')
+                models.update(self._host_composition.coding_model_ids())
         self.core=CoreAdmission(LocalOwnerAssignment(scope,frozenset(capabilities),
             frozenset(hats),frozenset(models),operator_approved=admitted))
         self.instance_id=self.core.local_operator(Capability.READ).actor_session_id
