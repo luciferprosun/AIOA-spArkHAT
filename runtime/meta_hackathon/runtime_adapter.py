@@ -198,6 +198,9 @@ SOURCE_FILES += (
     'runtime/tools/provenance.py',
 )
 
+# Exact inert coding-profile codec; no host graph or transport activation.
+SOURCE_FILES += ('runtime/providers/coding_contracts.py',)
+
 def sealed_source_path(relative, *, root=None):
     """Fixed source list only; reject links before any source content read."""
     base = Path(root or ROOT).absolute()

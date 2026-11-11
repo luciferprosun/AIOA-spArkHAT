@@ -1,16 +1,25 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 from dataclasses import asdict, dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+from runtime_paths import runtime_state_dir
 
 from .aureon_provider import AureonProvider
 from .base import ModelProvider
 from .gemini_provider import GeminiProvider
 from .nebius import DEFAULT_NEBIUS_MODEL, NebiusProvider
 from .openai_compatible import OpenAICompatibleProvider
-from runtime_paths import runtime_state_dir
+
+if TYPE_CHECKING:
+    from .coding_contracts import SelectedCodingProfileV2
+
+
+logger = logging.getLogger(__name__)
 
 
 # Public protocol marker required by LocalCPLFixture's loopback-only gate.
@@ -95,12 +104,32 @@ class ProviderManager:
     """Cloud-provider manager with fallback routing and no fake offline mode."""
 
     def __init__(self, project_dir: Path, *, fixture_base_url: str | None = None,
-                 state_dir: Path | None = None, meta_only: bool = False) -> None:
+                 state_dir: Path | None = None, meta_only: bool = False,
+                 strict_coding: SelectedCodingProfileV2 | None = None) -> None:
+        self._strict_coding = None
+        if strict_coding is not None:
+            from .coding_contracts import CodingContractError, SelectedCodingProfileV2
+            if (type(strict_coding) is not SelectedCodingProfileV2 or meta_only is not False
+                    or state_dir is not None or fixture_base_url is not None):
+                raise CodingContractError("CODING_PROFILE_CONSTRUCTOR_DENIED")
+            # Validate and retain only an exact detached data snapshot. No
+            # provider, key, availability, environment or state path is touched.
+            self._strict_coding = SelectedCodingProfileV2.from_dict(strict_coding.to_dict())
+            self.project_dir = project_dir
+            self.fixture_base_url = None
+            self._meta_only = False
+            self._meta_provider = None
+            self.provider = None
+            self.provider_chain = []
+            self.current_model = self._coding_full_name()
+            self.last_used_model = ""
+            self.competition_profile = ""
+            return
         self._meta_provider = None
         self._meta_only = meta_only
         if meta_only:
             # Explicit bounded profile: no .env import, legacy state or fallback.
-            from .meta_model_api import MetaModelProvider, MODEL, PROVIDER
+            from .meta_model_api import MODEL, PROVIDER, MetaModelProvider
             self.project_dir = project_dir
             self.fixture_base_url = None
             self.current_model = PROVIDER+'/'+MODEL
@@ -132,7 +161,33 @@ class ProviderManager:
         self.provider: ModelProvider | None = None
         self.last_used_model = ""
 
+    def coding_status(self) -> dict:
+        from .coding_contracts import CodingContractError
+        if self._strict_coding is None:
+            raise CodingContractError("CODING_PROFILE_REQUIRED")
+        body = self._strict_coding.to_dict()
+        return {"schema": "aioa.coding-provider-status.v1", "backend": body["backend"],
+                "provider_id": body["provider_id"], "model_id": body["model_id"],
+                "selection_digest": self._strict_coding.selection_digest,
+                "configured": True, "mock_status": "NOT_RUN", "protocol_status": "NOT_RUN",
+                "live_status": "NOT_CERTIFIED", "billing_status": "UNVERIFIED",
+                "automatic_fallback": False, "retry": False, "authority": "NONE", "verified": False}
+
+    def generate_coding(self, request, cancel, deadline, *, live_binding):
+        from .coding_contracts import CodingContractError
+        raise CodingContractError("CODING_SHARED_GATE_REQUIRED")
+
+    def _reject_legacy_coding(self) -> None:
+        if self._strict_coding is not None:
+            from .coding_contracts import CodingContractError
+            raise CodingContractError("CODING_PROFILE_ENTRY_REQUIRED")
+
+    def _coding_full_name(self) -> str:
+        body = self._strict_coding.to_dict()
+        return body["provider_id"] + "/" + body["model_id"]
+
     def generate(self, prompt: str) -> str:
+        self._reject_legacy_coding()
         if self.current_model.startswith('meta_model_api/'):
             raise RuntimeError('META_TYPED_MISSION_REQUIRED')
         if self.fixture_base_url is not None:
@@ -140,24 +195,29 @@ class ProviderManager:
         return self.generate_with_fallback(prompt)
 
     def configure_meta(self, provider):
+        self._reject_legacy_coding()
         from .meta_model_api import MetaModelProvider
         if type(provider) is not MetaModelProvider:
             raise ValueError('META_PROVIDER_BINDING_DENIED')
         self._meta_provider = provider
 
     def generate_meta_plan(self, request, cancel, *, live_binding=None):
+        self._reject_legacy_coding()
         from .meta_model_api import MetaAPIError
         if self._meta_provider is None:
             raise MetaAPIError('META_API_LIVE_BLOCKED_OWNER_GO')
         return self._meta_provider.plan(request, cancel, live_binding=live_binding)
 
     def generate_meta_chat(self, request, cancel, *, live_binding=None):
+        self._reject_legacy_coding()
         from .meta_model_api import MetaAPIError
         if self._meta_provider is None:
             raise MetaAPIError('META_API_LIVE_BLOCKED_OWNER_GO')
         return self._meta_provider.chat_text(request,cancel,live_binding=live_binding)
 
     def strict_status(self) -> dict:
+        if self._strict_coding is not None:
+            return self.coding_status()
         provider = "openrouter"
         if self.fixture_base_url is None and self.current_model.startswith("nebius/"):
             provider = "nebius"
@@ -169,6 +229,7 @@ class ProviderManager:
 
     def generate_exact(self, request, cancel, deadline):
         """CPL policy on the same manager; never mutates current_model."""
+        self._reject_legacy_coding()
         from .exact import ExactCallError
 
         request.validate()
@@ -205,6 +266,7 @@ class ProviderManager:
         return adapter.generate_exact(request, cancel, deadline, fixture=fixture)
 
     def strict_known_secrets(self) -> tuple[str, ...]:
+        self._reject_legacy_coding()
         if self.fixture_base_url is not None:
             return ("fixture-key-not-a-real-credential",)
         provider = self.strict_status()["provider"]
@@ -213,6 +275,7 @@ class ProviderManager:
         return (value,) if value else ()
 
     def generate_with_fallback(self, prompt: str) -> str:
+        self._reject_legacy_coding()
         if self.current_model.startswith('meta_model_api/'):
             raise RuntimeError('META_TYPED_MISSION_REQUIRED')
         if self.fixture_base_url is not None:
@@ -231,6 +294,12 @@ class ProviderManager:
                 self.last_used_model = provider.full_name
                 return response
             except Exception as error:
+                # Log an explicitly generic substitute, never the caught
+                # exception, its context/traceback, model, prompt or body.
+                logger.exception(
+                    "Legacy provider attempt failed; original exception details redacted",
+                    exc_info=(Exception, Exception("Provider failure details redacted"), None),
+                )
                 errors.append(f"{full_model}: {error}")
 
         if not errors:
@@ -241,6 +310,7 @@ class ProviderManager:
         )
 
     def switch_model(self, model_name: str) -> str:
+        self._reject_legacy_coding()
         if self._meta_only:
             if model_name != self.current_model:
                 raise ValueError('META_PROFILE_MODEL_LOCKED')
@@ -261,12 +331,18 @@ class ProviderManager:
         return self.current_model
 
     def describe(self) -> str:
+        if self._strict_coding is not None:
+            return self._coding_full_name()
         return self.last_used_model or self.current_model
 
     def active_fallback_chain(self) -> list[str]:
+        if self._strict_coding is not None:
+            return []
         return [provider.full_name for provider in self.provider_chain if provider.enabled]
 
     def available_models(self) -> list[str]:
+        if self._strict_coding is not None:
+            return [self._coding_full_name()]
         if self._meta_only:
             return [self.current_model]
         return [
@@ -276,7 +352,12 @@ class ProviderManager:
             and self._provider_is_available(model.split("/", 1)[0])
         ]
 
-    def provider_status(self) -> list[dict[str, str | bool]]:
+    def provider_status(self) -> list[dict[str, object]]:
+        if self._strict_coding is not None:
+            status = self.coding_status()
+            return [{"name": status["provider_id"], "model": status["model_id"], "enabled": True,
+                     "available": False, "full_name": self._coding_full_name(),
+                     "live_verified": False, "coding_status": status}]
         if self._meta_only:
             return [{'name': 'meta_model_api', 'model': self._meta_provider.diagnostics()['model_id'],
                 'enabled': True, 'available': self._meta_provider.mode == 'MOCK',
@@ -301,6 +382,7 @@ class ProviderManager:
         Presence of old provider code or a configured credential is not live
         admission. This catalog neither switches a provider nor enables fallback.
         """
+        self._reject_legacy_coding()
         from .meta_model_api import MODEL, PROVIDER
         provider=self._meta_provider
         fixture=provider is not None and provider.mode=='MOCK'
@@ -326,6 +408,8 @@ class ProviderManager:
                 'budget_status':'NOT_APPLICABLE','source_of_truth':'NO_INVOCATIONS'}]}
 
     def model_notice(self, model_name: str) -> str | None:
+        if self._strict_coding is not None:
+            return "Coding profile is configured data only; LIVE is NOT_CERTIFIED and billing is UNVERIFIED."
         normalized = self.normalize_model_name(model_name)
         provider = normalized.split("/", 1)[0]
         if provider == "gemini":
@@ -348,6 +432,7 @@ class ProviderManager:
         return None
 
     def normalize_model_name(self, model_name: str) -> str:
+        self._reject_legacy_coding()
         value = model_name.strip()
         if not value:
             raise ValueError("Model name cannot be empty.")

@@ -9876,127 +9876,145 @@
     },
     "runtime/providers/config.py": {
       "path": "runtime/providers/config.py",
-      "git_blob": "0b48f7401becbab6f27c6f99ceaf7be678abc9cd",
-      "sha256": "49f20e555b86366d1d4e9a042dc1d8e002b9f892620d6aadffcd5768568019f7",
+      "git_blob": "16bf9870eed79b7da3b3d555ebcbd1e4796a3d57",
+      "sha256": "7b8f72008209854974128e19915cabc9b198e2da87b6bd81af765543f8ad0c26",
       "definitions": [
         {
           "name": "ProviderConfig",
-          "line": 62
+          "line": 71
         },
         {
           "name": "load_api_environment",
-          "line": 72
+          "line": 81
         },
         {
           "name": "ProviderManager",
-          "line": 94
+          "line": 103
         },
         {
           "name": "full_name",
-          "line": 68
+          "line": 77
         },
         {
           "name": "__init__",
-          "line": 97
+          "line": 106
+        },
+        {
+          "name": "coding_status",
+          "line": 164
+        },
+        {
+          "name": "generate_coding",
+          "line": 176
+        },
+        {
+          "name": "_reject_legacy_coding",
+          "line": 180
+        },
+        {
+          "name": "_coding_full_name",
+          "line": 185
         },
         {
           "name": "generate",
-          "line": 135
+          "line": 189
         },
         {
           "name": "configure_meta",
-          "line": 142
+          "line": 197
         },
         {
           "name": "generate_meta_plan",
-          "line": 148
+          "line": 204
         },
         {
           "name": "generate_meta_chat",
-          "line": 154
+          "line": 211
         },
         {
           "name": "strict_status",
-          "line": 160
+          "line": 218
         },
         {
           "name": "generate_exact",
-          "line": 170
+          "line": 230
         },
         {
           "name": "strict_known_secrets",
-          "line": 207
+          "line": 268
         },
         {
           "name": "generate_with_fallback",
-          "line": 215
+          "line": 277
         },
         {
           "name": "switch_model",
-          "line": 243
+          "line": 312
         },
         {
           "name": "describe",
-          "line": 263
+          "line": 333
         },
         {
           "name": "active_fallback_chain",
-          "line": 266
+          "line": 338
         },
         {
           "name": "available_models",
-          "line": 269
+          "line": 343
         },
         {
           "name": "provider_status",
-          "line": 279
+          "line": 355
         },
         {
           "name": "unified_catalog",
-          "line": 298
+          "line": 379
         },
         {
           "name": "model_notice",
-          "line": 328
+          "line": 410
         },
         {
           "name": "normalize_model_name",
-          "line": 350
+          "line": 434
         },
         {
           "name": "_fallback_candidates",
-          "line": 373
+          "line": 458
         },
         {
           "name": "_load_provider_chain",
-          "line": 384
+          "line": 469
         },
         {
           "name": "_load_model_name",
-          "line": 425
+          "line": 510
         },
         {
           "name": "_build_provider",
-          "line": 438
+          "line": 523
         },
         {
           "name": "_load_env_key",
-          "line": 481
+          "line": 566
         },
         {
           "name": "_load_xai_key",
-          "line": 488
+          "line": 573
         },
         {
           "name": "_provider_is_available",
-          "line": 495
+          "line": 580
         }
       ],
       "symbolic_callees": [
         "<dynamic>.join",
         "AureonProvider",
+        "CodingContractError",
         "DEFAULT_MODEL_PRESETS.items",
         "ExactCallError",
+        "Exception",
         "FileNotFoundError",
         "GeminiProvider",
         "MetaAPIError",
@@ -10007,6 +10025,7 @@
         "Path.home",
         "ProviderConfig",
         "RuntimeError",
+        "SelectedCodingProfileV2.from_dict",
         "ValueError",
         "adapter.generate_exact",
         "any",
@@ -10027,6 +10046,8 @@
         "line.startswith",
         "line[data].strip",
         "load_api_environment",
+        "logger.exception",
+        "logging.getLogger",
         "model.split",
         "model.strip",
         "model_name.split",
@@ -10050,6 +10071,7 @@
         "selected.lower",
         "selected.lower().startswith",
         "self._build_provider",
+        "self._coding_full_name",
         "self._fallback_candidates",
         "self._load_env_key",
         "self._load_model_name",
@@ -10059,6 +10081,9 @@
         "self._meta_provider.diagnostics",
         "self._meta_provider.plan",
         "self._provider_is_available",
+        "self._reject_legacy_coding",
+        "self._strict_coding.to_dict",
+        "self.coding_status",
         "self.config_path.exists",
         "self.config_path.parent.mkdir",
         "self.config_path.read_text",
@@ -10074,6 +10099,7 @@
         "set",
         "str",
         "str().strip",
+        "strict_coding.to_dict",
         "tried.add",
         "type",
         "value.lower",
@@ -10083,8 +10109,8 @@
         "value.strip().strip().strip",
         "values.items"
       ],
-      "call_site_count": 188,
-      "call_sites_sha256": "3c2966b4e391acc0835f14c35afdc5b6c90d09243110425f1a3fc0dc40937952"
+      "call_site_count": 216,
+      "call_sites_sha256": "466bc01df77962981be83282bb8ef082261bfef42f88f5ce169768177b9731da"
     },
     "runtime/webapp.py": {
       "path": "runtime/webapp.py",
@@ -15745,124 +15771,124 @@
     },
     "runtime/meta_hackathon/runtime_adapter.py": {
       "path": "runtime/meta_hackathon/runtime_adapter.py",
-      "git_blob": "a8b2e20bedcea6b5e7708d9ac56dc7102169bc60",
-      "sha256": "6e46d5c5ae0705f2292293e19df5c865aef956c540f1512b1049cff49d672f10",
+      "git_blob": "200094c415c20a0690604960525ddca713dc0b77",
+      "sha256": "902fc262181f086fb8128c988ee1eb75c1edb2c8ff9823cab8baed80f66a7107",
       "definitions": [
         {
           "name": "sealed_source_path",
-          "line": 201
+          "line": 204
         },
         {
           "name": "current_source",
-          "line": 215
+          "line": 218
         },
         {
           "name": "OfflineMetaComposition",
-          "line": 222
+          "line": 225
         },
         {
           "name": "_desktop_operator_uid",
-          "line": 309
+          "line": 312
         },
         {
           "name": "NativeMobileComposition",
-          "line": 339
+          "line": 342
         },
         {
           "name": "__init__",
-          "line": 223
+          "line": 226
         },
         {
           "name": "enable_unified",
-          "line": 264
+          "line": 267
         },
         {
           "name": "close",
-          "line": 300
+          "line": 303
         },
         {
           "name": "__init__",
-          "line": 346
+          "line": 349
         },
         {
           "name": "_initialize",
-          "line": 403
+          "line": 406
         },
         {
           "name": "operator_principal",
-          "line": 481
+          "line": 484
         },
         {
           "name": "_chat_authority",
-          "line": 496
+          "line": 499
         },
         {
           "name": "_chat_credit_authority",
-          "line": 516
+          "line": 519
         },
         {
           "name": "qualify_tls",
-          "line": 538
+          "line": 541
         },
         {
           "name": "_require_qualified_operator",
-          "line": 585
+          "line": 588
         },
         {
           "name": "public_settings",
-          "line": 591
+          "line": 594
         },
         {
           "name": "model_calls",
-          "line": 597
+          "line": 600
         },
         {
           "name": "operator_auth_status",
-          "line": 603
+          "line": 606
         },
         {
           "name": "renew_operator",
-          "line": 618
+          "line": 621
         },
         {
           "name": "_renew_foundation",
-          "line": 690
+          "line": 693
         },
         {
           "name": "operator_request",
-          "line": 766
+          "line": 769
         },
         {
           "name": "_operator_request",
-          "line": 774
+          "line": 777
         },
         {
           "name": "_close_native",
-          "line": 841
+          "line": 844
         },
         {
           "name": "close",
-          "line": 883
+          "line": 886
         },
         {
           "name": "fixture",
-          "line": 245
+          "line": 248
         },
         {
           "name": "inspect",
-          "line": 828
+          "line": 831
         },
         {
           "name": "record",
-          "line": 740
+          "line": 743
         },
         {
           "name": "revoke",
-          "line": 820
+          "line": 823
         },
         {
           "name": "record",
-          "line": 665
+          "line": 668
         }
       ],
       "symbolic_callees": [
@@ -16072,7 +16098,7 @@
         "x509.load_der_x509_certificate"
       ],
       "call_site_count": 505,
-      "call_sites_sha256": "c467bc895c40a0b13c583eb55632d3a73553ed77fa4371693830b263b5b3ae27"
+      "call_sites_sha256": "5a1ef57197fcb1daa690348925850007cd9aff19f44a8e11aed746323860df47"
     },
     "runtime/mission/dependency_lock.py": {
       "path": "runtime/mission/dependency_lock.py",
@@ -19541,6 +19567,122 @@
       ],
       "call_site_count": 224,
       "call_sites_sha256": "6df36f58d3871217658a8926b0ce5db3f7708a2ea9158d2eec6dc7542c247889"
+    },
+    "runtime/providers/coding_contracts.py": {
+      "path": "runtime/providers/coding_contracts.py",
+      "git_blob": "e21543a641f3409a3ceb4c3d6b5d1bdb383076b3",
+      "sha256": "fd8d5776e2e98a33dca7b3bc5ebc7e4adc9263a7686203ce061b845304bb9d53",
+      "definitions": [
+        {
+          "name": "CodingContractError",
+          "line": 58
+        },
+        {
+          "name": "_require",
+          "line": 66
+        },
+        {
+          "name": "_snapshot",
+          "line": 71
+        },
+        {
+          "name": "_fields",
+          "line": 87
+        },
+        {
+          "name": "_match",
+          "line": 91
+        },
+        {
+          "name": "_integer",
+          "line": 95
+        },
+        {
+          "name": "_utc",
+          "line": 99
+        },
+        {
+          "name": "_full_slug",
+          "line": 107
+        },
+        {
+          "name": "_validate",
+          "line": 112
+        },
+        {
+          "name": "_pairs",
+          "line": 168
+        },
+        {
+          "name": "_number_denied",
+          "line": 176
+        },
+        {
+          "name": "SelectedCodingProfileV2",
+          "line": 181
+        },
+        {
+          "name": "__init__",
+          "line": 61
+        },
+        {
+          "name": "__init__",
+          "line": 187
+        },
+        {
+          "name": "from_dict",
+          "line": 201
+        },
+        {
+          "name": "from_json",
+          "line": 205
+        },
+        {
+          "name": "to_dict",
+          "line": 214
+        },
+        {
+          "name": "selection_digest",
+          "line": 219
+        }
+      ],
+      "symbolic_callees": [
+        "CodingContractError",
+        "_LIMITS.items",
+        "_LIMITS.keys",
+        "_fields",
+        "_full_slug",
+        "_integer",
+        "_match",
+        "_require",
+        "_snapshot",
+        "_utc",
+        "_validate",
+        "canonical_json_bytes",
+        "canonical_sha256",
+        "cls",
+        "cls.from_dict",
+        "dataclass",
+        "datetime.fromisoformat",
+        "field",
+        "frozenset",
+        "json.loads",
+        "len",
+        "object.__setattr__",
+        "part.lower",
+        "pattern.fullmatch",
+        "raw.decode",
+        "re.compile",
+        "super",
+        "super().__init__",
+        "type",
+        "value.encode",
+        "value.items",
+        "value.keys",
+        "value.split"
+      ],
+      "call_site_count": 109,
+      "call_sites_sha256": "0f72ff6fb0740e1770c11332740589cd7abaa382fe68289d2745df922710f2d1"
     }
   },
   "dispositions": {
