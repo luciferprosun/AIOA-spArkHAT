@@ -12214,100 +12214,100 @@
     },
     "runtime/nonzero_cloudops/views.py": {
       "path": "runtime/nonzero_cloudops/views.py",
-      "git_blob": "cadb6a0421108f735a60e20722b76922a8be0c67",
-      "sha256": "6da3883e4423b1f4261eea365a82372124ae77ee820a0221f6f151d9558ef276",
+      "git_blob": "e458376fe9e29fe304261a6aaf96a1271951d027",
+      "sha256": "f40c2c6b71f1b9ca3dd33454dca50dec0d22b51574b0b831e4134e02024ce49e",
       "definitions": [
         {
           "name": "LocalApiErrorCode",
-          "line": 34
+          "line": 35
         },
         {
           "name": "LocalEvidenceCategory",
-          "line": 51
+          "line": 52
         },
         {
           "name": "LocalApiErrorResponse",
-          "line": 63
+          "line": 64
         },
         {
           "name": "StartRunRequest",
-          "line": 82
+          "line": 83
         },
         {
           "name": "ResumeRequest",
-          "line": 105
+          "line": 106
         },
         {
           "name": "LocalBrowserSessionView",
-          "line": 125
+          "line": 126
         },
         {
           "name": "LocalRuntimeView",
-          "line": 143
+          "line": 144
         },
         {
           "name": "LocalReadyView",
-          "line": 162
+          "line": 163
         },
         {
           "name": "LocalApprovalRequestView",
-          "line": 174
+          "line": 175
         },
         {
           "name": "LocalApprovalDecisionView",
-          "line": 192
+          "line": 193
         },
         {
           "name": "LocalApprovalChallengeRequestView",
-          "line": 208
+          "line": 209
         },
         {
           "name": "LocalApprovalChallengeView",
-          "line": 214
+          "line": 215
         },
         {
           "name": "LocalExecutionCompletionView",
-          "line": 225
+          "line": 226
         },
         {
           "name": "LocalExecutionIntentView",
-          "line": 243
+          "line": 244
         },
         {
           "name": "LocalCheckpointView",
-          "line": 259
+          "line": 260
         },
         {
           "name": "LocalAuditEventView",
-          "line": 275
+          "line": 276
         },
         {
           "name": "LocalRunView",
-          "line": 290
+          "line": 291
         },
         {
           "name": "require_public_failure_code",
-          "line": 76
+          "line": 77
         },
         {
           "name": "validate_resource_identity",
-          "line": 91
+          "line": 92
         },
         {
           "name": "to_query",
-          "line": 98
+          "line": 99
         },
         {
           "name": "require_boolean_gesture",
-          "line": 114
+          "line": 115
         },
         {
           "name": "validate_session_state",
-          "line": 137
+          "line": 138
         },
         {
           "name": "validate_timeline_bounds",
-          "line": 307
+          "line": 308
         }
       ],
       "symbolic_callees": [
@@ -12323,7 +12323,7 @@
         "self.model_dump"
       ],
       "call_site_count": 46,
-      "call_sites_sha256": "c967ee9dbc64215c478c57f2738af9f51c239d632de3fca8893e79d65d6b6a48"
+      "call_sites_sha256": "a42230bb8be01bfb4738625b412958c485a874f33ac43f21642b1543ec6aec25"
     },
     "runtime/mission/contracts.py": {
       "path": "runtime/mission/contracts.py",

@@ -15,7 +15,13 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 from uuid import UUID
 
-from .contract import ModuleConfig, NonZeroError, module_descriptor, parse_config
+from .contract import (
+    LOCAL_API_BODY_MAX_BYTES,
+    ModuleConfig,
+    NonZeroError,
+    module_descriptor,
+    parse_config,
+)
 from .provenance import CoreEvidenceLink, private_file, public_evidence, source_identity
 
 if TYPE_CHECKING:
@@ -409,7 +415,7 @@ class NonZeroCloudOpsService:
             body = json.dumps(payload, allow_nan=False)
         except (ValueError, TypeError, RecursionError) as error:
             raise NonZeroError("NONZERO_INVALID_REQUEST", 400) from error
-        if len(body.encode()) > 16384:
+        if len(body.encode()) > LOCAL_API_BODY_MAX_BYTES:
             raise NonZeroError("NONZERO_REQUEST_TOO_LARGE", 413)
         from pydantic import ValidationError
 

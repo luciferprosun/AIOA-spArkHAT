@@ -8,6 +8,7 @@ from dataclasses import dataclass
 
 MODULE_ID = "nonzero-cloudops"
 CONTRACT_VERSION = "nonzero-native-v1"
+LOCAL_API_BODY_MAX_BYTES = 16_384
 JUDGE_SHA = "4fafed8b1a877e55d96ddd9baea0a737fbeeaa4a"
 CORE_BASELINE_SHA = "5f30f092f7a20035ed1caf4a8e22397673f598df"
 DEPENDENCIES = {"pydantic": "2.13.4", "uuid6": "2025.0.1"}

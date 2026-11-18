@@ -3,7 +3,7 @@ import unittest
 
 from pydantic import ValidationError
 
-from runtime.nonzero_cloudops import views
+from runtime.nonzero_cloudops import contract, views
 
 
 class LocalViewCompatibilityTests(unittest.TestCase):
@@ -15,6 +15,10 @@ class LocalViewCompatibilityTests(unittest.TestCase):
     def test_legacy_request_names_are_aliases_of_the_existing_core_requests(self):
         self.assertIs(getattr(views, 'LocalStartRunRequest', None), views.StartRunRequest)
         self.assertIs(getattr(views, 'LocalResumeRequest', None), views.ResumeRequest)
+
+    def test_legacy_body_limit_uses_the_shared_dependency_free_contract(self):
+        self.assertEqual(16_384, views.LOCAL_API_BODY_MAX_BYTES)
+        self.assertEqual(contract.LOCAL_API_BODY_MAX_BYTES, views.LOCAL_API_BODY_MAX_BYTES)
 
     def test_browser_session_view_has_only_two_non_secret_fields(self):
         value = self.browser(authenticated=True, storage='http_only_session_cookie')

@@ -10,6 +10,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from .contract import LOCAL_API_BODY_MAX_BYTES as LOCAL_API_BODY_MAX_BYTES
 from .models import (
     ApprovalDecision,
     AuditEventType,
