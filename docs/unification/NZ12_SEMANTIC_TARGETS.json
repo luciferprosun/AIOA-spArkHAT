@@ -7865,8 +7865,8 @@
   "target_modules": {
     "runtime/mission/worker.py": {
       "path": "runtime/mission/worker.py",
-      "git_blob": "c52d6f745b3148531b6ceb516f658d6166cdf5c4",
-      "sha256": "c3c69050053c5f236b3467459d3bbc546ff74f34d188e2943688bad356d9b181",
+      "git_blob": "9a80834b1763e437c33d7548f1d179bc791ab70b",
+      "sha256": "3019c401863eb84cd65426004abc7a078efd2464eafbf692b4fe96e8e211cf5b",
       "definitions": [
         {
           "name": "WorkerError",
@@ -8163,8 +8163,8 @@
     },
     "runtime/mission/codex_worker.py": {
       "path": "runtime/mission/codex_worker.py",
-      "git_blob": "0fec8e334a1a372670386b28f47ec9bd39a45fd1",
-      "sha256": "192a7d44f376e19a5b8df63c4dabb4d539e91221df1e0b9d5461531e9df48db3",
+      "git_blob": "fc546de33d7674ad27652c9474e55fa63aa95399",
+      "sha256": "7892072810e0bbbc62d14c9d851adaf167e33087579d6984443f2827e1134b04",
       "definitions": [
         {
           "name": "_pairs",
@@ -11389,8 +11389,8 @@
     },
     "runtime/mission/git_publish.py": {
       "path": "runtime/mission/git_publish.py",
-      "git_blob": "74a660096f4160d1e6305e3fc9b63ba01e9844de",
-      "sha256": "f5bf34a0a9fa48cbdb9226282b9557f51806e4dfee15226b72dab1ab135fb188",
+      "git_blob": "f29687a17e64d243c31ff2abf0bc2a0519fe2181",
+      "sha256": "d06aaa6052a929ea1fb997dc70ebb0d918f33934cc66430f9b5f85150a55349f",
       "definitions": [
         {
           "name": "LocalGitPlan",
@@ -13687,8 +13687,8 @@
     },
     "runtime/mission/patchset.py": {
       "path": "runtime/mission/patchset.py",
-      "git_blob": "171d96b74c3af771bb915331b0f3d6e123b9a9c4",
-      "sha256": "1c150166372d55db66e26d3bee8790c376fb73cb2d1db23e59cf52d7d033dbe1",
+      "git_blob": "b2edd8de4d85e1a9782b5feb0816fc1ab935c277",
+      "sha256": "62a4d8b1270d0000ea1bdf6f4ee0098fb6816d3e9404db21154f7a865eaa4dbb",
       "definitions": [
         {
           "name": "PatchSetPolicyDenied",
@@ -14199,8 +14199,8 @@
     },
     "runtime/mission/repair_validation.py": {
       "path": "runtime/mission/repair_validation.py",
-      "git_blob": "75cc7b3b94cf385e0ecda4f4a3defff52431064d",
-      "sha256": "c6fb174aabd6cb3f79c2314b2b957cdf27343af4693ccb14389d0d9f7121bcce",
+      "git_blob": "003529d1d96986e9745d52ac254c1a95d6188b90",
+      "sha256": "0a2fd614718e7996b631a33b96a148445a22a50f802b5b1a4ffeff004a907260",
       "definitions": [
         {
           "name": "TrustedTestProfile",
@@ -14588,8 +14588,8 @@
     },
     "runtime/mission/project_recipe.py": {
       "path": "runtime/mission/project_recipe.py",
-      "git_blob": "802b0ab701851df7e069b34f2152dd1402e8fc92",
-      "sha256": "c0caa6d5fab7a329ca2832411fa0809e4a18d31c58b776275dc216df71931a95",
+      "git_blob": "bb3e4c4d71b4e8622d12a07191bfabb83c061847",
+      "sha256": "e80af6154f6861d721177f2eb118037363c493df3fba306055826337bc8fabdf",
       "definitions": [
         {
           "name": "_require",
@@ -20260,6 +20260,6 @@
     "DUPLICATE_VERIFIED": 16,
     "EXCLUDED_UNSAFE": 2
   },
-  "current_target_binding_note": "NZ13 explicit local REARM current blob/AST identities only: closed policy5 uses the same Core write port, durable executor ACK and independent full readback. Focused 98-case Core/SQLite/guard/ACK controls passed sequentially on Python3.12 and3.11 on working map fabb74f9dd88c81610bb769abad533798aaca5b8d249708bf487377ac61bc979. These current identities do not qualify product physical INIT, policy5 STARTED no-release, source-hidden installed artifacts, Native, model/provider inference or full69 parity. Historical69 assessments/source/MIT remain unchanged; final exact-SHA qualification and owner publication gates are separate. G08 Task2 refreshes only runtime_adapter current blob/AST identity after extending the existing source fence with the recomputed finite F11 physical/Core closure. File equality, focused tests and this metadata do not activate Native/Portable factories or qualify full/product/installed/model gates; historical69 assessments, original source SHA and MIT attribution remain unchanged. Native coding admission Task1 refreshes only the two existing Native modules current blob/AST identities: explicit closed host configV2 retains a same-composition registry and derives model eligibility at the original Core constructor. V1 and the chat/host exclusion remain; eligibility supplies no selection, approval, spending, model call or LIVE certification. Shared S2, S3-S5, physical Native and final Master qualification remain separate. All69 historical source/blob/MIT assessments and source_modules are unchanged. Integrated B704 and bounded mobile denial correction: updated exact target blobs and static call sites. Behavioral scope retains each recorded evidence boundary.",
+  "current_target_binding_note": "NZ13 explicit local REARM current blob/AST identities only: closed policy5 uses the same Core write port, durable executor ACK and independent full readback. Focused 98-case Core/SQLite/guard/ACK controls passed sequentially on Python3.12 and3.11 on working map fabb74f9dd88c81610bb769abad533798aaca5b8d249708bf487377ac61bc979. These current identities do not qualify product physical INIT, policy5 STARTED no-release, source-hidden installed artifacts, Native, model/provider inference or full69 parity. Historical69 assessments/source/MIT remain unchanged; final exact-SHA qualification and owner publication gates are separate. G08 Task2 refreshes only runtime_adapter current blob/AST identity after extending the existing source fence with the recomputed finite F11 physical/Core closure. File equality, focused tests and this metadata do not activate Native/Portable factories or qualify full/product/installed/model gates; historical69 assessments, original source SHA and MIT attribution remain unchanged. Native coding admission Task1 refreshes only the two existing Native modules current blob/AST identities: explicit closed host configV2 retains a same-composition registry and derives model eligibility at the original Core constructor. V1 and the chat/host exclusion remain; eligibility supplies no selection, approval, spending, model call or LIVE certification. Shared S2, S3-S5, physical Native and final Master qualification remain separate. All69 historical source/blob/MIT assessments and source_modules are unchanged. Integrated B704 and bounded mobile denial correction: updated exact target blobs and static call sites. Behavioral scope retains each recorded evidence boundary. Core redaction imports use the shared dependency-free policy. Target blobs and static call sites are current for that import-only change.",
   "nz12_binding_before_nz13_sha256": "cfca6195089170934076cd15ac80a5b26786e947338b089dd75926d545b971b2"
 }

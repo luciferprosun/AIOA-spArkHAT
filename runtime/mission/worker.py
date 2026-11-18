@@ -18,7 +18,7 @@ from typing import Protocol, runtime_checkable
 
 from runtime.memory_patch.contracts.serialization import canonical_sha256
 from runtime.mission.contracts import bounded_int, logical_id
-from runtime.nonzero_cloudops.models.redaction import contains_sensitive_material
+from runtime.secret_redaction import contains_sensitive_material
 
 
 class WorkerError(ValueError):

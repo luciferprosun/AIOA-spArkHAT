@@ -37,7 +37,7 @@ from runtime.mission.repair import (
 from runtime.mission.sandbox_contracts import SANDBOX
 from runtime.mission.sandbox_linux import LinuxSandboxBroker, read_evidence_file
 from runtime.mission.tools import CoreToolRoute
-from runtime.nonzero_cloudops.models.redaction import contains_sensitive_material
+from runtime.secret_redaction import contains_sensitive_material
 from runtime.providers.exact import CancellationToken
 
 COMPLETE = b"TESTS_FINISHED\n"

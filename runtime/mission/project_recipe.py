@@ -421,7 +421,7 @@ class PythonFunctionCase:
 
     def __post_init__(self):
         from runtime.mission.contracts import logical_id
-        from runtime.nonzero_cloudops.models.redaction import (
+        from runtime.secret_redaction import (
             contains_sensitive_material,
         )
 

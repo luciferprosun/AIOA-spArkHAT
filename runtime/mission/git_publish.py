@@ -2171,7 +2171,7 @@ class GitSourceSnapshot:
     def __post_init__(self):
         from runtime.mission.contracts import logical_id
         from runtime.mission.patchset import _secret_path, normalize_patch_relative_path
-        from runtime.nonzero_cloudops.models.redaction import (
+        from runtime.secret_redaction import (
             contains_sensitive_material,
         )
 

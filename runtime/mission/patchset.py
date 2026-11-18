@@ -24,7 +24,7 @@ from runtime.memory_patch.contracts.serialization import (
 )
 from runtime.mission.contracts import bounded_int, logical_id
 from runtime.mission.worker import CandidatePatch, Task
-from runtime.nonzero_cloudops.models.redaction import contains_sensitive_material
+from runtime.secret_redaction import contains_sensitive_material
 
 MAX_FILES_CHANGED = 3
 MAX_CHANGED_LINES = 300

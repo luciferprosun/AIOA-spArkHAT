@@ -11,7 +11,7 @@ import time
 
 from runtime.mission.contracts import bounded_int, logical_id
 from runtime.mission.worker import SyntheticWorker, WorkerError, require
-from runtime.nonzero_cloudops.models.redaction import contains_sensitive_material
+from runtime.secret_redaction import contains_sensitive_material
 
 CODEX_CERTIFICATION = "NOT_CERTIFIED"
 
