@@ -37,8 +37,8 @@ from runtime.mission.repair import (
 from runtime.mission.sandbox_contracts import SANDBOX
 from runtime.mission.sandbox_linux import LinuxSandboxBroker, read_evidence_file
 from runtime.mission.tools import CoreToolRoute
-from runtime.secret_redaction import contains_sensitive_material
 from runtime.providers.exact import CancellationToken
+from runtime.secret_redaction import contains_sensitive_material
 
 COMPLETE = b"TESTS_FINISHED\n"
 CALCULATOR_PROFILE_ID = "calculator-fixed-v1"
