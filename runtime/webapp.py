@@ -422,16 +422,23 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
     def parse_request(self):
         if not super().parse_request():return False
         if getattr(self.runtime_service,'mobile_only',False):
+            native_access = getattr(self.runtime_service, 'native_access', None)
+            readiness_route = self.command == 'GET' and self.path == '/api/native-operator/readiness'
             route=(self.path.startswith(('/api/mobile/v1/','/api/mobile/v2/')) or
                 (self.command=='GET' and self.path=='/api/native-operator/session') or
-                (getattr(self.runtime_service,'native_access',None) is not None and self.command=='GET'
-                 and self.path=='/api/native-operator/readiness') or
+                (native_access is not None and readiness_route) or
                 (getattr(self.runtime_service,'native_coding',False) and _native_coding_route(self.command,self.path)) or
                 (self.command=='POST' and self.path in {'/api/native-operator','/devices'}) or
                 (self.command=='GET' and self.path in MOBILE_CONSOLE_ASSETS))
             if (self.command not in {'GET','POST'} or len(self.path)>2048 or
                     not route or any(c in self.path for c in ('?','#','%','\\'))):
-                self._write_json(403,{'ok':False,'error':'NATIVE_ROUTE_DENIED','automatic_retry':False});return False
+                if native_access is None and not readiness_route:
+                    self.send_error(HTTPStatus.NOT_FOUND)
+                else:
+                    self._write_json(HTTPStatus.FORBIDDEN, {
+                        'ok': False, 'error': 'NATIVE_ROUTE_DENIED', 'automatic_retry': False,
+                    })
+                return False
         return True
 
     def end_headers(self) -> None:
