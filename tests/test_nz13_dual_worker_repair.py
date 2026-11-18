@@ -2,9 +2,8 @@
 
 import unittest
 
-from nz13_worker_acceptance import WireFixtureWorker
 import test_hybrid_repair as fixtures
-
+from nz13_worker_acceptance import WireFixtureWorker
 from runtime.mission.repair import TEST_STAGES
 from runtime.mission.worker import SyntheticWorker
 
