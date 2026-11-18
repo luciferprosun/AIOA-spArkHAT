@@ -8976,236 +8976,236 @@
     },
     "runtime/nonzero_cloudops/adapters/portable.py": {
       "path": "runtime/nonzero_cloudops/adapters/portable.py",
-      "git_blob": "8764e72b2dce8e58fed2c9db59fe1b6b06421c67",
-      "sha256": "ead18ffe0b00abf421f067d537b795c6ef206c7a58d24822ef6d611aeccbabee",
+      "git_blob": "55215293a20da22ca951220e5ab8aa491cd738ac",
+      "sha256": "5aff82e10751c9a9a6bb17c3a73ed04241548c8c1bbe5bec193cf57e9bff5915",
       "definitions": [
         {
           "name": "PortableMutationError",
-          "line": 57
+          "line": 58
         },
         {
           "name": "PortablePolicyError",
-          "line": 61
+          "line": 62
         },
         {
           "name": "PortableConflictError",
-          "line": 65
+          "line": 66
         },
         {
           "name": "_canonical_inventory_bytes",
-          "line": 69
+          "line": 70
         },
         {
           "name": "PortableInventoryObservation",
-          "line": 78
+          "line": 79
         },
         {
           "name": "_NonTransferableGuardValue",
-          "line": 126
+          "line": 127
         },
         {
           "name": "_PortableLockLifetime",
-          "line": 139
+          "line": 140
         },
         {
           "name": "_PortableGuardEntry",
-          "line": 168
+          "line": 169
         },
         {
           "name": "_managed_layout_for",
-          "line": 197
+          "line": 198
         },
         {
           "name": "PortableStateStore",
-          "line": 219
+          "line": 220
         },
         {
           "name": "PortableResourceReader",
-          "line": 878
+          "line": 882
         },
         {
           "name": "PortableExecutor",
-          "line": 899
+          "line": 903
         },
         {
           "name": "__post_init__",
-          "line": 91
+          "line": 92
         },
         {
           "name": "authority",
-          "line": 119
+          "line": 120
         },
         {
           "name": "__copy__",
-          "line": 129
+          "line": 130
         },
         {
           "name": "__deepcopy__",
-          "line": 132
+          "line": 133
         },
         {
           "name": "__reduce_ex__",
-          "line": 135
+          "line": 136
         },
         {
           "name": "__init__",
-          "line": 143
+          "line": 144
         },
         {
           "name": "require_live",
-          "line": 151
+          "line": 152
         },
         {
           "name": "expire",
-          "line": 163
+          "line": 164
         },
         {
           "name": "__post_init__",
-          "line": 174
+          "line": 175
         },
         {
           "name": "authority",
-          "line": 180
+          "line": 181
         },
         {
           "name": "require_live",
-          "line": 183
+          "line": 184
         },
         {
           "name": "require_outer_owner",
-          "line": 191
+          "line": 192
         },
         {
           "name": "__init__",
-          "line": 222
+          "line": 223
         },
         {
           "name": "_require_managed_ready",
-          "line": 263
+          "line": 264
         },
         {
           "name": "path",
-          "line": 292
+          "line": 293
         },
         {
           "name": "_lock",
-          "line": 296
+          "line": 297
         },
         {
           "name": "_target_guard_identity",
-          "line": 336
+          "line": 337
         },
         {
           "name": "_check_target_guard",
-          "line": 353
+          "line": 354
         },
         {
           "name": "_guard_entry_lifetime",
-          "line": 365
+          "line": 366
         },
         {
           "name": "_current_guard_entry",
-          "line": 380
+          "line": 381
         },
         {
           "name": "target_guard",
-          "line": 388
+          "line": 389
         },
         {
           "name": "observe_guarded_inventory",
-          "line": 417
+          "line": 418
         },
         {
           "name": "_initial_snapshot",
-          "line": 437
+          "line": 438
         },
         {
           "name": "_load",
-          "line": 448
+          "line": 449
         },
         {
           "name": "_payload",
-          "line": 513
+          "line": 514
         },
         {
           "name": "_core_write_lifetime",
-          "line": 528
+          "line": 529
         },
         {
           "name": "_write",
-          "line": 543
+          "line": 544
         },
         {
           "name": "get_resource",
-          "line": 577
+          "line": 581
         },
         {
           "name": "assert_ready",
-          "line": 591
+          "line": 595
         },
         {
           "name": "get_receipt",
-          "line": 597
+          "line": 601
         },
         {
           "name": "_released_receipts",
-          "line": 602
+          "line": 606
         },
         {
           "name": "released_default_resource_receipts",
-          "line": 616
+          "line": 620
         },
         {
           "name": "rearm_verified_demo_resource",
-          "line": 632
+          "line": 636
         },
         {
           "name": "execute",
-          "line": 671
+          "line": 675
         },
         {
           "name": "_validate_execution_binding",
-          "line": 788
+          "line": 792
         },
         {
           "name": "verify",
-          "line": 824
+          "line": 828
         },
         {
           "name": "__init__",
-          "line": 881
+          "line": 885
         },
         {
           "name": "adapter_name",
-          "line": 889
+          "line": 893
         },
         {
           "name": "get_resource",
-          "line": 892
+          "line": 896
         },
         {
           "name": "__init__",
-          "line": 902
+          "line": 906
         },
         {
           "name": "execute",
-          "line": 917
+          "line": 921
         },
         {
           "name": "rearm",
-          "line": 941
+          "line": 945
         },
         {
           "name": "counters",
-          "line": 959
+          "line": 963
         },
         {
           "name": "get_receipt",
-          "line": 965
+          "line": 969
         },
         {
           "name": "verify",
-          "line": 968
+          "line": 972
         }
       ],
       "symbolic_callees": [
@@ -9279,6 +9279,7 @@
         "receipts[data].model_dump",
         "release.authorize_write",
         "release.consume_write_ack",
+        "release.publish_write_ack",
         "release.require_store",
         "resolved.is_absolute",
         "resolved.parent.mkdir",
@@ -9314,6 +9315,7 @@
         "self.require_live",
         "set",
         "sorted",
+        "staged_private_json",
         "stat.S_IMODE",
         "stat.S_ISDIR",
         "stat.S_ISREG",
@@ -9324,13 +9326,13 @@
         "validate_local_path",
         "values.items"
       ],
-      "call_site_count": 338,
-      "call_sites_sha256": "d37d2ee86d74b8902ca6a457503ad0adb78734c784f17d9c81e7015609a54463"
+      "call_site_count": 340,
+      "call_sites_sha256": "7b4322d6eb19816946a5b90d94a1d6bb006970f6e3f01537d4863720b137d03e"
     },
     "runtime/main.py": {
       "path": "runtime/main.py",
-      "git_blob": "934ddec03579f4bfde732974b799f06ce7150ee3",
-      "sha256": "b3f0dac530decba32c0afbd589ee8e41d49986d2d701e90ff2b2f56599b45bd1",
+      "git_blob": "9be28ad42af8676cc941f0c4dc4ab4a6bd8b8872",
+      "sha256": "06a96bf0ca25bd3fd2dc4a225b359b0129dd8538c808a444f91b144056cd99a0",
       "definitions": [
         {
           "name": "EpistemicSafeguards",
@@ -9378,15 +9380,15 @@
         },
         {
           "name": "print_banner",
-          "line": 1522
+          "line": 1532
         },
         {
           "name": "create_runtime",
-          "line": 1534
+          "line": 1544
         },
         {
           "name": "main",
-          "line": 1638
+          "line": 1657
         },
         {
           "name": "__init__",
@@ -9394,235 +9396,235 @@
         },
         {
           "name": "coding_request",
-          "line": 241
-        },
-        {
-          "name": "agent_step",
-          "line": 246
-        },
-        {
-          "name": "agent_run",
           "line": 251
         },
         {
-          "name": "_operator_console",
+          "name": "agent_step",
           "line": 256
         },
         {
+          "name": "agent_run",
+          "line": 261
+        },
+        {
+          "name": "_operator_console",
+          "line": 266
+        },
+        {
           "name": "operator_status",
-          "line": 262
+          "line": 272
         },
         {
           "name": "operator_stop",
-          "line": 267
+          "line": 277
         },
         {
           "name": "operator_reconcile",
-          "line": 273
+          "line": 283
         },
         {
           "name": "_require_operational_runtime",
-          "line": 279
+          "line": 289
         },
         {
           "name": "mission_doctor",
-          "line": 287
+          "line": 297
         },
         {
           "name": "render_system_prompt",
-          "line": 292
+          "line": 302
         },
         {
           "name": "critical_loop",
-          "line": 305
+          "line": 315
         },
         {
           "name": "_check_cpl_safeguards",
-          "line": 318
+          "line": 328
         },
         {
           "name": "plan_critical_loop",
-          "line": 326
+          "line": 336
         },
         {
           "name": "assistant_request",
-          "line": 329
+          "line": 339
         },
         {
           "name": "run_cpl_fixture",
-          "line": 364
-        },
-        {
-          "name": "close",
           "line": 374
         },
         {
+          "name": "close",
+          "line": 384
+        },
+        {
           "name": "lite_status",
-          "line": 400
+          "line": 410
         },
         {
           "name": "lite_tick",
-          "line": 416
+          "line": 426
         },
         {
           "name": "lite_run",
-          "line": 422
-        },
-        {
-          "name": "lite_request_stop",
-          "line": 428
-        },
-        {
-          "name": "lite_chat",
           "line": 432
         },
         {
+          "name": "lite_request_stop",
+          "line": 438
+        },
+        {
+          "name": "lite_chat",
+          "line": 442
+        },
+        {
           "name": "lite_nachwg_chat",
-          "line": 444
+          "line": 454
         },
         {
           "name": "lite_memory_status",
-          "line": 457
+          "line": 467
         },
         {
           "name": "lite_cpl_status",
-          "line": 461
+          "line": 471
         },
         {
           "name": "lite_dynamics_status",
-          "line": 465
-        },
-        {
-          "name": "lite_memory_retrieve",
-          "line": 469
-        },
-        {
-          "name": "lite_memory_operator_request",
           "line": 475
         },
         {
+          "name": "lite_memory_retrieve",
+          "line": 479
+        },
+        {
+          "name": "lite_memory_operator_request",
+          "line": 485
+        },
+        {
           "name": "nonzero_config",
-          "line": 482
+          "line": 492
         },
         {
           "name": "nonzero_status",
-          "line": 486
+          "line": 496
         },
         {
           "name": "nonzero_cloudops",
-          "line": 499
+          "line": 509
         },
         {
           "name": "memory_patch_config",
-          "line": 515
+          "line": 525
         },
         {
           "name": "memory_patch_status",
-          "line": 518
+          "line": 528
         },
         {
           "name": "memory_patch_operator_request",
-          "line": 529
+          "line": 539
         },
         {
           "name": "build_model_request",
-          "line": 576
+          "line": 586
         },
         {
           "name": "snapshot_status",
-          "line": 637
+          "line": 647
         },
         {
           "name": "_provider_fallback_chain",
-          "line": 679
+          "line": 689
         },
         {
           "name": "_provider_status",
-          "line": 685
+          "line": 695
         },
         {
           "name": "ask_model",
-          "line": 691
+          "line": 701
         },
         {
           "name": "handle_user_request",
-          "line": 721
+          "line": 731
         },
         {
           "name": "handle_external_review_route",
-          "line": 854
+          "line": 864
         },
         {
           "name": "enable_orchestrator",
-          "line": 923
+          "line": 933
         },
         {
           "name": "handle_orchestrated_request",
-          "line": 936
+          "line": 946
         },
         {
           "name": "create_plan",
-          "line": 1024
+          "line": 1034
         },
         {
           "name": "build_plan_request",
-          "line": 1097
+          "line": 1107
         },
         {
           "name": "execute_planned_actions",
-          "line": 1126
+          "line": 1136
         },
         {
           "name": "run_text_request",
-          "line": 1175
+          "line": 1185
         },
         {
           "name": "handle_local_route",
-          "line": 1198
+          "line": 1208
         },
         {
           "name": "handle_knowledge_route",
-          "line": 1236
+          "line": 1246
         },
         {
           "name": "emit_epistemic_unknown",
-          "line": 1301
+          "line": 1311
         },
         {
           "name": "handle_model_unavailable",
-          "line": 1322
+          "line": 1332
         },
         {
           "name": "bootstrap_local_context",
-          "line": 1347
+          "line": 1357
         },
         {
           "name": "save_page_text_snapshot",
-          "line": 1421
+          "line": 1431
         },
         {
           "name": "result_for_model",
-          "line": 1435
+          "line": 1445
         },
         {
           "name": "log_session_event",
-          "line": 1451
-        },
-        {
-          "name": "log_reasoning_trace",
           "line": 1461
         },
         {
+          "name": "log_reasoning_trace",
+          "line": 1471
+        },
+        {
           "name": "log_error",
-          "line": 1466
+          "line": 1476
         },
         {
           "name": "print_action",
-          "line": 1474
+          "line": 1484
         },
         {
           "name": "print_result",
-          "line": 1482
+          "line": 1492
         }
       ],
       "symbolic_callees": [
@@ -9871,8 +9873,8 @@
         "value.strip().lower",
         "value.update"
       ],
-      "call_site_count": 637,
-      "call_sites_sha256": "30ebb5d22a7298937f4251a311915e50c7b5a1e0503ef27b5ed40c345804dd02"
+      "call_site_count": 641,
+      "call_sites_sha256": "b8411810b63195971e164acdb88e5ff3c3849d62b010e0c229f047d24a0c9db6"
     },
     "runtime/providers/config.py": {
       "path": "runtime/providers/config.py",
@@ -10114,8 +10116,8 @@
     },
     "runtime/webapp.py": {
       "path": "runtime/webapp.py",
-      "git_blob": "2b05b8a0c0a6b734d48f9f6ebcec2443699924a4",
-      "sha256": "d553bd32249ef3ac086e9d6f475f31dd735375ead000eeac3a35f67662b86ad2",
+      "git_blob": "0726b2898153282c8d0954657f5ef3c0fbd8c310",
+      "sha256": "3d88d0a211db6a0a9f231a4d5722374ffefb240dcf557892224d68f5cc1c3596",
       "definitions": [
         {
           "name": "WebRuntimeService",
@@ -10123,39 +10125,43 @@
         },
         {
           "name": "get_service",
-          "line": 346
+          "line": 381
+        },
+        {
+          "name": "_native_coding_route",
+          "line": 392
         },
         {
           "name": "AOIAWebHandler",
-          "line": 357
+          "line": 401
         },
         {
           "name": "make_mobile_operator_server",
-          "line": 1133
+          "line": 1234
         },
         {
           "name": "mobile_operator_client",
-          "line": 1190
+          "line": 1291
         },
         {
           "name": "make_server",
-          "line": 1212
+          "line": 1313
         },
         {
           "name": "_launch_mobile_console",
-          "line": 1249
+          "line": 1351
         },
         {
           "name": "_open_mobile_console",
-          "line": 1255
+          "line": 1357
         },
         {
           "name": "_parser",
-          "line": 1264
+          "line": 1366
         },
         {
           "name": "main",
-          "line": 1291
+          "line": 1393
         },
         {
           "name": "__init__",
@@ -10163,175 +10169,183 @@
         },
         {
           "name": "mobile_operator_request",
-          "line": 124
+          "line": 139
         },
         {
           "name": "authority_payload",
-          "line": 141
+          "line": 156
         },
         {
           "name": "close",
-          "line": 149
+          "line": 164
         },
         {
           "name": "meta_request",
-          "line": 155
+          "line": 170
         },
         {
           "name": "status_payload",
-          "line": 175
+          "line": 190
         },
         {
           "name": "coding_request",
-          "line": 222
+          "line": 237
         },
         {
           "name": "agent_request",
-          "line": 232
+          "line": 267
         },
         {
           "name": "switch_model",
-          "line": 236
+          "line": 271
         },
         {
           "name": "run_prompt",
-          "line": 246
+          "line": 281
         },
         {
           "name": "_personal_ai_projection",
-          "line": 252
+          "line": 287
         },
         {
           "name": "personal_ai_status",
-          "line": 276
+          "line": 311
         },
         {
           "name": "personal_ai_prepare",
-          "line": 293
+          "line": 328
         },
         {
           "name": "personal_ai_approve",
-          "line": 302
+          "line": 337
         },
         {
           "name": "personal_ai_resume",
-          "line": 308
+          "line": 343
         },
         {
           "name": "personal_ai_restart",
-          "line": 314
+          "line": 349
         },
         {
           "name": "personal_ai_replay",
-          "line": 333
+          "line": 368
         },
         {
           "name": "__init__",
-          "line": 362
+          "line": 406
         },
         {
           "name": "_service",
-          "line": 366
+          "line": 410
         },
         {
           "name": "handle",
-          "line": 369
+          "line": 413
         },
         {
           "name": "parse_request",
-          "line": 378
+          "line": 422
         },
         {
           "name": "end_headers",
-          "line": 390
+          "line": 444
         },
         {
           "name": "do_GET",
-          "line": 407
+          "line": 461
         },
         {
           "name": "do_POST",
-          "line": 560
+          "line": 629
         },
         {
           "name": "_handle_nonzero",
-          "line": 722
+          "line": 792
         },
         {
           "name": "_handle_personal_ai",
-          "line": 738
+          "line": 808
         },
         {
           "name": "_check_memory_patch_operator",
-          "line": 765
+          "line": 835
         },
         {
           "name": "_handle_memory_patch",
-          "line": 777
+          "line": 847
         },
         {
           "name": "_handle_agent",
-          "line": 810
+          "line": 880
         },
         {
           "name": "_handle_meta",
-          "line": 854
+          "line": 924
         },
         {
           "name": "_handle_mobile_console_delivery",
-          "line": 877
+          "line": 947
         },
         {
           "name": "_handle_mobile_operator",
-          "line": 916
+          "line": 986
         },
         {
           "name": "_handle_mobile",
-          "line": 952
+          "line": 1022
         },
         {
           "name": "_check_local_request",
-          "line": 995
-        },
-        {
-          "name": "_check_console_cookie",
-          "line": 1033
-        },
-        {
-          "name": "_check_token",
-          "line": 1047
-        },
-        {
-          "name": "_write_cpl_error",
-          "line": 1054
-        },
-        {
-          "name": "log_message",
-          "line": 1061
-        },
-        {
-          "name": "_read_json_body",
           "line": 1065
         },
         {
+          "name": "_check_native_coding_auth",
+          "line": 1103
+        },
+        {
+          "name": "_check_console_cookie",
+          "line": 1131
+        },
+        {
+          "name": "_check_token",
+          "line": 1145
+        },
+        {
+          "name": "_write_cpl_error",
+          "line": 1152
+        },
+        {
+          "name": "log_message",
+          "line": 1159
+        },
+        {
+          "name": "_read_json_body",
+          "line": 1163
+        },
+        {
           "name": "_write_json",
-          "line": 1109
+          "line": 1210
         },
         {
           "name": "Handler",
-          "line": 1150
+          "line": 1251
         },
         {
           "name": "Server",
-          "line": 1185
+          "line": 1286
+        },
+        {
+          "name": "write_json",
+          "line": 1164
         },
         {
           "name": "handle",
-          "line": 1151
+          "line": 1252
         },
         {
           "name": "invalidate",
-          "line": 1172
+          "line": 1273
         }
       ],
       "symbolic_callees": [
@@ -10366,6 +10380,7 @@
         "ValueError",
         "WebRuntimeService",
         "_launch_mobile_console",
+        "_native_coding_route",
         "_open_mobile_console",
         "_parser",
         "_parser().parse_args",
@@ -10380,6 +10395,7 @@
         "build_authority_timeline",
         "build_openrouter_cpl_preset",
         "bundled_scenario",
+        "capture.close",
         "check.stdout.strip",
         "code.isupper",
         "code.startswith",
@@ -10414,6 +10430,8 @@
         "json.loads",
         "launch",
         "len",
+        "lengths[data].isascii",
+        "lengths[data].isdecimal",
         "load_competition_demo",
         "load_cost_policy",
         "main",
@@ -10475,6 +10493,7 @@
         "self._check_console_cookie",
         "self._check_local_request",
         "self._check_memory_patch_operator",
+        "self._check_native_coding_auth",
         "self._check_token",
         "self._handle_agent",
         "self._handle_memory_patch",
@@ -10491,8 +10510,10 @@
         "self._service().authority_payload",
         "self._service().coding_request",
         "self._service().csrf_token.encode",
-        "self._service().meta_owner.operator_principal",
+        "self._service().meta_owner._require_qualified_operator",
+        "self._service().meta_owner.readiness",
         "self._service().meta_request",
+        "self._service().native_access.capture",
         "self._service().personal_ai_status",
         "self._service().run_prompt",
         "self._service().runtime.critical_loop.cancel",
@@ -10514,6 +10535,8 @@
         "self.headers.get_all",
         "self.meta_owner.close",
         "self.meta_owner.operator_request",
+        "self.native_access.capture",
+        "self.native_access.require_capture",
         "self.native_console.governor.core.local_operator",
         "self.native_console.read",
         "self.path.startswith",
@@ -10548,6 +10571,7 @@
         "service.get",
         "service.lock.acquire",
         "service.lock.release",
+        "service.meta_owner._require_qualified_operator",
         "service.meta_owner.operator_principal",
         "service.meta_owner.public_settings",
         "service.mobile_operator_request",
@@ -10595,10 +10619,11 @@
         "wire.MobileError",
         "wire.canonical",
         "wire.strict_json",
-        "worker.start"
+        "worker.start",
+        "write_json"
       ],
-      "call_site_count": 775,
-      "call_sites_sha256": "a91fea8b259fdfe0cdda0be5202fed4d025c2c18323d83f5e6a510d39fdf98a1"
+      "call_site_count": 839,
+      "call_sites_sha256": "6af0feed39a3e5f2c19db2e26a4129d9c9b95e235a3e0c9bd25088247c7158b0"
     },
     "runtime/mission/patch_capsule.py": {
       "path": "runtime/mission/patch_capsule.py",
@@ -11364,8 +11389,8 @@
     },
     "runtime/mission/git_publish.py": {
       "path": "runtime/mission/git_publish.py",
-      "git_blob": "5a3aa49bec4122f16304d4f61f2191ca8b14e2f3",
-      "sha256": "300f14a63ca2c445e1ee08407ec4dea00c2d73c6b7cff126e13c854808a0be3d",
+      "git_blob": "74a660096f4160d1e6305e3fc9b63ba01e9844de",
+      "sha256": "f5bf34a0a9fa48cbdb9226282b9557f51806e4dfee15226b72dab1ab135fb188",
       "definitions": [
         {
           "name": "LocalGitPlan",
@@ -11393,27 +11418,27 @@
         },
         {
           "name": "VerifiedPatchSet",
-          "line": 1779
+          "line": 1956
         },
         {
           "name": "_bounded_git",
-          "line": 1930
+          "line": 2107
         },
         {
           "name": "GitSourceSnapshot",
-          "line": 1984
+          "line": 2161
         },
         {
           "name": "_git_target_identity_fd",
-          "line": 2191
+          "line": 2368
         },
         {
           "name": "_git_target_identity",
-          "line": 2244
+          "line": 2421
         },
         {
           "name": "LocalPatchGitPlan",
-          "line": 2266
+          "line": 2443
         },
         {
           "name": "__post_init__",
@@ -11528,236 +11553,264 @@
           "line": 606
         },
         {
+          "name": "_require_native_binding",
+          "line": 631
+        },
+        {
+          "name": "_run",
+          "line": 653
+        },
+        {
           "name": "prepare_patchset",
-          "line": 632
+          "line": 686
         },
         {
           "name": "for_local_patch",
-          "line": 679
+          "line": 733
         },
         {
           "name": "_local_proofs",
-          "line": 830
+          "line": 913
         },
         {
           "name": "_local_history",
-          "line": 939
+          "line": 1022
         },
         {
           "name": "_historical_local_check",
-          "line": 978
+          "line": 1064
         },
         {
           "name": "_prospective_local",
-          "line": 985
+          "line": 1071
         },
         {
           "name": "_local_check",
-          "line": 991
-        },
-        {
-          "name": "approve_local_patch",
-          "line": 1009
-        },
-        {
-          "name": "_local_warrant",
-          "line": 1054
-        },
-        {
-          "name": "_dispatch_local_patch",
-          "line": 1070
-        },
-        {
-          "name": "_complete_local_patch",
-          "line": 1130
-        },
-        {
-          "name": "__init__",
-          "line": 1238
-        },
-        {
-          "name": "dependency_root",
-          "line": 1276
-        },
-        {
-          "name": "operation",
-          "line": 1313
-        },
-        {
-          "name": "validate",
-          "line": 1355
-        },
-        {
-          "name": "_save",
-          "line": 1387
-        },
-        {
-          "name": "begin_step",
-          "line": 1424
-        },
-        {
-          "name": "bind_api",
-          "line": 1519
-        },
-        {
-          "name": "record_credential_scope",
-          "line": 1537
-        },
-        {
-          "name": "result",
-          "line": 1562
-        },
-        {
-          "name": "complete",
-          "line": 1577
-        },
-        {
-          "name": "dispatch",
-          "line": 1722
-        },
-        {
-          "name": "reconcile",
-          "line": 1731
-        },
-        {
-          "name": "__post_init__",
-          "line": 1791
-        },
-        {
-          "name": "authority",
-          "line": 1879
-        },
-        {
-          "name": "digest",
-          "line": 1883
-        },
-        {
-          "name": "preview",
-          "line": 1897
-        },
-        {
-          "name": "create_only_plan",
-          "line": 1913
-        },
-        {
-          "name": "__post_init__",
-          "line": 1994
-        },
-        {
-          "name": "digest",
-          "line": 2040
-        },
-        {
-          "name": "capture",
-          "line": 2055
-        },
-        {
-          "name": "verify",
-          "line": 2146
-        },
-        {
-          "name": "export_tree_sha256",
-          "line": 2158
-        },
-        {
-          "name": "verify_export",
-          "line": 2163
-        },
-        {
-          "name": "export",
-          "line": 2172
-        },
-        {
-          "name": "__post_init__",
-          "line": 2275
-        },
-        {
-          "name": "files",
-          "line": 2308
-        },
-        {
-          "name": "operation_id",
-          "line": 2318
-        },
-        {
-          "name": "ref",
-          "line": 2322
-        },
-        {
-          "name": "target_fingerprint",
-          "line": 2326
-        },
-        {
-          "name": "tree_objects",
-          "line": 2338
-        },
-        {
-          "name": "tree_sha",
-          "line": 2371
-        },
-        {
-          "name": "commit_data",
-          "line": 2375
-        },
-        {
-          "name": "commit_sha",
-          "line": 2396
-        },
-        {
-          "name": "objects",
-          "line": 2400
-        },
-        {
-          "name": "digest",
-          "line": 2408
-        },
-        {
-          "name": "load",
-          "line": 718
-        },
-        {
-          "name": "proofs",
-          "line": 817
-        },
-        {
-          "name": "mark",
           "line": 1077
         },
         {
+          "name": "approve_local_patch",
+          "line": 1095
+        },
+        {
+          "name": "_local_warrant",
+          "line": 1140
+        },
+        {
+          "name": "_dispatch_local_patch",
+          "line": 1161
+        },
+        {
+          "name": "_complete_local_patch",
+          "line": 1227
+        },
+        {
+          "name": "__init__",
+          "line": 1351
+        },
+        {
+          "name": "_require_native_local_plan",
+          "line": 1389
+        },
+        {
+          "name": "_require_native_local_source",
+          "line": 1396
+        },
+        {
+          "name": "_local_patch_dependency_root",
+          "line": 1401
+        },
+        {
+          "name": "dependency_root",
+          "line": 1415
+        },
+        {
+          "name": "_local_patch_operation",
+          "line": 1452
+        },
+        {
+          "name": "operation",
+          "line": 1472
+        },
+        {
+          "name": "validate",
+          "line": 1514
+        },
+        {
+          "name": "_save",
+          "line": 1554
+        },
+        {
+          "name": "begin_step",
+          "line": 1594
+        },
+        {
+          "name": "bind_api",
+          "line": 1689
+        },
+        {
+          "name": "record_credential_scope",
+          "line": 1707
+        },
+        {
+          "name": "result",
+          "line": 1732
+        },
+        {
+          "name": "complete",
+          "line": 1747
+        },
+        {
+          "name": "dispatch",
+          "line": 1892
+        },
+        {
+          "name": "reconcile",
+          "line": 1908
+        },
+        {
+          "name": "__post_init__",
+          "line": 1968
+        },
+        {
+          "name": "authority",
+          "line": 2056
+        },
+        {
+          "name": "digest",
+          "line": 2060
+        },
+        {
+          "name": "preview",
+          "line": 2074
+        },
+        {
+          "name": "create_only_plan",
+          "line": 2090
+        },
+        {
+          "name": "__post_init__",
+          "line": 2171
+        },
+        {
+          "name": "digest",
+          "line": 2217
+        },
+        {
+          "name": "capture",
+          "line": 2232
+        },
+        {
+          "name": "verify",
+          "line": 2323
+        },
+        {
+          "name": "export_tree_sha256",
+          "line": 2335
+        },
+        {
+          "name": "verify_export",
+          "line": 2340
+        },
+        {
+          "name": "export",
+          "line": 2349
+        },
+        {
+          "name": "__post_init__",
+          "line": 2452
+        },
+        {
+          "name": "files",
+          "line": 2485
+        },
+        {
+          "name": "operation_id",
+          "line": 2495
+        },
+        {
+          "name": "ref",
+          "line": 2499
+        },
+        {
+          "name": "target_fingerprint",
+          "line": 2503
+        },
+        {
+          "name": "tree_objects",
+          "line": 2515
+        },
+        {
+          "name": "tree_sha",
+          "line": 2548
+        },
+        {
+          "name": "commit_data",
+          "line": 2552
+        },
+        {
+          "name": "commit_sha",
+          "line": 2573
+        },
+        {
+          "name": "objects",
+          "line": 2577
+        },
+        {
+          "name": "digest",
+          "line": 2585
+        },
+        {
+          "name": "load",
+          "line": 773
+        },
+        {
+          "name": "proofs",
+          "line": 897
+        },
+        {
+          "name": "mark",
+          "line": 1172
+        },
+        {
           "name": "save",
-          "line": 1179
+          "line": 1283
         },
         {
           "name": "start",
-          "line": 1482
-        },
-        {
-          "name": "save",
-          "line": 1542
-        },
-        {
-          "name": "read",
-          "line": 1567
-        },
-        {
-          "name": "save",
           "line": 1652
         },
         {
+          "name": "save",
+          "line": 1712
+        },
+        {
+          "name": "read",
+          "line": 1737
+        },
+        {
+          "name": "save",
+          "line": 1822
+        },
+        {
           "name": "binding_check",
-          "line": 1950
+          "line": 2127
         },
         {
           "name": "git",
-          "line": 2077
+          "line": 2254
         },
         {
           "name": "current",
-          "line": 2087
+          "line": 2264
+        },
+        {
+          "name": "pure",
+          "line": 668
         },
         {
           "name": "approve",
-          "line": 1028
+          "line": 1114
         }
       ],
       "symbolic_callees": [
@@ -11784,6 +11837,7 @@
         "Reconciliation",
         "Reconciliation.from_dict",
         "StoredRecord",
+        "TransactionContext",
         "ValueError",
         "VerifiedPatchSet",
         "_TreeFile",
@@ -11800,6 +11854,9 @@
         "_snapshot",
         "_text",
         "_tree_hashes",
+        "access.capture",
+        "access.foundation.owner.coding_tasks._native_git_effect_check",
+        "access.require_capture",
         "all",
         "api.credential.evidence",
         "api.readback",
@@ -11809,10 +11866,12 @@
         "binding_check",
         "bytes.fromhex",
         "callable",
+        "callback",
         "canonical",
         "canonical_json_bytes",
         "canonical_sha256",
         "capsules._decode",
+        "capture.close",
         "chunks.append",
         "clean.items",
         "clean.values",
@@ -11840,6 +11899,7 @@
         "e[data].encode",
         "entries.items",
         "entry.get",
+        "f.require_bindings",
         "files.append",
         "files.items",
         "folded.add",
@@ -11858,6 +11918,7 @@
         "identity",
         "instance._local_history",
         "instance._local_proofs",
+        "instance._run",
         "instance.check",
         "int",
         "intent.get",
@@ -11934,9 +11995,18 @@
         "self.__post_init__",
         "self._complete_local_patch",
         "self._local_history",
+        "self._local_patch_dependency_root",
+        "self._local_patch_operation",
         "self._local_proofs",
         "self._local_warrant",
         "self._prospective_local",
+        "self._require_native_binding",
+        "self._require_native_binding().foundation.owner.coding_tasks._native_git_begin_settlement",
+        "self._require_native_binding().foundation.owner.coding_tasks._native_git_effect_check",
+        "self._require_native_binding().foundation.owner.coding_tasks._native_git_start_ack",
+        "self._require_native_local_plan",
+        "self._require_native_local_source",
+        "self._run",
         "self._save",
         "self.api_factory",
         "self.base_sha.encode",
@@ -11974,6 +12044,7 @@
         "self.preparation.__post_init__",
         "self.preparation.patchset.patchset_sha256.encode",
         "self.result_bytes",
+        "self.runner.run",
         "self.source.source_base_sha.encode",
         "self.target_guard",
         "self.test_profile.accepts_observer",
@@ -12008,8 +12079,8 @@
         "wire_canonical",
         "zip"
       ],
-      "call_site_count": 871,
-      "call_sites_sha256": "b3e8b7085665dbdc689f3f65238f1624b8e90e5b8b390c5003cc6741a0263dd3"
+      "call_site_count": 942,
+      "call_sites_sha256": "4985aac7bd9f2c10aa99fa9727ce0a45daa5d93c78ea64153adf684a426f80ca"
     },
     "runtime/core_admission.py": {
       "path": "runtime/core_admission.py",
@@ -12513,192 +12584,276 @@
     },
     "runtime/mission/coding_tasks.py": {
       "path": "runtime/mission/coding_tasks.py",
-      "git_blob": "8e91c424bd3057c71852dcfe9160cc6caab38e49",
-      "sha256": "64d6d353cce6ce06da4c8fd75436251792b75817b10fed4d839a25f27b88a815",
+      "git_blob": "d8d5a9639bb9f9a553dec1cafda1ffe48837bf2c",
+      "sha256": "d17aa39c51fc5fe3bc1a745308423c5245b2ff206a8416e7e014f647d3d57c21",
       "definitions": [
         {
           "name": "CodingRun",
-          "line": 59
+          "line": 61
         },
         {
           "name": "decode_coding_task_row",
-          "line": 107
+          "line": 109
         },
         {
           "name": "decode_coding_backend_binding_row",
-          "line": 151
+          "line": 153
+        },
+        {
+          "name": "CodingWorkSnapshot",
+          "line": 172
+        },
+        {
+          "name": "CodingLifecycleSnapshot",
+          "line": 182
+        },
+        {
+          "name": "CodingDrainReport",
+          "line": 188
         },
         {
           "name": "CoreCodingTasks",
-          "line": 169
+          "line": 194
         },
         {
           "name": "coding_cli_request",
-          "line": 1088
+          "line": 1651
         },
         {
           "name": "run_coding_cli",
-          "line": 1093
+          "line": 1656
         },
         {
           "name": "coding_http_request",
-          "line": 1122
+          "line": 1685
         },
         {
           "name": "run_coding_http_cli",
-          "line": 1214
+          "line": 1777
         },
         {
           "name": "__post_init__",
-          "line": 70
+          "line": 72
         },
         {
           "name": "__init__",
-          "line": 170
+          "line": 195
         },
         {
-          "name": "_require_coding_backend_host",
-          "line": 216
+          "name": "_require_native_binding",
+          "line": 247
         },
         {
-          "name": "bind_coding_backend",
-          "line": 242
+          "name": "_require_principal",
+          "line": 258
         },
         {
-          "name": "read_coding_backend",
-          "line": 316
+          "name": "_authority",
+          "line": 276
         },
         {
-          "name": "_require_legacy_coding_task",
+          "name": "_run",
+          "line": 297
+        },
+        {
+          "name": "_retire_finished",
           "line": 328
         },
         {
-          "name": "runtime_view",
-          "line": 337
-        },
-        {
-          "name": "_key",
-          "line": 364
-        },
-        {
-          "name": "_load",
-          "line": 368
-        },
-        {
-          "name": "_signed",
-          "line": 372
-        },
-        {
-          "name": "_save",
-          "line": 384
-        },
-        {
-          "name": "_view",
-          "line": 416
-        },
-        {
-          "name": "_transition",
-          "line": 431
-        },
-        {
-          "name": "_append_transition",
-          "line": 476
-        },
-        {
-          "name": "_complete_history",
-          "line": 504
-        },
-        {
-          "name": "_unresolved_intents",
-          "line": 512
-        },
-        {
-          "name": "_start",
-          "line": 521
-        },
-        {
-          "name": "_record_loop",
-          "line": 567
-        },
-        {
-          "name": "_execute",
-          "line": 609
-        },
-        {
-          "name": "_active_cancel",
-          "line": 737
-        },
-        {
-          "name": "wait",
-          "line": 754
-        },
-        {
-          "name": "close",
-          "line": 765
-        },
-        {
-          "name": "_effect",
-          "line": 779
-        },
-        {
-          "name": "_controller_request",
-          "line": 800
-        },
-        {
-          "name": "request",
-          "line": 913
-        },
-        {
-          "name": "attach_review",
-          "line": 1032
-        },
-        {
-          "name": "_attach_review_locked",
-          "line": 1042
-        },
-        {
-          "name": "read",
-          "line": 321
-        },
-        {
-          "name": "change",
-          "line": 443
-        },
-        {
-          "name": "save",
-          "line": 584
-        },
-        {
-          "name": "cancel",
-          "line": 1020
-        },
-        {
-          "name": "inspect",
-          "line": 1048
-        },
-        {
-          "name": "save",
-          "line": 1076
-        },
-        {
-          "name": "publish",
-          "line": 272
-        },
-        {
-          "name": "read",
+          "name": "lifecycle_snapshot",
           "line": 341
         },
         {
-          "name": "create",
-          "line": 954
+          "name": "drain",
+          "line": 358
+        },
+        {
+          "name": "_require_coding_backend_host",
+          "line": 382
+        },
+        {
+          "name": "bind_coding_backend",
+          "line": 408
+        },
+        {
+          "name": "read_coding_backend",
+          "line": 482
+        },
+        {
+          "name": "_require_legacy_coding_task",
+          "line": 494
+        },
+        {
+          "name": "runtime_view",
+          "line": 503
+        },
+        {
+          "name": "_key",
+          "line": 530
+        },
+        {
+          "name": "_load",
+          "line": 534
+        },
+        {
+          "name": "_signed",
+          "line": 538
+        },
+        {
+          "name": "_save",
+          "line": 550
+        },
+        {
+          "name": "_view",
+          "line": 582
+        },
+        {
+          "name": "_transition",
+          "line": 597
+        },
+        {
+          "name": "_append_transition",
+          "line": 646
+        },
+        {
+          "name": "_complete_history",
+          "line": 674
+        },
+        {
+          "name": "_unresolved_intents",
+          "line": 682
+        },
+        {
+          "name": "_start",
+          "line": 691
+        },
+        {
+          "name": "_record_loop",
+          "line": 741
+        },
+        {
+          "name": "_execute",
+          "line": 783
+        },
+        {
+          "name": "_execute_body",
+          "line": 794
+        },
+        {
+          "name": "_active_cancel",
+          "line": 924
+        },
+        {
+          "name": "wait",
+          "line": 945
+        },
+        {
+          "name": "close",
+          "line": 958
+        },
+        {
+          "name": "_effect",
+          "line": 961
+        },
+        {
+          "name": "_native_git_reconciliation_parent",
+          "line": 982
+        },
+        {
+          "name": "_native_git_reconciliation_retirement",
+          "line": 1053
+        },
+        {
+          "name": "_native_git_reconcile",
+          "line": 1069
+        },
+        {
+          "name": "_native_git_effect_entry",
+          "line": 1179
+        },
+        {
+          "name": "_native_git_effect_check",
+          "line": 1218
+        },
+        {
+          "name": "_native_git_start_ack",
+          "line": 1232
+        },
+        {
+          "name": "_native_git_begin_settlement",
+          "line": 1242
+        },
+        {
+          "name": "_native_git_effect_request",
+          "line": 1264
+        },
+        {
+          "name": "_controller_request",
+          "line": 1339
+        },
+        {
+          "name": "request",
+          "line": 1458
+        },
+        {
+          "name": "attach_review",
+          "line": 1595
+        },
+        {
+          "name": "_attach_review_locked",
+          "line": 1605
         },
         {
           "name": "read",
-          "line": 973
+          "line": 487
+        },
+        {
+          "name": "change",
+          "line": 610
+        },
+        {
+          "name": "save",
+          "line": 758
+        },
+        {
+          "name": "read",
+          "line": 1092
+        },
+        {
+          "name": "cancel",
+          "line": 1583
+        },
+        {
+          "name": "inspect",
+          "line": 1611
+        },
+        {
+          "name": "save",
+          "line": 1639
+        },
+        {
+          "name": "pure",
+          "line": 314
+        },
+        {
+          "name": "publish",
+          "line": 438
+        },
+        {
+          "name": "read",
+          "line": 507
+        },
+        {
+          "name": "create",
+          "line": 1501
+        },
+        {
+          "name": "read",
+          "line": 1520
         },
         {
           "name": "observe",
-          "line": 638
+          "line": 823
         }
       ],
       "symbolic_callees": [
@@ -12708,8 +12863,11 @@
         "CancellationToken",
         "CodingBackendBindingV1",
         "CodingBackendBindingV1.from_json",
+        "CodingDrainReport",
+        "CodingLifecycleSnapshot",
         "CodingRunPolicyV1.from_dict",
         "CodingRunPolicyV1.from_dict().to_dict",
+        "CodingWorkSnapshot",
         "DiagnosticParser",
         "JsonlFramer",
         "OperationBinding.bind",
@@ -12718,27 +12876,37 @@
         "StoredRecord",
         "Task",
         "WarrantError",
+        "_IN_TRANSACTION.get",
         "access.capture",
         "access.require_capture",
+        "active.get",
         "active[data].cancel",
         "active[data].is_alive",
+        "active[data].is_set",
         "active[data].join",
+        "active[data].set",
+        "active[data].start",
         "all",
         "any",
         "append_domain_event",
         "args.payload.encode",
         "asdict",
         "binding.to_dict",
+        "bool",
         "callable",
+        "callback",
         "canonical_json_bytes",
         "canonical_sha256",
         "capture.close",
         "capture.principal.expires_at.timestamp",
+        "child.done.is_set",
         "coding_cli_request",
         "coding_http_request",
         "connection.close",
         "connection.getresponse",
         "connection.request",
+        "core._signature",
+        "core.require",
         "data[data].append",
         "dataclass",
         "decode_coding_backend_binding_row",
@@ -12746,28 +12914,49 @@
         "dict.fromkeys",
         "digest",
         "enumerate",
+        "f.require_bindings",
         "failure_boundary",
+        "foundation.owner._native_coding.effects.get",
         "foundation.require_bindings",
         "framer.feed",
         "framer.finish",
         "getattr",
+        "guard.acquire",
+        "guard.release",
+        "handle.done.is_set",
+        "handle.done.set",
+        "hmac.compare_digest",
         "http.client.HTTPConnection",
         "inspect",
         "int",
         "isinstance",
+        "item.get",
         "item[data].cancel",
-        "item[data].join",
-        "item[data].stop",
+        "item[data].is_alive",
+        "item[data].is_set",
+        "item[data].release",
         "journal.ledger.core.require",
         "json.dumps",
         "json.loads",
         "len",
+        "lifecycle._handles.get",
+        "lifecycle.before_start",
+        "lifecycle.begin_synchronous",
+        "lifecycle.begin_work",
+        "lifecycle.complete_synchronous",
+        "lifecycle.quarantine",
+        "lifecycle.require_execution",
         "logical_id",
+        "mapping.items",
+        "max",
+        "min",
         "os.close",
         "os.fstat",
         "os.getuid",
         "os.open",
         "os.read",
+        "parent.done.is_set",
+        "parent_item.get",
         "parser.add_argument",
         "parser.parse_args",
         "principal.expires_at.timestamp",
@@ -12779,7 +12968,13 @@
         "require",
         "response.read",
         "result.__post_init__",
+        "retained.get",
         "retained.to_dict",
+        "retained[data].is_set",
+        "route._local_history",
+        "route._local_proofs",
+        "route._require_native_local_plan",
+        "route._require_native_local_source",
         "route.approve_local_patch",
         "route.dispatch",
         "route.operation",
@@ -12790,22 +12985,36 @@
         "run_policy.to_dict",
         "runtime.coding_request",
         "self._active.get",
+        "self._active.items",
         "self._active.pop",
         "self._active.values",
         "self._active_cancel",
         "self._append_transition",
         "self._attach_review_locked",
+        "self._authority",
         "self._complete_history",
         "self._controller_request",
         "self._effect",
+        "self._effect_ownership.get",
+        "self._effect_ownership.pop",
+        "self._effect_ownership.values",
         "self._effects.get",
         "self._effects.pop",
-        "self._effects.values",
+        "self._execute_body",
         "self._key",
         "self._load",
+        "self._native_git_effect_check",
+        "self._native_git_effect_entry",
+        "self._native_git_effect_request",
+        "self._native_git_reconcile",
+        "self._native_git_reconciliation_parent",
         "self._record_loop",
         "self._require_coding_backend_host",
         "self._require_legacy_coding_task",
+        "self._require_native_binding",
+        "self._require_principal",
+        "self._retire_finished",
+        "self._run",
         "self._save",
         "self._signed",
         "self._start",
@@ -12818,17 +13027,30 @@
         "self.capsules._fresh",
         "self.capsules.identity.sign",
         "self.capsules.prepare",
+        "self.clock",
         "self.coding_backend_registry.resolve",
+        "self.drain",
         "self.effect_factory",
+        "self.journal._load",
         "self.journal._run",
         "self.journal.ledger.clock",
-        "self.journal.ledger.core.require",
+        "self.lifecycle_snapshot",
+        "self.native_access.capture",
+        "self.native_access.foundation.lifecycle.quarantine",
+        "self.native_access.foundation.lifecycle.require_execution",
+        "self.native_access.foundation.lifecycle.retire_work",
+        "self.native_access.foundation.owner._native_coding.project_probe",
+        "self.native_access.require_capture",
         "self.run_factory",
         "self.runtime_view",
         "set",
+        "sorted",
         "stat.S_ISREG",
+        "str",
         "strict_json",
-        "thread.start",
+        "thread.join",
+        "threading.Event",
+        "threading.Lock",
         "threading.RLock",
         "threading.Thread",
         "threading.current_thread",
@@ -12843,8 +13065,8 @@
         "type",
         "verify"
       ],
-      "call_site_count": 411,
-      "call_sites_sha256": "90892a7f453973acf8beec1111a4428cea721f69e97ae5624396f0ba95b94362"
+      "call_site_count": 712,
+      "call_sites_sha256": "a4a50f1c6b8a51ea16f6eb14ae3f7cae9c719d9bb91155d60530c5506215699c"
     },
     "tests/test_hybrid_patchset.py": {
       "path": "tests/test_hybrid_patchset.py",
@@ -13977,8 +14199,8 @@
     },
     "runtime/mission/repair_validation.py": {
       "path": "runtime/mission/repair_validation.py",
-      "git_blob": "8c09759a1192d2b35d81613bcbe7cf32770f2042",
-      "sha256": "06a789a10c6e7f80fb94935359640c0deaa198a7b5ba3234a179c465e75556b0",
+      "git_blob": "75cc7b3b94cf385e0ecda4f4a3defff52431064d",
+      "sha256": "c6fb174aabd6cb3f79c2314b2b957cdf27343af4693ccb14389d0d9f7121bcce",
       "definitions": [
         {
           "name": "TrustedTestProfile",
@@ -14026,19 +14248,19 @@
         },
         {
           "name": "CoreRepositoryMaterializer",
-          "line": 387
+          "line": 393
         },
         {
           "name": "_store_validation_evidence",
-          "line": 567
+          "line": 573
         },
         {
           "name": "CoreSandboxValidation",
-          "line": 596
+          "line": 602
         },
         {
           "name": "_CoreValidationSession",
-          "line": 785
+          "line": 803
         },
         {
           "name": "__post_init__",
@@ -14062,51 +14284,51 @@
         },
         {
           "name": "__init__",
-          "line": 390
+          "line": 396
         },
         {
           "name": "materialize",
-          "line": 437
+          "line": 443
         },
         {
           "name": "save",
-          "line": 576
+          "line": 582
         },
         {
           "name": "__init__",
-          "line": 597
+          "line": 603
         },
         {
           "name": "render",
-          "line": 624
+          "line": 638
         },
         {
           "name": "read_render",
-          "line": 688
+          "line": 702
         },
         {
           "name": "_read_render_record",
-          "line": 701
+          "line": 715
         },
         {
           "name": "open",
-          "line": 733
+          "line": 747
         },
         {
           "name": "__init__",
-          "line": 786
+          "line": 804
         },
         {
           "name": "run",
-          "line": 791
+          "line": 809
         },
         {
           "name": "close",
-          "line": 866
+          "line": 899
         },
         {
           "name": "save",
-          "line": 537
+          "line": 543
         }
       ],
       "symbolic_callees": [
@@ -14159,6 +14381,7 @@
         "final.exists",
         "hashlib.sha256",
         "hashlib.sha256().hexdigest",
+        "host.finish_step",
         "int",
         "isinstance",
         "item.content.decode",
@@ -14202,6 +14425,8 @@
         "self.output_root.resolve",
         "self.owner.profile.context",
         "self.owner.profile.decode_observation",
+        "self.owner.profile.observation_spec",
+        "self.owner.stage_preparer.prepare_stage",
         "self.prepare",
         "self.profile.__post_init__",
         "self.profile.context",
@@ -14212,10 +14437,12 @@
         "self.route.core.require",
         "self.source_snapshot.verify",
         "self.source_snapshot.verify_export",
+        "self.stage_preparer.freeze",
         "set",
         "sorted",
         "stdout.encode",
         "step.__post_init__",
+        "step.route._run",
         "step.route._sandbox_receipt_after_dispatch",
         "step.route.dispatch",
         "step.route.reconcile",
@@ -14231,8 +14458,8 @@
         "warrant.to_dict",
         "workspace_tree_digest"
       ],
-      "call_site_count": 381,
-      "call_sites_sha256": "ee4fcb7b28d281629b1a303ebacfde82214e7df362d2eef6465515cb59c84cbc"
+      "call_site_count": 401,
+      "call_sites_sha256": "7ae02c1bcef0512250cb1e8f1c7f0b997531d4d87464b18996a76f69643a7597"
     },
     "runtime/mission/sandbox_contracts.py": {
       "path": "runtime/mission/sandbox_contracts.py",
@@ -14861,8 +15088,8 @@
     },
     "runtime/mission/tools.py": {
       "path": "runtime/mission/tools.py",
-      "git_blob": "179b8dd4238eee297c8986efb9507467b8d7e35a",
-      "sha256": "6aeaa03a5556b4298efe1dbc28bbf77132bda2f6f18e3315e0e271db36eed1dd",
+      "git_blob": "943448ed6324915059fed4726ee8dbc07e4222fd",
+      "sha256": "978d022774a0006fb2d3ad4a1ab55606bd9604f1d2b4f9e0c8f6270cf4e12d06",
       "definitions": [
         {
           "name": "ToolCapability",
@@ -14926,239 +15153,247 @@
         },
         {
           "name": "sandbox_jobs",
-          "line": 261
+          "line": 270
         },
         {
           "name": "_require_target_binding",
-          "line": 264
+          "line": 273
         },
         {
           "name": "_target_snapshot",
-          "line": 292
+          "line": 301
         },
         {
           "name": "_context_target_snapshot",
-          "line": 304
+          "line": 313
         },
         {
           "name": "_probe_target",
-          "line": 312
+          "line": 321
+        },
+        {
+          "name": "_legacy_run",
+          "line": 325
         },
         {
           "name": "_run",
-          "line": 316
+          "line": 333
         },
         {
           "name": "session_key",
-          "line": 324
+          "line": 358
         },
         {
           "name": "_session",
-          "line": 328
+          "line": 362
         },
         {
           "name": "create_session",
-          "line": 361
+          "line": 395
         },
         {
           "name": "validate_registered_local",
-          "line": 386
+          "line": 420
         },
         {
           "name": "dispatch_registered_local",
-          "line": 413
+          "line": 447
         },
         {
           "name": "revoke_session",
-          "line": 418
+          "line": 452
         },
         {
           "name": "_revoke_session",
-          "line": 423
+          "line": 457
         },
         {
           "name": "operation",
-          "line": 431
+          "line": 465
         },
         {
           "name": "sandbox_config_for_operation",
-          "line": 448
+          "line": 482
         },
         {
           "name": "_sandbox_record",
-          "line": 455
+          "line": 489
         },
         {
           "name": "bind_sandbox_job",
-          "line": 462
+          "line": 496
         },
         {
           "name": "restore_sandbox_bindings",
-          "line": 543
+          "line": 577
         },
         {
           "name": "_historical_request",
-          "line": 567
+          "line": 601
         },
         {
           "name": "sandbox_receipt",
-          "line": 575
+          "line": 609
         },
         {
           "name": "_sandbox_receipt_after_dispatch",
-          "line": 578
-        },
-        {
-          "name": "_sandbox_receipt",
-          "line": 581
-        },
-        {
-          "name": "_synthetic_operation",
           "line": 612
         },
         {
+          "name": "_sandbox_receipt",
+          "line": 615
+        },
+        {
+          "name": "_synthetic_operation",
+          "line": 646
+        },
+        {
           "name": "_operation",
-          "line": 624
+          "line": 658
         },
         {
           "name": "_snapshot_operation",
-          "line": 657
+          "line": 691
         },
         {
           "name": "_ddr",
-          "line": 667
+          "line": 701
         },
         {
           "name": "_context_key",
-          "line": 681
+          "line": 715
         },
         {
           "name": "_context",
-          "line": 684
+          "line": 718
         },
         {
           "name": "_mode",
-          "line": 761
+          "line": 795
         },
         {
           "name": "_sandbox_scope",
-          "line": 767
+          "line": 801
         },
         {
           "name": "_portable_scope",
-          "line": 782
+          "line": 816
         },
         {
           "name": "_sandbox_request",
-          "line": 804
+          "line": 838
         },
         {
           "name": "_sandbox_request_value",
-          "line": 812
+          "line": 846
         },
         {
           "name": "_native_job",
-          "line": 823
+          "line": 857
         },
         {
           "name": "authorize",
-          "line": 839
+          "line": 873
         },
         {
           "name": "authorize_exact",
-          "line": 844
+          "line": 878
         },
         {
           "name": "_authorize",
-          "line": 858
+          "line": 892
         },
         {
           "name": "_check",
-          "line": 955
+          "line": 989
         },
         {
           "name": "_retained",
-          "line": 986
+          "line": 1020
         },
         {
           "name": "dispatch",
-          "line": 1002
+          "line": 1036
         },
         {
           "name": "_dispatch",
-          "line": 1016
+          "line": 1050
         },
         {
           "name": "inspect",
-          "line": 1132
+          "line": 1166
         },
         {
           "name": "reconcile",
-          "line": 1142
+          "line": 1176
         },
         {
           "name": "_reconcile",
-          "line": 1147
-        },
-        {
-          "name": "checked",
-          "line": 319
-        },
-        {
-          "name": "change",
-          "line": 363
-        },
-        {
-          "name": "change",
-          "line": 424
-        },
-        {
-          "name": "change",
-          "line": 869
-        },
-        {
-          "name": "start",
-          "line": 1024
-        },
-        {
-          "name": "readback",
-          "line": 1075
-        },
-        {
-          "name": "read",
-          "line": 1133
-        },
-        {
-          "name": "read",
-          "line": 1148
-        },
-        {
-          "name": "change",
           "line": 1181
         },
         {
-          "name": "save",
-          "line": 499
+          "name": "checked",
+          "line": 328
+        },
+        {
+          "name": "change",
+          "line": 397
+        },
+        {
+          "name": "change",
+          "line": 458
+        },
+        {
+          "name": "change",
+          "line": 903
+        },
+        {
+          "name": "start",
+          "line": 1058
+        },
+        {
+          "name": "readback",
+          "line": 1109
         },
         {
           "name": "read",
-          "line": 553
+          "line": 1167
+        },
+        {
+          "name": "read",
+          "line": 1182
+        },
+        {
+          "name": "change",
+          "line": 1225
+        },
+        {
+          "name": "pure",
+          "line": 349
+        },
+        {
+          "name": "save",
+          "line": 533
+        },
+        {
+          "name": "read",
+          "line": 587
         },
         {
           "name": "prepare",
-          "line": 1084
+          "line": 1118
         },
         {
           "name": "release_check",
-          "line": 1097
+          "line": 1131
         },
         {
           "name": "record_ack",
-          "line": 1123
+          "line": 1157
         },
         {
           "name": "check",
-          "line": 1099
+          "line": 1133
         }
       ],
       "symbolic_callees": [
@@ -15194,6 +15429,8 @@
         "_portable_operation",
         "_portable_operation().to_dict",
         "_private_bytes",
+        "access.capture",
+        "access.require_capture",
         "all",
         "allowed.append",
         "allowed.sort",
@@ -15212,6 +15449,7 @@
         "callback",
         "canonical_json_bytes",
         "canonical_sha256",
+        "capture.close",
         "capture.config.registry.validate",
         "classify_fault",
         "cls",
@@ -15284,6 +15522,7 @@
         "self._ddr",
         "self._dispatch",
         "self._historical_request",
+        "self._legacy_run",
         "self._mode",
         "self._native_job",
         "self._operation",
@@ -15375,8 +15614,8 @@
         "warrant.to_dict",
         "zip"
       ],
-      "call_site_count": 743,
-      "call_sites_sha256": "7c2eca303a40deddafeb512985bf9d117b0bd2ba5054849f6de5abfa0d083f07"
+      "call_site_count": 758,
+      "call_sites_sha256": "870d6ca76f8ebf1b20ce6ce83f772f300a18890e7a9133a57df9b723418c0759"
     },
     "runtime/mission/verification.py": {
       "path": "runtime/mission/verification.py",
@@ -15824,129 +16063,135 @@
     },
     "runtime/meta_hackathon/runtime_adapter.py": {
       "path": "runtime/meta_hackathon/runtime_adapter.py",
-      "git_blob": "e7904256b7f89eb39c6953fe3e6a6795fec977d8",
-      "sha256": "d768c39d201004c4dea2c52d128e127d8f0ac5346eafaead0cbe3a5151e7e49d",
+      "git_blob": "5554d49c72a7b1acf83b28f169e64c01a79c00a0",
+      "sha256": "89bc40ec039c9c7081062bc42a28ef5702d1cbe28deba57f9b21d060f0e9d766",
       "definitions": [
         {
           "name": "sealed_source_path",
-          "line": 204
+          "line": 205
         },
         {
           "name": "current_source",
-          "line": 218
+          "line": 219
         },
         {
           "name": "OfflineMetaComposition",
-          "line": 225
-        },
-        {
-          "name": "_desktop_operator_uid",
-          "line": 312
-        },
-        {
-          "name": "NativeMobileComposition",
-          "line": 342
-        },
-        {
-          "name": "__init__",
           "line": 226
         },
         {
-          "name": "enable_unified",
-          "line": 267
+          "name": "_desktop_operator_uid",
+          "line": 313
         },
         {
-          "name": "close",
-          "line": 303
+          "name": "NativeMobileComposition",
+          "line": 343
         },
         {
           "name": "__init__",
-          "line": 349
+          "line": 227
         },
         {
-          "name": "_initialize",
-          "line": 406
-        },
-        {
-          "name": "operator_principal",
-          "line": 487
-        },
-        {
-          "name": "_chat_authority",
-          "line": 502
-        },
-        {
-          "name": "_chat_credit_authority",
-          "line": 522
-        },
-        {
-          "name": "qualify_tls",
-          "line": 544
-        },
-        {
-          "name": "_require_qualified_operator",
-          "line": 591
-        },
-        {
-          "name": "public_settings",
-          "line": 597
-        },
-        {
-          "name": "model_calls",
-          "line": 603
-        },
-        {
-          "name": "operator_auth_status",
-          "line": 609
-        },
-        {
-          "name": "renew_operator",
-          "line": 624
-        },
-        {
-          "name": "_renew_foundation",
-          "line": 696
-        },
-        {
-          "name": "operator_request",
-          "line": 772
-        },
-        {
-          "name": "_operator_request",
-          "line": 780
-        },
-        {
-          "name": "_close_native",
-          "line": 847
+          "name": "enable_unified",
+          "line": 268
         },
         {
           "name": "close",
-          "line": 889
+          "line": 304
+        },
+        {
+          "name": "__init__",
+          "line": 350
+        },
+        {
+          "name": "_initialize",
+          "line": 426
+        },
+        {
+          "name": "readiness",
+          "line": 515
+        },
+        {
+          "name": "operator_principal",
+          "line": 519
+        },
+        {
+          "name": "_chat_authority",
+          "line": 534
+        },
+        {
+          "name": "_chat_credit_authority",
+          "line": 554
+        },
+        {
+          "name": "qualify_tls",
+          "line": 576
+        },
+        {
+          "name": "_require_qualified_operator",
+          "line": 623
+        },
+        {
+          "name": "public_settings",
+          "line": 629
+        },
+        {
+          "name": "model_calls",
+          "line": 635
+        },
+        {
+          "name": "operator_auth_status",
+          "line": 641
+        },
+        {
+          "name": "renew_operator",
+          "line": 656
+        },
+        {
+          "name": "_renew_foundation",
+          "line": 728
+        },
+        {
+          "name": "operator_request",
+          "line": 804
+        },
+        {
+          "name": "_operator_request",
+          "line": 812
+        },
+        {
+          "name": "_close_native",
+          "line": 879
+        },
+        {
+          "name": "close",
+          "line": 933
         },
         {
           "name": "fixture",
-          "line": 248
+          "line": 249
         },
         {
           "name": "inspect",
-          "line": 834
+          "line": 866
         },
         {
           "name": "record",
-          "line": 746
+          "line": 778
         },
         {
           "name": "revoke",
-          "line": 826
+          "line": 858
         },
         {
           "name": "record",
-          "line": 671
+          "line": 703
         }
       ],
       "symbolic_callees": [
         "<dynamic>.exists",
         "AdmissionError",
+        "CandidateFile",
+        "CandidatePatch",
         "ChromeReadAdapter",
         "CoreAdmission",
         "CoreDualGovernor",
@@ -15984,6 +16229,7 @@
         "base.is_symlink",
         "base64.b64encode",
         "base64.b64encode().decode",
+        "bind_native_coding",
         "budget_dispatch",
         "callable",
         "canonical_sha256",
@@ -16008,8 +16254,10 @@
         "ec.generate_private_key",
         "failure_boundary",
         "fcntl.flock",
+        "foundation.finish_owner",
         "foundation.lifecycle.drain",
         "frozenset",
+        "getattr",
         "hasattr",
         "hashlib.sha256",
         "hashlib.sha256().digest",
@@ -16072,8 +16320,10 @@
         "self._operator_request",
         "self._renew_foundation",
         "self._require_qualified_operator",
+        "self.broker.close",
         "self.chat_governor.start_epoch",
         "self.close",
+        "self.coding_tasks.close",
         "self.core.close",
         "self.core.local_operator",
         "self.foundation.controller.dispatch",
@@ -16104,6 +16354,7 @@
         "self.root.lstat",
         "self.root.mkdir",
         "self.root.resolve",
+        "self.runner._factory.bind_native_history",
         "self.runner.close",
         "self.runner.run",
         "self.runtime.close",
@@ -16117,6 +16368,7 @@
         "sorted",
         "source_probe",
         "ssl.create_default_context",
+        "startup_observation",
         "stat.S_ISDIR",
         "stat.S_ISREG",
         "state.exists",
@@ -16153,8 +16405,8 @@
         "worker.is_alive",
         "x509.load_der_x509_certificate"
       ],
-      "call_site_count": 508,
-      "call_sites_sha256": "8be6d4937858e83ab268e6fcea869b484fcf8280c37e9c3d5d259b0212806380"
+      "call_site_count": 528,
+      "call_sites_sha256": "a317f9a19211475c381db5cb843ab6ce4b178a15ef04015a5ebdd532495ca18d"
     },
     "runtime/mission/dependency_lock.py": {
       "path": "runtime/mission/dependency_lock.py",
@@ -17975,60 +18227,103 @@
     },
     "runtime/nonzero_cloudops/state/files.py": {
       "path": "runtime/nonzero_cloudops/state/files.py",
-      "git_blob": "28141865f7483ce47bd9cb8f1dde3c620e0cc01c",
-      "sha256": "936743a3dd975b8d15a294d757b1d853af3e33af6c1625035fb91a31c6b23f22",
+      "git_blob": "49671f8fa02633cd2a4db8900ec6d948769c6e85",
+      "sha256": "cba441e4a2da9335efe34aa4f6ed894dcd15f06a5bb1c1732ed9161063e6dfd8",
       "definitions": [
         {
           "name": "StateIntegrityError",
-          "line": 27
+          "line": 28
         },
         {
           "name": "_canonical_bytes",
-          "line": 31
+          "line": 32
         },
         {
           "name": "seal_local_payload",
-          "line": 47
+          "line": 48
         },
         {
           "name": "open_local_payload",
-          "line": 74
+          "line": 75
         },
         {
           "name": "_strict_json",
-          "line": 109
-        },
-        {
-          "name": "validate_local_path",
-          "line": 130
-        },
-        {
-          "name": "read_private_json",
-          "line": 145
-        },
-        {
-          "name": "locked_private_file",
-          "line": 205
-        },
-        {
-          "name": "atomic_write_private_json",
-          "line": 235
-        },
-        {
-          "name": "pairs",
           "line": 110
         },
         {
+          "name": "validate_local_path",
+          "line": 131
+        },
+        {
+          "name": "read_private_json",
+          "line": 146
+        },
+        {
+          "name": "locked_private_file",
+          "line": 206
+        },
+        {
+          "name": "_StagedPrivateJson",
+          "line": 239
+        },
+        {
+          "name": "staged_private_json",
+          "line": 312
+        },
+        {
+          "name": "atomic_write_private_json",
+          "line": 360
+        },
+        {
+          "name": "pairs",
+          "line": 111
+        },
+        {
           "name": "identity",
-          "line": 173
+          "line": 174
+        },
+        {
+          "name": "__init__",
+          "line": 253
+        },
+        {
+          "name": "__copy__",
+          "line": 261
+        },
+        {
+          "name": "__deepcopy__",
+          "line": 264
+        },
+        {
+          "name": "__reduce_ex__",
+          "line": 267
+        },
+        {
+          "name": "_require_live",
+          "line": 270
+        },
+        {
+          "name": "require_ready",
+          "line": 275
+        },
+        {
+          "name": "publish",
+          "line": 287
+        },
+        {
+          "name": "close",
+          "line": 300
         }
       ],
-      "call_site_count": 126,
+      "call_site_count": 161,
       "symbolic_callees": [
         "<dynamic>.throw",
         "Path",
+        "Path().lstat",
         "Path().unlink",
         "StateIntegrityError",
+        "TypeError",
+        "_StagedPrivateJson",
         "_canonical_bytes",
         "_strict_json",
         "all",
@@ -18037,6 +18332,7 @@
         "envelope.get",
         "fcntl.flock",
         "frozenset",
+        "get_ident",
         "handle.fileno",
         "handle.flush",
         "handle.read",
@@ -18050,6 +18346,7 @@
         "json.dumps",
         "json.loads",
         "len",
+        "object",
         "os.close",
         "os.fchmod",
         "os.fdopen",
@@ -18069,7 +18366,12 @@
         "payload_type.strip",
         "raw_bytes.decode",
         "rendered.encode",
+        "self._require_live",
         "set",
+        "staged.close",
+        "staged.publish",
+        "staged.require_ready",
+        "staged_private_json",
         "stat.S_IMODE",
         "stat.S_ISREG",
         "str",
@@ -18079,12 +18381,12 @@
         "type",
         "validate_local_path"
       ],
-      "call_sites_sha256": "fb85aaf8ea35e16db56d3b3ee0e637af26eba07797feebe53aa23c591896a999"
+      "call_sites_sha256": "940ee24cd2e3d44c11631d97ddcc50a6e88f26892c5ff847bbfe56651356836c"
     },
     "runtime/mission/portable_target.py": {
       "path": "runtime/mission/portable_target.py",
-      "git_blob": "1105ee42317c29f2767ca7793fb45c34a42da840",
-      "sha256": "44aa666dc5310747bef60eb3e569c62a6bdf4f7cd7f9e0982f23737b7d06d16e",
+      "git_blob": "2d5d90aecb2cd6d07923eb97ca1105ea30a2f09d",
+      "sha256": "8e91973ffe6d090de14d882db108f3653ee59a2481b7988df5987e5de3bf08f5",
       "definitions": [
         {
           "name": "_inventory",
@@ -18140,23 +18442,23 @@
         },
         {
           "name": "_PortableStartAck",
-          "line": 930
+          "line": 959
         },
         {
           "name": "_PortableWriteAck",
-          "line": 960
+          "line": 989
         },
         {
           "name": "CorePortableWriteRelease",
-          "line": 969
+          "line": 998
         },
         {
           "name": "_PortableGuardCapture",
-          "line": 1066
+          "line": 1243
         },
         {
           "name": "_PortableNoReleaseWitness",
-          "line": 1090
+          "line": 1267
         },
         {
           "name": "__post_init__",
@@ -18272,170 +18574,190 @@
         },
         {
           "name": "_require_config",
-          "line": 531
+          "line": 540
         },
         {
           "name": "require_route_binding",
-          "line": 542
+          "line": 559
         },
         {
           "name": "_read",
-          "line": 554
+          "line": 571
         },
         {
           "name": "_now",
-          "line": 558
+          "line": 587
         },
         {
           "name": "target_guard",
-          "line": 565
+          "line": 594
         },
         {
           "name": "_capture_guard",
-          "line": 580
+          "line": 609
         },
         {
           "name": "probe",
-          "line": 597
+          "line": 626
         },
         {
           "name": "__call__",
-          "line": 611
+          "line": 640
         },
         {
           "name": "_rearm_snapshot",
-          "line": 614
+          "line": 643
         },
         {
           "name": "prepare_rearm",
-          "line": 691
+          "line": 720
         },
         {
           "name": "_domain_projection",
-          "line": 695
+          "line": 724
         },
         {
           "name": "candidate_observation",
-          "line": 716
+          "line": 745
         },
         {
           "name": "_rearm_projection",
-          "line": 756
+          "line": 785
         },
         {
           "name": "_rearm_candidate_observation",
-          "line": 773
+          "line": 802
         },
         {
           "name": "dispatch",
-          "line": 799
+          "line": 828
         },
         {
           "name": "verify",
-          "line": 831
+          "line": 860
         },
         {
           "name": "_verify_rearm",
-          "line": 864
+          "line": 893
         },
         {
           "name": "_verify_no_release",
-          "line": 888
+          "line": 917
         },
         {
           "name": "__init__",
-          "line": 939
+          "line": 968
         },
         {
           "name": "issue_in_transaction",
-          "line": 944
+          "line": 973
         },
         {
           "name": "take",
-          "line": 954
+          "line": 983
         },
         {
           "name": "__init__",
-          "line": 963
+          "line": 992
         },
         {
           "name": "__init__",
-          "line": 975
+          "line": 1004
         },
         {
           "name": "from_live_ack",
-          "line": 995
+          "line": 1026
         },
         {
           "name": "require_live_binding",
-          "line": 999
+          "line": 1030
         },
         {
           "name": "require_store",
-          "line": 1012
+          "line": 1043
         },
         {
           "name": "_cancel_check",
-          "line": 1016
+          "line": 1047
         },
         {
           "name": "authorize_write",
-          "line": 1019
+          "line": 1050
         },
         {
           "name": "consume_write_ack",
-          "line": 1046
+          "line": 1078
+        },
+        {
+          "name": "_consume_write_ack",
+          "line": 1125
+        },
+        {
+          "name": "publish_write_ack",
+          "line": 1138
         },
         {
           "name": "close",
-          "line": 1058
+          "line": 1232
         },
         {
           "name": "__post_init__",
-          "line": 1077
+          "line": 1254
         },
         {
           "name": "require_live",
-          "line": 1081
+          "line": 1258
         },
         {
           "name": "__post_init__",
-          "line": 1095
+          "line": 1272
         },
         {
           "name": "require_live",
-          "line": 1099
+          "line": 1276
         },
         {
           "name": "read",
-          "line": 582
+          "line": 611
         },
         {
           "name": "read",
-          "line": 601
+          "line": 630
         },
         {
           "name": "read",
-          "line": 623
+          "line": 652
         },
         {
           "name": "read",
-          "line": 850
+          "line": 879
         },
         {
           "name": "read",
-          "line": 866
+          "line": 895
         },
         {
           "name": "checked",
-          "line": 898
+          "line": 927
         },
         {
           "name": "release",
-          "line": 1036
+          "line": 1067
+        },
+        {
+          "name": "terminal_state",
+          "line": 1174
+        },
+        {
+          "name": "pure",
+          "line": 578
+        },
+        {
+          "name": "unrevoked_session",
+          "line": 1093
         }
       ],
-      "call_site_count": 689,
+      "call_site_count": 778,
       "symbolic_callees": [
         "<dynamic>.get",
         "Applied",
@@ -18443,6 +18765,8 @@
         "EffectWarrant.from_dict",
         "EvidenceRef",
         "FencedNoReleaseCertificate",
+        "JobClaim",
+        "JobEnvelope.parse",
         "LocalApprovalDecisionRecord.create",
         "LocalApprovalRequestRecord.create",
         "LocalApprovalRequestRecord.model_validate",
@@ -18468,6 +18792,7 @@
         "TargetRearmWriteObservation",
         "TargetSnapshot",
         "TargetWriteObservation",
+        "TaskCompletionBinding.parse",
         "ToolDispatchLimits",
         "TransactionContext",
         "UUID",
@@ -18487,7 +18812,10 @@
         "_rearm_template",
         "_rearm_template().model_dump",
         "_rearm_time",
+        "access.capture",
+        "access.require_capture",
         "ack.take",
+        "acknowledgment.observation.to_dict",
         "adapter._binding.digest",
         "adapter._require_config",
         "all",
@@ -18496,12 +18824,14 @@
         "before_receipts.items",
         "before_resources.pop",
         "callable",
+        "callback",
         "candidate.ack_digest",
         "candidate.readback_digest",
         "candidate.require_ack",
         "candidate.to_dict",
         "canonical_json_bytes",
         "canonical_sha256",
+        "capture.close",
         "capture.require_live",
         "certificate.digest",
         "certificate.readback",
@@ -18515,6 +18845,7 @@
         "dataclass",
         "datetime.fromisoformat",
         "default_mock_resources",
+        "deny",
         "dict",
         "domain.to_dict",
         "domain_input.to_dict",
@@ -18528,6 +18859,7 @@
         "fixed.digest",
         "flight_warrant.digest",
         "flight_warrant.to_dict",
+        "foundation.spec.observe",
         "get_ident",
         "getattr",
         "getpid",
@@ -18541,10 +18873,12 @@
         "isinstance",
         "json.loads",
         "len",
+        "load_job",
         "now.utcoffset",
         "object",
         "object.__setattr__",
         "opaque_id",
+        "open_local_payload",
         "operation.domain_input.to_dict",
         "operation.get",
         "operation.to_dict",
@@ -18572,9 +18906,11 @@
         "self._cancel_check",
         "self._capture_guard",
         "self._clock",
+        "self._consume_write_ack",
         "self._domain_projection",
         "self._guard.get",
         "self._lock_lifetime.require_live",
+        "self._native_capture.close",
         "self._now",
         "self._read",
         "self._rearm_candidate_observation",
@@ -18592,6 +18928,8 @@
         "self.executor.execute",
         "self.executor.get_receipt",
         "self.executor.rearm",
+        "self.native_access.capture",
+        "self.native_access.require_capture",
         "self.operation.to_dict",
         "self.projection._details",
         "self.projection._flight",
@@ -18604,8 +18942,15 @@
         "self.require_live_binding",
         "self.require_store",
         "self.route._check",
+        "self.route._legacy_run",
         "self.route._run",
+        "self.route._session",
+        "self.route.clock",
         "self.route.core.require",
+        "self.route.journal.governor._now",
+        "self.route.journal.ledger._check",
+        "self.route.journal.ledger.require_active_in_transaction",
+        "self.route.target_settlement._flight",
         "self.route.target_settlement.before_release_in_transaction",
         "self.store._core_write_lifetime",
         "self.store._current_guard_entry",
@@ -18616,6 +18961,8 @@
         "self.to_dict",
         "set",
         "sorted",
+        "staged.publish",
+        "staged.require_ready",
         "store._check_target_guard",
         "str",
         "template.model_dump",
@@ -18628,7 +18975,7 @@
         "warrant.digest",
         "warrant.to_dict"
       ],
-      "call_sites_sha256": "6193fd8985b83c079f4356987b8b9cd6d2901dedc0f7b306bd24ff1e043fd364"
+      "call_sites_sha256": "3d4fc63bc972f1983c21ecad11162e5e553884dfe476dc77e603c6f9a3870cc1"
     },
     "runtime/mission/python_test_contracts.py": {
       "path": "runtime/mission/python_test_contracts.py",
@@ -18860,344 +19207,352 @@
     },
     "runtime/meta_hackathon/native_authority.py": {
       "path": "runtime/meta_hackathon/native_authority.py",
-      "git_blob": "b0ccbb4f3cf02ba8ab39db2f11f2f1a538cc0592",
-      "sha256": "8a30b83beb1e8eece4a66a50dcb3ef92c21e36d66687ff4ff4e7843fd336d609",
+      "git_blob": "54c1992c2810b8eb7fd12c8873b91b0a2e9625da",
+      "sha256": "982ca94c30ce39efc490268e3e8ab45865cb02da6430f25e349fc04e8601d4d3",
       "definitions": [
         {
           "name": "deny",
-          "line": 69
+          "line": 71
         },
         {
           "name": "_private_bytes",
-          "line": 74
+          "line": 76
         },
         {
           "name": "_path",
-          "line": 107
+          "line": 109
         },
         {
           "name": "_host_bytes",
-          "line": 115
+          "line": 117
         },
         {
           "name": "_directory_identity",
-          "line": 121
+          "line": 123
         },
         {
           "name": "NativePortableBindingConfig",
-          "line": 136
+          "line": 138
         },
         {
           "name": "NativeHostCompositionConfig",
-          "line": 170
+          "line": 172
         },
         {
           "name": "NativeAccessUse",
-          "line": 312
+          "line": 317
         },
         {
           "name": "CapacityStage",
-          "line": 320
+          "line": 325
         },
         {
           "name": "NativePhase",
-          "line": 326
+          "line": 331
         },
         {
           "name": "_Original",
-          "line": 336
+          "line": 341
         },
         {
           "name": "NativeAuthorityCapture",
-          "line": 358
+          "line": 363
         },
         {
           "name": "NativeCapacityFence",
-          "line": 391
+          "line": 396
         },
         {
           "name": "NativeQuiescenceCapture",
-          "line": 405
+          "line": 410
         },
         {
           "name": "NativeCapacityHostCapture",
-          "line": 409
+          "line": 414
         },
         {
           "name": "_original",
-          "line": 435
+          "line": 440
         },
         {
           "name": "NativeCapacityCoreView",
-          "line": 446
+          "line": 451
         },
         {
           "name": "NativeOwnedWorkHandle",
-          "line": 541
+          "line": 550
         },
         {
           "name": "NativeLifecycle",
-          "line": 561
+          "line": 570
         },
         {
           "name": "NativeCoreAccess",
-          "line": 793
+          "line": 880
         },
         {
           "name": "NativeAuthorityFoundation",
-          "line": 918
+          "line": 1038
         },
         {
           "name": "_Pending",
-          "line": 997
+          "line": 1133
         },
         {
           "name": "NativeCapacityOwnerController",
-          "line": 1004
+          "line": 1140
         },
         {
           "name": "from_dict",
-          "line": 147
+          "line": 149
         },
         {
           "name": "from_dict",
-          "line": 181
+          "line": 183
         },
         {
           "name": "load",
-          "line": 267
+          "line": 269
         },
         {
           "name": "to_dict",
-          "line": 274
+          "line": 276
         },
         {
           "name": "digest",
-          "line": 278
+          "line": 280
         },
         {
           "name": "coding_model_ids",
-          "line": 281
+          "line": 283
         },
         {
           "name": "observe",
-          "line": 295
+          "line": 297
         },
         {
           "name": "__new__",
-          "line": 339
+          "line": 344
         },
         {
           "name": "__setattr__",
-          "line": 342
+          "line": 347
         },
         {
           "name": "__copy__",
-          "line": 345
+          "line": 350
         },
         {
           "name": "__deepcopy__",
-          "line": 348
+          "line": 353
         },
         {
           "name": "__reduce_ex__",
-          "line": 351
+          "line": 356
         },
         {
           "name": "close",
-          "line": 354
+          "line": 359
         },
         {
           "name": "close",
-          "line": 387
+          "line": 392
         },
         {
           "name": "require_live",
-          "line": 425
+          "line": 430
         },
         {
           "name": "close",
-          "line": 428
+          "line": 433
         },
         {
           "name": "to_dict",
-          "line": 449
+          "line": 454
         },
         {
           "name": "digest",
-          "line": 453
+          "line": 458
         },
         {
           "name": "read_in_transaction",
-          "line": 457
+          "line": 462
         },
         {
           "name": "require_idle",
-          "line": 534
+          "line": 543
         },
         {
           "name": "__init__",
-          "line": 562
+          "line": 571
         },
         {
           "name": "phase",
-          "line": 577
+          "line": 586
         },
         {
           "name": "_snapshot",
-          "line": 580
+          "line": 589
+        },
+        {
+          "name": "_expected_roles",
+          "line": 592
         },
         {
           "name": "bind_producers",
-          "line": 583
+          "line": 603
         },
         {
           "name": "_coverage",
-          "line": 594
+          "line": 615
         },
         {
           "name": "operator_call",
-          "line": 611
+          "line": 638
         },
         {
           "name": "require_ingress",
-          "line": 622
+          "line": 649
         },
         {
           "name": "require_execution",
-          "line": 633
-        },
-        {
-          "name": "begin_work",
-          "line": 637
-        },
-        {
-          "name": "before_start",
-          "line": 648
-        },
-        {
-          "name": "quarantine",
-          "line": 655
-        },
-        {
-          "name": "begin_synchronous",
           "line": 660
         },
         {
+          "name": "begin_work",
+          "line": 664
+        },
+        {
+          "name": "before_start",
+          "line": 675
+        },
+        {
+          "name": "quarantine",
+          "line": 682
+        },
+        {
+          "name": "begin_synchronous",
+          "line": 689
+        },
+        {
           "name": "complete_synchronous",
-          "line": 674
+          "line": 722
         },
         {
           "name": "retire_work",
-          "line": 684
+          "line": 747
         },
         {
           "name": "invalidate_admission",
-          "line": 703
+          "line": 779
         },
         {
           "name": "begin_capacity_review",
-          "line": 713
+          "line": 789
         },
         {
           "name": "require_fence",
-          "line": 727
+          "line": 807
         },
         {
           "name": "capture_quiescence",
-          "line": 739
+          "line": 819
         },
         {
           "name": "abort",
-          "line": 762
+          "line": 842
         },
         {
           "name": "drain",
-          "line": 768
+          "line": 849
         },
         {
           "name": "__init__",
-          "line": 794
+          "line": 881
         },
         {
           "name": "_register",
-          "line": 798
+          "line": 885
         },
         {
           "name": "_require_original",
-          "line": 803
+          "line": 890
         },
         {
           "name": "_close",
-          "line": 814
+          "line": 901
         },
         {
           "name": "native_row",
-          "line": 822
+          "line": 909
         },
         {
           "name": "capture",
-          "line": 836
+          "line": 923
         },
         {
           "name": "require_capture",
-          "line": 875
+          "line": 987
         },
         {
           "name": "bind_owner",
-          "line": 920
+          "line": 1040
+        },
+        {
+          "name": "finish_owner",
+          "line": 1072
         },
         {
           "name": "require_bindings",
-          "line": 951
+          "line": 1079
         },
         {
           "name": "__init__",
-          "line": 1005
+          "line": 1141
         },
         {
           "name": "capture_host",
-          "line": 1009
+          "line": 1145
         },
         {
           "name": "require_host",
-          "line": 1042
+          "line": 1178
         },
         {
           "name": "require_core_view",
-          "line": 1073
+          "line": 1209
         },
         {
           "name": "_readback",
-          "line": 1077
+          "line": 1213
         },
         {
           "name": "_call",
-          "line": 1090
+          "line": 1226
         },
         {
           "name": "dispatch",
-          "line": 1100
+          "line": 1236
         },
         {
           "name": "_initialize",
-          "line": 1193
+          "line": 1333
         },
         {
           "name": "identity",
-          "line": 94
+          "line": 96
         },
         {
           "name": "read",
-          "line": 745
+          "line": 825
         },
         {
           "name": "read",
-          "line": 1081
+          "line": 1217
         },
         {
           "name": "approve",
-          "line": 1165
+          "line": 1301
         }
       ],
       "symbolic_callees": [
@@ -19206,6 +19561,8 @@
         "AdmissionError",
         "CAPACITY_FIELDS.get",
         "CodingBackendRegistry",
+        "CoreCodingTasks._native_git_reconciliation_parent",
+        "CoreCodingTasks._native_git_reconciliation_retirement",
         "CoreDualGovernor",
         "CoreIntentJournal",
         "CoreLiabilityLedger",
@@ -19264,12 +19621,15 @@
         "codec.quiescence",
         "codec.strict_json",
         "codec.utc",
+        "coding_live.append",
         "current.require_idle",
         "dataclass",
         "datetime.fromtimestamp",
         "datetime.now",
+        "decode_coding_task_row",
         "deny",
         "enumerate",
+        "expected.items",
         "f.access._require_original",
         "f.access.capture",
         "f.access.require_capture",
@@ -19304,12 +19664,18 @@
         "hasattr",
         "hashlib.sha256",
         "hashlib.sha256().hexdigest",
+        "historical.get",
         "host.close",
         "host.require_live",
         "host.review.to_dict",
         "id",
         "identity",
         "isinstance",
+        "item.done.is_set",
+        "item.get",
+        "item[data].is_alive",
+        "item[data].is_set",
+        "job.get",
         "job_tasks.add",
         "json.dumps",
         "json.dumps().encode",
@@ -19319,6 +19685,7 @@
         "lifecycle._calls.add",
         "lifecycle._calls.remove",
         "lifecycle._handles.get",
+        "lifecycle._roles.get",
         "lifecycle._snapshot",
         "lifecycle.capture_quiescence",
         "lifecycle.require_fence",
@@ -19339,12 +19706,14 @@
         "os.read",
         "os.stat",
         "other.is_relative_to",
+        "owner._native_coding.jobs.values",
         "owner._require_qualified_operator",
         "owner.core.local_operator",
         "owner.missions._cancels.get",
         "owner.missions._workers.items",
         "owner.root.is_relative_to",
         "owner.runner.run",
+        "parent.done.is_set",
         "path.is_absolute",
         "pending.review.to_dict",
         "pending.warrant.digest",
@@ -19357,7 +19726,9 @@
         "readback.to_dict",
         "receipt.to_dict",
         "recipe.manifest_bytes",
+        "require_native_graph",
         "review.to_dict",
+        "roles.update",
         "root.is_relative_to",
         "row.payload.get",
         "row.verify",
@@ -19368,6 +19739,7 @@
         "self._calls.add",
         "self._calls.remove",
         "self._coverage",
+        "self._expected_roles",
         "self._handles.get",
         "self._handles.values",
         "self._initialize",
@@ -19382,6 +19754,8 @@
         "self.controller.require_host",
         "self.foundation.access._require_original",
         "self.foundation.access.require_capture",
+        "self.foundation.owner.coding_tasks._retire_finished",
+        "self.foundation.owner.coding_tasks.drain",
         "self.foundation.owner.missions._retire_native_workers",
         "self.foundation.owner.missions._workers.values",
         "self.foundation.runner.run",
@@ -19396,6 +19770,7 @@
         "self.source_snapshot.verify_export",
         "self.spec.coding_model_ids",
         "self.to_dict",
+        "service._active.get",
         "service._cancels.get",
         "service._native_retirement_observation",
         "service._workers.get",
@@ -19433,8 +19808,8 @@
         "warrants.get",
         "worker.is_alive"
       ],
-      "call_site_count": 696,
-      "call_sites_sha256": "18daf031bb8d8727c87ee9ce5865b830f9f1ea173656352a764e54aadc395aff"
+      "call_site_count": 776,
+      "call_sites_sha256": "d0602c8d822d93686270bb07130007e7035804d6b81209c033bb1a82d7126328"
     },
     "runtime/mission/execution_capacity.py": {
       "path": "runtime/mission/execution_capacity.py",
@@ -19885,6 +20260,6 @@
     "DUPLICATE_VERIFIED": 16,
     "EXCLUDED_UNSAFE": 2
   },
-  "current_target_binding_note": "NZ13 explicit local REARM current blob/AST identities only: closed policy5 uses the same Core write port, durable executor ACK and independent full readback. Focused 98-case Core/SQLite/guard/ACK controls passed sequentially on Python3.12 and3.11 on working map fabb74f9dd88c81610bb769abad533798aaca5b8d249708bf487377ac61bc979. These current identities do not qualify product physical INIT, policy5 STARTED no-release, source-hidden installed artifacts, Native, model/provider inference or full69 parity. Historical69 assessments/source/MIT remain unchanged; final exact-SHA qualification and owner publication gates are separate. G08 Task2 refreshes only runtime_adapter current blob/AST identity after extending the existing source fence with the recomputed finite F11 physical/Core closure. File equality, focused tests and this metadata do not activate Native/Portable factories or qualify full/product/installed/model gates; historical69 assessments, original source SHA and MIT attribution remain unchanged. Native coding admission Task1 refreshes only the two existing Native modules current blob/AST identities: explicit closed host configV2 retains a same-composition registry and derives model eligibility at the original Core constructor. V1 and the chat/host exclusion remain; eligibility supplies no selection, approval, spending, model call or LIVE certification. Shared S2, S3-S5, physical Native and final Master qualification remain separate. All69 historical source/blob/MIT assessments and source_modules are unchanged.",
+  "current_target_binding_note": "NZ13 explicit local REARM current blob/AST identities only: closed policy5 uses the same Core write port, durable executor ACK and independent full readback. Focused 98-case Core/SQLite/guard/ACK controls passed sequentially on Python3.12 and3.11 on working map fabb74f9dd88c81610bb769abad533798aaca5b8d249708bf487377ac61bc979. These current identities do not qualify product physical INIT, policy5 STARTED no-release, source-hidden installed artifacts, Native, model/provider inference or full69 parity. Historical69 assessments/source/MIT remain unchanged; final exact-SHA qualification and owner publication gates are separate. G08 Task2 refreshes only runtime_adapter current blob/AST identity after extending the existing source fence with the recomputed finite F11 physical/Core closure. File equality, focused tests and this metadata do not activate Native/Portable factories or qualify full/product/installed/model gates; historical69 assessments, original source SHA and MIT attribution remain unchanged. Native coding admission Task1 refreshes only the two existing Native modules current blob/AST identities: explicit closed host configV2 retains a same-composition registry and derives model eligibility at the original Core constructor. V1 and the chat/host exclusion remain; eligibility supplies no selection, approval, spending, model call or LIVE certification. Shared S2, S3-S5, physical Native and final Master qualification remain separate. All69 historical source/blob/MIT assessments and source_modules are unchanged. Integrated B704 and bounded mobile denial correction: updated exact target blobs and static call sites. Behavioral scope retains each recorded evidence boundary.",
   "nz12_binding_before_nz13_sha256": "cfca6195089170934076cd15ac80a5b26786e947338b089dd75926d545b971b2"
 }
