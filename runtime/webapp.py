@@ -61,7 +61,10 @@ class WebRuntimeService:
                  personal_ai=None, personal_ai_catalog=None,
                  personal_ai_cost_quote=None, native_console=None,
                  meta_missions=None, meta_owner=None, mobile_gateway=None,
-                 coding_principals=None) -> None:
+                 coding_principals=None, native_access=None) -> None:
+        if native_access is not None and (runtime is None or coding_principals is not None):
+            raise ValueError('CODING_NATIVE_WEB_BINDING')
+        self.native_access = native_access
         self.runtime = runtime or create_runtime(cpl_fixture=cpl_fixture, cpl_cost_policy=cpl_cost_policy)
         self._coding_principals=None
         if coding_principals is not None:
@@ -95,6 +98,18 @@ class WebRuntimeService:
                 raise ValueError('CODING_SAME_CORE_REQUIRED')
         self.mobile_gateway = mobile_gateway
         self.mobile_only=mobile_gateway is not None and mobile_gateway.native_host is not None
+        if native_access is not None:
+            from runtime.meta_hackathon.native_authority import NativeCoreAccess
+            if (type(native_access) is not NativeCoreAccess or not self.mobile_only
+                    or native_access.foundation.owner is not meta_owner or native_access.foundation.access is not native_access
+                    or native_access.foundation.runtime is not self.runtime or meta_owner.mobile is not mobile_gateway
+                    or meta_owner.foundation is not native_access.foundation):
+                raise ValueError('CODING_NATIVE_WEB_BINDING')
+            tasks = getattr(self.runtime, '_coding_tasks', None)
+            if tasks is not None and (tasks is not getattr(meta_owner, 'coding_tasks', None)
+                    or tasks.native_access is not native_access or tasks.journal is not native_access.foundation.intent_journal):
+                raise ValueError('CODING_NATIVE_WEB_BINDING')
+        self.native_coding = native_access is not None and getattr(self.runtime, '_coding_tasks', None) is not None
         self.unified_profile = meta_missions is not None and hasattr(meta_missions, 'agent_route')
         self.core_mcp = None
         if self.unified_profile:
@@ -223,11 +238,31 @@ class WebRuntimeService:
         purpose={'read_status':'READ','get_receipts':'READ','review_effect':'READ','runtime_status':'READ',
             'create_task':'MANAGE','start':'MANAGE','cancel':'MANAGE','stop':'MANAGE','recover':'MANAGE',
             'approve':'OWNER_APPROVAL','deny':'OWNER_APPROVAL','apply':'COMMIT','reconcile':'COMMIT'}.get(action)
-        if self._coding_principals is None or purpose is None:
+        if (self._coding_principals is None and not self.native_coding) or purpose is None:
             raise ValueError('CODING_WEB_BINDING_REQUIRED')
         if purpose!='READ' and intent!='coding-'+action+'-v1':
             raise ValueError('CODING_EXACT_INTENT_REQUIRED')
-        return self.runtime.coding_request(action,payload,principal=self._coding_principals[purpose])
+        if self.native_access is None:
+            return self.runtime.coding_request(action,payload,principal=self._coding_principals[purpose])
+        from runtime.core_admission import Capability
+        from runtime.meta_hackathon.native_authority import NativeAccessUse
+        if self._mobile_console_uid != self.meta_owner.uid:
+            raise ValueError('CODING_NATIVE_OPERATOR_REQUIRED')
+        capability = getattr(Capability, purpose)
+        # Reconcile qualifies this exact local caller by READ; only the
+        # controller's registered historical child may obtain SETTLEMENT COMMIT.
+        reader = Capability.READ if action == 'reconcile' else capability
+        capture = self.native_access.capture(reader,
+            use=(NativeAccessUse.CONTROL if action == 'recover' else
+                 NativeAccessUse.READ if reader is Capability.READ else NativeAccessUse.EXECUTION))
+        try:
+            self.native_access.require_capture(capture, reader)
+            value = self.runtime.coding_request(action, payload,
+                principal=None if action == 'reconcile' else capture.principal)
+            self.native_access.require_capture(capture, reader)
+            return value
+        finally:
+            capture.close()
 
     def agent_request(self, action, payload=None, *, intent=None):
         from runtime.meta_hackathon.web_agent import request
@@ -354,6 +389,15 @@ def get_service() -> WebRuntimeService:
     return _SERVICE
 
 
+def _native_coding_route(method, path):
+    import re
+    if method == 'GET':
+        return (path in ('/coding', '/api/agent/coding/runtime')
+                or re.fullmatch(r'/api/agent/coding/(?:tasks|receipts|review)/[A-Za-z0-9][A-Za-z0-9._-]{0,127}', path) is not None)
+    return method == 'POST' and path in frozenset('/api/agent/coding/' + action for action in (
+        'create_task','start','cancel','stop','recover','approve','deny','apply','reconcile'))
+
+
 class AOIAWebHandler(SimpleHTTPRequestHandler):
     """Serve one static AOIA-Core UI and its bounded local APIs."""
 
@@ -364,7 +408,7 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
         super().__init__(*args, directory=str(WEB_DIR), **kwargs)
 
     def _service(self) -> WebRuntimeService:
-        return self.runtime_service or get_service()
+        return self.runtime_service if self.runtime_service is not None else get_service()
 
     def handle(self):
         if getattr(self.runtime_service,'mobile_only',False):
@@ -380,11 +424,14 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
         if getattr(self.runtime_service,'mobile_only',False):
             route=(self.path.startswith(('/api/mobile/v1/','/api/mobile/v2/')) or
                 (self.command=='GET' and self.path=='/api/native-operator/session') or
+                (getattr(self.runtime_service,'native_access',None) is not None and self.command=='GET'
+                 and self.path=='/api/native-operator/readiness') or
+                (getattr(self.runtime_service,'native_coding',False) and _native_coding_route(self.command,self.path)) or
                 (self.command=='POST' and self.path in {'/api/native-operator','/devices'}) or
                 (self.command=='GET' and self.path in MOBILE_CONSOLE_ASSETS))
             if (self.command not in {'GET','POST'} or len(self.path)>2048 or
                     not route or any(c in self.path for c in ('?','#','%','\\'))):
-                self.send_error(404);return False
+                self._write_json(403,{'ok':False,'error':'NATIVE_ROUTE_DENIED','automatic_retry':False});return False
         return True
 
     def end_headers(self) -> None:
@@ -408,16 +455,30 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
         parsed = urlparse(self.path)
         if not self._check_local_request():
             return
+        if parsed.path=='/api/native-operator/readiness' and self._service().native_access is not None:
+            if not self._check_native_coding_auth('GET'):return
+            from runtime.core_admission import Capability
+            from runtime.meta_hackathon.native_authority import NativeAccessUse
+            capture = None
+            try:
+                capture = self._service().native_access.capture(Capability.READ, use=NativeAccessUse.READ)
+                self._write_json(200,self._service().meta_owner.readiness(capture))
+            except (ValueError, RepairBoundaryError):
+                self._write_json(403,{'ok':False,'error':'LOCAL_OPERATOR_REQUIRED','automatic_retry':False})
+            finally:
+                if capture is not None:capture.close()
+            return
         if parsed.path=='/api/native-operator/session' and self._service().mobile_only:
             if not self._check_console_cookie():return
             try:
                 with failure_boundary('HTTP_CALLBACK_FAILED'):
-                    self._service().meta_owner.operator_principal()
+                    self._service().meta_owner._require_qualified_operator()
+                    if self._service()._mobile_console_uid != self._service().meta_owner.uid:raise ValueError('LOCAL_OPERATOR_REQUIRED')
                     self._write_json(200,{'ok':True,'csrf_token':self._service().csrf_token,
-                        'profile':self._service().meta_owner.profile})
+                        'profile':self._service().meta_owner.profile,'coding_profile':self._service().native_coding})
             except (ValueError, RepairBoundaryError):self._write_json(403,{'ok':False,'error':'LOCAL_OPERATOR_REQUIRED'})
             return
-        if parsed.path=='/devices':
+        if parsed.path=='/devices' or parsed.path=='/coding' and self._service().native_coding:
             self.path='/index.html'
             super().do_GET()
             return
@@ -425,6 +486,7 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
             self._handle_mobile('GET')
             return
         if parsed.path.startswith('/api/agent/'):
+            if self._service().mobile_only and not self._check_native_coding_auth('GET'):return
             if self._check_token(): self._handle_agent('GET', parsed, None)
             return
         if parsed.path.startswith('/api/meta/'):
@@ -571,6 +633,7 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
             self._handle_mobile('POST')
             return
         if parsed.path.startswith('/api/agent/'):
+            if self._service().mobile_only and not self._check_native_coding_auth('POST'):return
             if not self._check_token(): return
             intents={'/api/agent/propose':'agent-propose-v2','/api/agent/git-preview':'agent-propose-v2',
                 '/api/agent/install-preview':'agent-propose-v2','/api/agent/run':'agent-approve-offline-exact-v2',
@@ -849,7 +912,7 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
             error = boundary_cause(error)
             code=str(error)
             if not re.fullmatch(r'(?:AGENT|MCP|LOCAL|CORE|CODING)_[A-Z0-9_]{1,72}',code):code='AGENT_REQUEST_DENIED'
-            self._write_json(HTTPStatus.BAD_REQUEST,{'ok':False,'error':code,'automatic_retry':False})
+            self._write_json(HTTPStatus.FORBIDDEN if self._service().mobile_only else HTTPStatus.BAD_REQUEST,{'ok':False,'error':code,'automatic_retry':False})
 
     def _handle_meta(self, method, parsed, payload):
         from runtime.meta_hackathon.mission_service import MissionError
@@ -1020,7 +1083,7 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
             and self.headers.get_all('Sec-Fetch-Dest',[])==['empty'])
         valid_origin=valid_origin or console_delivery
         # Public document navigation grants no owner token or authority.
-        console_navigation = (self.command == 'GET' and self.path == '/devices'
+        console_navigation = (self.command == 'GET' and self.path in ('/devices','/coding')
             and self.headers.get_all('Sec-Fetch-Mode', []) == ['navigate']
             and self.headers.get_all('Sec-Fetch-Dest', []) == ['document'])
         if (len(hosts) != 1 or hosts[0].lower() not in allowed_hosts or not valid_origin
@@ -1029,6 +1092,34 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
             self._write_json(HTTPStatus.FORBIDDEN, {'ok': False, 'error': 'local_origin_required'})
             return False
         return True
+
+    def _check_native_coding_auth(self, method):
+        service = self._service()
+        try:
+            if (not service.mobile_only or service.native_access is None
+                    or service._mobile_console_uid != service.meta_owner.uid):
+                raise ValueError('LOCAL_OPERATOR_REQUIRED')
+            if not self._check_console_cookie() or not self._check_token():return False
+            if self.headers.get_all('Sec-Fetch-Site',[]) not in ([], ['same-origin']):
+                raise ValueError('LOCAL_OPERATOR_REQUIRED')
+            origins = self.headers.get_all('Origin',[])
+            if origins not in ([], [service.meta_owner.origin]):raise ValueError('LOCAL_OPERATOR_REQUIRED')
+            if any(self.headers.get_all(name,[]) for name in ('Transfer-Encoding','Forwarded','X-Forwarded-For',
+                    'X-Forwarded-Host','X-Forwarded-Proto','Expect')):
+                raise ValueError('LOCAL_OPERATOR_REQUIRED')
+            if method == 'POST':
+                lengths = self.headers.get_all('Content-Length',[])
+                if (origins != [service.meta_owner.origin] or self.headers.get_all('Content-Type',[]) != ['application/json']
+                        or len(lengths) != 1 or not lengths[0].isascii() or not lengths[0].isdecimal()
+                        or not 0 < int(lengths[0]) <= MAX_REQUEST_BYTES):
+                    raise ValueError('LOCAL_OPERATOR_REQUIRED')
+            elif self.headers.get_all('Content-Length',[]) not in ([], ['0']):
+                raise ValueError('LOCAL_OPERATOR_REQUIRED')
+            service.meta_owner._require_qualified_operator()
+            return True
+        except (ValueError, RepairBoundaryError):
+            self._write_json(403,{'ok':False,'error':'LOCAL_OPERATOR_REQUIRED','automatic_retry':False})
+            return False
 
     def _check_console_cookie(self):
         from http.cookies import SimpleCookie
@@ -1063,19 +1154,22 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
         return
 
     def _read_json_body(self) -> dict | None:
+        def write_json(status, payload):
+            native = self._service().mobile_only and self.path.startswith('/api/agent/coding/')
+            return self._write_json(HTTPStatus.FORBIDDEN if native else status, payload)
         if self.headers.get('Transfer-Encoding') or len(self.headers.get_all('Content-Length', [])) != 1:
-            self._write_json(HTTPStatus.BAD_REQUEST, {'ok': False, 'error': 'invalid_body_framing'})
+            write_json(HTTPStatus.BAD_REQUEST, {'ok': False, 'error': 'invalid_body_framing'})
             return None
         try:
             length = int(self.headers.get("Content-Length", "0") or 0)
         except ValueError:
-            self._write_json(
+            write_json(
                 HTTPStatus.BAD_REQUEST,
                 {"ok": False, "error": "invalid_content_length"},
             )
             return None
         if length <= 0 or length > MAX_REQUEST_BYTES:
-            self._write_json(
+            write_json(
                 HTTPStatus.REQUEST_ENTITY_TOO_LARGE,
                 {"ok": False, "error": "request_size_out_of_bounds"},
             )
@@ -1084,22 +1178,22 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
         try:
             raw_body = self.rfile.read(length)
         except (TimeoutError, OSError):
-            self._write_json(HTTPStatus.REQUEST_TIMEOUT, {'ok': False, 'error': 'request_body_timeout'})
+            write_json(HTTPStatus.REQUEST_TIMEOUT, {'ok': False, 'error': 'request_body_timeout'})
             return None
         if len(raw_body) != length:
-            self._write_json(HTTPStatus.BAD_REQUEST, {'ok': False, 'error': 'incomplete_request_body'})
+            write_json(HTTPStatus.BAD_REQUEST, {'ok': False, 'error': 'incomplete_request_body'})
             return None
         try:
             payload = json.loads(raw_body.decode("utf-8"), object_pairs_hook=_unique_object,
                                  parse_constant=lambda _value: (_ for _ in ()).throw(ValueError()))
         except (UnicodeDecodeError, ValueError, RecursionError):
-            self._write_json(
+            write_json(
                 HTTPStatus.BAD_REQUEST,
                 {"ok": False, "error": "invalid_json_body"},
             )
             return None
         if not isinstance(payload, dict):
-            self._write_json(
+            write_json(
                 HTTPStatus.BAD_REQUEST,
                 {"ok": False, "error": "request_body_must_be_an_object"},
             )
@@ -1241,6 +1335,7 @@ def make_server(
             context.load_cert_chain(tls_certificate,tls_key)
             server.socket=context.wrap_socket(server.socket,server_side=True,do_handshake_on_connect=False)
         except BaseException:server.server_close();raise
+        service.meta_owner._native_listener_observation={'address':server.server_address[0],'port':server.server_address[1],'tls':'TLSv1.3'}
     elif tls_certificate is not None or tls_key is not None:
         server.server_close();raise ValueError('MOBILE_NATIVE_TLS_BINDING_REQUIRED')
     return server
@@ -1363,7 +1458,8 @@ def main() -> None:
             host_spec=NativeHostCompositionConfig.load(args.native_host_composition) if args.native_host_composition else None
             owner=NativeMobileComposition(args.state_dir,origin=args.mobile_origin,chat=args.mobile_chat,existing_profile=args.mobile_existing_profile,
                                           host_composition=host_spec)
-            service=WebRuntimeService(runtime=owner.runtime,meta_missions=owner.missions,meta_owner=owner,mobile_gateway=owner.mobile)
+            service=WebRuntimeService(runtime=owner.runtime,meta_missions=owner.missions,meta_owner=owner,mobile_gateway=owner.mobile,
+                native_access=owner.foundation.access if host_spec is not None else None)
             server=make_server(args.host,args.port,service,tls_certificate=Path(args.mobile_tls_certificate),tls_key=Path(args.mobile_tls_key),reserved_server=server)
             worker=threading.Thread(target=server.serve_forever,daemon=True);worker.start();http_started=True
             owner.qualify_tls(server.server_address[1])

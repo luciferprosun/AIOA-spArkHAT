@@ -513,11 +513,20 @@ class CorePortableTarget:
     Core. A fresh COMMIT acknowledgment from CoreToolRoute is separately needed
     for one synchronous attempt. Existing files must already be adopted.
     """
-    def __init__(self, projection, store, *, executor, read_principal, clock):
+    def __init__(self, projection, store, *, executor, clock, read_principal=None, native_access=None):
         require(type(projection) is CoreTargetProjection and type(store) is PortableStateStore
                 and type(executor) is PortableExecutor and executor._state is store
                 and callable(clock), 'PORTABLE_CORE_ADAPTER_BINDING')
-        projection.core.require(read_principal, Capability.READ, scope=projection.scope)
+        require((read_principal is None) != (native_access is None), 'PORTABLE_NATIVE_READ_BINDING')
+        self.native_access = native_access
+        if native_access is None:
+            projection.core.require(read_principal, Capability.READ, scope=projection.scope)
+        else:
+            from runtime.meta_hackathon.native_authority import NativeCoreAccess
+            require(type(native_access) is NativeCoreAccess and native_access.foundation.target_projection is projection
+                    and native_access.foundation.intent_journal is projection.journal
+                    and native_access.foundation.liability is projection.liability,
+                    'PORTABLE_NATIVE_READ_BINDING')
         layout = store._managed_layout
         require(type(layout) is tuple and len(layout) == 3
                 and layout[1:] == (canonical_sha256(projection.scope), projection.registration_key),
@@ -537,7 +546,15 @@ class CorePortableTarget:
                 and self.store._managed_layout == self._layout
                 and self._layout[1:] == (canonical_sha256(self.projection.scope), self.projection.registration_key),
                 'PORTABLE_CORE_ADAPTER_BINDING')
-        self.projection.core.require(self._read_principal, Capability.READ, scope=self.projection.scope)
+        if self.native_access is None:
+            self.projection.core.require(self._read_principal, Capability.READ, scope=self.projection.scope)
+        else:
+            from runtime.meta_hackathon.native_authority import NativeCoreAccess
+            require(type(self.native_access) is NativeCoreAccess
+                    and self.native_access.foundation.target_projection is self.projection
+                    and self.native_access.foundation.intent_journal is self.projection.journal
+                    and self.native_access.foundation.liability is self.projection.liability,
+                    'PORTABLE_NATIVE_READ_BINDING')
 
     def require_route_binding(self, route):
         self._require_config()
@@ -553,7 +570,19 @@ class CorePortableTarget:
 
     def _read(self, callback):
         self._require_config()
-        return self.projection.runner.run(TransactionContext(self._read_principal, Capability.READ), callback)
+        if self.native_access is None:
+            return self.projection.runner.run(TransactionContext(self._read_principal, Capability.READ), callback)
+        from runtime.meta_hackathon.native_authority import NativeAccessUse
+        capture = self.native_access.capture(Capability.READ, use=NativeAccessUse.READ)
+        try:
+            def pure(tx):
+                self.native_access.require_capture(capture, Capability.READ, tx=tx)
+                value = callback(tx)
+                self.native_access.require_capture(capture, Capability.READ, tx=tx)
+                return value
+            return self.projection.runner.run(TransactionContext(capture.principal, Capability.READ), pure)
+        finally:
+            capture.close()
 
     def _now(self):
         now = self._clock()
@@ -989,6 +1018,8 @@ class CorePortableWriteRelease:
         self._guard = getattr(self.adapter.store._held_lock, 'target_binding', None)
         self._active, self._attempted, self._consumed = True, False, False
         self._write_observation = None
+        self._write_ack = self._native_capture = None
+        self._publication_attempted = False
         self.require_store(self.adapter.store)
 
     @classmethod
@@ -1034,6 +1065,7 @@ class CorePortableWriteRelease:
             DecisionDependencyRoot((self.adapter._binding.evidence(),)))
         operation = self.operation.to_dict()
         def release(tx):
+            self._cancel_check()
             grant, _context, _graph, _trace = self.route._check(tx, self.session_id, self.warrant,
                                                               operation, self.completion, snapshot)
             require(ToolDispatchLimits(grant.deadline_seconds, grant.output_bytes, grant.egress) == self.limits,
@@ -1044,6 +1076,53 @@ class CorePortableWriteRelease:
         return self.route._run(self.principal, Capability.COMMIT, release)
 
     def consume_write_ack(self, acknowledgment, store, before, candidate):
+        access = self.adapter.native_access
+        if access is None:
+            return self._consume_write_ack(acknowledgment, store, before, candidate)
+        from runtime.meta_hackathon.native_authority import NativeAccessUse, deny
+        from runtime.mission.completion import TaskCompletionBinding
+        from runtime.mission.job_contracts import JobClaim, JobEnvelope
+        from runtime.mission.jobs import load_job
+        self.require_store(store)
+        capture = access.capture(Capability.COMMIT, use=NativeAccessUse.EXECUTION)
+        try:
+            access.require_capture(capture, Capability.COMMIT)
+            self._cancel_check()
+            foundation = access.foundation
+            deny(foundation.spec.observe(foundation.owner) == foundation.root_observations)
+            def unrevoked_session(tx):
+                access.require_capture(capture, Capability.COMMIT, tx=tx)
+                _, session, _ = self.route._session(tx, self.session_id, active=False)
+                require(session['revoked'] is False, 'SESSION_INACTIVE')
+                governor = self.route.journal.governor
+                job = load_job(governor, tx, self.completion.task_id)
+                require(job is not None and 'completion_binding' in job
+                        and TaskCompletionBinding.parse(job['completion_binding']) == self.completion,
+                        'REQUIRED_TASK_BINDING_REQUIRED')
+                state = governor._load(tx)
+                now = governor._now()
+                governor._clock(state, now)
+                require(job['state'] == 'STARTED' and now >= job['last_now'],
+                        'REQUIRED_TASK_INACTIVE')
+                envelope = JobEnvelope.parse(job['envelope'])
+                claim = JobClaim(**job['claim'])
+                # The ACK binds the admitted claim epoch across a later governor epoch transition.
+                require(claim.task_id == self.completion.task_id == self.warrant.task_id
+                        and claim.envelope_digest == envelope.envelope_digest
+                        and claim.governor_epoch == self.warrant.lease_epoch
+                        and now < claim.lease_until and now < envelope.deadline_at,
+                        'REQUIRED_TASK_INACTIVE')
+                access.require_capture(capture, Capability.COMMIT, tx=tx)
+            self.route._legacy_run(capture.principal, Capability.COMMIT, unrevoked_session)
+            value = self._consume_write_ack(acknowledgment, store, before, candidate)
+            access.require_capture(capture, Capability.COMMIT)
+            self._native_capture = capture
+            return value
+        finally:
+            if self._native_capture is not capture:
+                capture.close()
+
+    def _consume_write_ack(self, acknowledgment, store, before, candidate):
         self.require_store(store)
         self._cancel_check()
         require(self._attempted and not self._consumed and type(acknowledgment) is _PortableWriteAck
@@ -1054,9 +1133,107 @@ class CorePortableWriteRelease:
         acknowledgment.consumed = True
         self._consumed = True
         self._write_observation = acknowledgment.observation
+        self._write_ack = acknowledgment
+
+    def publish_write_ack(self, acknowledgment, store, before, candidate, staged):
+        """Recheck the same admitted attempt after blocking staging, then publish once.
+
+        Core callbacks remain DB-only. Neither this check nor os.replace supplies
+        a kernel-enforced physical TTL; that Native qualification remains closed.
+        """
+        from nonzero_cloudops.state.files import _StagedPrivateJson, open_local_payload
+
+        from runtime.mission.completion import TaskCompletionBinding
+        from runtime.mission.job_contracts import JobClaim, JobEnvelope
+        from runtime.mission.jobs import load_job
+
+        self.require_store(store)
+        self._cancel_check()
+        require(self._consumed and not self._publication_attempted
+                and type(acknowledgment) is _PortableWriteAck
+                and acknowledgment is self._write_ack and acknowledgment.release is self
+                and acknowledgment.consumed and acknowledgment.observation is self._write_observation
+                and type(before) is PortableInventoryObservation
+                and acknowledgment.observation.before_root == before.state_root
+                and acknowledgment.observation.after_root == hashlib.sha256(candidate).hexdigest()
+                and getattr(store._held_lock, 'write_release', None) is self
+                and type(staged) is _StagedPrivateJson, 'PORTABLE_TERMINAL_WRITE_BINDING')
+        self._publication_attempted = True
+        staged.require_ready(store._path)
+        payload, _digest = open_local_payload(json.loads(staged.canonical_value),
+                                             payload_type='AIOA_SANDBOX_INVENTORY')
+        require(_canonical_inventory_bytes(payload) == candidate, 'PORTABLE_STAGED_CANDIDATE_BINDING')
+        access, capture = self.adapter.native_access, self._native_capture
+        if access is not None:
+            from runtime.meta_hackathon.native_authority import deny
+            access.require_capture(capture, Capability.COMMIT)
+            foundation = access.foundation
+            # Source/filesystem observation remains outside every retriable callback.
+            deny(foundation.spec.observe(foundation.owner) == foundation.root_observations)
+
+        def terminal_state(tx):
+            self.require_live_binding(store)
+            self._cancel_check()
+            if access is not None:
+                access.require_capture(capture, Capability.COMMIT, tx=tx)
+            _, session, grant = self.route._session(tx, self.session_id, active=False)
+            require(session['revoked'] is False
+                    and session['owner_session_id'] == tx.context.principal.actor_session_id
+                    and session['assignment_revision'] == tx.context.principal.assignment_revision
+                    and grant.policy_revision == self.route.policy_revision
+                    and grant.issued_at <= self.route.clock() < grant.expires_at,
+                    'SESSION_INACTIVE')
+            self.route.journal.ledger.require_active_in_transaction(tx, self.warrant, consumed=True)
+            _, state = self.route.target_settlement._flight(tx, self.warrant)
+            flight = state['in_flight']
+            require(flight['phase'] == 'RELEASED' and flight['ack'] is None
+                    and flight['write_observation'] == acknowledgment.observation.to_dict(),
+                    'PORTABLE_TERMINAL_RELEASE_BINDING')
+            governor = self.route.journal.governor
+            job = load_job(governor, tx, self.completion.task_id)
+            require(job is not None and 'completion_binding' in job
+                    and TaskCompletionBinding.parse(job['completion_binding']) == self.completion,
+                    'REQUIRED_TASK_BINDING_REQUIRED')
+            state = governor._load(tx)
+            now = governor._now()
+            governor._clock(state, now)
+            require(not state['kill'], 'KILL_SWITCH')
+            require(job['state'] == 'STARTED' and now >= job['last_now'],
+                    'REQUIRED_TASK_INACTIVE')
+            envelope, claim = JobEnvelope.parse(job['envelope']), JobClaim(**job['claim'])
+            # Preserve the already-admitted original epoch after a governor transition.
+            require(claim.task_id == self.completion.task_id == self.warrant.task_id
+                    and claim.envelope_digest == envelope.envelope_digest
+                    and claim.governor_epoch == grant.epoch == self.warrant.lease_epoch
+                    and now < claim.lease_until and now < envelope.deadline_at,
+                    'REQUIRED_TASK_INACTIVE')
+            if access is not None:
+                access.require_capture(capture, Capability.COMMIT, tx=tx)
+            return grant, claim, envelope, now
+
+        principal = self.principal if access is None else capture.principal
+        grant, claim, envelope, checked_at = self.route._legacy_run(
+            principal, Capability.COMMIT, terminal_state)
+        # Recheck storage identity after the potentially blocking source/SQL work.
+        # Only pure binding, revocation-fence and deadline checks follow this IO.
+        self.require_store(store)
+        staged.require_ready(store._path)
+        if access is not None:
+            access.require_capture(capture, Capability.COMMIT)
+        self._cancel_check()
+        self.route.journal.ledger._check(self.warrant)
+        require(grant.issued_at <= self.route.clock() < grant.expires_at, 'SESSION_INACTIVE')
+        now = self.route.journal.governor._now()
+        require(checked_at <= now < claim.lease_until and now < envelope.deadline_at,
+                'REQUIRED_TASK_INACTIVE')
+        # No temporary-file write or fsync remains between this check and publish.
+        staged.publish()
 
     def close(self):
         self._active = False
+        if self._native_capture is not None:
+            self._native_capture.close()
+            self._native_capture = None
 
 
 _NO_RELEASE_ISSUER = object()

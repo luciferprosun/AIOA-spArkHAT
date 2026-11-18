@@ -735,3 +735,373 @@ class NativePartialBindingTests(unittest.TestCase):
         os.fstat(owner._lease)
         self.assertEqual('QUARANTINED', owner.foundation.lifecycle.phase.value)
         self.assertFalse(owner.foundation.lifecycle._roles)
+
+
+class NativeEarlyInitializationTests(unittest.TestCase):
+    def test_failure_before_first_core_acquisition_releases_owned_lease_and_lock(self):
+        import errno
+        import fcntl
+        import stat
+        from pathlib import Path
+        from tempfile import mkdtemp
+
+        from runtime.meta_hackathon import runtime_adapter
+        from runtime.meta_hackathon.native_authority import NativeHostCompositionConfig
+
+        root = Path(mkdtemp(prefix='owned-early-native-'))
+        fx.OWNED_ROOTS.append(str(root))
+        spec = NativeHostCompositionConfig.from_dict(fx.config_data(root))
+        fault = ValueError('OWNED_EARLY_NATIVE_INIT_FAULT')
+        owners = []
+        proof = {'schema': 'nz13.native-early-lease-construction.v1',
+                 'fault_stage': 'initialize-entry-before-original-body-or-first-Core-acquisition',
+                 'scope': 'SYNTHETIC_TEST_ONLY/FIXTURE_OS_ADMISSION'}
+
+        def fail_before_first_resource(owner):
+            owners.append(owner)
+            info = os.fstat(owner._lease)
+            proof['lease_identity_before_fault'] = [info.st_dev, info.st_ino, info.st_mode,
+                info.st_uid, info.st_gid, info.st_nlink, info.st_size, info.st_mtime_ns, info.st_ctime_ns]
+            proof['lease_fd'] = owner._lease
+            probe = os.open(owner.root / 'runtime.lock',
+                            os.O_RDWR | os.O_NOFOLLOW | os.O_CLOEXEC)
+            try:
+                try:
+                    fcntl.flock(probe, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                except BlockingIOError:
+                    proof['independent_lock_blocked_before_fault'] = True
+                else:
+                    proof['independent_lock_blocked_before_fault'] = False
+                    fcntl.flock(probe, fcntl.LOCK_UN)
+            finally:
+                os.close(probe)
+            raise fault
+
+        error = None
+        authentication = {'uid': os.getuid(), 'method': 'SYNTHETIC_TEST_ONLY'}
+        with patch.object(runtime_adapter, '_desktop_operator_uid',
+                          return_value=(os.getuid(), authentication)), \
+             patch.object(runtime_adapter.NativeMobileComposition, '_initialize',
+                          new=fail_before_first_resource):
+            try:
+                runtime_adapter.NativeMobileComposition(root / 'native',
+                    origin='https://fixture.example.org',
+                    source_probe=lambda: ('a' * 40, 'b' * 64), host_composition=spec)
+            except ValueError as caught:
+                error = caught
+        if not owners and error is not None:
+            raise error
+        self.assertEqual(1, len(owners), 'EARLY_INITIALIZE_ENTRY_NOT_REACHED')
+        owner = owners[0]
+        proof['constructor_raised_original_exception'] = error is fault
+        proof['constructor_exception'] = None if error is None else {
+            'type': type(error).__name__, 'text': str(error)}
+        expected = tuple(proof['lease_identity_before_fault'][:2])
+        retained = False
+        try:
+            try:
+                info = os.fstat(owner._lease)
+            except OSError as closed:
+                if closed.errno != errno.EBADF:
+                    raise
+                proof['lease_fd_open_after_failed_construction'] = False
+            else:
+                self.assertEqual(expected, (info.st_dev, info.st_ino))
+                self.assertTrue(stat.S_ISREG(info.st_mode))
+                retained = True
+                proof['lease_fd_open_after_failed_construction'] = True
+            probe = os.open(owner.root / 'runtime.lock',
+                            os.O_RDWR | os.O_NOFOLLOW | os.O_CLOEXEC)
+            try:
+                info = os.fstat(probe)
+                self.assertEqual(expected, (info.st_dev, info.st_ino))
+                try:
+                    fcntl.flock(probe, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                except BlockingIOError:
+                    proof['independent_lock_acquired_after_failure'] = False
+                else:
+                    proof['independent_lock_acquired_after_failure'] = True
+                    fcntl.flock(probe, fcntl.LOCK_UN)
+            finally:
+                os.close(probe)
+            proof['native_directory_entries'] = sorted(os.listdir(owner.root))
+        finally:
+            if retained:
+                info = os.fstat(owner._lease)
+                self.assertEqual(expected, (info.st_dev, info.st_ino))
+                os.close(owner._lease)
+                proof['test_finally_closed_only_verified_owned_leaked_lease'] = True
+        path = root / 'early-native-init-lease-proof.json'
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+        with os.fdopen(fd, 'w') as stream:
+            json.dump(proof, stream, sort_keys=True, indent=2)
+            stream.write('\n')
+            stream.flush()
+            os.fsync(stream.fileno())
+        if error is not None and error is not fault:
+            raise error
+        self.assertIs(fault, error)
+        self.assertTrue(proof['independent_lock_blocked_before_fault'])
+        self.assertEqual(['runtime.lock'], proof['native_directory_entries'])
+        self.assertFalse(proof['lease_fd_open_after_failed_construction'],
+                         'NATIVE_EARLY_INIT_MUST_RELEASE_LEASE_BEFORE_ANY_CORE')
+        self.assertTrue(proof['independent_lock_acquired_after_failure'],
+                        'NATIVE_EARLY_INIT_MUST_RELEASE_FLOCK_BEFORE_ANY_CORE')
+        self.assertEqual({'status': 'CLOSED', 'closed': True}, owner.close())
+        self.assertEqual({'status': 'CLOSED', 'closed': True}, owner.close())
+
+    def test_first_core_acquisition_failure_keeps_owned_lease_quarantined(self):
+        import errno
+        import fcntl
+        from pathlib import Path
+        from tempfile import mkdtemp
+
+        from runtime.meta_hackathon import runtime_adapter
+        from runtime.meta_hackathon.native_authority import NativeHostCompositionConfig
+
+        root = Path(mkdtemp(prefix='owned-first-core-fault-'))
+        fx.OWNED_ROOTS.append(str(root))
+        spec = NativeHostCompositionConfig.from_dict(fx.config_data(root))
+        fault = ValueError('OWNED_FIRST_CORE_ACQUISITION_FAULT')
+        owners, core_calls, close_attempts = [], [], []
+        original_initialize = runtime_adapter.NativeMobileComposition._initialize
+        real_close = os.close
+        proof = {'schema': 'nz13.native-first-core-acquisition-fault.v1',
+                 'scope': 'SYNTHETIC_TEST_ONLY/FIXTURE_OS_ADMISSION'}
+
+        def initialize(owner):
+            owners.append(owner)
+            return original_initialize(owner)
+
+        def fail_core(*_args, **_kwargs):
+            owner = owners[-1]
+            info = os.fstat(owner._lease)
+            core_calls.append(owner._native_initialization_stage)
+            proof['lease_identity_at_core_entry'] = [info.st_dev, info.st_ino]
+            proof['stage_at_core_entry'] = owner._native_initialization_stage
+            raise fault
+
+        def observe_close(fd):
+            if fd == owners[0]._lease:
+                close_attempts.append(fd)
+            return real_close(fd)
+
+        error = None
+        authentication = {'uid': os.getuid(), 'method': 'SYNTHETIC_TEST_ONLY'}
+        with patch.object(runtime_adapter, '_desktop_operator_uid',
+                          return_value=(os.getuid(), authentication)), \
+             patch.object(runtime_adapter.NativeMobileComposition, '_initialize', new=initialize), \
+             patch.object(runtime_adapter, 'CoreAdmission', new=fail_core):
+            try:
+                runtime_adapter.NativeMobileComposition(root / 'native',
+                    origin='https://fixture.example.org',
+                    source_probe=lambda: ('a' * 40, 'b' * 64), host_composition=spec)
+            except ValueError as caught:
+                error = caught
+        if not core_calls and error is not None:
+            raise error
+        self.assertEqual(1, len(owners), 'FIRST_CORE_FAULT_OWNER_NOT_CAPTURED')
+        owner = owners[0]
+        expected = tuple(proof['lease_identity_at_core_entry'])
+        proof['constructor_raised_original_exception'] = error is fault
+        retained = False
+        try:
+            with patch.object(runtime_adapter, 'CoreAdmission', new=fail_core), \
+                 patch.object(runtime_adapter.os, 'close', side_effect=observe_close):
+                proof['close_reports'] = [owner.close(), owner.close()]
+            try:
+                info = os.fstat(owner._lease)
+            except OSError as closed:
+                if closed.errno != errno.EBADF:
+                    raise
+                proof['lease_fd_retained'] = False
+            else:
+                self.assertEqual(expected, (info.st_dev, info.st_ino))
+                retained = True
+                proof['lease_fd_retained'] = True
+            probe = os.open(owner.root / 'runtime.lock',
+                            os.O_RDWR | os.O_NOFOLLOW | os.O_CLOEXEC)
+            try:
+                info = os.fstat(probe)
+                self.assertEqual(expected, (info.st_dev, info.st_ino))
+                try:
+                    fcntl.flock(probe, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                except BlockingIOError:
+                    proof['independent_flock_still_blocked'] = True
+                else:
+                    proof['independent_flock_still_blocked'] = False
+                    fcntl.flock(probe, fcntl.LOCK_UN)
+            finally:
+                real_close(probe)
+            proof.update(core_constructor_entries=len(core_calls),
+                         lease_close_attempts=len(close_attempts),
+                         owner_closed=owner._closed,
+                         cleanup_owner_released=owner._native_close_owner is None)
+        finally:
+            if retained:
+                info = os.fstat(owner._lease)
+                self.assertEqual(expected, (info.st_dev, info.st_ino))
+                real_close(owner._lease)
+                proof['test_finally_closed_only_verified_owned_lease'] = True
+            path = root / 'first-core-acquisition-fault-proof.json'
+            fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+            with os.fdopen(fd, 'w') as stream:
+                json.dump(proof, stream, sort_keys=True, indent=2)
+                stream.write('\n')
+                stream.flush()
+                os.fsync(stream.fileno())
+        if error is not None and error is not fault:
+            raise error
+        self.assertIs(fault, error)
+        self.assertEqual('CORE_ACQUISITION_STARTED', proof['stage_at_core_entry'])
+        self.assertEqual(1, proof['core_constructor_entries'])
+        self.assertEqual(0, proof['lease_close_attempts'])
+        self.assertEqual([{'status': 'QUARANTINED', 'closed': False}] * 2,
+                         proof['close_reports'])
+        self.assertTrue(proof['lease_fd_retained'])
+        self.assertTrue(proof['independent_flock_still_blocked'])
+        self.assertFalse(proof['owner_closed'])
+        self.assertTrue(proof['cleanup_owner_released'])
+
+    def test_early_lease_close_lost_ack_never_closes_reused_descriptor(self):
+        import errno
+        import fcntl
+        from pathlib import Path
+        from tempfile import mkdtemp
+
+        from runtime.meta_hackathon import runtime_adapter
+        from runtime.meta_hackathon.native_authority import NativeHostCompositionConfig
+
+        root = Path(mkdtemp(prefix='owned-early-lease-lost-ack-'))
+        fx.OWNED_ROOTS.append(str(root))
+        spec = NativeHostCompositionConfig.from_dict(fx.config_data(root))
+        fault = ValueError('OWNED_EARLY_INITIALIZE_FAULT')
+        lost_ack = OSError(errno.EIO, 'OWNED_LEASE_CLOSE_ACK_LOST')
+        owners, close_attempts = [], []
+        real_close = os.close
+        proof = {'schema': 'nz13.native-early-lease-close-lost-ack.v1',
+                 'scope': 'SYNTHETIC_TEST_ONLY/FIXTURE_OS_ADMISSION'}
+
+        def fail_initialize(owner):
+            owners.append(owner)
+            info = os.fstat(owner._lease)
+            proof['lease_identity_before_close'] = [info.st_dev, info.st_ino]
+            proof['stage_at_initializer_fault'] = owner._native_initialization_stage
+            raise fault
+
+        def close_then_lose_ack(fd):
+            if owners and fd == owners[0]._lease:
+                close_attempts.append(fd)
+                real_close(fd)
+                raise lost_ack
+            return real_close(fd)
+
+        error = None
+        authentication = {'uid': os.getuid(), 'method': 'SYNTHETIC_TEST_ONLY'}
+        with patch.object(runtime_adapter, '_desktop_operator_uid',
+                          return_value=(os.getuid(), authentication)), \
+             patch.object(runtime_adapter.NativeMobileComposition, '_initialize', new=fail_initialize), \
+             patch.object(runtime_adapter.os, 'close', side_effect=close_then_lose_ack):
+            try:
+                runtime_adapter.NativeMobileComposition(root / 'native',
+                    origin='https://fixture.example.org',
+                    source_probe=lambda: ('a' * 40, 'b' * 64), host_composition=spec)
+            except ValueError as caught:
+                error = caught
+        if not owners and error is not None:
+            raise error
+        self.assertEqual(1, len(owners), 'EARLY_LEASE_LOST_ACK_OWNER_NOT_CAPTURED')
+        owner = owners[0]
+        expected = tuple(proof['lease_identity_before_close'])
+        proof['constructor_raised_original_exception'] = error is fault
+        proof['cleanup_error_is_original_cause'] = error is not None and error.__cause__ is lost_ack
+        foreign = None
+        foreign_identity = None
+        try:
+            try:
+                os.fstat(owner._lease)
+            except OSError as closed:
+                if closed.errno != errno.EBADF:
+                    raise
+                proof['lease_fd_really_closed_before_reuse'] = True
+            else:
+                proof['lease_fd_really_closed_before_reuse'] = False
+            probe = os.open(owner.root / 'runtime.lock',
+                            os.O_RDWR | os.O_NOFOLLOW | os.O_CLOEXEC)
+            try:
+                info = os.fstat(probe)
+                self.assertEqual(expected, (info.st_dev, info.st_ino))
+                try:
+                    fcntl.flock(probe, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                except BlockingIOError:
+                    proof['independent_lease_flock_available'] = False
+                else:
+                    proof['independent_lease_flock_available'] = True
+                    fcntl.flock(probe, fcntl.LOCK_UN)
+            finally:
+                real_close(probe)
+            foreign = os.open(root / 'independent-reused-descriptor.bin',
+                              os.O_RDWR | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+            info = os.fstat(foreign)
+            foreign_identity = (info.st_dev, info.st_ino)
+            proof['reused_fd'] = foreign
+            proof['lease_fd_number'] = owner._lease
+            proof['independent_file_identity'] = list(foreign_identity)
+            if foreign != owner._lease:
+                raise RuntimeError('FIXTURE_REUSED_FD_NOT_ISOLATED')
+            marker = b'OWNED_INDEPENDENT_DESCRIPTOR_MUST_REMAIN_LIVE'
+            os.write(foreign, marker)
+            with patch.object(runtime_adapter.os, 'close', side_effect=close_then_lose_ack):
+                proof['close_reports'] = [owner.close(), owner.close()]
+            try:
+                info = os.fstat(foreign)
+            except OSError as closed:
+                if closed.errno != errno.EBADF:
+                    raise
+                proof['reused_independent_fd_still_live'] = False
+                proof['independent_file_content_preserved'] = False
+            else:
+                self.assertEqual(foreign_identity, (info.st_dev, info.st_ino))
+                proof['reused_independent_fd_still_live'] = True
+                os.lseek(foreign, 0, os.SEEK_SET)
+                proof['independent_file_content_preserved'] = os.read(foreign, len(marker) + 1) == marker
+            proof.update(lease_close_attempts=len(close_attempts),
+                         close_steps=dict(owner._native_close_steps),
+                         close_uncertain=owner._native_close_uncertain,
+                         owner_closed=owner._closed,
+                         cleanup_owner_released=owner._native_close_owner is None)
+        finally:
+            if foreign is not None:
+                try:
+                    info = os.fstat(foreign)
+                except OSError as closed:
+                    if closed.errno != errno.EBADF:
+                        raise
+                else:
+                    self.assertEqual(foreign_identity, (info.st_dev, info.st_ino))
+                    real_close(foreign)
+                    proof['test_finally_closed_only_verified_owned_independent_fd'] = True
+            path = root / 'early-lease-close-lost-ack-proof.json'
+            fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+            with os.fdopen(fd, 'w') as stream:
+                json.dump(proof, stream, sort_keys=True, indent=2)
+                stream.write('\n')
+                stream.flush()
+                os.fsync(stream.fileno())
+        if error is not None and error is not fault:
+            raise error
+        self.assertIs(fault, error)
+        self.assertIs(lost_ack, error.__cause__)
+        self.assertEqual('LEASE_ONLY', proof['stage_at_initializer_fault'])
+        self.assertTrue(proof['lease_fd_really_closed_before_reuse'])
+        self.assertTrue(proof['independent_lease_flock_available'])
+        self.assertNotEqual(expected, foreign_identity)
+        self.assertEqual(1, proof['lease_close_attempts'])
+        self.assertEqual({'LEASE': 'UNKNOWN'}, proof['close_steps'])
+        self.assertTrue(proof['close_uncertain'])
+        self.assertFalse(proof['owner_closed'])
+        self.assertEqual([{'status': 'QUARANTINED', 'closed': False}] * 2,
+                         proof['close_reports'])
+        self.assertTrue(proof['reused_independent_fd_still_live'])
+        self.assertTrue(proof['independent_file_content_preserved'])
+        self.assertTrue(proof['cleanup_owner_released'])

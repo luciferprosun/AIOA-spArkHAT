@@ -218,7 +218,7 @@ class LocalSessionGrant(SessionGrant):
 class CoreToolRoute:
     """Common Core adapter with explicit trusted variants; no default backend."""
     def __init__(self,journal,liability,*,workspace,policy_revision,probe,executor,target_guard=None,verifier=None,clock=None,
-                 variant='synthetic',sandbox_registry=None,target_settlement=None,sandbox_jobs=False):
+                 variant='synthetic',sandbox_registry=None,target_settlement=None,sandbox_jobs=False,native_access=None):
         require(type(journal) is CoreIntentJournal and type(liability) is CoreLiabilityLedger
                 and journal.ledger.core is liability.core and journal.ledger.runner is liability.runner
                 and journal.ledger.scope==liability.scope and callable(probe) and callable(executor)
@@ -246,6 +246,15 @@ class CoreToolRoute:
                     and sandbox_registry.workspace==workspace), 'INVALID_TOOL_ROUTE')
         self.sandbox_registry=sandbox_registry
         self.journal,self.liability=journal,liability
+        self.native_access = native_access
+        if native_access is not None:
+            from runtime.meta_hackathon.native_authority import NativeCoreAccess
+            require(type(native_access) is NativeCoreAccess, 'NATIVE_TOOL_ROUTE_BINDING')
+            f = native_access.foundation
+            require(f.owner.foundation is f and f.access is native_access and f.intent_journal is journal
+                    and f.liability is liability and f.core is journal.ledger.core
+                    and f.runner is journal.ledger.runner and f.ledger is journal.ledger,
+                    'NATIVE_TOOL_ROUTE_BINDING')
         self.core,self.runner,self.scope=liability.core,liability.runner,liability.scope
         self.workspace,self.policy_revision=workspace,policy_revision
         self.probe,self.executor,self.verifier=probe,executor,verifier
@@ -313,13 +322,38 @@ class CoreToolRoute:
         self._require_target_binding()
         return self._target_snapshot(self.probe(), insert=True)
 
-    def _run(self,principal,purpose,callback):
+    def _legacy_run(self,principal,purpose,callback):
         self.core.require(principal,purpose,scope=self.scope)
         self._require_target_binding()
         def checked(tx):
             self._require_target_binding()
             return callback(tx)
         return self.runner.run(TransactionContext(principal,purpose),checked)
+
+    def _run(self,principal,purpose,callback):
+        if self.native_access is None:
+            return self._legacy_run(principal,purpose,callback)
+        from runtime.meta_hackathon.native_authority import NativeAccessUse, NativeCoreAccess, NativePhase
+        access = self.native_access
+        require(type(access) is NativeCoreAccess and access.foundation.intent_journal is self.journal
+                and access.foundation.liability is self.liability and access.foundation.core is self.core
+                and access.foundation.runner is self.runner and access.foundation.ledger is self.journal.ledger,
+                'NATIVE_TOOL_ROUTE_BINDING')
+        lifecycle = access.foundation.lifecycle
+        use = (NativeAccessUse.READ if purpose is Capability.READ else NativeAccessUse.EXECUTION
+               if lifecycle.phase is NativePhase.ACTIVE else NativeAccessUse.CONTROL)
+        if getattr(lifecycle._boundary, 'settlement_handle', None) is not None:
+            use = NativeAccessUse.SETTLEMENT
+        capture = access.capture(purpose, use=use)
+        try:
+            def pure(tx):
+                access.require_capture(capture,purpose,tx=tx)
+                value = callback(tx)
+                access.require_capture(capture,purpose,tx=tx)
+                return value
+            return self._legacy_run(capture.principal,purpose,pure)
+        finally:
+            capture.close()
 
     def session_key(self,session_id):
         opaque_id(session_id,'session_id')
@@ -1155,16 +1189,26 @@ class CoreToolRoute:
             require(intent['resolution']==entry['resolution'],'TOOL_RECONCILIATION_INTEGRITY')
             if self.target_settlement is not None:
                 self.target_settlement.check_history_in_transaction(tx, warrant, intent)
+            if self.native_access is not None:
+                mode = self._mode(tx, warrant)
+                request = (self._historical_request(tx, intent['operation'], warrant)
+                           if self.sandbox_jobs and intent['resolution'] is None else None)
+                return intent, entry, trace, mode, request
             return intent,entry,trace
-        intent,entry,trace=self._run(principal,Capability.COMMIT,read)
-        mode=self._run(principal,Capability.COMMIT,lambda tx:self._mode(tx,warrant))
+        captured = self._run(principal,Capability.COMMIT,read)
+        if self.native_access is not None:
+            intent, entry, trace, mode, request = captured
+        else:
+            intent, entry, trace = captured
+            mode=self._run(principal,Capability.COMMIT,lambda tx:self._mode(tx,warrant))
         if intent['resolution'] is not None:return {'mode':mode,**self.journal._public(intent)}
         require(self.verifier is not None,'INDEPENDENT_READBACK_REQUIRED')
         try:
             with failure_boundary('TOOL_READBACK_UNAVAILABLE'):
                 if self.sandbox_jobs:
-                    request=self._run(principal,Capability.COMMIT,
-                        lambda tx:self._historical_request(tx,intent['operation'],warrant))
+                    if self.native_access is None:
+                        request=self._run(principal,Capability.COMMIT,
+                            lambda tx:self._historical_request(tx,intent['operation'],warrant))
                     observed=self.verifier(intent['operation'],warrant,request=request)
                 else:observed=self.verifier(intent['operation'],warrant)
         except (ValueError, RepairBoundaryError):

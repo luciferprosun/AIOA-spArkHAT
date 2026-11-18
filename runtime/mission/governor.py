@@ -24,6 +24,8 @@ from runtime.memory_patch.persistence.ports import (
     RecordKind,
     TransactionContext,
     TransactionRunner,
+    TransactionView,
+    _register_history_reader,
 )
 from runtime.mission import execution_capacity as capacity
 from runtime.mission.execution_capacity import (
@@ -186,6 +188,11 @@ commit or refund it. A lost marker ACK never gives send permission on replay.
                 'kill':False, 'last_now':None, 'reservations':{}, 'circuits':{}}
 
     def _load(self, tx):
+        if isinstance(tx, TransactionView):
+            return tx._history_read('GOVERNOR_STATE', governor=self)
+        return self._load_history(tx)
+
+    def _load_history(self, tx):
         records = tx.scan(RecordKind.OPERATION, limit=1024, operation_kind=KIND)
         _deny(len(records) < 1024, 'HISTORY_QUOTA')
         selected=[]
@@ -424,6 +431,7 @@ commit or refund it. A lost marker ACK never gives send permission on replay.
 
     def apply_execution_capacity(self,commit_principal,review,warrant,*,management_principal,ledger,host_capture,quiescence_capture) -> CapacityTransitionReceipt:
         from lab.archaioa.warrant import EffectWarrant
+
         from runtime.meta_hackathon.native_authority import (
             CapacityStage,
             NativeCapacityHostCapture,
@@ -759,3 +767,15 @@ class GovernorBinding:
         _deny(type(self.epoch) is int and 1 <= self.epoch <= MAX_AMOUNT, 'STALE_EPOCH')
         _deny(_amount(self.advisory_risk_units) > 0,'INVALID_GOVERNOR_AMOUNT')
         self.governor._require(self.principal,Capability.COMMIT)
+
+
+_register_history_reader('GOVERNOR_STATE', CoreDualGovernor._load_history)
+
+# Capacity initialization already reads job history. Import the original reader
+# after governor definitions are complete, before the first SQL transaction.
+def _load_original_job_history_reader():
+    from runtime.mission import jobs
+    return jobs._validated_job_rows
+
+
+_load_original_job_history_reader()

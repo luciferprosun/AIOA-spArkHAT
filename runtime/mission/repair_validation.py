@@ -370,7 +370,7 @@ def _settle_sandbox_receipt(journal, step, raw, receipt):
     warrant = step.arguments["warrant"]
     epoch=warrant.lease_epoch if step.route.sandbox_jobs else 1
     step.route.reconcile(step.principal, warrant, epoch)
-    stored = journal._run(
+    stored = step.route._run(
         step.principal,
         Capability.COMMIT,
         lambda tx: journal._load(tx, warrant)[1]["resolution"],
@@ -381,6 +381,12 @@ def _settle_sandbox_receipt(journal, step, raw, receipt):
         and resolved.receipt.digest == "sha256:" + hashlib.sha256(raw).hexdigest(),
         "VALIDATION_CORE_RECEIPT",
     )
+    if step.route.native_access is not None:
+        from runtime.meta_hackathon.native_coding import NativeCodingHost
+        host = step.route.native_access.foundation.owner._native_coding
+        require(type(host) is NativeCodingHost and host.owner.sandbox_route is step.route,
+                "NATIVE_JOB_SETTLEMENT_BINDING")
+        host.finish_step(step)
     return stored
 
 
@@ -594,13 +600,21 @@ def _store_validation_evidence(journal, step, data, stored):
 
 
 class CoreSandboxValidation:
-    def __init__(self, journal, prepare, *, profile=None, cancel=None, render_capsules=None,sandbox_jobs=False):
+    def __init__(self, journal, prepare=None, *, profile=None, cancel=None, render_capsules=None,sandbox_jobs=False,stage_preparer=None):
         from runtime.mission.project_recipe import PythonRepositoryRecipe
 
         require(
-            type(journal) is CoreIntentJournal and callable(prepare),
+            type(journal) is CoreIntentJournal and ((callable(prepare) and stage_preparer is None)
+                or prepare is None and stage_preparer is not None),
             "EXISTING_CORE_REQUIRED",
         )
+        if stage_preparer is not None:
+            from runtime.meta_hackathon.native_coding import NativeStagePreparer
+            require(type(stage_preparer) is NativeStagePreparer and sandbox_jobs is True
+                    and stage_preparer.host.foundation.intent_journal is journal
+                    and stage_preparer.host.profile is profile and stage_preparer.cancel is cancel,
+                    "NATIVE_STAGE_BINDING")
+        self.stage_preparer = stage_preparer
         require(
             profile is None
             or type(profile) in (TrustedTestProfile, PythonRepositoryRecipe),
@@ -748,6 +762,10 @@ class CoreSandboxValidation:
             )
         else:
             self.profile.validate_patch(patchset)
+        if self.stage_preparer is not None:
+            plan = self.stage_preparer.freeze(root, patchset, self.cancel)
+            require(plan.archive == archive, "VALIDATION_TREE_CHANGED")
+            return _CoreValidationSession(self, patchset, None, plan=plan)
         if self.sandbox_jobs:
             from runtime.mission.sandbox_bindings import ObservationBindingInput
             prepared=self.prepare(root,patchset,binding_input=ObservationBindingInput(patchset,archive))
@@ -783,8 +801,8 @@ class CoreSandboxValidation:
 
 
 class _CoreValidationSession:
-    def __init__(self, owner, patchset, steps):
-        self.owner, self.patchset, self.steps = owner, patchset, steps
+    def __init__(self, owner, patchset, steps, *, plan=None):
+        self.owner, self.patchset, self.steps, self.plan = owner, patchset, steps, plan
         self.index, self.closed, self.cleanup_failed = 0, False, False
         self.failure_code = None
 
@@ -793,8 +811,23 @@ class _CoreValidationSession:
             not self.closed and self.index < 3 and stage == TEST_STAGES[self.index],
             "VALIDATION_ORDER",
         )
-        step = self.steps[self.index]
-        self.index += 1  # An uncertain dispatch never grants a retry.
+        requested = self.index
+        self.index += 1  # Admission/preparation uncertainty consumes this index too.
+        if self.plan is None:
+            step = self.steps[requested]
+        else:
+            if self.owner.cancel.cancelled:
+                return ValidationStep(stage, "CANCELLED", None, self.patchset.patchset_sha256,
+                                      self.owner.profile.digest, canonical_sha256({"cancelled_before_prepare": stage}))
+            try:
+                step = self.owner.stage_preparer.prepare_stage(self.plan, stage, self.owner.cancel)
+                expected = self.owner.profile.observation_spec(stage, self.plan.archive, self.patchset)
+                _pin_prepared_spec(self.owner.journal, step, expected)
+                require(pack_workspace(self.plan.root, self.patchset) == self.plan.archive, "VALIDATION_TREE_CHANGED")
+            except (ValueError, RepairBoundaryError) as error:
+                self.failure_code = str(error) if re.fullmatch(r"[A-Z0-9_]{1,96}", str(error)) else "NATIVE_STAGE_UNKNOWN"
+                return ValidationStep(stage, "UNKNOWN", None, self.patchset.patchset_sha256,
+                                      self.owner.profile.digest, canonical_sha256({"preparation_unknown": stage}))
         args = step.arguments
         warrant = args["warrant"]
         status, code, evidence = (

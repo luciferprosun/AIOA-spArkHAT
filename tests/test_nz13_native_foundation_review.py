@@ -413,6 +413,66 @@ class NativeAgentReviewTests(ReviewFixture):
         self.assertFalse(self.host.close()['closed'])
         self.assertIs(handle, self.f.lifecycle._handles[port.task]); self.assertIsNone(handle.cleanup)
 
+    def test_admin_settlement_capture_keeps_exact_parent_role_and_execution_boundaries(self):
+        from runtime.core_admission import AdmissionError
+        from runtime.meta_hackathon.native_authority import NativeAccessUse, NativePhase
+
+        port = agent_port(self, self.host)
+        port.port.unknown = True
+        parent = self.start_agent(port)
+        parent.thread.join(3)
+        self.assertFalse(parent.thread.is_alive())
+        original_thread, original_cancel = parent.thread, parent.cancel
+        self.f.lifecycle._phase = NativePhase.CAPACITY_ADMIN
+        with self.host.missions._native_synchronous(port.task, 'AGENT_SETTLEMENT') as child:
+            self.assertIs(child.parent, parent)
+            self.assertIs(child.cancel, original_cancel)
+            for purpose in (Capability.READ, Capability.COMMIT):
+                capture = self.f.access.capture(purpose, use=NativeAccessUse.SETTLEMENT)
+                try:
+                    self.f.access.require_capture(capture, purpose)
+                    self.assertIs(capture.work_handle, child)
+                    self.assertIs(capture.core, self.host.core)
+                finally:
+                    capture.close()
+            before = self.rows()
+            original = (child.parent, child.kind, child.role, child.producer)
+            invalid = (
+                ('unparented', None, child.kind, child.role, child.producer),
+                ('wrong-kind', parent, 'GITHUB_SETTLEMENT', child.role, child.producer),
+                ('coding-worker', parent, child.kind, 'CODING_WORKER', child.producer),
+                ('coding-http-effect', parent, child.kind, 'CODING_HTTP_EFFECT', child.producer),
+                ('portable-effect', parent, child.kind, 'PORTABLE_EFFECT', child.producer),
+                ('foreign-producer', parent, child.kind, child.role, object()),
+            )
+            for label, wrong_parent, wrong_kind, wrong_role, wrong_producer in invalid:
+                try:
+                    with self.f.lifecycle.lock:
+                        child.parent, child.kind = wrong_parent, wrong_kind
+                        child.role, child.producer = wrong_role, wrong_producer
+                    with self.subTest(boundary=label), \
+                         patch.object(self.host, '_require_qualified_operator',
+                                      side_effect=AssertionError('ADMIN_DENIAL_MUST_PRECEDE_AUTH_SOURCE_SQL')):
+                        for purpose in (Capability.READ, Capability.COMMIT):
+                            with self.assertRaises(AdmissionError):
+                                self.f.access.capture(purpose, use=NativeAccessUse.SETTLEMENT)
+                finally:
+                    with self.f.lifecycle.lock:
+                        child.parent, child.kind, child.role, child.producer = original
+            with patch.object(self.host, '_require_qualified_operator',
+                              side_effect=AssertionError('ADMIN_EXECUTION_DENIAL_MUST_PRECEDE_AUTH_SOURCE_SQL')), \
+                 self.assertRaises(AdmissionError):
+                self.f.access.capture(Capability.COMMIT, use=NativeAccessUse.EXECUTION)
+            self.assertEqual(before, self.rows())
+        with self.assertRaises(AdmissionError):
+            self.f.access.capture(Capability.READ, use=NativeAccessUse.SETTLEMENT)
+        result = self.host.missions.reconcile_agent(port.task,
+            self.host.core.local_operator(Capability.READ))
+        self.assertEqual('AGENT_COMPLETED', result['state'], str(port.port.errors))
+        self.assertIs(parent.thread, original_thread)
+        self.assertIs(parent.cancel, original_cancel)
+        self.assertEqual((1, 1), (port.port.sessions, port.port.dispatches))
+
 
 def github_port(case, host):
     """Actual existing route/worker with fixed offline HTTP transport, no model/API."""

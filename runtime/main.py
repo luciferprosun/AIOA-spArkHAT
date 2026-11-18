@@ -160,6 +160,7 @@ class AgentRuntime:
         mission_bindings=None,
         agent_bindings=None,
         coding_tasks=None,
+        borrowed_admission=None,
     ) -> None:
         if type(inspection_only) is not bool:
             raise ValueError('INVALID_INSPECTION_MODE')
@@ -170,7 +171,16 @@ class AgentRuntime:
                     or nonzero_config is not None or memory_patch_config is not None
                     or memory_patch_dependencies is not None or mission_bindings is not None):
                 raise ValueError('INVALID_CODING_BINDING')
+        if borrowed_admission is not None:
+            from runtime.core_admission import CoreAdmission
+            if (type(borrowed_admission) is not CoreAdmission or not inspection_only
+                    or provider_manager is not None or agent_bindings is not None
+                    or nonzero_config is not None or memory_patch_config is not None
+                    or memory_patch_dependencies is not None or mission_context is not None or mission_bindings is not None
+                    or coding_tasks is not None and coding_tasks.journal.ledger.core is not borrowed_admission):
+                raise ValueError('INVALID_BORROWED_ADMISSION')
         self._coding_tasks = coding_tasks
+        self._owns_coding_tasks = borrowed_admission is None
         if agent_bindings is not None:
             from runtime.mission.agent import CoreAgentBindings
             if (type(agent_bindings) is not CoreAgentBindings or inspection_only or provider_manager is not None
@@ -226,9 +236,9 @@ class AgentRuntime:
         self._memory_patch_config = memory_patch_snapshot(memory_patch_config)
         self._memory_patch_dependencies = memory_patch_dependencies
         self._memory_patch_service = None
-        self._memory_patch_admission = (None if coding_tasks is None
-                                        else coding_tasks.journal.ledger.core)
-        self._owns_memory_patch_admission = True
+        self._memory_patch_admission = (borrowed_admission if borrowed_admission is not None else
+                                        None if coding_tasks is None else coding_tasks.journal.ledger.core)
+        self._owns_memory_patch_admission = borrowed_admission is None
         self._memory_patch_closed = False
         self._memory_patch_init_lock = threading.RLock()
         self.cpl_cost_policy = None
@@ -373,7 +383,7 @@ class AgentRuntime:
 
     def close(self):
         self._agent_closed = True
-        if self._coding_tasks is not None:
+        if self._coding_tasks is not None and self._owns_coding_tasks:
             self._coding_tasks.close()
         if self._lite_scheduler is not None:
             self._lite_scheduler.close()
@@ -1534,9 +1544,15 @@ def print_banner(runtime: AgentRuntime) -> None:
 def create_runtime(*, cpl_fixture=False, cpl_cost_policy=None, nonzero_config=None,
                    memory_patch_config=None, memory_patch_dependencies=None,
                    inspection_only=False, mission_context=None, mission_bindings=None,
-                   lite_profile=None, lite_bindings=None, agent_bindings=None, coding_tasks=None):
+                   lite_profile=None, lite_bindings=None, agent_bindings=None, coding_tasks=None,
+                   borrowed_admission=None):
     if type(inspection_only) is not bool:
         raise ValueError('INVALID_INSPECTION_MODE')
+    if borrowed_admission is not None and (not inspection_only or cpl_fixture or cpl_cost_policy is not None
+            or nonzero_config is not None or memory_patch_config is not None
+            or memory_patch_dependencies is not None or mission_context is not None or mission_bindings is not None
+            or lite_profile is not None or lite_bindings is not None or agent_bindings is not None):
+        raise ValueError('INVALID_BORROWED_ADMISSION')
     if coding_tasks is not None:
         if (not inspection_only or cpl_fixture or cpl_cost_policy is not None
                 or nonzero_config is not None or memory_patch_config is not None
@@ -1545,7 +1561,7 @@ def create_runtime(*, cpl_fixture=False, cpl_cost_policy=None, nonzero_config=No
                 or lite_bindings is not None or agent_bindings is not None):
             raise ValueError('INVALID_CODING_BINDING')
         return AgentRuntime(None, '', PROJECT_DIR, inspection_only=True,
-                            coding_tasks=coding_tasks)
+                            coding_tasks=coding_tasks, borrowed_admission=borrowed_admission)
     if agent_bindings is not None:
         from runtime.mission.agent import CoreAgentBindings
         if (type(agent_bindings) is not CoreAgentBindings or inspection_only or cpl_fixture
@@ -1612,7 +1628,10 @@ def create_runtime(*, cpl_fixture=False, cpl_cost_policy=None, nonzero_config=No
             None, '', PROJECT_DIR, inspection_only=True,
             nonzero_config=nonzero_config, memory_patch_config=memory_patch_config,
             memory_patch_dependencies=memory_patch_dependencies,
-            mission_context=mission_context, mission_bindings=mission_bindings)
+            mission_context=mission_context, mission_bindings=mission_bindings,
+            borrowed_admission=borrowed_admission)
+    if borrowed_admission is not None:
+        raise ValueError('INVALID_BORROWED_ADMISSION')
     fixture = None
     if cpl_fixture:
         from critical_loop.fixture import LocalCPLFixture

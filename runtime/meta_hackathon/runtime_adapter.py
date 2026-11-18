@@ -37,7 +37,8 @@ from .native_authority import NativeHostCompositionConfig
 ROOT = Path(__file__).resolve().parents[2]
 
 
-SOURCE_FILES = ('runtime/meta_hackathon/runtime_adapter.py', 'runtime/meta_hackathon/mission_service.py',
+SOURCE_FILES = (
+    'runtime/meta_hackathon/native_coding.py','runtime/meta_hackathon/runtime_adapter.py', 'runtime/meta_hackathon/mission_service.py',
         'runtime/meta_hackathon/mission_read_offline.py', 'runtime/providers/meta_model_api.py',
         'runtime/browser_agent/chrome_read_adapter.py', 'runtime/core_admission.py',
         'runtime/providers/config.py', 'runtime/mission/warrant.py', 'runtime/webapp.py',
@@ -347,12 +348,23 @@ class NativeMobileComposition:
     This is neither OfflineMetaComposition nor a promotion of its fixture data.
     """
     def __init__(self,root,*,origin,source_probe=current_source,chat=False,key_path=None,existing_profile=False,
-                 host_composition: NativeHostCompositionConfig | None = None):
+                 host_composition: NativeHostCompositionConfig | None = None, offline_candidates=None):
         import time
 
         from runtime.mobile_gateway import wire
         if host_composition is not None and (type(host_composition) is not NativeHostCompositionConfig or chat is not False):
             raise AdmissionError()
+        if offline_candidates is not None:
+            from runtime.mission.worker import CandidatePatch
+            if (host_composition is None or host_composition.coding_backend_registry is not None
+                    or type(offline_candidates) is not tuple or not 1 <= len(offline_candidates) <= 3
+                    or any(type(candidate) is not CandidatePatch for candidate in offline_candidates)):
+                raise AdmissionError()
+        if offline_candidates is not None:
+            from runtime.mission.worker import CandidateFile
+            offline_candidates = tuple(CandidatePatch(tuple(CandidateFile(file.path, file.text)
+                for file in candidate.files)) for candidate in offline_candidates)
+        self._offline_candidates = offline_candidates
         self._host_composition=host_composition
         self.foundation=None
         self.origin=wire.origin(origin)
@@ -397,11 +409,19 @@ class NativeMobileComposition:
         self._native_close_owner=None
         self._native_close_steps={}
         self._native_close_uncertain=False
+        self._native_initialization_stage='LEASE_ONLY'
         try:
             if self._existing_profile is not None and (validate_existing_profile(root)!=self._existing_profile
                     or signing_key_identity(root)!=self._existing_host_key):raise AdmissionError()
             self._initialize()
-        except BaseException:self.close();raise
+        except BaseException as error:
+            if self._host_composition is None:
+                self.close()
+            else:
+                try:self.close()
+                except BaseException as cleanup_error:
+                    raise error from cleanup_error
+            raise
 
     def _initialize(self):
         if self._existing_profile is not None:
@@ -427,12 +447,12 @@ class NativeMobileComposition:
             if self._host_composition.coding_backend_registry is not None:
                 models.discard('NO_MODEL_PAIRING')
                 models.update(self._host_composition.coding_model_ids())
+        self._native_initialization_stage='CORE_ACQUISITION_STARTED'
         self.core=CoreAdmission(LocalOwnerAssignment(scope,frozenset(capabilities),
             frozenset(hats),frozenset(models),operator_approved=admitted))
         self.instance_id=self.core.local_operator(Capability.READ).actor_session_id
-        self.runtime=create_runtime(inspection_only=True)
-        if self._host_composition is not None:self.runtime._owns_memory_patch_admission=False
-        self.runtime._memory_patch_admission=self.core
+        if self._host_composition is None:
+            self.runtime=create_runtime(inspection_only=True,borrowed_admission=self.core)
         self.runner=TransactionRunner(self.core,LocalCoreRecordFactory(self.root/'core-records.sqlite3',self.core,
             expected_file=self._existing_profile))
         self.ledger=CoreWarrantLedger(self.core,self.runner,scope)
@@ -482,7 +502,19 @@ class NativeMobileComposition:
                 'capsule_digest':self.source[1],'core_instance_id':self.instance_id},at=now))
         if self._host_composition is not None:
             from .native_authority import NativeAuthorityFoundation
-            NativeAuthorityFoundation.bind_owner(self,self._host_composition)
+            foundation = NativeAuthorityFoundation.bind_owner(self,self._host_composition)
+            if self._offline_candidates is not None:
+                from .native_coding import bind_native_coding
+                bind_native_coding(self, self._offline_candidates)
+            self.runtime=create_runtime(inspection_only=True, coding_tasks=getattr(self, 'coding_tasks', None),
+                                        borrowed_admission=self.core)
+            foundation.finish_owner(self.runtime)
+            if self._offline_candidates is not None:
+                self.runner._factory.bind_native_history(foundation.access)
+
+    def readiness(self, reader_capture):
+        from .native_coding import startup_observation
+        return startup_observation(self, reader_capture)
 
     def operator_principal(self):
         import time
@@ -565,7 +597,7 @@ class NativeMobileComposition:
             certificate=x509.load_der_x509_certificate(peer.getpeercert(binary_form=True))
             challenge=secrets.token_hex(32)
             client=http.client.HTTPConnection('127.0.0.1',port,timeout=8);client.sock=peer
-            client.request('GET',wire.BASE+'/capabilities',headers={'Host':urlsplit(self.origin).hostname,'X-AIOA-Challenge':challenge})
+            client.request('GET',wire.BASE+'/capabilities',headers={'Host':urlsplit(self.origin).netloc,'X-AIOA-Challenge':challenge})
             response=client.getresponse();raw=response.read(65537)
             if response.status!=200 or len(raw)>65536:raise AdmissionError()
             value=wire.strict_json(raw);proof=value['proof']
@@ -854,15 +886,23 @@ class NativeMobileComposition:
             if self._native_close_owner is not None:return {'status':'DRAINING','closed':False}
             self._native_close_owner=token
         foundation=self.foundation
+        lease_only=self._native_initialization_stage=='LEASE_ONLY'
         try:
-            if foundation is None or not foundation.lifecycle.drain():
+            if not lease_only and (foundation is None or not foundation.lifecycle.drain()):
                 return {'status':'QUARANTINED','closed':False}
-            for stage in ('MISSIONS','RUNTIME','RUNNER','CORE','LEASE'):
+            stages=('LEASE',) if lease_only else ('CODING','BROKER','MISSIONS','RUNTIME','RUNNER','CORE','LEASE')
+            for stage in stages:
                 with self._native_close_lock:
                     if self._native_close_steps.get(stage)=='CLOSED':continue
                     self._native_close_steps[stage]='ATTEMPTING'
                 try:
-                    if stage=='MISSIONS':
+                    if stage=='CODING':
+                        if getattr(self, 'coding_tasks', None) is not None:
+                            if not self.coding_tasks.close().drained:
+                                return {'status':'QUARANTINED','closed':False}
+                    elif stage=='BROKER':
+                        if getattr(self, 'broker', None) is not None:self.broker.close()
+                    elif stage=='MISSIONS':
                         self.missions.close()
                         if any(worker.is_alive() for worker in self.missions._workers.values()):
                             with self._native_close_lock:
@@ -876,11 +916,15 @@ class NativeMobileComposition:
                 except BaseException:
                     with self._native_close_lock:
                         self._native_close_steps[stage]='UNKNOWN';self._native_close_uncertain=True
-                    with foundation.lifecycle.lock:foundation.lifecycle._phase=NativePhase.QUARANTINED
+                    if not lease_only:
+                        with foundation.lifecycle.lock:foundation.lifecycle._phase=NativePhase.QUARANTINED
                     raise
                 with self._native_close_lock:self._native_close_steps[stage]='CLOSED'
-            with self._native_close_lock, foundation.lifecycle.lock:
-                self._closed=True;foundation.lifecycle._phase=NativePhase.CLOSED
+            if lease_only:
+                with self._native_close_lock:self._closed=True
+            else:
+                with self._native_close_lock, foundation.lifecycle.lock:
+                    self._closed=True;foundation.lifecycle._phase=NativePhase.CLOSED
             return {'status':'CLOSED','closed':True}
         finally:
             with self._native_close_lock:

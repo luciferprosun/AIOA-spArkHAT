@@ -41,6 +41,7 @@ from ..state.files import (
     open_local_payload,
     read_private_json,
     seal_local_payload,
+    staged_private_json,
     validate_local_path,
 )
 from .resources import (
@@ -568,7 +569,10 @@ class PortableStateStore:
                 release.consume_write_ack(acknowledgment, self, before, candidate)
                 self._require_managed_ready()
                 self._check_target_guard()
-            atomic_write_private_json(self._path, envelope)
+                with staged_private_json(self._path, envelope) as staged:
+                    release.publish_write_ack(acknowledgment, self, before, candidate, staged)
+            else:
+                atomic_write_private_json(self._path, envelope)
         except (OSError, TypeError, ValueError) as error:
             raise CloudAdapterUnavailableError(
                 "local mock state write failed"

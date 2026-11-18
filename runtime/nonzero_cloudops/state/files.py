@@ -14,6 +14,7 @@ import tempfile
 from collections.abc import Iterator, Mapping
 from contextlib import contextmanager, suppress
 from pathlib import Path
+from threading import get_ident
 from typing import Final
 
 LOCAL_INTEGRITY_VERSION: Final = 1
@@ -232,13 +233,90 @@ def locked_private_file(path: Path, *, exclusive: bool, create: bool = True) -> 
         os.close(descriptor)
 
 
-def atomic_write_private_json(path: Path, value: object) -> None:
-    """Atomically replace one regular target with owner-only canonical JSON."""
+_STAGED_JSON_ISSUER = object()
+
+
+class _StagedPrivateJson:
+    """One private, fsynced file; storage facts only, never an effect permit."""
+
+    __slots__ = (
+        '_active',
+        '_attempted',
+        '_identity',
+        '_pid',
+        '_temporary_name',
+        '_thread',
+        'canonical_value',
+        'path',
+    )
+
+    def __init__(self, path, canonical_value, temporary_name, identity, issuer):
+        if issuer is not _STAGED_JSON_ISSUER:
+            raise StateIntegrityError("local staged file issuer is invalid")
+        self.path, self.canonical_value = path, canonical_value
+        self._temporary_name, self._identity = temporary_name, identity
+        self._pid, self._thread = os.getpid(), get_ident()
+        self._active, self._attempted = True, False
+
+    def __copy__(self):
+        raise TypeError("local staged file is not transferable")
+
+    def __deepcopy__(self, _memo):
+        raise TypeError("local staged file is not transferable")
+
+    def __reduce_ex__(self, _protocol):
+        raise TypeError("local staged file is not serializable")
+
+    def _require_live(self):
+        if (not self._active or self._attempted or self._pid != os.getpid()
+                or self._thread != get_ident()):
+            raise StateIntegrityError("local staged write is not live")
+
+    def require_ready(self, path):
+        self._require_live()
+        if path != self.path:
+            raise StateIntegrityError("local staged target changed")
+        validate_local_path(path)
+        info = Path(self._temporary_name).lstat()
+        if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid()
+                or info.st_nlink != 1 or stat.S_IMODE(info.st_mode) != 0o600
+                or (info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns,
+                    info.st_ctime_ns) != self._identity):
+            raise StateIntegrityError("local staged file changed")
+
+    def publish(self):
+        # Callers finish their own authority checks before this one-shot IO.
+        # This primitive does not make a userspace deadline check atomic with rename.
+        self._require_live()
+        self._attempted = True
+        os.replace(self._temporary_name, self.path)
+        self._temporary_name = ""
+        directory_descriptor = os.open(self.path.parent, os.O_RDONLY)
+        try:
+            os.fsync(directory_descriptor)
+        finally:
+            os.close(directory_descriptor)
+
+    def close(self):
+        # A fork/thread borrowing this value must not remove its creator's stage.
+        if self._pid != os.getpid() or self._thread != get_ident():
+            raise StateIntegrityError("local staged cleanup owner changed")
+        self._active = False
+        if self._temporary_name:
+            with suppress(OSError):
+                Path(self._temporary_name).unlink(missing_ok=True)
+            self._temporary_name = ""
+
+
+@contextmanager
+def staged_private_json(path: Path, value: object) -> Iterator[_StagedPrivateJson]:
+    """Stage canonical private JSON and remove an unpublished temporary file."""
 
     validate_local_path(path)
+    canonical_value = _canonical_bytes(value)
     rendered = (
         json.dumps(
-            value,
+            json.loads(canonical_value),
             allow_nan=False,
             ensure_ascii=True,
             indent=2,
@@ -250,6 +328,7 @@ def atomic_write_private_json(path: Path, value: object) -> None:
         raise StateIntegrityError("local state write exceeds its bounded size")
     descriptor = -1
     temporary_name = ""
+    staged = None
     try:
         descriptor, temporary_name = tempfile.mkstemp(
             dir=path.parent,
@@ -262,16 +341,25 @@ def atomic_write_private_json(path: Path, value: object) -> None:
             handle.write(rendered)
             handle.flush()
             os.fsync(handle.fileno())
-        os.replace(temporary_name, path)
+            info = os.fstat(handle.fileno())
+        staged = _StagedPrivateJson(path, canonical_value, temporary_name,
+            (info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, info.st_ctime_ns),
+            _STAGED_JSON_ISSUER)
         temporary_name = ""
-        directory_descriptor = os.open(path.parent, os.O_RDONLY)
-        try:
-            os.fsync(directory_descriptor)
-        finally:
-            os.close(directory_descriptor)
+        yield staged
     finally:
+        if staged is not None:
+            staged.close()
         if descriptor >= 0:
             os.close(descriptor)
         if temporary_name:
             with suppress(OSError):
                 Path(temporary_name).unlink(missing_ok=True)
+
+
+def atomic_write_private_json(path: Path, value: object) -> None:
+    """Atomically replace one regular target with owner-only canonical JSON."""
+
+    with staged_private_json(path, value) as staged:
+        staged.require_ready(path)
+        staged.publish()

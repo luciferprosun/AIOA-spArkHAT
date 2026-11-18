@@ -113,7 +113,9 @@ async function jsonFetch(url, options = {}) {
   const payload = await response.json();
   if (!response.ok) {
     const failure=new Error(payload.detail || payload.error || `Request failed: ${response.status}`);
-    failure.status=response.status;throw failure;
+    failure.status=response.status;
+    if(response.status===403 && location.pathname==='/coding')closeNativeCoding();
+    throw failure;
   }
   return payload;
 }
@@ -670,8 +672,9 @@ elements.personalAIReplayButton.addEventListener("click", async () => {
 
 async function bootstrap() {
   try {
-    const session=await jsonFetch('/api/session');
-    state.sessionToken=session.token;
+    const nativeCoding=location.pathname==='/coding';
+    const session=await jsonFetch(nativeCoding?'/api/native-operator/session':'/api/session');
+    state.sessionToken=nativeCoding?session.csrf_token:session.token;
     state.codingProfile=session.coding_profile===true;
     if(state.codingProfile) {
       setView('meta');
@@ -694,6 +697,7 @@ async function bootstrap() {
       return;
     }
   } catch (error) {
+    if(location.pathname==='/coding')closeNativeCoding();
     addMessage('System', `Local session setup failed: ${error}`);
     return;
   }
@@ -1117,7 +1121,11 @@ agentNode('reconcile').addEventListener('click',()=>agentAction(()=>agentClient.
 agentNode('git').addEventListener('click',()=>agentAction(()=>agentClient.gitPreview()));
 agentNode('install').addEventListener('click',()=>agentAction(()=>agentClient.installPreview(JSON.parse(agentNode('install-plan').value))));
 
-AIOAAgentMissions.mountCodingPanel(jsonFetch);
+const codingPanel=AIOAAgentMissions.mountCodingPanel(jsonFetch);
+function closeNativeCoding(){
+  state.sessionToken=null;state.codingProfile=false;codingPanel?.close();
+}
+if(location.pathname==='/coding')addEventListener('pagehide',closeNativeCoding);
 setAssistantMode('cpl');
 bootstrap();
 

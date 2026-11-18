@@ -15,7 +15,12 @@ from runtime.memory_patch.contracts.serialization import (
     freeze_json,
 )
 from runtime.memory_patch.persistence.idempotency import OperationBinding, execute_once
-from runtime.memory_patch.persistence.ports import RecordKind, TransactionContext
+from runtime.memory_patch.persistence.ports import (
+    RecordKind,
+    TransactionContext,
+    TransactionView,
+    _register_history_reader,
+)
 from runtime.mission.governor import ReservationRequest, _deny, _identity, _plain
 from runtime.mission.job_contracts import JobClaim, JobEnvelope
 from runtime.mission.sandbox_bindings import binding_for_job
@@ -29,7 +34,7 @@ STATES={'QUEUED','CLAIMED','STARTED','UNKNOWN','DONE'}
 def key(gov,task,version):return canonical_sha256((KIND,gov.policy.scope,gov.policy.deployment_id,task,version))
 def reservation_id(gov,task):return 'job-'+key(gov,task,0)
 
-def load_job(gov,tx,task,*,version=None):
+def _validated_job_rows(gov,tx):
     domain_chain(tx)
     records=tx.scan(RecordKind.OPERATION,limit=1024)
     _deny(len(records)<1024,'HISTORY_QUOTA')
@@ -76,7 +81,14 @@ def load_job(gov,tx,task,*,version=None):
             and outbox.payload['event_id']=='job-'+row.record_id and outbox.payload['proof_id']=='job-outbox-'+row.record_id
             and outbox.payload['event_digest']==event.event_hash
             and outbox.payload['operation_digest']==canonical_sha256({'scope':gov.policy.scope.binding(),'operation':operation}),'GOVERNOR_INTEGRITY')
-        if envelope.task_id==task:found.append(o)
+        found.append(o)
+    return found
+
+
+def load_job(gov,tx,task,*,version=None):
+    rows = (tx._history_read('JOB_ROWS', governor=gov) if isinstance(tx, TransactionView)
+            else _validated_job_rows(gov, tx))
+    found = [outcome for outcome in rows if outcome['job']['envelope']['task_id'] == task]
     current=None;selected=None
     _deny(version is None or type(version) is int and 1<=version<=128,
           'GOVERNOR_INTEGRITY')
@@ -278,3 +290,6 @@ def change_job(gov,principal,action,*,task_id=None,envelope=None,worker_id=None,
     if action == 'begin' and JobEnvelope.parse(result['envelope']).offline_host:
         result['local_step_now'] = result.pop('fixture_step_now')
     return result
+
+
+_register_history_reader('JOB_ROWS', _validated_job_rows)

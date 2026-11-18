@@ -32,6 +32,8 @@ from runtime.memory_patch.persistence.ports import (
     TransactionRunner,
 )
 from runtime.mission import execution_capacity as codec
+from runtime.mission.coding_tasks import KIND as CODING_KIND
+from runtime.mission.coding_tasks import decode_coding_task_row
 from runtime.mission.governor import CoreDualGovernor, GovernorPolicy, Limits, _exposure
 from runtime.mission.intent import INTENT_KINDS, CoreIntentJournal
 from runtime.mission.liability import KIND as LIABILITY_KIND
@@ -304,7 +306,10 @@ class NativeHostCompositionConfig:
         deny(all(not owner.root.is_relative_to(root) and not root.is_relative_to(owner.root)
                  and not root.is_relative_to(source_root) and not source_root.is_relative_to(root) for root in roots))
         deny(not self.portable.inventory_path.is_relative_to(owner.root))
-        identities = tuple((str(root), _directory_identity(root)) for root in (*roots, self.portable.inventory_path.parent))
+        observed_roots = (*roots, self.portable.inventory_path.parent)
+        if getattr(owner, '_offline_candidates', None) is not None:
+            observed_roots += (roots[-1].parent,)
+        identities = tuple((str(root), _directory_identity(root)) for root in observed_roots)
         self.source_snapshot.verify_export(roots[0])
         return identities
 
@@ -464,7 +469,7 @@ class NativeCapacityCoreView:
         deny(len(rows) < 1024)
         state = foundation.governor._load(tx)
         admission = foundation.access.native_row(tx)
-        job_tasks, warrants = set(), {}
+        job_tasks, warrants, coding_live = set(), {}, []
         from .agent_operations import KIND as AGENT_KIND
         from .agent_operations import STATES as AGENT_STATES
         from .mission_service import KIND as MISSION_KIND
@@ -476,13 +481,17 @@ class NativeCapacityCoreView:
                      and row.payload.get('task_id')==row.record_id)
             if row.payload.get('schema')==AGENT_KIND:
                 deny(row.payload.get('state') in AGENT_STATES and row.payload.get('task_id')==row.record_id)
+            if row.payload.get('schema') == CODING_KIND:
+                _, coding, task = decode_coding_task_row(row, row.payload['task']['task_id'], foundation.identity.spki)
+                if coding['receipts'][-1]['receipt']['state'] in ('UNKNOWN', 'RUNNING', 'VALIDATING', 'REPAIRING', 'APPLYING'):
+                    coding_live.append(task.task_id)
             if row.payload.get('schema') == WARRANT_KIND:
                 warrant = EffectWarrant.from_dict(codec.plain(row.payload['active']))
                 _, _, active = foundation.ledger._load(tx, warrant)
                 warrants[active.digest()] = active
             if row.payload.get('operation_kind') == JOB_KIND:
                 job_tasks.add(row.payload['outcome']['job']['envelope']['task_id'])
-        live_jobs = []
+        live_jobs = list(coding_live)
         for task in sorted(job_tasks):
             job = load_job(foundation.governor, tx, task)
             deny(job is not None)
@@ -580,38 +589,56 @@ class NativeLifecycle:
     def _snapshot(self):
         return self._phase, self.admission_generation, self.composition_generation, self.fence_sequence, self.work_generation
 
+    def _expected_roles(self):
+        owner = self.foundation.owner
+        roles = {'LEGACY_MISSION': owner.missions, 'NATIVE_GITHUB': owner}
+        if getattr(owner, '_offline_candidates', None) is not None:
+            from .native_coding import require_native_graph
+            require_native_graph(owner)
+            roles.update(CODING_WORKER=owner.coding_tasks, CODING_HTTP_EFFECT=owner.coding_tasks,
+                         SANDBOX_BROKER=owner.broker, LOCAL_GIT_EFFECT=owner._native_coding,
+                         PORTABLE_EFFECT=owner._native_coding)
+        return roles
+
     def bind_producers(self):
         from .mission_service import MissionService
         from .runtime_adapter import NativeMobileComposition
         owner = self.foundation.owner
         deny(type(owner) is NativeMobileComposition and type(owner.missions) is MissionService)
+        roles = self._expected_roles()
         with self.lock:
             deny(self._phase is NativePhase.CONSTRUCTING and not self._roles)
-            self._roles = {'LEGACY_MISSION': owner.missions, 'NATIVE_GITHUB': owner}
+            self._roles = roles
             owner.missions._native_foundation = self.foundation
             self._phase = NativePhase.CAPACITY_ADMIN
 
     def _coverage(self):
         owner = self.foundation.owner
-        deny(self._roles == {'LEGACY_MISSION': owner.missions, 'NATIVE_GITHUB': owner}
-             and self._roles['LEGACY_MISSION'] is owner.missions and self._roles['NATIVE_GITHUB'] is owner
-             and owner.missions._native_foundation is self.foundation)
-        deny(self._phase is NativePhase.CAPACITY_ADMIN)
-        # Unknown or partially attached future domains cannot be called absent.
-        deny(not any(getattr(owner, name, None) is not None for name in ('coding_tasks', 'broker', 'portable_executor'))
-             and not hasattr(owner.missions, 'agent_route')
-             and getattr(owner.runtime, '_coding_tasks', None) is None)
+        expected = self._expected_roles()
+        deny(set(self._roles) == set(expected) and all(self._roles[key] is value for key, value in expected.items())
+             and owner.missions._native_foundation is self.foundation
+             and self._phase in (NativePhase.CAPACITY_ADMIN, NativePhase.ACTIVE))
+        if 'CODING_WORKER' in self._roles:
+            tasks = owner.coding_tasks
+            deny(not tasks._active and not tasks._effects and not tasks._effect_ownership
+                 and owner.broker._active_cancel is None and not owner.broker._quarantined
+                 and not owner.broker._uncertain_bindings
+                 and not any(job.get('uncertain') or job.get('claim') is not None and not job.get('finished')
+                             for job in owner._native_coding.jobs.values()))
+        else:
+            deny(not any(getattr(owner, name, None) is not None for name in ('coding_tasks', 'broker', 'portable_executor'))
+                 and not hasattr(owner.missions, 'agent_route')
+                 and getattr(owner.runtime, '_coding_tasks', None) is None)
         for key, worker in tuple(owner.missions._workers.items()):
             handle = self._handles.get(key)
-            deny(handle is not None and handle.thread is worker
-                 and owner.missions._cancels.get(key) is handle.cancel)
+            deny(handle is not None and handle.thread is worker and owner.missions._cancels.get(key) is handle.cancel)
         return [{'role': role, 'state': 'BOUND_IDLE' if role in self._roles else 'ABSENT_FENCED'} for role in codec.ROLES]
 
     @contextmanager
     def operator_call(self,operation):
         token=object()
         with self.lock:
-            deny(len(self._calls)<64 and (self._phase is NativePhase.CAPACITY_ADMIN or
+            deny(len(self._calls)<64 and (self._phase in (NativePhase.CAPACITY_ADMIN, NativePhase.ACTIVE) or
                  operation=='operator_auth_status' and self._phase is NativePhase.FENCED
                   or operation=='github_write_reconcile' and self._phase is NativePhase.ACTIVE))
             self._calls.add(token)
@@ -624,7 +651,7 @@ class NativeLifecycle:
             if operation=='github_write_reconcile':
                 deny(self._phase in (NativePhase.CAPACITY_ADMIN,NativePhase.ACTIVE) and self._fence is None)
                 return
-            deny(self._phase is NativePhase.CAPACITY_ADMIN)
+            deny(self._phase in (NativePhase.CAPACITY_ADMIN, NativePhase.ACTIVE))
             if self._fence is not None:
                 deny(operation in CAPACITY_FIELDS or operation == 'operator_auth_status')
             else:
@@ -636,7 +663,7 @@ class NativeLifecycle:
 
     def begin_work(self, producer, role, task, cancel, thread, done):
         """Closed publication used by actual mission/GitHub hooks before claims."""
-        deny(role in ('LEGACY_MISSION', 'NATIVE_GITHUB') and type(task) is str
+        deny(role in ('LEGACY_MISSION', 'NATIVE_GITHUB', 'CODING_WORKER') and type(task) is str
              and type(thread) is threading.Thread and type(done) is threading.Event)
         with self.lock:
             deny(self._roles.get(role) is producer and self._phase is NativePhase.ACTIVE and self._fence is None
@@ -656,16 +683,37 @@ class NativeLifecycle:
         with self.lock:
             deny(type(handle) is NativeOwnedWorkHandle and self._handles.get(handle.task_id) is handle)
             handle.quarantined=True;self.work_generation+=1
+            self.invalidate_admission()
+            self._phase=NativePhase.QUARANTINED
 
     def begin_synchronous(self,producer,role,identity,cancel,*,parent=None):
         from runtime.providers.exact import CancellationToken
-        deny(role in ('LEGACY_MISSION','NATIVE_GITHUB') and type(identity) is str
+        deny(role in ('LEGACY_MISSION','NATIVE_GITHUB','CODING_HTTP_EFFECT','PORTABLE_EFFECT') and type(identity) is str
              and type(cancel) is CancellationToken)
+        historical = None
+        if role == 'CODING_HTTP_EFFECT' and parent is not None:
+            from runtime.mission.coding_tasks import CoreCodingTasks
+            deny(type(producer) is CoreCodingTasks and producer is self.foundation.owner.coding_tasks)
+            # Actual return/thread observations are outside lifecycle/controller
+            # locks and SQL. The same references are checked under the lock below.
+            historical = CoreCodingTasks._native_git_reconciliation_parent(producer, parent)
         with self.lock:
+            phase_allowed = (self._phase is NativePhase.ACTIVE or
+                parent is not None and self._phase is NativePhase.CAPACITY_ADMIN
+                and self._handles.get(parent.task_id) is parent)
+            if historical is not None:
+                phase_allowed = (self._phase is NativePhase.QUARANTINED
+                    and self._handles.get(parent.task_id) is parent and parent.quarantined
+                    and parent.context is historical['binding'] and historical['native_handle'] is parent
+                    and self._roles.get(role) is producer and historical['returned'] and parent.done.is_set()
+                    and identity == 'coding-readback-' + historical['route'].capsule.task_id
+                                    + '-' + str(len(historical.get('readbacks', ())) + 1)
+                    and all(self._handles.get(item['native_handle'].task_id) is item['native_handle']
+                            for item in historical.get('readbacks', ()))
+                    and not any(item.parent is parent and (not item.done.is_set() or item.returned is None)
+                                for item in self._handles.values()))
             deny(self._roles.get(role) is producer and self._fence is None and identity not in self._handles
-                 and len(self._handles)<64 and (self._phase is NativePhase.ACTIVE or
-                    parent is not None and self._phase is NativePhase.CAPACITY_ADMIN
-                    and self._handles.get(parent.task_id) is parent))
+                 and len(self._handles)<64 and phase_allowed)
             handle=NativeOwnedWorkHandle(self.foundation,producer,role,identity,cancel,threading.current_thread(),
                 threading.Event(),started=True,synchronous=True,parent=parent)
             self._handles[identity]=handle;self.work_generation+=1
@@ -675,9 +723,24 @@ class NativeLifecycle:
         # Positive completion is the return of this exact same source-owned
         # synchronous boundary, never thread death or a caller ACK boolean.
         deny(handle.synchronous and handle.thread is threading.current_thread())
+        family = None
+        if handle.role == 'CODING_HTTP_EFFECT' and handle.kind == 'LOCAL_GIT_RECONCILE':
+            from runtime.mission.coding_tasks import CoreCodingTasks
+            deny(type(handle.producer) is CoreCodingTasks and handle.producer is self.foundation.owner.coding_tasks)
+            family = CoreCodingTasks._native_git_reconciliation_retirement(handle.producer, handle)
         handle.done.set()
         with self.lock:
             deny(self._handles.get(handle.task_id) is handle and not handle.quarantined)
+            if family is not None:
+                parent, previous = family
+                deny(handle.parent is parent and self._handles.get(parent.task_id) is parent
+                     and parent.quarantined and parent.done.is_set()
+                     and all(self._handles.get(item.task_id) is item and item.parent is parent
+                             and item.done.is_set() and item.returned is not None for item in previous))
+                for old in (parent, *previous):
+                    old.cleanup = ('ORIGINAL_APPLIED_VERIFIED_READBACK', handle, os.getpid(), threading.get_ident())
+                    del self._handles[old.task_id]
+                    self.work_generation += 1
             handle.cleanup=('SYNCHRONOUS_BOUNDARY_RETURN',os.getpid(),threading.get_ident(),handle.done)
             del self._handles[handle.task_id];self.work_generation+=1
 
@@ -687,6 +750,19 @@ class NativeLifecycle:
         with self.lock:
             if self._handles.get(handle.task_id) is not handle:return False
             if handle.synchronous or handle.quarantined:return False
+        if handle.role == 'CODING_WORKER':
+            service = self.foundation.owner.coding_tasks
+            with service._active_lock:
+                item = service._active.get(handle.task_id)
+                if (item is None or item.get('native_handle') is not handle or item.get('quarantined')
+                        or not item['done'].is_set() or item['thread'].is_alive() or not item.get('completed')):
+                    return False
+            with self.lock:
+                deny(self._handles.get(handle.task_id) is handle and item['thread'] is handle.thread
+                     and item['cancel'] is handle.cancel and item['done'] is handle.done)
+                del self._handles[handle.task_id]
+                self.work_generation += 1
+                return True
         service=self.foundation.owner.missions
         cleanup=service._native_retirement_observation(handle)
         if cleanup is None:return False
@@ -713,9 +789,13 @@ class NativeLifecycle:
     def begin_capacity_review(self, request_id: str) -> NativeCapacityFence:
         codec.hexdigest(request_id, 32)
         self.foundation.owner.missions._retire_native_workers()
+        if 'CODING_WORKER' in self._roles:
+            self.foundation.owner.coding_tasks._retire_finished()
         with self.lock:
             self._coverage()
             deny(self._fence is None and not self._handles)
+            self._capacity_previous_phase = self._phase
+            self._phase = NativePhase.CAPACITY_ADMIN
             self.fence_sequence += 1
             f = _original(NativeCapacityFence, self.foundation.access, foundation=self.foundation, request_id=request_id,
                 instance_id=self.foundation.owner.instance_id, admission_generation=self.admission_generation,
@@ -763,6 +843,7 @@ class NativeLifecycle:
         with self.lock:
             deny(self._fence is fence)
             self.fence_sequence += 1; self._fence = None
+            self._phase = getattr(self, "_capacity_previous_phase", NativePhase.CAPACITY_ADMIN)
             fence.close()
 
     def drain(self):
@@ -781,6 +862,12 @@ class NativeLifecycle:
             active = bool(self._calls or self._capturing or self._renewing or self.foundation.access._originals)
             workers = tuple(self.foundation.owner.missions._workers.values())
         for handle in handles: handle.cancel.cancel()
+        if 'CODING_WORKER' in self._roles:
+            self.foundation.owner.coding_tasks.drain(5)
+            with self.lock:
+                handles = tuple(self._handles.values())
+            broker = self.foundation.owner.broker
+            active = active or broker._active_cancel is not None or broker._quarantined or bool(broker._uncertain_bindings)
         # No joins or OS/process observations under the lifecycle lock.
         alive = any(worker.is_alive() for worker in workers)
         with self.lock:
@@ -838,17 +925,39 @@ class NativeCoreAccess:
         f = self.foundation; owner = f.owner; lifecycle = f.lifecycle
         with lifecycle.lock:
             settlement=getattr(lifecycle._boundary,'settlement_handle',None)
+            if use is NativeAccessUse.SETTLEMENT and settlement is None:
+                settlement=getattr(lifecycle._boundary,'work_handle',None)
             if use is NativeAccessUse.SETTLEMENT:
-                deny(type(settlement) is NativeOwnedWorkHandle and lifecycle._handles.get(settlement.task_id) is settlement
-                     and settlement.parent is not None and lifecycle._handles.get(settlement.parent.task_id) is settlement.parent
-                     and settlement.thread is threading.current_thread()
-                     and settlement.kind in ('AGENT_SETTLEMENT','GITHUB_SETTLEMENT')
-                     and settlement.parent.foundation is f and purpose in (Capability.READ,Capability.COMMIT)
-                     and lifecycle._fence is None)
-            deny((lifecycle.phase is NativePhase.CAPACITY_ADMIN or
-                  use is NativeAccessUse.SETTLEMENT and lifecycle.phase is NativePhase.ACTIVE) and not owner._closed
+                deny(type(settlement) is NativeOwnedWorkHandle
+                     and lifecycle._handles.get(settlement.task_id) is settlement
+                     and settlement.thread is threading.current_thread() and settlement.foundation is f
+                     and purpose in (Capability.READ, Capability.COMMIT) and lifecycle._fence is None
+                     and (settlement.role in ('CODING_WORKER', 'CODING_HTTP_EFFECT', 'PORTABLE_EFFECT')
+                          or settlement.parent is not None and lifecycle._handles.get(settlement.parent.task_id) is settlement.parent
+                          and settlement.kind in ('AGENT_SETTLEMENT','GITHUB_SETTLEMENT')))
+            phase_allowed = (lifecycle.phase in (NativePhase.CAPACITY_ADMIN, NativePhase.ACTIVE)
+                             or use is NativeAccessUse.READ and purpose is Capability.READ
+                             and lifecycle.phase in (NativePhase.DRAINING, NativePhase.QUARANTINED))
+            if use is NativeAccessUse.SETTLEMENT:
+                phase_allowed = (
+                    lifecycle.phase in (NativePhase.ACTIVE, NativePhase.DRAINING, NativePhase.QUARANTINED)
+                    or lifecycle.phase is NativePhase.CAPACITY_ADMIN
+                    and type(settlement.parent) is NativeOwnedWorkHandle
+                    and lifecycle._handles.get(settlement.parent.task_id) is settlement.parent
+                    and settlement.parent.foundation is f
+                    and lifecycle._roles.get(settlement.role) is settlement.producer
+                    and settlement.parent.producer is settlement.producer
+                    and settlement.parent.role == settlement.role
+                    and (settlement.role, settlement.kind, settlement.parent.kind) in (
+                        ('LEGACY_MISSION', 'AGENT_SETTLEMENT', 'AGENT'),
+                        ('NATIVE_GITHUB', 'GITHUB_SETTLEMENT', 'GITHUB_PENDING')))
+            if use is NativeAccessUse.EXECUTION:
+                deny(lifecycle.phase is NativePhase.ACTIVE and lifecycle._fence is None
+                     and getattr(owner, '_native_coding', None) is not None and owner._native_coding.graph_complete)
+            deny(phase_allowed and not owner._closed
                  and purpose in (Capability.READ, Capability.MANAGE, Capability.COMMIT, Capability.OWNER_APPROVAL)
-                 and use in (NativeAccessUse.READ, NativeAccessUse.CONTROL, NativeAccessUse.CAPACITY, NativeAccessUse.SETTLEMENT)
+                 and use in (NativeAccessUse.READ, NativeAccessUse.CONTROL, NativeAccessUse.CAPACITY,
+                             NativeAccessUse.SETTLEMENT, NativeAccessUse.EXECUTION)
                  and len(self._originals) + lifecycle._capturing < 64)
             expected = lifecycle._snapshot(); lifecycle._capturing += 1
         try:
@@ -860,7 +969,10 @@ class NativeCoreAccess:
             row = owner.runner.run(TransactionContext(principal, purpose), self.native_row)
             with lifecycle.lock:
                 deny(expected == lifecycle._snapshot() and not owner._closed
-                     and (lifecycle.phase is NativePhase.CAPACITY_ADMIN or use is NativeAccessUse.SETTLEMENT and lifecycle.phase is NativePhase.ACTIVE))
+                     and (lifecycle.phase in (NativePhase.CAPACITY_ADMIN, NativePhase.ACTIVE)
+                          or use is NativeAccessUse.SETTLEMENT and lifecycle.phase in (NativePhase.DRAINING, NativePhase.QUARANTINED)
+                          or use is NativeAccessUse.READ and purpose is Capability.READ
+                          and lifecycle.phase in (NativePhase.DRAINING, NativePhase.QUARANTINED)))
                 return _original(NativeAuthorityCapture, self, owner=owner, core=owner.core, runner=owner.runner,
                     ledger=owner.ledger, principal=principal, purpose=purpose, use=use, instance_id=owner.instance_id,
                     assignment_revision=principal.assignment_revision, admission_generation=lifecycle.admission_generation,
@@ -886,15 +998,23 @@ class NativeCoreAccess:
                  and capture.fence_sequence == lifecycle.fence_sequence
                  and capture.source == owner.source and capture.composition_digest == f.spec.digest
                  and capture.auth_deadline == owner._auth_deadline and capture.tls_expires == owner._tls_expires
-                 and (lifecycle.phase is NativePhase.CAPACITY_ADMIN or capture.use is NativeAccessUse.SETTLEMENT and lifecycle.phase is NativePhase.ACTIVE)
+                 and (lifecycle.phase in (NativePhase.CAPACITY_ADMIN, NativePhase.ACTIVE)
+                      or capture.use is NativeAccessUse.SETTLEMENT and lifecycle.phase in (NativePhase.DRAINING, NativePhase.QUARANTINED)
+                      or capture.use is NativeAccessUse.READ and purpose is Capability.READ
+                      and lifecycle.phase in (NativePhase.DRAINING, NativePhase.QUARANTINED))
                  and owner.tls_verified is True)
+        if capture.use is NativeAccessUse.EXECUTION:
+            deny(lifecycle.phase is NativePhase.ACTIVE and lifecycle._fence is None
+                 and getattr(owner, '_native_coding', None) is not None and owner._native_coding.graph_complete)
         if capture.use is NativeAccessUse.SETTLEMENT:
-            deny(type(capture.work_handle) is NativeOwnedWorkHandle
-                 and lifecycle._handles.get(capture.work_handle.task_id) is capture.work_handle
-                 and getattr(lifecycle._boundary,'settlement_handle',None) is capture.work_handle
-                 and capture.work_handle.thread is threading.current_thread()
-                 and lifecycle._handles.get(capture.work_handle.parent.task_id) is capture.work_handle.parent
-                 and capture.work_handle.parent.foundation is f and lifecycle._fence is None)
+            handle = capture.work_handle
+            deny(type(handle) is NativeOwnedWorkHandle and lifecycle._handles.get(handle.task_id) is handle
+                 and handle.thread is threading.current_thread() and handle.foundation is f
+                 and lifecycle._fence is None
+                 and (getattr(lifecycle._boundary,'settlement_handle',None) is handle
+                      or getattr(lifecycle._boundary,'work_handle',None) is handle)
+                 and (handle.role in ('CODING_WORKER','CODING_HTTP_EFFECT','PORTABLE_EFFECT')
+                      or handle.parent is not None and lifecycle._handles.get(handle.parent.task_id) is handle.parent))
         now, mono = datetime.now(UTC), time.monotonic()
         with lifecycle.lock:
             observed=self._originals.get(id(capture))
@@ -925,7 +1045,7 @@ class NativeAuthorityFoundation:
         self.owner, self.spec = owner, spec
         self.coding_backend_registry = spec.coding_backend_registry
         self.core, self.runner, self.ledger = owner.core, owner.runner, owner.ledger
-        self.runtime,self.missions,self.mobile,self.identity=owner.runtime,owner.missions,owner.mobile,owner.identity
+        self.runtime,self.missions,self.mobile,self.identity=getattr(owner, "runtime", None),owner.missions,owner.mobile,owner.identity
         self.lifecycle = NativeLifecycle(self)
         self.access = NativeCoreAccess(self)
         # Publish ownership even if a later binding step fails. A construction
@@ -945,8 +1065,16 @@ class NativeAuthorityFoundation:
         self.controller = NativeCapacityOwnerController(self)
         self.root_observations = spec.observe(owner)
         self.require_bindings()
-        self.lifecycle.bind_producers()
+        if self.runtime is not None:
+            self.lifecycle.bind_producers()
         return self
+
+    def finish_owner(self, runtime):
+        deny(self.runtime is None and self.lifecycle.phase is NativePhase.CONSTRUCTING
+             and self.owner.runtime is runtime)
+        self.runtime = runtime
+        self.require_bindings()
+        self.lifecycle.bind_producers()
 
     def require_bindings(self):
         from main import AgentRuntime
@@ -965,8 +1093,9 @@ class NativeAuthorityFoundation:
         self.spec.coding_model_ids()
         if self.coding_backend_registry is not None:
             deny(all(source == owner.source for source in self.coding_backend_registry._host_sources()))
-        deny(type(owner) is NativeMobileComposition and type(owner.runtime) is AgentRuntime
-             and owner.runtime is self.runtime and type(owner.missions) is MissionService and owner.missions is self.missions
+        constructing = self.lifecycle.phase is NativePhase.CONSTRUCTING and self.runtime is None
+        deny(type(owner) is NativeMobileComposition and (constructing or type(owner.runtime) is AgentRuntime
+             and owner.runtime is self.runtime) and type(owner.missions) is MissionService and owner.missions is self.missions
              and type(owner.mobile) is MobileGateway and owner.mobile is self.mobile
              and type(owner.identity) is Identity and owner.identity is self.identity and owner.mobile.identity is self.identity
              and owner.mobile.native_host is owner and owner.mobile.missions is self.missions
@@ -978,7 +1107,8 @@ class NativeAuthorityFoundation:
              and type(self.runner._factory) is LocalCoreRecordFactory and self.runner._factory.core is self.core
              and self.ledger is owner.ledger and self.ledger.core is self.core and self.ledger.runner is self.runner
              and self.ledger.scope == self.core._assignment.scope
-             and owner.runtime._memory_patch_admission is self.core and owner.runtime._owns_memory_patch_admission is False
+             and (constructing or owner.runtime._memory_patch_admission is self.core
+                  and owner.runtime._owns_memory_patch_admission is False)
              and owner.missions.core is self.core and owner.missions.runner is self.runner and owner.missions.ledger is self.ledger
              and owner.mobile.core is self.core and owner.mobile.runner is self.runner
              and type(self.governor) is CoreDualGovernor and self.governor.core is self.core
@@ -991,6 +1121,12 @@ class NativeAuthorityFoundation:
              and self.spec.portable.binding.scope == self.ledger.scope
              and owner.instance_id == self.core._session
              and getattr(owner.missions,'_chat_governor',None) in (None,self.governor))
+        if getattr(getattr(owner, '_native_coding', None), 'graph_complete', False):
+            from .native_coding import require_native_graph
+            require_native_graph(owner)
+            if not constructing:
+                deny(owner.runtime._coding_tasks is owner.coding_tasks)
+
 
 
 @dataclass(slots=True, repr=False)
@@ -1184,6 +1320,10 @@ class NativeCapacityOwnerController:
                 pending.state = 'APPLIED'
                 host.close()
                 f.lifecycle.abort(pending.fence)
+                if getattr(getattr(owner, '_native_coding', None), 'graph_complete', False):
+                    with f.lifecycle.lock:
+                        deny(not f.lifecycle._handles and f.lifecycle._fence is None)
+                        f.lifecycle._phase = NativePhase.ACTIVE
                 return receipt.to_dict()
             except (CommitOutcomeUnknown,codec.CapacityAcknowledgedButFenced):
                 pending.state = 'READBACK_ONLY'

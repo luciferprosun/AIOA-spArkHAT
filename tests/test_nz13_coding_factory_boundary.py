@@ -18,7 +18,7 @@ class CodingFactoryBoundaryTests(unittest.TestCase):
             result = api.create_runtime(inspection_only=True, coding_tasks=sentinel.tasks)
         self.assertIs(result, sentinel.runtime)
         runtime.assert_called_once_with(None, '', api.PROJECT_DIR, inspection_only=True,
-                                        coding_tasks=sentinel.tasks)
+                                        coding_tasks=sentinel.tasks, borrowed_admission=None)
 
     def test_non_inspection_mode_refuses_before_runtime_or_provider_creation(self):
         self.require_seam()
@@ -59,5 +59,31 @@ class CodingFactoryBoundaryTests(unittest.TestCase):
             runtime.assert_called_once_with(None, '', api.PROJECT_DIR, inspection_only=True,
                                             nonzero_config=None, memory_patch_config=None,
                                             memory_patch_dependencies=None, mission_context=None,
-                                            mission_bindings=None)
+                                            mission_bindings=None, borrowed_admission=None)
             provider.assert_not_called()
+
+    def test_runtime_close_preserves_borrowed_core_until_owner_closes(self):
+        from runtime.core_admission import (
+            AdmissionError, Capability, CoreAdmission, LocalOwnerAssignment, OwnerScope,
+        )
+
+        core = CoreAdmission(LocalOwnerAssignment(
+            OwnerScope('fixture', 'owner', 'space', 'slot'),
+            frozenset({Capability.READ}), frozenset({'fixture-hat'}),
+            frozenset({'fixture-model'}), operator_approved=True))
+        self.addCleanup(core.close)
+        with patch.object(api, 'ProviderManager',
+                          side_effect=AssertionError('Provider startup forbidden')):
+            runtime = api.create_runtime(inspection_only=True, borrowed_admission=core)
+            self.addCleanup(runtime.close)
+            runtime.close()
+            core.local_operator(Capability.READ)
+            core.close()
+            with self.assertRaises(AdmissionError):
+                core.local_operator(Capability.READ)
+
+    def test_invalid_borrowed_core_refuses_before_provider_startup(self):
+        with patch.object(api, 'ProviderManager',
+                          side_effect=AssertionError('Provider startup forbidden')):
+            with self.assertRaisesRegex(ValueError, 'INVALID_BORROWED_ADMISSION'):
+                api.create_runtime(inspection_only=True, borrowed_admission=sentinel.invalid_core)

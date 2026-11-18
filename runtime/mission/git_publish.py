@@ -628,6 +628,60 @@ class CoreRemoteGitRoute:
     exact operation. The route owns no separate Core, governor or state store.
     """
 
+    def _require_native_binding(self):
+        from runtime.meta_hackathon.native_authority import NativeCoreAccess
+
+        access = self.native_access
+        binding = self._native_binding
+        core_require(type(access) is NativeCoreAccess and type(binding) is tuple
+                     and len(binding) == 10 and binding[0] is self and binding[1] is access,
+                     "NATIVE_GIT_ROUTE_BINDING")
+        f = access.foundation
+        controller = getattr(f.owner, 'coding_tasks', None)
+        core_require(binding[2] is f and f.access is access and f.owner.foundation is f
+                     and self.journal is binding[3] is f.intent_journal
+                     and self.capsules is binding[4] and controller is not None
+                     and controller.capsules is self.capsules and self.capsules.identity is f.owner.identity
+                     and self.core is binding[5] is f.core and self.runner is binding[6] is f.runner
+                     and self.scope is binding[7] is f.ledger.scope
+                     and self.journal.ledger is binding[8] is f.ledger
+                     and binding[9] is f.liability and self.journal.governor is f.governor,
+                     "NATIVE_GIT_ROUTE_BINDING")
+        f.require_bindings()
+        return access
+
+    def _run(self, principal, purpose, callback):
+        if getattr(self, 'native_access', None) is None and getattr(self, '_native_binding', None) is None:
+            return self.journal._run(principal, purpose, callback)
+        from runtime.core_admission import Capability
+        from runtime.memory_patch.persistence.ports import TransactionContext
+        from runtime.meta_hackathon.native_authority import NativeAccessUse, NativePhase
+
+        access = self._require_native_binding()
+        lifecycle = access.foundation.lifecycle
+        use = (NativeAccessUse.READ if purpose is Capability.READ else NativeAccessUse.EXECUTION
+               if lifecycle.phase is NativePhase.ACTIVE else NativeAccessUse.CONTROL)
+        if getattr(lifecycle._boundary, 'settlement_handle', None) is not None:
+            use = NativeAccessUse.SETTLEMENT
+        capture = access.capture(purpose, use=use)
+        try:
+            def pure(tx):
+                self._require_native_binding()
+                access.require_capture(capture, purpose, tx=tx)
+                owned = getattr(lifecycle._boundary, 'coding_effect', None)
+                if owned is not None:
+                    access.foundation.owner.coding_tasks._native_git_effect_check(self, owned['warrant'], purpose)
+                try:
+                    return callback(tx)
+                finally:
+                    if owned is not None:
+                        access.foundation.owner.coding_tasks._native_git_effect_check(self, owned['warrant'], purpose)
+                    access.require_capture(capture, purpose, tx=tx)
+                    self._require_native_binding()
+            return self.runner.run(TransactionContext(capture.principal, purpose), pure)
+        finally:
+            capture.close()
+
     @staticmethod
     def prepare_patchset(
         base_root, final_root, *, source, task, worker_session_id, capsule_digest
@@ -689,6 +743,7 @@ class CoreRemoteGitRoute:
         target_repository,
         check,
         target_guard,
+        native_access=None,
     ):
         """Native-only, versioned disposable bare profile on THIS registered route."""
         from runtime.core_admission import Capability
@@ -741,7 +796,26 @@ class CoreRemoteGitRoute:
             )
             return capsule, last["state"]
 
-        capsule, state = journal._run(principal, Capability.COMMIT, load)
+        if native_access is None:
+            capsule, state = journal._run(principal, Capability.COMMIT, load)
+        else:
+            from runtime.meta_hackathon.native_authority import NativeCoreAccess
+
+            core_require(cls is CoreRemoteGitRoute and type(native_access) is NativeCoreAccess,
+                         "NATIVE_GIT_ROUTE_BINDING")
+            f = native_access.foundation
+            controller = getattr(f.owner, 'coding_tasks', None)
+            core_require(f.access is native_access and f.intent_journal is journal
+                         and controller is not None and controller.capsules is capsules
+                         and profile is f.spec.recipe and source_snapshot is f.spec.source_snapshot,
+                         "NATIVE_GIT_ROUTE_BINDING")
+            instance = cls.__new__(cls)
+            instance.journal, instance.capsules = journal, capsules
+            instance.core, instance.runner, instance.scope = journal.ledger.core, journal.ledger.runner, journal.ledger.scope
+            instance.native_access = native_access
+            instance._native_binding = (instance, native_access, f, journal, capsules,
+                instance.core, instance.runner, instance.scope, f.ledger, f.liability)
+            capsule, state = instance._run(principal, Capability.COMMIT, load)
         historical = state in ("APPLYING", "UNKNOWN", "VERIFIED")
         # Readback reconstructs the already admitted plan. A new evaluator's
         # version/bytes must not replace its immutable historical profile hash.
@@ -790,7 +864,8 @@ class CoreRemoteGitRoute:
             and capsule.target_revision == "git-" + source_snapshot.source_base_sha,
             "GIT_CAPSULE_TARGET_BINDING",
         )
-        instance = cls.__new__(cls)
+        if native_access is None:
+            instance = cls.__new__(cls)
         instance.journal, instance.capsules, instance.capsule = (
             journal,
             capsules,
@@ -814,11 +889,19 @@ class CoreRemoteGitRoute:
         instance.test_profile = profile
         instance.historical_operation = None
 
+        # This constructor call's immutable plan value is prepared before SQL.
+        # Public plan.digest and every legacy/mutation caller remain fresh.
+        prepared_plan = plan if native_access is not None and historical else None
+        prepared_plan_digest = prepared_plan.digest if prepared_plan is not None else None
+
         def proofs(tx):
             instance._local_proofs(tx, historical=historical)
-            return instance._local_history(tx) if historical else None
+            if prepared_plan is None:
+                return instance._local_history(tx) if historical else None
+            core_require(instance.plan is prepared_plan, "NATIVE_GIT_PLAN_BINDING")
+            return instance._local_history(tx, prepared_plan_digest=prepared_plan_digest)
 
-        instance.historical_operation = journal._run(
+        instance.historical_operation = instance._run(
             principal, Capability.COMMIT, proofs
         )
         instance.check = (
@@ -936,7 +1019,7 @@ class CoreRemoteGitRoute:
                 "GIT_UNKNOWN_PROOF",
             )
 
-    def _local_history(self, tx):
+    def _local_history(self, tx, *, prepared_plan_digest=None):
         """An inert binding to an existing canonical START, never new authority."""
         from runtime.memory_patch.contracts.serialization import (
             canonical_json_bytes,
@@ -952,7 +1035,8 @@ class CoreRemoteGitRoute:
         core_require(
             row is not None
             and row.payload.get("schema") == "aioa.local-patch-step.v1"
-            and row.payload.get("plan_digest") == self.plan.digest,
+            and row.payload.get("plan_digest")
+            == (self.plan.digest if prepared_plan_digest is None else prepared_plan_digest),
             "GIT_DISPATCH_PROVENANCE_REQUIRED",
         )
         key = canonical_sha256(
@@ -970,7 +1054,9 @@ class CoreRemoteGitRoute:
             and type(payload.get("principal_session_id")) is str
             and type(payload.get("policy_epoch")) is int
             and operation
-            == self.operation(payload["principal_session_id"], payload["policy_epoch"]),
+            == (self.operation(payload["principal_session_id"], payload["policy_epoch"])
+                if prepared_plan_digest is None else self._local_patch_operation(
+                    payload["principal_session_id"], payload["policy_epoch"], prepared_plan_digest)),
             "GIT_INTENT_REQUIRED",
         )
         return json.loads(canonical_json_bytes(operation))
@@ -1049,10 +1135,14 @@ class CoreRemoteGitRoute:
                     capsule_digest=self.capsule.digest,
                 )
 
-            return self.journal._run(principal, Capability.OWNER_APPROVAL, approve)
+            return self._run(principal, Capability.OWNER_APPROVAL, approve)
 
-    def _local_warrant(self, warrant, operation):
+    def _local_warrant(self, warrant, operation, *, _prepared_plan=None,
+                       _prepared_plan_digest=None):
         from runtime.memory_patch.contracts.serialization import canonical_sha256
+
+        if _prepared_plan is not None or _prepared_plan_digest is not None:
+            self._require_native_local_plan(_prepared_plan, _prepared_plan_digest)
 
         core_require(
             warrant.operation_class == "GIT_COMMIT"
@@ -1061,7 +1151,8 @@ class CoreRemoteGitRoute:
             and warrant.target_fingerprint == self.plan.target_fingerprint
             and warrant.expected_target_revision
             == "git-" + self.plan.source.source_base_sha
-            and warrant.decision_dependency_root == self.dependency_root
+            and warrant.decision_dependency_root == (self.dependency_root
+                if _prepared_plan is None else self._local_patch_dependency_root(_prepared_plan_digest))
             and int(warrant.expires_at.timestamp()) <= self.capsule.expires_at
             and (warrant.expires_at - warrant.issued_at).total_seconds() <= 300,
             "GIT_EXACT_APPROVAL_REQUIRED",
@@ -1072,10 +1163,15 @@ class CoreRemoteGitRoute:
         from runtime.memory_patch.persistence.ports import RecordKind
 
         self._prospective_local()
+        if getattr(self, 'native_access', None) is not None:
+            self._require_native_binding().foundation.owner.coding_tasks._native_git_start_ack(self, warrant)
+        prepared_plan = self.plan if getattr(self, 'native_access', None) is not None else None
+        prepared_digest = prepared_plan.digest if prepared_plan is not None else None
         key = "github-step-" + self.plan.operation_id + "-local_patch"
 
         def mark(tx):
-            self.validate(tx, warrant, operation, consumed=True)
+            self.validate(tx, warrant, operation, consumed=True,
+                          _prepared_plan=prepared_plan, _prepared_plan_digest=prepared_digest)
             _, intent = self.journal._load(tx, warrant)
             core_require(
                 intent is not None and intent["resolution"] is None,
@@ -1091,16 +1187,17 @@ class CoreRemoteGitRoute:
                     "state": "GITHUB_STEP_UNKNOWN",
                     "warrant_digest": warrant.digest(),
                     "operation_hash": warrant.operation_hash,
-                    "plan_digest": self.plan.digest,
+                    "plan_digest": (self.plan.digest if prepared_plan is None else prepared_digest),
                     "automatic_retry": False,
                 },
+                _prepared_plan=prepared_plan, _prepared_plan_digest=prepared_digest,
             )
             return True
 
-        core_require(
-            self.journal._run(principal, Capability.COMMIT, mark),
-            "GIT_UNKNOWN_NO_RETRY",
-        )
+        marked = self._run(principal, Capability.COMMIT, mark)
+        if prepared_plan is not None:
+            self._require_native_local_source(prepared_plan, prepared_digest)
+        core_require(marked, "GIT_UNKNOWN_NO_RETRY")
         # Only fixed object plumbing and create-ref CAS; no checkout, hooks,
         # filters, shell, configurable argv, network, main update or force.
         for kind, data, expected in self.plan.objects:
@@ -1135,6 +1232,11 @@ class CoreRemoteGitRoute:
         from runtime.memory_patch.persistence.ports import RecordKind
         from runtime.mission.liability import Reconciliation
 
+        if getattr(self, 'native_access', None) is not None:
+            self._require_native_binding().foundation.owner.coding_tasks._native_git_begin_settlement(
+                self, warrant, historical=historical)
+        prepared_plan = self.plan if getattr(self, 'native_access', None) is not None else None
+        prepared_digest = prepared_plan.digest if prepared_plan is not None else None
         core_require(
             _git_target_identity(self.target_repository) == self.plan.target_identity,
             "GIT_TARGET_MOVED",
@@ -1158,10 +1260,12 @@ class CoreRemoteGitRoute:
             == self.plan.commit_data,
             "GIT_COMMIT_READBACK",
         )
+        if prepared_plan is not None:
+            self._require_native_local_source(prepared_plan, prepared_digest)
         receipt = {
             "schema": "aioa.local-patch-git-receipt.v1",
             "state": "LOCAL_GIT_VERIFIED",
-            "plan_digest": self.plan.digest,
+            "plan_digest": (self.plan.digest if prepared_plan is None else prepared_digest),
             "capsule_digest": self.capsule.digest,
             "patchset_sha256": self.capsule.patchset_sha256,
             "warrant_digest": warrant.digest(),
@@ -1177,23 +1281,27 @@ class CoreRemoteGitRoute:
         result = {"receipt": receipt, "signature": self.identity.sign(receipt)}
 
         def save(tx):
+            if prepared_plan is not None:
+                self._require_native_local_plan(prepared_plan, prepared_digest)
             if historical:
                 self._local_proofs(tx, historical=True)
-                self._local_history(tx)
+                self._local_history(tx, prepared_plan_digest=prepared_digest)
             _, intent = self.journal._load(tx, warrant)
             core_require(
                 intent is not None
                 and intent["operation"]
-                == self.operation(
-                    intent["operation"]["payload"]["principal_session_id"],
-                    warrant.lease_epoch,
-                ),
+                == (self.operation(intent["operation"]["payload"]["principal_session_id"],
+                                   warrant.lease_epoch)
+                    if prepared_plan is None else self._local_patch_operation(
+                        intent["operation"]["payload"]["principal_session_id"],
+                        warrant.lease_epoch, prepared_digest)),
                 "GIT_INTENT_REQUIRED",
             )
             if intent["resolution"] is not None:
                 return self.journal._public(intent)
             if not historical:
-                self.validate(tx, warrant, intent["operation"], consumed=True)
+                self.validate(tx, warrant, intent["operation"], consumed=True,
+                              _prepared_plan=prepared_plan, _prepared_plan_digest=prepared_digest)
             row = tx.get(
                 RecordKind.OPERATION,
                 "github-step-" + self.plan.operation_id + "-local_patch",
@@ -1202,7 +1310,8 @@ class CoreRemoteGitRoute:
                 row is not None
                 and row.payload["warrant_digest"] == warrant.digest()
                 and row.payload["operation_hash"] == warrant.operation_hash
-                and row.payload["plan_digest"] == self.plan.digest,
+                and row.payload["plan_digest"] == (self.plan.digest
+                    if prepared_plan is None else prepared_digest),
                 "GIT_DISPATCH_PROVENANCE_REQUIRED",
             )
             self._save(
@@ -1213,6 +1322,7 @@ class CoreRemoteGitRoute:
                     "state": "GITHUB_VERIFIED",
                     "result": result,
                 },
+                _prepared_plan=prepared_plan, _prepared_plan_digest=prepared_digest,
             )
             proof = EvidenceRef(
                 "git-receipt-" + self.plan.operation_id,
@@ -1233,7 +1343,10 @@ class CoreRemoteGitRoute:
                 tx, warrant, self.journal.governor._load(tx)["epoch"], resolution
             )
 
-        return self.journal._run(principal, Capability.COMMIT, save)
+        resolved = self._run(principal, Capability.COMMIT, save)
+        if prepared_plan is not None:
+            self._require_native_local_source(prepared_plan, prepared_digest)
+        return resolved
 
     def __init__(
         self, journal, *, plan, base, identity, api_factory, check, target_guard, mode
@@ -1272,6 +1385,32 @@ class CoreRemoteGitRoute:
         )
         self.tree = base.add_files(plan.files)
 
+
+    def _require_native_local_plan(self, plan, digest):
+        self._require_native_binding()
+        core_require(self.mode == "LOCAL_PATCH_FIXTURE"
+                     and type(plan) is LocalPatchGitPlan and self.plan is plan
+                     and type(digest) is str and re.fullmatch("[a-f0-9]{64}", digest),
+                     "NATIVE_GIT_PLAN_BINDING")
+
+    def _require_native_local_source(self, plan, digest):
+        # Outside SQL only; a returned call cannot authorize source drift.
+        self._require_native_local_plan(plan, digest)
+        core_require(plan.digest == digest, "NATIVE_GIT_PLAN_SOURCE_DRIFT")
+
+    def _local_patch_dependency_root(self, plan_digest):
+        from lab.archaioa.decision_root import DecisionDependencyRoot
+        from lab.archaioa.evidence import EvidenceRef
+
+        return DecisionDependencyRoot(
+            (
+                EvidenceRef("git-plan", "task", "sha256:" + plan_digest, "v1"),
+                EvidenceRef("git-capsule", "receipt", "sha256:" + self.capsule.digest, "v1"),
+                EvidenceRef("git-source", "context", "sha256:" + self.plan.source.digest,
+                            self.plan.source.source_base_sha),
+            )
+        )
+
     @property
     def dependency_root(self):
         from lab.archaioa.decision_root import DecisionDependencyRoot
@@ -1309,6 +1448,26 @@ class CoreRemoteGitRoute:
                 ),
             )
         )
+
+    def _local_patch_operation(self, session_id, epoch, plan_digest):
+        return {
+            "operation_class": "GIT_COMMIT",
+            "target_fingerprint": self.plan.target_fingerprint,
+            "expected_target_revision": "git-" + self.plan.source.source_base_sha,
+            "payload": {
+                "schema": "aioa.local-operation.v2",
+                "principal_session_id": session_id,
+                "policy_epoch": epoch,
+                "profile": "DISPOSABLE_BARE_PATCH_V1",
+                "plan_digest": plan_digest,
+                "capsule_digest": self.capsule.digest,
+                "patchset_sha256": self.capsule.patchset_sha256,
+                "source_base_sha": self.plan.source.source_base_sha,
+                "commit_sha": self.plan.commit_sha,
+                "tree_sha": self.plan.tree_sha,
+                "ref": self.plan.ref,
+            },
+        }
 
     def operation(self, session_id, epoch):
         from runtime.memory_patch.contracts.serialization import canonical_sha256
@@ -1352,24 +1511,32 @@ class CoreRemoteGitRoute:
             },
         }
 
-    def validate(self, tx, warrant, operation, *, consumed=False):
+    def validate(self, tx, warrant, operation, *, consumed=False,
+                 _prepared_plan=None, _prepared_plan_digest=None):
+        if _prepared_plan is not None or _prepared_plan_digest is not None:
+            self._require_native_local_plan(_prepared_plan, _prepared_plan_digest)
         if self.mode == "LOCAL_PATCH_FIXTURE":
             self._prospective_local()
+            if getattr(self, 'native_access', None) is not None:
+                self._require_native_binding().foundation.owner.coding_tasks._native_git_effect_check(
+                    self, warrant, tx.context.purpose)
             core_require(
                 operation
-                == self.operation(
-                    tx.context.principal.actor_session_id, warrant.lease_epoch
-                ),
+                == (self.operation(tx.context.principal.actor_session_id, warrant.lease_epoch)
+                    if _prepared_plan is None else self._local_patch_operation(
+                        tx.context.principal.actor_session_id, warrant.lease_epoch, _prepared_plan_digest)),
                 "GIT_OPERATION_SWAP",
             )
-            self._local_warrant(warrant, operation)
+            self._local_warrant(warrant, operation, _prepared_plan=_prepared_plan,
+                                _prepared_plan_digest=_prepared_plan_digest)
             self._local_proofs(tx)
         core_require(
             operation
-            == self.operation(
-                tx.context.principal.actor_session_id, warrant.lease_epoch
-            )
-            and warrant.decision_dependency_root == self.dependency_root,
+            == (self.operation(tx.context.principal.actor_session_id, warrant.lease_epoch)
+                if _prepared_plan is None else self._local_patch_operation(
+                    tx.context.principal.actor_session_id, warrant.lease_epoch, _prepared_plan_digest))
+            and warrant.decision_dependency_root == (self.dependency_root
+                if _prepared_plan is None else self._local_patch_dependency_root(_prepared_plan_digest)),
             "GITHUB_WARRANT_BINDING_MISMATCH",
         )
         core_require(
@@ -1384,12 +1551,14 @@ class CoreRemoteGitRoute:
             tx, warrant, consumed=consumed
         )
 
-    def _save(self, tx, key, data):
+    def _save(self, tx, key, data, *, _prepared_plan=None, _prepared_plan_digest=None):
         from runtime.memory_patch.audit import append_domain_event
         from runtime.memory_patch.contracts.serialization import canonical_sha256
         from runtime.memory_patch.persistence.idempotency import OperationBinding
         from runtime.memory_patch.persistence.ports import RecordKind, StoredRecord
 
+        if _prepared_plan is not None or _prepared_plan_digest is not None:
+            self._require_native_local_plan(_prepared_plan, _prepared_plan_digest)
         prior = tx.get(RecordKind.OPERATION, key)
         row = StoredRecord(
             RecordKind.OPERATION,
@@ -1406,7 +1575,8 @@ class CoreRemoteGitRoute:
         operation = OperationBinding.bind(
             "github-op-" + identity,
             "GITHUB_CORE_RECORD",
-            {"record_digest": row.payload_digest, "plan_digest": self.plan.digest},
+            {"record_digest": row.payload_digest, "plan_digest": (self.plan.digest
+                if _prepared_plan is None else _prepared_plan_digest)},
         )
         append_domain_event(
             tx,
@@ -1514,7 +1684,7 @@ class CoreRemoteGitRoute:
             )
             return True
 
-        return self.journal._run(principal, Capability.COMMIT, start)
+        return self._run(principal, Capability.COMMIT, start)
 
     def bind_api(self, check, cancel):
         from runtime.mcp_bridge.github_remote import GitHubCreateOnly
@@ -1557,7 +1727,7 @@ class CoreRemoteGitRoute:
                 },
             )
 
-        self.journal._run(principal, Capability.COMMIT, save)
+        self._run(principal, Capability.COMMIT, save)
 
     def result(self, principal):
         from runtime.core_admission import Capability
@@ -1572,7 +1742,7 @@ class CoreRemoteGitRoute:
                 json.loads(canonical_json_bytes(row.payload))["result"] if row else None
             )
 
-        return self.journal._run(principal, Capability.READ, read)
+        return self._run(principal, Capability.READ, read)
 
     def complete(self, principal, warrant, observation, *, historical=False):
         from lab.archaioa.evidence import EvidenceRef
@@ -1619,7 +1789,7 @@ class CoreRemoteGitRoute:
             "automatic_retry": False,
         }
         scope_key = "github-auth-" + self.plan.operation_id
-        scope = self.journal._run(
+        scope = self._run(
             principal,
             Capability.COMMIT,
             lambda tx: tx.get(RecordKind.OPERATION, scope_key),
@@ -1717,13 +1887,20 @@ class CoreRemoteGitRoute:
                 tx, warrant, epoch, resolution
             )
 
-        return self.journal._run(principal, Capability.COMMIT, save)
+        return self._run(principal, Capability.COMMIT, save)
 
     def dispatch(self, principal, warrant, operation, reservation, *, cancel):
+        from runtime.core_admission import Capability
         from runtime.service_guard.service import CoreServiceGuard
 
         if self.mode == "LOCAL_PATCH_FIXTURE":
             self._prospective_local()
+            if getattr(self, 'native_access', None) is not None:
+                access = self._require_native_binding()
+                item = access.foundation.owner.coding_tasks._native_git_effect_check(
+                    self, warrant, Capability.COMMIT)
+                core_require(item['phase'] == 'APPLYING_ACK' and item['admission_held'],
+                             "CODING_NATIVE_START_ACK_BINDING")
         return CoreServiceGuard.dispatch_registered_remote_git(
             self, principal, warrant, operation, reservation, cancel=cancel
         )
@@ -1739,7 +1916,7 @@ class CoreRemoteGitRoute:
                 core_require(
                     not cancel.cancelled and api is None, "GIT_RECONCILE_BINDING"
                 )
-                _, intent = self.journal._run(
+                _, intent = self._run(
                     principal,
                     Capability.COMMIT,
                     lambda tx: self.journal._load(tx, warrant),
@@ -1762,7 +1939,7 @@ class CoreRemoteGitRoute:
             )
             # Existing intent is required before any recovery GET. No active
             # warrant/old owner session is resurrected after restart or expiry.
-            _, intent = self.journal._run(
+            _, intent = self._run(
                 principal, Capability.COMMIT, lambda tx: self.journal._load(tx, warrant)
             )
             core_require(
