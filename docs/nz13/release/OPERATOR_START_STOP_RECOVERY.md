@@ -7,3 +7,5 @@ Operator sprawdza podpisaną sesję, ważność przydziału, źródła i docelow
 STOP zatrzymuje przyjmowanie nowych efektów i odwołuje aktywne uprawnienie. Przy utracie ACK zachowaj UNKNOWN, powiązany identyfikator intencji oraz ostatni receipt. Niezależny odczyt w tym samym zakresie może potwierdzić Applied lub NotApplied. Ponowna komenda oczekuje na rozliczenie i nowe uprawnienie. Zachowany ledger zapobiega powtórzeniu efektu po restarcie.
 
 Wznowienie prac lokalnych zaczyna się od RESUME.md i checkpointu E19 w katalogu odbiorczym. Pliki macierzy E18 wskazują dokładne identyfikatory pozostałych przypadków.
+
+Pierwszy odczyt statusu w bazowym profilu działa bez dodatków Native. Jawne uruchomienie Native używa jego kwalifikowanego profilu i dotychczasowych zgód.

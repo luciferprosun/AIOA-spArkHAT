@@ -5,3 +5,5 @@ Status produktu PARTIAL_SAFE_GATED. Lista przypadków pełnej regresji i wyniki 
 Hosted CI ma status NOT_RUN. Wymagane są checki na dokładnym przyszłym PR. Globalny CodeQL pozostaje bramką właściciela. Produkcyjne Native, B2 oraz efekty zewnętrzne czekają na przypięte zgody GO.
 
 Stan UNKNOWN pozostaje otwarty do niezależnego odczytu. Zakres starszej historii NonZero podlega osobnej kontroli przed wnioskiem o archiwizację.
+
+Skorygowany checkpoint E18 zawiera nową macierz po zmianie tree. Wcześniejszy przebieg zachowano w historii.
