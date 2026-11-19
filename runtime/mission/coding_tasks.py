@@ -698,12 +698,14 @@ class CoreCodingTasks:
             require(not self.closed, "CODING_CONTROLLER_CLOSED")
             existing = self._active.get(task_id)
             if existing is None:
-                view = self._run(
-                    principal,
-                    Capability.MANAGE,
-                    lambda tx: self._view(self._load(tx, task_id)[1]),
-                )
-                require(view["state"] == "QUEUED", "CODING_TRANSITION_DENIED")
+                def require_ready(tx):
+                    view = self._view(self._load(tx, task_id)[1])
+                    require(view["state"] == "QUEUED", "CODING_TRANSITION_DENIED")
+                    self._require_legacy_coding_task(tx, task_id)
+
+                # A definite admission refusal requires no worker or recovery slot.
+                # The durable transition repeats its own checks.
+                self._run(principal, Capability.MANAGE, require_ready)
                 require(len(self._active) < 2, "CODING_ACTIVE_LIMIT")
                 active = {'cancel': CancellationToken(), 'producer': None, 'done': threading.Event()}
                 active['thread'] = threading.Thread(target=self._execute, args=(task_id, active),

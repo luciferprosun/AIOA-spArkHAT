@@ -377,6 +377,7 @@ class NativeAuthorityCapture(_Original):
         'native_record_id',
         'native_revision',
         'owner',
+        'phase',
         'pid',
         'principal',
         'purpose',
@@ -979,7 +980,7 @@ class NativeCoreAccess:
                     composition_generation=lifecycle.composition_generation, fence_sequence=lifecycle.fence_sequence,
                     native_record_id=row.record_id, native_revision=row.revision, native_digest=row.payload_digest,
                     source=owner.source, composition_digest=f.spec.digest, captured_at=captured_at, monotonic_at=monotonic_at,
-                    auth_deadline=owner._auth_deadline, tls_expires=owner._tls_expires, pid=os.getpid(),
+                    auth_deadline=owner._auth_deadline, tls_expires=owner._tls_expires, phase=lifecycle.phase, pid=os.getpid(),
                     thread_id=threading.get_ident(), work_handle=settlement, uid=owner.uid)
         finally:
             with lifecycle.lock: lifecycle._capturing -= 1
@@ -998,6 +999,7 @@ class NativeCoreAccess:
                  and capture.fence_sequence == lifecycle.fence_sequence
                  and capture.source == owner.source and capture.composition_digest == f.spec.digest
                  and capture.auth_deadline == owner._auth_deadline and capture.tls_expires == owner._tls_expires
+                 and (capture.use is not NativeAccessUse.CONTROL or capture.phase is lifecycle.phase)
                  and (lifecycle.phase in (NativePhase.CAPACITY_ADMIN, NativePhase.ACTIVE)
                       or capture.use is NativeAccessUse.SETTLEMENT and lifecycle.phase in (NativePhase.DRAINING, NativePhase.QUARANTINED)
                       or capture.use is NativeAccessUse.READ and purpose is Capability.READ

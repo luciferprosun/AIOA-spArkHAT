@@ -12584,8 +12584,8 @@
     },
     "runtime/mission/coding_tasks.py": {
       "path": "runtime/mission/coding_tasks.py",
-      "git_blob": "d8d5a9639bb9f9a553dec1cafda1ffe48837bf2c",
-      "sha256": "d17aa39c51fc5fe3bc1a745308423c5245b2ff206a8416e7e014f647d3d57c21",
+      "git_blob": "3c676bafb175d1ffea5bd0d00aaf40abc80fe6c6",
+      "sha256": "e1a2a172f3914f901634c4bc5304be0300a0960b463743d6f205a1c7f0afe94c",
       "definitions": [
         {
           "name": "CodingRun",
@@ -12617,19 +12617,19 @@
         },
         {
           "name": "coding_cli_request",
-          "line": 1651
+          "line": 1653
         },
         {
           "name": "run_coding_cli",
-          "line": 1656
+          "line": 1658
         },
         {
           "name": "coding_http_request",
-          "line": 1685
+          "line": 1687
         },
         {
           "name": "run_coding_http_cli",
-          "line": 1777
+          "line": 1779
         },
         {
           "name": "__post_init__",
@@ -12729,79 +12729,79 @@
         },
         {
           "name": "_record_loop",
-          "line": 741
+          "line": 743
         },
         {
           "name": "_execute",
-          "line": 783
+          "line": 785
         },
         {
           "name": "_execute_body",
-          "line": 794
+          "line": 796
         },
         {
           "name": "_active_cancel",
-          "line": 924
+          "line": 926
         },
         {
           "name": "wait",
-          "line": 945
+          "line": 947
         },
         {
           "name": "close",
-          "line": 958
+          "line": 960
         },
         {
           "name": "_effect",
-          "line": 961
+          "line": 963
         },
         {
           "name": "_native_git_reconciliation_parent",
-          "line": 982
+          "line": 984
         },
         {
           "name": "_native_git_reconciliation_retirement",
-          "line": 1053
+          "line": 1055
         },
         {
           "name": "_native_git_reconcile",
-          "line": 1069
+          "line": 1071
         },
         {
           "name": "_native_git_effect_entry",
-          "line": 1179
+          "line": 1181
         },
         {
           "name": "_native_git_effect_check",
-          "line": 1218
+          "line": 1220
         },
         {
           "name": "_native_git_start_ack",
-          "line": 1232
+          "line": 1234
         },
         {
           "name": "_native_git_begin_settlement",
-          "line": 1242
+          "line": 1244
         },
         {
           "name": "_native_git_effect_request",
-          "line": 1264
+          "line": 1266
         },
         {
           "name": "_controller_request",
-          "line": 1339
+          "line": 1341
         },
         {
           "name": "request",
-          "line": 1458
+          "line": 1460
         },
         {
           "name": "attach_review",
-          "line": 1595
+          "line": 1597
         },
         {
           "name": "_attach_review_locked",
-          "line": 1605
+          "line": 1607
         },
         {
           "name": "read",
@@ -12813,23 +12813,23 @@
         },
         {
           "name": "save",
-          "line": 758
+          "line": 760
         },
         {
           "name": "read",
-          "line": 1092
+          "line": 1094
         },
         {
           "name": "cancel",
-          "line": 1583
+          "line": 1585
         },
         {
           "name": "inspect",
-          "line": 1611
+          "line": 1613
         },
         {
           "name": "save",
-          "line": 1639
+          "line": 1641
         },
         {
           "name": "pure",
@@ -12845,15 +12845,19 @@
         },
         {
           "name": "create",
-          "line": 1501
+          "line": 1503
         },
         {
           "name": "read",
-          "line": 1520
+          "line": 1522
+        },
+        {
+          "name": "require_ready",
+          "line": 701
         },
         {
           "name": "observe",
-          "line": 823
+          "line": 825
         }
       ],
       "symbolic_callees": [
@@ -13065,8 +13069,8 @@
         "type",
         "verify"
       ],
-      "call_site_count": 712,
-      "call_sites_sha256": "a4a50f1c6b8a51ea16f6eb14ae3f7cae9c719d9bb91155d60530c5506215699c"
+      "call_site_count": 713,
+      "call_sites_sha256": "ea3ef4b37271387c0742feee7781dbe614539259ddb1fd36b246d344c39dd3a5"
     },
     "tests/test_hybrid_patchset.py": {
       "path": "tests/test_hybrid_patchset.py",
@@ -19207,8 +19211,8 @@
     },
     "runtime/meta_hackathon/native_authority.py": {
       "path": "runtime/meta_hackathon/native_authority.py",
-      "git_blob": "54c1992c2810b8eb7fd12c8873b91b0a2e9625da",
-      "sha256": "982ca94c30ce39efc490268e3e8ab45865cb02da6430f25e349fc04e8601d4d3",
+      "git_blob": "daba6dd6aec0dee453591e03e1f8980f9e8a2ec3",
+      "sha256": "fe7e860e0612adb84c22e88c2c53ceb61845820f41553474bfcd74e0214465ef",
       "definitions": [
         {
           "name": "deny",
@@ -19260,47 +19264,47 @@
         },
         {
           "name": "NativeCapacityFence",
-          "line": 396
+          "line": 397
         },
         {
           "name": "NativeQuiescenceCapture",
-          "line": 410
+          "line": 411
         },
         {
           "name": "NativeCapacityHostCapture",
-          "line": 414
+          "line": 415
         },
         {
           "name": "_original",
-          "line": 440
+          "line": 441
         },
         {
           "name": "NativeCapacityCoreView",
-          "line": 451
+          "line": 452
         },
         {
           "name": "NativeOwnedWorkHandle",
-          "line": 550
+          "line": 551
         },
         {
           "name": "NativeLifecycle",
-          "line": 570
+          "line": 571
         },
         {
           "name": "NativeCoreAccess",
-          "line": 880
+          "line": 881
         },
         {
           "name": "NativeAuthorityFoundation",
-          "line": 1038
+          "line": 1040
         },
         {
           "name": "_Pending",
-          "line": 1133
+          "line": 1135
         },
         {
           "name": "NativeCapacityOwnerController",
-          "line": 1140
+          "line": 1142
         },
         {
           "name": "from_dict",
@@ -19356,187 +19360,187 @@
         },
         {
           "name": "close",
-          "line": 392
+          "line": 393
         },
         {
           "name": "require_live",
-          "line": 430
+          "line": 431
         },
         {
           "name": "close",
-          "line": 433
+          "line": 434
         },
         {
           "name": "to_dict",
-          "line": 454
+          "line": 455
         },
         {
           "name": "digest",
-          "line": 458
+          "line": 459
         },
         {
           "name": "read_in_transaction",
-          "line": 462
+          "line": 463
         },
         {
           "name": "require_idle",
-          "line": 543
+          "line": 544
         },
         {
           "name": "__init__",
-          "line": 571
+          "line": 572
         },
         {
           "name": "phase",
-          "line": 586
+          "line": 587
         },
         {
           "name": "_snapshot",
-          "line": 589
+          "line": 590
         },
         {
           "name": "_expected_roles",
-          "line": 592
+          "line": 593
         },
         {
           "name": "bind_producers",
-          "line": 603
+          "line": 604
         },
         {
           "name": "_coverage",
-          "line": 615
+          "line": 616
         },
         {
           "name": "operator_call",
-          "line": 638
+          "line": 639
         },
         {
           "name": "require_ingress",
-          "line": 649
+          "line": 650
         },
         {
           "name": "require_execution",
-          "line": 660
+          "line": 661
         },
         {
           "name": "begin_work",
-          "line": 664
+          "line": 665
         },
         {
           "name": "before_start",
-          "line": 675
+          "line": 676
         },
         {
           "name": "quarantine",
-          "line": 682
+          "line": 683
         },
         {
           "name": "begin_synchronous",
-          "line": 689
+          "line": 690
         },
         {
           "name": "complete_synchronous",
-          "line": 722
+          "line": 723
         },
         {
           "name": "retire_work",
-          "line": 747
+          "line": 748
         },
         {
           "name": "invalidate_admission",
-          "line": 779
+          "line": 780
         },
         {
           "name": "begin_capacity_review",
-          "line": 789
+          "line": 790
         },
         {
           "name": "require_fence",
-          "line": 807
+          "line": 808
         },
         {
           "name": "capture_quiescence",
-          "line": 819
+          "line": 820
         },
         {
           "name": "abort",
-          "line": 842
+          "line": 843
         },
         {
           "name": "drain",
-          "line": 849
+          "line": 850
         },
         {
           "name": "__init__",
-          "line": 881
+          "line": 882
         },
         {
           "name": "_register",
-          "line": 885
+          "line": 886
         },
         {
           "name": "_require_original",
-          "line": 890
+          "line": 891
         },
         {
           "name": "_close",
-          "line": 901
+          "line": 902
         },
         {
           "name": "native_row",
-          "line": 909
+          "line": 910
         },
         {
           "name": "capture",
-          "line": 923
+          "line": 924
         },
         {
           "name": "require_capture",
-          "line": 987
+          "line": 988
         },
         {
           "name": "bind_owner",
-          "line": 1040
+          "line": 1042
         },
         {
           "name": "finish_owner",
-          "line": 1072
+          "line": 1074
         },
         {
           "name": "require_bindings",
-          "line": 1079
+          "line": 1081
         },
         {
           "name": "__init__",
-          "line": 1141
+          "line": 1143
         },
         {
           "name": "capture_host",
-          "line": 1145
+          "line": 1147
         },
         {
           "name": "require_host",
-          "line": 1178
+          "line": 1180
         },
         {
           "name": "require_core_view",
-          "line": 1209
+          "line": 1211
         },
         {
           "name": "_readback",
-          "line": 1213
+          "line": 1215
         },
         {
           "name": "_call",
-          "line": 1226
+          "line": 1228
         },
         {
           "name": "dispatch",
-          "line": 1236
+          "line": 1238
         },
         {
           "name": "_initialize",
-          "line": 1333
+          "line": 1335
         },
         {
           "name": "identity",
@@ -19544,15 +19548,15 @@
         },
         {
           "name": "read",
-          "line": 825
+          "line": 826
         },
         {
           "name": "read",
-          "line": 1217
+          "line": 1219
         },
         {
           "name": "approve",
-          "line": 1301
+          "line": 1303
         }
       ],
       "symbolic_callees": [
@@ -19809,7 +19813,7 @@
         "worker.is_alive"
       ],
       "call_site_count": 776,
-      "call_sites_sha256": "d0602c8d822d93686270bb07130007e7035804d6b81209c033bb1a82d7126328"
+      "call_sites_sha256": "e7a1c0630180063c93db2304ff479935f5c34329757d6912808c33c6217914c5"
     },
     "runtime/mission/execution_capacity.py": {
       "path": "runtime/mission/execution_capacity.py",
@@ -20260,6 +20264,6 @@
     "DUPLICATE_VERIFIED": 16,
     "EXCLUDED_UNSAFE": 2
   },
-  "current_target_binding_note": "NZ13 explicit local REARM current blob/AST identities only: closed policy5 uses the same Core write port, durable executor ACK and independent full readback. Focused 98-case Core/SQLite/guard/ACK controls passed sequentially on Python3.12 and3.11 on working map fabb74f9dd88c81610bb769abad533798aaca5b8d249708bf487377ac61bc979. These current identities do not qualify product physical INIT, policy5 STARTED no-release, source-hidden installed artifacts, Native, model/provider inference or full69 parity. Historical69 assessments/source/MIT remain unchanged; final exact-SHA qualification and owner publication gates are separate. G08 Task2 refreshes only runtime_adapter current blob/AST identity after extending the existing source fence with the recomputed finite F11 physical/Core closure. File equality, focused tests and this metadata do not activate Native/Portable factories or qualify full/product/installed/model gates; historical69 assessments, original source SHA and MIT attribution remain unchanged. Native coding admission Task1 refreshes only the two existing Native modules current blob/AST identities: explicit closed host configV2 retains a same-composition registry and derives model eligibility at the original Core constructor. V1 and the chat/host exclusion remain; eligibility supplies no selection, approval, spending, model call or LIVE certification. Shared S2, S3-S5, physical Native and final Master qualification remain separate. All69 historical source/blob/MIT assessments and source_modules are unchanged. Integrated B704 and bounded mobile denial correction: updated exact target blobs and static call sites. Behavioral scope retains each recorded evidence boundary. Core redaction imports use the shared dependency-free policy. Target blobs and static call sites are current for that import-only change. Final repair_validation import ordering within the same module dependencies.",
+  "current_target_binding_note": "NZ13 explicit local REARM current blob/AST identities only: closed policy5 uses the same Core write port, durable executor ACK and independent full readback. Focused 98-case Core/SQLite/guard/ACK controls passed sequentially on Python3.12 and3.11 on working map fabb74f9dd88c81610bb769abad533798aaca5b8d249708bf487377ac61bc979. These current identities do not qualify product physical INIT, policy5 STARTED no-release, source-hidden installed artifacts, Native, model/provider inference or full69 parity. Historical69 assessments/source/MIT remain unchanged; final exact-SHA qualification and owner publication gates are separate. G08 Task2 refreshes only runtime_adapter current blob/AST identity after extending the existing source fence with the recomputed finite F11 physical/Core closure. File equality, focused tests and this metadata do not activate Native/Portable factories or qualify full/product/installed/model gates; historical69 assessments, original source SHA and MIT attribution remain unchanged. Native coding admission Task1 refreshes only the two existing Native modules current blob/AST identities: explicit closed host configV2 retains a same-composition registry and derives model eligibility at the original Core constructor. V1 and the chat/host exclusion remain; eligibility supplies no selection, approval, spending, model call or LIVE certification. Shared S2, S3-S5, physical Native and final Master qualification remain separate. All69 historical source/blob/MIT assessments and source_modules are unchanged. Integrated B704 and bounded mobile denial correction: updated exact target blobs and static call sites. Behavioral scope retains each recorded evidence boundary. Core redaction imports use the shared dependency-free policy. Target blobs and static call sites are current for that import-only change. Final repair_validation import ordering within the same module dependencies. E18 updates the exact CodingTasks and Native authority target identities for the staged START and CONTROL fixes.",
   "nz12_binding_before_nz13_sha256": "cfca6195089170934076cd15ac80a5b26786e947338b089dd75926d545b971b2"
 }

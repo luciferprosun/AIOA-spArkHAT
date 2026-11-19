@@ -251,6 +251,7 @@ class CodingBackendBindingTests(unittest.TestCase):
         with self.assertRaisesRegex(WarrantError, "^CODING_MODEL_WORKER_NOT_READY$"):
             self.tasks.request(self.owner_manage, "start", {"task_id": self.task.task_id})
         self.assertEqual(self.task_state(), "QUEUED")
+        self.assertEqual(self.tasks._active, {})
         self.assertEqual(self.factory.calls, 0)
         self.assertEqual(self.effects.total(), 0)
 
@@ -420,8 +421,10 @@ class CodingBackendBindingTests(unittest.TestCase):
 
     def test_bound_execute_entry_cannot_bypass_start_refusal(self):
         self.bind()
-        active = {"cancel": CancellationToken(), "producer": None, "thread": threading.current_thread()}
+        active = {"cancel": CancellationToken(), "producer": None, "thread": threading.current_thread(),
+                  "done": threading.Event()}
         self.tasks._execute(self.task.task_id, active)
+        self.assertTrue(active["done"].is_set())
         self.assertEqual(self.factory.calls, 0)
         self.assertEqual(self.task_state(), "QUEUED")
         self.assertEqual(self.effects.total(), 0)

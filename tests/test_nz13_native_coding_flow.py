@@ -425,13 +425,15 @@ class NativeTransactionHistoryTests(NativeCompletionCase):
         from runtime.mission.governor import GovernorError
         fixture = self.fixture()
         claim = fixture.seed_jobs()[0]
+        fixed_now = fixture.governor._now()
         for field, expected in (('kill', 'KILL_SWITCH'), ('epoch', 'STALE_EPOCH')):
             def warm(tx, field=field):
                 before = fixture.governor._load(tx)
                 state = json.loads(canonical_json_bytes(before))
                 state[field] = True if field == 'kill' else state[field] + 1
                 fixture.governor._write(tx, before, state, fixture.governor._now())
-            with self.subTest(field=field), self.assertRaisesRegex(GovernorError, expected):
+            with (self.subTest(field=field), patch.object(fixture.governor, 'clock', return_value=fixed_now),
+                  self.assertRaisesRegex(GovernorError, expected)):
                 fixture.invoke(Capability.COMMIT, lambda principal: fixture.governor.claim_job(
                     principal, claim.task_id, claim.worker_id, claim.governor_epoch, lease_seconds=60), warm=warm)
         self.assertEqual(1, fixture.run(Capability.READ, fixture.governor._load)['epoch'])

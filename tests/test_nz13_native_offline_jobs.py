@@ -213,6 +213,10 @@ class NativeOfflineJobTests(unittest.TestCase):
         code = """import json,sys
 from pathlib import Path
 from datetime import datetime, timezone
+source = Path(sys.argv[1])
+sys.path.insert(0, str(source))
+import runtime
+assert Path(runtime.__file__).is_relative_to(source)
 from runtime.core_admission import Capability,CoreAdmission,LocalOwnerAssignment,OwnerScope
 from runtime.memory_patch.persistence.ports import TransactionRunner,LocalCoreRecordFactory
 from runtime.mission.governor import CoreDualGovernor,GovernorPolicy,Limits
@@ -230,7 +234,8 @@ print(json.dumps({'state':result['state'],'step':result['local_step_now'],
                   'certification':result['worker_certification']}))
 runner.close();core.close()
 """
-        result = subprocess.run([sys.executable, '-I', '-B', '-c', code], input=json.dumps({
+        source = Path(__file__).resolve().parents[1]
+        result = subprocess.run([sys.executable, '-I', '-B', '-c', code, str(source)], input=json.dumps({
             'path': str(self.root / 'core.sqlite3'), 'claim': asdict(claim)}), text=True,
             capture_output=True, timeout=10, check=False)
         self.assertEqual(0, result.returncode, result.stderr)

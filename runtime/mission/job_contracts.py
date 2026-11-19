@@ -6,7 +6,7 @@ from runtime.memory_patch.contracts.serialization import (
     canonical_json_bytes,
     canonical_sha256,
 )
-from runtime.mission.governor import _amount, _deny, _digest, _identity
+from runtime.mission.governor_contracts import _amount, _deny, _digest, _identity
 from runtime.providers.nvidia import OUTPUT_SCHEMA, ProviderRequest
 
 MODEL='nvidia/Nemotron-3_5-Lightning'

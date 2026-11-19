@@ -21,7 +21,12 @@ from runtime.memory_patch.persistence.ports import (
     TransactionView,
     _register_history_reader,
 )
-from runtime.mission.governor import ReservationRequest, _deny, _identity, _plain
+from runtime.mission.governor_contracts import (
+    ReservationRequest,
+    _deny,
+    _identity,
+    _plain,
+)
 from runtime.mission.job_contracts import JobClaim, JobEnvelope
 from runtime.mission.sandbox_bindings import binding_for_job
 from runtime.providers.nvidia import OUTPUT_SCHEMA, ProviderResponse
