@@ -1,4 +1,5 @@
 """Synthetic literals only; no actual provider or browser key is read."""
+import json
 import unittest
 
 from runtime import secret_redaction as api
@@ -64,3 +65,28 @@ class ProviderKeyFamilyTests(unittest.TestCase):
             with self.subTest(family=prefix):
                 self.assertTrue(api.redact_sensitive_text(value) == api.REDACTION_MARKER,
                                 'An overlapping Google-family credential retained a prefix')
+
+
+    def test_opaque_credential_fields_are_detected_in_nested_json(self):
+        payload = {"observations": [{"api_key": "opaque synthetic fixture"}]}
+        self.assertTrue(api.contains_sensitive_material(payload))
+        self.assertTrue(api.contains_sensitive_material(json.dumps(payload)))
+
+    def test_redaction_preserves_json_around_nested_credential_values(self):
+        payload = {
+            "observations": [
+                {"Password": 'synthetic "value"'},
+                {"token": "synthetic" + chr(92) + "fixture"},
+            ],
+            "summary": "healthy fixture",
+        }
+        redacted = api.redact_sensitive_text(json.dumps(payload))
+        self.assertEqual(json.loads(redacted), {
+            "observations": [{"Password": api.REDACTION_MARKER}, {"token": api.REDACTION_MARKER}],
+            "summary": "healthy fixture",
+        })
+
+    def test_missing_value_and_unrelated_json_fields_are_preserved(self):
+        rendered = json.dumps({"token": "n/a", "token_budget": "1000", "summary": "healthy fixture"})
+        self.assertFalse(api.contains_sensitive_material(rendered))
+        self.assertEqual(api.redact_sensitive_text(rendered), rendered)

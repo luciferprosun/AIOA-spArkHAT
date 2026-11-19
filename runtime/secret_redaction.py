@@ -1,4 +1,4 @@
-# Shared stdlib-only policy, relocated without semantic changes from the existing MIT NonZero port.
+# Shared stdlib-only policy, originally relocated from the MIT NonZero port.
 # Native semantic port; MIT attribution: runtime/nonzero_cloudops/LICENSE-NONZERO.txt.
 # Source: nz/redaction.py at 4fafed8b1a877e55d96ddd9baea0a737fbeeaa4a.
 # W7A token families: 392487849eddc7444f5159994b66b72e73f15934.
@@ -12,6 +12,7 @@ from heapq import merge
 from typing import Final
 
 REDACTION_MARKER: Final = "[REDACTED]"
+_SECRET_NAME: Final = r"(?:password|passwd|pwd|token|secret|api[_-]?key)"
 
 _SENSITIVE_PATTERNS: Final = (
     re.compile(r"\b(?:AKIA|ASIA)[0-9A-Z]{16}\b"),
@@ -26,13 +27,17 @@ _SENSITIVE_PATTERNS: Final = (
     # No Unicode word boundary: adjacent non-ASCII text is not a safe delimiter.
     re.compile(r"(?:gh[pousr]|github_pat)_[A-Za-z0-9_]{8,}"),
     re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----"),
-    re.compile(
-        r"(?i)\b(?:password|passwd|pwd|token|secret|api[_-]?key)\s*[=:]\s*[^\s,;]{4,}"
-    ),
+    re.compile(rf"(?i)\b{_SECRET_NAME}\s*[=:]\s*[^\s,;]{{4,}}"),
     re.compile(r"(?i)https?://[^/\s:@]{1,128}:[^/\s@]{1,256}@"),
     re.compile(
         r"(?i)(?:/|\\)(?:\.aws(?:/|\\)credentials|\.ssh(?:/|\\)id_[a-z0-9_]+|\.env)(?:\b|$)"
     ),
+)
+
+# Capture only the JSON string value, including escaped characters, so the
+# credential can be replaced without losing the key or surrounding quotes.
+_JSON_SECRET_VALUE: Final = re.compile(
+    rf'(?i)"{_SECRET_NAME}"\s*:\s*"((?:[^"\\\x00-\x1f]|\\[^\r\n]){{4,}})"'
 )
 
 
@@ -53,7 +58,10 @@ def contains_sensitive_material(value: object) -> bool:
         )
     except (TypeError, ValueError):
         return True
-    return any(pattern.search(rendered) is not None for pattern in _SENSITIVE_PATTERNS)
+    return (
+        any(pattern.search(rendered) is not None for pattern in _SENSITIVE_PATTERNS)
+        or _JSON_SECRET_VALUE.search(rendered) is not None
+    )
 
 
 def redact_sensitive_text(value: str) -> str:
@@ -63,10 +71,12 @@ def redact_sensitive_text(value: str) -> str:
         raise TypeError("redaction input must be text")
     # Match the original text once per family; an earlier replacement must
     # never hide another family's overlapping credential or leave its tail.
-    ordered = merge(*(
+    spans = (
         (match.span() for match in pattern.finditer(value))
         for pattern in _SENSITIVE_PATTERNS
-    ))
+    )
+    json_values = (match.span(1) for match in _JSON_SECRET_VALUE.finditer(value))
+    ordered = merge(*spans, json_values)
     pieces = []
     cursor = 0
     pending_start = pending_end = None
