@@ -6970,5 +6970,3 @@ class NativeMainEntryFixture:
         return observed
 
     http_headers = NativeOwnedFixture.http_headers
-
-
