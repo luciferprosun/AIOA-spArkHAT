@@ -12,6 +12,7 @@ import stat
 import subprocess
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from runtime.browser_agent.chrome_read_adapter import (
     ChromeReadAdapter,
@@ -32,7 +33,17 @@ from runtime.providers.config import ProviderManager
 from runtime.providers.meta_model_api import MODEL, MetaModelProvider
 
 from .mission_service import MissionService
-from .native_authority import NativeHostCompositionConfig
+
+if TYPE_CHECKING:
+    from .native_authority import NativeHostCompositionConfig
+
+
+def __getattr__(name: str):
+    if name == "NativeHostCompositionConfig":
+        from .native_authority import NativeHostCompositionConfig
+
+        return NativeHostCompositionConfig
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -348,12 +359,15 @@ class NativeMobileComposition:
     This is neither OfflineMetaComposition nor a promotion of its fixture data.
     """
     def __init__(self,root,*,origin,source_probe=current_source,chat=False,key_path=None,existing_profile=False,
-                 host_composition: NativeHostCompositionConfig | None = None, offline_candidates=None):
+                 host_composition: "NativeHostCompositionConfig | None" = None, offline_candidates=None):
         import time
 
         from runtime.mobile_gateway import wire
-        if host_composition is not None and (type(host_composition) is not NativeHostCompositionConfig or chat is not False):
-            raise AdmissionError()
+        if host_composition is not None:
+            from .native_authority import NativeHostCompositionConfig
+
+            if type(host_composition) is not NativeHostCompositionConfig or chat is not False:
+                raise AdmissionError()
         if offline_candidates is not None:
             from runtime.mission.worker import CandidatePatch
             if (host_composition is None or host_composition.coding_backend_registry is not None

@@ -16067,133 +16067,138 @@
     },
     "runtime/meta_hackathon/runtime_adapter.py": {
       "path": "runtime/meta_hackathon/runtime_adapter.py",
-      "git_blob": "5554d49c72a7b1acf83b28f169e64c01a79c00a0",
-      "sha256": "89bc40ec039c9c7081062bc42a28ef5702d1cbe28deba57f9b21d060f0e9d766",
+      "git_blob": "993efd704ffe18a487ac065e6f8fd60009f63c31",
+      "sha256": "718f80481e8d55fff0c42a001741051e6fe0cac480e81eea37d830a6d5180d6d",
       "definitions": [
         {
+          "name": "__getattr__",
+          "line": 41
+        },
+        {
           "name": "sealed_source_path",
-          "line": 205
+          "line": 216
         },
         {
           "name": "current_source",
-          "line": 219
+          "line": 230
         },
         {
           "name": "OfflineMetaComposition",
-          "line": 226
+          "line": 237
         },
         {
           "name": "_desktop_operator_uid",
-          "line": 313
+          "line": 324
         },
         {
           "name": "NativeMobileComposition",
-          "line": 343
+          "line": 354
         },
         {
           "name": "__init__",
-          "line": 227
+          "line": 238
         },
         {
           "name": "enable_unified",
-          "line": 268
+          "line": 279
         },
         {
           "name": "close",
-          "line": 304
+          "line": 315
         },
         {
           "name": "__init__",
-          "line": 350
+          "line": 361
         },
         {
           "name": "_initialize",
-          "line": 426
+          "line": 440
         },
         {
           "name": "readiness",
-          "line": 515
+          "line": 529
         },
         {
           "name": "operator_principal",
-          "line": 519
+          "line": 533
         },
         {
           "name": "_chat_authority",
-          "line": 534
+          "line": 548
         },
         {
           "name": "_chat_credit_authority",
-          "line": 554
+          "line": 568
         },
         {
           "name": "qualify_tls",
-          "line": 576
+          "line": 590
         },
         {
           "name": "_require_qualified_operator",
-          "line": 623
+          "line": 637
         },
         {
           "name": "public_settings",
-          "line": 629
+          "line": 643
         },
         {
           "name": "model_calls",
-          "line": 635
+          "line": 649
         },
         {
           "name": "operator_auth_status",
-          "line": 641
+          "line": 655
         },
         {
           "name": "renew_operator",
-          "line": 656
+          "line": 670
         },
         {
           "name": "_renew_foundation",
-          "line": 728
+          "line": 742
         },
         {
           "name": "operator_request",
-          "line": 804
+          "line": 818
         },
         {
           "name": "_operator_request",
-          "line": 812
+          "line": 826
         },
         {
           "name": "_close_native",
-          "line": 879
+          "line": 893
         },
         {
           "name": "close",
-          "line": 933
+          "line": 947
         },
         {
           "name": "fixture",
-          "line": 249
+          "line": 260
         },
         {
           "name": "inspect",
-          "line": 866
+          "line": 880
         },
         {
           "name": "record",
-          "line": 778
+          "line": 792
         },
         {
           "name": "revoke",
-          "line": 858
+          "line": 872
         },
         {
           "name": "record",
-          "line": 703
+          "line": 717
         }
       ],
       "symbolic_callees": [
         "<dynamic>.exists",
         "AdmissionError",
+        "AttributeError",
         "CandidateFile",
         "CandidatePatch",
         "ChromeReadAdapter",
@@ -16409,8 +16414,8 @@
         "worker.is_alive",
         "x509.load_der_x509_certificate"
       ],
-      "call_site_count": 528,
-      "call_sites_sha256": "a317f9a19211475c381db5cb843ab6ce4b178a15ef04015a5ebdd532495ca18d"
+      "call_site_count": 529,
+      "call_sites_sha256": "36810c3a53ee51aa9ba09ae6bec696a57d2151731ec247bab10480ac3e021a5b"
     },
     "runtime/mission/dependency_lock.py": {
       "path": "runtime/mission/dependency_lock.py",
@@ -20264,6 +20269,6 @@
     "DUPLICATE_VERIFIED": 16,
     "EXCLUDED_UNSAFE": 2
   },
-  "current_target_binding_note": "NZ13 explicit local REARM current blob/AST identities only: closed policy5 uses the same Core write port, durable executor ACK and independent full readback. Focused 98-case Core/SQLite/guard/ACK controls passed sequentially on Python3.12 and3.11 on working map fabb74f9dd88c81610bb769abad533798aaca5b8d249708bf487377ac61bc979. These current identities do not qualify product physical INIT, policy5 STARTED no-release, source-hidden installed artifacts, Native, model/provider inference or full69 parity. Historical69 assessments/source/MIT remain unchanged; final exact-SHA qualification and owner publication gates are separate. G08 Task2 refreshes only runtime_adapter current blob/AST identity after extending the existing source fence with the recomputed finite F11 physical/Core closure. File equality, focused tests and this metadata do not activate Native/Portable factories or qualify full/product/installed/model gates; historical69 assessments, original source SHA and MIT attribution remain unchanged. Native coding admission Task1 refreshes only the two existing Native modules current blob/AST identities: explicit closed host configV2 retains a same-composition registry and derives model eligibility at the original Core constructor. V1 and the chat/host exclusion remain; eligibility supplies no selection, approval, spending, model call or LIVE certification. Shared S2, S3-S5, physical Native and final Master qualification remain separate. All69 historical source/blob/MIT assessments and source_modules are unchanged. Integrated B704 and bounded mobile denial correction: updated exact target blobs and static call sites. Behavioral scope retains each recorded evidence boundary. Core redaction imports use the shared dependency-free policy. Target blobs and static call sites are current for that import-only change. Final repair_validation import ordering within the same module dependencies. E18 updates the exact CodingTasks and Native authority target identities for the staged START and CONTROL fixes.",
+  "current_target_binding_note": "NZ13 explicit local REARM current blob/AST identities only: closed policy5 uses the same Core write port, durable executor ACK and independent full readback. Focused 98-case Core/SQLite/guard/ACK controls passed sequentially on Python3.12 and3.11 on working map fabb74f9dd88c81610bb769abad533798aaca5b8d249708bf487377ac61bc979. These current identities do not qualify product physical INIT, policy5 STARTED no-release, source-hidden installed artifacts, Native, model/provider inference or full69 parity. Historical69 assessments/source/MIT remain unchanged; final exact-SHA qualification and owner publication gates are separate. G08 Task2 refreshes only runtime_adapter current blob/AST identity after extending the existing source fence with the recomputed finite F11 physical/Core closure. File equality, focused tests and this metadata do not activate Native/Portable factories or qualify full/product/installed/model gates; historical69 assessments, original source SHA and MIT attribution remain unchanged. Native coding admission Task1 refreshes only the two existing Native modules current blob/AST identities: explicit closed host configV2 retains a same-composition registry and derives model eligibility at the original Core constructor. V1 and the chat/host exclusion remain; eligibility supplies no selection, approval, spending, model call or LIVE certification. Shared S2, S3-S5, physical Native and final Master qualification remain separate. All69 historical source/blob/MIT assessments and source_modules are unchanged. Integrated B704 and bounded mobile denial correction: updated exact target blobs and static call sites. Behavioral scope retains each recorded evidence boundary. Core redaction imports use the shared dependency-free policy. Target blobs and static call sites are current for that import-only change. Final repair_validation import ordering within the same module dependencies. E18 updates the exact CodingTasks and Native authority target identities for the staged START and CONTROL fixes. E18 corrective qualification defers Native host configuration import until explicit Native use.",
   "nz12_binding_before_nz13_sha256": "cfca6195089170934076cd15ac80a5b26786e947338b089dd75926d545b971b2"
 }
