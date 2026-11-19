@@ -90,3 +90,8 @@ class ProviderKeyFamilyTests(unittest.TestCase):
         rendered = json.dumps({"token": "n/a", "token_budget": "1000", "summary": "healthy fixture"})
         self.assertFalse(api.contains_sensitive_material(rendered))
         self.assertEqual(api.redact_sensitive_text(rendered), rendered)
+
+    def test_quoted_field_contains_assignment_without_losing_json_delimiters(self):
+        rendered = json.dumps({"nested": [{"api_key": "token=synthetic-fixture"}], "keep": "ok"})
+        result = api.redact_sensitive_text(rendered)
+        self.assertEqual(result, json.dumps({"nested": [{"api_key": api.REDACTION_MARKER}], "keep": "ok"}))

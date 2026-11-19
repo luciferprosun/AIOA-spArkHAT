@@ -16005,8 +16005,8 @@
     },
     "runtime/secret_redaction.py": {
       "path": "runtime/secret_redaction.py",
-      "git_blob": "0bd7652cfcec343e195e5512e1f048751b245b9e",
-      "sha256": "9da2ceb6e03e82ab6aff8631f411c59753f1d7b05dc7eb1daad12efd2f6c974c",
+      "git_blob": "312adac5224b3b927b5469b997301d309fd4b30f",
+      "sha256": "81abb33e37113a30cc6d8ce6a634dd40797589460e61a92ac05b34607880b6e2",
       "definitions": [
         {
           "name": "contains_sensitive_material",
@@ -16017,13 +16017,15 @@
           "line": 67
         }
       ],
-      "call_site_count": 28,
+      "call_site_count": 31,
       "symbolic_callees": [
         "<dynamic>.join",
         "TypeError",
         "_JSON_SECRET_VALUE.finditer",
         "_JSON_SECRET_VALUE.search",
         "any",
+        "fragments.append",
+        "fragments.extend",
         "isinstance",
         "json.dumps",
         "match.span",
@@ -16034,7 +16036,7 @@
         "pieces.extend",
         "re.compile"
       ],
-      "call_sites_sha256": "c1496132f51ad25f353d4b955d5f348cd1500b85f339a5a9e6ff11668a1f9ca9"
+      "call_sites_sha256": "736a13054c8f7c140a89cdb73f6146abf340ab5b916ba610003c05b409fa31e5"
     },
     "runtime/failure_boundary.py": {
       "path": "runtime/failure_boundary.py",

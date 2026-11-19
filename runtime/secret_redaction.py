@@ -71,11 +71,23 @@ def redact_sensitive_text(value: str) -> str:
         raise TypeError("redaction input must be text")
     # Match the original text once per family; an earlier replacement must
     # never hide another family's overlapping credential or leave its tail.
+    json_values = [match.span(1) for match in _JSON_SECRET_VALUE.finditer(value)]
+    search_text = value
+    if json_values:
+        # Reserve these already-covered values before applying plain-text
+        # patterns. A match starting inside a JSON string can otherwise
+        # absorb quote or brace characters after the value.
+        fragments = []
+        end_of_previous_value = 0
+        for start, end in json_values:
+            fragments.extend((value[end_of_previous_value:start], " " * (end - start)))
+            end_of_previous_value = end
+        fragments.append(value[end_of_previous_value:])
+        search_text = "".join(fragments)
     spans = (
-        (match.span() for match in pattern.finditer(value))
+        (match.span() for match in pattern.finditer(search_text))
         for pattern in _SENSITIVE_PATTERNS
     )
-    json_values = (match.span(1) for match in _JSON_SECRET_VALUE.finditer(value))
     ordered = merge(*spans, json_values)
     pieces = []
     cursor = 0
