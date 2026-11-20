@@ -21,22 +21,20 @@ PRIVATE_FIELDS = {
     "decision_nonce_hash",
     "actor_session_id",
     "authorization",
-    "token",
     "credential",
-    "password",
-    "secret",
 }
 
 
 def public_evidence(value):
     if isinstance(value, dict):
-        from .models.redaction import contains_sensitive_material
+        from runtime.secret_redaction import contains_sensitive_material, is_sensitive_field_name
 
         return {
             key: public_evidence(item)
             for key, item in value.items()
             if isinstance(key, str)
             and key.casefold() not in PRIVATE_FIELDS
+            and not is_sensitive_field_name(key)
             and not contains_sensitive_material(key)
         }
     if isinstance(value, (tuple, list)):

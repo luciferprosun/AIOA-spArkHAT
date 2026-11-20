@@ -26,7 +26,8 @@ _SENSITIVE_PATTERNS: Final = (
     re.compile(r"ghs_[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+"),
     # No Unicode word boundary: adjacent non-ASCII text is not a safe delimiter.
     re.compile(r"(?:gh[pousr]|github_pat)_[A-Za-z0-9_]{8,}"),
-    re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----"),
+    # Redact the full block, including an incomplete value with no footer.
+    re.compile(r"-----BEGIN ([A-Z ]*PRIVATE KEY)-----.*?(?:-----END \1-----|\Z)", re.DOTALL),
     re.compile(rf"(?i)\b{_SECRET_NAME}\s*[=:]\s*[^\s,;]{{4,}}"),
     re.compile(r"(?i)https?://[^/\s:@]{1,128}:[^/\s@]{1,256}@"),
     re.compile(
@@ -39,6 +40,12 @@ _SENSITIVE_PATTERNS: Final = (
 _JSON_SECRET_VALUE: Final = re.compile(
     rf'(?i)"{_SECRET_NAME}"\s*:\s*"((?:[^"\\\x00-\x1f]|\\[^\r\n]){{4,}})"'
 )
+
+
+def is_sensitive_field_name(name: str) -> bool:
+    """Use the same credential names for text and structured evidence."""
+
+    return re.fullmatch(_SECRET_NAME, name, re.IGNORECASE) is not None
 
 
 def contains_sensitive_material(value: object) -> bool:

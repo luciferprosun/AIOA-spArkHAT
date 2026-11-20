@@ -80,6 +80,16 @@ class RedactionContractTests(unittest.TestCase):
         self.assertTrue(result == {"items": [{}], "ok": True},
                         "Public projection retained a private field or credential key")
 
+    def test_public_projection_omits_canonical_credential_field_names(self):
+        aliases = ("Api_Key", "api-key", "ApiKey", "Passwd", "PWD")
+        item = {name: "synthetic label" for name in aliases}
+        item["api_key_budget"] = 10
+        data = {"items": [item], "ok": True}
+        self.assertTrue(
+            public_evidence(data) == {"items": [{"api_key_budget": 10}], "ok": True},
+            "Public projection must omit canonical private names and retain unrelated fields",
+        )
+
     def test_audit_metadata_rejects_each_token_family_without_printing_values(self):
         from datetime import UTC, datetime
 

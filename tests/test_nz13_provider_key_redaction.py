@@ -41,6 +41,19 @@ class ProviderKeyFamilyTests(unittest.TestCase):
                 self.assertTrue(api.contains_sensitive_material(value), 'Existing family was missed')
                 self.assertTrue(api.redact_sensitive_text(value) == api.REDACTION_MARKER, 'Existing family was weakened')
 
+    def test_complete_private_key_block_is_redacted_as_one_span(self):
+        for label in ('PRIVATE KEY', 'EC PRIVATE KEY', 'OPENSSH PRIVATE KEY'):
+            with self.subTest(label=label):
+                value = f'before\n-----BEGIN {label}-----\nSYNTHETIC_BODY_ONLY\n-----END {label}-----\nafter'
+                self.assertTrue(api.contains_sensitive_material(value))
+                self.assertTrue(api.redact_sensitive_text(value) == f'before\n{api.REDACTION_MARKER}\nafter',
+                                'The complete private block must be redacted together')
+
+    def test_unterminated_private_key_block_is_redacted_to_end_of_value(self):
+        value = 'before\n-----BEGIN PRIVATE KEY-----\nSYNTHETIC_INCOMPLETE_BODY'
+        self.assertTrue(api.redact_sensitive_text(value) == f'before\n{api.REDACTION_MARKER}',
+                        'An incomplete private block must remain private')
+
     def test_malformed_inputs_remain_fail_closed(self):
         self.assertTrue(api.contains_sensitive_material(object()))
         with self.assertRaises(TypeError):
