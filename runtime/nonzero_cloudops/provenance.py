@@ -27,7 +27,10 @@ PRIVATE_FIELDS = {
 
 def public_evidence(value):
     if isinstance(value, dict):
-        from runtime.secret_redaction import contains_sensitive_material, is_sensitive_field_name
+        from runtime.secret_redaction import (
+            contains_sensitive_material,
+            is_sensitive_field_name,
+        )
 
         return {
             key: public_evidence(item)

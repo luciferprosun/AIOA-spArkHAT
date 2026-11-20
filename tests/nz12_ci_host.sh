@@ -24,6 +24,9 @@ test_path="$(dirname "$python_binary"):$(dirname "$node_binary"):/usr/bin:/bin"
 profile_name="aioa-ci-offline-$runner_uid-$$"
 policy_file="$(mktemp "$RUNNER_TEMP/aioa-ci-host.XXXXXX")"
 test_home="$(mktemp -d "$RUNNER_TEMP/aioa-ci-home.XXXXXX")"
+fixture_root="$test_home/native-task-fixtures"
+process_evidence="$test_home/process-evidence"
+mkdir -m 0700 -- "$fixture_root" "$process_evidence"
 profile_loaded=0
 linger_changed=0
 cleanup() {
@@ -82,6 +85,7 @@ sudo --non-interactive /usr/bin/aa-exec --profile "$profile_name" -- \
   OTEL_TRACES_EXPORTER=none OTEL_METRICS_EXPORTER=none OTEL_LOGS_EXPORTER=none \
   "XDG_RUNTIME_DIR=$runtime_dir" "DBUS_SESSION_BUS_ADDRESS=$bus" \
   "AIOA_TESTED_SHA=$AIOA_TESTED_SHA" "AIOA_CI_EXPECTED_PROFILE=$profile_name" \
+  "NZ13_NATIVE_TASK_FIXTURES=$fixture_root" "NO_RELEASE_PROCESS_EVIDENCE_DIR=$process_evidence" \
   /usr/bin/bash --noprofile --norc -c '
     set -euo pipefail
     expected_uid=$1
