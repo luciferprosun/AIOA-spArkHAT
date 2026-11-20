@@ -17410,136 +17410,136 @@
     },
     "runtime/mcp_bridge/native_read.py": {
       "path": "runtime/mcp_bridge/native_read.py",
-      "git_blob": "96b716df849bafe13c2bb0ea1e254dd52a55d4ac",
-      "sha256": "6d9abe442b541fbbb5dd773d7a26943298f278ad16c33eb43d365696402d822c",
+      "git_blob": "279289e4dc3b4623bd0cf51f176e0f47e084f1d8",
+      "sha256": "f29d9aeb74e4dfad0a935754cf61214816fde6f37115b3fc81fa6060fbe7a4b1",
       "definitions": [
         {
           "name": "_require",
-          "line": 32
+          "line": 34
         },
         {
           "name": "_remaining",
-          "line": 37
+          "line": 39
         },
         {
           "name": "_bounded_command",
-          "line": 43
+          "line": 45
         },
         {
           "name": "_environment",
-          "line": 77
+          "line": 80
         },
         {
           "name": "_binary",
-          "line": 85
+          "line": 88
         },
         {
           "name": "_qualified_gh",
-          "line": 91
+          "line": 94
         },
         {
           "name": "_preferences",
-          "line": 96
+          "line": 99
         },
         {
           "name": "_github_json",
-          "line": 129
+          "line": 132
         },
         {
           "name": "_repository",
-          "line": 188
+          "line": 192
         },
         {
           "name": "_rich_public_text",
-          "line": 204
+          "line": 208
         },
         {
           "name": "_validate_rich_context_data",
-          "line": 210
+          "line": 214
         },
         {
           "name": "validate_context_data",
-          "line": 293
+          "line": 297
         },
         {
           "name": "_repository_context",
-          "line": 338
+          "line": 342
         },
         {
           "name": "context_inventory",
-          "line": 411
+          "line": 415
         },
         {
           "name": "_rich_integer",
-          "line": 431
+          "line": 435
         },
         {
           "name": "_rich_text",
-          "line": 436
+          "line": 440
         },
         {
           "name": "_rich_text_projection",
-          "line": 449
+          "line": 453
         },
         {
           "name": "_validate_text_projection",
-          "line": 460
+          "line": 464
         },
         {
           "name": "_validate_text_provenance",
-          "line": 489
+          "line": 493
         },
         {
           "name": "_rich_repo",
-          "line": 505
+          "line": 509
         },
         {
           "name": "_rich_sha",
-          "line": 511
+          "line": 515
         },
         {
           "name": "_rich_ref",
-          "line": 516
+          "line": 520
         },
         {
           "name": "_rich_url",
-          "line": 526
+          "line": 530
         },
         {
           "name": "_rich_issue",
-          "line": 532
+          "line": 536
         },
         {
           "name": "_rich_optional_count",
-          "line": 558
-        },
-        {
-          "name": "_rich_pull",
           "line": 562
         },
         {
+          "name": "_rich_pull",
+          "line": 566
+        },
+        {
           "name": "_rich_action",
-          "line": 585
+          "line": 589
         },
         {
           "name": "_rich_repository_context",
-          "line": 606
+          "line": 610
         },
         {
           "name": "read",
-          "line": 670
+          "line": 674
         },
         {
           "name": "get",
-          "line": 343
+          "line": 347
         },
         {
           "name": "check",
-          "line": 675
+          "line": 679
         },
         {
           "name": "validate",
-          "line": 108
+          "line": 111
         }
       ],
       "call_site_count": 607,
@@ -17686,7 +17686,7 @@
         "yaml.scan",
         "zip"
       ],
-      "call_sites_sha256": "f345bc306c04aa39352d67c0855ad1436ed7ce44e275da9fa89175b8c0c685f4"
+      "call_sites_sha256": "a9ba68634f628a4e8706c3e1a24a44096b1befc33f108ff0714fdff4dbc6e6a1"
     },
     "runtime/mission/target_projection.py": {
       "path": "runtime/mission/target_projection.py",
