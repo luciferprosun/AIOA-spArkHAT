@@ -175,6 +175,35 @@ class CandidateMessageTests(unittest.TestCase):
         self.assertIs(type(result), WorkerFailure)
         self.assertEqual(result.code, "EVENT_LIMIT")
         self.assertFalse(hasattr(result, "candidate"))
+        self.assertEqual([event.kind for event in self.box.drain(self.session)], ["STARTED"])
+        self.assertIs(self.admit(self.message()), result)
+        self.assertEqual(self.box.drain(self.session), ())
+
+    def test_completion_publishes_both_events_admitted_before_deadline(self):
+        self.task = replace(self.task, max_events=3)
+        clock = iter((100, 100, 199, 200))
+        self.box = WorkerMailbox(self.task, clock=lambda: next(clock))
+        self.session = self.box.session
+
+        result = self.admit(self.message())
+
+        self.assertIs(type(result), WorkerResult)
+        self.assertIs(self.box.result(self.session), result)
+        events = self.box.drain(self.session)
+        self.assertEqual([event.kind for event in events], ["STARTED", "CANDIDATE", "COMPLETED"])
+        self.assertEqual([event.sequence for event in events], [1, 2, 3])
+        self.assertEqual([event.evidence_digest for event in events[1:]], [result.candidate.digest] * 2)
+
+    def test_completion_deadline_is_rechecked_after_parsing(self):
+        clock = iter((100, 100, 200))
+        self.box = WorkerMailbox(self.task, clock=lambda: next(clock))
+        self.session = self.box.session
+
+        result = self.admit(self.message())
+
+        self.assertIs(type(result), WorkerFailure)
+        self.assertEqual(result.code, "TIMEOUT")
+        self.assertEqual([event.kind for event in self.box.drain(self.session)], ["STARTED"])
 
     def test_explicit_small_operator_budget_limits_bytes_and_usage(self):
         self.assertIn('max_output_tokens', Task.__dataclass_fields__,

@@ -273,7 +273,7 @@ class WorkerMailbox:
         )
         self._lock = threading.RLock()
         self._events, self._count, self._terminal = [], 0, None
-        self._append("STARTED", task.digest)
+        self._append("STARTED", digest=task.digest)
 
     def _check(self, session):
         require(
@@ -297,31 +297,33 @@ class WorkerMailbox:
             return False
         return True
 
-    def _append(self, kind, digest):
+    def _append(self, *kinds, digest):
+        """Admit the whole event group before extending the queue."""
         if not self._ready():
             return False
-        if self._count >= self.task.max_events:
+        count = self._count + len(kinds)
+        if count > self.task.max_events:
             self._fail("EVENT_LIMIT")
             return False
-        self._count += 1
         s = self.session
-        self._events.append(
-            WorkerEvent(s.session_id, s.task_id, s.run_id, self._count, kind, digest)
-        )
+        events = [
+            WorkerEvent(s.session_id, s.task_id, s.run_id, self._count + offset, kind, digest)
+            for offset, kind in enumerate(kinds, start=1)
+        ]
+        self._events.extend(events)
+        self._count = count
         return True
 
     def progress(self, session):
         with self._lock:
             self._check(session)
-            return self._append("PROGRESS", self.task.digest)
+            return self._append("PROGRESS", digest=self.task.digest)
 
     def complete(self, session, candidate):
         with self._lock:
             self._check(session)
             require(type(candidate) is CandidatePatch, "CANDIDATE_REQUIRED")
-            if self._append("CANDIDATE", candidate.digest) and self._append(
-                "COMPLETED", candidate.digest
-            ):
+            if self._append("CANDIDATE", "COMPLETED", digest=candidate.digest):
                 self._terminal = WorkerResult(
                     session.session_id,
                     session.task_id,
