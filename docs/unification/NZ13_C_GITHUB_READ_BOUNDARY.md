@@ -7,7 +7,9 @@ No URL, repository, pagination endpoint or command is accepted from the model.
 
 Each observation binds the fixed public repository identity to a verified main
 commit, complete root tree and README blob. A final ref read detects drift.
-Lists read at most two fixed pages of ten rows. Duplicates, invalid identities,
+Lists read at most two fixed pages of ten rows. The six list endpoints have a
+256 KiB transport cap per page and a 32 KiB cap on the signed list projection.
+Duplicates, invalid identities,
 foreign URLs, malformed digests, expired authority and ambiguous outcomes deny;
 403/404/429 never cause an automatic retry or disclosure of error bodies.
 

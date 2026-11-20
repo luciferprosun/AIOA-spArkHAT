@@ -117,6 +117,57 @@ class NativeReadTests(unittest.TestCase):
             m._bounded_command(['/usr/bin/python3', '-I', '-c', 'import time; time.sleep(2)'],
                                cwd=Path('/tmp'), env={'PATH': '/usr/bin:/bin'}, timeout=.05)
 
+    def test_fixed_github_list_pages_use_a_larger_bounded_stdout(self):
+        m = module(self)
+        prefix = 'repos/' + m.REPOSITORY
+        cases = []
+        for kind, item_bytes in (('issues', 8 * 1024), ('pulls', 20 * 1024),
+                                 ('actions/runs', 14 * 1024)):
+            rows = [{'number': i, 'body': 'n' * item_bytes} for i in range(1, 11)]
+            if kind == 'actions/runs':
+                query = ''
+                body = {'workflow_runs': rows, 'total_count': len(rows)}
+            else:
+                query = 'state=all&'
+                body = rows
+            for page in (1, 2):
+                cases.append((f'{prefix}/{kind}?{query}per_page=10&page={page}', body, True))
+        cases.append((f'{prefix}/pulls?state=all&per_page=10&page=1',
+                      [{'body': 'n' * (27 * 1024)}] * 10, False))
+        cases.append((f'{prefix}/issues?state=all&per_page=5',
+                      [{'body': 'n' * (14 * 1024)}] * 5, False))
+
+        bounded = m._bounded_command
+        with tempfile.TemporaryDirectory() as tmp:
+            directory = Path(tmp)
+            config = directory / 'config.yml'
+            config.write_text('version: 1\n')
+            config.chmod(0o600)
+            response = directory / 'response.json'
+
+            def child(argv, **options):
+                if argv[1:3] == ['config', 'get']:
+                    return b''
+                self.assertEqual(argv[1:6], ['api', '--hostname', 'github.com', '--method', 'GET'])
+                return bounded(['/usr/bin/python3', '-I', '-c',
+                                'import sys; sys.stdout.buffer.write(open(sys.argv[1], "rb").read())',
+                                str(response)], **options)
+
+            with (
+                patch.object(m, '_binary'),
+                patch.object(m, '_qualified_gh'),
+                patch.object(m, '_environment', return_value={'GH_CONFIG_DIR': tmp}),
+                patch.object(m, '_bounded_command', side_effect=child),
+            ):
+                for endpoint, body, accepted in cases:
+                    with self.subTest(endpoint=endpoint, accepted=accepted):
+                        response.write_bytes(json.dumps(body).encode())
+                        if accepted:
+                            self.assertEqual(m._github_json(endpoint), body)
+                        else:
+                            with self.assertRaisesRegex(ValueError, 'TOOL_READ_OUTPUT_LIMIT'):
+                                m._github_json(endpoint)
+
     def test_old_or_escaped_transport_config_is_rejected_without_gh_migration(self):
         m = module(self)
         with tempfile.TemporaryDirectory() as tmp:

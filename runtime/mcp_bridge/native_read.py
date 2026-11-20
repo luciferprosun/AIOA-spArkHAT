@@ -27,6 +27,8 @@ CONTEXT_REPOSITORIES = {
 OPERATIONS = frozenset(('github.repository', 'github.issues', 'git.status', 'git.log', 'git.branches',
                         *CONTEXT_REPOSITORIES))
 READ_TIMEOUT_SECONDS = 20
+DEFAULT_READ_OUTPUT_BYTES = 64 * 1024
+GITHUB_LIST_OUTPUT_BYTES = 256 * 1024
 
 
 def _require(condition, code='TOOL_READ_INVALID'):
@@ -40,7 +42,8 @@ def _remaining(deadline):
     return remaining
 
 
-def _bounded_command(argv, *, cwd, env, timeout=4, max_bytes=65536, deadline=None):
+def _bounded_command(argv, *, cwd, env, timeout=4, max_bytes=DEFAULT_READ_OUTPUT_BYTES,
+                     deadline=None):
     """Kill only this child on timeout/overflow; never retain stderr/credentials."""
     now = time.monotonic()
     deadline = min(now+timeout, deadline) if deadline is not None else now+timeout
@@ -176,8 +179,9 @@ def _github_json(endpoint, *, check=lambda: None, deadline=None):
             _require(not setting.strip(), 'GITHUB_TRANSPORT_OVERRIDE_DENIED')
         _require(identity(config.lstat()) == identity(info), 'GITHUB_CONFIG_CHANGED')
     check()
+    max_bytes = GITHUB_LIST_OUTPUT_BYTES if rich else DEFAULT_READ_OUTPUT_BYTES
     raw = _bounded_command(['/usr/bin/gh', 'api', '--hostname', 'github.com', '--method', 'GET', endpoint],
-                           cwd=directory, env=env, timeout=8, deadline=deadline)
+                           cwd=directory, env=env, timeout=8, max_bytes=max_bytes, deadline=deadline)
     check()
     try:
         return json.loads(raw)
