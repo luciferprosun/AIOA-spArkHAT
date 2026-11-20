@@ -10,20 +10,16 @@ validation and the existing portable inventory continue to accept historical
 keys, only with all original run, evidence, proposal and approval bindings.
 Restart/readback never creates a second mutation.
 
-An admitted start may restore an absent initial demo resource only after Core
-confirms `SUCCESS_WITH_EVIDENCE`, receipt and verification for **every** consuming
-run. Checking all releases prevents an old success from hiding a later
-unverified release after clock regression. The existing inventory lock compares
-the complete release/proof set and preserves all receipts atomically. STOP,
-service lease, operator admission, run limits and provenance reservation apply
-before this operation. This is synthetic inventory only, with zero AWS authority.
+Starting an investigation in the portable CLI leaves previously released
+inventory intact. A request for an absent released demo resource returns
+`NONZERO_DEMO_REARM_REQUIRES_CORE`. Existing runs and their receipts remain
+available for readback.
 
-Reset is also denied while another unsettled proposal targets the same resource
-and region. Otherwise an identical restored value could make an older approval
-valid again (an ABA reset). A waiting sibling may be explicitly denied by its
-owner before reset; an already approved or UNKNOWN sibling remains blocked until
-a safe terminal disposition exists. Expiry or a clock change alone does not
-revoke it. There is no automatic revocation, reset override or new approval API.
+Restoring a managed demo resource is a separate Core REARM operation with an
+owner warrant. Core binds the complete release history, the target revision,
+and the durable intent before applying the change. The managed path checks
+STOP and verifies the outcome independently. Its qualified scope is synthetic
+inventory.
 
 Redaction covers GitHub `ghp`, `gho`, `ghu`, `ghs`, `ghr` and `github_pat`
 families, including Unicode adjacency and complete stateless installation token

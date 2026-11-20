@@ -240,37 +240,6 @@ class NonZeroCloudOpsService:
         if execution_result_upper_bound(checkpoint) > self.config.max_output_bytes:
             raise NonZeroError("NONZERO_EXECUTION_OUTPUT_BUDGET_INSUFFICIENT", 409)
 
-    def _rearm_completed_demo(self, query):
-        """Core-owned demo reset, admitted by the same lease/STOP/intent path.
-
-        A receipt alone, pending readback or an UNKNOWN run cannot restore a
-        target. Check the complete release history rather than wall-clock order.
-        """
-        from .models import WorkflowState
-
-        inventory = self.components.inventory
-        consumed = inventory.released_default_resource_receipts(query)
-        if not consumed:
-            return
-        if self.components.repository.has_unsettled_demo_target(query):
-            raise NonZeroError("NONZERO_DEMO_TARGET_HAS_UNRESOLVED_RUN", 409)
-        proofs = []
-        for receipt in consumed:
-            prior = self.components.repository.read_run_snapshot(receipt.run_id)
-            checkpoint = prior.checkpoint
-            verification = None if checkpoint is None else checkpoint.local_verification
-            if (
-                prior.run is None or prior.run.state is not WorkflowState.SUCCESS_WITH_EVIDENCE
-                or checkpoint is None
-                or checkpoint.last_safe_state is not WorkflowState.SUCCESS_WITH_EVIDENCE
-                or checkpoint.local_execution_receipt != receipt or verification is None
-                or verification.receipt_hash != receipt.receipt_hash
-            ):
-                raise NonZeroError("NONZERO_DEMO_RELEASE_NOT_VERIFIED", 409)
-            proofs.append(verification)
-        if not inventory.rearm_verified_demo_resource(query, verifications=tuple(proofs)):
-            raise NonZeroError("NONZERO_DEMO_RELEASE_CHANGED", 409)
-
     def start(
         self, request: StartRunRequest, *, operator: bool = False
     ) -> InvestigationResult:
@@ -283,7 +252,11 @@ class NonZeroCloudOpsService:
         def investigate():
             if self.components.repository.run_count() >= self.config.max_runs:
                 raise NonZeroError("NONZERO_RUN_LIMIT_EXCEEDED", 409)
-            self._rearm_completed_demo(request.to_query())
+            query = request.to_query()
+            # Release history is evidence. Restoring inventory requires the
+            # separate Core REARM operation with its own approval.
+            if self.components.inventory.released_default_resource_receipts(query):
+                raise NonZeroError("NONZERO_DEMO_REARM_REQUIRES_CORE", 409)
             run_id = generate_run_id()
             run = Run.new(
                 run_id=run_id,
@@ -295,7 +268,7 @@ class NonZeroCloudOpsService:
                     max_turns=8, max_tokens=2048, max_elapsed_seconds=60
                 ),
             )
-            return self.components.investigation.execute(run, request.to_query())
+            return self.components.investigation.execute(run, query)
 
         return self._perform(
             "investigate", "/api/runs", investigate, operator=operator, write=True

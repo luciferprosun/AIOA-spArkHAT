@@ -135,6 +135,14 @@ class RunScopedPortableExecutionTests(unittest.TestCase):
         self.assertEqual(result["final_state"], "SUCCESS_WITH_EVIDENCE")
         return path, result
 
+    def restore_legacy_fixture(self, release):
+        """Prepare a previously restored local fixture without using product ingress."""
+        checkpoint = self.service.components.repository.get_checkpoint(UUID(release["run_id"]))
+        query = ResourceQuery(**authority_fixture.TARGET)
+        self.assertTrue(self.service.components.inventory.rearm_verified_demo_resource(
+            query, verifications=(checkpoint.local_verification,),
+        ))
+
     def test_new_execution_keys_include_run_identity(self):
         _, result = self.complete()
         self.assertEqual(
@@ -142,10 +150,27 @@ class RunScopedPortableExecutionTests(unittest.TestCase):
             "local-exec:" + result["run_id"] + ":" + result["receipt"]["proposal_hash"],
         )
 
+    def test_operator_start_requires_core_rearm_and_preserves_readback(self):
+        path, first = self.complete()
+        self.core.restart_core()
+        inventory = self.service.components.inventory
+        repository = self.service.components.repository
+        before = inventory.path.read_bytes()
+        with patch.object(inventory, "rearm_verified_demo_resource",
+                          side_effect=AssertionError("investigation must not restore inventory")) as restore:
+            status, reply = self.core.native_response("POST", "/api/nonzero/runs", authority_fixture.TARGET)
+        self.assertEqual((status, reply.get("error")), (409, "NONZERO_DEMO_REARM_REQUIRES_CORE"))
+        restore.assert_not_called()
+        self.assertEqual(repository.run_count(), 1)
+        self.assertEqual(inventory.path.read_bytes(), before)
+        self.assertEqual(self.core.resume(path)["receipt"], first["receipt"])
+        self.assertEqual(self.service.components.executor.mutation_calls, 0)
+
     def test_completed_demo_can_run_again_without_colliding_or_replaying(self):
         path, first = self.complete()
         first_receipt = first["receipt"]
         self.core.restart_core()
+        self.restore_legacy_fixture(first)
         _, second = self.complete()
         self.assertNotEqual(first["run_id"], second["run_id"])
         self.assertNotEqual(first_receipt["idempotency_key"], second["receipt"]["idempotency_key"])
@@ -228,7 +253,8 @@ class RunScopedPortableExecutionTests(unittest.TestCase):
 
         from nonzero_cloudops.adapters.portable import PortableConflictError
 
-        self.complete()
+        _, first = self.complete()
+        self.restore_legacy_fixture(first)
         self.core.now -= timedelta(minutes=1)
         started = self.core.native_api("POST", "/api/nonzero/runs", authority_fixture.TARGET, expected=201)
         path = "/api/nonzero/runs/" + started["run_id"]
@@ -260,7 +286,7 @@ class RunScopedPortableExecutionTests(unittest.TestCase):
             inventory.rearm_verified_demo_resource(query, verifications=("receipt-only",))
         self.assertEqual(inventory.path.read_bytes(), before)
 
-    def test_pending_sibling_blocks_rearm_until_explicit_human_denial(self):
+    def test_denying_a_pending_sibling_does_not_authorize_compatibility_rearm(self):
         first = self.core.start_run()
         pending = self.core.start_run()
         self.core.approve(first)
@@ -271,9 +297,11 @@ class RunScopedPortableExecutionTests(unittest.TestCase):
         self.assertEqual(inventory.path.read_bytes(), before)
         self.assertEqual(self.service.components.repository.run_count(), 2)
         self.core.approve(pending, "DENIED")
-        _, next_run = self.complete()
-        self.assertEqual(next_run["final_state"], "SUCCESS_WITH_EVIDENCE")
-        self.assertEqual(self.service.components.executor.mutation_calls, 2)
+        denied = self.core.native_api("POST", "/api/nonzero/runs", authority_fixture.TARGET, expected=409)
+        self.assertEqual(denied["error"], "NONZERO_DEMO_REARM_REQUIRES_CORE")
+        self.assertEqual(inventory.path.read_bytes(), before)
+        self.assertEqual(self.service.components.repository.run_count(), 2)
+        self.assertEqual(self.service.components.executor.mutation_calls, 1)
 
     def test_approved_sibling_cannot_use_a_rearmed_generation_after_restart(self):
         first = self.core.start_run()
@@ -293,9 +321,10 @@ class RunScopedPortableExecutionTests(unittest.TestCase):
         self.core.native_api("POST", "/api/nonzero/runs", authority_fixture.TARGET, expected=409)
         self.assertEqual(inventory.path.read_bytes(), before)
 
-    def test_unrelated_pending_target_does_not_block_verified_demo_rearm(self):
+    def test_unrelated_pending_target_stays_readable_after_fixture_restoration(self):
         pending = self.core.start_run(authority_fixture.GROUP)
-        self.complete()
+        _, first = self.complete()
+        self.restore_legacy_fixture(first)
         self.complete()
         self.assertEqual(self.core.native_api("GET", pending)["run"]["state"], "AWAITING_APPROVAL")
         self.assertEqual(self.service.components.executor.mutation_calls, 2)
