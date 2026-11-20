@@ -1,0 +1,31 @@
+{
+  "broker_receipts": {
+    "01ea3466d45193fb63fb22f5805550a435b15cd3791242b6b9fcdcc4c1ead388": "sha256:b26875624f2689e1b4cfd30d35a3fc0ae2e16b439e4205844536a0af5af64b82",
+    "48c8f44c897da4ff67fe9ebb471d59b5ced6645752f046a2ff6d42e7c25fd2b9": "sha256:2617d7bc56c7d16cc7d592d80a41dc77e72632f7a06957018b11e269af2f3536",
+    "654d467f8eda2b95ac5f34d7d1f03c2881bb842bd0e543da4d88a94ca2223b21": "sha256:784467bb039dd89a883251b0f2212b7b7a1942d84e7fca6e867ce1a87ea30d9c",
+    "69f3fede3b18b8eb78293653582ecad9aa8077ebe7dafb9f5a12b40d96cf5efa": "sha256:eb06c320748b3808edb3658769ad317b01610db8e28d7635b4f4775010795c01",
+    "b59fcc48bac2007ce86fdce628515baf3f59e169688bcbefd7f4dbf921b19bd8": "sha256:e146d2c58fd7974f487624400bbf26616c98a49deabc27796004644584f2983f",
+    "e8a3e363d5ab404b8cfb31b35854cbc9dd8cb871270e3d220db943335268d76f": "sha256:d948eee48d3c9bc1e92fe7e54a49c9b73236ce0aeedc6f01e5b15cd56a15e619"
+  },
+  "schema": "aioa.nz13.captured-synthetic-receipt-join.v1",
+  "scope": "SYNTHETIC_OPERATOR_FIXTURE_HASHES_ONLY_NO_CREDENTIALS",
+  "source_head": "906280bac7481dbc2d4ad49fdbe64a23438d80e3",
+  "validation_steps": [
+    {
+      "core_warrant_digest": "sha256:d948eee48d3c9bc1e92fe7e54a49c9b73236ce0aeedc6f01e5b15cd56a15e619",
+      "evidence_digest": "e8a3e363d5ab404b8cfb31b35854cbc9dd8cb871270e3d220db943335268d76f"
+    },
+    {
+      "core_warrant_digest": "sha256:784467bb039dd89a883251b0f2212b7b7a1942d84e7fca6e867ce1a87ea30d9c",
+      "evidence_digest": "654d467f8eda2b95ac5f34d7d1f03c2881bb842bd0e543da4d88a94ca2223b21"
+    },
+    {
+      "core_warrant_digest": "sha256:b26875624f2689e1b4cfd30d35a3fc0ae2e16b439e4205844536a0af5af64b82",
+      "evidence_digest": "01ea3466d45193fb63fb22f5805550a435b15cd3791242b6b9fcdcc4c1ead388"
+    },
+    {
+      "core_warrant_digest": "sha256:eb06c320748b3808edb3658769ad317b01610db8e28d7635b4f4775010795c01",
+      "evidence_digest": "69f3fede3b18b8eb78293653582ecad9aa8077ebe7dafb9f5a12b40d96cf5efa"
+    }
+  ]
+}

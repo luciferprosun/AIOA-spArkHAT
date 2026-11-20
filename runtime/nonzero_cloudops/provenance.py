@@ -21,20 +21,33 @@ PRIVATE_FIELDS = {
     "decision_nonce_hash",
     "actor_session_id",
     "authorization",
-    "token",
     "credential",
 }
 
 
 def public_evidence(value):
     if isinstance(value, dict):
+        from runtime.secret_redaction import (
+            contains_sensitive_material,
+            is_sensitive_field_name,
+        )
+
         return {
             key: public_evidence(item)
             for key, item in value.items()
-            if key not in PRIVATE_FIELDS
+            if isinstance(key, str)
+            and key.casefold() not in PRIVATE_FIELDS
+            and not is_sensitive_field_name(key)
+            and not contains_sensitive_material(key)
         }
     if isinstance(value, (tuple, list)):
         return [public_evidence(item) for item in value]
+    if isinstance(value, str):
+        # Preserve dependency-free module discovery; load domain contracts only
+        # when rendering an admitted evidence value.
+        from .models.redaction import redact_sensitive_text
+
+        return redact_sensitive_text(value)
     return value
 
 

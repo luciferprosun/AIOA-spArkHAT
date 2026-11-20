@@ -24,7 +24,7 @@ from runtime.memory_patch.contracts.serialization import (
 )
 from runtime.mission.contracts import bounded_int, logical_id
 from runtime.mission.worker import CandidatePatch, Task
-from runtime.nonzero_cloudops.models.redaction import contains_sensitive_material
+from runtime.secret_redaction import contains_sensitive_material
 
 MAX_FILES_CHANGED = 3
 MAX_CHANGED_LINES = 300
@@ -160,6 +160,8 @@ def _protected_change(path):
         and path
         not in (
             "runtime/core_admission.py",
+            "runtime/secret_redaction.py",
+            "runtime/failure_boundary.py",
             "runtime/nonzero_cloudops/models/redaction.py",
         ),
         "PATCHSET_CORE_POLICY_DENIED",

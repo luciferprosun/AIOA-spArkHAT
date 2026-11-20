@@ -9,9 +9,9 @@ from __future__ import annotations
 
 import os
 import stat
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Callable
 
 from tools.provenance import AppendOnlyProvenanceStore as ExistingCoreProvenanceStore
 
@@ -34,6 +34,7 @@ from runtime.memory_patch.persistence.ports import (
     RecordKind,
     StoredRecord,
     TransactionView,
+    _register_history_reader,
 )
 from runtime.nonzero_cloudops.state.files import (
     atomic_write_private_json,
@@ -105,6 +106,12 @@ def decode_audit(record: StoredRecord) -> AuditEvent:
 
 
 def domain_chain(transaction: TransactionView) -> tuple[AuditEvent, ...]:
+    if isinstance(transaction, TransactionView):
+        return transaction._history_read('AUDIT_CHAIN')
+    return _read_domain_chain(transaction)
+
+
+def _read_domain_chain(transaction: TransactionView) -> tuple[AuditEvent, ...]:
     records = transaction.scan(RecordKind.AUDIT, limit=1024)
     if len(records) >= 1024:
         # No silently truncated head; a paginated adapter contract is required
@@ -483,3 +490,7 @@ class CoreLedgerPublication:
                 return self._receipt(payload, record)
         except (OSError, ValueError, TypeError, KeyError) as error:
             raise MemoryPatchError(ErrorCode.PROVENANCE_CORRUPT) from error
+
+
+# Registration executes at original module import, never inside a SQL reader.
+_register_history_reader('AUDIT_CHAIN', _read_domain_chain)

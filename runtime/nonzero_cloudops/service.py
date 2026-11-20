@@ -15,7 +15,13 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 from uuid import UUID
 
-from .contract import ModuleConfig, NonZeroError, module_descriptor, parse_config
+from .contract import (
+    LOCAL_API_BODY_MAX_BYTES,
+    ModuleConfig,
+    NonZeroError,
+    module_descriptor,
+    parse_config,
+)
 from .provenance import CoreEvidenceLink, private_file, public_evidence, source_identity
 
 if TYPE_CHECKING:
@@ -246,6 +252,11 @@ class NonZeroCloudOpsService:
         def investigate():
             if self.components.repository.run_count() >= self.config.max_runs:
                 raise NonZeroError("NONZERO_RUN_LIMIT_EXCEEDED", 409)
+            query = request.to_query()
+            # Release history is evidence. Restoring inventory requires the
+            # separate Core REARM operation with its own approval.
+            if self.components.inventory.released_default_resource_receipts(query):
+                raise NonZeroError("NONZERO_DEMO_REARM_REQUIRES_CORE", 409)
             run_id = generate_run_id()
             run = Run.new(
                 run_id=run_id,
@@ -257,7 +268,7 @@ class NonZeroCloudOpsService:
                     max_turns=8, max_tokens=2048, max_elapsed_seconds=60
                 ),
             )
-            return self.components.investigation.execute(run, request.to_query())
+            return self.components.investigation.execute(run, query)
 
         return self._perform(
             "investigate", "/api/runs", investigate, operator=operator, write=True
@@ -377,7 +388,7 @@ class NonZeroCloudOpsService:
             body = json.dumps(payload, allow_nan=False)
         except (ValueError, TypeError, RecursionError) as error:
             raise NonZeroError("NONZERO_INVALID_REQUEST", 400) from error
-        if len(body.encode()) > 16384:
+        if len(body.encode()) > LOCAL_API_BODY_MAX_BYTES:
             raise NonZeroError("NONZERO_REQUEST_TOO_LARGE", 413)
         from pydantic import ValidationError
 

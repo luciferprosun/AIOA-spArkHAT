@@ -95,6 +95,62 @@ def inspect_module(module: Path) -> dict:
         'findings': errors}
 
 
+def _only_import_binding(tree, name, canonical):
+    """Static grammar only; runtime authority still belongs to sealed Core."""
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.Import, ast.ImportFrom)):
+            for alias in node.names:
+                if alias.name == '*':
+                    return False
+                binding = alias.asname or alias.name.split('.')[0]
+                if binding == name and not (node is canonical and alias.name == name and alias.asname is None):
+                    return False
+        if isinstance(node, ast.Name) and node.id == name and isinstance(node.ctx, (ast.Store, ast.Del)):
+            return False
+        if isinstance(node, ast.arg) and node.arg == name:
+            return False
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)) and node.name == name:
+            return False
+        if isinstance(node, ast.ExceptHandler) and node.name == name:
+            return False
+        if isinstance(node, (ast.Global, ast.Nonlocal)) and name in node.names:
+            return False
+        if isinstance(node, (ast.MatchAs, ast.MatchStar)) and node.name == name:
+            return False
+        if isinstance(node, ast.MatchMapping) and node.rest == name:
+            return False
+    return True
+
+
+def _exact_http_failure_context(tree, handler, calls):
+    """Return one exact context call, never a name-wide allowlist exception."""
+    boundaries = [node for node in calls if isinstance(node.func, ast.Name)
+                  and node.func.id == 'failure_boundary']
+    if len(boundaries) != 1:
+        return None
+    context = boundaries[0]
+    expected = ast.parse("failure_boundary('HTTP_CALLBACK_FAILED', preserve=(NonZeroError,))", mode='eval').body
+    if ast.dump(context, include_attributes=False) != ast.dump(expected, include_attributes=False):
+        return None
+    wrappers = [node for node in ast.walk(handler) if isinstance(node, ast.With)
+                and len(node.items) == 1 and node.items[0].context_expr is context
+                and node.items[0].optional_vars is None]
+    if len(wrappers) != 1:
+        return None
+    boundary_imports = [node for node in tree.body if isinstance(node, ast.ImportFrom)
+                        and node.level == 0 and node.module == 'runtime.failure_boundary'
+                        and any(alias.name == 'failure_boundary' and alias.asname is None for alias in node.names)]
+    error_imports = [node for node in handler.body if isinstance(node, ast.ImportFrom)
+                    and node.level == 0 and node.module == 'nonzero_cloudops'
+                    and any(alias.name == 'NonZeroError' and alias.asname is None for alias in node.names)]
+    if len(boundary_imports) != 1 or len(error_imports) != 1:
+        return None
+    if not (_only_import_binding(tree, 'failure_boundary', boundary_imports[0])
+            and _only_import_binding(tree, 'NonZeroError', error_imports[0])):
+        return None
+    return context
+
+
 def verify_ownership(runtime: Path) -> list[dict]:
     required = {
         'main.py': ('class AgentRuntime', 'def nonzero_cloudops', 'NonZeroCloudOpsService(',
@@ -124,7 +180,8 @@ def verify_ownership(runtime: Path) -> list[dict]:
         if len(handlers)!=1:raise ValueError('handler')
         calls=[n for n in ast.walk(handlers[0]) if isinstance(n,ast.Call)]
         allowed={'NonZeroError','self._write_json','self._service','self._service().runtime.nonzero_status'}
-        if any(ast.unparse(n.func) not in allowed for n in calls):
+        boundary_context = _exact_http_failure_context(tree, handlers[0], calls)
+        if any(n is not boundary_context and ast.unparse(n.func) not in allowed for n in calls):
             errors.append({'path':'webapp.py','code':'NONZERO_PUBLIC_DISPATCH_NOT_DISABLED'})
         denied=False
         for node in calls:

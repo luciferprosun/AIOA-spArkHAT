@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 import signal
 import sys
 import threading
@@ -61,14 +62,15 @@ class LegacyObservationProjection:
     This never edits canonical history or obtains a transaction write method.
     """
 
-    def __init__(self, transaction, marker="EXTERNAL_JSON_ORACLE"):
+    def __init__(self, transaction, marker="EXTERNAL_JSON_ORACLE", *, current_marker="BOUNDED_AST_JSON_ORACLE_V2"):
         self.transaction = transaction
         self.marker = marker
+        self.current_marker = current_marker
         self.projected = 0
 
     def get(self, kind, record_id):
         row = self.transaction.get(kind, record_id)
-        if row is not None and row.payload.get("trusted_observer") == "BOUNDED_AST_JSON_ORACLE_V2":
+        if row is not None and row.payload.get("trusted_observer") == self.current_marker:
             self.projected += 1
             return replace(row, payload={**row.payload, "trusted_observer": self.marker})
         return row
@@ -80,8 +82,14 @@ class LegacyObservationProjection:
 class SandboxPreparer:
     """Operator fixture: all jobs still traverse the real Core START and broker."""
 
-    def __init__(self, fixture, manifest, root):
+    def __init__(self, fixture, manifest, root, *, resource_profile=None, input_profile=None):
+        assert resource_profile is None or resource_profile in (
+            'HEADLESS_RENDER_V1', 'HEADLESS_RENDER_V2', 'HEADLESS_RENDER_V3')
         self.fixture, self.manifest, self.root = fixture, manifest, root
+        assert input_profile is None or input_profile == 'PYTEST_WHEELS_V1'
+        assert resource_profile is None or input_profile is None
+        self.resource_profile = resource_profile
+        self.input_profile = input_profile
         self.configs = []
 
     def steps(self, specs):
@@ -91,6 +99,11 @@ class SandboxPreparer:
             self.manifest,
             workspace="workspace-1",
             recipes={str(i): spec for i, (_, spec) in enumerate(specs)},
+            **({'resource_profile': self.resource_profile,
+                'renderer_ipc': ('RENDER_UNIX_MOJO_V1' if self.resource_profile == 'HEADLESS_RENDER_V3'
+                                 else 'RENDER_UNIX_LISTENER_V1')}
+               if self.resource_profile is not None else {}),
+            **({'input_profile': self.input_profile} if self.input_profile is not None else {}),
         )
         # The existing hard ceiling includes namespace setup and the final
         # trusted Core release check. Full-history release alone takes 3.5s on
@@ -102,7 +115,11 @@ class SandboxPreparer:
             registry=SandboxRegistry(
                 config.registry.workspace,
                 tuple(
-                    replace(recipe, timeout_ms=20000)
+                    replace(recipe, timeout_ms=20000,
+                            max_output_bytes=(16384 if self.resource_profile in (
+                                'HEADLESS_RENDER_V1', 'HEADLESS_RENDER_V2', 'HEADLESS_RENDER_V3')
+                                              or self.input_profile == 'PYTEST_WHEELS_V1'
+                                              else recipe.max_output_bytes))
                     for recipe in config.registry.recipes
                 ),
             ),
@@ -188,6 +205,10 @@ class SandboxPreparer:
                 policy_revision=2,
                 capabilities=("PROJECT_WRITE", "SANDBOX_EXEC"),
                 completion_digest=completion.digest,
+                output_bytes=(16384 if self.resource_profile in (
+                    'HEADLESS_RENDER_V1', 'HEADLESS_RENDER_V2', 'HEADLESS_RENDER_V3')
+                              or self.input_profile == 'PYTEST_WHEELS_V1'
+                              else f.grant.output_bytes),
             )
             route.create_session(fx.p(support.Capability.OWNER_APPROVAL), grant)
             warrant = route.authorize(
@@ -290,6 +311,8 @@ def exercise_active_stop(
                         "src/textutil.py",
                         "def slug(text):\n    while True:\n        pass\n",
                     ),
+                    *((CandidateFile("src/extra.py", "def title(text):\n    return text.title()\n"),)
+                      if getattr(profile, 'sandbox_input_profile', None) == 'PYTEST_WHEELS_V1' else ()),
                 )
             )
             worker = SyntheticWorker((candidate,), clock=lambda: fixture.now)
@@ -415,7 +438,58 @@ def exercise_active_stop(
     }
 
 
-def main(manifest_path, root):
+def review_denial_contract(reviewed, *, expected_failure_code):
+    """Assert a negative fixture's already verified canonical Core readback.
+
+    This observer grants no authority. The caller obtains the view through the
+    existing get_receipts signature/chain verification before invoking it.
+    """
+    assert expected_failure_code == 'REVIEW_FIXTURE_BYPASS', 'EXPECTED_REVIEW_DENIAL_SELECTOR'
+    assert type(reviewed) is dict and reviewed['state'] == 'DENIED'
+    assert reviewed['authority'] == 'NONE' and reviewed['capsule_digest'] is None
+    assert reviewed['effects_registered'] is False and reviewed['effect_verified'] is False
+    assert type(reviewed['receipt_count']) is int and reviewed['receipt_count'] == 6
+    assert tuple(row['receipt']['state'] for row in reviewed['receipts']) == (
+        'QUEUED', 'RUNNING', 'VALIDATING', 'REPAIRING', 'VALIDATING', 'DENIED')
+    loop = reviewed['run_result']
+    assert loop['status'] == 'DENIED' and loop['failure_code'] == expected_failure_code
+    assert loop['final_patchset'] is None and loop['history'][-1] == 'INDEPENDENT_REVIEW'
+    attempts = loop['attempts']
+    assert len(attempts) == 2 and tuple(row['status'] for row in attempts) == ('FAIL', 'DENIED')
+    assert all(type(row['cleanup_orphans']) is int and row['cleanup_orphans'] == 0 for row in attempts)
+    assert tuple((step['stage'], step['status']) for step in attempts[0]['steps']) == (('FAST_TESTS', 'FAIL'),)
+    assert tuple((step['stage'], step['status']) for step in attempts[1]['steps']) == (
+        ('FAST_TESTS', 'PASS'), ('TARGETED_TESTS', 'PASS'), ('FINAL_TESTS', 'PASS'))
+    steps = [step for row in attempts for step in row['steps']]
+    # ValidationStep's code describes the independent oracle, while retained
+    # broker process codes are checked separately against zero below.
+    assert type(steps[0]['exit_code']) is int and steps[0]['exit_code'] == 1
+    assert all(type(step['exit_code']) is int and step['exit_code'] == 0 for step in steps[1:])
+    assert all(re.fullmatch('sha256:[a-f0-9]{64}', step['core_warrant_digest']) for step in steps)
+    assert all(re.fullmatch('[a-f0-9]{64}', step['evidence_digest']) for step in steps)
+    assert len({step['core_warrant_digest'] for step in steps}) == 4
+    assert len({step['evidence_digest'] for step in steps}) == 4
+    return {'status': 'EXPECTED_REVIEW_DENIAL', 'verified_oracle_stages': 3,
+            'git_actuation': False, 'coding_success': False}
+
+
+def review_denial_broker_contract(steps, receipts):
+    """Join four canonical validations to six retained fixture broker receipts."""
+    assert type(receipts) is dict and len(receipts) == len(set(receipts.values())) == 6
+    assert all(re.fullmatch('[a-f0-9]{64}', digest) for digest in receipts)
+    assert all(re.fullmatch('sha256:[a-f0-9]{64}', warrant) for warrant in receipts.values())
+    assert len(steps) == 4
+    assert len({step['evidence_digest'] for step in steps}) == 4
+    assert len({step['core_warrant_digest'] for step in steps}) == 4
+    for step in steps:
+        assert step['evidence_digest'] in receipts
+        assert re.fullmatch('sha256:[a-f0-9]{64}', step['core_warrant_digest'])
+        assert receipts[step['evidence_digest']] == step['core_warrant_digest']
+
+
+def main(manifest_path, root, *, worker_factory=SyntheticWorker, profile_factory=None,
+         candidate_transform=None, expected_review_denial=None, source_files=None):
+    assert expected_review_denial in (None, 'REVIEW_FIXTURE_BYPASS'), 'EXPECTED_REVIEW_DENIAL_SELECTOR'
     producer_class = getattr(repair, "SandboxedCandidateProducer", None)
     assert callable(producer_class), (
         "neutral WorkerPort to sandbox materializer producer is missing"
@@ -425,6 +499,12 @@ def main(manifest_path, root):
         "test_source_is_actual_git_commit_tree_and_independently_exported_bytes"
     )
     case.setUp()
+    if source_files is not None:
+        # Trusted local test data only; no model, API or runtime registration.
+        assert type(source_files) is dict and 1 <= len(source_files) <= 32
+        assert all(type(name) is str and type(raw) is bytes
+                   and len(raw) <= 65536 for name, raw in source_files.items())
+        case.repo = BareRepository(case.root / 'pytest-source.git', source_files)
     fixture = fixture_core()
     try:
         fx = fixture.fx
@@ -441,17 +521,21 @@ def main(manifest_path, root):
             fixture.now + 200,
         )
         original_profile = case.profile()
+        if profile_factory is not None:
+            # Explicit trusted acceptance fixture only; never a model/HTTP field.
+            original_profile = profile_factory(original_profile)
         manifest_file = root / "operator-recipe.json"
         manifest_file.write_bytes(original_profile.manifest_bytes())
         manifest_file.chmod(0o600)
-        profile = type(original_profile).load_file(manifest_file)
+        profile = type(original_profile).load_file(manifest_file, wheel_lock=original_profile.wheel_lock)
         recovery_profile = replace(profile, stages=tuple(
             (stage, tuple(replace(case, case_id="recovered-" + case.case_id) for case in cases))
             for stage, cases in profile.stages
         ))
         assert recovery_profile.digest != profile.digest
         preparer = SandboxPreparer(
-            fixture, json.loads(manifest_path.read_text())["manifest"], root
+            fixture, json.loads(manifest_path.read_text())["manifest"], root,
+            input_profile=getattr(profile, 'sandbox_input_profile', None),
         )
         candidates = tuple(
             CandidatePatch(
@@ -467,8 +551,12 @@ def main(manifest_path, root):
                 'def slug(text):\n    return "-".join(text.lower().split())\n',
             )
         )
+        if candidate_transform is not None:
+            candidates = candidate_transform(candidates)
         target = BareRepository(root / "target.git", case.repo.files)
         target.mark_disposable()
+        negative_target_refs = (target.git('show-ref', '--head')
+                                if expected_review_denial is not None else None)
         assert target.base == snapshot.source_base_sha
         identity = support.Identity(
             support.ec.generate_private_key(support.ec.SECP256R1())
@@ -506,7 +594,7 @@ def main(manifest_path, root):
                 output_root=root / "mirrors",
                 cancel=cancel,
             )
-            worker = SyntheticWorker(candidates, clock=lambda: fixture.now)
+            worker = worker_factory(candidates, clock=lambda: fixture.now)
             producer = producer_class(
                 task, worker, materializer, cancel=cancel, clock=lambda: fixture.now
             )
@@ -564,6 +652,48 @@ def main(manifest_path, root):
             {"task_id": task.task_id},
             principal=fx.p(support.Capability.READ),
         )
+        if expected_review_denial is not None:
+            try:
+                summary = review_denial_contract(reviewed, expected_failure_code=expected_review_denial)
+            except AssertionError:
+                # Canonical private fixture state only, never credentials.
+                diagnostic = {key: reviewed.get(key) for key in ('state', 'run_result')}
+                with (root / 'unexpected-controller-state.json').open('x') as stream:
+                    json.dump(diagnostic, stream, indent=2)
+                raise
+            # This diagnostic candidate must remain denied by independent
+            # coding review. Git setup is a fixture; no Git effect is approved.
+            assert target.git('show-ref', '--head') == negative_target_refs
+            assert target.git('rev-parse', 'main').decode().strip() == snapshot.source_base_sha
+            receipts = {}
+            for config in preparer.configs:
+                for path in config.root.glob('run-*/receipt.json'):
+                    raw = path.read_bytes()
+                    receipt = json.loads(raw)
+                    assert receipt['status'] == 'READBACK_VERIFIED' and receipt['exit_code'] == 0
+                    assert all(receipt[key] is True for key in (
+                        'project_code_started', 'cgroup_absent_after_cleanup', 'unit_terminal_observed',
+                        'cgroup_populated_zero_directly_observed'))
+                    digest = sha256(raw)
+                    assert digest not in receipts
+                    receipts[digest] = receipt['warrant_digest']
+            assert len(receipts) == len(set(receipts.values())) == 6
+            validation_steps = [step for attempt in reviewed['run_result']['attempts']
+                                for step in attempt['steps']]
+            review_denial_broker_contract(validation_steps, receipts)
+            proof = {'schema': 'aioa.nz13.expected-review-denial.v1', **summary,
+                     'failure_code': expected_review_denial, 'profile_digest': profile.digest,
+                     'signer_spki': identity.spki, 'canonical_receipts': reviewed['receipts'],
+                     'run_result': reviewed['run_result'], 'broker_receipts': receipts,
+                     'broker_receipt_count': 6, 'materialization_receipts': 2,
+                     'validation_receipts': 4, 'final_oracle_passes': 3,
+                     'initial_target_refs_sha256': sha256(negative_target_refs),
+                     'target_refs_unchanged': True, 'disposable_git_setup': True,
+                     'product_review_guard_preserved': True, 'same_core': True,
+                     'provider_calls': 0, 'remote_calls': 0}
+            with (root / 'NZ13_EXPECTED_REVIEW_DENIAL.json').open('x') as stream:
+                json.dump(proof, stream, indent=2)
+            return proof
         assert reviewed["state"] == "REVIEW_REQUIRED", reviewed
         loop = reviewed["run_result"]
         # The canonical loop is used only for assertions/evidence below. The
@@ -701,7 +831,7 @@ def main(manifest_path, root):
         )
         assert approved["state"] == "APPROVED"
         def reject_legacy_fresh(transaction):
-            legacy = LegacyObservationProjection(transaction)
+            legacy = LegacyObservationProjection(transaction, current_marker=profile.trusted_observer)
             try:
                 route._local_proofs(legacy)
             except ValueError as error:
@@ -742,14 +872,14 @@ def main(manifest_path, root):
         )
         assert len(writes) == 1
         def accept_legacy_readback(transaction):
-            unknown = LegacyObservationProjection(transaction, marker="UNKNOWN_OBSERVER_VERSION")
+            unknown = LegacyObservationProjection(transaction, marker="UNKNOWN_OBSERVER_VERSION", current_marker=profile.trusted_observer)
             try:
                 route._local_proofs(unknown, historical=True)
             except ValueError as error:
                 assert str(error) == "GIT_VALIDATION_BINDING", str(error)
             else:
                 raise AssertionError("unknown observer version accepted as historical proof")
-            legacy = LegacyObservationProjection(transaction)
+            legacy = LegacyObservationProjection(transaction, current_marker=profile.trusted_observer)
             route._local_proofs(legacy, historical=True)
             assert legacy.projected == 3
 

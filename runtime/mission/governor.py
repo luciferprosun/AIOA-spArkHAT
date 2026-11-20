@@ -5,76 +5,49 @@ providers. Hosted cross-owner accounting is unsupported. This service does not
 approve an effect, mint a principal, create a store, call a provider or resolve a
 credential. Constructors/imports are inert; operator configuration is explicit.
 """
-from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
-from enum import Enum
-import json
 import re
 import time
+from dataclasses import asdict, dataclass
+from datetime import UTC, datetime
 
-from runtime.core_admission import Capability, CoreAdmission, OwnerScope
-from runtime.core_admission import CorePrincipal
+from runtime.core_admission import Capability, CoreAdmission, CorePrincipal, OwnerScope
 from runtime.memory_patch.audit import append_domain_event
-from runtime.memory_patch.contracts.serialization import canonical_json_bytes, canonical_sha256
-from runtime.memory_patch.errors import ErrorCode, MemoryPatchError
+from runtime.memory_patch.contracts.serialization import (
+    canonical_json_bytes,
+    canonical_sha256,
+)
 from runtime.memory_patch.persistence.idempotency import OperationBinding, execute_once
-from runtime.memory_patch.persistence.ports import RecordKind, TransactionContext, TransactionRunner
+from runtime.memory_patch.persistence.ports import (
+    RecordKind,
+    TransactionContext,
+    TransactionRunner,
+    TransactionView,
+    _register_history_reader,
+)
+from runtime.mission import execution_capacity as capacity
+from runtime.mission.execution_capacity import (
+    CapacityTransitionReceipt,
+    ExecutionCapacityReview,
+)
+from runtime.mission.governor_contracts import (
+    MAX_AMOUNT,
+    ReservationRequest,
+    _amount,
+    _deny,
+    _digest,
+    _identity,
+    _plain,
+)
+from runtime.mission.governor_contracts import (
+    GovernorError as GovernorError,
+)
+from runtime.mission.governor_contracts import (
+    GovernorReason as GovernorReason,
+)
+from runtime.mission.warrant import CoreWarrantLedger
 
-MAX_AMOUNT = 2**63-1
 KIND = 'aioa-dual-governor-v1'
 _STATES = frozenset({'RESERVED', 'DISPATCHED', 'UNKNOWN', 'COMMITTED', 'RELEASED'})
-
-
-class GovernorReason(str, Enum):
-    INVALID_AMOUNT = 'INVALID_GOVERNOR_AMOUNT'
-    INVALID_IDENTITY = 'INVALID_GOVERNOR_IDENTITY'
-    INVALID_DIGEST = 'INVALID_EVIDENCE_DIGEST'
-    INVALID_POLICY = 'INVALID_GOVERNOR_POLICY'
-    INVALID_BINDINGS = 'INVALID_GOVERNOR_BINDINGS'
-    CLOCK_UNSAFE = 'CLOCK_UNSAFE'
-    HISTORY_QUOTA = 'HISTORY_QUOTA'
-    INTEGRITY = 'GOVERNOR_INTEGRITY'
-    POLICY_BINDING = 'POLICY_BINDING'
-    BUDGET = 'BUDGET_EXCEEDED'
-    STALE_EPOCH = 'STALE_EPOCH'
-    INVALID_KILL = 'INVALID_KILL_STATE'
-    INVALID_REQUEST = 'INVALID_RESERVATION_REQUEST'
-    MODEL_BINDING = 'MODEL_BINDING_DENIED'
-    IDEMPOTENCY = 'IDEMPOTENCY_CONFLICT'
-    KILL = 'KILL_SWITCH'
-    OPEN = 'CIRCUIT_OPEN'
-    HALF_OPEN = 'HALF_OPEN_BUSY'
-    REQUIRED = 'RESERVATION_REQUIRED'
-    STALE_RESERVATION = 'STALE_RESERVATION_EPOCH'
-    NO_DISPATCH_PROOF = 'NO_DISPATCH_PROOF_REQUIRED'
-    DISPATCH_MARKER = 'DISPATCH_MARKER_REQUIRED'
-
-
-class GovernorError(MemoryPatchError, ValueError):
-    """Native transaction-compatible exception with a closed, public reason."""
-    def __init__(self, reason):
-        self.reason = GovernorReason(reason)
-        super().__init__(ErrorCode.INVALID_REQUEST)
-        self.args = (self.reason.value,)
-
-
-def _deny(condition, code):
-    if not condition:
-        raise GovernorError(code)
-
-
-def _amount(value):
-    _deny(type(value) is int and 0 <= value <= MAX_AMOUNT, 'INVALID_GOVERNOR_AMOUNT')
-    return value
-
-
-def _identity(value):
-    _deny(type(value) is str and re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.:/-]{0,179}', value) is not None,
-          'INVALID_GOVERNOR_IDENTITY')
-
-
-def _digest(value):
-    _deny(type(value) is str and re.fullmatch(r'[0-9a-f]{64}', value) is not None, 'INVALID_EVIDENCE_DIGEST')
 
 
 @dataclass(frozen=True, slots=True)
@@ -110,26 +83,6 @@ class GovernorPolicy:
     @property
     def digest(self):
         return canonical_sha256(self)
-
-
-@dataclass(frozen=True, slots=True, repr=False)
-class ReservationRequest:
-    request_id: str
-    task_id: str
-    provider_id: str
-    model_id: str
-    request_digest: str
-    money_nano: int
-    risk_units: int
-
-    def __post_init__(self):
-        for value in (self.request_id, self.task_id, self.provider_id, self.model_id): _identity(value)
-        _digest(self.request_digest)
-        _amount(self.money_nano); _amount(self.risk_units)
-
-
-def _plain(value):
-    return json.loads(canonical_json_bytes(value))
 
 
 def _exposure(reservations):
@@ -174,6 +127,11 @@ commit or refund it. A lost marker ACK never gives send permission on replay.
                 'kill':False, 'last_now':None, 'reservations':{}, 'circuits':{}}
 
     def _load(self, tx):
+        if isinstance(tx, TransactionView):
+            return tx._history_read('GOVERNOR_STATE', governor=self)
+        return self._load_history(tx)
+
+    def _load_history(self, tx):
         records = tx.scan(RecordKind.OPERATION, limit=1024, operation_kind=KIND)
         _deny(len(records) < 1024, 'HISTORY_QUOTA')
         selected=[]
@@ -182,15 +140,17 @@ commit or refund it. A lost marker ACK never gives send permission on replay.
                 continue
             _deny(set(record.payload) == {'operation_kind','payload_digest','outcome'}, 'GOVERNOR_INTEGRITY')
             outcome=record.payload['outcome']
-            _deny(set(outcome) in ({'state','prior_digest'},{'state','prior_digest','policy_transition'}), 'GOVERNOR_INTEGRITY')
+            _deny(set(outcome) in ({'state','prior_digest'},{'state','prior_digest','policy_transition'},
+                {'state','prior_digest','execution_capacity_transition'}), 'GOVERNOR_INTEGRITY')
             _deny(record.payload['payload_digest'] == canonical_sha256(outcome), 'GOVERNOR_INTEGRITY')
             state=outcome['state']
             _deny(state.get('policy_digest') == self.policy.digest, 'POLICY_BINDING')
-            _deny(set(state) in (set(self._initial()),set(self._initial())|{'money_policy'}) and state['schema'] == KIND, 'GOVERNOR_INTEGRITY')
+            _deny(set(state) in tuple(set(self._initial())|extra for extra in
+                (set(),{'money_policy'},{'execution_capacity'},{'money_policy','execution_capacity'})) and state['schema'] == KIND, 'GOVERNOR_INTEGRITY')
             _deny(type(state['version']) is int and 1 <= state['version'] <= 1023, 'GOVERNOR_INTEGRITY')
             _deny(record.record_id == self._key(state['version']) and record.revision == 1, 'GOVERNOR_INTEGRITY')
             selected.append((state['version'],outcome))
-        current=self._initial();money_requests=set()
+        current=self._initial();money_requests=set();capacity_requests=set()
         for index,outcome in sorted(selected):
             _deny(index == current['version']+1 and outcome['prior_digest'] == canonical_sha256(current), 'GOVERNOR_INTEGRITY')
             proposed=_plain(outcome['state']);transition=outcome.get('policy_transition')
@@ -200,11 +160,21 @@ commit or refund it. A lost marker ACK never gives send permission on replay.
                 _deny(identity not in money_requests,'GOVERNOR_INTEGRITY')
                 money_requests.add(identity)
             else:_deny('policy_transition' not in outcome,'GOVERNOR_INTEGRITY')
+            retained=outcome.get('execution_capacity_transition')
+            if proposed.get('execution_capacity')!=current.get('execution_capacity'):
+                _deny(retained is not None,'GOVERNOR_INTEGRITY')
+                review,_=self._validate_capacity_transition(tx,current,proposed,_plain(retained))
+                identity=review.to_dict()['request_id']
+                _deny(identity not in capacity_requests,'GOVERNOR_INTEGRITY')
+                capacity_requests.add(identity)
+                self._validate_capacity_event(tx,index,outcome)
+            else:_deny(retained is None,'GOVERNOR_INTEGRITY')
             current=_plain(outcome['state'])
             self._validate(current)
         return current
 
     def _validate(self, state):
+        if 'execution_capacity' in state:capacity.validate_override(_plain(state['execution_capacity']))
         _deny(type(state['epoch']) is int and 1 <= state['epoch'] <= MAX_AMOUNT
               and type(state['kill']) is bool
               and type(state['last_now']) is int and 0 <= state['last_now'] <= 2**53,
@@ -240,12 +210,13 @@ commit or refund it. A lost marker ACK never gives send permission on replay.
     def _budgets(self, state):
         exposure=_exposure(state['reservations'])
         override=state.get('money_policy',{}).get('limits',{})
+        risk=state.get('execution_capacity',{}).get('capacity',{}).get('risk_limits',{})
         for name,limits,buckets in (('global_limit',self.policy.global_limit,(exposure['global'],)),
                               ('task_limit',self.policy.task_limit,exposure['tasks'].values()),
                               ('owner_provider_limit',self.policy.owner_provider_limit,exposure['owner_providers'].values())):
             for bucket in buckets:
                 ceiling=override.get(name,limits.money_nano)
-                _deny((ceiling is None or bucket['money_nano'] <= ceiling) and bucket['risk_units'] <= limits.risk_units,
+                _deny((ceiling is None or bucket['money_nano'] <= ceiling) and bucket['risk_units'] <= risk.get(name,limits.risk_units),
                       'BUDGET_EXCEEDED')
 
     def _clock(self, state, now):
@@ -255,19 +226,23 @@ commit or refund it. A lost marker ACK never gives send permission on replay.
     def _epoch(self, state, epoch):
         _deny(type(epoch) is int and epoch == state['epoch'] and epoch > 0, 'STALE_EPOCH')
 
-    def _write(self, tx, before, state, now, *, policy_transition=None):
+    def _write(self, tx, before, state, now, *, policy_transition=None, execution_capacity_transition=None):
         state['version']=before['version']+1;state['last_now']=now
         self._validate(state)
         outcome={'state':state,'prior_digest':canonical_sha256(before)}
         if policy_transition is not None:
             self._validate_money_transition(before,state,policy_transition)
             outcome['policy_transition']=policy_transition
+        if execution_capacity_transition is not None:
+            _deny(policy_transition is None,'GOVERNOR_INTEGRITY')
+            self._validate_capacity_transition(tx,before,state,execution_capacity_transition)
+            outcome['execution_capacity_transition']=execution_capacity_transition
         binding=OperationBinding.bind(self._key(state['version']),KIND,outcome)
         def append():
             append_domain_event(tx,binding,event_id='governor-'+binding.idempotency_key,
                 proof_id='governor-outbox-'+binding.idempotency_key,resource_id=binding.idempotency_key,
                 before=str(before['version']),after=str(state['version']),content_digest=canonical_sha256(state),
-                at=datetime.fromtimestamp(now,timezone.utc))
+                at=datetime.fromtimestamp(now,UTC))
             return outcome
         execute_once(tx,binding,append)
 
@@ -295,6 +270,149 @@ commit or refund it. A lost marker ACK never gives send permission on replay.
             return {**state,'authority':'NONE','global_scope':'SINGLE_OWNER_CORE_NAMESPACE',
                     'exposure':_exposure(state['reservations'])}
         return self.runner.run(TransactionContext(principal,Capability.READ),read)
+
+    def _effective_capacity(self,state):
+        if 'execution_capacity' in state:
+            return capacity.proposal(_plain(state['execution_capacity']['capacity']))
+        return {'risk_limits':{name:getattr(self.policy,name).risk_units for name in
+            ('task_limit','owner_provider_limit','global_limit')},
+            'sandbox_exec_failure_threshold':self.policy.failure_threshold}
+
+    def _validate_capacity_transition(self,tx,before,after,transition):
+        review=capacity.ExecutionCapacityReview.from_dict(_plain(transition['review']))
+        warrant=capacity.capacity_warrant(review)
+        key=canonical_sha256(('aioa-linear-warrant-v1',self.policy.scope,warrant.nonce))
+        return capacity.validate_transition(before,after,transition,scope=self.policy.scope,
+            deployment_id=self.policy.deployment_id,policy_digest=self.policy.digest,
+            prior_capacity=self._effective_capacity(before),exposure_digest=canonical_sha256(_exposure(before['reservations'])),
+            current_operation=tx.get(RecordKind.OPERATION,key),current_witness=tx.get(RecordKind.APPROVAL,key))
+
+    def _validate_capacity_event(self,tx,version,outcome):
+        from runtime.memory_patch.audit import decode_audit, domain_chain
+        domain_chain(tx)
+        key=self._key(version)
+        event_row=tx.get(RecordKind.AUDIT,'governor-'+key)
+        _deny(event_row is not None,'GOVERNOR_INTEGRITY')
+        event=decode_audit(event_row)
+        binding=OperationBinding.bind(key,KIND,outcome)
+        box=tx.get(RecordKind.OUTBOX,'governor-outbox-'+key)
+        _deny(box is not None and event.resource_id==key and event.event_type==KIND
+            and event.content_hashes.get('content')==canonical_sha256(outcome['state'])
+            and event.content_hashes.get('operation')==binding.payload_digest
+            and set(box.payload)=={'state','event_id','event_digest','operation_digest','proof_id','core_entry_hash'}
+            and box.payload['state'] in ('PENDING','PUBLISHED')
+            and box.payload['event_id']=='governor-'+key and box.payload['proof_id']=='governor-outbox-'+key
+            and box.payload['event_digest']==event.event_hash
+            and box.payload['operation_digest']==canonical_sha256({'scope':self.policy.scope.binding(),'operation':binding}),
+            'GOVERNOR_INTEGRITY')
+        _deny(box.revision==(1 if box.payload['state']=='PENDING' else 2)
+            and (box.payload['core_entry_hash'] is None if box.payload['state']=='PENDING' else
+                 type(box.payload['core_entry_hash']) is str and re.fullmatch('[0-9a-f]{64}',box.payload['core_entry_hash']) is not None),
+            'GOVERNOR_INTEGRITY')
+
+    def _capacity_readback(self,tx,request_id,review_digest=None,warrant_digest=None,proposed=None):
+        self._load(tx)
+        found=None
+        for row in tx.scan(RecordKind.OPERATION,limit=1024,operation_kind=KIND):
+            transition=row.payload['outcome'].get('execution_capacity_transition')
+            if transition is not None and transition['review']['request_id']==request_id:
+                _deny(found is None,'GOVERNOR_INTEGRITY')
+                outcome=row.payload['outcome'];review=transition['review']
+                from lab.archaioa.warrant import EffectWarrant
+                warrant=EffectWarrant.from_dict(_plain(transition['warrant']))
+                _deny(review_digest is None or review_digest==review['review_digest'],'IDEMPOTENCY_CONFLICT')
+                _deny(warrant_digest is None or warrant_digest==warrant.digest(),'IDEMPOTENCY_CONFLICT')
+                _deny(proposed is None or capacity.same_json(proposed,review['proposed_capacity']),'IDEMPOTENCY_CONFLICT')
+                found=capacity.CapacityTransitionReceipt('READBACK_ONLY',outcome['state']['version'],outcome['state']['epoch'],
+                    review['review_digest'],warrant.digest(),_plain(transition['consumption']))
+        return found
+
+    def execution_capacity_review(self,reader,proposed,*,request_id,host_capture,composition_digest) -> ExecutionCapacityReview:
+        from runtime.meta_hackathon.native_authority import (
+            CapacityStage,
+            NativeCapacityHostCapture,
+        )
+        _deny(type(host_capture) is NativeCapacityHostCapture and host_capture.foundation.governor is self,
+              'INVALID_GOVERNOR_BINDINGS')
+        self._require(reader,Capability.READ)
+        _deny(reader is host_capture.authorities[0].principal and composition_digest==host_capture.foundation.spec.digest,
+              'INVALID_GOVERNOR_BINDINGS')
+        proposed=capacity.proposal(proposed);capacity.hexdigest(request_id,32)
+        host_capture.require_live(CapacityStage.REVIEW)
+        def read(tx):
+            host_capture.require_live(CapacityStage.REVIEW,tx=tx)
+            host_capture.controller.require_core_view(host_capture,tx)
+            before=self._load(tx)
+            _deny(before['version']>0 and before['epoch']>0,'STALE_EPOCH')
+            candidate=_plain(before);candidate['execution_capacity']={'capacity':proposed}
+            self._budgets(candidate)
+            a=host_capture.authorities[0]
+            body={'schema':capacity.REVIEW_SCHEMA,'request_id':request_id,'scope':list(self.policy.scope.binding()),
+                'deployment_id':self.policy.deployment_id,'bootstrap_policy_digest':self.policy.digest,
+                'expected_version':before['version'],'expected_epoch':before['epoch'],
+                'expected_state_digest':canonical_sha256(before),'expected_exposure_digest':canonical_sha256(_exposure(before['reservations'])),
+                'prior_effective_capacity':self._effective_capacity(before),'proposed_capacity':proposed,
+                'host_source_sha':a.source[0],'host_source_capsule_digest':a.source[1],'composition_digest':composition_digest,
+                'native_admission_revision':a.native_revision,'native_admission_digest':a.native_digest,
+                'admission_generation':a.admission_generation,'composition_generation':a.composition_generation,
+                'actor_session_id':a.instance_id,'assignment_revision':a.assignment_revision,
+                'quiescence':capacity.strict_json(host_capture.quiescence.projection),
+                'issued_at':capacity.timestamp(host_capture.captured_at),'expires_at':capacity.timestamp(host_capture.expires_at)}
+            result=capacity.ExecutionCapacityReview.from_dict({**body,'review_digest':canonical_sha256(body)})
+            candidate_warrant=capacity.capacity_warrant(result)
+            _deny(tx.get(RecordKind.OPERATION,host_capture.foundation.ledger._key(candidate_warrant)) is None,
+                'IDEMPOTENCY_CONFLICT')
+            host_capture.require_live(CapacityStage.REVIEW,tx=tx)
+            return result
+        result=self.runner.run(TransactionContext(reader,Capability.READ),read)
+        host_capture.require_live(CapacityStage.REVIEW)
+        return result
+
+    def apply_execution_capacity(self,commit_principal,review,warrant,*,management_principal,ledger,host_capture,quiescence_capture) -> CapacityTransitionReceipt:
+        from lab.archaioa.warrant import EffectWarrant
+
+        from runtime.meta_hackathon.native_authority import (
+            CapacityStage,
+            NativeCapacityHostCapture,
+        )
+        _deny(type(host_capture) is NativeCapacityHostCapture and host_capture.foundation.governor is self
+            and type(review) is capacity.ExecutionCapacityReview and host_capture.review is review
+            and type(warrant) is EffectWarrant and type(ledger) is CoreWarrantLedger
+            and ledger is host_capture.foundation.ledger and quiescence_capture is host_capture.quiescence,
+            'INVALID_GOVERNOR_BINDINGS')
+        _deny(commit_principal is host_capture.authorities[1].principal
+            and management_principal is host_capture.authorities[0].principal
+            and capacity.same_json(warrant.to_dict(),capacity.capacity_warrant(review).to_dict()),'POLICY_BINDING')
+        self._require(commit_principal,Capability.COMMIT);self._require(management_principal,Capability.MANAGE)
+        host_capture.require_live(CapacityStage.APPLY)
+        applied_at=host_capture.applied_at
+        now=int(applied_at.timestamp())
+        def apply(tx):
+            host_capture.require_live(CapacityStage.APPLY,tx=tx)
+            host_capture.controller.require_core_view(host_capture,tx)
+            before=self._load(tx);r=review.to_dict()
+            _deny((before['version'],before['epoch'],canonical_sha256(before),canonical_sha256(_exposure(before['reservations'])))==
+                (r['expected_version'],r['expected_epoch'],r['expected_state_digest'],r['expected_exposure_digest']),'POLICY_BINDING')
+            _deny(capacity.utc(r['issued_at'])<=applied_at<capacity.utc(r['expires_at'])
+                and (before['last_now'] is None or now>=before['last_now']),'CLOCK_UNSAFE')
+            stored,_=ledger.require_active_in_transaction(tx,warrant)
+            witness=tx.get(RecordKind.APPROVAL,ledger._key(warrant))
+            approval={'owner_witness':capacity.snapshot(witness),'warrant_state_before':capacity.snapshot(stored)}
+            receipt=ledger.consume_in_transaction(tx,warrant)
+            after_warrant=tx.get(RecordKind.OPERATION,ledger._key(warrant))
+            approval['warrant_state_after_digest']=after_warrant.payload_digest
+            transition={'schema':capacity.TRANSITION_SCHEMA,'review':r,'warrant':warrant.to_dict(),
+                'applied_at':capacity.timestamp(applied_at),'approval_at_apply':approval,'consumption':receipt}
+            state=_plain(before);state.update(epoch=before['epoch']+1,execution_capacity=capacity.override(review,warrant,receipt))
+            self._budgets(state)
+            host_capture.require_live(CapacityStage.APPLY,tx=tx)
+            self._write(tx,before,state,now,execution_capacity_transition=transition)
+            host_capture.require_live(CapacityStage.APPLY,tx=tx)
+            return capacity.CapacityTransitionReceipt('APPLIED',state['version'],state['epoch'],r['review_digest'],warrant.digest(),receipt)
+        result=self.runner.run(TransactionContext(commit_principal,Capability.COMMIT),apply)
+        try:host_capture.require_live(CapacityStage.APPLY)
+        except ValueError as error:raise capacity.CapacityAcknowledgedButFenced('READBACK_ONLY') from error
+        return result
 
     def _money_review(self,state,limits,request_id):
         _identity(request_id)
@@ -358,7 +476,7 @@ commit or refund it. A lost marker ACK never gives send permission on replay.
             return {'readback_only':False,'epoch':state['epoch'],'version':state['version']}
         return self.runner.run(TransactionContext(principal,Capability.MANAGE),apply)
 
-    def start_epoch(self, principal):
+    def start_epoch(self, principal, *, native_capture=None):
         """Explicit Core operator takeover; never automatic at construction."""
         now=self._now()
         def change(state):
@@ -368,6 +486,30 @@ commit or refund it. A lost marker ACK never gives send permission on replay.
                 if circuit['state'] == 'HALF_OPEN':
                     circuit.update(state='OPEN',opened_at=now,probe=None,successes=0)
             return state['epoch'],True
+        if native_capture is not None:
+            from runtime.meta_hackathon.native_authority import (
+                NativeAccessUse,
+                NativeAuthorityCapture,
+                NativeCapacityCoreView,
+            )
+            _deny(type(native_capture) is NativeAuthorityCapture and native_capture.purpose is Capability.MANAGE
+                and native_capture.use is NativeAccessUse.CONTROL
+                and native_capture._access.foundation.governor is self,'INVALID_GOVERNOR_BINDINGS')
+            access=native_capture._access
+            self._require(principal,Capability.MANAGE)
+            _deny(principal is native_capture.principal,'INVALID_GOVERNOR_BINDINGS')
+            def initialize(tx):
+                access.require_capture(native_capture,Capability.MANAGE,tx=tx)
+                _deny(access.foundation.lifecycle._fence is None,'INVALID_GOVERNOR_BINDINGS')
+                before=self._load(tx)
+                _deny(before==self._initial(),'STALE_EPOCH')
+                NativeCapacityCoreView.read_in_transaction(tx,access.foundation).require_idle()
+                state=_plain(before);result,changed=change(state)
+                _deny(changed,'GOVERNOR_INTEGRITY')
+                self._write(tx,before,state,now)
+                access.require_capture(native_capture,Capability.MANAGE,tx=tx)
+                return result
+            return self.runner.run(TransactionContext(principal,Capability.MANAGE),initialize)
         return self._change(principal,Capability.MANAGE,change,check_clock=False)
 
     def set_kill(self, principal, active):
@@ -406,7 +548,7 @@ commit or refund it. A lost marker ACK never gives send permission on replay.
         self._require(principal,Capability.COMMIT)
         _deny(type(request) is ReservationRequest,'INVALID_RESERVATION_REQUEST')
         request=ReservationRequest(**asdict(request))
-        binding=canonical_sha256(request)
+        canonical_sha256(request)
         _deny(request.model_id in principal.model_binding_ids,'MODEL_BINDING_DENIED')
         now=self._now()
         def change(state):
@@ -469,7 +611,10 @@ and human-authority checks must still pass. Do not send after an exception.
         circuit=state['circuits'][entry['provider_id']]
         circuit['failures']=_amount(circuit['failures']+1)
         circuit['successes']=0
-        if circuit['state'] == 'HALF_OPEN' or circuit['failures'] >= self.policy.failure_threshold:
+        threshold=(state.get('execution_capacity',{}).get('capacity',{}).get(
+            'sandbox_exec_failure_threshold',self.policy.failure_threshold)
+            if entry['provider_id']=='sandbox-exec' else self.policy.failure_threshold)
+        if circuit['state'] == 'HALF_OPEN' or circuit['failures'] >= threshold:
             circuit.update(state='OPEN',opened_at=now,probe=None)
         return entry,True
 
@@ -510,9 +655,10 @@ retry. Circuit recovery from UNKNOWN is deliberately not treated as success.
             return self._settle_state(state,request_id,epoch,evidence_digest)
         return self._change(principal,Capability.COMMIT,change,reconciliation=True)
 
-    def submit_job(self,principal,envelope,*,completion=None):
+    def submit_job(self,principal,envelope,*,completion=None,sandbox_binding_digest=None):
         from runtime.mission.jobs import change_job
-        return change_job(self,principal,'submit',envelope=envelope,completion=completion)
+        return change_job(self,principal,'submit',envelope=envelope,completion=completion,
+                          sandbox_binding_digest=sandbox_binding_digest)
 
     def claim_job(self,principal,task_id,worker_id,epoch,*,lease_seconds):
         from runtime.mission.jobs import change_job
@@ -533,6 +679,11 @@ retry. Circuit recovery from UNKNOWN is deliberately not treated as success.
     def finish_job(self,principal,claim,response):
         from runtime.mission.jobs import change_job
         return change_job(self,principal,'finish',claim=claim,response=response)
+
+    def finish_offline_host_job(self, principal, claim):
+        """Settle only the retained required-effect proof; never provider advice."""
+        from runtime.mission.jobs import change_job
+        return change_job(self, principal, 'finish_offline_host', claim=claim)
 
     def inspect_job(self,principal,task_id):
         from runtime.mission.jobs import change_job
@@ -555,3 +706,15 @@ class GovernorBinding:
         _deny(type(self.epoch) is int and 1 <= self.epoch <= MAX_AMOUNT, 'STALE_EPOCH')
         _deny(_amount(self.advisory_risk_units) > 0,'INVALID_GOVERNOR_AMOUNT')
         self.governor._require(self.principal,Capability.COMMIT)
+
+
+_register_history_reader('GOVERNOR_STATE', CoreDualGovernor._load_history)
+
+# Capacity initialization already reads job history. Import the original reader
+# after governor definitions are complete, before the first SQL transaction.
+def _load_original_job_history_reader():
+    from runtime.mission import jobs
+    return jobs._validated_job_rows
+
+
+_load_original_job_history_reader()

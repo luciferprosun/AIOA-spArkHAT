@@ -286,6 +286,44 @@ class ControllerTests(unittest.TestCase):
         self.assertEqual(view["state"], "UNKNOWN")
         self.assertFalse(view.get("effect_verified", False))
 
+    def test_lost_running_claim_ack_retains_quarantined_handle(self):
+        from unittest.mock import patch
+
+        service = self.service()
+        task = self.case.task
+        self.admit(service, task)
+        original_transition = service._transition
+
+        def lose_ack(*args, **kwargs):
+            self.assertTrue(kwargs["admission"])
+            view = original_transition(*args, **kwargs)
+            self.assertEqual(view["state"], "RUNNING")
+            raise ValueError("CONTROLLED_RUNNING_CLAIM_ACK_LOST")
+
+        with patch.object(service, "_transition", side_effect=lose_ack) as claim:
+            with self.assertRaisesRegex(ValueError, "CONTROLLED_RUNNING_CLAIM_ACK_LOST"):
+                service.request(
+                    self.fx.p(Capability.MANAGE), "start", {"task_id": task.task_id}
+                )
+        self.assertEqual(claim.call_count, 1)
+        active = service._active[task.task_id]
+        self.assertTrue(active["quarantined"])
+        self.assertTrue(active["done"].is_set())
+        self.assertTrue(active["cancel"].cancelled)
+        self.assertIsNone(active["thread"].ident)
+        self.assertFalse(active["thread"].is_alive())
+        self.assertFalse(self.workers)
+        view = service.request(
+            self.fx.p(Capability.READ), "read_status", {"task_id": task.task_id}
+        )
+        self.assertEqual(view["state"], "RUNNING")
+        with self.assertRaisesRegex(ValueError, "CODING_RUN_ACTIVE"):
+            service.request(
+                self.fx.p(Capability.MANAGE), "recover", {"task_id": task.task_id}
+            )
+        self.assertIs(service._active[task.task_id], active)
+        self.assertFalse(self.workers)
+
     def test_model_control_fields_and_wrong_capability_cannot_start_or_approve(self):
         service = self.service()
         self.admit(service, self.case.task)

@@ -45,20 +45,35 @@ class CoreServiceGuard:
         local_patch=route.mode=='LOCAL_PATCH_FIXTURE'
         with route.target_guard():
             route.check();require(not cancel.cancelled,'GITHUB_STOPPED')
+            prepared_plan = route.plan if local_patch and getattr(route, 'native_access', None) is not None else None
+            prepared_digest = prepared_plan.digest if prepared_plan is not None else None
             def start(tx):
                 _,existing=route.journal._load(tx,warrant)
                 # Delivery of an already acknowledged intent is read-only,
                 # including after a consumed warrant or expired owner session.
-                if existing is None:route.validate(tx,warrant,operation)
+                if existing is None:
+                    if prepared_plan is None:route.validate(tx,warrant,operation)
+                    else:route.validate(tx,warrant,operation,
+                        _prepared_plan=prepared_plan,_prepared_plan_digest=prepared_digest)
                 require(reservation.money_nano==0 and reservation.risk_units==1,'GITHUB_RESOURCE_BINDING')
                 return route.journal._start_in_transaction(tx,warrant,operation,reservation,
                     local_zero=local_patch,remote_zero=not local_patch)
-            marker=route.journal._run(principal,Capability.COMMIT,start)
+            marker=route._run(principal,Capability.COMMIT,start)
+            if prepared_plan is not None:
+                route._require_native_local_source(prepared_plan,prepared_digest)
             if not marker['local_step_now' if local_patch else 'remote_step_now']:return marker
             def release():
                 route.check();require(not cancel.cancelled,'GITHUB_STOPPED')
-                route.journal._run(principal,Capability.COMMIT,lambda tx:
-                    route.validate(tx,warrant,operation,consumed=True))
+                if local_patch and getattr(route, 'native_access', None) is not None:
+                    release_plan=route.plan
+                    release_digest=release_plan.digest
+                    route._run(principal,Capability.COMMIT,lambda tx:
+                        route.validate(tx,warrant,operation,consumed=True,
+                            _prepared_plan=release_plan,_prepared_plan_digest=release_digest))
+                    route._require_native_local_source(release_plan,release_digest)
+                else:
+                    route._run(principal,Capability.COMMIT,lambda tx:
+                        route.validate(tx,warrant,operation,consumed=True))
             release()
             if local_patch:
                 return route._dispatch_local_patch(principal,warrant,operation,release,cancel)

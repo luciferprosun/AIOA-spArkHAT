@@ -1,0 +1,22 @@
+{
+  "capability_counts": {
+    "ARCHIVE_ONLY": 33,
+    "BLOCKED": 1,
+    "EXCLUDED_UNSAFE": 2,
+    "PARTIAL": 30,
+    "VERIFIED": 3
+  },
+  "capability_matrix_sha256": "1262ce9232a6bc6f98fb7c3c5226bb7688688009450ccfadf4add3d1e9d3b7cc",
+  "e18_checkpoint_sha256": "80c3aa6819848dbc2b012170f77ef7c794e952aea4b629d29b845f41377b8066",
+  "e19_scope": "documentation and verified corrective handoff",
+  "exact_interpreters": [
+    "311",
+    "312"
+  ],
+  "hosted_ci": "NOT_RUN_NO_PR",
+  "license_nonzero_sha256": "4da5bfd2f6754d2a3882c931b3029887af57fa8dc8ebcc435de5c49269bb20a4",
+  "owner_go": false,
+  "parity_rows": 69,
+  "tested_product_commit": "e23632302b51e8371298dcc801f01f9842a74003",
+  "tested_product_tree": "83cfe482dad9ae301548dea9ada8a5b4a2ad6c08"
+}

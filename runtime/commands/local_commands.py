@@ -80,7 +80,9 @@ def cmd_help(_args: str, runtime) -> CommandResult:
 def cmd_nonzero(args: str, runtime) -> CommandResult:
     """Operator CLI only; Assistant/model requests cannot invoke this surface."""
     from nonzero_cloudops import NonZeroError, module_descriptor
+    from nonzero_cloudops.contract import LOCAL_API_BODY_MAX_BYTES
     from providers.exact import _unique_object
+
     action, _, raw = args.partition(' ')
     action = action or 'status'
     if action == 'help':
@@ -91,7 +93,7 @@ def cmd_nonzero(args: str, runtime) -> CommandResult:
         status = runtime.nonzero_status() if runtime is not None else module_descriptor()
         return CommandResult(True, json.dumps(status, indent=2))
     try:
-        if len(raw.encode()) > 16384:
+        if len(raw.encode()) > LOCAL_API_BODY_MAX_BYTES:
             raise NonZeroError('NONZERO_REQUEST_TOO_LARGE', 413)
         if action == 'ready' and not raw:
             method, path, body = 'GET', '/ready', None

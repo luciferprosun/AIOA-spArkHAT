@@ -10,6 +10,7 @@ from uuid import UUID
 
 from nonzero_cloudops import NonZeroCloudOpsService, module_descriptor
 from nonzero_cloudops.contract import JUDGE_SHA
+from nonzero_legacy_fixture import historical_intent_format
 
 
 def identifier(number):
@@ -23,11 +24,21 @@ def digest(value):
 @unittest.skipUnless(module_descriptor()['available'], 'native nonzero extra is not installed')
 class NativeReferenceParityTests(unittest.TestCase):
     def test_fixed_evidence_proposal_approval_receipt_and_verification_hashes(self):
+        # Preserve the original v1 oracle byte-for-byte. A historical input
+        # intent exercises the legacy read/execution format still supported.
+        with historical_intent_format():
+            self.assert_vectors('nonzero_parity_v1.json', JUDGE_SHA)
+
+    def test_w7a_run_scoped_evidence_and_completion_hashes(self):
+        self.assert_vectors('nonzero_parity_w7a_run_scoped.json',
+                            '392487849eddc7444f5159994b66b72e73f15934')
+
+    def assert_vectors(self, filename, source_sha):
         from nonzero_cloudops.models import ResultStatus
         from nonzero_cloudops.views import ResumeRequest
 
-        oracle = json.loads((Path(__file__).parent/'fixtures/nonzero_parity_v1.json').read_text())
-        self.assertEqual(oracle['source_sha'], JUDGE_SHA)
+        oracle = json.loads((Path(__file__).parent/'fixtures'/filename).read_text())
+        self.assertEqual(oracle['source_sha'], source_sha)
         self.assertEqual(len(oracle['vectors']), 5)
         now = datetime(2026, 9, 12, 12, tzinfo=UTC)
         for vector in oracle['vectors']:

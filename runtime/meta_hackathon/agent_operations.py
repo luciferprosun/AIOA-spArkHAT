@@ -3,32 +3,47 @@
 All state is in its existing native transaction runner. This initial executable
 profile is explicitly OFFLINE; production owner admission is NOT_BOUND.
 """
-from dataclasses import replace
-from datetime import datetime, timedelta, timezone
-from decimal import Decimal
 import hashlib
 import json
 import os
 import re
 import stat
 import threading
+from dataclasses import replace
+from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 
 from lab.archaioa.authority import AuthorityScope, Money, RiskLevel
 from lab.archaioa.decision_root import DecisionDependencyRoot
 from lab.archaioa.evidence import EvidenceRef
 from lab.archaioa.warrant import EffectWarrant, RevisionPolicy
 from runtime.core_admission import Capability
+from runtime.failure_boundary import RepairBoundaryError, failure_boundary
 from runtime.memory_patch.audit import append_domain_event
-from runtime.memory_patch.contracts.serialization import canonical_json_bytes, canonical_sha256
+from runtime.memory_patch.contracts.serialization import (
+    canonical_json_bytes,
+    canonical_sha256,
+)
 from runtime.memory_patch.persistence.idempotency import OperationBinding
 from runtime.memory_patch.persistence.ports import RecordKind, StoredRecord
-from runtime.mission.governor import CoreDualGovernor, GovernorPolicy, Limits, ReservationRequest
+from runtime.mission.governor import (
+    CoreDualGovernor,
+    GovernorPolicy,
+    Limits,
+    ReservationRequest,
+)
 from runtime.mission.intent import CoreIntentJournal
 from runtime.mission.liability import CoreLiabilityLedger
 from runtime.mission.project_recipe import SensorBridgePlan
 from runtime.mission.sandbox_contracts import SandboxDispatchRequest
-from runtime.mission.sandbox_linux import (LinuxSandboxBroker, TrustedSandboxConfig, prepare_linux_sandbox,
-    save_host_config,load_host_config,read_evidence_file)
+from runtime.mission.sandbox_linux import (
+    LinuxSandboxBroker,
+    TrustedSandboxConfig,
+    load_host_config,
+    prepare_linux_sandbox,
+    read_evidence_file,
+    save_host_config,
+)
 from runtime.mission.tools import CoreToolRoute, LocalSessionGrant
 from runtime.mission.warrant import approval_digest
 from runtime.providers.exact import CancellationToken
@@ -46,6 +61,15 @@ def require(value, code='AGENT_REQUEST_DENIED'):
 
 
 def plain(value): return json.loads(canonical_json_bytes(value))
+
+
+def retained_in_transaction(tx):
+    rows=tx.scan(RecordKind.OPERATION,limit=1024,states=STATES)
+    require(len(rows)<1024,'AGENT_HISTORY_LIMIT')
+    selected=tuple(row for row in rows if row.payload.get('schema')==KIND)
+    for row in selected:
+        require(row.record_id==row.payload.get('task_id') and row.payload.get('state') in STATES,'AGENT_HISTORY_INTEGRITY')
+    return selected
 
 
 def _rows(service):
@@ -131,6 +155,7 @@ def _make_route(service, config, broker, liability=None):
 
 def _git_config(service, plan):
     from dataclasses import replace as dc_replace
+
     from runtime.mission.sandbox_contracts import SandboxRegistry
     key='git-plan-'+plan.digest
     require(key not in service._agent_configs,'GIT_PREPARATION_ALREADY_EXISTS')
@@ -286,7 +311,7 @@ def _check(service, data):
 
 def _warrant(service,data):
     operation=data['approval_payload']['operation']; now=service.ledger.clock()
-    expiry=min(now+timedelta(seconds=60),datetime.fromtimestamp(data['expires_at'],timezone.utc))
+    expiry=min(now+timedelta(seconds=60),datetime.fromtimestamp(data['expires_at'],UTC))
     scope=AuthorityScope(operation_classes=(operation['operation_class'],),target_scope=operation['target_fingerprint'],
         risk_ceiling=RiskLevel.MODERATE,monetary_ceiling=Money(Decimal(0),'USD'),not_before=now,expires_at=expiry,
         owner_scope=canonical_sha256(service.scope),task_scope=data['task_id'])
@@ -316,6 +341,7 @@ def dispatch_request(operation,warrant):
 
 
 def run(service, task, digest, owner):
+    service._native_execution_gate()
     service.core.require(owner,Capability.OWNER_APPROVAL,scope=service.scope)
     with service._lock:
         require(hasattr(service,'agent_route'), 'AGENT_TOOLS_NOT_BOUND')
@@ -327,31 +353,43 @@ def run(service, task, digest, owner):
         grant=LocalSessionGrant.parse(data['approval_payload']['session_grant'])
         warrant=_warrant(service,data)
         route,_,_=_local_binding(service,data)
+        native=None
+        if service._native_foundation is not None:native=service._prepare_native_worker(task,'AGENT',(data,warrant))
         try:
-            route.create_session(owner,grant)
-            service.ledger.approve(owner,warrant)
-            _change(service,task,{'AGENT_PENDING'},'AGENT_APPROVED',warrant=warrant.to_dict())
-        except Exception:
+            with failure_boundary('OWNED_WORK_CALLBACK_FAILED'):
+                route.create_session(owner,grant)
+                service.ledger.approve(owner,warrant)
+                _change(service,task,{'AGENT_PENDING'},'AGENT_APPROVED',warrant=warrant.to_dict())
+        except (ValueError, RepairBoundaryError):
+            if native is not None:service._native_foundation.lifecycle.quarantine(native[2])
             _change(service,task,ACTIVE,'AGENT_UNKNOWN',error='APPROVAL_ACK_UNKNOWN_NO_RETRY')
             raise
-        cancel=CancellationToken();service._cancels[task]=cancel
-        thread=threading.Thread(target=_execute,args=(service,data,warrant,cancel),daemon=True)
-        service._workers[task]=thread;thread.start()
+        if native is not None:
+            cancel,thread,handle=native
+            service._start_native_worker(thread,handle)
+        else:
+            cancel=CancellationToken();service._cancels[task]=cancel
+            thread=threading.Thread(target=_execute,args=(service,data,warrant,cancel),daemon=True)
+            service._workers[task]=thread;thread.start()
         return view(service,task,service.core.local_operator(Capability.READ))
 
 
 def _execute(service,data,warrant,cancel):
     task=data['task_id']; operation=data['approval_payload']['operation']
     try:
-        route,config,_=_local_binding(service,data)
-        _change(service,task,{'AGENT_APPROVED'},'AGENT_RUNNING')
-        result=route.dispatch_registered_local(service.core.local_operator(Capability.COMMIT),
-            warrant,operation,reservation(operation,warrant),check=lambda:_check(service,data),cancel=cancel)
-        require(result['outcome']['contract_type']=='Applied','AGENT_READBACK_UNKNOWN')
-        _complete(service,data,warrant,result,config,allowed={'AGENT_RUNNING'})
-    except Exception:
-        try:_change(service,task,ACTIVE,'AGENT_UNKNOWN',error='LOCAL_OUTCOME_UNKNOWN_READBACK_REQUIRED')
-        except Exception:pass  # START/receipt remain durable; restart cannot retry
+        with failure_boundary('OWNED_WORK_CALLBACK_FAILED'):
+            route,config,_=_local_binding(service,data)
+            _change(service,task,{'AGENT_APPROVED'},'AGENT_RUNNING')
+            result=route.dispatch_registered_local(service.core.local_operator(Capability.COMMIT),
+                warrant,operation,reservation(operation,warrant),check=lambda:_check(service,data),cancel=cancel)
+            require(result['outcome']['contract_type']=='Applied','AGENT_READBACK_UNKNOWN')
+            _complete(service,data,warrant,result,config,allowed={'AGENT_RUNNING'})
+    except (ValueError, RepairBoundaryError):
+        try:
+            with failure_boundary('OWNED_WORK_PERSISTENCE_FAILED'):
+                _change(service,task,ACTIVE,'AGENT_UNKNOWN',error='LOCAL_OUTCOME_UNKNOWN_READBACK_REQUIRED')
+        except (ValueError, RepairBoundaryError):
+            return  # Existing START/receipts stay durable and never grant retry.
 
 
 def _complete(service,data,warrant,result,config,*,allowed):
@@ -389,11 +427,16 @@ def proposal_readback(service,request_id,reader,*,device_id='local-host'):
 
 
 def reconcile(service,task,reader):
-    """Independent readback only. No START, executor, grant or effect retry."""
+    """Independent owned readback; no START, executor, grant or effect retry."""
+    with service._native_synchronous(task,'AGENT_SETTLEMENT'):
+        return _reconcile(service,task,reader)
+
+
+def _reconcile(service,task,reader):
     service.core.require(reader,Capability.READ,scope=service.scope)
     data=plain(_get(service,task).payload)
     if data['state']!='AGENT_UNKNOWN' or data['warrant'] is None:return view(service,task,reader)
-    route,config,broker=_local_binding(service,data)
+    _route,config,broker=_local_binding(service,data)
     with service._agent_effect_lock:
         warrant=EffectWarrant.from_dict(data['warrant']);operation=data['approval_payload']['operation']
         try:resolution=broker.verify(operation,warrant)

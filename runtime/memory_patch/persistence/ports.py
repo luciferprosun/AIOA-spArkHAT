@@ -8,14 +8,18 @@ transaction and revalidates Core authority. No default repository is fabricated.
 from __future__ import annotations
 
 import contextvars
+import json
+import sys
 import time
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable, Protocol, TypeVar
+from types import MappingProxyType
+from typing import Any, Protocol, TypeVar
 
 from runtime.core_admission import Capability, CoreAdmission, CorePrincipal, OwnerScope
 from runtime.memory_patch.contracts.serialization import (
+    canonical_json_bytes,
     canonical_sha256,
     freeze_json,
     require_non_empty,
@@ -140,6 +144,46 @@ _WRITE_KINDS = {
 }
 
 
+_HISTORY_SPECS = MappingProxyType({
+    "AUDIT_CHAIN": ("runtime.memory_patch.audit", "_read_domain_chain"),
+    "GOVERNOR_STATE": ("runtime.mission.governor", "CoreDualGovernor._load_history"),
+    "JOB_ROWS": ("runtime.mission.jobs", "_validated_job_rows"),
+})
+_HISTORY_READERS = {}
+
+
+def _register_history_reader(domain, reader):
+    """Original modules register their three complete validators before SQL."""
+    specification = _HISTORY_SPECS.get(domain)
+    if specification is None or _IN_TRANSACTION.get() or domain in _HISTORY_READERS:
+        raise MemoryPatchError(ErrorCode.TRANSACTION_FAILED)
+    module_name, qualname = specification
+    module = sys.modules.get(module_name)
+    if (module is None or reader.__module__ != module_name or reader.__qualname__ != qualname
+            or reader.__globals__ is not module.__dict__):
+        raise MemoryPatchError(ErrorCode.INTEGRITY_FAILED)
+    current = module
+    for part in qualname.split('.'):
+        current = getattr(current, part, None)
+    if current is not reader:
+        raise MemoryPatchError(ErrorCode.INTEGRITY_FAILED)
+    _HISTORY_READERS[domain] = (reader, reader.__code__)
+
+
+def _original_history_reader(domain):
+    specification = _HISTORY_SPECS.get(domain)
+    registered = _HISTORY_READERS.get(domain)
+    if specification is None or registered is None:
+        raise MemoryPatchError(ErrorCode.TRANSACTION_FAILED)
+    reader, code = registered
+    current = sys.modules.get(specification[0])
+    for part in specification[1].split('.'):
+        current = getattr(current, part, None)
+    if current is not reader or reader.__code__ is not code:
+        raise MemoryPatchError(ErrorCode.INTEGRITY_FAILED)
+    return reader
+
+
 class TransactionView:
     """Invalidate escaped handles and enforce the Core purpose before adapter calls."""
 
@@ -149,9 +193,26 @@ class TransactionView:
         self._adapter = adapter
         self.context = context
         self._active = True
+        if type(adapter) is LocalCoreTransaction and adapter.factory._native_history_binding is not None:
+            adapter._bind_history_view(self)
 
     def invalidate(self) -> None:
         self._active = False
+        if type(self._adapter) is LocalCoreTransaction:
+            self._adapter._clear_history(self)
+
+    def _history_read(self, domain, *, governor=None):
+        if type(domain) is not str or domain not in _HISTORY_SPECS:
+            raise MemoryPatchError(ErrorCode.INVALID_REQUEST)
+        if (domain == 'AUDIT_CHAIN') != (governor is None):
+            raise MemoryPatchError(ErrorCode.INVALID_REQUEST)
+        reader = _original_history_reader(domain)
+        adapter = self._adapter
+        if type(adapter) is LocalCoreTransaction and adapter.factory._native_history_binding is not None:
+            return adapter._history_read(self, domain, governor, reader)
+        # All other adapters, including legacy local Core, execute the same
+        # complete validators on every call. No authority or reuse is enabled.
+        return reader(self) if governor is None else reader(governor, self)
 
     def _check(self, kind: RecordKind, *, write: bool = False) -> None:
         if not self._active or type(kind) is not RecordKind:
@@ -341,10 +402,10 @@ class LocalCoreRecordFactory:
 
     def __init__(self, path, core, *, expected_file=None):
         import os
-        from pathlib import Path
         import sqlite3
         import stat
         import threading
+        from pathlib import Path
         self.path=Path(path).absolute()
         parent=self.path.parent
         if (parent.is_symlink() or parent.resolve()!=parent or parent.stat().st_uid!=os.getuid()
@@ -374,9 +435,61 @@ class LocalCoreRecordFactory:
                 'scope_key TEXT NOT NULL,kind TEXT NOT NULL,record_id TEXT NOT NULL,revision INTEGER NOT NULL,'
                 'record_json TEXT NOT NULL,record_digest TEXT NOT NULL,PRIMARY KEY(scope_key,kind,record_id))')
         self.core,self.lock,self.closed=core,threading.RLock(),False
+        self._native_history_binding = None
+        self._native_history_transaction = None
+
+    def bind_native_history(self, access):
+        """Bind once to this original Native graph, without issuing authority."""
+        import sqlite3
+
+        # Complete original readers must already exist before any SQL callback.
+        from runtime.memory_patch import audit
+        from runtime.meta_hackathon.native_authority import (
+            NativeAuthorityFoundation,
+            NativeCoreAccess,
+        )
+        from runtime.mission import governor, jobs
+        with self.lock:
+            if (type(self) is not LocalCoreRecordFactory or type(access) is not NativeCoreAccess
+                    or self._native_history_binding is not None or self.closed or _IN_TRANSACTION.get()
+                    or type(self.db) is not sqlite3.Connection or self.db.in_transaction):
+                raise MemoryPatchError(ErrorCode.ADMISSION_DENIED)
+            foundation = access.foundation
+            if (type(foundation) is not NativeAuthorityFoundation or foundation.access is not access
+                    or foundation.owner.foundation is not foundation or foundation.core is not self.core
+                    or foundation.runner is not foundation.owner.runner or foundation.runner._factory is not self
+                    or foundation.ledger.core is not self.core or foundation.governor.core is not self.core
+                    or foundation.governor.runner is not foundation.runner):
+                raise MemoryPatchError(ErrorCode.ADMISSION_DENIED)
+            foundation.require_bindings()
+            readers = tuple((domain, _original_history_reader(domain)) for domain in _HISTORY_SPECS)
+            originals = (audit._read_domain_chain, governor.CoreDualGovernor._load_history, jobs._validated_job_rows)
+            if any(reader is not original for (_, reader), original in zip(readers, originals, strict=True)):
+                raise MemoryPatchError(ErrorCode.INTEGRITY_FAILED)
+            self._native_history_binding = (self, access, foundation, foundation.core, foundation.runner,
+                foundation.ledger, foundation.governor, foundation.governor.policy, foundation.ledger.scope,
+                self.db, readers)
+
+    def _require_native_history(self):
+        binding = self._native_history_binding
+        if type(binding) is not tuple or len(binding) != 11:
+            raise MemoryPatchError(ErrorCode.INTEGRITY_FAILED)
+        factory, access, foundation, core, runner, ledger, governor, policy, scope, connection, readers = binding
+        if (factory is not self or self.core is not core or self.db is not connection
+                or foundation.access is not access or access.foundation is not foundation
+                or foundation.owner.foundation is not foundation or foundation.core is not core
+                or foundation.runner is not runner or runner._factory is not self
+                or foundation.ledger is not ledger or ledger.core is not core or ledger.scope is not scope
+                or foundation.governor is not governor or governor.core is not core
+                or governor.runner is not runner or governor.policy is not policy or policy.scope != scope
+                or any(_original_history_reader(domain) is not reader for domain, reader in readers)):
+            raise MemoryPatchError(ErrorCode.INTEGRITY_FAILED)
+        foundation.require_bindings()
+        return binding
 
     def _file_check(self):
-        import os,stat
+        import os
+        import stat
         try:
             info=self.path.lstat();parent=self.path.parent.stat()
             if (not stat.S_ISREG(info.st_mode) or (info.st_dev,info.st_ino)!=self._identity
@@ -393,13 +506,24 @@ class LocalCoreRecordFactory:
             if self.closed or self.path.stat().st_size>32*1024*1024:
                 raise MemoryPatchError(ErrorCode.MODULE_CLOSED)
             self.core.require(context.principal,context.purpose,scope=context.scope)
+            binding = None
+            if self._native_history_binding is not None:
+                binding = self._require_native_history()
+                if self._native_history_transaction is not None or context.scope != binding[8]:
+                    raise MemoryPatchError(ErrorCode.INTEGRITY_FAILED)
             self.db.execute('BEGIN IMMEDIATE')
-            return LocalCoreTransaction(self,context)
+            adapter = LocalCoreTransaction(self,context)
+            if binding is not None:
+                adapter._history_origin = (adapter, context, self.db, attempt, binding)
+                self._native_history_transaction = adapter._history_origin
+            return adapter
         except BaseException:self.lock.release();raise
 
     def close(self):
         with self.lock:
-            if not self.closed:self.closed=True;self.db.close()
+            if not self.closed:
+                self._native_history_transaction = None
+                self.closed=True;self.db.close()
 
 
 class LocalCoreTransaction:
@@ -407,6 +531,58 @@ class LocalCoreTransaction:
         from runtime.memory_patch.contracts.serialization import canonical_json_bytes
         self.factory,self.context,self.active=factory,context,True
         self.scope_key=canonical_json_bytes(context.scope.binding()).decode()
+        self._history_view = None
+        self._history_origin = None
+        self._history_stamp = None
+        self._history_products = {}
+
+    def _bind_history_view(self, view):
+        registered = self.factory._native_history_transaction
+        if (type(view) is not TransactionView or registered is None or registered is not self._history_origin
+                or registered[0] is not self
+                or registered[1] is not self.context or view.context is not self.context
+                or self._history_view is not None):
+            raise MemoryPatchError(ErrorCode.TRANSACTION_FAILED)
+        self._history_view = view
+
+    def _clear_history(self, view=None):
+        if view is not None and self._history_view is not view:
+            return
+        origin = self._history_origin
+        self._history_products.clear()
+        self._history_stamp = None
+        self._history_view = None
+        self._history_origin = None
+        if origin is not None and self.factory._native_history_transaction is origin:
+            self.factory._native_history_transaction = None
+
+    def _history_read(self, view, domain, governor, reader):
+        # The actual original view and actual BEGIN snapshot are indispensable.
+        self._check(RecordKind.AUDIT if domain == 'AUDIT_CHAIN' else RecordKind.OPERATION)
+        binding = self.factory._require_native_history()
+        registered = self.factory._native_history_transaction
+        if (type(view) is not TransactionView or self._history_view is not view or not view._active
+                or view._adapter is not self or view.context is not self.context
+                or registered is None or registered is not self._history_origin
+                or registered[0] is not self or registered[1] is not self.context
+                or registered[2] is not self.factory.db or registered[4] is not binding
+                or type(registered[3]) is not int or registered[3] < 1
+                or self.context.scope != binding[8] or not self.factory.db.in_transaction
+                or governor is not None and governor is not binding[6]):
+            raise MemoryPatchError(ErrorCode.TRANSACTION_FAILED)
+        stamp = self.factory.db.total_changes
+        if self._history_stamp != stamp:
+            self._history_products.clear()
+            self._history_stamp = stamp
+        if domain not in self._history_products:
+            value = reader(view) if governor is None else reader(governor, view)
+            if (self.factory.db.total_changes != stamp or not self.factory.db.in_transaction
+                    or self.factory._native_history_transaction is not registered or self._history_view is not view):
+                self._clear_history()
+                raise MemoryPatchError(ErrorCode.INTEGRITY_FAILED)
+            self._history_products[domain] = value if domain == 'AUDIT_CHAIN' else canonical_json_bytes(value)
+        value = self._history_products[domain]
+        return value if domain == 'AUDIT_CHAIN' else json.loads(value)
 
     def _check(self,kind):
         if not self.active or self.factory.closed or type(kind) is not RecordKind:
@@ -437,7 +613,9 @@ class LocalCoreTransaction:
         return tuple(self._read(row,kind) for row in rows)
 
     def _write(self,record):
-        from runtime.memory_patch.adapters.cockroach.repositories import canonical_record
+        from runtime.memory_patch.adapters.cockroach.repositories import (
+            canonical_record,
+        )
         self._check(record.kind)
         if record.scope!=self.context.scope or record.kind not in _WRITE_KINDS.get(self.context.purpose,()):
             raise MemoryPatchError(ErrorCode.ADMISSION_DENIED)
@@ -463,6 +641,7 @@ class LocalCoreTransaction:
     def commit(self):
         try:self.factory.db.commit()
         except Exception as error:raise CommitOutcomeUnknown() from error
+        finally:self._clear_history()
 
     def rollback(self):
         try:
@@ -473,6 +652,7 @@ class LocalCoreTransaction:
             try:self.factory.db.close()
             except Exception:pass
             raise CommitOutcomeUnknown() from error
+        finally:self._clear_history()
 
     def close(self):
         if self.active:

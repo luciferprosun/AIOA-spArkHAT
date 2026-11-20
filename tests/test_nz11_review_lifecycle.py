@@ -382,7 +382,7 @@ class ReviewLifecycleTests(unittest.TestCase):
                 )
             ),
         )
-        active = {"cancel": CancellationToken(), "producer": None, "thread": None}
+        active = {"cancel": CancellationToken(), "producer": None, "thread": None, "done": threading.Event()}
         service._active[task.task_id] = active
         lock, depths = service._active_lock, threading.local()
         armed, released, stopped = (
@@ -459,6 +459,8 @@ class ReviewLifecycleTests(unittest.TestCase):
                 stopped.set()
                 thread.join(10)
         self.assertFalse(thread.is_alive())
+        self.assertTrue(active["done"].is_set())
+        service._retire_finished()
         self.assertNotIn("timeout", observed)
         self.assertEqual(reply["state"], "CANCELLED")
         self.assertNotIn(task.task_id, service._active)
@@ -541,6 +543,7 @@ class ReviewLifecycleTests(unittest.TestCase):
             "cancel": CancellationToken(),
             "producer": None,
             "thread": threading.current_thread(),
+            "done": threading.Event(),
         }
         service._active[task.task_id] = active
         try:

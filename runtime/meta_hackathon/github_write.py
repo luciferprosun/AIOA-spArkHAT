@@ -5,27 +5,34 @@ It reuses Native's admitted owner, SQLite, host signer, worker cancellation,
 warrant ledger, policy epoch, intent/outbox and ServiceGuard. No ambient gh
 credential is used. Every ambiguous mutation is readback-only afterwards.
 """
-from dataclasses import replace
-from datetime import datetime,timezone
-from decimal import Decimal
-import re
 import json
+import re
 import threading
 import time
+from dataclasses import replace
+from datetime import UTC, datetime
+from decimal import Decimal
 
-from lab.archaioa.authority import AuthorityScope,Money,RiskLevel
-from lab.archaioa.warrant import EffectWarrant,RevisionPolicy
+from lab.archaioa.authority import AuthorityScope, Money, RiskLevel
+from lab.archaioa.warrant import EffectWarrant, RevisionPolicy
 from runtime.core_admission import Capability
+from runtime.failure_boundary import RepairBoundaryError, failure_boundary
+from runtime.mcp_bridge import github_remote
 from runtime.memory_patch.contracts.serialization import canonical_sha256
 from runtime.memory_patch.persistence.ports import RecordKind
-from runtime.mission.git_publish import RemoteGitPlan,GitTreeSnapshot,CoreRemoteGitRoute,DEMO_REPOSITORY
+from runtime.mission.git_publish import (
+    DEMO_REPOSITORY,
+    CoreRemoteGitRoute,
+    GitTreeSnapshot,
+    RemoteGitPlan,
+)
 from runtime.mission.governor import ReservationRequest
 from runtime.mission.intent import CoreIntentJournal
-from runtime.mission.warrant import approval_digest,require
+from runtime.mission.warrant import approval_digest, require
 from runtime.mobile_gateway import wire
+from runtime.mobile_gateway.service import SCHEMA as MOBILE_SCHEMA
 from runtime.mobile_gateway.service import plain
 from runtime.providers.exact import CancellationToken
-from runtime.mcp_bridge import github_remote
 
 OPS=frozenset(('github_auth_status','github_write_list','github_write_status','github_write_approve',
                'github_write_reconcile','github_write_stop'))
@@ -52,7 +59,9 @@ def blockers(host):
     host._require_qualified_operator()
     governor=getattr(host.missions,'_chat_governor',None)
     if governor is None:return ['NATIVE_CHAT_GOVERNOR_REQUIRED']
-    state=governor.inspect(host.core.local_operator(Capability.READ))
+    state=(_run(host,Capability.READ,governor._load) if getattr(host,'foundation',None) is not None
+           and getattr(host.foundation.lifecycle._boundary,'settlement_handle',None) is not None
+           else governor.inspect(host.core.local_operator(Capability.READ)))
     reasons=[]
     if state['kill']:reasons.append('KILL_SWITCH')
     if any(r['state']=='UNKNOWN' for r in state['reservations'].values()):
@@ -61,8 +70,15 @@ def blockers(host):
     return reasons
 
 
+def _run(host,purpose,callback):
+    foundation=getattr(host,'foundation',None)
+    if foundation is not None and getattr(foundation.lifecycle._boundary,'settlement_handle',None) is not None:
+        return host.missions._run(purpose,callback)
+    return host.mobile._run(purpose,callback)
+
+
 def _get(host,operation_id):
-    return host.mobile._get('native-github-'+operation_id)
+    return _run(host,Capability.READ,lambda tx:tx.get(RecordKind.OPERATION,'native-github-'+operation_id))
 
 
 def _worker_active(host,operation_id):
@@ -77,11 +93,38 @@ def _preflight_interrupted(host,data):
         or host.source!=(data['source_sha'],data['capsule_digest']))
 
 
-def history(host):
-    host._require_qualified_operator()
+def retained_in_transaction(tx):
+    """Validate every Native GitHub domain row before selecting live states."""
     states=('GITHUB_PROPOSAL_READING','GITHUB_PROPOSAL_FAILED','GITHUB_PROPOSED','GITHUB_APPROVAL_PENDING',
         'GITHUB_APPROVED','GITHUB_RUNNING','GITHUB_RECONCILING','GITHUB_UNKNOWN','GITHUB_VERIFIED')
-    rows=host.mobile._run(Capability.READ,lambda tx:tx.scan(RecordKind.OPERATION,limit=1024,states=states))
+    rows=tx.scan(RecordKind.OPERATION,limit=1024)
+    require(len(rows)<1024,'GITHUB_HISTORY_LIMIT')
+    by_id={row.record_id:row for row in rows};selected=[]
+    for row in rows:
+        row.verify()
+        state=row.payload.get('state');schema=row.payload.get('schema')
+        belongs=(row.record_id.startswith('native-github-')
+                 or schema==MOBILE_SCHEMA and type(state) is str and state.startswith('GITHUB_'))
+        if not belongs:continue
+        operation_id=row.payload.get('operation_id')
+        require(schema==MOBILE_SCHEMA and type(operation_id) is str and wire.HEX32.fullmatch(operation_id),
+                'GITHUB_HISTORY_INTEGRITY')
+        if row.record_id.startswith('native-github-source-'):
+            request=row.payload.get('source_chat_request_id')
+            require(state=='GITHUB_SOURCE_BINDING' and type(request) is str and wire.HEX32.fullmatch(request)
+                    and row.record_id=='native-github-source-'+request,'GITHUB_HISTORY_INTEGRITY')
+            operation=by_id.get('native-github-'+operation_id)
+            require(operation is not None and operation.payload.get('schema')==MOBILE_SCHEMA
+                    and operation.payload.get('operation_id')==operation_id,'GITHUB_HISTORY_INTEGRITY')
+        else:
+            require(row.record_id=='native-github-'+operation_id and state in states,'GITHUB_HISTORY_INTEGRITY')
+            selected.append(row)
+    return tuple(selected)
+
+
+def history(host):
+    host._require_qualified_operator()
+    rows=_run(host,Capability.READ,retained_in_transaction)
     rows=[r.payload for r in rows if r.payload.get('core_instance_id') and r.payload.get('source_chat_request_id')]
     rows.sort(key=lambda p:p['created_at'],reverse=True)
     return {'operations':[{'operation_id':p['operation_id'],
@@ -92,15 +135,18 @@ def history(host):
 
 
 def _save(host,operation_id,data,*,expected=None):
+    foundation=getattr(host,'foundation',None)
+    settling=foundation is not None and getattr(foundation.lifecycle._boundary,'settlement_handle',None) is not None
+    if settling:host._require_qualified_operator()
     def mutation(tx):
-        host._require_qualified_operator()
+        if not settling:host._require_qualified_operator()
         key='native-github-'+operation_id;prior=tx.get(RecordKind.OPERATION,key)
         require(expected is None or prior is not None and prior.payload['state'] in expected,
                 'GITHUB_OPERATION_STATE_CHANGED')
         saved=dict(data)
         if prior is not None and prior.payload.get('stop_requested') is True:saved['stop_requested']=True
         host.mobile._record(tx,key,saved,prior,at=int(time.time()))
-    host.mobile._run(Capability.COMMIT,mutation)
+    _run(host,Capability.COMMIT,mutation)
 
 
 def _decode(data):
@@ -135,7 +181,12 @@ def _check(host,data,*,write):
 
 def _route(host,data,*,write):
     plan,base=_decode(data)
-    journal=CoreIntentJournal(host.ledger,host.missions._chat_governor)
+    if getattr(host,'foundation',None) is not None:
+        host.foundation.require_bindings()
+        journal=host.intent_journal
+        require(journal is host.foundation.intent_journal and journal.ledger is host.ledger
+                and journal.governor is host.foundation.governor,'GITHUB_CANONICAL_JOURNAL_REQUIRED')
+    else:journal=CoreIntentJournal(host.ledger,host.missions._chat_governor)
     def factory(check,cancel):
         # Called only by ServiceGuard AFTER the exact first START ACK.
         credential=_source(host).mint(cancel=cancel,check=check)
@@ -152,6 +203,7 @@ def _proposal_read_context(host,message):
     a manually assembled context cannot replace the admitted provider record.
     """
     from runtime.providers.meta_receipts import MetaReceiptView
+
     from .native_tools import chat_read_context
     cached=host.missions._chat_payloads.get(message['request_id'])
     require(cached is not None,'GITHUB_SOURCE_REQUEST_EXPIRED')
@@ -171,7 +223,13 @@ def _proposal_read_context(host,message):
 
 
 def propose(host,value,message):
-    """Only reached after native_tools verified a current successful Muse turn."""
+    """Owned synchronous preflight before any durable binding/network work."""
+    host.missions._native_execution_gate()
+    with host.missions._native_synchronous(value.get('request_id','invalid'),'GITHUB_PREFLIGHT') as owned:
+        return _propose(host,value,message,cancel=owned.cancel if owned is not None else None)
+
+
+def _propose(host,value,message,*,cancel=None):
     operation_id=value['request_id'];old=_get(host,operation_id)
     if old is not None:
         require(old.payload.get('source_chat_request_id')==value['chat_request_id'],'GITHUB_REQUEST_CONFLICT')
@@ -193,25 +251,26 @@ def propose(host,value,message):
             'source_reply_sha256':pending['source_reply_sha256'],'source_chat_request_id':value['chat_request_id']},at=now)
         host.mobile._record(tx,'native-github-'+operation_id,pending,at=now)
         return operation_id,True
-    bound,first=host.mobile._run(Capability.COMMIT,reserve)
+    bound,first=_run(host,Capability.COMMIT,reserve)
     if not first:return view(host,bound)
     try:
-        context=_proposal_read_context(host,message)
-        base_sha,base=github_remote.read_demo_base(check=host._require_qualified_operator,cancel=CancellationToken())
-        require(base_sha==context['data']['commit_sha'] and base.sha==context['data']['tree_sha'],
-                'GITHUB_MODEL_READ_BASE_CHANGED')
-        plan=RemoteGitPlan.from_model(message['reply'].encode(),operation_id=operation_id,issued_at=now,
-            base_sha=base_sha,base_tree_sha=base.sha,source_sha=host.source[0],capsule_digest=host.source[1],
-            source_reply_sha256=message['receipt']['response_sha256'],source_receipt_sha256=canonical_sha256(message['receipt']))
-        data={**pending,'plan':plan.payload(),'base_entries':{k:list(v) for k,v in base.entries.items()},
-            'source_read_context':context,'source_chat_authorization':message.get('authorization'),
-            'owner_auth_deadline':host._auth_deadline,'expires_at':min(pending['expires_at'],context['expires_at'])}
-        state=host.missions._chat_governor.inspect(host.core.local_operator(Capability.READ))
-        route=_route(host,data,write=True)
-        operation=route.operation(host.instance_id,state['epoch'])
-        data.update(state='GITHUB_PROPOSED',operation=operation,review_digest=canonical_sha256(operation),
-            policy_decision={'decision':'PROPOSE_ONLY','reasons':blockers(host),'observed_at':int(time.time())})
-    except Exception as error:
+        with failure_boundary('OWNED_WORK_CALLBACK_FAILED'):
+            context=_proposal_read_context(host,message)
+            base_sha,base=github_remote.read_demo_base(check=host._require_qualified_operator,cancel=cancel or CancellationToken())
+            require(base_sha==context['data']['commit_sha'] and base.sha==context['data']['tree_sha'],
+                    'GITHUB_MODEL_READ_BASE_CHANGED')
+            plan=RemoteGitPlan.from_model(message['reply'].encode(),operation_id=operation_id,issued_at=now,
+                base_sha=base_sha,base_tree_sha=base.sha,source_sha=host.source[0],capsule_digest=host.source[1],
+                source_reply_sha256=message['receipt']['response_sha256'],source_receipt_sha256=canonical_sha256(message['receipt']))
+            data={**pending,'plan':plan.payload(),'base_entries':{k:list(v) for k,v in base.entries.items()},
+                'source_read_context':context,'source_chat_authorization':message.get('authorization'),
+                'owner_auth_deadline':host._auth_deadline,'expires_at':min(pending['expires_at'],context['expires_at'])}
+            state=host.missions._chat_governor.inspect(host.core.local_operator(Capability.READ))
+            route=_route(host,data,write=True)
+            operation=route.operation(host.instance_id,state['epoch'])
+            data.update(state='GITHUB_PROPOSED',operation=operation,review_digest=canonical_sha256(operation),
+                policy_decision={'decision':'PROPOSE_ONLY','reasons':blockers(host),'observed_at':int(time.time())})
+    except (ValueError, RepairBoundaryError) as error:
         # Only GET/validation has happened. Preserve the Muse-turn binding and
         # record a terminal refusal; neither replay nor status may retry it.
         code=str(error)
@@ -256,7 +315,7 @@ def view(host,operation_id):
             result['blockers'].append('GITHUB_OWNER_OR_SOURCE_CHANGED')
         if time.time()>=data['expires_at']:result['blockers'].append('GITHUB_REVIEW_EXPIRED')
         if data.get('stop_requested') is True:result['blockers'].append('GITHUB_STOPPED')
-        saved=host.mobile._get('github-result-'+operation_id)
+        saved=_run(host,Capability.READ,lambda tx:tx.get(RecordKind.OPERATION,'github-result-'+operation_id))
         if saved is not None:result['result']=plain(saved.payload['result'])
         result['approval_available']=data['state']=='GITHUB_PROPOSED' and not result['blockers']
         active=_worker_active(host,operation_id)
@@ -278,7 +337,7 @@ def view(host,operation_id):
 def _warrant(host,data,route):
     operation=data['operation'];now=host.ledger.clock()
     deadline=min(data['expires_at'],time.time()+min(240,host._auth_deadline-time.monotonic()))
-    expiry=datetime.fromtimestamp(deadline,timezone.utc)
+    expiry=datetime.fromtimestamp(deadline,UTC)
     require((expiry-now).total_seconds()>=120,'GITHUB_OWNER_LEASE_TOO_SHORT')
     task='github-'+data['operation_id']
     scope=AuthorityScope(operation_classes=(operation['operation_class'],),target_scope=operation['target_fingerprint'],
@@ -296,27 +355,71 @@ def _warrant(host,data,route):
 def _worker(host,data,warrant,cancel,*,reconcile=False):
     operation_id=data['operation_id']
     try:
-        route=_route(host,data,write=not reconcile)
-        commit=host.core.local_operator(Capability.COMMIT)
-        if reconcile:
-            outcome=route.reconcile(commit,warrant,cancel=cancel)
-        else:
-            data={**data,'state':'GITHUB_RUNNING'}
-            _save(host,operation_id,data,expected={'GITHUB_APPROVED'})
-            from runtime.providers.meta_model_api import MODEL
-            reserve=ReservationRequest(warrant.risk_reservation_id,warrant.task_id,'github',MODEL,
-                canonical_sha256(data['operation']),0,1)
-            outcome=route.dispatch(commit,warrant,data['operation'],reserve,cancel=cancel)
-        state='GITHUB_VERIFIED' if outcome['outcome']['contract_type']=='Applied' else 'GITHUB_UNKNOWN'
-        _save(host,operation_id,{**data,'state':state},expected={'GITHUB_RUNNING','GITHUB_RECONCILING'})
-    except Exception as error:
+        with failure_boundary('OWNED_WORK_CALLBACK_FAILED'):
+            route=_route(host,data,write=not reconcile)
+            commit=host.core.local_operator(Capability.COMMIT)
+            if reconcile:
+                foundation=getattr(host,'foundation',None)
+                settlement=(foundation is not None and getattr(foundation.lifecycle._boundary,'settlement_handle',None) is not None)
+                if settlement:
+                    from .native_authority import NativeAccessUse
+                    capture=foundation.access.capture(Capability.COMMIT,use=NativeAccessUse.SETTLEMENT)
+                    try:
+                        foundation.access.require_capture(capture,Capability.COMMIT)
+                        outcome=route.reconcile(capture.principal,warrant,cancel=cancel)
+                        foundation.access.require_capture(capture,Capability.COMMIT)
+                    finally:capture.close()
+                else:outcome=route.reconcile(commit,warrant,cancel=cancel)
+
+            else:
+                data={**data,'state':'GITHUB_RUNNING'}
+                _save(host,operation_id,data,expected={'GITHUB_APPROVED'})
+                from runtime.providers.meta_model_api import MODEL
+                reserve=ReservationRequest(warrant.risk_reservation_id,warrant.task_id,'github',MODEL,
+                    canonical_sha256(data['operation']),0,1)
+                outcome=route.dispatch(commit,warrant,data['operation'],reserve,cancel=cancel)
+            state='GITHUB_VERIFIED' if outcome['outcome']['contract_type']=='Applied' else 'GITHUB_UNKNOWN'
+            _save(host,operation_id,{**data,'state':state},expected={'GITHUB_RUNNING','GITHUB_RECONCILING'})
+    except (ValueError, RepairBoundaryError) as error:
         code=str(error)
         if not re.fullmatch('[A-Z][A-Z0-9_]{0,99}',code):code='GITHUB_OUTCOME_UNKNOWN_READBACK_REQUIRED'
-        try:_save(host,operation_id,{**data,'state':'GITHUB_UNKNOWN','error':code})
-        except Exception:pass  # Existing intent/step markers remain authoritative.
+        try:
+            with failure_boundary('OWNED_WORK_PERSISTENCE_FAILED'):
+                _save(host,operation_id,{**data,'state':'GITHUB_UNKNOWN','error':code})
+        except (ValueError, RepairBoundaryError):
+            return  # Existing START/receipts stay durable and never grant retry.
+
+
+def _owner_reconcile(host,owner,value):
+    """Existing private Unix owner control; retained readback, never execution."""
+    require(getattr(host,'foundation',None) is not None,'NATIVE_SETTLEMENT_PARENT_REQUIRED')
+    if (set(value)!={'op','operation_id'} or value.get('op')!='github_write_reconcile'
+            or type(value.get('operation_id')) is not str or not wire.HEX32.fullmatch(value['operation_id'])):
+        raise wire.MobileError(400)
+    identity=value['operation_id']
+    with host.missions._native_synchronous('github-'+identity,'GITHUB_SETTLEMENT') as owned:
+        host._require_qualified_operator()
+        host.core.require(owner,Capability.OWNER_APPROVAL,scope=host.missions.scope)
+        snapshot=host.missions._native_operation_snapshot(owned.parent)
+        require(snapshot is not None,'NATIVE_SETTLEMENT_PARENT_REQUIRED')
+        _,data,_,warrant=snapshot
+        data=dict(data);data.pop('schema',None)
+        require(data['state'] in ('GITHUB_APPROVED','GITHUB_RUNNING','GITHUB_RECONCILING','GITHUB_UNKNOWN','GITHUB_VERIFIED')
+                and not owned.cancel.cancelled,'GITHUB_SETTLEMENT_UNAVAILABLE')
+        _save(host,identity,{**data,'state':'GITHUB_RECONCILING'},expected={data['state']})
+        _worker(host,data,warrant,owned.cancel,reconcile=True)
+        return view(host,identity)
 
 
 def dispatch(host,owner,value):
+    require(getattr(host,'foundation',None) is None or value.get('op')!='github_write_reconcile',
+            'PRIVATE_NATIVE_SETTLEMENT_REQUIRED')
+    host.missions._native_execution_gate()
+    with host.missions._native_synchronous(value.get('operation_id','control'),'GITHUB_CONTROL') as owned:
+        return _dispatch(host,owner,value,owned=owned)
+
+
+def _dispatch(host,owner,value,*,owned=None):
     host._require_qualified_operator();host.core.require(owner,Capability.OWNER_APPROVAL,scope=host.missions.scope)
     op=value['op']
     if op in ('github_auth_status','github_write_list'):
@@ -340,6 +443,11 @@ def dispatch(host,owner,value):
             if host.mobile._get(host.ledger._key(warrant)) is not None:host.ledger.revoke(owner,warrant)
         return view(host,identity)
     with host.missions._lock:
+        native=None;worker_args={'host':host,'data':data}
+        if host.missions._native_foundation is not None:
+            # The closed worker slot is populated by this source path only.
+            native=host.missions._prepare_native_worker('github-'+identity,'GITHUB_PENDING',(worker_args,),
+                cancel=owned.cancel if owned is not None else None)
         if op=='github_write_approve':
             if data.get('state')!='GITHUB_PROPOSED' or value['review_digest']!=data.get('review_digest'):
                 raise wire.MobileError(409)
@@ -365,8 +473,13 @@ def dispatch(host,owner,value):
             if not data.get('warrant') or _worker_active(host,identity):raise wire.MobileError(409)
             warrant=EffectWarrant.from_dict(data['warrant'])
             data={**data,'state':'GITHUB_RECONCILING'};_save(host,identity,data)
-        cancel=CancellationToken();key='github-'+identity
-        worker=threading.Thread(target=_worker,args=(host,data,warrant,cancel),
-            kwargs={'reconcile':op=='github_write_reconcile'},daemon=True)
-        host.missions._cancels[key]=cancel;host.missions._workers[key]=worker;worker.start()
+        if native is not None:
+            worker_args.update(host=host,data=data,warrant=warrant,reconcile=op=='github_write_reconcile')
+            cancel,worker,handle=native
+            host.missions._start_native_worker(worker,handle)
+        else:
+            cancel=CancellationToken();key='github-'+identity
+            worker=threading.Thread(target=_worker,args=(host,data,warrant,cancel),
+                kwargs={'reconcile':op=='github_write_reconcile'},daemon=True)
+            host.missions._cancels[key]=cancel;host.missions._workers[key]=worker;worker.start()
     return view(host,identity)

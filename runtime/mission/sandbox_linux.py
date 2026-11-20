@@ -9,6 +9,7 @@ import errno
 import hashlib
 import json
 import os
+import re
 import select
 import socket
 import stat
@@ -17,7 +18,8 @@ import subprocess
 import sys
 import tempfile
 import uuid
-from dataclasses import asdict, dataclass
+from contextlib import contextmanager
+from dataclasses import asdict, dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -25,7 +27,18 @@ from runtime.memory_patch.contracts.serialization import (
     canonical_json_bytes,
     canonical_sha256,
 )
+from runtime.mission import sandbox_contracts
+from runtime.mission.sandbox_bindings import (
+    CONFIG_DOMAIN,
+    CapturedSandboxConfig,
+    MaterializationBindingInput,
+    ObservationBindingInput,
+    SandboxJobBinding,
+    TrustedSandboxBindingPolicy,
+    root_member,
+)
 from runtime.mission.sandbox_contracts import (
+    RENDER_PROFILE_CEILINGS,
     RESOURCE_CEILINGS,
     SandboxDispatchRequest,
     SandboxOperation,
@@ -33,6 +46,9 @@ from runtime.mission.sandbox_contracts import (
     SandboxRegistry,
 )
 from runtime.mission.warrant import require
+
+# Preserve the earlier export while selection uses the shared closed map.
+RENDER_RESOURCE_CEILINGS = sandbox_contracts.RENDER_RESOURCE_CEILINGS
 
 
 def now():
@@ -162,7 +178,11 @@ def bounded_line(stream, seconds=8, *, cancel=None):
     raise ValueError("BOUNDED_PROTOCOL_LINE_MISSING")
 
 
-def build_filter(*, final):
+def build_filter(*, final, ipc_profile=None):
+    if ipc_profile is not None and (type(ipc_profile) is not str
+            or ipc_profile not in ('RENDER_UNIX_SOCKETPAIR_V1', 'RENDER_UNIX_LISTENER_V1', 'RENDER_UNIX_MOJO_V1')
+            or final is not True):
+        raise ValueError('UNAPPROVED_SANDBOX_IPC_PROFILE')
     # Linux x86_64 only. Each filter rejects other ABIs and x32 first.
     rows = [
         (0x20, 0, 0, 4),
@@ -172,6 +192,101 @@ def build_filter(*, final):
         (0x35, 0, 1, 0x40000000),
         (0x06, 0, 0, 0x80000000),
     ]
+    if ipc_profile in ('RENDER_UNIX_SOCKETPAIR_V1', 'RENDER_UNIX_LISTENER_V1', 'RENDER_UNIX_MOJO_V1'):
+        # The original pair profile stays byte-identical. Both profiles deny
+        # connect(), including the mounted host handoff socket. Bootstrap
+        # closes all fd>=3 before untrusted code; no host socket is inherited.
+        pair = [
+            (0x20, 0, 0, 20), (0x15, 0, 11, 0),
+            (0x20, 0, 0, 16), (0x15, 0, 9, 1),
+            (0x20, 0, 0, 28), (0x15, 0, 7, 0),
+            (0x20, 0, 0, 24), (0x54, 0, 0, 0xFFF7F7F0), (0x15, 0, 4, 0),
+            (0x20, 0, 0, 24), (0x54, 0, 0, 0xF),
+            (0x15, 2, 0, 1), (0x15, 1, 0, 5),
+            (0x06, 0, 0, 0x00050001), (0x06, 0, 0, 0x7FFF0000),
+        ]
+        rows.append((0x15, 0, len(pair), 53))
+        rows.extend(pair)
+        # Crashpad configures credentials on its fresh private Unix pairs.
+        # No host socket FD survives bootstrap. This option adds no socket
+        # creation, connection, listener or other socket-option permissions.
+        # SO_PASSCRED may auto-bind in the job's private network namespace.
+        for socket_option_call in (54, 55):
+            credentials = []
+            conditions = []
+            checks = ((20, 0), (28, 0), (24, 1), (36, 0), (32, 16))
+            if socket_option_call == 54:
+                checks += ((52, 0), (48, 4))
+            # For getsockopt the value and length are both user pointers;
+            # only the kernel can validate them. The selected option is the
+            # private pair's SO_PASSCRED flag, never peer/owner identity.
+            for offset, expected in checks:
+                credentials.append((0x20, 0, 0, offset))
+                conditions.append(len(credentials))
+                credentials.append((0x15, 0, 0, expected))
+            credentials.append((0x20, 0, 0, 16))
+            descriptor_bound = len(credentials)
+            credentials.append((0x35, 0, 0, 64))
+            credentials.extend(((0x06, 0, 0, 0x7FFF0000), (0x06, 0, 0, 0x00050001)))
+            denied = len(credentials) - 1
+            for index in conditions:
+                code, _, _, expected = credentials[index]
+                credentials[index] = (code, 0, denied - index - 1, expected)
+            credentials[descriptor_bound] = (0x35, denied - descriptor_bound - 1, 0, 64)
+            rows.append((0x15, 0, len(credentials), socket_option_call))
+            rows.extend(credentials)
+        # Chrome half-closes each end of its private SandboxIPC pair. Only
+        # SHUT_RD/SHUT_WR on bounded job descriptors; no full shutdown or
+        # connection/socket creation is added by this rule. Host FDs are closed.
+        half_close = [
+            (0x20, 0, 0, 20), (0x15, 0, 7, 0),
+            (0x20, 0, 0, 28), (0x15, 0, 5, 0),
+            (0x20, 0, 0, 16), (0x35, 3, 0, 64),
+            (0x20, 0, 0, 24), (0x35, 1, 0, 2),
+            (0x06, 0, 0, 0x7FFF0000), (0x06, 0, 0, 0x00050001),
+        ]
+        rows.append((0x15, 0, len(half_close), 48))
+        rows.extend(half_close)
+    if ipc_profile in ('RENDER_UNIX_LISTENER_V1', 'RENDER_UNIX_MOJO_V1'):
+        # A separate operator-pinned profile for Chrome's ProcessSingleton.
+        # Fresh UNIX stream creation, bounded bind and backlog-five listen only.
+        # No connect/accept, INET, peer identity or imported host FD authority.
+        # The address is an opaque guest pointer. Its safety also requires the
+        # private network/mount namespaces and bootstrap's closed FD lifecycle.
+        def listener_call(number, checks):
+            block, branches = [], []
+            for offset, comparison, expected in checks:
+                block.append((0x20, 0, 0, offset))
+                if type(expected) is tuple:
+                    mask, expected = expected
+                    block.append((0x54, 0, 0, mask))
+                branches.append((len(block), comparison))
+                block.append((0x15 if comparison == 'eq' else 0x35, 0, 0, expected))
+            block.extend(((0x06, 0, 0, 0x7FFF0000), (0x06, 0, 0, 0x00050001)))
+            denied = len(block) - 1
+            for index, comparison in branches:
+                code, _, _, expected = block[index]
+                jump = denied - index - 1
+                block[index] = (code, jump if comparison == 'lt' else 0,
+                                0 if comparison == 'lt' else jump, expected)
+            rows.append((0x15, 0, len(block), number))
+            rows.extend(block)
+
+        listener_call(41, ((20, 'eq', 0), (16, 'eq', 1), (28, 'eq', 0),
+                           (24, 'eq', (0xFFF7F7FE, 0)), (24, 'eq', (0xF, 1)),
+                           (36, 'eq', 0), (32, 'eq', 0)))
+        listener_call(49, ((20, 'eq', 0), (16, 'lt', 64), (36, 'eq', 0),
+                           (32, 'ge', 2), (32, 'lt', 111)))
+        listener_call(50, ((20, 'eq', 0), (16, 'lt', 64), (28, 'eq', 0), (24, 'eq', 5)))
+        if ipc_profile == 'RENDER_UNIX_MOJO_V1':
+            # glibc send() uses sendto(NULL, 0) on x86_64. This writes to an
+            # existing private socket only, never an address/new peer. The
+            # buffer pointer/length stay kernel validated, as with write().
+            # UNIX provenance comes from bootstrap/creation/SCM isolation,
+            # not from a descriptor number or this pointer predicate alone.
+            listener_call(44, ((20, 'eq', 0), (16, 'lt', 256), (44, 'eq', 0),
+                               (40, 'eq', (0xFFFFBFBF, 0)), (52, 'eq', 0),
+                               (48, 'eq', 0), (60, 'eq', 0), (56, 'eq', 0)))
     deny = {
         101,
         133,
@@ -229,6 +344,8 @@ def build_filter(*, final):
         deny.update(
             {41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 288, 299, 307}
         )
+    if ipc_profile in ('RENDER_UNIX_SOCKETPAIR_V1', 'RENDER_UNIX_LISTENER_V1', 'RENDER_UNIX_MOJO_V1'):
+        deny.difference_update({46, 47, 53})
     for number in sorted(deny):
         rows.extend([(0x15, 0, 1, number), (0x06, 0, 0, 0x00050001)])
     rows.extend([(0x15, 0, 1, 435), (0x06, 0, 0, 0x00050026)])  # clone3 ENOSYS
@@ -307,7 +424,7 @@ def save_host_config(config):
     sync_directory(config.root)
 
 
-def load_host_config(root, *, trusted_root):
+def load_host_config(root, *, trusted_root, root_identity=None):
     root = Path(root).absolute()
     trusted = Path(trusted_root).absolute()
 
@@ -335,12 +452,8 @@ def load_host_config(root, *, trusted_root):
     path = root / "host-config.json"
     info = private(path)
     require(info.st_size <= 4194304, "SANDBOX_CACHE_BOUNDS")
-    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
-    try:
-        with os.fdopen(fd, "rb", closefd=False) as stream:
-            raw = stream.read(4194305)
-    finally:
-        os.close(fd)
+    raw = _private_bytes(path, trusted, 4194304,
+        expected_root=(root,root_identity) if root_identity is not None else None)
     value = json.loads(raw)
     require(
         set(value)
@@ -359,6 +472,8 @@ def load_host_config(root, *, trusted_root):
     )
     require(
         value["profile"]["backend_sha256"] == sha(__file__)
+        and value["profile"].get("binding_source_sha256")
+        == sha(Path(__file__).with_name("sandbox_bindings.py"))
         and value["profile"]["worker_sha256"]
         == sha(Path(__file__).with_name("sandbox_worker.py")),
         "SANDBOX_CACHE_SOURCE_CHANGED",
@@ -386,7 +501,8 @@ def load_host_config(root, *, trusted_root):
     )
 
 
-def prepare_linux_sandbox(root, runtime_manifest, *, workspace, recipes):
+def prepare_linux_sandbox(root, runtime_manifest, *, workspace, recipes, resource_profile=None,
+                          renderer_ipc=None, input_profile=None):
     """Explicit operator preparation: compile packaged trusted C, pin runtime/inputs.
 
     recipes is a trusted mapping id -> {files:{name:bytes},expected:{artifact:bytes}}.
@@ -402,6 +518,24 @@ def prepare_linux_sandbox(root, runtime_manifest, *, workspace, recipes):
         and not sys.flags.optimize,
         "TRUSTED_SANDBOX_CONFIGURATION_REQUIRED",
     )
+    require(resource_profile is None or type(resource_profile) is str
+            and resource_profile in RENDER_PROFILE_CEILINGS,
+            'INVALID_SANDBOX_RESOURCE_PROFILE')
+    input_limits = sandbox_contracts.sandbox_input_limits(input_profile)
+    require(input_profile is None or resource_profile is None,
+            'INCOMPATIBLE_SANDBOX_INPUT_PROFILE')
+    renderer = resource_profile is not None
+    require(renderer_ipc is None or renderer and type(renderer_ipc) is str
+            and (renderer_ipc == 'RENDER_UNIX_LISTENER_V1'
+                 or renderer_ipc == 'RENDER_UNIX_MOJO_V1' and resource_profile == 'HEADLESS_RENDER_V3'),
+            'UNAPPROVED_SANDBOX_IPC_PROFILE')
+    ipc_profile = (renderer_ipc or 'RENDER_UNIX_SOCKETPAIR_V1') if renderer else None
+    resource_ceilings = RENDER_PROFILE_CEILINGS[resource_profile] if renderer else RESOURCE_CEILINGS
+    chrome_targets = frozenset('/opt/google/chrome/' + name for name in (
+        'chrome', 'chrome_crashpad_handler', 'icudtl.dat', 'resources.pak',
+        'chrome_100_percent.pak', 'chrome_200_percent.pak', 'v8_context_snapshot.bin',
+        'locales/en-US.pak'))
+    chrome_targets = chrome_targets | {'/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'}
     root = root.absolute()
     root.mkdir(mode=0o700, parents=True, exist_ok=False)
     native = Path(__file__).parent / "native"
@@ -420,6 +554,8 @@ def prepare_linux_sandbox(root, runtime_manifest, *, workspace, recipes):
                 "-fstack-protector-strong",
                 "-D_FORTIFY_SOURCE=2",
                 "-Wl,-z,relro,-z,now",
+                *(['-DAIOA_RENDER_LISTENER=1'] if name == 'bootstrap'
+                  and ipc_profile in ('RENDER_UNIX_LISTENER_V1', 'RENDER_UNIX_MOJO_V1') else []),
                 str(source),
                 "-o",
                 str(destination),
@@ -433,7 +569,8 @@ def prepare_linux_sandbox(root, runtime_manifest, *, workspace, recipes):
         pins[name] = {"source_sha256": sha(source), "binary_sha256": sha(destination)}
     for name, final in [("setup_filter", False), ("final_filter", True)]:
         path = root / (name + ".bpf")
-        path.write_bytes(build_filter(final=final))
+        path.write_bytes(build_filter(final=final, ipc_profile=(
+            ipc_profile if final else None)))
         path.chmod(0o400)
         pins[name] = sha(path)
     for target, entry in runtime_manifest.items():
@@ -444,6 +581,7 @@ def prepare_linux_sandbox(root, runtime_manifest, *, workspace, recipes):
                 or target.startswith(
                     ("/usr/lib/python3.12/", "/usr/bin/python3.12", "/lib/", "/lib64/")
                 )
+                or renderer and target in chrome_targets
             )
             and ".." not in target.split("/"),
             "UNAPPROVED_RUNTIME_PATH",
@@ -458,6 +596,7 @@ def prepare_linux_sandbox(root, runtime_manifest, *, workspace, recipes):
         )
         runtime[target] = {**entry, "mode": stat.S_IMODE(metadata.st_mode)}
     require("/usr/bin/python3.12" in runtime, "PINNED_RUNTIME_REQUIRED")
+    require(not renderer or '/opt/google/chrome/chrome' in runtime, 'PINNED_RENDERER_REQUIRED')
     env = {
         "PATH": "/usr/bin:/bin",
         "LANG": "C.UTF-8",
@@ -479,12 +618,25 @@ def prepare_linux_sandbox(root, runtime_manifest, *, workspace, recipes):
         "bwrap_sha256": sha("/usr/bin/bwrap"),
         "worker_sha256": sha(Path(__file__).with_name("sandbox_worker.py")),
         "backend_sha256": sha(__file__),
-        "resources": dict(RESOURCE_CEILINGS),
+        "binding_source_sha256": sha(Path(__file__).with_name("sandbox_bindings.py")),
+        "resources": dict(resource_ceilings),
         "env": env,
         "network": "OFF",
         "namespaces": 7,
         "retained_python_extensions": "manifest exact; includes host test and Tk extension closure",
     }
+    if renderer:
+        profile.update(resource_profile=resource_profile, ipc_profile=ipc_profile,
+                       host_socket_creation='DENIED', inherited_control_fds=0,
+                       virtual_address_limit_bytes=4 * 1024**4)
+        if ipc_profile in ('RENDER_UNIX_LISTENER_V1', 'RENDER_UNIX_MOJO_V1'):
+            profile.update(private_listener_creation='UNIX_STREAM_ONLY', host_connect='DENIED')
+        if ipc_profile == 'RENDER_UNIX_MOJO_V1':
+            profile.update(private_connected_send='NULL_ADDRESS_ONLY', private_send_fd_limit=256)
+        if resource_profile in ('HEADLESS_RENDER_V2', 'HEADLESS_RENDER_V3'):
+            profile['descriptor_limit'] = 256
+    if input_profile is not None:
+        profile.update(input_profile=input_profile, input_limits=dict(input_limits))
     digest = canonical_sha256(profile)
     env_digest = canonical_sha256(env)
     inputs = {}
@@ -495,11 +647,16 @@ def prepare_linux_sandbox(root, runtime_manifest, *, workspace, recipes):
             and set(spec) == {"files", "expected"}
             and type(spec["files"]) is dict
             and "recipe.py" in spec["files"]
-            and 0 < len(spec["files"]) <= 16
+            and 0 < len(spec["files"]) <= input_limits["files"]
             and type(spec["expected"]) is dict
             and 0 < len(spec["expected"]) <= 8,
             "INVALID_TRUSTED_RECIPE",
         )
+        if input_profile is not None:
+            require(all(type(data) is bytes for data in spec['files'].values()),
+                    'INVALID_TRUSTED_INPUT')
+            require(sum(len(data) for data in spec['files'].values()) <= input_limits['total_bytes'],
+                    'TRUSTED_INPUT_SUM_BOUND')
         directory = root / ("input-" + str(len(inputs)))
         directory.mkdir(mode=0o700)
         files = {}
@@ -511,7 +668,7 @@ def prepare_linux_sandbox(root, runtime_manifest, *, workspace, recipes):
                 and "/" not in name
                 and name not in (".", "..")
                 and type(data) is bytes
-                and len(data) <= 1048576,
+                and len(data) <= input_limits["per_file_bytes"],
                 "INVALID_TRUSTED_INPUT",
             )
             destination = directory / name
@@ -548,6 +705,9 @@ def prepare_linux_sandbox(root, runtime_manifest, *, workspace, recipes):
                 digest,
                 input_digest,
                 env_digest,
+                pids_max=resource_ceilings['pids_max'],
+                resource_profile=resource_profile,
+                input_profile=input_profile,
             )
         )
     return TrustedSandboxConfig(
@@ -694,17 +854,449 @@ def git_storage_identity(root):
     return tuple((name, identities[name]) for name in GIT_CRITICAL_DIRECTORIES)
 
 
+def _parse_descriptor_limits(raw, *, expected):
+    """Bounded kernel limits data, never a source of execution authority."""
+    require(type(raw) is bytes and 0 < len(raw) <= 8192
+            and type(expected) is int and expected in (64, 256), 'KERNEL_DESCRIPTOR_LIMIT_MISMATCH')
+    try:
+        text = raw.decode('ascii')
+    except UnicodeDecodeError:
+        raise ValueError('KERNEL_DESCRIPTOR_LIMIT_MISMATCH') from None
+    rows = [line for line in text.splitlines() if line.startswith('Max open files')]
+    require(len(rows) == 1, 'KERNEL_DESCRIPTOR_LIMIT_MISMATCH')
+    value = str(expected)
+    require(re.fullmatch(r'Max open files[ \t]+' + value + r'[ \t]+' + value + r'[ \t]+files[ \t]*',
+                         rows[0]) is not None, 'KERNEL_DESCRIPTOR_LIMIT_MISMATCH')
+    return expected, expected
+
+
+def _observe_descriptor_limits(procdir, pidfd, *, expected):
+    """Read the already pinned, live trusted bootstrap before project ACK."""
+    require(type(procdir) is int and procdir >= 0 and type(pidfd) is int and pidfd >= 0
+            and type(expected) is int and expected in (64, 256), 'KERNEL_DESCRIPTOR_LIMIT_MISMATCH')
+    require(not select.select([pidfd], [], [], 0)[0], 'BOOTSTRAP_EXITED_BEFORE_DESCRIPTOR_PROOF')
+    fd = os.open('limits', os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC, dir_fd=procdir)
+    try:
+        raw = os.read(fd, 8193)
+    finally:
+        os.close(fd)
+    soft, hard = _parse_descriptor_limits(raw, expected=expected)
+    require(not select.select([pidfd], [], [], 0)[0], 'BOOTSTRAP_EXITED_BEFORE_DESCRIPTOR_PROOF')
+    return {'soft': soft, 'hard': hard, 'source': 'PINNED_BOOTSTRAP_PROC_LIMITS'}
+
+
+def _systemd_properties(operation):
+    """Properties for already registered operations; parsing grants no authority."""
+    limits = SandboxOperation.parse(operation).to_dict()['payload']
+    return (
+        'Delegate=yes',
+        'DelegateSubgroup=supervisor',
+        'Slice=app.slice',
+        'MemoryMax=536870912',
+        'MemorySwapMax=0',
+        "TasksMax=" + str(limits["pids_max"]),
+        'CPUQuota=100%',
+        'CPUQuotaPeriodSec=100ms',
+        'NoNewPrivileges=yes',
+        ('LimitAS=4398046511104' if limits.get('resource_profile') in RENDER_PROFILE_CEILINGS
+         else 'LimitAS=536870912'),
+        'LimitCPU=15',
+        'LimitFSIZE=8388608',
+        'LimitCORE=0',
+        ('LimitNOFILE=256' if limits.get('resource_profile') in ('HEADLESS_RENDER_V2', 'HEADLESS_RENDER_V3')
+         else 'LimitNOFILE=64'),
+        'RuntimeMaxSec=32s',
+        'TimeoutStopSec=2s',
+        'KillMode=control-group',
+        'UMask=0077',
+    )
+
+
+def _cache_identity(info):
+    return (info.st_dev,info.st_ino,info.st_mode,info.st_uid,info.st_nlink,
+            info.st_size,info.st_mtime_ns,info.st_ctime_ns)
+
+
+def _directory_identity(info):
+    return {'device':info.st_dev,'inode':info.st_ino,
+            'uid':info.st_uid,'mode':stat.S_IMODE(info.st_mode)}
+
+
+@contextmanager
+def _private_descriptor(path, trusted, *, directory=False, expected_root=None):
+    """Pin every component and recheck its name before accessing leaf bytes."""
+    path,trusted=Path(path),Path(trusted)
+    require(path.is_absolute() and trusted.is_absolute() and path.is_relative_to(trusted)
+            and '..' not in path.parts and '..' not in trusted.parts,'SANDBOX_CACHE_PATH_DENIED')
+    descriptors=[];ancestry=[]
+    flags=os.O_RDONLY|os.O_NOFOLLOW|os.O_CLOEXEC|os.O_DIRECTORY
+    def check_ancestry():
+        for parent,name,child,initial in ancestry:
+            named=os.stat(name,dir_fd=parent,follow_symlinks=False)
+            opened=os.fstat(child)
+            identity=lambda info:(info.st_dev,info.st_ino,info.st_mode,info.st_uid)
+            require(identity(named)==identity(opened)==identity(initial),'SANDBOX_CACHE_CHANGED')
+    try:
+        current=os.open('/',flags);descriptors.append(current)
+        components=path.parts[1:] if directory else path.parent.parts[1:]
+        for index,name in enumerate(components,1):
+            before=os.stat(name,dir_fd=current,follow_symlinks=False)
+            child=os.open(name,flags,dir_fd=current);descriptors.append(child)
+            ancestry.append((current,name,child,before));current=child
+            info=os.fstat(child)
+            if expected_root is not None and Path(path.anchor,*components[:index])==expected_root[0]:
+                require(_directory_identity(info)==expected_root[1],'SANDBOX_CAPTURE_CHANGED')
+            if index>=len(trusted.parts)-1:
+                # Owned transit remains below the private anchor. Preserve the
+                # private-mode rule for that anchor and the final parent.
+                require(info.st_uid==os.getuid() and (index not in (len(trusted.parts)-1,len(components))
+                        or not info.st_mode & 0o077),
+                        'SANDBOX_PRIVATE_CACHE_REQUIRED')
+        if directory:
+            info=os.fstat(current)
+            require(info.st_uid==os.getuid() and not info.st_mode & 0o077,
+                    'SANDBOX_PRIVATE_CACHE_REQUIRED')
+            check_ancestry();yield current,info,check_ancestry;check_ancestry()
+        else:
+            before=os.stat(path.name,dir_fd=current,follow_symlinks=False)
+            leaf=os.open(path.name,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK|os.O_CLOEXEC,
+                         dir_fd=current);descriptors.append(leaf)
+            opened=os.fstat(leaf)
+            require(stat.S_ISREG(opened.st_mode) and opened.st_nlink==1
+                    and opened.st_uid==os.getuid() and not opened.st_mode & 0o077,
+                    'SANDBOX_PRIVATE_CACHE_REQUIRED')
+            def check_leaf():
+                check_ancestry()
+                named=os.stat(path.name,dir_fd=current,follow_symlinks=False)
+                require(_cache_identity(before)==_cache_identity(os.fstat(leaf))==_cache_identity(named),
+                        'SANDBOX_CACHE_CHANGED')
+            check_leaf();yield leaf,opened,check_leaf;check_leaf()
+    except OSError as error:
+        raise ValueError('SANDBOX_CACHE_PATH_DENIED') from error
+    finally:
+        for descriptor in reversed(descriptors):os.close(descriptor)
+
+
+def _private_path(path, trusted, *, directory=False, expected_root=None):
+    with _private_descriptor(path,trusted,directory=directory,expected_root=expected_root) as (_fd,info,_check):
+        return info
+
+
+def _private_bytes(path, trusted, maximum, *, expected_root=None):
+    with _private_descriptor(path,trusted,expected_root=expected_root) as (fd,before,check):
+        require(before.st_size<=maximum,'SANDBOX_CACHE_BOUNDS')
+        raw=bytearray()
+        while len(raw)<=maximum:
+            check()
+            part=os.read(fd,min(65536,maximum+1-len(raw)))
+            if not part:break
+            raw.extend(part)
+        check()
+        require(len(raw)==before.st_size,'SANDBOX_CACHE_CHANGED')
+        return bytes(raw)
+
+
+def _config_identity(config):
+    return canonical_json_bytes({'domain':CONFIG_DOMAIN,'profile_digest':config.profile_digest,
+        'registry':{'workspace':config.registry.workspace,
+                    'recipes':[asdict(r) for r in config.registry.recipes]},
+        'inputs':{key:{field:value[field] for field in ('manifest','expected','digest')}
+                  for key,value in config.inputs().items()}})
+
+
 class LinuxSandboxBroker:
-    def __init__(self, config=None):
-        require(
-            type(config) is TrustedSandboxConfig and not sys.flags.optimize,
-            "TRUSTED_SANDBOX_CONFIGURATION_REQUIRED",
-        )
-        require(
-            config.profile_digest == canonical_sha256(config.profile()),
-            "PINNED_PROFILE_CHANGED",
-        )
-        self.config = config
+    def __init__(self, config=None, *, binding_policy=None):
+        require(type(config) is TrustedSandboxConfig and not sys.flags.optimize,
+                'TRUSTED_SANDBOX_CONFIGURATION_REQUIRED')
+        require(config.profile_digest == canonical_sha256(config.profile()), 'PINNED_PROFILE_CHANGED')
+        require(binding_policy is None or type(binding_policy) is TrustedSandboxBindingPolicy,
+                'SANDBOX_BINDING_POLICY_REQUIRED')
+        self._seed_config = config
+        self._binding_policy = binding_policy
+        self._binding_owner = None
+        self._owner_objects = None
+        self._captures = {}
+        self._bindings = {}
+        self._uncertain_bindings = set()
+        self._closed = False
+        self._active_cancel = None
+        self._quarantined = False
+        if binding_policy is not None:
+            require(config.profile_digest == binding_policy.profile_digest
+                    and config.registry.workspace == binding_policy.workspace,
+                    'SANDBOX_BINDING_POLICY_REQUIRED')
+            self._recipe_digest = binding_policy.recipe.digest
+            self._binding_source = sha(Path(__file__).with_name('sandbox_bindings.py'))
+            self._validate_config(config)
+
+    @property
+    def config(self):
+        """The immutable legacy seed; never the currently selected job config."""
+        return self._seed_config
+
+    @property
+    def binding_policy(self):
+        return self._binding_policy
+
+    def bind_route(self, route):
+        require(self.binding_policy is not None and self._binding_owner is None,
+                'SANDBOX_BINDING_OWNER')
+        prior=getattr(route.core,'_sandbox_binding_owner',None)
+        require(prior is None or prior._closed and prior._active_cancel is None,'SANDBOX_BINDING_OWNER')
+        self._binding_owner = route
+        route.core._sandbox_binding_owner=self
+        self._owner_objects = (route.core,route.runner,route.journal,route.journal.ledger,
+                               route.liability,route.journal.governor)
+        self.require_route_binding(route)
+
+    def require_route_binding(self, route):
+        require(route is not None and route is self._binding_owner and route.executor is self
+                and self._owner_objects is not None, 'SANDBOX_BINDING_OWNER')
+        expected=(route.core,route.runner,route.journal,route.journal.ledger,
+                  route.liability,route.journal.governor)
+        require(all(a is b for a,b in zip(expected,self._owner_objects,strict=True))
+                and route.core is route.journal.ledger.core is route.liability.core
+                    is route.journal.governor.core
+                and route.runner is route.journal.ledger.runner is route.liability.runner
+                    is route.journal.governor.runner
+                and route.workspace==self.binding_policy.workspace,
+                'SANDBOX_BINDING_OWNER')
+
+    def _source_check(self):
+        policy=self.binding_policy
+        require(policy.recipe.digest==self._recipe_digest
+                and sha(Path(__file__).with_name('sandbox_bindings.py'))==self._binding_source,
+                'SANDBOX_BINDING_SOURCE')
+        policy.source_snapshot.verify(policy.source_repository)
+        policy.source_snapshot.verify_export(policy.base_root)
+
+    def _validate_config(self, config, *, root_identity=None):
+        policy=self.binding_policy
+        require(type(config) is TrustedSandboxConfig
+                and config.root.parent==policy.trusted_root, 'SANDBOX_BINDING_ROOT_DENIED')
+        root_member(config.root.name)
+        _private_path(policy.trusted_root,policy.trusted_root,directory=True)
+        info=_private_path(config.root,policy.trusted_root,directory=True,
+            expected_root=(config.root,root_identity) if root_identity is not None else None)
+        root_identity=_directory_identity(info)
+        expected_root=(config.root,root_identity)
+        profile=config.profile()
+        require(config.profile_bytes==canonical_json_bytes(profile)
+                and canonical_sha256(profile)==config.profile_digest==policy.profile_digest
+                and config.registry.workspace==policy.workspace
+                and profile.get('input_profile')==policy.recipe.sandbox_input_profile
+                and 'resource_profile' not in profile, 'SANDBOX_BINDING_PROFILE')
+        require(profile.get('binding_source_sha256')==self._binding_source
+                and sha(__file__)==profile['backend_sha256']
+                and sha(Path(__file__).with_name('sandbox_worker.py'))==profile['worker_sha256']
+                and sha('/usr/bin/bwrap')==profile['bwrap_sha256'],'PINNED_BACKEND_CHANGED')
+        for name,pin in profile['native'].items():
+            require(name in ('worker_gate','bootstrap','setup_filter','final_filter'), 'SANDBOX_BINDING_PROFILE')
+            filename=name+('.bpf' if name.endswith('filter') else '')
+            raw=_private_bytes(config.root/filename,policy.trusted_root,4194304,expected_root=expected_root)
+            require(hashlib.sha256(raw).hexdigest()==(pin['binary_sha256'] if type(pin) is dict else pin),
+                    'PINNED_NATIVE_CHANGED')
+            if type(pin) is dict:
+                require(sha(Path(__file__).parent/'native'/(name+'.c'))==pin['source_sha256'],
+                        'PINNED_NATIVE_CHANGED')
+        runtime=config.runtime()
+        require({key:{field:entry[field] for field in ('sha256','bytes','mode')}
+                 for key,entry in runtime.items()}==profile['runtime'],'PINNED_RUNTIME_CHANGED')
+        for entry in runtime.values():
+            raw=_private_bytes(entry['snapshot'],policy.trusted_root,entry['bytes'],expected_root=expected_root)
+            require(len(raw)==entry['bytes'] and hashlib.sha256(raw).hexdigest()==entry['sha256']
+                    and stat.S_IMODE(Path(entry['snapshot']).lstat().st_mode)==entry['mode'],
+                    'PINNED_RUNTIME_CHANGED')
+        inputs=config.inputs()
+        require(set(inputs)=={r.recipe_id for r in config.registry.recipes},'SANDBOX_BINDING_INPUT')
+        limits=sandbox_contracts.sandbox_input_limits(profile.get('input_profile'))
+        template=self.config.registry.recipes[0]
+        for index,recipe in enumerate(config.registry.recipes):
+            entry=inputs[recipe.recipe_id]
+            require(set(entry)=={'files','manifest','expected','digest'}
+                    and set(entry['files'])==set(entry['manifest'])
+                    and 1<=len(entry['files'])<=limits['files']
+                    and 1<=len(entry['expected'])<=8,'SANDBOX_BINDING_INPUT')
+            size=0
+            for name,filename in entry['files'].items():
+                root_member(name)
+                require(Path(filename)==config.root/('input-'+str(index))/name,
+                        'SANDBOX_CACHE_INPUT_DENIED')
+                raw=_private_bytes(filename,policy.trusted_root,limits['per_file_bytes'],expected_root=expected_root);size+=len(raw)
+                require(hashlib.sha256(raw).hexdigest()==entry['manifest'][name],'PINNED_INPUT_CHANGED')
+            require(size<=limits['total_bytes'],'TRUSTED_INPUT_SUM_BOUND')
+            for name,pin in entry['expected'].items():
+                root_member(name)
+                require(type(pin) is dict and set(pin)=={'bytes','sha256'}
+                        and type(pin['bytes']) is int and 0<=pin['bytes']<=1048576,
+                        'INVALID_EXPECTED_ARTIFACT')
+            input_digest=canonical_sha256({'files':entry['manifest'],'expected':entry['expected']})
+            require(entry['digest']==input_digest and recipe==replace(template,
+                    recipe_id=recipe.recipe_id,project_root_ref='trusted-input-'+input_digest[:24],
+                    tool_input_digest=input_digest), 'SANDBOX_REGISTRY_BINDING')
+        return canonical_json_bytes(root_identity)
+
+    def _derive_binding(self, binding_input, recipe_stages):
+        from runtime.mission.patchset import observe_source
+        from runtime.mission.repair import TEST_STAGES
+        policy=self.binding_policy
+        self._source_check()
+        require(type(recipe_stages) is tuple and 1<=len(recipe_stages)<=3
+                and all(type(p) is tuple and len(p)==2 for p in recipe_stages)
+                and len({p[0] for p in recipe_stages})==len(recipe_stages)
+                and len({p[1] for p in recipe_stages})==len(recipe_stages),'SANDBOX_BINDING_STAGE')
+        source=observe_source(policy.base_root,repository_id=policy.recipe.repository_id,
+            workspace_id=policy.workspace,source_base_sha=policy.recipe.source_base_sha)
+        require(all(p[1] in (*TEST_STAGES,'MATERIALIZE') for p in recipe_stages),
+                'SANDBOX_BINDING_STAGE')
+        if type(binding_input) is MaterializationBindingInput:
+            binding_input.__post_init__()
+            task,session=binding_input.task,binding_input.session
+            require(task.workspace_id==policy.workspace and task.repository_id==source.repository_id
+                    and task.source_base_sha==source.source_base_sha
+                    and tuple(p[1] for p in recipe_stages)==('MATERIALIZE',),'SANDBOX_BINDING_TASK')
+            patch,_archive,spec=policy.recipe.materialization_spec(policy.base_root,source=source,
+                task=task,worker_session_id=session.session_id,candidate=binding_input.candidate)
+            specs={recipe_stages[0][0]:spec};kind='MATERIALIZE'
+        else:
+            require(type(binding_input) is ObservationBindingInput,'SANDBOX_BINDING_INPUT')
+            binding_input.__post_init__();patch=binding_input.patchset
+            policy.recipe.validate_patch(patch)
+            require(all(p[1] in TEST_STAGES for p in recipe_stages),'SANDBOX_BINDING_STAGE')
+            specs={identity:policy.recipe.observation_spec(stage,binding_input.archive,patch)
+                   for identity,stage in recipe_stages};kind='OBSERVE'
+        require(patch.workspace_id==source.workspace_id and patch.repository_id==source.repository_id
+                and patch.source_base_sha==source.source_base_sha
+                and patch.base_tree_sha256==source.base_tree_sha256,'SANDBOX_BINDING_SOURCE')
+        provenance={'kind':kind,'repository_recipe_digest':policy.recipe.digest,
+            'source_snapshot_digest':policy.source_snapshot.digest,'source_identity':asdict(source),
+            'coding_task_id':patch.task_id,'coding_run_id':patch.run_id,'coding_task_digest':patch.task_digest,
+            'worker_session_id':patch.worker_session_id,'patchset_sha256':patch.patchset_sha256,
+            'final_tree_sha256':patch.final_tree_sha256,'recipe_stages':recipe_stages}
+        return specs,canonical_json_bytes(provenance)
+
+    def _pin_specs(self, config, specs):
+        require(tuple(specs)==tuple(r.recipe_id for r in config.registry.recipes),'SANDBOX_BINDING_STAGE')
+        for identity,spec in specs.items():
+            actual=config.inputs()[identity]
+            require(actual['manifest']=={n:hashlib.sha256(v).hexdigest() for n,v in spec['files'].items()}
+                    and actual['expected']=={n:{'sha256':hashlib.sha256(v).hexdigest(),'bytes':len(v)}
+                                             for n,v in spec['expected'].items()},'VALIDATION_INPUTS')
+
+    def capture_config(self, config, *, binding_input, recipe_stages):
+        self.require_route_binding(self._binding_owner)
+        require(not self._closed,'SANDBOX_BROKER_CLOSED')
+        specs,provenance=self._derive_binding(binding_input,recipe_stages)
+        prior=self._captures.get(config.root.name) if type(config) is TrustedSandboxConfig else None
+        identity=self._validate_config(config,root_identity=json.loads(prior.root_identity_bytes) if prior else None)
+        self._pin_specs(config,specs)
+        value=_config_identity(config);config_digest=canonical_sha256(json.loads(value))
+        for capture in self._captures.values():
+            if capture.config_digest==config_digest:
+                require(capture.identity_bytes==value,'SANDBOX_CONFIG_COLLISION')
+            if capture.config.root==config.root:
+                require(capture.config is config and capture.identity_bytes==value
+                        and capture.provenance_bytes==provenance,'SANDBOX_CONFIG_REBIND')
+                self.revalidate_capture(capture)
+                return capture
+        require(len(self._captures)<self.binding_policy.max_configs,'SANDBOX_CONFIG_QUOTA')
+        save_host_config(config)
+        raw=_private_bytes(config.root/'host-config.json',self.binding_policy.trusted_root,4194304,
+            expected_root=(config.root,json.loads(identity)))
+        capture=CapturedSandboxConfig(config,value,config_digest,hashlib.sha256(raw).hexdigest(),
+                                      identity,provenance,binding_input)
+        self._captures[config.root.name]=capture
+        return capture
+
+    def require_capture(self, capture):
+        self.require_route_binding(self._binding_owner)
+        require(type(capture) is CapturedSandboxConfig
+                and self._captures.get(capture.config.root.name) is capture,'SANDBOX_CAPTURE_OWNER')
+        return capture
+
+    def revalidate_capture(self, capture):
+        self.require_capture(capture)
+        expected_root=(capture.config.root,json.loads(capture.root_identity_bytes))
+        identity=self._validate_config(capture.config,root_identity=expected_root[1])
+        self._source_check()
+        if capture.binding_input is not None:
+            stages=tuple(tuple(p) for p in json.loads(capture.provenance_bytes)['recipe_stages'])
+            specs,provenance=self._derive_binding(capture.binding_input,stages)
+            self._pin_specs(capture.config,specs)
+            require(provenance==capture.provenance_bytes,'SANDBOX_BINDING_SOURCE')
+        require(identity==capture.root_identity_bytes and _config_identity(capture.config)==capture.identity_bytes
+                and hashlib.sha256(_private_bytes(capture.config.root/'host-config.json',
+                    self.binding_policy.trusted_root,4194304,expected_root=expected_root)).hexdigest()==capture.host_config_sha256,
+                'SANDBOX_CAPTURE_CHANGED')
+        return capture.config
+
+    def publish_binding(self, value, capture, *, historical=False, operations=()):
+        self.require_capture(capture)
+        task=value['task_id'];record=canonical_json_bytes(value)
+        prior=self._bindings.get(task)
+        if prior is not None:
+            require(prior[0].record_bytes==record and prior[1] is capture
+                    and (historical or prior[0].operation_bytes==operations),'SANDBOX_CONFIG_REBIND')
+            return prior[0]
+        require(len(self._bindings)<self.binding_policy.max_jobs,'SANDBOX_JOB_QUOTA')
+        require(value['config_digest']==capture.config_digest
+                and value['host_config_sha256']==capture.host_config_sha256
+                and value['root_ref']==capture.config.root.name
+                and value['root_identity']==json.loads(capture.root_identity_bytes)
+                and value['provenance']==json.loads(capture.provenance_bytes),'SANDBOX_BINDING_INTEGRITY')
+        require(historical or type(operations) is tuple and 1<=len(operations)<=32
+                and all(type(op) is bytes for op in operations),'SANDBOX_OPERATION_BINDING')
+        handle=SandboxJobBinding(record,'HISTORY_ONLY' if historical else 'LIVE',operations)
+        self._bindings[task]=(handle,capture)
+        return handle
+
+    def binding_for_operation(self, operation, *, historical=False):
+        self.require_route_binding(self._binding_owner)
+        parsed=SandboxOperation.parse(operation);payload=parsed.to_dict()['payload']
+        pair=self._bindings.get(payload['task_id'])
+        require(pair is not None,'SANDBOX_JOB_BINDING_REQUIRED')
+        handle,capture=pair;value=json.loads(handle.record_bytes)
+        require(historical or handle.mode=='LIVE' and not self._closed and not self._quarantined,
+                'SANDBOX_HISTORY_ONLY')
+        require({'step_id':payload['step_id'],'operation_digest':parsed.digest} in value['allowed_operations'],
+                'SANDBOX_OPERATION_BINDING')
+        require(handle.mode=='HISTORY_ONLY' or parsed.operation_bytes in handle.operation_bytes,
+                'SANDBOX_OPERATION_BINDING')
+        capture.config.registry.validate(operation)
+        return handle,capture
+
+    def restore_capture(self, value):
+        self.require_route_binding(self._binding_owner)
+        root=self.binding_policy.trusted_root/root_member(value['root_ref'])
+        expected_root=(root,value['root_identity'])
+        config=load_host_config(root,trusted_root=self.binding_policy.trusted_root,root_identity=expected_root[1])
+        identity=self._validate_config(config,root_identity=expected_root[1]);self._source_check()
+        provenance=value['provenance'];policy=self.binding_policy
+        from runtime.mission.patchset import observe_source
+        source=observe_source(policy.base_root,repository_id=policy.recipe.repository_id,
+            workspace_id=policy.workspace,source_base_sha=policy.recipe.source_base_sha)
+        require(provenance['repository_recipe_digest']==policy.recipe.digest
+                and provenance['source_snapshot_digest']==policy.source_snapshot.digest
+                and provenance['source_identity']==asdict(source),'SANDBOX_BINDING_SOURCE')
+        raw=_private_bytes(root/'host-config.json',policy.trusted_root,4194304,expected_root=expected_root)
+        capture=CapturedSandboxConfig(config,_config_identity(config),value['config_digest'],
+            hashlib.sha256(raw).hexdigest(),identity,canonical_json_bytes(provenance),None)
+        require(canonical_sha256(json.loads(capture.identity_bytes))==value['config_digest'],
+                'SANDBOX_CAPTURE_CHANGED')
+        prior=self._captures.get(root.name)
+        if prior is not None:
+            require(prior.identity_bytes==capture.identity_bytes
+                    and prior.provenance_bytes==capture.provenance_bytes,'SANDBOX_CONFIG_REBIND')
+            capture=prior
+        else:
+            require(len(self._captures)<policy.max_configs,'SANDBOX_CONFIG_QUOTA')
+            self._captures[root.name]=capture
+        return capture
+
+    def close(self):
+        self._closed=True
+        if self._active_cancel is not None:
+            self._active_cancel.cancel()
 
     def __call__(self, request):
         raise ValueError("LIVE_CORE_GATE_REQUIRED")
@@ -1435,18 +2027,41 @@ class LinuxSandboxBroker:
             type(request) is SandboxDispatchRequest and callable(release_check),
             "LIVE_CORE_GATE_REQUIRED",
         )
-        self.config.registry.validate(
+        config=self.config
+        binding=None
+        if self.binding_policy is not None:
+            binding,capture=self.binding_for_operation(SandboxOperation(request.operation_bytes).to_dict())
+            config=self.revalidate_capture(capture)
+            original_release=release_check
+            def bound_release():
+                require(self.binding_for_operation(SandboxOperation(request.operation_bytes).to_dict())
+                        ==(binding,capture),'SANDBOX_OPERATION_BINDING')
+                self.revalidate_capture(capture)
+                require(cancel is None or not cancel.cancelled,'SANDBOX_CANCELLED')
+                result=original_release()
+                require(not self._closed and (cancel is None or not cancel.cancelled),
+                        'SANDBOX_CANCELLED')
+                return result
+            release_check=bound_release
+        require(not self._closed,'SANDBOX_BROKER_CLOSED')
+        config.registry.validate(
             SandboxOperation(request.operation_bytes).to_dict()
         )
-        p = self.config.profile()
-        inputs = self.config.inputs()[
+        p = config.profile()
+        input_profile = json.loads(request.operation_bytes)['payload'].get('input_profile')
+        require(p.get('input_profile') == input_profile, 'PINNED_INPUT_PROFILE_MISMATCH')
+        input_limits = sandbox_contracts.sandbox_input_limits(input_profile)
+        require(input_profile is None and 'input_limits' not in p
+                or input_profile is not None and p.get('input_limits') == dict(input_limits),
+                'PINNED_INPUT_LIMITS_MISMATCH')
+        inputs = config.inputs()[
             json.loads(request.operation_bytes)["payload"]["recipe_id"]
         ]
         require(
-            canonical_sha256(p) == self.config.profile_digest, "PINNED_PROFILE_CHANGED"
+            canonical_sha256(p) == config.profile_digest, "PINNED_PROFILE_CHANGED"
         )
         for name, pin in p["native"].items():
-            path = self.config.root / (
+            path = config.root / (
                 name + (".bpf" if name.endswith("filter") else "")
             )
             expected = pin["binary_sha256"] if type(pin) is dict else pin
@@ -1465,12 +2080,12 @@ class LinuxSandboxBroker:
                     "bytes": entry["bytes"],
                     "mode": entry["mode"],
                 }
-                for key, entry in self.config.runtime().items()
+                for key, entry in config.runtime().items()
             }
             == p["runtime"],
             "PINNED_RUNTIME_CHANGED",
         )
-        for entry in self.config.runtime().values():
+        for entry in config.runtime().values():
             require(
                 sha(entry["snapshot"]) == entry["sha256"]
                 and stat.S_IMODE(Path(entry["snapshot"]).lstat().st_mode)
@@ -1480,28 +2095,38 @@ class LinuxSandboxBroker:
         for name, path in inputs["files"].items():
             require(sha(path) == inputs["manifest"][name], "PINNED_INPUT_CHANGED")
         release_check()  # early check; independent second check immediately before project ACK
-        run = self.config.root / ("run-" + request.digest)
+        run = config.root / ("run-" + request.digest)
         run.mkdir(mode=0o700, exist_ok=False)
-        sync_directory(self.config.root)
+        sync_directory(config.root)
         worker_config = {
-            "runtime": self.config.runtime(),
+            "runtime": config.runtime(),
             "inputs": inputs["files"],
             "limits": json.loads(request.operation_bytes)["payload"],
-            "gate": str(self.config.root / "worker_gate"),
-            "bootstrap": str(self.config.root / "bootstrap"),
-            "setup_filter": str(self.config.root / "setup_filter.bpf"),
-            "final_filter": str(self.config.root / "final_filter.bpf"),
+            "gate": str(config.root / "worker_gate"),
+            "bootstrap": str(config.root / "bootstrap"),
+            "setup_filter": str(config.root / "setup_filter.bpf"),
+            "final_filter": str(config.root / "final_filter.bpf"),
         }
         config_path = run / "worker.json"
         config_path.write_bytes(
             json.dumps(worker_config, sort_keys=True, separators=(",", ":")).encode()
         )
         config_path.chmod(0o400)
-        return self._run(
-            request, release_check, config_path, run, inputs, cancel=cancel
-        )
+        from runtime.providers.exact import CancellationToken
+        token=cancel if cancel is not None else CancellationToken()
+        self._active_cancel=token
+        try:
+            receipt=self._run(request,release_check,config_path,run,inputs,config=config,
+                              binding=binding,cancel=token)
+            if self.binding_policy is not None and not (receipt.get('cgroup_absent_after_cleanup') is True
+                    and receipt.get('unit_terminal_observed') is True
+                    and receipt.get('cgroup_populated_zero_directly_observed') is True):
+                self._quarantined=True
+            return receipt
+        finally:
+            self._active_cancel=None
 
-    def _run(self, request, release_check, config_path, run, inputs, *, cancel=None):
+    def _run(self, request, release_check, config_path, run, inputs, *, config, binding=None, cancel=None):
         from runtime.mission.repair import RepairBoundaryError, failure_boundary
 
         unit = "aioa-sandbox-" + uuid.uuid4().hex + ".service"
@@ -1515,11 +2140,14 @@ class LinuxSandboxBroker:
             "dispatch_digest": request.digest,
             "request": request.to_dict(),
             "warrant_digest": request.warrant_digest,
-            "profile_digest": self.config.profile_digest,
+            "profile_digest": config.profile_digest,
             "stage": "PREPARED",
             "observations": {},
             "cleanup": [],
         }
+        if binding is not None:
+            receipt.update(job_config_binding_digest=binding.digest,
+                           config_digest=canonical_sha256(json.loads(_config_identity(config))))
         proc = None
         peer = None
         listener = None
@@ -1549,26 +2177,7 @@ class LinuxSandboxBroker:
                     "--expand-environment=no",
                     "--unit=" + unit,
                 ]
-                for prop in [
-                    "Delegate=yes",
-                    "DelegateSubgroup=supervisor",
-                    "Slice=app.slice",
-                    "MemoryMax=536870912",
-                    "MemorySwapMax=0",
-                    "TasksMax=16",
-                    "CPUQuota=100%",
-                    "CPUQuotaPeriodSec=100ms",
-                    "NoNewPrivileges=yes",
-                    "LimitAS=536870912",
-                    "LimitCPU=15",
-                    "LimitFSIZE=8388608",
-                    "LimitCORE=0",
-                    "LimitNOFILE=64",
-                    "RuntimeMaxSec=32s",
-                    "TimeoutStopSec=2s",
-                    "KillMode=control-group",
-                    "UMask=0077",
-                ]:
+                for prop in _systemd_properties(json.loads(request.operation_bytes)):
                     argv += ["--property=" + prop]
                 argv += [
                     "/usr/bin/env",
@@ -1728,7 +2337,7 @@ class LinuxSandboxBroker:
                 with os.fdopen(exe, "rb") as stream:
                     assert (
                         hashlib.sha256(stream.read(1048576)).hexdigest()
-                        == self.config.profile()["native"]["bootstrap"]["binary_sha256"]
+                        == config.profile()["native"]["bootstrap"]["binary_sha256"]
                     )
                 assert not select.select([peerpidfd], [], [], 0)[0]
                 status = Path("/proc/" + str(pid) + "/status").read_text()
@@ -1776,7 +2385,7 @@ class LinuxSandboxBroker:
                     and "ro" in mounts["/proc"]["options"],
                     "KERNEL_ROOT_READONLY_REQUIRED",
                 )
-                for target in self.config.profile()["runtime"]:
+                for target in config.profile()["runtime"]:
                     require(
                         "ro" in mounts[target]["options"],
                         "KERNEL_RUNTIME_READONLY_REQUIRED",
@@ -1806,9 +2415,18 @@ class LinuxSandboxBroker:
                     finally:
                         os.close(scratch_fd)
                 receipt["observations"]["readonly_mounts_verified"] = (
-                    len(self.config.profile()["runtime"]) + len(inputs["files"]) + 2
+                    len(config.profile()["runtime"]) + len(inputs["files"]) + 2
                 )
                 receipt["observations"]["scratch_tmpfs_bytes"] = scratch
+                resource_profile = json.loads(request.operation_bytes)['payload'].get('resource_profile')
+                profile = config.profile()
+                require(profile.get('resource_profile') == resource_profile, 'KERNEL_RESOURCE_PROFILE_MISMATCH')
+                descriptor_limit = 256 if resource_profile in ('HEADLESS_RENDER_V2', 'HEADLESS_RENDER_V3') else 64
+                if resource_profile in ('HEADLESS_RENDER_V2', 'HEADLESS_RENDER_V3'):
+                    require(type(profile.get('descriptor_limit')) is int
+                            and profile['descriptor_limit'] == descriptor_limit, 'KERNEL_DESCRIPTOR_PROFILE_MISMATCH')
+                receipt['observations']['descriptor_limits_before_project_ack'] = _observe_descriptor_limits(
+                    procdir, peerpidfd, expected=descriptor_limit)
                 release_check()
                 peer.sendall(b"Y")
                 receipt["project_code_started"] = True
@@ -1980,10 +2598,10 @@ class LinuxSandboxBroker:
                 stream.flush()
                 os.fsync(stream.fileno())
             sync_directory(run)
-            sync_directory(self.config.root)
+            sync_directory(config.root)
         return receipt
 
-    def verify(self, operation, warrant):
+    def verify(self, operation, warrant, *, request=None):
         from lab.archaioa.evidence import EvidenceRef
         from lab.archaioa.outcome import Applied
         from runtime.mission.liability import Reconciliation
@@ -2001,14 +2619,24 @@ class LinuxSandboxBroker:
                 and inner["payload"]["task_id"] == warrant.task_id,
                 "READBACK_BINDING",
             )
-        self.config.registry.validate(inner)
+        config=self.config
+        binding=None
+        locator=request
+        if self.binding_policy is not None:
+            require(type(locator) is SandboxDispatchRequest,'SANDBOX_HISTORICAL_REQUEST_REQUIRED')
+            binding,capture=self.binding_for_operation(inner,historical=True)
+            config=self.revalidate_capture(capture)
+        config.registry.validate(inner)
         inner_digest = SandboxOperation.parse(inner).digest
         candidates = []
-        for run in self.config.root.glob("run-*"):
+        runs=(config.root/('run-'+locator.digest),) if locator is not None else config.root.glob('run-*')
+        for run in runs:
             path = run / "receipt.json"
             if not path.exists() and not path.is_symlink():
                 continue
-            raw = read_evidence_file(run, "receipt.json")
+            raw = (_private_bytes(path,self.binding_policy.trusted_root,1048576,
+                       expected_root=(config.root,json.loads(capture.root_identity_bytes)))
+                   if binding is not None else read_evidence_file(run, "receipt.json"))
             receipt = json.loads(raw)
             if (
                 receipt.get("operation_digest") == inner_digest
@@ -2021,6 +2649,11 @@ class LinuxSandboxBroker:
         require(stored.pop("schema") == "aioa.sandbox-dispatch.v1", "READBACK_BINDING")
         stored["operation_bytes"] = canonical_json_bytes(stored.pop("operation"))
         request = SandboxDispatchRequest(**stored)
+        if locator is not None:
+            require(request==locator,'READBACK_BINDING')
+        if binding is not None:
+            require(receipt.get('job_config_binding_digest')==binding.digest
+                    and receipt.get('config_digest')==capture.config_digest,'READBACK_BINDING')
         require(
             request.digest == receipt["dispatch_digest"]
             and run.name == "run-" + request.digest
@@ -2032,29 +2665,29 @@ class LinuxSandboxBroker:
         require(
             receipt["status"] == "READBACK_VERIFIED"
             and receipt["cgroup_populated_zero_directly_observed"]
+            and receipt["observations"].get("worker_populated_zero_before_readback") is True
+            and receipt["observations"].get("worker_populated_zero_after_readback") is True
             and receipt["cgroup_absent_after_cleanup"]
             and receipt["unit_terminal_observed"]
-            and receipt["profile_digest"] == self.config.profile_digest,
+            and receipt["profile_digest"] == config.profile_digest,
             "UNRESOLVED_READBACK",
         )
-        expected = self.config.inputs()[inner["payload"]["recipe_id"]]["expected"]
-        for name, pin in expected.items():
-            fd = os.open(
-                run / ("artifact-" + name),
-                os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC,
-            )
-            try:
-                meta = os.fstat(fd)
-                data = os.read(fd, pin["bytes"] + 1)
-                require(
-                    stat.S_ISREG(meta.st_mode)
-                    and meta.st_nlink == 1
-                    and len(data) == pin["bytes"]
-                    and hashlib.sha256(data).hexdigest() == pin["sha256"],
-                    "ARTIFACT_DIGEST_MISMATCH",
-                )
-            finally:
-                os.close(fd)
+        expected = config.inputs()[inner["payload"]["recipe_id"]]["expected"]
+        for name,pin in expected.items():
+            if binding is not None:
+                data=_private_bytes(run/('artifact-'+name),self.binding_policy.trusted_root,pin['bytes'],
+                    expected_root=(config.root,json.loads(capture.root_identity_bytes)))
+            else:
+                # Preserve legacy v1 support for an empty expected artifact.
+                fd=os.open(run/('artifact-'+name),os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK|os.O_CLOEXEC)
+                try:
+                    meta=os.fstat(fd)
+                    data=os.read(fd,pin['bytes']+1)
+                    require(stat.S_ISREG(meta.st_mode) and meta.st_nlink==1,'ARTIFACT_DIGEST_MISMATCH')
+                finally:
+                    os.close(fd)
+            require(len(data)==pin['bytes'] and hashlib.sha256(data).hexdigest()==pin['sha256'],
+                    'ARTIFACT_DIGEST_MISMATCH')
         receipt_id = "sandbox-" + receipt["dispatch_digest"][:32]
         return Reconciliation(
             digest,

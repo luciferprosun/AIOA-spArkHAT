@@ -1,14 +1,17 @@
 """Trusted host port over existing Core; synthetic HTTPS only."""
-from dataclasses import replace
-from decimal import Decimal
 import json
-from pathlib import Path
 import time
 import unittest
+from dataclasses import replace
+from pathlib import Path
 from unittest.mock import patch
 
 import test_meta_model_api as p02
-from runtime.browser_agent.chrome_read_adapter import ChromeReadAdapter, FixtureReadDriver
+
+from runtime.browser_agent.chrome_read_adapter import (
+    ChromeReadAdapter,
+    FixtureReadDriver,
+)
 from runtime.core_admission import Capability
 from runtime.memory_patch.contracts.serialization import canonical_sha256
 from runtime.meta_hackathon.contracts import BrowserTaskV1
@@ -23,9 +26,13 @@ class NativeHostTests(unittest.TestCase):
 
     def setUp(self):
         p02.MetaModelAPITests.setUp(self)
+        self.owned_key_path = Path(self.tmp.name) / 'owned-p03-api-key'
+        with self.owned_key_path.open('x') as stream:
+            stream.write('SYNTHETIC_PROVIDER_TEST_KEY')
+        self.owned_key_path.chmod(0o600)
         _, self.initial = self.live_binding()
         self.manager = ProviderManager(Path(self.tmp.name), meta_only=True)
-        self.manager.configure_meta(MetaModelProvider(mode='LIVE'))
+        self.manager.configure_meta(MetaModelProvider(mode='LIVE',key_path=self.owned_key_path))
         self.driver = FixtureReadDriver()
         self.source = ['1'*40, '0'*64]
         self.service = MissionService(self.initial.ledger, self.manager, ChromeReadAdapter(self.driver),
@@ -71,9 +78,9 @@ class NativeHostTests(unittest.TestCase):
         self.fail('worker timeout')
 
     def test_without_native_binding_run_never_reads_key_or_calls_http(self):
-        with patch.object(self.api,'load_private_key') as key,patch.object(self.api,'_https_once') as http:
-            with self.assertRaisesRegex(ValueError,'OWNER_GO'):
-                self.service.run(self.preview['task_id'],self.preview['preview_digest'],self.owner())
+        with patch.object(self.api,'load_private_key') as key,patch.object(self.api,'_https_once') as http, \
+             self.assertRaisesRegex(ValueError,'OWNER_GO'):
+            self.service.run(self.preview['task_id'],self.preview['preview_digest'],self.owner())
         self.assertEqual((0,0),(key.call_count,http.call_count))
 
     def test_exact_bound_request_uses_existing_manager_core_and_durable_receipt(self):
@@ -83,26 +90,40 @@ class NativeHostTests(unittest.TestCase):
         self.assertNotEqual(self.preview['preview_digest'],bound['preview_digest'])
         body=p02.MetaModelAPITests.response(self)
         body['choices'][0]['message']['tool_calls'][0]['function']['arguments']=json.dumps(request.plan_fields())
-        with patch.object(self.api,'load_private_key',return_value='SYNTHETIC_PROVIDER_TEST_KEY'), \
+        real_metadata=self.api.key_metadata
+        metadata_paths=[];unowned_metadata=[]
+        def owned_metadata(path):
+            if Path(path)!=self.owned_key_path:
+                unowned_metadata.append('DENIED_BEFORE_METADATA')
+                self.fail('P03_METADATA_MUST_USE_OWNED_FIXTURE')
+            metadata_paths.append(Path(path))
+            return real_metadata(path)
+        with patch.object(self.api,'key_metadata',side_effect=owned_metadata), \
+             patch.object(self.api,'load_private_key',return_value='SYNTHETIC_PROVIDER_TEST_KEY') as key, \
              patch.object(self.api,'_https_once',return_value=(200,json.dumps(body).encode())) as http:
             self.service.run(bound['task_id'],bound['preview_digest'],self.owner())
             result=self.wait()
-        self.assertEqual(1,http.call_count)
-        self.assertEqual('BLOCKED',result['state'])
-        self.assertEqual('CHROME_LIVE_BLOCKED_CONTAINMENT',result['error'])
-        self.assertFalse(result['live_verified'])
-        self.assertEqual(0,self.driver.read_count,'LIVE model must never dispatch a fake browser')
-        status=self.service.status(binding.ledger.core.local_operator(Capability.READ))
-        self.assertEqual('COMPLETED',status['provider']['call_state'])
-        self.assertEqual(request.digest,status['provider']['last_live_receipt']['request_digest'])
-        with self.assertRaises(ValueError):self.service.run(bound['task_id'],bound['preview_digest'],self.owner())
+            self.assertEqual([],unowned_metadata)
+            self.assertEqual(1,http.call_count)
+            self.assertEqual('BLOCKED',result['state'])
+            self.assertEqual('CHROME_LIVE_BLOCKED_CONTAINMENT',result['error'])
+            self.assertFalse(result['live_verified'])
+            self.assertEqual(0,self.driver.read_count,'LIVE model must never dispatch a fake browser')
+            status=self.service.status(binding.ledger.core.local_operator(Capability.READ))
+            self.assertEqual('COMPLETED',status['provider']['call_state'])
+            self.assertTrue(status['provider']['key_configured'])
+            self.assertEqual(request.digest,status['provider']['last_live_receipt']['request_digest'])
+            with self.assertRaises(ValueError):self.service.run(bound['task_id'],bound['preview_digest'],self.owner())
+        self.assertEqual([self.owned_key_path,self.owned_key_path],metadata_paths)
+        self.assertEqual([],unowned_metadata)
+        self.assertEqual([self.owned_key_path],[Path(item.args[0]) for item in key.call_args_list])
 
     def test_changed_instruction_arguments_or_capsule_cannot_bind(self):
         task=BrowserTaskV1.parse(self.preview['task'])
         request=MetaPlanRequest(task,'different payload',self.preview['correlation_id'],'.05',capsule_digest=self.source[1])
         request,binding=self.approve(request)
-        with patch.object(self.api,'load_private_key') as key:
-            with self.assertRaises(ValueError):self.service.bind_live_request(self.preview['task_id'],request,binding)
+        with patch.object(self.api,'load_private_key') as key,self.assertRaises(ValueError):
+            self.service.bind_live_request(self.preview['task_id'],request,binding)
         self.assertEqual(0,key.call_count)
 
     def test_another_core_with_same_scope_is_not_a_native_binding(self):
@@ -114,8 +135,8 @@ class NativeHostTests(unittest.TestCase):
     def test_stop_after_binding_prevents_model_and_preserves_no_read_effect(self):
         request,binding=self.approve();bound=self.service.bind_live_request(self.preview['task_id'],request,binding)
         self.service.stop(bound['task_id'],binding.ledger.core.local_operator(Capability.READ))
-        with patch.object(self.api,'_https_once') as http:
-            with self.assertRaises(ValueError):self.service.run(bound['task_id'],bound['preview_digest'],self.owner())
+        with patch.object(self.api,'_https_once') as http,self.assertRaises(ValueError):
+            self.service.run(bound['task_id'],bound['preview_digest'],self.owner())
         self.assertEqual(0,http.call_count);self.assertEqual(0,self.driver.read_count)
 
     def test_live_preview_is_single_active_and_restart_does_not_resume(self):

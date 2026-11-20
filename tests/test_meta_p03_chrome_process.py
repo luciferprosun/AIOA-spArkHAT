@@ -4,11 +4,11 @@ import importlib.util
 import os
 import signal
 import subprocess
-import time
-from pathlib import Path
 import tempfile
 import threading
+import time
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 from runtime.providers.exact import CancellationToken
@@ -44,9 +44,11 @@ class ChromeProcessTests(unittest.TestCase):
 
     def test_cancelled_operation_has_zero_child_launches(self):
         cancel=CancellationToken();cancel.cancel()
-        with patch.object(self.api.subprocess,'Popen') as child:
-            with self.assertRaisesRegex(ValueError,'STOPPED'):
-                self.api.run_bounded(['/usr/bin/python3','-c','print(1)'],cancel,1)
+        with (
+            patch.object(self.api.subprocess,'Popen') as child,
+            self.assertRaisesRegex(ValueError,'STOPPED'),
+        ):
+            self.api.run_bounded(['/usr/bin/python3','-c','print(1)'],cancel,1)
         self.assertEqual(0,child.call_count)
 
     def test_owned_child_stdout_limit_stops_child_and_returns_unknown(self):
@@ -83,7 +85,7 @@ class ChromeProcessTests(unittest.TestCase):
         before=current_source()[1];original=Path.read_bytes
         for suffix in ('/mission/governor.py','/providers/exact.py','/archaioa/warrant.py',
                        '/memory_patch/persistence/ports.py'):
-            def changed(p):
+            def changed(p, suffix=suffix):
                 value=original(p)
                 return value+b'\n# simulated authority drift\n' if str(p).endswith(suffix) else value
             with self.subTest(suffix=suffix),patch.object(Path,'read_bytes',changed):
@@ -98,20 +100,47 @@ class ChromeProcessTests(unittest.TestCase):
 
     def test_review_r4_exited_leader_does_not_leave_pipe_holding_child(self):
         pid_file=Path(self.tmp.name)/'child.pid';owned=[];original=subprocess.Popen
+        cancel=CancellationToken()
         def track(*args,**kwargs):
-            child=original(*args,**kwargs);owned.append(child);return child
+            child=original(*args,**kwargs);owned.append(child)
+            deadline=time.monotonic()+5
+            while time.monotonic()<deadline:
+                # Observe without reaping: production cleanup must retain the
+                # leader PID until it has signalled the owned process group.
+                exited=os.waitid(os.P_PID,child.pid,os.WEXITED|os.WNOHANG|os.WNOWAIT)
+                try:descendant=int(pid_file.read_text())
+                except (OSError,ValueError):descendant=None
+                if exited is not None and descendant is not None:
+                    self.assertEqual(os.getpgid(descendant),child.pid)
+                    cancel.cancel()
+                    return child
+                time.sleep(.01)
+            self.fail('owned fixture did not reach exited-leader/ready-descendant state')
         def cleanup():
+            if owned and owned[0].returncode is None:
+                # A readiness assertion can fail before run_bounded receives
+                # the handle. The fixture still owns that unreaped leader.
+                try:os.killpg(owned[0].pid,signal.SIGKILL)
+                except ProcessLookupError:pass
+                owned[0].wait(timeout=1)
             if not pid_file.exists():return
             pid=int(pid_file.read_text())
             try:
-                if owned and os.getpgid(pid)==owned[0].pid:os.killpg(owned[0].pid,signal.SIGKILL)
+                descriptor=os.pidfd_open(pid)
+                try:
+                    if owned and os.getpgid(pid)==owned[0].pid:
+                        signal.pidfd_send_signal(descriptor,signal.SIGKILL)
+                finally:os.close(descriptor)
             except ProcessLookupError:pass
         self.addCleanup(cleanup)
-        script='import os,time,pathlib;pid=os.fork();\nif pid:os._exit(0)\npathlib.Path('+repr(str(pid_file))+').write_text(str(os.getpid()));time.sleep(3)'
-        cancel=CancellationToken();timer=threading.Timer(.15,cancel.cancel);timer.start();self.addCleanup(timer.cancel)
-        with patch.object(self.api.subprocess,'Popen',side_effect=track):
-            with self.assertRaisesRegex(ValueError,'STOPPED'):
-                self.api.run_bounded(['/usr/bin/python3','-c',script],cancel,1)
+        # Outlive the 5s readiness and 0.5s liveness bounds: natural exit must not
+        # satisfy the post-STOP assertion. Fixture cleanup also owns a pidfd.
+        script='import os,time,pathlib;pid=os.fork();\nif pid:os._exit(0)\npathlib.Path('+repr(str(pid_file))+').write_text(str(os.getpid()));time.sleep(30)'
+        with (
+            patch.object(self.api.subprocess,'Popen',side_effect=track),
+            self.assertRaisesRegex(ValueError,'STOPPED'),
+        ):
+            self.api.run_bounded(['/usr/bin/python3','-c',script],cancel,1)
         self.assertTrue(pid_file.exists())
         pid=int(pid_file.read_text())
         for _ in range(50):
@@ -121,6 +150,18 @@ class ChromeProcessTests(unittest.TestCase):
             if state=='Z':break
             time.sleep(.01)
         else:self.fail('owned descendant remains running after STOP')
+
+    def test_exited_leader_cleanup_survives_slow_interpreter_startup(self):
+        original = subprocess.Popen
+
+        def delayed_start(argv, *args, **kwargs):
+            argv = list(argv)
+            if len(argv) == 3 and argv[1] == '-c' and 'pid=os.fork()' in argv[2]:
+                argv[2] = 'import time;time.sleep(0.6)\n' + argv[2]
+            return original(argv, *args, **kwargs)
+
+        with patch.object(self.api.subprocess, 'Popen', side_effect=delayed_start):
+            self.test_review_r4_exited_leader_does_not_leave_pipe_holding_child()
 
 
 if __name__=='__main__':unittest.main()

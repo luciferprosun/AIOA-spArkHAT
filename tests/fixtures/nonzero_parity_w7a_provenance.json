@@ -1,0 +1,89 @@
+{
+  "source_sha": "392487849eddc7444f5159994b66b72e73f15934",
+  "source_hashes": {
+    "src/aioa_cloudops_agent/domain/__init__.py": {
+      "git_blob": "411534680b4176fa95955f7794b4dc791285bb1c",
+      "sha256": "84cfc24a34d362a3247b6cd436665a4cfb342d49368185e8d453b37e5d3776fd"
+    },
+    "src/aioa_cloudops_agent/domain/approval.py": {
+      "git_blob": "7050b3007a0c058f520782e2c3eaee02c457a970",
+      "sha256": "f56ac6d58f03e7881253aed4256b1403a27a13fbd857504f4bd99e8eda4a9617"
+    },
+    "src/aioa_cloudops_agent/domain/aws_boundary.py": {
+      "git_blob": "7041851ef09adebb41a6ebe9d92c717755db08c5",
+      "sha256": "bd307f5610d98d1b267720e2bb22996676ca316aa0c39f87996c49f76a7bd56b"
+    },
+    "src/aioa_cloudops_agent/domain/enums.py": {
+      "git_blob": "ce47e929fd732a31a76c156e5c39355eefe0d449",
+      "sha256": "5ee865824a7c9b227d1998f13d915687975851998e1e77be357f81c9e573359c"
+    },
+    "src/aioa_cloudops_agent/domain/errors.py": {
+      "git_blob": "de4c904a720f9f10b7eaf937e354bfcccd679327",
+      "sha256": "2c984b765d92e92988d6bfa821879ebc0feb953fff5df0db2371ec36e94a5eff"
+    },
+    "src/aioa_cloudops_agent/domain/identifiers.py": {
+      "git_blob": "72bcbf824128cba1e498043c509d6ecd1ef2bd83",
+      "sha256": "8dc9392f6f60957150f22bc1458d00399e4fe6b5dbfca8a9fa837c163cac54dd"
+    },
+    "src/aioa_cloudops_agent/domain/models.py": {
+      "git_blob": "4590a6f2e4283be8ac89c4c802b1474cd02d3025",
+      "sha256": "a3a1a1305cd4d7d63caf0ff06f9e2c33132422152ce277c6d7bc6dbb5cba34c2"
+    },
+    "src/aioa_cloudops_agent/domain/transitions.py": {
+      "git_blob": "ac727ba55095e685cf804efa77ebd4473428bb74",
+      "sha256": "655e851716a6fae1596778863a008e15e90be18ebee10e15aa596a8102c5f671"
+    },
+    "src/aioa_cloudops_agent/nz/__init__.py": {
+      "git_blob": "dfbb6673b1ff9bb55c46a2820c357fa6843d836b",
+      "sha256": "47d9008685f0f850f661d3527b2ac78f07325a9c2f75e29a71c6e14250355f06"
+    },
+    "src/aioa_cloudops_agent/nz/authority.py": {
+      "git_blob": "2d2d3a3b8720fcc279cf281c963dc3c537a0bae4",
+      "sha256": "164af6cf640a33171e9ffc9b56f28b68f8c049ed112d0b58865fd45b402a5c0f"
+    },
+    "src/aioa_cloudops_agent/nz/contracts.py": {
+      "git_blob": "fb1cd28a5138db7471b6cb445706429e289966b6",
+      "sha256": "dc35dc327117278d397bedf8b0a2ad26d2633ab695216eb46bcf54d392b9c465"
+    },
+    "src/aioa_cloudops_agent/nz/enums.py": {
+      "git_blob": "dc57053357438a7b24e839f94f1cd73f3074a5cb",
+      "sha256": "8d2674f965fa7058041c4405cf382809c45f7a7aa92318eb5a1b176e58397626"
+    },
+    "src/aioa_cloudops_agent/nz/errors.py": {
+      "git_blob": "5562c5591409a6db46d44fbb851673e8f18fdb49",
+      "sha256": "f998fea09079e89e091c7c3a3618c3117df9b53ea144001fdf3bbee852994122"
+    },
+    "src/aioa_cloudops_agent/nz/identifiers.py": {
+      "git_blob": "37a4b151065b7c26ed077d4cbf40cb3aa98ba786",
+      "sha256": "bfd56dadfe8a714b1461fb58a43c3bfb58598e27cfbdb3676dbe1b64a61967c5"
+    },
+    "src/aioa_cloudops_agent/nz/redaction.py": {
+      "git_blob": "48cbb32af765494b8ba69df2cd6a933499b6e69d",
+      "sha256": "3eb65533321ba9cf605139f98d8f3cecf69a9eb0314c8a5e884cca3a32af7c18"
+    },
+    "src/aioa_cloudops_agent/nz/transitions.py": {
+      "git_blob": "612ed41def96fadde58c58ba064d0f7a2e286f3e",
+      "sha256": "fec09cb8c9263bfa5b011adabd18c738f9e922b8654f15ed2a616f9197dd750f"
+    }
+  },
+  "old_golden_fixture_sha256": "863e338c9fe9ccda900d720189a7d139ffcfdb70461636517fdd0d152644deb1",
+  "original_v1_vectors_verified": 5,
+  "original_w7a_pure_contract_transforms": [
+    {
+      "target": "eipalloc-0123456789abcdef0",
+      "original_w7a_intent": "679cfbd17b97a71dd2b9f80e1903acef3f082735b2e4f98d2d1e0509833fccc7",
+      "original_w7a_receipt": "665366e8e3732996aa0a04c697f0d26c1390111f454ae7e09636c5d575ecd06c",
+      "original_w7a_verification": "71f3d6738eca79bfc88731c3ab327c312e5100c7700547f3943b0274b8347805"
+    },
+    {
+      "target": "sg-0123456789abcdef0",
+      "original_w7a_intent": "5fda34da0348c7b03092805f0abfa55b9604a604608950f82ee61cb2d7f0bad6",
+      "original_w7a_receipt": "2b437cb7c0d012a3e7044bbc9c80963bb8768497052b852cd11423dfad00c23f",
+      "original_w7a_verification": "1581720fd622816a8a4be060b75531686c48fd50ffb74961d8ad45e253327bae"
+    }
+  ],
+  "new_fixture_sha256": "fff437d822e617ff4b02bdfc985260a8ea200fc7258e20d8df49c8618432ebc0",
+  "historical_app_or_agent_launched": false,
+  "network": "DENIED",
+  "limitation": "Exact contract delta over unchanged v1-verified native material, not execution of original standalone app. Final tests compare all fixed hashes."
+}

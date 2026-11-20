@@ -5,15 +5,31 @@ A newly ACKed START permits one synthetic fixture step only. No live provider
 or effect executor is imported/wired; every result remains UNVERIFIED advice.
 """
 from dataclasses import asdict
-from datetime import datetime,timezone
+from datetime import UTC, datetime
+
 from runtime.core_admission import Capability
-from runtime.memory_patch.audit import append_domain_event,decode_audit,domain_chain
-from runtime.memory_patch.contracts.serialization import canonical_sha256,canonical_json_bytes,freeze_json
-from runtime.memory_patch.persistence.idempotency import OperationBinding,execute_once
-from runtime.memory_patch.persistence.ports import RecordKind,TransactionContext
-from runtime.mission.governor import ReservationRequest,_deny,_identity,_plain
-from runtime.mission.job_contracts import JobEnvelope,JobClaim
-from runtime.providers.nvidia import ProviderResponse,OUTPUT_SCHEMA
+from runtime.memory_patch.audit import append_domain_event, decode_audit, domain_chain
+from runtime.memory_patch.contracts.serialization import (
+    canonical_json_bytes,
+    canonical_sha256,
+    freeze_json,
+)
+from runtime.memory_patch.persistence.idempotency import OperationBinding, execute_once
+from runtime.memory_patch.persistence.ports import (
+    RecordKind,
+    TransactionContext,
+    TransactionView,
+    _register_history_reader,
+)
+from runtime.mission.governor_contracts import (
+    ReservationRequest,
+    _deny,
+    _identity,
+    _plain,
+)
+from runtime.mission.job_contracts import JobClaim, JobEnvelope
+from runtime.mission.sandbox_bindings import binding_for_job
+from runtime.providers.nvidia import OUTPUT_SCHEMA, ProviderResponse
 from runtime.service_guard.contracts import parse_proposal
 
 KIND='aioa-offline-advisory-job-v1'
@@ -23,7 +39,7 @@ STATES={'QUEUED','CLAIMED','STARTED','UNKNOWN','DONE'}
 def key(gov,task,version):return canonical_sha256((KIND,gov.policy.scope,gov.policy.deployment_id,task,version))
 def reservation_id(gov,task):return 'job-'+key(gov,task,0)
 
-def load_job(gov,tx,task):
+def _validated_job_rows(gov,tx):
     domain_chain(tx)
     records=tx.scan(RecordKind.OPERATION,limit=1024)
     _deny(len(records)<1024,'HISTORY_QUOTA')
@@ -35,7 +51,8 @@ def load_job(gov,tx,task):
         o=p['outcome'];_deny(set(o)=={'job','prior_digest'},'GOVERNOR_INTEGRITY');j=o['job']
         envelope=JobEnvelope.parse(j['envelope'])
         base_keys={'version','envelope','state','claim','result_digest','reservation_id','last_now'}
-        _deny(set(j) in (base_keys,base_keys|{'completion_binding','completion_proof'})
+        completion_keys=base_keys|{'completion_binding','completion_proof'}
+        _deny(set(j) in (base_keys,completion_keys,completion_keys|{'sandbox_binding_digest'})
             and j['state'] in STATES and type(j['version']) is int and 1<=j['version']<=128
             and type(j['last_now']) is int and 0<=j['last_now']<=2**53
             and envelope.scope==gov.policy.scope and row.record_id==key(gov,envelope.task_id,j['version'])
@@ -49,7 +66,10 @@ def load_job(gov,tx,task):
             from runtime.mission.governor import _digest
             _digest(j['result_digest'])
         if 'completion_binding' in j:
-            from runtime.mission.completion import TaskCompletionBinding,validate_completion_proof
+            from runtime.mission.completion import (
+                TaskCompletionBinding,
+                validate_completion_proof,
+            )
             binding=TaskCompletionBinding.parse(j['completion_binding'])
             _deny(binding.scope==gov.policy.scope and binding.task_id==envelope.task_id,'GOVERNOR_INTEGRITY')
             _deny((j['completion_proof'] is not None)==(j['state']=='DONE'),'GOVERNOR_INTEGRITY')
@@ -66,8 +86,17 @@ def load_job(gov,tx,task):
             and outbox.payload['event_id']=='job-'+row.record_id and outbox.payload['proof_id']=='job-outbox-'+row.record_id
             and outbox.payload['event_digest']==event.event_hash
             and outbox.payload['operation_digest']==canonical_sha256({'scope':gov.policy.scope.binding(),'operation':operation}),'GOVERNOR_INTEGRITY')
-        if envelope.task_id==task:found.append(o)
-    current=None
+        found.append(o)
+    return found
+
+
+def load_job(gov,tx,task,*,version=None):
+    rows = (tx._history_read('JOB_ROWS', governor=gov) if isinstance(tx, TransactionView)
+            else _validated_job_rows(gov, tx))
+    found = [outcome for outcome in rows if outcome['job']['envelope']['task_id'] == task]
+    current=None;selected=None
+    _deny(version is None or type(version) is int and 1<=version<=128,
+          'GOVERNOR_INTEGRITY')
     for o in sorted(found,key=lambda row:row['job']['version']):
         _deny(o['job']['version']==(1 if current is None else current['version']+1)
             and o['prior_digest']==canonical_sha256(current),'GOVERNOR_INTEGRITY')
@@ -76,8 +105,19 @@ def load_job(gov,tx,task):
                 _deny(current['state']!='DONE','GOVERNOR_INTEGRITY')
             _deny(canonical_sha256(o['job']['envelope'])==canonical_sha256(current['envelope'])
                 and canonical_sha256(o['job'].get('completion_binding'))==canonical_sha256(current.get('completion_binding'))
-                and o['job']['last_now']>=current['last_now'],'GOVERNOR_INTEGRITY')
+                and o['job'].get('sandbox_binding_digest')==current.get('sandbox_binding_digest')
+                 and o['job']['last_now']>=current['last_now'],'GOVERNOR_INTEGRITY')
         current=_plain(o['job'])
+        if current['version']==version:selected=current
+    if version is not None:
+        _deny(selected is not None,'GOVERNOR_INTEGRITY')
+        current=selected
+    if current is not None:
+        from runtime.mission.completion import TaskCompletionBinding
+        completion=(TaskCompletionBinding.parse(current['completion_binding'])
+                    if 'completion_binding' in current else None)
+        binding_for_job(gov,tx,JobEnvelope.parse(current['envelope']),completion,
+                        current.get('sandbox_binding_digest'))
     return current
 
 
@@ -91,7 +131,7 @@ def write_job(gov,tx,before,job,now):
         append_domain_event(tx,operation,event_id='job-'+operation.idempotency_key,
             proof_id='job-outbox-'+operation.idempotency_key,resource_id=operation.idempotency_key,
             before=before['state'] if before else None,after=job['state'],content_digest=canonical_sha256(job),
-            at=datetime.fromtimestamp(now,timezone.utc))
+            at=datetime.fromtimestamp(now,UTC))
         return outcome
     execute_once(tx,operation,append)
 
@@ -101,13 +141,15 @@ def public(job):
     result={**_plain(job),'authority':'NONE','verification':'UNVERIFIED','transport_scope':'OFFLINE',
         'auto_retry':False,'reconcile_only':job['state'] in ('STARTED','UNKNOWN'),
         'execution_authority':False}
+    if JobEnvelope.parse(job['envelope']).offline_host:
+        result['worker_certification'] = 'NOT_CERTIFIED'
     if 'completion_binding' in job:
         result.update(task_completion='COMPLETED' if job['state']=='DONE' else 'NOT_COMPLETED',
                       completion_scope='LOCAL_NATIVE_REQUIRED_JOB')
     return result
 
 
-def change_job(gov,principal,action,*,task_id=None,envelope=None,worker_id=None,epoch=None,lease_seconds=None,claim=None,response=None,completion=None):
+def change_job(gov,principal,action,*,task_id=None,envelope=None,worker_id=None,epoch=None,lease_seconds=None,claim=None,response=None,completion=None,sandbox_binding_digest=None):
     purpose=Capability.READ if action=='inspect' else Capability.MANAGE if action in ('submit','takeover') else Capability.COMMIT
     gov._require(principal,purpose);now=None if action=='inspect' else gov._now()
     if envelope is not None:
@@ -121,6 +163,13 @@ def change_job(gov,principal,action,*,task_id=None,envelope=None,worker_id=None,
         completion=TaskCompletionBinding.parse(completion.to_dict())
         _deny(completion.scope==gov.policy.scope and completion.task_id==task_id,'INVALID_RESERVATION_REQUEST')
         completion_value=completion.to_dict()
+    if sandbox_binding_digest is not None:
+        from runtime.mission.sandbox_bindings import digest
+        _deny(action=='submit','INVALID_RESERVATION_REQUEST');digest(sandbox_binding_digest)
+    if action == 'submit':
+        _deny(envelope is not None, 'INVALID_RESERVATION_REQUEST')
+        if envelope.offline_host:
+            _deny(completion_value is not None, 'INVALID_RESERVATION_REQUEST')
     if claim is not None:
         _deny(type(claim) is JobClaim,'INVALID_RESERVATION_REQUEST')
         claim=JobClaim(**asdict(claim));task_id=claim.task_id;epoch=claim.governor_epoch
@@ -145,16 +194,24 @@ def change_job(gov,principal,action,*,task_id=None,envelope=None,worker_id=None,
         _deny(state['epoch']>0,'STALE_EPOCH')
         if job is not None:_deny(now>=job['last_now'],'CLOCK_UNSAFE')
         if action=='submit':
+            binding_for_job(gov,tx,envelope,completion,sandbox_binding_digest)
             _deny(envelope.model_id in principal.model_binding_ids,'MODEL_BINDING_DENIED')
             if job is not None:
-                _deny(job['envelope']==envelope.as_dict() and job.get('completion_binding')==completion_value,
+                _deny(job['envelope']==envelope.as_dict() and job.get('completion_binding')==completion_value
+                      and job.get('sandbox_binding_digest')==sandbox_binding_digest,
                       'IDEMPOTENCY_CONFLICT');return public(job)
             _deny(now<envelope.deadline_at,'INVALID_RESERVATION_REQUEST')
             job={'version':0,'envelope':envelope.as_dict(),'state':'QUEUED','claim':None,'result_digest':None,
                 'reservation_id':reservation_id(gov,task_id),'last_now':now};changed=True
             if completion_value is not None:job.update(completion_binding=completion_value,completion_proof=None)
+            if sandbox_binding_digest is not None:job['sandbox_binding_digest']=sandbox_binding_digest
         else:
             _deny(job is not None,'RESERVATION_REQUIRED');env=JobEnvelope.parse(job['envelope'])
+            if action == 'finish':
+                _deny(not env.offline_host, 'INVALID_RESERVATION_REQUEST')
+            if action == 'finish_offline_host':
+                _deny(env.offline_host and response is None and 'completion_binding' in job,
+                      'INVALID_RESERVATION_REQUEST')
             gov._epoch(state,epoch)
             if action in ('claim','takeover'):
                 _deny(not state['kill'],'KILL_SWITCH');_deny(now<env.deadline_at,'INVALID_RESERVATION_REQUEST')
@@ -165,7 +222,7 @@ def change_job(gov,principal,action,*,task_id=None,envelope=None,worker_id=None,
                 if action=='claim':_deny(job['state']=='QUEUED','INVALID_RESERVATION_REQUEST')
                 else:
                     _deny(job['state'] in ('CLAIMED','STARTED','UNKNOWN') and now>=job['claim']['lease_until'],'INVALID_RESERVATION_REQUEST')
-                request=ReservationRequest(job['reservation_id'],task_id,'nebius',env.model_id,env.envelope_digest,env.money_nano,env.risk_units)
+                request=ReservationRequest(job['reservation_id'],task_id,env.provider_id,env.model_id,env.envelope_digest,env.money_nano,env.risk_units)
                 _deny(env.model_id in principal.model_binding_ids,'MODEL_BINDING_DENIED')
                 entry,gov_changed=gov._reserve_state(state,request,epoch,now)
                 if action=='takeover' and job['state']=='CLAIMED' and entry['epoch']!=epoch:
@@ -184,6 +241,8 @@ def change_job(gov,principal,action,*,task_id=None,envelope=None,worker_id=None,
                 _deny(claim is not None and job['claim']==asdict(claim),'STALE_RESERVATION_EPOCH')
                 if action=='begin' and job['state'] in ('STARTED','UNKNOWN','DONE'):
                     return {'fixture_step_now':False,**public(job)}
+                if action == 'finish_offline_host' and job['state'] == 'DONE':
+                    return public(job)
                 if action=='finish' and job['state']=='DONE':
                     _deny(job['result_digest']==result_digest,'IDEMPOTENCY_CONFLICT');return public(job)
                 _deny(now<claim.lease_until and now<env.deadline_at,'STALE_RESERVATION_EPOCH')
@@ -197,6 +256,16 @@ def change_job(gov,principal,action,*,task_id=None,envelope=None,worker_id=None,
                     marker,gov_changed=gov._dispatch_state(state,job['reservation_id'],epoch,now)
                     _deny(marker['dispatch_now'],'DISPATCH_MARKER_REQUIRED')
                     job['state']='STARTED';changed=True
+                elif action == 'finish_offline_host':
+                    from runtime.mission.completion import require_task_completion
+                    _deny(job['state'] == 'STARTED' and not state['kill'], 'INVALID_RESERVATION_REQUEST')
+                    proof = require_task_completion(gov, tx, job)
+                    digest = canonical_sha256({'schema': 'aioa.offline-host-completion.v1',
+                        'envelope_digest': env.envelope_digest, 'completion_proof': proof,
+                        'worker_certification': 'NOT_CERTIFIED'})
+                    _, gov_changed = gov._settle_state(state, job['reservation_id'], epoch, digest)
+                    job.update(state='DONE', result_digest=digest, completion_proof=proof)
+                    changed = True
                 elif action=='finish':
                     _deny(job['state']=='STARTED' and response.model_id==env.model_id and response.request_id==env.request_id,'INVALID_RESERVATION_REQUEST')
                     payload=_plain(response.parsed_payload)
@@ -223,4 +292,9 @@ def change_job(gov,principal,action,*,task_id=None,envelope=None,worker_id=None,
         # the retained marker can only be inspected/reconciled, never restarted.
         after=gov._now()
         result['fixture_step_now']=now<=after<claim.lease_until and after-now<=gov.policy.max_clock_step_seconds
+    if action == 'begin' and JobEnvelope.parse(result['envelope']).offline_host:
+        result['local_step_now'] = result.pop('fixture_step_now')
     return result
+
+
+_register_history_reader('JOB_ROWS', _validated_job_rows)

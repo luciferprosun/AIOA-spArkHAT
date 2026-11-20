@@ -4,12 +4,15 @@ The operation precedes a human session grant. A dispatch request is constructed
 by the trusted Core adapter only after its live START acknowledgement. Its
 digest never feeds back into the operation, completion, grant or warrant.
 """
-from dataclasses import dataclass, fields
-from types import MappingProxyType
 import json
 import re
+from dataclasses import dataclass, fields
+from types import MappingProxyType
 
-from runtime.memory_patch.contracts.serialization import canonical_json_bytes, canonical_sha256
+from runtime.memory_patch.contracts.serialization import (
+    canonical_json_bytes,
+    canonical_sha256,
+)
 from runtime.mission.warrant import require
 
 PYTHON_ARGV = ('/usr/bin/python3.12', '-I', '-S', '-B', '/inputs/recipe.py')
@@ -18,6 +21,33 @@ RESOURCE_CEILINGS = MappingProxyType({
     'cpu_quota_us': 100000, 'cpu_period_us': 100000, 'pids_max': 16,
     'work_bytes': 33554432, 'tmp_bytes': 16777216, 'artifacts_bytes': 8388608,
 })
+RENDER_RESOURCE_CEILINGS = MappingProxyType({**RESOURCE_CEILINGS, 'pids_max': 64})
+RENDER_PROFILE_CEILINGS = MappingProxyType({
+    'HEADLESS_RENDER_V1': RENDER_RESOURCE_CEILINGS,
+    'HEADLESS_RENDER_V2': RENDER_RESOURCE_CEILINGS,
+    'HEADLESS_RENDER_V3': MappingProxyType({**RENDER_RESOURCE_CEILINGS, 'pids_max': 128}),
+})
+
+
+# Input storage policy only. This selector adds no CPU/memory/IPC authority.
+DEFAULT_INPUT_LIMITS = MappingProxyType({
+    'files': 16, 'per_file_bytes': 1048576, 'total_bytes': 16777216,
+})
+SANDBOX_INPUT_PROFILES = MappingProxyType({
+    'PYTEST_WHEELS_V1': MappingProxyType({
+        'files': 24, 'per_file_bytes': 2097152, 'total_bytes': 8388608,
+    }),
+})
+
+
+def sandbox_input_limits(profile):
+    if profile is None:
+        return DEFAULT_INPUT_LIMITS
+    require(type(profile) is str and profile in SANDBOX_INPUT_PROFILES,
+            'INVALID_SANDBOX_INPUT_PROFILE')
+    return SANDBOX_INPUT_PROFILES[profile]
+
+
 PAYLOAD_FIELDS = frozenset({
     'tool', 'workspace', 'task_id', 'step_id', 'recipe_id', 'argv', 'project_root_ref',
     'sandbox_profile_digest', 'tool_input_digest', 'network_profile', 'env_policy_digest',
@@ -53,9 +83,19 @@ class SandboxOperation:
         _digest(operation['target_fingerprint'], prefixed=True)
         _identity(operation['expected_target_revision'])
         payload = operation['payload']
-        require(type(payload) is dict and set(payload) == PAYLOAD_FIELDS
+        require(type(payload) is dict and set(payload) in (PAYLOAD_FIELDS, PAYLOAD_FIELDS | {'resource_profile'},
+                                                         PAYLOAD_FIELDS | {'input_profile'})
                 and payload['tool'] == 'run_recipe' and payload['network_profile'] == 'OFF',
                 'INVALID_SANDBOX_OPERATION')
+        ceilings = RESOURCE_CEILINGS
+        if 'input_profile' in payload:
+            require(payload['input_profile'] is not None, 'INVALID_SANDBOX_INPUT_PROFILE')
+            sandbox_input_limits(payload['input_profile'])
+        if 'resource_profile' in payload:
+            require(type(payload['resource_profile']) is str
+                    and payload['resource_profile'] in RENDER_PROFILE_CEILINGS,
+                    'INVALID_SANDBOX_RESOURCE_PROFILE')
+            ceilings = RENDER_PROFILE_CEILINGS[payload['resource_profile']]
         for name in ('workspace', 'task_id', 'step_id', 'recipe_id', 'project_root_ref'):
             _identity(payload[name])
         for name in ('sandbox_profile_digest', 'tool_input_digest', 'env_policy_digest'):
@@ -64,7 +104,7 @@ class SandboxOperation:
         # A future executable/argv profile needs a separately reviewed registry.
         require(type(payload['argv']) is list and tuple(payload['argv']) == PYTHON_ARGV,
                 'UNAPPROVED_SANDBOX_ARGV')
-        for name, ceiling in RESOURCE_CEILINGS.items():
+        for name, ceiling in ceilings.items():
             require(type(payload[name]) is int and 0 < payload[name] <= ceiling,
                     'INVALID_SANDBOX_LIMIT')
         require(payload['cpu_quota_us'] <= payload['cpu_period_us'], 'INVALID_SANDBOX_LIMIT')
@@ -135,7 +175,13 @@ SYNTHETIC = ToolVariant('PROJECT_WRITE', 'write_file', 'synthetic', 'SYNTHETIC_O
                         'synthetic-tool-reservation')
 SANDBOX = ToolVariant('SANDBOX_EXEC', 'run_recipe', 'sandbox-exec', 'SANDBOX',
                       'sandbox-tool-reservation')
-TOOL_POLICY_VERSIONS = MappingProxyType({1: (SYNTHETIC,), 2: (SYNTHETIC, SANDBOX)})
+PORTABLE = ToolVariant('PORTABLE_RELEASE_ELASTIC_IP', 'release_elastic_ip', 'portable-local',
+                       'PORTABLE_LOCAL', 'portable-tool-risk-reservation')
+PORTABLE_REARM = ToolVariant('PORTABLE_REARM_DEMO_V1', 'rearm_demo', 'portable-local',
+                             'PORTABLE_LOCAL', 'portable-tool-risk-reservation')
+# Exact-owner synthetic policy; all D10 profiles and legacy policies retained.
+TOOL_POLICY_VERSIONS = MappingProxyType({1: (SYNTHETIC,), 2: (SYNTHETIC, SANDBOX),
+                                       3: (SYNTHETIC,), 4: (PORTABLE,), 5: (PORTABLE_REARM,)})
 
 
 def tool_variant(revision, operation_class):
@@ -162,6 +208,8 @@ class SandboxRecipe:
     tmp_bytes: int = 16777216
     artifacts_bytes: int = 8388608
     argv: tuple[str, ...] = PYTHON_ARGV
+    resource_profile: str | None = None
+    input_profile: str | None = None
 
     def __post_init__(self):
         require(type(self.argv) is tuple, 'INVALID_SANDBOX_RECIPE')
@@ -172,6 +220,10 @@ class SandboxRecipe:
     def payload(self, workspace, task_id, step_id):
         result = {field.name: getattr(self, field.name) for field in fields(self)}
         result['argv'] = list(self.argv)
+        if self.resource_profile is None:
+            result.pop('resource_profile')
+        if self.input_profile is None:
+            result.pop('input_profile')
         return {**result, 'tool': 'run_recipe', 'workspace': workspace, 'task_id': task_id,
                 'step_id': step_id, 'network_profile': 'OFF'}
 

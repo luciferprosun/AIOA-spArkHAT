@@ -8,6 +8,7 @@ runtime/nonzero_cloudops/LICENSE-NONZERO.txt. No executor or authority store.
 from __future__ import annotations
 
 import hashlib
+import json
 import re
 import threading
 import time
@@ -17,11 +18,18 @@ from typing import Protocol, runtime_checkable
 
 from runtime.memory_patch.contracts.serialization import canonical_sha256
 from runtime.mission.contracts import bounded_int, logical_id
-from runtime.nonzero_cloudops.models.redaction import contains_sensitive_material
+from runtime.secret_redaction import contains_sensitive_material
 
 
 class WorkerError(ValueError):
     """Stable, value-free boundary failure."""
+
+
+class WorkerOutcomeUnknown(WorkerError):
+    """A bound transport outcome is uncertain; this is never retry permission."""
+
+    def __init__(self):
+        super().__init__("WORKER_OUTCOME_UNKNOWN")
 
 
 def require(value, code):
@@ -39,6 +47,7 @@ class Task:
     instruction: str = field(repr=False)
     deadline_at: int
     max_events: int = 64
+    max_output_tokens: int = 1024
 
     def __post_init__(self):
         for value in (self.task_id, self.run_id, self.workspace_id, self.repository_id):
@@ -50,6 +59,7 @@ class Task:
         )
         bounded_int(self.deadline_at, 1, 2**53)
         bounded_int(self.max_events, 1, 256)
+        bounded_int(self.max_output_tokens, 1, 4096)
         require(
             type(self.instruction) is str
             and 1 <= len(self.instruction.encode("utf-8")) <= 8192
@@ -58,7 +68,12 @@ class Task:
         )
 
     def to_dict(self):
-        return asdict(self)
+        value = asdict(self)
+        # The v1 task format predates transport budgets. Its fixed legacy
+        # default remains implicit to preserve every signed receipt digest.
+        if self.max_output_tokens == 1024:
+            value.pop("max_output_tokens")
+        return value
 
     @property
     def digest(self):
@@ -211,6 +226,7 @@ class WorkerFailure:
                 "CLOSED",
                 "NOT_CERTIFIED",
                 "PROTOCOL",
+                "OUTCOME_UNKNOWN",
                 "LATE_EVENT",
                 "EVENT_LIMIT",
             ),
@@ -219,6 +235,8 @@ class WorkerFailure:
 
     @property
     def status(self):
+        if self.code == "OUTCOME_UNKNOWN":
+            return "UNKNOWN"
         return (
             "CANCELLED"
             if self.code in ("CANCELLED", "INTERRUPTED", "CLOSED")
@@ -313,6 +331,62 @@ class WorkerMailbox:
                 )
             return self._terminal
 
+    def complete_json(self, session, raw, *, completion_tokens):
+        """Admit one inert, budgeted transport message into this owned mailbox.
+
+        Usage is attested separately by the trusted transport, never by fields
+        in model JSON. This launches nothing and grants no effect authority.
+        Cancellation, stale handles and late messages use the same lifecycle.
+        """
+        with self._lock:
+            self._check(session)
+            if not self._ready():
+                return self._terminal
+
+            def unique_fields(pairs):
+                result = {}
+                for key, value in pairs:
+                    require(key not in result, "CANDIDATE_DUPLICATE_FIELD")
+                    result[key] = value
+                return result
+
+            def no_constant(_value):
+                raise WorkerError("CANDIDATE_NONFINITE_JSON")
+
+            try:
+                bounded_int(completion_tokens, 1, self.task.max_output_tokens)
+                require(
+                    type(raw) is bytes
+                    and 1 <= len(raw) <= min(65536, self.task.max_output_tokens * 16),
+                    "CANDIDATE_MESSAGE_BOUNDS",
+                )
+                payload = json.loads(
+                    raw.decode("utf-8"), object_pairs_hook=unique_fields,
+                    parse_constant=no_constant,
+                )
+                require(
+                    type(payload) is dict and set(payload) == {
+                        "schema", "task_id", "run_id", "session_id", "task_digest", "files",
+                    }
+                    and payload["schema"] == "aioa.worker-candidate.v1"
+                    and payload["task_id"] == self.task.task_id
+                    and payload["run_id"] == self.task.run_id
+                    and payload["session_id"] == session.session_id
+                    and payload["task_digest"] == self.task.digest,
+                    "CANDIDATE_MESSAGE_BINDING",
+                )
+                files = payload["files"]
+                require(
+                    type(files) is list and 1 <= len(files) <= 3
+                    and all(type(item) is dict and set(item) == {"path", "text"} for item in files),
+                    "CANDIDATE_FILE_SCHEMA",
+                )
+                candidate = CandidatePatch(tuple(CandidateFile(**item) for item in files))
+            except (ValueError, TypeError, UnicodeError, RecursionError):
+                self._fail("PROTOCOL")
+                return self._terminal
+            return self.complete(session, candidate)
+
     def fail(self, session, code):
         with self._lock:
             self._check(session)
@@ -326,6 +400,7 @@ class WorkerMailbox:
                     "CLOSED",
                     "NOT_CERTIFIED",
                     "PROTOCOL",
+                    "OUTCOME_UNKNOWN",
                 ),
                 "FAILURE_CODE",
             )

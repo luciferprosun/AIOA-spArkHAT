@@ -1,29 +1,34 @@
 """NV09 LOCAL TEST composition: real disposable target, explicit file DB fixture."""
 
-from datetime import datetime, timezone
 import json
 import os
-from pathlib import Path
 import secrets
 import select
 import subprocess
 import sys
 import time
+from datetime import UTC, datetime
+from pathlib import Path
 
-from main import create_runtime
 from live_gate_support import test_live_gate
+from main import create_runtime
 from nv03_support import DurableFactory
 from test_nv02_lite import FixtureTransport
-from runtime.core_admission import Capability, CoreAdmission, LocalOwnerAssignment, OwnerScope
+
+from runtime.core_admission import (
+    Capability,
+    CoreAdmission,
+    LocalOwnerAssignment,
+    OwnerScope,
+)
 from runtime.memory_patch.persistence.ports import TransactionRunner
 from runtime.mission.contracts import MissionContext
-from runtime.mission.lite_contracts import LiteBudget, LiteCadence, LiteProfile, MODEL
+from runtime.mission.lite_contracts import MODEL, LiteBudget, LiteCadence, LiteProfile
 from runtime.mission.lite_runtime import LiteBindings
 from runtime.providers.nvidia import NvidiaProvider
 from runtime.service_guard.contracts import EFFECT, ServicePolicy
 from runtime.service_guard.service import CoreServiceGuard, GuardLoopBinding
 from runtime.service_guard.target import DisposableTargetState, LoopbackTargetClient
-
 
 SCOPE = OwnerScope("nv09-test-tenant", "nv09-test-owner", "nv09-test-space", "nv09-test-slot")
 
@@ -43,6 +48,82 @@ def response(value):
         "usage": {"prompt_tokens": 20, "completion_tokens": 80, "total_tokens": 100}}).encode()
 
 
+_TARGET_READY_SECONDS = 10
+_TARGET_READY_BYTES = 1024
+_TARGET_STDERR_BYTES = 32768
+
+
+def _ready_fields(pairs):
+    result = {}
+    for name, value in pairs:
+        if name in result:
+            raise ValueError('duplicate READY field')
+        result[name] = value
+    return result
+
+
+def _target_ready_port(process, target_id):
+    """Read one bounded READY frame, draining private stderr without echoing it."""
+    deadline = time.monotonic() + _TARGET_READY_SECONDS
+    output, stderr_bytes = bytearray(), 0
+    streams = (process.stderr, process.stdout)
+    original_blocking = [(stream, os.get_blocking(stream.fileno())) for stream in streams]
+    try:
+        for stream in streams:
+            os.set_blocking(stream.fileno(), False)
+        watched = list(streams)
+        while True:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise AssertionError('LOCAL_TARGET_READY_TIMEOUT')
+            readable = select.select(watched, [], [], remaining)[0]
+            if not readable:
+                raise AssertionError('LOCAL_TARGET_READY_TIMEOUT')
+            for stream in readable:
+                while True:
+                    if time.monotonic() >= deadline:
+                        raise AssertionError('LOCAL_TARGET_READY_TIMEOUT')
+                    try:
+                        chunk = os.read(stream.fileno(), 4096)
+                    except BlockingIOError:
+                        break
+                    if not chunk:
+                        if stream is process.stdout:
+                            raise AssertionError('LOCAL_TARGET_READY_EOF')
+                        watched.remove(stream)
+                        break
+                    if stream is process.stderr:
+                        stderr_bytes += len(chunk)
+                        if stderr_bytes > _TARGET_STDERR_BYTES:
+                            raise AssertionError('LOCAL_TARGET_STARTUP_STDERR_LIMIT')
+                        continue
+                    output.extend(chunk)
+                    if len(output) > _TARGET_READY_BYTES:
+                        raise AssertionError('LOCAL_TARGET_READY_LIMIT')
+                    if b'\n' not in output:
+                        continue
+                    line, trailing = bytes(output).split(b'\n', 1)
+                    try:
+                        ready = json.loads(line.decode('utf-8'), object_pairs_hook=_ready_fields)
+                        valid = (not trailing and type(ready) is dict
+                                 and set(ready) == {'port', 'target_id'}
+                                 and type(ready['port']) is int and 1024 <= ready['port'] <= 65535
+                                 and type(ready['target_id']) is str and ready['target_id'] == target_id)
+                    except (ValueError, UnicodeError, RecursionError):
+                        valid = False
+                    if not valid:
+                        raise AssertionError('LOCAL_TARGET_READY_INVALID') from None
+                    if process.poll() is not None:
+                        raise AssertionError('LOCAL_TARGET_READY_EOF')
+                    return ready['port']
+    finally:
+        for stream, blocking in original_blocking:
+            try:
+                os.set_blocking(stream.fileno(), blocking)
+            except (OSError, ValueError):
+                pass
+
+
 class LocalTarget:
     def __init__(self, root, *, scope=SCOPE, target_id="disposable-nv09", drop_ack=False):
         # Bind a relative root to the caller before changing the child cwd.
@@ -51,35 +132,37 @@ class LocalTarget:
         self.config = {"root": str(self.root), "scope": list(scope.binding()),
                        "target_id": target_id, "key": self.key.hex(), "drop_ack": drop_ack}
         # The reviewer may launch from outside the checkout with no PYTHONPATH.
-        self.process = subprocess.Popen([sys.executable, "-B", "-m", "runtime.service_guard.target"],
-            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-            cwd=Path(__file__).resolve().parents[1],
-            env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"})
-        self.process.stdin.write(json.dumps(self.config).encode() + b"\n")
-        self.process.stdin.close()
-        if not select.select([self.process.stdout], [], [], 10)[0]:
+        self.process = None
+        try:
+            self.process = subprocess.Popen([sys.executable, "-B", "-m", "runtime.service_guard.target"],
+                stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                cwd=Path(__file__).resolve().parents[1],
+                env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"})
+            self.process.stdin.write(json.dumps(self.config).encode() + b"\n")
+            self.process.stdin.close()
+            self.port = _target_ready_port(self.process, target_id)
+            self.client = LoopbackTargetClient(port=self.port, scope=scope, target_id=target_id, key=self.key)
+            self.state = DisposableTargetState(self.root, scope, target_id)
+        except BaseException:
             self.close()
-            raise AssertionError("disposable target readiness deadline")
-        line = self.process.stdout.readline()
-        if not line:
-            error = self.process.stderr.read().decode()
-            self.close()
-            raise AssertionError("target startup failed: " + error)
-        self.port = json.loads(line)["port"]
-        self.client = LoopbackTargetClient(port=self.port, scope=scope, target_id=target_id, key=self.key)
-        self.state = DisposableTargetState(self.root, scope, target_id)
+            raise
 
     def close(self):
-        if self.process.poll() is None:
-            self.process.terminate()
-            try:
-                self.process.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                self.process.kill()
-                self.process.wait(timeout=5)
-        for pipe in (self.process.stdout, self.process.stderr):
-            if pipe is not None:
-                pipe.close()
+        process = getattr(self, 'process', None)
+        if process is None:
+            return
+        try:
+            if process.poll() is None:
+                process.terminate()
+                try:
+                    process.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    process.kill()
+                    process.wait(timeout=5)
+        finally:
+            for pipe in (process.stdin, process.stdout, process.stderr):
+                if pipe is not None:
+                    pipe.close()
 
 
 class GuardFixture:
@@ -91,7 +174,7 @@ class GuardFixture:
         self.clock = clock or (lambda: self.clock_value)
         self.core = CoreAdmission(LocalOwnerAssignment(self.scope, frozenset(Capability),
             frozenset({"disposable-service",*extra_hat_ids}), frozenset({model_id}), operator_approved=True),
-            clock=lambda: datetime.fromtimestamp(self.clock(), timezone.utc))
+            clock=lambda: datetime.fromtimestamp(self.clock(), UTC))
         self.factory = factory or DurableFactory(self.root / "native-fixture.json")
         self.runner = TransactionRunner(self.core, self.factory)
         self.policy = ServicePolicy(self.scope, client.target_id)
