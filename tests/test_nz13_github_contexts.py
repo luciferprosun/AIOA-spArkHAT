@@ -159,6 +159,50 @@ class RichGitHubContextTests(unittest.TestCase):
         self.assertFalse(data['pagination']['truncated'])
         self.assertEqual(2, data['pagination']['pages_read'])
 
+    def test_actions_full_first_page_is_complete_at_exact_total(self):
+        fixture = RichContextFixture()
+        fixture.add_pages('actions/runs', [fixture.action(i) for i in range(1, 11)])
+        data = self.read(fixture, OPERATIONS[3])['data']
+        self.assertEqual(10, len(data['items']))
+        self.assertEqual(1, data['pagination']['pages_read'])
+        self.assertFalse(data['pagination']['truncated'])
+        self.assertNotIn(fixture.page_endpoint('actions/runs', 2), fixture.calls)
+
+    def test_actions_two_full_pages_are_complete_at_exact_total(self):
+        fixture = RichContextFixture()
+        fixture.add_pages('actions/runs', [fixture.action(i) for i in range(1, 11)],
+                          [fixture.action(i) for i in range(11, 21)])
+        data = self.read(fixture, OPERATIONS[3])['data']
+        self.assertEqual(list(range(1, 21)), [item['run_id'] for item in data['items']])
+        self.assertEqual(2, data['pagination']['pages_read'])
+        self.assertFalse(data['pagination']['truncated'])
+
+    def test_actions_beyond_page_limit_are_reported_as_truncated(self):
+        fixture = RichContextFixture()
+        fixture.add_pages('actions/runs', [fixture.action(i) for i in range(1, 11)],
+                          [fixture.action(i) for i in range(11, 21)])
+        for page in (1, 2):
+            fixture.responses[fixture.page_endpoint('actions/runs', page)]['total_count'] = 21
+        data = self.read(fixture, OPERATIONS[3])['data']
+        self.assertEqual(20, len(data['items']))
+        self.assertEqual(2, data['pagination']['pages_read'])
+        self.assertTrue(data['pagination']['truncated'])
+        self.assertNotIn(fixture.page_endpoint('actions/runs', 3), fixture.calls)
+
+    def test_actions_short_page_with_more_reported_rows_is_inconsistent(self):
+        fixture = RichContextFixture()
+        fixture.responses[fixture.page_endpoint('actions/runs', 1)]['total_count'] = 2
+        with self.assertRaisesRegex(ValueError, 'GITHUB_CONTEXT_PAGE'):
+            self.read(fixture, OPERATIONS[3])
+
+    def test_actions_count_changes_between_pages_is_inconsistent(self):
+        fixture = RichContextFixture()
+        fixture.add_pages('actions/runs', [fixture.action(i) for i in range(1, 11)],
+                          [fixture.action(11)])
+        fixture.responses[fixture.page_endpoint('actions/runs', 2)]['total_count'] = 12
+        with self.assertRaisesRegex(ValueError, 'GITHUB_CONTEXT_PAGE_CHANGED'):
+            self.read(fixture, OPERATIONS[3])
+
     def test_duplicate_items_across_pages_fail_closed(self):
         fixture = RichContextFixture()
         fixture.add_pages('issues', [fixture.issue(i) for i in range(1, 11)], [fixture.issue(1)])
@@ -252,7 +296,8 @@ class RichGitHubContextTests(unittest.TestCase):
             self.read(fixture, OPERATIONS[1])
 
     def test_auth_or_rate_error_stops_once_without_retry_or_error_body(self):
-        for code in ('GITHUB_PERMISSION_403', 'GITHUB_NOT_FOUND_404', 'GITHUB_RATE_LIMIT_429'):
+        for code in ('GITHUB_AUTHENTICATION_401', 'GITHUB_PERMISSION_403', 'GITHUB_NOT_FOUND_404',
+                     'GITHUB_RATE_LIMIT_429', 'TOOL_READ_TIMEOUT'):
             with self.subTest(code=code):
                 fixture = RichContextFixture()
                 original = fixture.get

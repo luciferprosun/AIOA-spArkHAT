@@ -623,6 +623,7 @@ def _rich_repository_context(operation, check, deadline):
              'github.actions': ('actions/runs', _rich_action)}
     if operation in kinds:
         kind, project = kinds[operation]
+        total_count = None
         for page in (1, 2):
             query = '' if kind == 'actions/runs' else 'state=all&'
             endpoint = prefix + '/' + kind + '?' + query + 'per_page=10&page=' + str(page)
@@ -631,9 +632,13 @@ def _rich_repository_context(operation, check, deadline):
             check()
             if kind == 'actions/runs':
                 _require(type(rows) is dict, 'GITHUB_CONTEXT_PAGE')
-                _rich_integer(rows.get('total_count'), minimum=0)
+                count = _rich_integer(rows.get('total_count'), minimum=0)
+                _require(total_count is None or count == total_count, 'GITHUB_CONTEXT_PAGE_CHANGED')
+                total_count = count
                 rows = rows.get('workflow_runs')
             _require(type(rows) is list and len(rows) <= 10, 'GITHUB_CONTEXT_PAGE')
+            if total_count is not None:
+                _require(len(seen) + len(rows) == min(page * 10, total_count), 'GITHUB_CONTEXT_PAGE')
             pages += 1
             for row in rows:
                 _require(type(row) is dict, 'GITHUB_CONTEXT_ITEM')
@@ -643,9 +648,14 @@ def _rich_repository_context(operation, check, deadline):
                 if kind == 'issues' and 'pull_request' in row:
                     continue
                 items.append(project(row))
-            if len(rows) < 10:
+            if total_count is not None:
+                truncated = len(seen) < total_count
+                if not truncated:
+                    break
+            elif len(rows) < 10:
                 break
-            truncated = page == 2
+            else:
+                truncated = page == 2
     check()
     final = _github_json(prefix + '/git/ref/heads/main', check=check, deadline=deadline)
     check()

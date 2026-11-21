@@ -7865,8 +7865,8 @@
   "target_modules": {
     "runtime/mission/worker.py": {
       "path": "runtime/mission/worker.py",
-      "git_blob": "9a80834b1763e437c33d7548f1d179bc791ab70b",
-      "sha256": "3019c401863eb84cd65426004abc7a078efd2464eafbf692b4fe96e8e211cf5b",
+      "git_blob": "9ddd3b891536298a94ac6bb8e3cb99206b33e0a6",
+      "sha256": "b8a9ef2319766b3c5b5351fb4ef883893eeeaf7cc7df14a6e8b11e71c412bf4b",
       "definitions": [
         {
           "name": "WorkerError",
@@ -7918,7 +7918,7 @@
         },
         {
           "name": "SyntheticWorker",
-          "line": 427
+          "line": 429
         },
         {
           "name": "__init__",
@@ -8030,67 +8030,67 @@
         },
         {
           "name": "progress",
-          "line": 313
+          "line": 317
         },
         {
           "name": "complete",
-          "line": 318
+          "line": 322
         },
         {
           "name": "complete_json",
-          "line": 334
+          "line": 336
         },
         {
           "name": "fail",
-          "line": 390
+          "line": 392
         },
         {
           "name": "drain",
-          "line": 410
+          "line": 412
         },
         {
           "name": "result",
-          "line": 419
+          "line": 421
         },
         {
           "name": "__init__",
-          "line": 430
+          "line": 432
         },
         {
           "name": "start",
-          "line": 442
+          "line": 444
         },
         {
           "name": "_mailbox",
-          "line": 455
+          "line": 457
         },
         {
           "name": "poll",
-          "line": 460
+          "line": 462
         },
         {
           "name": "result",
-          "line": 473
+          "line": 475
         },
         {
           "name": "cancel",
-          "line": 476
+          "line": 478
         },
         {
           "name": "interrupt",
-          "line": 479
+          "line": 481
         },
         {
           "name": "close",
-          "line": 482
+          "line": 484
         },
         {
           "name": "unique_fields",
-          "line": 346
+          "line": 348
         },
         {
           "name": "no_constant",
-          "line": 353
+          "line": 355
         }
       ],
       "symbolic_callees": [
@@ -8115,6 +8115,7 @@
         "canonical_sha256",
         "contains_sensitive_material",
         "dataclass",
+        "enumerate",
         "f.text.encode",
         "field",
         "hashlib.sha256",
@@ -8135,8 +8136,8 @@
         "self._box.fail",
         "self._box.result",
         "self._check",
-        "self._events.append",
         "self._events.clear",
+        "self._events.extend",
         "self._fail",
         "self._mailbox",
         "self._mailbox().fail",
@@ -8158,8 +8159,8 @@
         "uuid.uuid4",
         "value.pop"
       ],
-      "call_site_count": 164,
-      "call_sites_sha256": "4214eabb4b0427f1b3f905c5af9ab8654f7ad2f5b0a5f9d3105ad1b259f7e743"
+      "call_site_count": 165,
+      "call_sites_sha256": "3ece61ee14d6a4e6ded4d613cf3b165312256c6114854c63c56a826b8c79428b"
     },
     "runtime/mission/codex_worker.py": {
       "path": "runtime/mission/codex_worker.py",
@@ -17410,8 +17411,8 @@
     },
     "runtime/mcp_bridge/native_read.py": {
       "path": "runtime/mcp_bridge/native_read.py",
-      "git_blob": "279289e4dc3b4623bd0cf51f176e0f47e084f1d8",
-      "sha256": "f29d9aeb74e4dfad0a935754cf61214816fde6f37115b3fc81fa6060fbe7a4b1",
+      "git_blob": "bbc5871853153f7bebd6243b2a789ecb8c96c25a",
+      "sha256": "6b20b7bb7ec17a94794ab5868868cd235f73f546fe59036eb068d55b4132e6eb",
       "definitions": [
         {
           "name": "_require",
@@ -17527,7 +17528,7 @@
         },
         {
           "name": "read",
-          "line": 674
+          "line": 684
         },
         {
           "name": "get",
@@ -17535,14 +17536,13 @@
         },
         {
           "name": "check",
-          "line": 679
+          "line": 689
         },
         {
           "name": "validate",
           "line": 111
         }
       ],
-      "call_site_count": 607,
       "symbolic_callees": [
         "<dynamic>.encode",
         "<dynamic>.join",
@@ -17686,7 +17686,8 @@
         "yaml.scan",
         "zip"
       ],
-      "call_sites_sha256": "a9ba68634f628a4e8706c3e1a24a44096b1befc33f108ff0714fdff4dbc6e6a1"
+      "call_site_count": 613,
+      "call_sites_sha256": "a9e9123fe164e1d5b0c7fb9cc25dad9a178e486656e4e8a90ebf9ed3807e7e96"
     },
     "runtime/mission/target_projection.py": {
       "path": "runtime/mission/target_projection.py",
