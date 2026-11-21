@@ -249,6 +249,32 @@ class PatchSet:
         self._validate()
         object.__setattr__(self, "patchset_sha256", canonical_sha256(self.payload()))
 
+    @classmethod
+    def from_record(cls, value):
+        """Validate the existing JSON representation stored in Core receipts."""
+        _require(type(value) is dict, "PATCHSET_RECORD_SCHEMA")
+        data = dict(value)
+        try:
+            expected_digest = data.pop("patchset_sha256")
+            files = data.pop("files")
+            _require(
+                type(files) is list and 1 <= len(files) <= MAX_FILES_CHANGED,
+                "PATCHSET_FILE_BOUND",
+            )
+            changes = []
+            for file in files:
+                _require(type(file) is dict, "PATCHSET_RECORD_SCHEMA")
+                change = dict(file)
+                for side in ("before", "after"):
+                    if change[side] is not None:
+                        change[side] = FileIdentity(**change[side])
+                changes.append(FileChange(**change))
+            patch = cls(**data, files=tuple(changes))
+        except (KeyError, TypeError, UnicodeError):
+            raise PatchSetPolicyDenied("PATCHSET_RECORD_SCHEMA") from None
+        _require(patch.patchset_sha256 == expected_digest, "PATCHSET_HASH_ALTERED")
+        return patch
+
     def _validate(self):
         for value in (
             self.task_id,

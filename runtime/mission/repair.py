@@ -187,6 +187,41 @@ class RepairLoopResult:
         data.pop("receipt_sha256", None)
         object.__setattr__(self, "receipt_sha256", canonical_sha256(data))
 
+    @classmethod
+    def from_record(cls, value):
+        """Decode the persisted receipt without granting authority or rerunning it."""
+        require(type(value) is dict, "LOOP_RECORD_SCHEMA")
+        data = dict(value)
+        try:
+            expected_digest = data.pop("receipt_sha256")
+            require(canonical_sha256(data) == expected_digest, "LOOP_RECORD_DIGEST")
+            attempts = data.pop("attempts")
+            history = data.pop("history")
+            patch = data.pop("final_patchset")
+            require(
+                type(attempts) is list and len(attempts) <= 3
+                and type(history) is list and len(history) <= 32
+                and all(type(state) is str for state in history),
+                "LOOP_RECORD_SCHEMA",
+            )
+            decoded = []
+            for attempt in attempts:
+                require(type(attempt) is dict, "LOOP_RECORD_SCHEMA")
+                item = dict(attempt)
+                steps = item.pop("steps")
+                require(type(steps) is list and len(steps) <= len(TEST_STAGES), "LOOP_RECORD_SCHEMA")
+                decoded.append(AttemptReceipt(
+                    **item, steps=tuple(ValidationStep(**step) for step in steps),
+                ))
+            result = cls(
+                **data, history=tuple(history), attempts=tuple(decoded),
+                final_patchset=None if patch is None else PatchSet.from_record(patch),
+            )
+        except (KeyError, TypeError, UnicodeError):
+            raise ValueError("LOOP_RECORD_SCHEMA") from None
+        require(result.receipt_sha256 == expected_digest, "LOOP_RECORD_DIGEST")
+        return result
+
     @property
     def authority(self):
         return "NONE"

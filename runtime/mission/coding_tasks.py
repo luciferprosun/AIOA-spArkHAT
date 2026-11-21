@@ -14,7 +14,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 
 from runtime.core_admission import Capability, CoreActor, OwnerScope
-from runtime.memory_patch.audit import append_domain_event
+from runtime.memory_patch.audit import append_domain_event, require_record_audit
 from runtime.memory_patch.contracts.serialization import (
     canonical_json_bytes,
     canonical_sha256,
@@ -37,6 +37,7 @@ from runtime.providers.coding_contracts import (
 )
 
 KIND = "aioa.coding-task.v1"
+LOOP_KIND = "aioa.coding-loop.v1"
 HISTORY_LIMIT = 1024
 STATES = (
     "QUEUED",
@@ -166,6 +167,32 @@ def decode_coding_backend_binding_row(row, task, scope):
         return binding
     except (ValueError, TypeError, MemoryPatchError, OverflowError, RecursionError):
         raise WarrantError("CODING_BACKEND_BINDING_INTEGRITY") from None
+
+
+def _read_loop_result(tx, row, task):
+    from runtime.mission.repair import RepairLoopResult
+
+    reason = "CODING_LOOP_RECEIPT_INTEGRITY"
+    try:
+        require(row.kind is RecordKind.OPERATION and row.revision == 1
+                and row.scope == tx.context.scope, reason)
+        data = json.loads(canonical_json_bytes(row.payload))
+        require(set(data) == {"schema", "task_digest", "result"}
+                and data["schema"] == LOOP_KIND and data["task_digest"] == task.digest, reason)
+        event = require_record_audit(tx, row)
+        result = RepairLoopResult.from_record(data["result"])
+        require(event.audit_event_id == "coding-loop-audit-" + row.record_id
+                and event.event_type == "CODING_LOOP_RECEIPT"
+                and event.state_after == result.status
+                and result.task_id == task.task_id and result.run_id == task.run_id, reason)
+        patch = result.final_patchset
+        if patch is not None:
+            require(patch.task_digest == task.digest and patch.workspace_id == task.workspace_id
+                    and patch.repository_id == task.repository_id
+                    and patch.source_base_sha == task.source_base_sha, reason)
+        return data["result"]
+    except (ValueError, TypeError, KeyError, MemoryPatchError, OverflowError, RecursionError):
+        raise WarrantError(reason) from None
 
 
 @dataclass(frozen=True, slots=True)
@@ -751,11 +778,11 @@ class CoreCodingTasks:
         )
         result.__post_init__()
         data = {
-            "schema": "aioa.coding-loop.v1",
+            "schema": LOOP_KIND,
             "task_digest": task.digest,
             "result": asdict(result),
         }
-        key = canonical_sha256(["aioa.coding-loop.v1", task.digest])
+        key = canonical_sha256([LOOP_KIND, task.digest])
 
         def save(tx):
             require(
@@ -1520,18 +1547,16 @@ class CoreCodingTasks:
         if action in ("read_status", "get_receipts"):
 
             def read(tx):
-                _, data, _ = self._load(tx, task_id)
+                _, data, task = self._load(tx, task_id)
                 result = self._view(data)
                 if action == "get_receipts":
                     result["receipts"] = data["receipts"]
                     row = tx.get(
                         RecordKind.OPERATION,
-                        canonical_sha256(["aioa.coding-loop.v1", data["task_digest"]]),
+                        canonical_sha256([LOOP_KIND, task.digest]),
                     )
                     if row is not None:
-                        result["run_result"] = json.loads(
-                            canonical_json_bytes(row.payload)
-                        )["result"]
+                        result["run_result"] = _read_loop_result(tx, row, task)
                 return result
 
             return self._run(principal, purpose, read)
