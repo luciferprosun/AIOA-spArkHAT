@@ -13991,8 +13991,8 @@
     },
     "runtime/mission/repair.py": {
       "path": "runtime/mission/repair.py",
-      "git_blob": "789fe0b2b50216fa910222a827fc1d1ef656a553",
-      "sha256": "695c14550566b157178da7235c5d110d437c05ae4b0faada3a179f27866b01c7",
+      "git_blob": "3771a88a98f8dfabfcf1f1c58e4d6a36c3d6c5d9",
+      "sha256": "4c60895130e6d0cdb929c9607b0b67fdacf9bf72b0500093a76160e5ab9f3037",
       "definitions": [
         {
           "name": "require",
@@ -14016,31 +14016,31 @@
         },
         {
           "name": "RepairLoopResult",
-          "line": 117
+          "line": 123
         },
         {
           "name": "CandidateProducer",
-          "line": 167
+          "line": 195
         },
         {
           "name": "ValidationSession",
-          "line": 174
+          "line": 202
         },
         {
           "name": "ValidationBackend",
-          "line": 179
+          "line": 207
         },
         {
           "name": "semantic_review",
-          "line": 183
+          "line": 211
         },
         {
           "name": "BoundedRepairLoopCoordinator",
-          "line": 208
+          "line": 236
         },
         {
           "name": "SandboxedCandidateProducer",
-          "line": 449
+          "line": 477
         },
         {
           "name": "__post_init__",
@@ -14056,79 +14056,79 @@
         },
         {
           "name": "__post_init__",
-          "line": 127
+          "line": 133
         },
         {
           "name": "authority",
-          "line": 163
+          "line": 191
         },
         {
           "name": "produce",
-          "line": 168
+          "line": 196
         },
         {
           "name": "close",
-          "line": 171
+          "line": 199
         },
         {
           "name": "run",
-          "line": 175
+          "line": 203
         },
         {
           "name": "close",
-          "line": 176
+          "line": 204
         },
         {
           "name": "open",
-          "line": 180
+          "line": 208
         },
         {
           "name": "__init__",
-          "line": 209
+          "line": 237
         },
         {
           "name": "run",
-          "line": 214
+          "line": 242
         },
         {
           "name": "__init__",
-          "line": 457
+          "line": 485
         },
         {
           "name": "_stopped",
-          "line": 499
+          "line": 527
         },
         {
           "name": "_start_worker",
-          "line": 504
+          "line": 532
         },
         {
           "name": "_check_cancel_uncertainty",
-          "line": 534
+          "line": 562
         },
         {
           "name": "_cancel_worker",
-          "line": 540
+          "line": 568
         },
         {
           "name": "_worker_result",
-          "line": 573
+          "line": 601
         },
         {
           "name": "produce",
-          "line": 588
+          "line": 616
         },
         {
           "name": "stop",
-          "line": 638
+          "line": 666
         },
         {
           "name": "close",
-          "line": 650
+          "line": 678
         },
         {
           "name": "stop_reason",
-          "line": 234
+          "line": 262
         }
       ],
       "symbolic_callees": [
@@ -14158,6 +14158,7 @@
         "min",
         "object.__setattr__",
         "on_state",
+        "patch.verify_digest",
         "patchset.canonical_diff.splitlines",
         "patchset.verify_digest",
         "producer.close",
@@ -14175,7 +14176,6 @@
         "self.cancel_token.cancel",
         "self.clock",
         "self.core_warrant_digest.removeprefix",
-        "self.final_patchset.verify_digest",
         "self.materializer.materialize",
         "self.monotonic",
         "self.policy.evaluate",
@@ -14199,8 +14199,8 @@
         "type",
         "validator.open"
       ],
-      "call_site_count": 190,
-      "call_sites_sha256": "3c095966b7d500d924b80d6a2ec05f038beffb56e7af7d535c93f4900bb86df7"
+      "call_site_count": 208,
+      "call_sites_sha256": "81e2dfa24e24a8cd7a2e864b3cd3da303eb060d73452cbe8ff9681c3186eaf83"
     },
     "runtime/mission/repair_validation.py": {
       "path": "runtime/mission/repair_validation.py",

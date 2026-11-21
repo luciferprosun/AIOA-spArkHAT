@@ -110,6 +110,12 @@ class AttemptReceipt:
             and all(type(s) is ValidationStep for s in self.steps),
             "ATTEMPT_STEPS",
         )
+        require(
+            tuple(step.stage for step in self.steps) == TEST_STAGES[:len(self.steps)]
+            and all(step.patchset_sha256 == self.patchset_sha256 for step in self.steps)
+            and len({step.profile_digest for step in self.steps}) <= 1,
+            "ATTEMPT_STEP_BINDING",
+        )
         bounded_int(self.cleanup_orphans, 0, 1024)
 
 
@@ -140,11 +146,16 @@ class RepairLoopResult:
             "LOOP_BOUND",
         )
         require(
+            all(type(attempt) is AttemptReceipt for attempt in self.attempts)
+            and tuple(attempt.attempt for attempt in self.attempts) == tuple(range(len(self.attempts)))
+            and all(attempt.status == "FAIL" for attempt in self.attempts[:-1]),
+            "LOOP_ATTEMPT_HISTORY",
+        )
+        require(
             (self.status == "PATCH_READY") == (self.final_patchset is not None),
             "LOOP_FALSE_SUCCESS",
         )
         if self.status == "PATCH_READY":
-            self.final_patchset.verify_digest()
             require(
                 self.failure_code is None
                 and self.attempts
@@ -154,6 +165,23 @@ class RepairLoopResult:
                 and all(a.cleanup_orphans == 0 for a in self.attempts)
                 and self.history[-2:] == ("INDEPENDENT_REVIEW", "PATCH_READY"),
                 "LOOP_FALSE_SUCCESS",
+            )
+            patch = self.final_patchset
+            attempt = self.attempts[-1]
+            require(
+                type(patch) is PatchSet
+                and patch.task_id == self.task_id
+                and patch.run_id == self.run_id
+                and patch.worker_session_id == attempt.worker_session_id
+                and patch.patchset_sha256 == attempt.patchset_sha256,
+                "LOOP_PATCH_BINDING",
+            )
+            patch.verify_digest()
+        else:
+            require(
+                type(self.failure_code) is str
+                and re.fullmatch(r"[A-Z][A-Z0-9_]{2,95}", self.failure_code),
+                "LOOP_FAILURE_CODE",
             )
         data = asdict(self)
         data.pop("receipt_sha256", None)
