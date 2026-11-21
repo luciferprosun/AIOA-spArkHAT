@@ -76,6 +76,7 @@ class ValidationStep:
         for value in (self.patchset_sha256, self.profile_digest, self.evidence_digest):
             digest(value)
         if self.core_warrant_digest is not None:
+            require(type(self.core_warrant_digest) is str, "VALIDATION_WARRANT_DIGEST")
             digest(self.core_warrant_digest.removeprefix("sha256:"))
         require(
             self.exit_code is None or type(self.exit_code) is int,
@@ -117,6 +118,12 @@ class AttemptReceipt:
             "ATTEMPT_STEP_BINDING",
         )
         bounded_int(self.cleanup_orphans, 0, 1024)
+        require(all(step.status == "PASS" for step in self.steps[:-1]), "ATTEMPT_STEP_OUTCOME")
+        if self.status == "FAIL":
+            require(
+                self.steps and self.steps[-1].status == "FAIL" and self.cleanup_orphans == 0,
+                "ATTEMPT_STEP_OUTCOME",
+            )
 
 
 @dataclass(frozen=True, slots=True)

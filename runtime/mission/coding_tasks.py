@@ -14,7 +14,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 
 from runtime.core_admission import Capability, CoreActor, OwnerScope
-from runtime.memory_patch.audit import append_domain_event, require_record_audit
+from runtime.memory_patch.audit import append_domain_event, decode_audit
 from runtime.memory_patch.contracts.serialization import (
     canonical_json_bytes,
     canonical_sha256,
@@ -169,6 +169,13 @@ def decode_coding_backend_binding_row(row, task, scope):
         raise WarrantError("CODING_BACKEND_BINDING_INTEGRITY") from None
 
 
+def _loop_audit_binding(row):
+    return OperationBinding.bind(
+        "coding-loop-" + row.record_id, "CODING_LOOP_RECEIPT",
+        {"record_digest": row.payload_digest},
+    )
+
+
 def _read_loop_result(tx, row, task):
     from runtime.mission.repair import RepairLoopResult
 
@@ -179,12 +186,22 @@ def _read_loop_result(tx, row, task):
         data = json.loads(canonical_json_bytes(row.payload))
         require(set(data) == {"schema", "task_digest", "result"}
                 and data["schema"] == LOOP_KIND and data["task_digest"] == task.digest, reason)
-        event = require_record_audit(tx, row)
+        audit = tx.get(RecordKind.AUDIT, "coding-loop-audit-" + row.record_id)
+        require(audit is not None and audit.revision == 1, reason)
+        event = decode_audit(audit)
+        binding = _loop_audit_binding(row)
         result = RepairLoopResult.from_record(data["result"])
-        require(event.audit_event_id == "coding-loop-audit-" + row.record_id
-                and event.event_type == "CODING_LOOP_RECEIPT"
-                and event.state_after == result.status
-                and result.task_id == task.task_id and result.run_id == task.run_id, reason)
+        require(
+            event.event_type == binding.operation_kind
+            and event.resource_type == "memory_patch_domain"
+            and event.resource_id == row.record_id
+            and event.state_before is None and event.state_after == result.status
+            and event.content_hashes == {
+                "content": row.payload_digest, "operation": binding.payload_digest,
+            }
+            and result.task_id == task.task_id and result.run_id == task.run_id,
+            reason,
+        )
         patch = result.final_patchset
         if patch is not None:
             require(patch.task_digest == task.digest and patch.workspace_id == task.workspace_id
@@ -790,11 +807,7 @@ class CoreCodingTasks:
             )
             row = StoredRecord(RecordKind.OPERATION, key, self.scope, 1, data)
             tx.insert(row)
-            binding = OperationBinding.bind(
-                "coding-loop-" + key,
-                "CODING_LOOP_RECEIPT",
-                {"record_digest": row.payload_digest},
-            )
+            binding = _loop_audit_binding(row)
             append_domain_event(
                 tx,
                 binding,

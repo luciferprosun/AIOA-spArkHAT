@@ -9,8 +9,12 @@ from cryptography.hazmat.primitives.asymmetric import ec
 import test_hybrid_repair as support
 from q09_support import Fixture
 from runtime.core_admission import AdmissionError, Capability
-from runtime.memory_patch.audit import append_domain_event
-from runtime.memory_patch.contracts.serialization import canonical_json_bytes, canonical_sha256
+from runtime.memory_patch.audit import append_domain_event, domain_chain
+from runtime.memory_patch.contracts.serialization import (
+    canonical_json_bytes,
+    canonical_sha256,
+    to_canonical_data,
+)
 from runtime.memory_patch.persistence.idempotency import OperationBinding
 from runtime.memory_patch.persistence.ports import RecordKind, StoredRecord, TransactionContext
 from runtime.mission.coding_tasks import CoreCodingTasks
@@ -104,6 +108,31 @@ class CodingReceiptReadTests(unittest.TestCase):
                 service.request(fixture.p(Capability.READ), "get_receipts", self.payload)
             self.assertEqual(self.path.read_bytes(), before)
 
+    def test_audit_capacity_does_not_hide_an_existing_receipt(self):
+        receipt = self.candidate_receipt()
+        with self.service() as (fixture, service):
+            self.create_task(fixture, service)
+            service._record_loop(fixture.p(), self.task, receipt)
+
+            def fill(tx):
+                current = domain_chain(tx)
+                previous = current[-1]
+                for index in range(len(current), 1024):
+                    event = replace(
+                        previous, audit_event_id=f"fixture-audit-{index}",
+                        event_type="FIXTURE_EVENT", resource_id=f"fixture-item-{index}",
+                        sequence_number=index, previous_event_hash=previous.event_hash,
+                    )
+                    tx.insert(StoredRecord(
+                        RecordKind.AUDIT, event.audit_event_id, tx.context.scope, 1,
+                        to_canonical_data(event),
+                    ))
+                    previous = event
+
+            fixture.runner.run(TransactionContext(fixture.p(), Capability.COMMIT), fill)
+            view = service.request(fixture.p(Capability.READ), "get_receipts", self.payload)
+            self.assertEqual(view["run_result"]["receipt_sha256"], receipt.receipt_sha256)
+
     def test_nested_patchset_identity_is_checked_in_audited_older_rows(self):
         record = asdict(self.candidate_receipt())
         record["final_patchset"]["files"][0]["after"]["sha256"] = "9" * 64
@@ -123,5 +152,17 @@ class CodingReceiptReadTests(unittest.TestCase):
         with self.service() as (fixture, service):
             self.create_task(fixture, service)
             self.keep_fixture_record(fixture, asdict(receipt), audit=True)
+            with self.assertRaisesRegex(ValueError, "CODING_LOOP_RECEIPT_INTEGRITY"):
+                service.request(fixture.p(Capability.READ), "get_receipts", self.payload)
+
+    def test_invalid_warrant_digest_type_has_a_bounded_receipt_error(self):
+        record = asdict(self.candidate_receipt())
+        record["attempts"][0]["steps"][0]["core_warrant_digest"] = 42
+        record["receipt_sha256"] = canonical_sha256(
+            {key: value for key, value in record.items() if key != "receipt_sha256"}
+        )
+        with self.service() as (fixture, service):
+            self.create_task(fixture, service)
+            self.keep_fixture_record(fixture, record, audit=True)
             with self.assertRaisesRegex(ValueError, "CODING_LOOP_RECEIPT_INTEGRITY"):
                 service.request(fixture.p(Capability.READ), "get_receipts", self.payload)

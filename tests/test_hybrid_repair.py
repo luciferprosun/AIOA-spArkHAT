@@ -196,6 +196,19 @@ class RepairTests(unittest.TestCase):
             ):
                 replace(result, final_patchset=replace(result.final_patchset, **patch_update))
 
+    def test_attempt_steps_stop_at_the_first_nonpassing_observation(self):
+        result, _, _ = self.run_loop([self.candidate("a+b")], ["PASS"])
+        attempt = result.attempts[0]
+        first, *later = attempt.steps
+        failed = replace(first, status="FAIL", exit_code=1)
+        for label, updates in (
+            ("later_steps", {"steps": (failed, *later)}),
+            ("failure_without_step", {"status": "FAIL"}),
+            ("failure_with_orphan", {"status": "FAIL", "steps": (failed,), "cleanup_orphans": 1}),
+        ):
+            with self.subTest(label=label), self.assertRaisesRegex(ValueError, "ATTEMPT_STEP_OUTCOME"):
+                replace(attempt, **updates)
+
     def test_unsuccessful_result_requires_a_stable_failure_code(self):
         result, _, _ = self.run_loop([self.candidate("a+b")], ["UNKNOWN"])
         self.assertEqual(result.status, "UNKNOWN")
