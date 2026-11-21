@@ -27,6 +27,13 @@ from main import (
 )
 from providers.exact import ExactCallError, _unique_object
 
+from runtime.bounded_core import (
+    LOOPBACK as BOUNDED_LOOPBACK,
+    BoundedCoreProfile,
+    BoundedInspection,
+    allows_request as allows_bounded_request,
+    bounded_state,
+)
 from runtime.failure_boundary import (
     RepairBoundaryError,
     boundary_cause,
@@ -61,7 +68,19 @@ class WebRuntimeService:
                  personal_ai=None, personal_ai_catalog=None,
                  personal_ai_cost_quote=None, native_console=None,
                  meta_missions=None, meta_owner=None, mobile_gateway=None,
-                 coding_principals=None, native_access=None) -> None:
+                 coding_principals=None, native_access=None, bounded_profile=None) -> None:
+        self._bounded_profile = bounded_profile
+        if bounded_profile is not None or type(meta_owner) is BoundedInspection:
+            if (bounded_profile is not BoundedCoreProfile.V1
+                    or type(meta_owner) is not BoundedInspection
+                    or meta_owner.profile is not bounded_profile or runtime is not meta_owner.runtime):
+                raise ValueError("BOUNDED_COMPOSITION_REQUIRED")
+            if cpl_fixture is not False or any(binding is not None for binding in (
+                cpl_cost_policy, personal_ai, personal_ai_catalog, personal_ai_cost_quote,
+                native_console, meta_missions, mobile_gateway, coding_principals, native_access,
+            )):
+                raise ValueError("BOUNDED_BINDING_DENIED")
+            meta_owner.require_read(runtime)
         if native_access is not None and (runtime is None or coding_principals is not None):
             raise ValueError('CODING_NATIVE_WEB_BINDING')
         self.native_access = native_access
@@ -135,6 +154,23 @@ class WebRuntimeService:
         self._mobile_console_uid = None
         self._mobile_console_delivery = None
         self._mobile_console_cookie = None
+
+    @property
+    def bounded_profile(self):
+        return self._bounded_profile
+
+    def _require_bounded(self, profile):
+        if (profile is not BoundedCoreProfile.V1 or self.bounded_profile is not profile
+                or type(self.meta_owner) is not BoundedInspection or self.meta_owner.profile is not profile):
+            raise ValueError("BOUNDED_COMPOSITION_REQUIRED")
+        if (self.mobile_only or self.native_coding or self.unified_profile
+                or any(getattr(self, name, None) is not None for name in (
+                    "native_access", "native_console", "_coding_principals", "mobile_gateway",
+                    "personal_ai", "personal_ai_catalog", "personal_ai_cost_quote", "meta_missions",
+                    "core_mcp", "github_write_route",
+                ))):
+            raise ValueError("BOUNDED_BINDING_DENIED")
+        self.meta_owner.require_read(self.runtime)
 
     def mobile_operator_request(self, value):
         """HTTP adapter for an already OS-authenticated private console grant."""
@@ -402,16 +438,23 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
     """Serve one static AOIA-Core UI and its bounded local APIs."""
 
     server_version = "AOIA-Core/1.0"
+    _bounded_profile = None
 
-    def __init__(self, *args, service: WebRuntimeService | None = None, **kwargs):
+    def __init__(self, *args, service: WebRuntimeService | None = None,
+                 bounded_profile=None, **kwargs):
         self.runtime_service = service
+        self._bounded_profile = bounded_profile if bounded_profile is not None else (
+            getattr(service, "bounded_profile", None)
+        )
         super().__init__(*args, directory=str(WEB_DIR), **kwargs)
 
     def _service(self) -> WebRuntimeService:
         return self.runtime_service if self.runtime_service is not None else get_service()
 
     def handle(self):
-        if getattr(self.runtime_service,'mobile_only',False):
+        if self._bounded_profile is not None:
+            self.connection.settimeout(8)
+        elif getattr(self.runtime_service,'mobile_only',False):
             import ssl
             self.connection.settimeout(8)
             try:self.connection.do_handshake()
@@ -421,6 +464,14 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
 
     def parse_request(self):
         if not super().parse_request():return False
+        if self._bounded_profile is not None:
+            # BaseHTTPRequestHandler can normalize the request target.
+            raw_target = self.requestline.split()[1]
+            if (self.server.server_address[0] != BOUNDED_LOOPBACK or self.client_address[0] != BOUNDED_LOOPBACK
+                    or not allows_bounded_request(self.command, raw_target, self.headers)):
+                self._write_json(HTTPStatus.FORBIDDEN, {"ok": False, "error": "BOUNDED_ROUTE_DENIED"})
+                return False
+            return True
         if getattr(self.runtime_service,'mobile_only',False):
             native_access = getattr(self.runtime_service, 'native_access', None)
             readiness_route = self.command == 'GET' and self.path == '/api/native-operator/readiness'
@@ -441,8 +492,14 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
                 return False
         return True
 
+    def send_error(self, code, message=None, explain=None):
+        if self._bounded_profile is None:
+            super().send_error(code, message, explain)
+        else:
+            self._write_json(code, {"ok": False, "error": "BOUNDED_HTTP_DENIED"})
+
     def end_headers(self) -> None:
-        if getattr(self.runtime_service, 'mobile_only', False):
+        if self._bounded_profile is not None or getattr(self.runtime_service, 'mobile_only', False):
             # This bounded listener closes every response. Tell pooled clients
             # before they try to send the next signed request on a dead socket.
             self.close_connection = True
@@ -459,9 +516,21 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
         super().end_headers()
 
     def do_GET(self) -> None:
-        parsed = urlparse(self.path)
         if not self._check_local_request():
             return
+        if self._bounded_profile is not None:
+            try:
+                service = self.runtime_service
+                if type(service) is not WebRuntimeService:
+                    raise ValueError("BOUNDED_COMPOSITION_REQUIRED")
+                service._require_bounded(self._bounded_profile)
+                view = service.meta_owner.read(self.path)
+            except ValueError:
+                self._write_json(HTTPStatus.FORBIDDEN, {"ok": False, "error": "BOUNDED_READ_DENIED"})
+            else:
+                self._write_json(HTTPStatus.OK, view)
+            return
+        parsed = urlparse(self.path)
         if parsed.path=='/api/native-operator/readiness' and self._service().native_access is not None:
             if not self._check_native_coding_auth('GET'):return
             from runtime.core_admission import Capability
@@ -1065,7 +1134,7 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
     def _check_local_request(self):
         port = self.server.server_address[1]
         allowed_hosts = {f'127.0.0.1:{port}', f'localhost:{port}'}
-        mobile_only=getattr(self.runtime_service,'mobile_only',False)
+        mobile_only = self._bounded_profile is None and getattr(self.runtime_service, 'mobile_only', False)
         if mobile_only:
             import ssl
             owner=self.runtime_service.mobile_gateway.native_host
@@ -1208,7 +1277,7 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
         return payload
 
     def _write_json(self, status: HTTPStatus, payload: object) -> None:
-        if urlparse(self.path).path.startswith("/api/memory-patch") and (
+        if self._bounded_profile is None and urlparse(self.path).path.startswith("/api/memory-patch") and (
             not isinstance(payload, dict)
             or set(payload) != {"ok", "module", "operation", "result", "error"}
         ):
@@ -1228,7 +1297,8 @@ class AOIAWebHandler(SimpleHTTPRequestHandler):
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
-        self.wfile.write(body)
+        if self._bounded_profile is None or self.command != "HEAD":
+            self.wfile.write(body)
 
 
 def make_mobile_operator_server(owner, *, service=None):
@@ -1314,13 +1384,23 @@ def make_server(
     host: str = HOST,
     port: int = PORT,
     service: WebRuntimeService | None = None,
-    *,tls_certificate=None,tls_key=None,reserved_server=None,
+    *,tls_certificate=None,tls_key=None,reserved_server=None,bounded_profile=None,
 ) -> ThreadingHTTPServer:
     """Create the single local AOIA-Core server."""
 
+    if bounded_profile is None:
+        bounded_profile = getattr(service, "bounded_profile", None)
+    if bounded_profile is not None:
+        if type(service) is not WebRuntimeService:
+            raise ValueError("BOUNDED_COMPOSITION_REQUIRED")
+        service._require_bounded(bounded_profile)
+        if host != BOUNDED_LOOPBACK:
+            raise ValueError("BOUNDED_LOOPBACK_REQUIRED")
+        if any(setting is not None for setting in (tls_certificate, tls_key, reserved_server)):
+            raise ValueError("BOUNDED_BINDING_DENIED")
     if host not in LOOPBACK_HOSTS:
         raise ValueError("AOIA-Core web UI may bind only to a loopback interface")
-    handler = partial(AOIAWebHandler, service=service)
+    handler = partial(AOIAWebHandler, service=service, bounded_profile=bounded_profile)
     if reserved_server is not None:
         if (type(reserved_server) is not ThreadingHTTPServer or not getattr(service,'mobile_only',False)
                 or reserved_server.server_address[0] not in LOOPBACK_HOSTS
@@ -1370,6 +1450,9 @@ def _parser() -> argparse.ArgumentParser:
     mode.add_argument('--cpl-live-policy', help='Operator-authored price/budget policy JSON; still requires per-plan approval')
     mode.add_argument('--meta-offline', action='store_true', help='One existing UI, isolated Meta fixture, zero spend')
     mode.add_argument('--unified-offline', action='store_true', help='One app: Core-gated local recipes, MCP and signed mobile fixture; no paid calls')
+    mode.add_argument('--bounded-core-offline', metavar='PROFILE', help=(
+        'Start aioa-core-bounded-v1 with a pinned JSON manifest and fresh private --state-dir. '
+        'Loopback GET fixtures only. See /api/bounded/status.'))
     mode.add_argument('--mobile-native',action='store_true',help='System-authenticated private mobile status only; no model, task execution or fixture')
     mode.add_argument('--mobile-operator',choices=('settings','enroll','status','revoke','console','desktop','auth-status','renew','budget-review','budget-approve','chat-review','chat-approve','chat-session-start','chat-session-status','chat-session-stop'),help='Private native operator socket; code stays local')
     mode.add_argument('--meta-live-one-shot', action='store_true', help='Inspect the explicit one-shot LIVE gate; never implies owner GO')
@@ -1390,8 +1473,44 @@ def _parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _launch_bounded(args, argv):
+    allowed = {"--bounded-core-offline", "--state-dir", "--host", "--port"}
+    options = [value.partition("=")[0] for value in argv if value.startswith("-")]
+    if not allowed.issuperset(options) or len(options) != len(set(options)):
+        raise SystemExit("BOUNDED_OPTION_DENIED")
+    if args.host != BOUNDED_LOOPBACK:
+        raise SystemExit("BOUNDED_LOOPBACK_REQUIRED")
+    if not 0 <= args.port <= 65535:
+        raise SystemExit("BOUNDED_PORT_DENIED")
+    try:
+        profile = BoundedCoreProfile.load(args.bounded_core_offline)
+        with bounded_state(args.state_dir):
+            owner = BoundedInspection(profile)
+            try:
+                service = WebRuntimeService(
+                    runtime=owner.runtime, meta_owner=owner, bounded_profile=profile,
+                )
+                with make_server(args.host, args.port, service, bounded_profile=profile) as server:
+                    host, port = server.server_address
+                    print(json.dumps({"status": "BOUNDED_CORE_READY", **owner.source_view(),
+                                      "host": host, "port": port}), flush=True)
+                    server.serve_forever()
+            finally:
+                owner.close()
+    except KeyboardInterrupt:
+        return
+    except OSError:
+        raise SystemExit("BOUNDED_LISTENER_FAILED") from None
+    except ValueError as error:
+        raise SystemExit(str(error)) from None
+
+
 def main() -> None:
-    args = _parser().parse_args()
+    argv = sys.argv[1:]
+    args = _parser().parse_args(argv)
+    if args.bounded_core_offline is not None:
+        _launch_bounded(args, argv)
+        return
     if args.native_host_composition and not args.mobile_native:raise SystemExit('NATIVE_HOST_COMPOSITION_REQUIRES_NATIVE')
     if args.mobile_chat_direct and args.mobile_operator not in ('desktop','chat-session-start'):
         raise SystemExit('DIRECT_CHAT_REQUIRES_NATIVE_OWNER_CHANNEL')
