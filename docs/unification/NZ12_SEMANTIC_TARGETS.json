@@ -17411,8 +17411,8 @@
     },
     "runtime/mcp_bridge/native_read.py": {
       "path": "runtime/mcp_bridge/native_read.py",
-      "git_blob": "279289e4dc3b4623bd0cf51f176e0f47e084f1d8",
-      "sha256": "f29d9aeb74e4dfad0a935754cf61214816fde6f37115b3fc81fa6060fbe7a4b1",
+      "git_blob": "bbc5871853153f7bebd6243b2a789ecb8c96c25a",
+      "sha256": "6b20b7bb7ec17a94794ab5868868cd235f73f546fe59036eb068d55b4132e6eb",
       "definitions": [
         {
           "name": "_require",
@@ -17528,7 +17528,7 @@
         },
         {
           "name": "read",
-          "line": 674
+          "line": 684
         },
         {
           "name": "get",
@@ -17536,14 +17536,13 @@
         },
         {
           "name": "check",
-          "line": 679
+          "line": 689
         },
         {
           "name": "validate",
           "line": 111
         }
       ],
-      "call_site_count": 607,
       "symbolic_callees": [
         "<dynamic>.encode",
         "<dynamic>.join",
@@ -17687,7 +17686,8 @@
         "yaml.scan",
         "zip"
       ],
-      "call_sites_sha256": "a9ba68634f628a4e8706c3e1a24a44096b1befc33f108ff0714fdff4dbc6e6a1"
+      "call_site_count": 613,
+      "call_sites_sha256": "a9e9123fe164e1d5b0c7fb9cc25dad9a178e486656e4e8a90ebf9ed3807e7e96"
     },
     "runtime/mission/target_projection.py": {
       "path": "runtime/mission/target_projection.py",
