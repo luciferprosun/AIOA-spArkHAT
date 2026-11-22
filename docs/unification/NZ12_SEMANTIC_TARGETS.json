@@ -10117,236 +10117,252 @@
     },
     "runtime/webapp.py": {
       "path": "runtime/webapp.py",
-      "git_blob": "0726b2898153282c8d0954657f5ef3c0fbd8c310",
-      "sha256": "3d88d0a211db6a0a9f231a4d5722374ffefb240dcf557892224d68f5cc1c3596",
+      "git_blob": "b9e007dd46a0712c10f414f85fefc06c28b89cfd",
+      "sha256": "32906fb721255c622491b48d7705e8de89d4c36469e170bbc4a9ffe567fa33e7",
       "definitions": [
         {
           "name": "WebRuntimeService",
-          "line": 57
+          "line": 64
         },
         {
           "name": "get_service",
-          "line": 381
+          "line": 417
         },
         {
           "name": "_native_coding_route",
-          "line": 392
+          "line": 428
         },
         {
           "name": "AOIAWebHandler",
-          "line": 401
+          "line": 437
         },
         {
           "name": "make_mobile_operator_server",
-          "line": 1234
+          "line": 1304
         },
         {
           "name": "mobile_operator_client",
-          "line": 1291
+          "line": 1361
         },
         {
           "name": "make_server",
-          "line": 1313
+          "line": 1383
         },
         {
           "name": "_launch_mobile_console",
-          "line": 1351
+          "line": 1431
         },
         {
           "name": "_open_mobile_console",
-          "line": 1357
+          "line": 1437
         },
         {
           "name": "_parser",
-          "line": 1366
+          "line": 1446
+        },
+        {
+          "name": "_launch_bounded",
+          "line": 1476
         },
         {
           "name": "main",
-          "line": 1393
+          "line": 1508
         },
         {
           "name": "__init__",
-          "line": 60
+          "line": 67
+        },
+        {
+          "name": "bounded_profile",
+          "line": 159
+        },
+        {
+          "name": "_require_bounded",
+          "line": 162
         },
         {
           "name": "mobile_operator_request",
-          "line": 139
+          "line": 175
         },
         {
           "name": "authority_payload",
-          "line": 156
+          "line": 192
         },
         {
           "name": "close",
-          "line": 164
+          "line": 200
         },
         {
           "name": "meta_request",
-          "line": 170
+          "line": 206
         },
         {
           "name": "status_payload",
-          "line": 190
+          "line": 226
         },
         {
           "name": "coding_request",
-          "line": 237
+          "line": 273
         },
         {
           "name": "agent_request",
-          "line": 267
+          "line": 303
         },
         {
           "name": "switch_model",
-          "line": 271
+          "line": 307
         },
         {
           "name": "run_prompt",
-          "line": 281
+          "line": 317
         },
         {
           "name": "_personal_ai_projection",
-          "line": 287
+          "line": 323
         },
         {
           "name": "personal_ai_status",
-          "line": 311
+          "line": 347
         },
         {
           "name": "personal_ai_prepare",
-          "line": 328
+          "line": 364
         },
         {
           "name": "personal_ai_approve",
-          "line": 337
+          "line": 373
         },
         {
           "name": "personal_ai_resume",
-          "line": 343
+          "line": 379
         },
         {
           "name": "personal_ai_restart",
-          "line": 349
+          "line": 385
         },
         {
           "name": "personal_ai_replay",
-          "line": 368
+          "line": 404
         },
         {
           "name": "__init__",
-          "line": 406
+          "line": 443
         },
         {
           "name": "_service",
-          "line": 410
+          "line": 451
         },
         {
           "name": "handle",
-          "line": 413
+          "line": 454
         },
         {
           "name": "parse_request",
-          "line": 422
+          "line": 465
+        },
+        {
+          "name": "send_error",
+          "line": 495
         },
         {
           "name": "end_headers",
-          "line": 444
+          "line": 501
         },
         {
           "name": "do_GET",
-          "line": 461
+          "line": 518
         },
         {
           "name": "do_POST",
-          "line": 629
+          "line": 698
         },
         {
           "name": "_handle_nonzero",
-          "line": 792
+          "line": 861
         },
         {
           "name": "_handle_personal_ai",
-          "line": 808
+          "line": 877
         },
         {
           "name": "_check_memory_patch_operator",
-          "line": 835
+          "line": 904
         },
         {
           "name": "_handle_memory_patch",
-          "line": 847
+          "line": 916
         },
         {
           "name": "_handle_agent",
-          "line": 880
+          "line": 949
         },
         {
           "name": "_handle_meta",
-          "line": 924
+          "line": 993
         },
         {
           "name": "_handle_mobile_console_delivery",
-          "line": 947
+          "line": 1016
         },
         {
           "name": "_handle_mobile_operator",
-          "line": 986
+          "line": 1055
         },
         {
           "name": "_handle_mobile",
-          "line": 1022
+          "line": 1091
         },
         {
           "name": "_check_local_request",
-          "line": 1065
+          "line": 1134
         },
         {
           "name": "_check_native_coding_auth",
-          "line": 1103
+          "line": 1172
         },
         {
           "name": "_check_console_cookie",
-          "line": 1131
+          "line": 1200
         },
         {
           "name": "_check_token",
-          "line": 1145
+          "line": 1214
         },
         {
           "name": "_write_cpl_error",
-          "line": 1152
+          "line": 1221
         },
         {
           "name": "log_message",
-          "line": 1159
+          "line": 1228
         },
         {
           "name": "_read_json_body",
-          "line": 1163
+          "line": 1232
         },
         {
           "name": "_write_json",
-          "line": 1210
+          "line": 1279
         },
         {
           "name": "Handler",
-          "line": 1251
+          "line": 1321
         },
         {
           "name": "Server",
-          "line": 1286
+          "line": 1356
         },
         {
           "name": "write_json",
-          "line": 1164
+          "line": 1233
         },
         {
           "name": "handle",
-          "line": 1252
+          "line": 1322
         },
         {
           "name": "invalidate",
-          "line": 1273
+          "line": 1343
         }
       ],
       "symbolic_callees": [
@@ -10355,6 +10371,8 @@
         "<dynamic>.read_bytes",
         "<dynamic>.throw",
         "AdmissionError",
+        "BoundedCoreProfile.load",
+        "BoundedInspection",
         "CoreMissionMCPAdapter",
         "DemoComposition",
         "ExactCallError",
@@ -10380,6 +10398,7 @@
         "ThreadingHTTPServer",
         "ValueError",
         "WebRuntimeService",
+        "_launch_bounded",
         "_launch_mobile_console",
         "_native_coding_route",
         "_open_mobile_console",
@@ -10388,11 +10407,14 @@
         "accepted.append",
         "actions.get",
         "all",
+        "allowed.issuperset",
+        "allows_bounded_request",
         "any",
         "argparse.ArgumentParser",
         "args.mobile_operator.replace",
         "args.mobile_operator.startswith",
         "boundary_cause",
+        "bounded_state",
         "build_authority_timeline",
         "build_openrouter_cpl_preset",
         "bundled_scenario",
@@ -10439,6 +10461,7 @@
         "make_mobile_operator_server",
         "make_server",
         "meta_missions.core.local_operator",
+        "meta_owner.require_read",
         "mobile_operator_client",
         "mode.add_argument",
         "open_desktop",
@@ -10452,6 +10475,7 @@
         "owner.public_settings",
         "owner.qualify_tls",
         "owner.readiness",
+        "owner.source_view",
         "owner.validate_judge_request",
         "parsed.path.removeprefix",
         "parsed.path.rsplit",
@@ -10536,6 +10560,7 @@
         "self.headers.get_all",
         "self.meta_owner.close",
         "self.meta_owner.operator_request",
+        "self.meta_owner.require_read",
         "self.native_access.capture",
         "self.native_access.require_capture",
         "self.native_console.governor.core.local_operator",
@@ -10548,6 +10573,7 @@
         "self.personal_ai.status",
         "self.request.getsockopt",
         "self.request.settimeout",
+        "self.requestline.split",
         "self.rfile.read",
         "self.rfile.readline",
         "self.runtime.assistant_request",
@@ -10566,6 +10592,7 @@
         "server.serve_forever",
         "server.server_close",
         "server.shutdown",
+        "service._require_bounded",
         "service.close",
         "service.core.local_operator",
         "service.evidence",
@@ -10575,6 +10602,7 @@
         "service.meta_owner._require_qualified_operator",
         "service.meta_owner.operator_principal",
         "service.meta_owner.public_settings",
+        "service.meta_owner.read",
         "service.mobile_operator_request",
         "service.preview",
         "service.run",
@@ -10601,6 +10629,7 @@
         "super().end_headers",
         "super().handle",
         "super().parse_request",
+        "super().send_error",
         "tail.endswith",
         "tasks.journal.ledger.core.require",
         "threading.Event",
@@ -10615,6 +10644,8 @@
         "value.get",
         "value.isascii",
         "value.isdecimal",
+        "value.partition",
+        "value.startswith",
         "values[data].count",
         "values[data].encode",
         "wire.MobileError",
@@ -10623,8 +10654,8 @@
         "worker.start",
         "write_json"
       ],
-      "call_site_count": 839,
-      "call_sites_sha256": "6af0feed39a3e5f2c19db2e26a4129d9c9b95e235a3e0c9bd25088247c7158b0"
+      "call_site_count": 896,
+      "call_sites_sha256": "54a43d63638a7ebeca77c8496defb9b1f1b6e865ecddb1abec0af787e9e60e2b"
     },
     "runtime/mission/patch_capsule.py": {
       "path": "runtime/mission/patch_capsule.py",
