@@ -303,9 +303,10 @@
       "commit": "7b5fd205c02603231919451b1cacd241f49fd9e9",
       "python": "3.11.18",
       "scope": "full local unittest discovery on Debian",
-      "status": "NOT_COMPLETE_AT_SNAPSHOT",
-      "tests_run": null,
-      "seconds": null
+      "status": "FAILED (failures=116, errors=422, skipped=5)",
+      "tests_run": 4392,
+      "seconds": 732.749,
+      "log_sha256": "a8eeda02b145f314dffc98b72bc4f82b5c5f7597c0fb1a74bcdf16fc553445bf"
     },
     {
       "commit": "22cbfaff040ff96927147095e6d68ca5a594cd21",
@@ -343,7 +344,8 @@
       "scope": "full local unittest discovery on Debian",
       "status": "FAILED (failures=116, errors=422, skipped=5)",
       "tests_run": 4392,
-      "seconds": 685.872
+      "seconds": 685.872,
+      "log_sha256": "81e6de1e7c5d983850f175bc4e45405f661f2b51d8898af9e4bcba1fd6cc4a8c"
     },
     {
       "commit": "22cbfaff040ff96927147095e6d68ca5a594cd21",
@@ -356,6 +358,18 @@
         "wheel": "2a8f5d9e0d4ec68275502a0b2cc097962762670c5c261719fb594bfd574c92e1",
         "sdist": "9d21dc619c93b423133a15dfc57de1c26d1ed0de462d2f4ade836e82d5ba9c68"
       }
+    },
+    {
+      "commit": "ad187c5f113b8f5e5fe42a7bd27c78c6ef51628a",
+      "tree": "17a82a448597c694b6f9aff2e226d57ee4da1e30",
+      "python": [
+        "3.11.18",
+        "3.12.14"
+      ],
+      "scope": "cold private Git CAS regression, source provenance and One-Core",
+      "status": "PASS",
+      "tests_run_per_python": 2,
+      "source_manifest_sha256": "146d4a8a5d46cc8e894747b42de225a694ed1b3b885e9316d4a87cbef2d6bcea"
     }
   ],
   "local_observed_errors": [
@@ -363,7 +377,9 @@
     "PermissionError: Operation not permitted on transport/fixture",
     "BOUNDED_LISTENER_FAILED",
     "TMPDIR missing for fresh portable fixture",
-    "PROTOCOL_TIMEOUT"
+    "PROTOCOL_TIMEOUT",
+    "NZ13_NATIVE_TASK_FIXTURES missing on local host",
+    "LOCAL_TARGET_READY_EOF"
   ],
   "candidate_hosted_ci": "See exact head of Draft PR; not part of baseline results.",
   "live": {
