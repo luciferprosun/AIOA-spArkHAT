@@ -61,9 +61,24 @@ def bounded_public_license(root, *, maximum=8192):
         if identity(first)!=identity(last) or identity(last)!=identity(named) or len(data)!=first.st_size or (
                 current.st_dev,current.st_ino)!=(opened.st_dev,opened.st_ino):
             raise ContractError('public file changed')
-        return {'path':'LICENSE','text':data[:maximum].decode('utf-8'),'sha256':hashlib.sha256(data).hexdigest(),
-            'bytes':len(data),'truncated':len(data)>maximum,'local_readback_verified':True,
-            'live_verified':False,'authority':'NONE'}
+        try:
+            text = data.decode('utf-8')
+        except UnicodeDecodeError:
+            raise ContractError('public LICENSE must be valid UTF-8') from None
+        truncated = len(data) > maximum
+        if truncated:
+            # The whole file is valid, so the byte cut can only split the last character.
+            text = data[:maximum].decode('utf-8', errors='ignore')
+        return {
+            'path': 'LICENSE',
+            'text': text,
+            'sha256': hashlib.sha256(data).hexdigest(),
+            'bytes': len(data),
+            'truncated': truncated,
+            'local_readback_verified': True,
+            'live_verified': False,
+            'authority': 'NONE',
+        }
     finally:
         if fd is not None:os.close(fd)
         os.close(directory)
