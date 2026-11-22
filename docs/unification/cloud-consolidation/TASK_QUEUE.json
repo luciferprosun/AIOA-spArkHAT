@@ -1,0 +1,17 @@
+{
+  "schema": "aioa.nonzero.task-queue.v1",
+  "tasks": [
+    {"id": "A-baseline", "status": "VERIFIED", "next": "Próba 2 run 45045595617 przeszła cztery wymagane kontrole. Przy nowej bazie odczytać jej dokładny head i CI."},
+    {"id": "B-parity69", "status": "AUDITED_WITH_GAPS", "next": "Zachować 69 przypiętych blobów i aktualne zastosowania. Zestawić z poprzednią macierzą, jeżeli zostanie dostarczona."},
+    {"id": "C-cold-journal", "status": "TESTED_OFFLINE", "next": "Utrzymać przypadki awarii w CI."},
+    {"id": "C-native-host", "status": "BLOCKED_TARGET", "next": "Uzyskać kwalifikowany host pełnego testu Native z normalnym reconcile/apply po restarcie."},
+    {"id": "C-provenance", "status": "BLOCKED_SECURITY", "next": "Zweryfikować niezależny dowód oryginalnego CAS. Do tego czasu UNKNOWN, HELD i blokada replay."},
+    {"id": "D-legacy-contracts", "status": "BLOCKED_OWNER", "next": "Ustalić dokładne ID wcześniejszych 23 kontraktów i aktualnych konsumentów. Porównać tylko potwierdzone kontrakty przez Core."},
+    {"id": "E-A-official-mcp-read", "status": "BLOCKED_TARGET", "next": "Przypiąć transport, klienta i serwer oraz zakres READ. Wniosek w LIVE_QUALIFICATION.json."},
+    {"id": "E-B-worker-model", "status": "BLOCKED_TARGET", "next": "Przypiąć adapter, model, cel i budżet. Wniosek w LIVE_QUALIFICATION.json."},
+    {"id": "E-C-github-write", "status": "BLOCKED_OWNER", "next": "Rozstrzygnąć jednostkę jednego efektu, zakwalifikować izolowany cel i jasno ograniczyć efekt. Wniosek w LIVE_QUALIFICATION.json."},
+    {"id": "E-D-native-g04", "status": "BLOCKED_TARGET", "next": "Przypiąć host, Chrome, keeper i prywatny scratch. Wniosek w LIVE_QUALIFICATION.json."},
+    {"id": "F-consolidation-merge", "status": "BLOCKED_OWNER", "next": "Po zielonym CI i potwierdzeniu ochrony main uzyskać zbiorczą autoryzację na dokładny head i base."},
+    {"id": "F-legacy-history", "status": "RESTORE_VERIFIED", "next": "Zachować niezależną kopię oraz potwierdzić jej odbiór przed oddzielną decyzją o archiwizacji."}
+  ]
+}

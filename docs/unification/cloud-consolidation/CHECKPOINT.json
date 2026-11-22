@@ -1,0 +1,22 @@
+{
+  "schema": "aioa.nonzero.checkpoint.v1",
+  "updated_utc_day": "2026-11-22",
+  "branch": "codex/nonzero-cloud-consolidation-20261122",
+  "parent_evidence_commit": "c6e74366e9acd114c42c51919856f3d4570c8f5c",
+  "parent_evidence_tree": "392fe4dda4497fb5d5459fec7e6bc23b71d1a45f",
+  "matrix_path": "PARITY69_UPDATED.csv",
+  "test_evidence_path": "TEST_RESULTS.json",
+  "queue_path": "TASK_QUEUE.json",
+  "main_ci_run": 45045595617,
+  "main_ci_attempt_observed": 2,
+  "new_run_requested": false,
+  "candidate_git_branch_has_no_merge_authority": true,
+  "legacy_history_restore": {
+    "bundle": "AIOA-NonZero-20261122.bundle",
+    "bundle_sha256": "84e5720c6cab3a8be59669a83396ed00018269be04e80e31bdc1e75d4828331e",
+    "ref_list_sha256": "9cd19a7d2caa6c3bfc4bb88888e6928b3e642bd92b25442bac96863183f14c36",
+    "restored_refs": 13,
+    "restored_fsck_exit": 0
+  },
+  "resume": "RESUME.md"
+}

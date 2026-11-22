@@ -1,0 +1,47 @@
+{
+  "schema": "aioa.nonzero.live-qualification.v1",
+  "status": "NOT_RUN",
+  "authority": "NONE",
+  "common_required_pins": ["owner", "source_commit", "source_tree", "expiry_utc", "operator", "evidence_destination"],
+  "gates": [
+    {
+      "id": "A",
+      "name": "Official MCP READ",
+      "status": "BLOCKED_TARGET",
+      "approval": "GO_OFFICIAL_MCP_READ",
+      "required_pins": ["client_version_and_sha256", "server_endpoint_or_command", "server_build_sha256", "server_release_commit", "protocol_version", "repository_names_and_numeric_ids", "approved_ref_and_sha", "read_credential_id_and_scopes", "read_recipe_allowlist", "tool_inventory_digest", "response_byte_limit_and_deadline", "single_session"],
+      "historical_reference": {"server": "github/github-mcp-server v1.0.5", "commit": "c471ae94bb04059dc26e12c305e219c8fd4299e4", "protocol": "2025-06-18", "archive_sha256": "201082f569a846eaefd4318f13bccb5d9227c2cec45037d1d292ee83111173c1", "binary_sha256": "e38247271e98ea3e0771db747523914b35e37787fa2c120ab6864ee6b4a2c87c"},
+      "offline": ["tests/host_unified_mcp.py", "tests/test_mcp_bridge_contract.py", "tests/test_nz13_github_contexts.py", "tests/test_nz26_mcp_public_license.py"],
+      "acceptance": "Zakwalifikować transport w aktualnym Core. Zweryfikować initialize/serverInfo i stabilną listę tools/list, ograniczone READ na przypiętym repozytorium, lokalną odmowę niedozwolonego narzędzia, brak mutacji, integralność i oznaczenie niezaufanych danych oraz podpisany odczyt z wiązaniem źródła i celu. Wyniki gh/REST są osobnym dowodem."
+    },
+    {
+      "id": "B",
+      "name": "WorkerPort + model",
+      "status": "BLOCKED_TARGET",
+      "approval": "GO_MODEL_TEST",
+      "required_pins": ["adapter_release_and_digest", "provider", "model", "endpoint", "lease_epoch", "task_request_and_capsule_digests", "workspace_identity", "max_calls=1", "max_input_tokens", "max_output_tokens", "wall_time_seconds", "max_cost_usd", "rate_and_price_bounds", "no_retry"],
+      "offline": ["tests/test_nz11_codex_transport.py", "tests/test_nz13_worker_messages.py", "tests/test_nz29_worker_terminal_core.py", "tests/nz13_worker_acceptance.py", "tests/test_g07_live_gate.py"],
+      "acceptance": "Rzeczywiste wywołanie w ramach LiveCallGate i istniejącego Core. Dowód zużycia dostawcy i podpisany łańcuch WorkerMailbox, CandidatePatch bez uprawnień, niezależna walidacja PatchSet i weryfikacja. STOP i brak ACK pozostawiają UNKNOWN bez powtórnego wywołania."
+    },
+    {
+      "id": "C",
+      "name": "GitHub WRITE",
+      "status": "BLOCKED_OWNER",
+      "approval": "GO_GITHUB_WRITE",
+      "required_pins": ["effect_unit_and_approved_mutations", "repository_name_and_numeric_id", "isolation_and_no_actions_confirmation", "github_app_and_installation_ids", "permissions_contents_and_pull_requests_write_metadata_read", "credential_id", "scope_clear_of_unknown", "warrant_plan_and_operation_digests", "lease_epoch", "base_head_tree_and_delta", "create_only_ref_and_draft_payload"],
+      "runtime_target_candidate": {"name": "luciferprosun/AIOA-spArkHAT-Meta-Hackathon-2026", "repository_id": 1445911975, "qualified": false},
+      "candidate_effects_in_order": ["create_tree", "create_commit", "create_ref", "create_draft_pull_request"],
+      "offline": ["tests/test_native_github_write.py", "tests/test_github_remote_execution.py", "tests/test_github_remote_credential.py"],
+      "acceptance": "Izolowany cel bez Actions i zapis dokładnie w zatwierdzonym zakresie. Jedna publikacja w aktualnym adapterze obejmuje cztery mutacje. Limit jednej mutacji wymaga zatwierdzenia innego kontraktu. Wymagany podpisany LIVE Muse receipt, rozliczony governor i niezależny GET potwierdzający tożsamość, ref, commit, tree i draft. Brak replay i brak automatycznego sprzątania."
+    },
+    {
+      "id": "D",
+      "name": "Native G04",
+      "status": "BLOCKED_TARGET",
+      "approval": "GO_NATIVE_G04",
+      "required_pins": ["disposable_host_image_digest", "boot_and_host_identity", "cgroup_v2_and_systemd_user_service", "keeper_binary_and_identity", "chrome_executable_and_closed_dependency_manifest_digests", "sandbox_render_profile_and_filter_hashes", "recipe_and_signed_package_hashes", "private_scratch_0700_and_fresh_journal", "network_off", "wall_time_seconds"],
+      "offline": ["tests/nz13_render_acceptance.py", "tests/test_nz13_render_acceptance_contracts.py", "tests/test_nz13_render_core.py", "tests/test_nz13_render_runtime.py", "tests/test_nz13_render_observation.py"],
+      "acceptance": "Zarejestrować rzeczywisty start keepera, niezależny stan cgroup, izolację Chrome, orakel DOM/console/PNG i podpisane pokwitowanie. Sprawdzić STOP do UNKNOWN, sprzątanie procesów i brak replay po restarcie. Uruchamiać z nowym prywatnym katalogiem, bez stanu produkcyjnego i sieci."
+    }
+  ]
+}

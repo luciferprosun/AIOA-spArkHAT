@@ -1,0 +1,375 @@
+{
+  "schema": "aioa.nonzero.test-results.v1",
+  "main": {
+    "commit": "7b5fd205c02603231919451b1cacd241f49fd9e9",
+    "tree": "c6f8f76b5a6e93855e5dd4c80a8af313db0054a2",
+    "run": 45045595617,
+    "attempt": 2,
+    "conclusion": "success",
+    "run_completed_at": "2026-11-22T18:04:27Z",
+    "previous_failed_job": 137279391118,
+    "previous_failure": "Browser.getVersion / CHROME_COMMAND_UNKNOWN",
+    "root_cause": "UNKNOWN",
+    "this_session_reruns": 0,
+    "required_jobs": [
+      {
+        "id": 137297100541,
+        "name": "certify (3.11)",
+        "conclusion": "success",
+        "steps": {
+          "Required real Core, sandbox, local Git, MCP, Chrome and protocol acceptance": "success",
+          "Full Core suite and native authority regressions": "success",
+          "Architecture, provenance and license": "success"
+        }
+      },
+      {
+        "id": 137297102271,
+        "name": "Installed packaging (3.11)",
+        "conclusion": "success",
+        "steps": {
+          "Build and test wheel and sdist without source imports or Textual": "success"
+        }
+      },
+      {
+        "id": 137297131160,
+        "name": "certify (3.12)",
+        "conclusion": "success",
+        "steps": {
+          "Required real Core, sandbox, local Git, MCP, Chrome and protocol acceptance": "success",
+          "Full Core suite and native authority regressions": "success",
+          "Architecture, provenance and license": "success"
+        }
+      },
+      {
+        "id": 137297140994,
+        "name": "Installed packaging (3.12)",
+        "conclusion": "success",
+        "steps": {
+          "Build and test wheel and sdist without source imports or Textual": "success"
+        }
+      }
+    ],
+    "artifacts": [
+      {
+        "id": 14763501958,
+        "file_sha256": "938396d7104cb6afcb669e512228be41ebf8c993cce498d034664e559f7483db",
+        "gates": [
+          {
+            "gate": "repository-core-git-recovery-stop",
+            "exit_code": 0,
+            "status": "PASS",
+            "log_sha256": "0a0d75c51c68506a4825f138c25a80962df28c9fe4c9a22d12fbf728974ffe4e"
+          },
+          {
+            "gate": "adversarial-observer",
+            "exit_code": 0,
+            "status": "PASS",
+            "log_sha256": "fa240ee9c74405ef53032158e6b23318c80fa3cae16c5b5e16ce454f44181a70"
+          },
+          {
+            "gate": "controlled-python-differential",
+            "exit_code": 0,
+            "status": "PASS",
+            "log_sha256": "d43ef42bbaa13d05a458c4b1f18c0415a45bf27076bbf60f25f95dd090cf499e"
+          },
+          {
+            "gate": "mcp",
+            "exit_code": 0,
+            "status": "PASS",
+            "log_sha256": "ead20134f1b1b8709dfc7ccd8225b55c35ac9c1add0d3432b08bd5e5597ca60a"
+          },
+          {
+            "gate": "local-git",
+            "exit_code": 0,
+            "status": "PASS",
+            "log_sha256": "27eabc41fdb4f069b4f52e80af074176990111915085ae9439f7d3797edb2d7c"
+          },
+          {
+            "gate": "chrome-rest",
+            "exit_code": 1,
+            "status": "FAIL",
+            "log_sha256": "9d2886f12649e8f593ac5d44bb88f1ab81ba0710a0d2042c67b80e5f37fd8b69"
+          }
+        ],
+        "all_gate_log_hashes_verified": true
+      },
+      {
+        "id": 14764476790,
+        "file_sha256": "62243d92d764bf9ff826f11a0026d8bcbd52f134f3f551fe50bda3b20f663618",
+        "gates": [
+          {
+            "gate": "repository-core-git-recovery-stop",
+            "exit_code": 0,
+            "status": "PASS",
+            "log_sha256": "0a0d75c51c68506a4825f138c25a80962df28c9fe4c9a22d12fbf728974ffe4e"
+          },
+          {
+            "gate": "adversarial-observer",
+            "exit_code": 0,
+            "status": "PASS",
+            "log_sha256": "fa240ee9c74405ef53032158e6b23318c80fa3cae16c5b5e16ce454f44181a70"
+          },
+          {
+            "gate": "controlled-python-differential",
+            "exit_code": 0,
+            "status": "PASS",
+            "log_sha256": "d43ef42bbaa13d05a458c4b1f18c0415a45bf27076bbf60f25f95dd090cf499e"
+          },
+          {
+            "gate": "mcp",
+            "exit_code": 0,
+            "status": "PASS",
+            "log_sha256": "2a1778f8be5955e262322083773b1ec33c75bdbdd878e1201387d099c9276dc5"
+          },
+          {
+            "gate": "local-git",
+            "exit_code": 0,
+            "status": "PASS",
+            "log_sha256": "cb081264b3c672d0d867442b9f0b336f547da8a8052ff0b7bcd726b2791be434"
+          },
+          {
+            "gate": "chrome-rest",
+            "exit_code": 0,
+            "status": "PASS",
+            "log_sha256": "e301afabbafa589be6c564dcc63773ad0bcd5e08990b23b2e8844a728a530270"
+          },
+          {
+            "gate": "sandbox-policy-matrix",
+            "exit_code": 0,
+            "status": "PASS",
+            "log_sha256": "d8e2af7d235f548d72939ae84af4c28a00fbfd0951ccbb6ef8e30ced8386bd21"
+          },
+          {
+            "gate": "codex-protocol-no-inference",
+            "exit_code": 0,
+            "status": "PASS",
+            "log_sha256": "cf0d3a4f33954c718ae0f1c79c3da38d0a4f346508a16b3f81c15873f4659c46"
+          }
+        ],
+        "all_gate_log_hashes_verified": true
+      },
+      {
+        "id": 14765943994,
+        "file_sha256": "7b9f671c51f172c37e726452e6aa2a7e5370a4732ee733c04c61b29faf762d06",
+        "gates": [
+          {
+            "gate": "repository-core-git-recovery-stop",
+            "exit_code": 0,
+            "status": "PASS",
+            "log_sha256": "0a0d75c51c68506a4825f138c25a80962df28c9fe4c9a22d12fbf728974ffe4e"
+          },
+          {
+            "gate": "adversarial-observer",
+            "exit_code": 0,
+            "status": "PASS",
+            "log_sha256": "fa240ee9c74405ef53032158e6b23318c80fa3cae16c5b5e16ce454f44181a70"
+          },
+          {
+            "gate": "controlled-python-differential",
+            "exit_code": 0,
+            "status": "PASS",
+            "log_sha256": "d43ef42bbaa13d05a458c4b1f18c0415a45bf27076bbf60f25f95dd090cf499e"
+          },
+          {
+            "gate": "mcp",
+            "exit_code": 0,
+            "status": "PASS",
+            "log_sha256": "3521fdd6b0d6911052abba4f503cd97fd304c59f02e9cf18f74a04f3f2410569"
+          },
+          {
+            "gate": "local-git",
+            "exit_code": 0,
+            "status": "PASS",
+            "log_sha256": "d6477ffbf04ed1adc73ed74822f08041e784f6468fc71f470c4e88223d4e78e4"
+          },
+          {
+            "gate": "chrome-rest",
+            "exit_code": 0,
+            "status": "PASS",
+            "log_sha256": "ba4904e50f068686e773340027185c178a18bb30805065e087d813d84be4b3e2"
+          },
+          {
+            "gate": "sandbox-policy-matrix",
+            "exit_code": 0,
+            "status": "PASS",
+            "log_sha256": "9126c5285ab2f184a3c29c82330a727ea286d6a7de93d36b492d2a8db3b5ec27"
+          },
+          {
+            "gate": "codex-protocol-no-inference",
+            "exit_code": 0,
+            "status": "PASS",
+            "log_sha256": "cf0d3a4f33954c718ae0f1c79c3da38d0a4f346508a16b3f81c15873f4659c46"
+          }
+        ],
+        "all_gate_log_hashes_verified": true
+      }
+    ],
+    "codeql": [
+      {
+        "id": 137279395185,
+        "name": "Analyze (python)",
+        "conclusion": "success"
+      },
+      {
+        "id": 137279395076,
+        "name": "Analyze (javascript-typescript)",
+        "conclusion": "success"
+      },
+      {
+        "id": 137279395013,
+        "name": "Analyze (actions)",
+        "conclusion": "success"
+      },
+      {
+        "id": 137279394804,
+        "name": "Analyze (c-cpp)",
+        "conclusion": "success"
+      }
+    ],
+    "local_source_provenance": {
+      "status": "PASS",
+      "python": [
+        "3.11.18",
+        "3.12.14"
+      ],
+      "source_manifest_sha256": "08383d5d54cc83da79faabfc94175f1ca391697d3f949239e4a0a0815e8fd4f8"
+    },
+    "local_one_core": {
+      "status": "PASS",
+      "python": [
+        "3.11.18",
+        "3.12.14"
+      ]
+    }
+  },
+  "merged_prs": [
+    {
+      "merge_commit_sha": "30c24a36923aaf834475003723d994fbca40b3ea",
+      "merged_at": "2026-11-20T17:26:26Z",
+      "number": 52,
+      "title": "NZ13 · Jeden AIOA Core i ograniczony parytet NonZero"
+    },
+    {
+      "merge_commit_sha": "c43a269afcd5cd6e49b934a297d7ae7ccaf2d9e9",
+      "merged_at": "2026-11-21T11:21:02Z",
+      "number": 53,
+      "title": "NZ20: integrate WorkerMailbox, Task Continuation and MCP READ"
+    },
+    {
+      "merge_commit_sha": "4fb1ecc397ce5b7304ff1426691a2e6764158c09",
+      "merged_at": "2026-11-22T08:58:31Z",
+      "number": 54,
+      "title": "NZ23B: enforce bounded AIOA Core offline launcher"
+    },
+    {
+      "merge_commit_sha": "f6c6323fcb511eb5fc481a10d720c690f6d681cd",
+      "merged_at": "2026-11-22T12:30:46Z",
+      "number": 55,
+      "title": "NZ25: bind coding receipts and verify cold intent readback"
+    },
+    {
+      "merge_commit_sha": "a98a6dc5c73efc8d50d9734270e1c5b874b0a213",
+      "merged_at": "2026-11-22T14:46:57Z",
+      "number": 56,
+      "title": "Preserve worker outcomes and advisory continuation evidence"
+    },
+    {
+      "merge_commit_sha": "7b5fd205c02603231919451b1cacd241f49fd9e9",
+      "merged_at": "2026-11-22T16:45:21Z",
+      "number": 57,
+      "title": "Preserve complete UTF-8 characters in bounded public reads"
+    }
+  ],
+  "local": [
+    {
+      "commit": "c6e74366e9acd114c42c51919856f3d4570c8f5c",
+      "python": "3.11.18",
+      "scope": "cold private Git CAS fixture",
+      "log_sha256": "26412c40e0046b3c921d485a43964a5b49a4065e74dca3222dc8dd751405a7e8",
+      "status": "OK",
+      "tests_run": 2,
+      "seconds": 5.674
+    },
+    {
+      "commit": "22cbfaff040ff96927147095e6d68ca5a594cd21",
+      "python": "3.11.18",
+      "scope": "36 scoped regression modules, local Debian sandbox",
+      "log_sha256": "ad2b89f931d8c809d463680e2695fb145ce14dba921cbfaab05e4ec545460d4e",
+      "status": "FAILED (failures=3, errors=40)",
+      "tests_run": 464,
+      "seconds": 140.683
+    },
+    {
+      "commit": "7b5fd205c02603231919451b1cacd241f49fd9e9",
+      "python": "3.11.18",
+      "scope": "full local unittest discovery on Debian",
+      "status": "NOT_COMPLETE_AT_SNAPSHOT",
+      "tests_run": null,
+      "seconds": null
+    },
+    {
+      "commit": "22cbfaff040ff96927147095e6d68ca5a594cd21",
+      "python": "3.11.18",
+      "scope": "Installed wheel and sdist. Dependency install adapted with local wheelhouse. No checkout imports. No filesystem namespace qualification.",
+      "artifact_report_sha256": "a7e21d0f4bc5f5f6230527a2beb382482d722edef22d90bd354e67dd8e2509a6",
+      "status": "PASS",
+      "sdist_sha256": "a043659c72e3a1208849ba6a478c41e9c8874cf64aa9a9be7b4d7894f8b5be1c",
+      "wheel_sha256": {
+        "wheel": "2a8f5d9e0d4ec68275502a0b2cc097962762670c5c261719fb594bfd574c92e1",
+        "sdist": "9d21dc619c93b423133a15dfc57de1c26d1ed0de462d2f4ade836e82d5ba9c68"
+      }
+    },
+    {
+      "commit": "c6e74366e9acd114c42c51919856f3d4570c8f5c",
+      "python": "3.12.14",
+      "scope": "cold private Git CAS fixture",
+      "log_sha256": "b2bec4d65e6ce58ed633bd57c2cbdceec3a69a93b6a12ee9e267830d31ab46f3",
+      "status": "OK",
+      "tests_run": 2,
+      "seconds": 5.631
+    },
+    {
+      "commit": "22cbfaff040ff96927147095e6d68ca5a594cd21",
+      "python": "3.12.14",
+      "scope": "36 scoped regression modules, local Debian sandbox",
+      "log_sha256": "bd4a5a1fb2a27c2b47847814a4433eef3a25edccf96143f6ca9032ca38290f73",
+      "status": "FAILED (failures=3, errors=40)",
+      "tests_run": 464,
+      "seconds": 129.25
+    },
+    {
+      "commit": "7b5fd205c02603231919451b1cacd241f49fd9e9",
+      "python": "3.12.14",
+      "scope": "full local unittest discovery on Debian",
+      "status": "FAILED (failures=116, errors=422, skipped=5)",
+      "tests_run": 4392,
+      "seconds": 685.872
+    },
+    {
+      "commit": "22cbfaff040ff96927147095e6d68ca5a594cd21",
+      "python": "3.12.14",
+      "scope": "Installed wheel and sdist. Dependency install adapted with local wheelhouse. No checkout imports. No filesystem namespace qualification.",
+      "artifact_report_sha256": "1bd89cb39eb517458fc97a3dab9d1090bba40de6a202a5675b87fba9f3cffc5c",
+      "status": "PASS",
+      "sdist_sha256": "14fee62abce614998efc9a6de869633973013c6772c52efc691c865c50144015",
+      "wheel_sha256": {
+        "wheel": "2a8f5d9e0d4ec68275502a0b2cc097962762670c5c261719fb594bfd574c92e1",
+        "sdist": "9d21dc619c93b423133a15dfc57de1c26d1ed0de462d2f4ade836e82d5ba9c68"
+      }
+    }
+  ],
+  "local_observed_errors": [
+    "GIT_RUNTIME_CHANGED on pinned broker",
+    "PermissionError: Operation not permitted on transport/fixture",
+    "BOUNDED_LISTENER_FAILED",
+    "TMPDIR missing for fresh portable fixture",
+    "PROTOCOL_TIMEOUT"
+  ],
+  "candidate_hosted_ci": "See exact head of Draft PR; not part of baseline results.",
+  "live": {
+    "A": "NOT_RUN",
+    "B": "NOT_RUN",
+    "C": "NOT_RUN",
+    "D": "NOT_RUN"
+  }
+}
