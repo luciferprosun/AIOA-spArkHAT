@@ -7865,232 +7865,236 @@
   "target_modules": {
     "runtime/mission/worker.py": {
       "path": "runtime/mission/worker.py",
-      "git_blob": "9ddd3b891536298a94ac6bb8e3cb99206b33e0a6",
-      "sha256": "b8a9ef2319766b3c5b5351fb4ef883893eeeaf7cc7df14a6e8b11e71c412bf4b",
+      "git_blob": "19b42f0fecdc51e9b62cec1c2dcc2ab3435c29fc",
+      "sha256": "ed3d83c3a60bfa23c14b98f4631877ae19bd2fe18b05ede5f06bdbdd53a4382d",
       "definitions": [
         {
           "name": "WorkerError",
-          "line": 24
+          "line": 25
         },
         {
           "name": "WorkerOutcomeUnknown",
-          "line": 28
+          "line": 29
         },
         {
           "name": "require",
-          "line": 35
+          "line": 36
         },
         {
           "name": "Task",
-          "line": 41
+          "line": 42
         },
         {
           "name": "CandidateFile",
-          "line": 84
+          "line": 85
         },
         {
           "name": "CandidatePatch",
-          "line": 108
+          "line": 109
         },
         {
           "name": "WorkerSession",
-          "line": 143
+          "line": 144
         },
         {
           "name": "WorkerEvent",
-          "line": 161
+          "line": 162
         },
         {
           "name": "WorkerResult",
-          "line": 184
+          "line": 185
         },
         {
           "name": "WorkerFailure",
-          "line": 210
+          "line": 211
         },
         {
           "name": "WorkerPort",
-          "line": 252
-        },
-        {
-          "name": "WorkerMailbox",
-          "line": 261
-        },
-        {
-          "name": "SyntheticWorker",
-          "line": 429
-        },
-        {
-          "name": "__init__",
-          "line": 31
-        },
-        {
-          "name": "__post_init__",
-          "line": 52
-        },
-        {
-          "name": "to_dict",
-          "line": 70
-        },
-        {
-          "name": "digest",
-          "line": 79
-        },
-        {
-          "name": "__post_init__",
-          "line": 88
-        },
-        {
-          "name": "__post_init__",
-          "line": 111
-        },
-        {
-          "name": "digest",
-          "line": 128
-        },
-        {
-          "name": "__post_init__",
-          "line": 150
-        },
-        {
-          "name": "__post_init__",
-          "line": 169
-        },
-        {
-          "name": "__post_init__",
-          "line": 191
-        },
-        {
-          "name": "status",
-          "line": 197
-        },
-        {
-          "name": "authority",
-          "line": 201
-        },
-        {
-          "name": "verified",
-          "line": 205
-        },
-        {
-          "name": "__post_init__",
-          "line": 216
-        },
-        {
-          "name": "status",
-          "line": 237
-        },
-        {
-          "name": "authority",
-          "line": 247
-        },
-        {
-          "name": "start",
           "line": 253
         },
         {
-          "name": "poll",
-          "line": 254
+          "name": "WorkerMailbox",
+          "line": 262
         },
         {
-          "name": "result",
-          "line": 255
-        },
-        {
-          "name": "cancel",
-          "line": 256
-        },
-        {
-          "name": "interrupt",
-          "line": 257
-        },
-        {
-          "name": "close",
-          "line": 258
+          "name": "SyntheticWorker",
+          "line": 452
         },
         {
           "name": "__init__",
-          "line": 264
+          "line": 32
         },
         {
-          "name": "_check",
-          "line": 278
+          "name": "__post_init__",
+          "line": 53
         },
         {
-          "name": "_fail",
-          "line": 284
+          "name": "to_dict",
+          "line": 71
         },
         {
-          "name": "_ready",
-          "line": 289
+          "name": "digest",
+          "line": 80
         },
         {
-          "name": "_append",
-          "line": 300
+          "name": "__post_init__",
+          "line": 89
         },
         {
-          "name": "progress",
-          "line": 317
+          "name": "__post_init__",
+          "line": 112
         },
         {
-          "name": "complete",
-          "line": 322
+          "name": "digest",
+          "line": 129
         },
         {
-          "name": "complete_json",
-          "line": 336
+          "name": "__post_init__",
+          "line": 151
         },
         {
-          "name": "fail",
-          "line": 392
+          "name": "__post_init__",
+          "line": 170
         },
         {
-          "name": "drain",
-          "line": 412
+          "name": "__post_init__",
+          "line": 192
         },
         {
-          "name": "result",
-          "line": 421
+          "name": "status",
+          "line": 198
         },
         {
-          "name": "__init__",
-          "line": 432
+          "name": "authority",
+          "line": 202
+        },
+        {
+          "name": "verified",
+          "line": 206
+        },
+        {
+          "name": "__post_init__",
+          "line": 217
+        },
+        {
+          "name": "status",
+          "line": 238
+        },
+        {
+          "name": "authority",
+          "line": 248
         },
         {
           "name": "start",
-          "line": 444
-        },
-        {
-          "name": "_mailbox",
-          "line": 457
+          "line": 254
         },
         {
           "name": "poll",
-          "line": 462
+          "line": 255
         },
         {
           "name": "result",
-          "line": 475
+          "line": 256
         },
         {
           "name": "cancel",
-          "line": 478
+          "line": 257
         },
         {
           "name": "interrupt",
-          "line": 481
+          "line": 258
         },
         {
           "name": "close",
-          "line": 484
+          "line": 259
+        },
+        {
+          "name": "__init__",
+          "line": 265
+        },
+        {
+          "name": "_check",
+          "line": 281
+        },
+        {
+          "name": "_fail",
+          "line": 287
+        },
+        {
+          "name": "_ready",
+          "line": 292
+        },
+        {
+          "name": "_append",
+          "line": 315
+        },
+        {
+          "name": "progress",
+          "line": 332
+        },
+        {
+          "name": "complete",
+          "line": 337
+        },
+        {
+          "name": "complete_json",
+          "line": 351
+        },
+        {
+          "name": "fail",
+          "line": 407
+        },
+        {
+          "name": "drain",
+          "line": 427
+        },
+        {
+          "name": "result",
+          "line": 436
+        },
+        {
+          "name": "_is_pending",
+          "line": 446
+        },
+        {
+          "name": "__init__",
+          "line": 455
+        },
+        {
+          "name": "start",
+          "line": 467
+        },
+        {
+          "name": "_mailbox",
+          "line": 480
+        },
+        {
+          "name": "poll",
+          "line": 485
+        },
+        {
+          "name": "result",
+          "line": 498
+        },
+        {
+          "name": "cancel",
+          "line": 501
+        },
+        {
+          "name": "interrupt",
+          "line": 504
+        },
+        {
+          "name": "close",
+          "line": 507
         },
         {
           "name": "unique_fields",
-          "line": 348
+          "line": 363
         },
         {
           "name": "no_constant",
-          "line": 355
+          "line": 370
         }
       ],
       "symbolic_callees": [
@@ -8107,10 +8111,10 @@
         "any",
         "asdict",
         "bounded_int",
+        "box._is_pending",
         "box.complete",
         "box.drain",
         "box.fail",
-        "box.result",
         "callable",
         "canonical_sha256",
         "contains_sensitive_material",
@@ -8124,6 +8128,8 @@
         "iter",
         "json.loads",
         "len",
+        "logging.getLogger",
+        "logging.getLogger().warning",
         "logical_id",
         "min",
         "next",
@@ -8133,8 +8139,8 @@
         "require",
         "self._append",
         "self._box._check",
+        "self._box._is_pending",
         "self._box.fail",
-        "self._box.result",
         "self._check",
         "self._events.clear",
         "self._events.extend",
@@ -8159,8 +8165,8 @@
         "uuid.uuid4",
         "value.pop"
       ],
-      "call_site_count": 165,
-      "call_sites_sha256": "3ece61ee14d6a4e6ded4d613cf3b165312256c6114854c63c56a826b8c79428b"
+      "call_site_count": 171,
+      "call_sites_sha256": "83c248b261d3b311d9c64e59ae366d7ccde90b944b423dc2ce4df235f7985c54"
     },
     "runtime/mission/codex_worker.py": {
       "path": "runtime/mission/codex_worker.py",
@@ -14041,8 +14047,8 @@
     },
     "runtime/mission/repair.py": {
       "path": "runtime/mission/repair.py",
-      "git_blob": "76b1d8d1b0401f600648cf6fcd18cffc8615b4f8",
-      "sha256": "a6cfc1223d62f9367b0c060310bd94114730958b82a78f513395dad515e2a7c6",
+      "git_blob": "8d8f395da7c15f4b9529646b579d498ac05bbe30",
+      "sha256": "e852877d69edb6dec910003e0ecd4528551aac387ae47e4963eae6db2dc95b8c",
       "definitions": [
         {
           "name": "require",
@@ -14174,11 +14180,11 @@
         },
         {
           "name": "stop",
-          "line": 708
+          "line": 713
         },
         {
           "name": "close",
-          "line": 720
+          "line": 725
         },
         {
           "name": "stop_reason",
@@ -14259,8 +14265,8 @@
         "type",
         "validator.open"
       ],
-      "call_site_count": 247,
-      "call_sites_sha256": "04221533a782290d8f36bf9ba0afd06bb7e923e8062ad32ad3fb10e32aefe35e"
+      "call_site_count": 250,
+      "call_sites_sha256": "36f25895801228681e230de7766fb6213c89f1fdbf7c6c1568deb69455cff07a"
     },
     "runtime/mission/repair_validation.py": {
       "path": "runtime/mission/repair_validation.py",

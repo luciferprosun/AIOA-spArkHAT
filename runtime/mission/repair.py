@@ -701,6 +701,11 @@ class SandboxedCandidateProducer:
             "WORKER_SUCCESS_REQUIRED",
         )
         require(not self._stopped(), "CANCELLED")
+        # Poll and result may return after the deadline checked at loop entry.
+        require(
+            self.clock() < self.task.deadline_at and self.monotonic() < deadline,
+            "WORKER_TIMEOUT",
+        )
         root = self.materializer.materialize(self.task, self.session, result.candidate)
         self.last_root = root
         return CandidateWorkspace(root, self.session, result)
