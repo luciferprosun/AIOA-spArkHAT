@@ -12616,280 +12616,288 @@
     },
     "runtime/mission/coding_tasks.py": {
       "path": "runtime/mission/coding_tasks.py",
-      "git_blob": "3c676bafb175d1ffea5bd0d00aaf40abc80fe6c6",
-      "sha256": "e1a2a172f3914f901634c4bc5304be0300a0960b463743d6f205a1c7f0afe94c",
+      "git_blob": "88abdd16780a1ca8c85612775b9e6ad06f3d5803",
+      "sha256": "3cadd35232df51d578c905db0245e889204d42343ba4b567505e4e04b2385221",
       "definitions": [
         {
           "name": "CodingRun",
-          "line": 61
+          "line": 62
         },
         {
           "name": "decode_coding_task_row",
-          "line": 109
+          "line": 110
         },
         {
           "name": "decode_coding_backend_binding_row",
-          "line": 153
+          "line": 154
         },
         {
-          "name": "CodingWorkSnapshot",
+          "name": "_loop_audit_binding",
           "line": 172
         },
         {
+          "name": "_read_loop_result",
+          "line": 179
+        },
+        {
+          "name": "CodingWorkSnapshot",
+          "line": 216
+        },
+        {
           "name": "CodingLifecycleSnapshot",
-          "line": 182
+          "line": 226
         },
         {
           "name": "CodingDrainReport",
-          "line": 188
+          "line": 232
         },
         {
           "name": "CoreCodingTasks",
-          "line": 194
+          "line": 238
         },
         {
           "name": "coding_cli_request",
-          "line": 1653
+          "line": 1691
         },
         {
           "name": "run_coding_cli",
-          "line": 1658
+          "line": 1696
         },
         {
           "name": "coding_http_request",
-          "line": 1687
+          "line": 1725
         },
         {
           "name": "run_coding_http_cli",
-          "line": 1779
+          "line": 1817
         },
         {
           "name": "__post_init__",
-          "line": 72
+          "line": 73
         },
         {
           "name": "__init__",
-          "line": 195
+          "line": 239
         },
         {
           "name": "_require_native_binding",
-          "line": 247
+          "line": 291
         },
         {
           "name": "_require_principal",
-          "line": 258
+          "line": 302
         },
         {
           "name": "_authority",
-          "line": 276
+          "line": 320
         },
         {
           "name": "_run",
-          "line": 297
-        },
-        {
-          "name": "_retire_finished",
-          "line": 328
-        },
-        {
-          "name": "lifecycle_snapshot",
           "line": 341
         },
         {
+          "name": "_retire_finished",
+          "line": 372
+        },
+        {
+          "name": "lifecycle_snapshot",
+          "line": 385
+        },
+        {
           "name": "drain",
-          "line": 358
+          "line": 402
         },
         {
           "name": "_require_coding_backend_host",
-          "line": 382
+          "line": 426
         },
         {
           "name": "bind_coding_backend",
-          "line": 408
+          "line": 452
         },
         {
           "name": "read_coding_backend",
-          "line": 482
+          "line": 526
         },
         {
           "name": "_require_legacy_coding_task",
-          "line": 494
-        },
-        {
-          "name": "runtime_view",
-          "line": 503
-        },
-        {
-          "name": "_key",
-          "line": 530
-        },
-        {
-          "name": "_load",
-          "line": 534
-        },
-        {
-          "name": "_signed",
           "line": 538
         },
         {
-          "name": "_save",
-          "line": 550
+          "name": "runtime_view",
+          "line": 547
         },
         {
-          "name": "_view",
+          "name": "_key",
+          "line": 574
+        },
+        {
+          "name": "_load",
+          "line": 578
+        },
+        {
+          "name": "_signed",
           "line": 582
         },
         {
+          "name": "_save",
+          "line": 594
+        },
+        {
+          "name": "_view",
+          "line": 626
+        },
+        {
           "name": "_transition",
-          "line": 597
+          "line": 641
         },
         {
           "name": "_append_transition",
-          "line": 646
+          "line": 690
         },
         {
           "name": "_complete_history",
-          "line": 674
+          "line": 718
         },
         {
           "name": "_unresolved_intents",
-          "line": 682
+          "line": 726
         },
         {
           "name": "_start",
-          "line": 691
+          "line": 735
         },
         {
           "name": "_record_loop",
-          "line": 743
+          "line": 787
         },
         {
           "name": "_execute",
-          "line": 785
+          "line": 825
         },
         {
           "name": "_execute_body",
-          "line": 796
+          "line": 836
         },
         {
           "name": "_active_cancel",
-          "line": 926
+          "line": 966
         },
         {
           "name": "wait",
-          "line": 947
+          "line": 987
         },
         {
           "name": "close",
-          "line": 960
+          "line": 1000
         },
         {
           "name": "_effect",
-          "line": 963
+          "line": 1003
         },
         {
           "name": "_native_git_reconciliation_parent",
-          "line": 984
+          "line": 1024
         },
         {
           "name": "_native_git_reconciliation_retirement",
-          "line": 1055
+          "line": 1095
         },
         {
           "name": "_native_git_reconcile",
-          "line": 1071
+          "line": 1111
         },
         {
           "name": "_native_git_effect_entry",
-          "line": 1181
+          "line": 1221
         },
         {
           "name": "_native_git_effect_check",
-          "line": 1220
+          "line": 1260
         },
         {
           "name": "_native_git_start_ack",
-          "line": 1234
+          "line": 1274
         },
         {
           "name": "_native_git_begin_settlement",
-          "line": 1244
+          "line": 1284
         },
         {
           "name": "_native_git_effect_request",
-          "line": 1266
+          "line": 1306
         },
         {
           "name": "_controller_request",
-          "line": 1341
+          "line": 1381
         },
         {
           "name": "request",
-          "line": 1460
+          "line": 1500
         },
         {
           "name": "attach_review",
-          "line": 1597
+          "line": 1635
         },
         {
           "name": "_attach_review_locked",
-          "line": 1607
+          "line": 1645
         },
         {
           "name": "read",
-          "line": 487
+          "line": 531
         },
         {
           "name": "change",
-          "line": 610
+          "line": 654
         },
         {
           "name": "save",
-          "line": 760
+          "line": 804
         },
         {
           "name": "read",
-          "line": 1094
+          "line": 1134
         },
         {
           "name": "cancel",
-          "line": 1585
+          "line": 1623
         },
         {
           "name": "inspect",
-          "line": 1613
+          "line": 1651
         },
         {
           "name": "save",
-          "line": 1641
+          "line": 1679
         },
         {
           "name": "pure",
-          "line": 314
+          "line": 358
         },
         {
           "name": "publish",
-          "line": 438
+          "line": 482
         },
         {
           "name": "read",
-          "line": 507
+          "line": 551
         },
         {
           "name": "create",
-          "line": 1503
+          "line": 1543
         },
         {
           "name": "read",
-          "line": 1522
+          "line": 1562
         },
         {
           "name": "require_ready",
-          "line": 701
+          "line": 745
         },
         {
           "name": "observe",
-          "line": 825
+          "line": 865
         }
       ],
       "symbolic_callees": [
@@ -12908,11 +12916,14 @@
         "JsonlFramer",
         "OperationBinding.bind",
         "Path",
+        "RepairLoopResult.from_record",
         "SourceIdentity",
         "StoredRecord",
         "Task",
         "WarrantError",
         "_IN_TRANSACTION.get",
+        "_loop_audit_binding",
+        "_read_loop_result",
         "access.capture",
         "access.require_capture",
         "active.get",
@@ -12945,6 +12956,7 @@
         "core.require",
         "data[data].append",
         "dataclass",
+        "decode_audit",
         "decode_coding_backend_binding_row",
         "decode_coding_task_row",
         "dict.fromkeys",
@@ -13101,8 +13113,8 @@
         "type",
         "verify"
       ],
-      "call_site_count": 713,
-      "call_sites_sha256": "ea3ef4b37271387c0742feee7781dbe614539259ddb1fd36b246d344c39dd3a5"
+      "call_site_count": 726,
+      "call_sites_sha256": "a1dfaeaec8d22cdcbc78072aa35d2dca50f83097778eb3e149a005787bb68a37"
     },
     "tests/test_hybrid_patchset.py": {
       "path": "tests/test_hybrid_patchset.py",
@@ -13723,8 +13735,8 @@
     },
     "runtime/mission/patchset.py": {
       "path": "runtime/mission/patchset.py",
-      "git_blob": "b2edd8de4d85e1a9782b5feb0816fc1ab935c277",
-      "sha256": "62a4d8b1270d0000ea1bdf6f4ee0098fb6816d3e9404db21154f7a865eaa4dbb",
+      "git_blob": "c6439735bff5fffb4a19f72d6a07459de4dda3a6",
+      "sha256": "f90a7ff3e1cedf0cb4382b4423468805586bdbfb909efd99dace2ceecc6b7de0",
       "definitions": [
         {
           "name": "PatchSetPolicyDenied",
@@ -13768,67 +13780,67 @@
         },
         {
           "name": "_TreeFile",
-          "line": 314
+          "line": 340
         },
         {
           "name": "_Tree",
-          "line": 320
+          "line": 346
         },
         {
           "name": "_stamp",
-          "line": 325
+          "line": 351
         },
         {
           "name": "_regular",
-          "line": 339
+          "line": 365
         },
         {
           "name": "_open_root",
-          "line": 349
+          "line": 375
         },
         {
           "name": "_read_regular",
-          "line": 371
+          "line": 397
         },
         {
           "name": "_tree_digest",
-          "line": 402
+          "line": 428
         },
         {
           "name": "_snapshot",
-          "line": 411
+          "line": 437
         },
         {
           "name": "independent_tree_digest",
-          "line": 503
+          "line": 529
         },
         {
           "name": "observe_source",
-          "line": 598
+          "line": 624
         },
         {
           "name": "_text",
-          "line": 604
+          "line": 630
         },
         {
           "name": "_bounded_diff_lines",
-          "line": 616
+          "line": 642
         },
         {
           "name": "_counts",
-          "line": 625
+          "line": 651
         },
         {
           "name": "_diff",
-          "line": 638
+          "line": 664
         },
         {
           "name": "BoundedPatchSetPolicy",
-          "line": 660
+          "line": 686
         },
         {
           "name": "_export_fresh_tree",
-          "line": 828
+          "line": 854
         },
         {
           "name": "__post_init__",
@@ -13847,52 +13859,56 @@
           "line": 248
         },
         {
+          "name": "from_record",
+          "line": 253
+        },
+        {
           "name": "_validate",
-          "line": 252
+          "line": 278
         },
         {
           "name": "lines_added",
-          "line": 289
+          "line": 315
         },
         {
           "name": "lines_deleted",
-          "line": 293
+          "line": 319
         },
         {
           "name": "authority",
-          "line": 297
+          "line": 323
         },
         {
           "name": "payload",
-          "line": 300
+          "line": 326
         },
         {
           "name": "verify_digest",
-          "line": 305
+          "line": 331
         },
         {
           "name": "identity",
-          "line": 641
+          "line": 667
         },
         {
           "name": "evaluate",
-          "line": 663
+          "line": 689
         },
         {
           "name": "preview",
-          "line": 688
+          "line": 714
         },
         {
           "name": "_derive",
-          "line": 726
+          "line": 752
         },
         {
           "name": "recheck",
-          "line": 805
+          "line": 831
         },
         {
           "name": "walk",
-          "line": 419
+          "line": 445
         }
       ],
       "symbolic_callees": [
@@ -13929,9 +13945,12 @@
         "bounded_int",
         "canonical_json_bytes",
         "canonical_sha256",
+        "changes.append",
         "chr",
         "chunks.append",
+        "cls",
         "contains_sensitive_material",
+        "data.pop",
         "dataclass",
         "dict",
         "diff.append",
@@ -14017,13 +14036,13 @@
         "walk",
         "write_new"
       ],
-      "call_site_count": 390,
-      "call_sites_sha256": "8fee4d657ffc91fcb20988f861b1ae2f7345f8645f9b0fc909582817c44a125a"
+      "call_site_count": 408,
+      "call_sites_sha256": "3cedc8a3568f988f89eb3898b08291aca908ba57f5e3292772a85d6fd3fd58ea"
     },
     "runtime/mission/repair.py": {
       "path": "runtime/mission/repair.py",
-      "git_blob": "789fe0b2b50216fa910222a827fc1d1ef656a553",
-      "sha256": "695c14550566b157178da7235c5d110d437c05ae4b0faada3a179f27866b01c7",
+      "git_blob": "76b1d8d1b0401f600648cf6fcd18cffc8615b4f8",
+      "sha256": "a6cfc1223d62f9367b0c060310bd94114730958b82a78f513395dad515e2a7c6",
       "definitions": [
         {
           "name": "require",
@@ -14043,35 +14062,35 @@
         },
         {
           "name": "AttemptReceipt",
-          "line": 93
+          "line": 94
         },
         {
           "name": "RepairLoopResult",
-          "line": 117
+          "line": 130
         },
         {
           "name": "CandidateProducer",
-          "line": 167
+          "line": 237
         },
         {
           "name": "ValidationSession",
-          "line": 174
+          "line": 244
         },
         {
           "name": "ValidationBackend",
-          "line": 179
+          "line": 249
         },
         {
           "name": "semantic_review",
-          "line": 183
+          "line": 253
         },
         {
           "name": "BoundedRepairLoopCoordinator",
-          "line": 208
+          "line": 278
         },
         {
           "name": "SandboxedCandidateProducer",
-          "line": 449
+          "line": 519
         },
         {
           "name": "__post_init__",
@@ -14083,90 +14102,96 @@
         },
         {
           "name": "__post_init__",
-          "line": 101
+          "line": 102
         },
         {
           "name": "__post_init__",
-          "line": 127
+          "line": 140
+        },
+        {
+          "name": "from_record",
+          "line": 198
         },
         {
           "name": "authority",
-          "line": 163
+          "line": 233
         },
         {
           "name": "produce",
-          "line": 168
+          "line": 238
         },
         {
           "name": "close",
-          "line": 171
+          "line": 241
         },
         {
           "name": "run",
-          "line": 175
+          "line": 245
         },
         {
           "name": "close",
-          "line": 176
+          "line": 246
         },
         {
           "name": "open",
-          "line": 180
+          "line": 250
         },
         {
           "name": "__init__",
-          "line": 209
+          "line": 279
         },
         {
           "name": "run",
-          "line": 214
+          "line": 284
         },
         {
           "name": "__init__",
-          "line": 457
+          "line": 527
         },
         {
           "name": "_stopped",
-          "line": 499
+          "line": 569
         },
         {
           "name": "_start_worker",
-          "line": 504
+          "line": 574
         },
         {
           "name": "_check_cancel_uncertainty",
-          "line": 534
+          "line": 604
         },
         {
           "name": "_cancel_worker",
-          "line": 540
+          "line": 610
         },
         {
           "name": "_worker_result",
-          "line": 573
+          "line": 643
         },
         {
           "name": "produce",
-          "line": 588
+          "line": 658
         },
         {
           "name": "stop",
-          "line": 638
+          "line": 708
         },
         {
           "name": "close",
-          "line": 650
+          "line": 720
         },
         {
           "name": "stop_reason",
-          "line": 234
+          "line": 304
         }
       ],
       "symbolic_callees": [
         "AttemptReceipt",
         "BoundedPatchSetPolicy",
         "CandidateWorkspace",
+        "PatchSet.from_record",
         "RepairLoopResult",
+        "ValidationStep",
         "ValueError",
         "WorkerOutcomeUnknown",
         "all",
@@ -14176,19 +14201,24 @@
         "callable",
         "cancelled",
         "canonical_sha256",
+        "cls",
         "data.pop",
         "dataclass",
+        "decoded.append",
+        "dict",
         "digest",
         "failure_boundary",
         "field",
         "history.append",
         "isinstance",
+        "item.pop",
         "len",
         "line.startswith",
         "logical_id",
         "min",
         "object.__setattr__",
         "on_state",
+        "patch.verify_digest",
         "patchset.canonical_diff.splitlines",
         "patchset.verify_digest",
         "producer.close",
@@ -14206,7 +14236,6 @@
         "self.cancel_token.cancel",
         "self.clock",
         "self.core_warrant_digest.removeprefix",
-        "self.final_patchset.verify_digest",
         "self.materializer.materialize",
         "self.monotonic",
         "self.policy.evaluate",
@@ -14230,8 +14259,8 @@
         "type",
         "validator.open"
       ],
-      "call_site_count": 190,
-      "call_sites_sha256": "3c095966b7d500d924b80d6a2ec05f038beffb56e7af7d535c93f4900bb86df7"
+      "call_site_count": 247,
+      "call_sites_sha256": "04221533a782290d8f36bf9ba0afd06bb7e923e8062ad32ad3fb10e32aefe35e"
     },
     "runtime/mission/repair_validation.py": {
       "path": "runtime/mission/repair_validation.py",

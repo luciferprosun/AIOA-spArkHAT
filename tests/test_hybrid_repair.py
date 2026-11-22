@@ -4,6 +4,7 @@ import importlib
 import shutil
 import tempfile
 import unittest
+from dataclasses import replace
 from pathlib import Path
 
 from runtime.mission.patchset import observe_source
@@ -155,6 +156,67 @@ class RepairTests(unittest.TestCase):
         self.assertEqual(len(result.attempts), 3)
         self.assertIsNone(result.final_patchset)
         self.assertTrue(producer.closed and all(s.closed for s in backend.sessions))
+
+    def test_attempts_must_form_a_contiguous_retry_history(self):
+        result, _, _ = self.run_loop(
+            [self.candidate("a*b"), self.candidate("a+b")], ["FAIL", "PASS"]
+        )
+        first, last = result.attempts
+        for attempts in (
+            (last,), (first, replace(last, attempt=2)),
+            (replace(first, status="UNKNOWN"), last),
+        ):
+            with self.subTest(attempts=attempts), self.assertRaisesRegex(
+                ValueError, "LOOP_ATTEMPT_HISTORY"
+            ):
+                replace(result, attempts=attempts)
+
+    def test_attempt_steps_must_bind_the_same_patch_and_profile(self):
+        result, _, _ = self.run_loop([self.candidate("a+b")], ["PASS"])
+        attempt = result.attempts[0]
+        fast, targeted, final = attempt.steps
+        for steps in (
+            (fast, replace(targeted, patchset_sha256="d" * 64), final),
+            (fast, replace(targeted, profile_digest="e" * 64), final),
+            (targeted, fast, final),
+        ):
+            with self.subTest(steps=steps), self.assertRaisesRegex(
+                ValueError, "ATTEMPT_STEP_BINDING"
+            ):
+                replace(attempt, steps=steps)
+
+    def test_ready_result_must_bind_the_final_patch_to_the_task_and_attempt(self):
+        result, _, _ = self.run_loop([self.candidate("a+b")], ["PASS"])
+        for patch_update in (
+            {"task_id": "different-task"}, {"run_id": "different-run"},
+            {"worker_session_id": "different-session"},
+        ):
+            with self.subTest(patch_update=patch_update), self.assertRaisesRegex(
+                ValueError, "LOOP_PATCH_BINDING"
+            ):
+                replace(result, final_patchset=replace(result.final_patchset, **patch_update))
+
+    def test_attempt_steps_stop_at_the_first_nonpassing_observation(self):
+        result, _, _ = self.run_loop([self.candidate("a+b")], ["PASS"])
+        attempt = result.attempts[0]
+        first, *later = attempt.steps
+        failed = replace(first, status="FAIL", exit_code=1)
+        for label, updates in (
+            ("later_steps", {"steps": (failed, *later)}),
+            ("failure_without_step", {"status": "FAIL"}),
+            ("failure_with_orphan", {"status": "FAIL", "steps": (failed,), "cleanup_orphans": 1}),
+        ):
+            with self.subTest(label=label), self.assertRaisesRegex(ValueError, "ATTEMPT_STEP_OUTCOME"):
+                replace(attempt, **updates)
+
+    def test_unsuccessful_result_requires_a_stable_failure_code(self):
+        result, _, _ = self.run_loop([self.candidate("a+b")], ["UNKNOWN"])
+        self.assertEqual(result.status, "UNKNOWN")
+        for code in (None, "", "arbitrary message"):
+            with self.subTest(code=code), self.assertRaisesRegex(
+                ValueError, "LOOP_FAILURE_CODE"
+            ):
+                replace(result, failure_code=code)
 
     def test_repeated_content_is_denied_even_with_new_session_hash(self):
         result, _, _ = self.run_loop(

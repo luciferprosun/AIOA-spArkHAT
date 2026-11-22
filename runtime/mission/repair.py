@@ -76,6 +76,7 @@ class ValidationStep:
         for value in (self.patchset_sha256, self.profile_digest, self.evidence_digest):
             digest(value)
         if self.core_warrant_digest is not None:
+            require(type(self.core_warrant_digest) is str, "VALIDATION_WARRANT_DIGEST")
             digest(self.core_warrant_digest.removeprefix("sha256:"))
         require(
             self.exit_code is None or type(self.exit_code) is int,
@@ -110,7 +111,19 @@ class AttemptReceipt:
             and all(type(s) is ValidationStep for s in self.steps),
             "ATTEMPT_STEPS",
         )
+        require(
+            tuple(step.stage for step in self.steps) == TEST_STAGES[:len(self.steps)]
+            and all(step.patchset_sha256 == self.patchset_sha256 for step in self.steps)
+            and len({step.profile_digest for step in self.steps}) <= 1,
+            "ATTEMPT_STEP_BINDING",
+        )
         bounded_int(self.cleanup_orphans, 0, 1024)
+        require(all(step.status == "PASS" for step in self.steps[:-1]), "ATTEMPT_STEP_OUTCOME")
+        if self.status == "FAIL":
+            require(
+                self.steps and self.steps[-1].status == "FAIL" and self.cleanup_orphans == 0,
+                "ATTEMPT_STEP_OUTCOME",
+            )
 
 
 @dataclass(frozen=True, slots=True)
@@ -140,11 +153,16 @@ class RepairLoopResult:
             "LOOP_BOUND",
         )
         require(
+            all(type(attempt) is AttemptReceipt for attempt in self.attempts)
+            and tuple(attempt.attempt for attempt in self.attempts) == tuple(range(len(self.attempts)))
+            and all(attempt.status == "FAIL" for attempt in self.attempts[:-1]),
+            "LOOP_ATTEMPT_HISTORY",
+        )
+        require(
             (self.status == "PATCH_READY") == (self.final_patchset is not None),
             "LOOP_FALSE_SUCCESS",
         )
         if self.status == "PATCH_READY":
-            self.final_patchset.verify_digest()
             require(
                 self.failure_code is None
                 and self.attempts
@@ -155,9 +173,61 @@ class RepairLoopResult:
                 and self.history[-2:] == ("INDEPENDENT_REVIEW", "PATCH_READY"),
                 "LOOP_FALSE_SUCCESS",
             )
+            patch = self.final_patchset
+            attempt = self.attempts[-1]
+            require(
+                type(patch) is PatchSet
+                and patch.task_id == self.task_id
+                and patch.run_id == self.run_id
+                and patch.worker_session_id == attempt.worker_session_id
+                and patch.patchset_sha256 == attempt.patchset_sha256,
+                "LOOP_PATCH_BINDING",
+            )
+            patch.verify_digest()
+        else:
+            require(
+                type(self.failure_code) is str
+                and re.fullmatch(r"[A-Z][A-Z0-9_]{2,95}", self.failure_code),
+                "LOOP_FAILURE_CODE",
+            )
         data = asdict(self)
         data.pop("receipt_sha256", None)
         object.__setattr__(self, "receipt_sha256", canonical_sha256(data))
+
+    @classmethod
+    def from_record(cls, value):
+        """Decode the persisted receipt without granting authority or rerunning it."""
+        require(type(value) is dict, "LOOP_RECORD_SCHEMA")
+        data = dict(value)
+        try:
+            expected_digest = data.pop("receipt_sha256")
+            require(canonical_sha256(data) == expected_digest, "LOOP_RECORD_DIGEST")
+            attempts = data.pop("attempts")
+            history = data.pop("history")
+            patch = data.pop("final_patchset")
+            require(
+                type(attempts) is list and len(attempts) <= 3
+                and type(history) is list and len(history) <= 32
+                and all(type(state) is str for state in history),
+                "LOOP_RECORD_SCHEMA",
+            )
+            decoded = []
+            for attempt in attempts:
+                require(type(attempt) is dict, "LOOP_RECORD_SCHEMA")
+                item = dict(attempt)
+                steps = item.pop("steps")
+                require(type(steps) is list and len(steps) <= len(TEST_STAGES), "LOOP_RECORD_SCHEMA")
+                decoded.append(AttemptReceipt(
+                    **item, steps=tuple(ValidationStep(**step) for step in steps),
+                ))
+            result = cls(
+                **data, history=tuple(history), attempts=tuple(decoded),
+                final_patchset=None if patch is None else PatchSet.from_record(patch),
+            )
+        except (KeyError, TypeError, UnicodeError):
+            raise ValueError("LOOP_RECORD_SCHEMA") from None
+        require(result.receipt_sha256 == expected_digest, "LOOP_RECORD_DIGEST")
+        return result
 
     @property
     def authority(self):
