@@ -2,6 +2,7 @@
   "schema": "aioa.nonzero.checkpoint.v1",
   "updated_utc_day": "2026-11-22",
   "branch": "codex/nonzero-cloud-consolidation-20261122",
+  "draft_pull_request": 58,
   "parent_evidence_commit": "c6e74366e9acd114c42c51919856f3d4570c8f5c",
   "parent_evidence_tree": "392fe4dda4497fb5d5459fec7e6bc23b71d1a45f",
   "matrix_path": "PARITY69_UPDATED.csv",

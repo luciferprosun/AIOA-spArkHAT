@@ -1,22 +1,22 @@
 """Cold read of an unresolved Core intent through the existing journal."""
-from dataclasses import replace
-from decimal import Decimal
 import json
 import os
-from pathlib import Path
 import subprocess
 import sys
-from tempfile import TemporaryDirectory
 import unittest
+from dataclasses import replace
+from decimal import Decimal
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
 from q09_support import Fixture
+
 from lab.archaioa.authority import Money
 from runtime.core_admission import Capability
 from runtime.memory_patch.contracts.serialization import canonical_sha256
 from runtime.memory_patch.persistence.ports import RecordKind, TransactionContext
 from runtime.mission.intent import CoreIntentJournal
 from runtime.mission.warrant import approval_digest
-
 
 CAS_REF = "refs/heads/offline-cas"
 
