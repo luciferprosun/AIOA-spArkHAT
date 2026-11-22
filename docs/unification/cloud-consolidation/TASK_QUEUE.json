@@ -53,8 +53,8 @@
     },
     {
       "id": "F-consolidation-merge",
-      "status": "BLOCKED_OWNER",
-      "next": "Po zielonym CI i potwierdzeniu ochrony main uzyskać zbiorczą autoryzację na dokładny head i base."
+      "status": "PR58_MERGED",
+      "next": "Zweryfikować wyniki run 45083830703, CodeQL i artefakty dla dokładnego SHA z checkpointu. Dalszy zakres offline ma osobną kwalifikację."
     },
     {
       "id": "F-legacy-history",

@@ -1,8 +1,8 @@
 {
   "schema": "aioa.nonzero.checkpoint.v1",
   "updated_utc_day": "2026-11-22",
-  "branch": "codex/nonzero-cloud-consolidation-20261122",
-  "draft_pull_request": 58,
+  "branch": "codex/nonzero-post58-offline",
+  "draft_pull_request": null,
   "parent_evidence_commit": "c6e74366e9acd114c42c51919856f3d4570c8f5c",
   "parent_evidence_tree": "392fe4dda4497fb5d5459fec7e6bc23b71d1a45f",
   "matrix_path": "PARITY69_UPDATED.csv",
@@ -33,6 +33,23 @@
     "secondary_bundle": {
       "path": "/media/l/LSC_DATA3/AIOA_NZ12_HISTORY_20261107/backups/nonzero-all-advertised-refs.bundle",
       "status": "BLOCKED_BACKUP"
+    }
+  },
+  "pr58_merge_receipt": {
+    "merge_commit": "ebed8691f84781a5f0413374421a257f8a29b6d1",
+    "tree": "6861041c5929005e58b4f8ca8ffdb0519bf8a0d4",
+    "parents": [
+      "7b5fd205c02603231919451b1cacd241f49fd9e9",
+      "b2c48327a136b765e2194e1e3d18706f57a9801c"
+    ],
+    "github_preview": "114b331776064362ce08bc3e1f09ac019074da01",
+    "merge_method": "merge",
+    "merged_at_utc": "2026-11-22T23:32:46Z",
+    "rollback_mainline_parent": 1,
+    "postmerge_actions": {
+      "required_core": 45083830703,
+      "default_codeql": 45083830268,
+      "mcp": 45083830672
     }
   }
 }

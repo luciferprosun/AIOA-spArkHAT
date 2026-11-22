@@ -4,7 +4,7 @@
   "state": "PARITY_OPEN",
   "primary_repository": "luciferprosun/AIOA-spArkHAT",
   "legacy_repository": "luciferprosun/AIOA-NonZero-CloudOps-Agent",
-  "branch": "codex/nonzero-cloud-consolidation-20261122",
+  "branch": "codex/nonzero-post58-offline",
   "baseline_commit": "7b5fd205c02603231919451b1cacd241f49fd9e9",
   "baseline_tree": "c6f8f76b5a6e93855e5dd4c80a8af313db0054a2",
   "baseline_diverged_from_owner_pin": false,
@@ -16,7 +16,8 @@
     54,
     55,
     56,
-    57
+    57,
+    58
   ],
   "latest_test_change": "5cfe72a72176252715104e6e4bde75d387d77611",
   "performed_new_rerun": false,
@@ -29,5 +30,7 @@
   "matrix_classification_evidence": "Owner Linux audit handoff",
   "matrix_local_evidence_transferred": false,
   "owner_handoff_reported_core_role_mappings": 42,
-  "legacy_secondary_backup": "BLOCKED_BACKUP"
+  "legacy_secondary_backup": "BLOCKED_BACKUP",
+  "main_commit": "ebed8691f84781a5f0413374421a257f8a29b6d1",
+  "main_tree": "6861041c5929005e58b4f8ca8ffdb0519bf8a0d4"
 }

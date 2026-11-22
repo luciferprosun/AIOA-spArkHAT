@@ -8170,104 +8170,108 @@
     },
     "runtime/mission/codex_worker.py": {
       "path": "runtime/mission/codex_worker.py",
-      "git_blob": "fc546de33d7674ad27652c9474e55fa63aa95399",
-      "sha256": "7892072810e0bbbc62d14c9d851adaf167e33087579d6984443f2827e1134b04",
+      "git_blob": "a673a79e3e801d6f24a65f40f210e9ecc7aa9b3a",
+      "sha256": "f076a543da12d2925a829d3885c7915b9b524d44b93f8f34c9553ac90b15043f",
       "definitions": [
         {
           "name": "_pairs",
-          "line": 19
+          "line": 20
         },
         {
           "name": "_constant",
-          "line": 27
+          "line": 28
         },
         {
-          "name": "JsonlFramer",
-          "line": 31
-        },
-        {
-          "name": "CodexProtocol",
-          "line": 65
-        },
-        {
-          "name": "CodexWorker",
-          "line": 129
-        },
-        {
-          "name": "OwnedCodexProtocol",
-          "line": 145
-        },
-        {
-          "name": "__init__",
+          "name": "_finite_float",
           "line": 32
         },
         {
+          "name": "JsonlFramer",
+          "line": 38
+        },
+        {
+          "name": "CodexProtocol",
+          "line": 73
+        },
+        {
+          "name": "CodexWorker",
+          "line": 137
+        },
+        {
+          "name": "OwnedCodexProtocol",
+          "line": 153
+        },
+        {
+          "name": "__init__",
+          "line": 39
+        },
+        {
           "name": "feed",
-          "line": 36
+          "line": 43
         },
         {
           "name": "finish",
-          "line": 60
-        },
-        {
-          "name": "__init__",
           "line": 68
         },
         {
+          "name": "__init__",
+          "line": 76
+        },
+        {
           "name": "observe",
-          "line": 72
+          "line": 80
         },
         {
           "name": "__init__",
-          "line": 136
+          "line": 144
         },
         {
           "name": "start",
-          "line": 139
+          "line": 147
         },
         {
           "name": "__init__",
-          "line": 155
+          "line": 163
         },
         {
           "name": "_send",
-          "line": 170
+          "line": 179
         },
         {
           "name": "_read",
-          "line": 193
+          "line": 202
         },
         {
           "name": "_observe",
-          "line": 214
+          "line": 226
         },
         {
           "name": "_request",
-          "line": 246
+          "line": 258
         },
         {
           "name": "initialize",
-          "line": 289
+          "line": 301
         },
         {
           "name": "thread_start",
-          "line": 308
+          "line": 320
         },
         {
           "name": "bind_turn",
-          "line": 321
+          "line": 341
         },
         {
           "name": "interrupt",
-          "line": 325
+          "line": 346
         },
         {
           "name": "next_event",
-          "line": 336
+          "line": 357
         },
         {
           "name": "close",
-          "line": 346
+          "line": 367
         }
       ],
       "symbolic_callees": [
@@ -8280,11 +8284,13 @@
         "canonical_sha256",
         "contains_sensitive_material",
         "data.splitlines",
+        "float",
         "json.dumps",
         "json.dumps().encode",
         "json.loads",
         "len",
         "logical_id",
+        "math.isfinite",
         "max",
         "memoryview",
         "message.get",
@@ -8300,6 +8306,7 @@
         "raw.decode",
         "re.fullmatch",
         "require",
+        "result.get",
         "select.select",
         "self._box.fail",
         "self._buffer.clear",
@@ -8320,18 +8327,19 @@
         "super",
         "super().__init__",
         "super().start",
+        "thread.get",
         "time.monotonic",
         "tuple",
         "turn.get",
         "type"
       ],
-      "call_site_count": 140,
-      "call_sites_sha256": "19c5100389f09f293709a3b338961eaad33fad49723a3fd8e3e38ac6d7d3f84b"
+      "call_site_count": 154,
+      "call_sites_sha256": "4e013b09447dcb14e95e967c20611ea620f33668812b8042cafaee8c19945c7e"
     },
     "runtime/mission/sandbox_linux.py": {
       "path": "runtime/mission/sandbox_linux.py",
-      "git_blob": "d9441fe0b5c864598ac32e9c7497a2439a7be70c",
-      "sha256": "fa27bf24ea03bfb7343c569f50ad4fc953d9e9208411a90a33bcc2158796c31e",
+      "git_blob": "6ec1c7091d3279792aec62744c5cfe62d3b76748",
+      "sha256": "48cd2ce2279de925c47b24660018b0fa615eaad59fdc8a43b5b4289edfe6e185",
       "definitions": [
         {
           "name": "now",
@@ -8539,23 +8547,23 @@
         },
         {
           "name": "_git_existing_object",
-          "line": 1385
+          "line": 1395
         },
         {
           "name": "_git_plumbing",
-          "line": 1430
+          "line": 1440
         },
         {
           "name": "dispatch",
-          "line": 2025
+          "line": 2035
         },
         {
           "name": "_run",
-          "line": 2129
+          "line": 2139
         },
         {
           "name": "verify",
-          "line": 2604
+          "line": 2614
         },
         {
           "name": "listener_call",
@@ -8567,51 +8575,51 @@
         },
         {
           "name": "hold",
-          "line": 1523
+          "line": 1533
         },
         {
           "name": "sealed",
-          "line": 1528
+          "line": 1538
         },
         {
           "name": "read_local",
-          "line": 1593
+          "line": 1603
         },
         {
           "name": "lock_stamp",
-          "line": 1666
+          "line": 1676
         },
         {
           "name": "check_lock",
-          "line": 1678
-        },
-        {
-          "name": "check_lock_parent",
           "line": 1688
         },
         {
+          "name": "check_lock_parent",
+          "line": 1698
+        },
+        {
           "name": "lock_new",
-          "line": 1708
+          "line": 1718
         },
         {
           "name": "check_ref_transaction",
-          "line": 1824
+          "line": 1834
         },
         {
           "name": "bound_release",
-          "line": 2036
+          "line": 2046
         },
         {
           "name": "guarded_cleanup",
-          "line": 2510
+          "line": 2520
         },
         {
           "name": "release",
-          "line": 1732
+          "line": 1742
         },
         {
           "name": "reap_owned",
-          "line": 2539
+          "line": 2549
         }
       ],
       "symbolic_callees": [
@@ -8647,6 +8655,7 @@
         "SandboxRegistry",
         "TrustedSandboxConfig",
         "ValueError",
+        "WarrantError",
         "_cache_identity",
         "_config_identity",
         "_directory_identity",
@@ -8978,8 +8987,8 @@
         "zlib.compress",
         "zlib.decompressobj"
       ],
-      "call_site_count": 1337,
-      "call_sites_sha256": "f6b15a57f972c5999089db9aa952ffa682bfc99f8f2af24e0583ab771608616b"
+      "call_site_count": 1341,
+      "call_sites_sha256": "70db22667f1dd9edda55cfdea2fdde1b5069f992831f10cd8e36cbec3e07ecf9"
     },
     "runtime/nonzero_cloudops/adapters/portable.py": {
       "path": "runtime/nonzero_cloudops/adapters/portable.py",
@@ -14051,8 +14060,8 @@
     },
     "runtime/mission/repair.py": {
       "path": "runtime/mission/repair.py",
-      "git_blob": "8d8f395da7c15f4b9529646b579d498ac05bbe30",
-      "sha256": "e852877d69edb6dec910003e0ecd4528551aac387ae47e4963eae6db2dc95b8c",
+      "git_blob": "b9293fc5077587e1b04fe333056ff2fa01c77891",
+      "sha256": "c34cbe1ea65b259652338e8e317949ed974f05c25685c74f8ad6b4fc8bbfac6b",
       "definitions": [
         {
           "name": "require",
@@ -14100,7 +14109,7 @@
         },
         {
           "name": "SandboxedCandidateProducer",
-          "line": 519
+          "line": 521
         },
         {
           "name": "__post_init__",
@@ -14156,39 +14165,39 @@
         },
         {
           "name": "__init__",
-          "line": 527
+          "line": 529
         },
         {
           "name": "_stopped",
-          "line": 569
+          "line": 571
         },
         {
           "name": "_start_worker",
-          "line": 574
+          "line": 576
         },
         {
           "name": "_check_cancel_uncertainty",
-          "line": 604
+          "line": 606
         },
         {
           "name": "_cancel_worker",
-          "line": 610
+          "line": 612
         },
         {
           "name": "_worker_result",
-          "line": 643
+          "line": 645
         },
         {
           "name": "produce",
-          "line": 658
+          "line": 660
         },
         {
           "name": "stop",
-          "line": 713
+          "line": 715
         },
         {
           "name": "close",
-          "line": 725
+          "line": 727
         },
         {
           "name": "stop_reason",
@@ -14270,7 +14279,7 @@
         "validator.open"
       ],
       "call_site_count": 250,
-      "call_sites_sha256": "36f25895801228681e230de7766fb6213c89f1fdbf7c6c1568deb69455cff07a"
+      "call_sites_sha256": "81d266237158bb043356bdaed1e1f8dd479ff279bf9b7356a1de22b390a0154f"
     },
     "runtime/mission/repair_validation.py": {
       "path": "runtime/mission/repair_validation.py",
@@ -17481,136 +17490,136 @@
     },
     "runtime/mcp_bridge/native_read.py": {
       "path": "runtime/mcp_bridge/native_read.py",
-      "git_blob": "bbc5871853153f7bebd6243b2a789ecb8c96c25a",
-      "sha256": "6b20b7bb7ec17a94794ab5868868cd235f73f546fe59036eb068d55b4132e6eb",
+      "git_blob": "153707c3ba4a69aace30a79040ffbf3357c61408",
+      "sha256": "668c83dc1a5065b46ed8337acd96bf4962554fbbec2aadd4393214ee5cba9b0a",
       "definitions": [
         {
           "name": "_require",
-          "line": 34
+          "line": 35
         },
         {
           "name": "_remaining",
-          "line": 39
+          "line": 40
         },
         {
           "name": "_bounded_command",
-          "line": 45
+          "line": 46
         },
         {
           "name": "_environment",
-          "line": 80
+          "line": 81
         },
         {
           "name": "_binary",
-          "line": 88
+          "line": 89
         },
         {
           "name": "_qualified_gh",
-          "line": 94
+          "line": 95
         },
         {
           "name": "_preferences",
-          "line": 99
+          "line": 100
         },
         {
           "name": "_github_json",
-          "line": 132
+          "line": 133
         },
         {
           "name": "_repository",
-          "line": 192
+          "line": 193
         },
         {
           "name": "_rich_public_text",
-          "line": 208
+          "line": 209
         },
         {
           "name": "_validate_rich_context_data",
-          "line": 214
+          "line": 215
         },
         {
           "name": "validate_context_data",
-          "line": 297
+          "line": 298
         },
         {
           "name": "_repository_context",
-          "line": 342
+          "line": 343
         },
         {
           "name": "context_inventory",
-          "line": 415
+          "line": 416
         },
         {
           "name": "_rich_integer",
-          "line": 435
+          "line": 436
         },
         {
           "name": "_rich_text",
-          "line": 440
+          "line": 441
         },
         {
           "name": "_rich_text_projection",
-          "line": 453
+          "line": 454
         },
         {
           "name": "_validate_text_projection",
-          "line": 464
+          "line": 465
         },
         {
           "name": "_validate_text_provenance",
-          "line": 493
+          "line": 494
         },
         {
           "name": "_rich_repo",
-          "line": 509
+          "line": 510
         },
         {
           "name": "_rich_sha",
-          "line": 515
+          "line": 516
         },
         {
           "name": "_rich_ref",
-          "line": 520
+          "line": 521
         },
         {
           "name": "_rich_url",
-          "line": 530
+          "line": 531
         },
         {
           "name": "_rich_issue",
-          "line": 536
+          "line": 537
         },
         {
           "name": "_rich_optional_count",
-          "line": 562
+          "line": 563
         },
         {
           "name": "_rich_pull",
-          "line": 566
+          "line": 567
         },
         {
           "name": "_rich_action",
-          "line": 589
+          "line": 596
         },
         {
           "name": "_rich_repository_context",
-          "line": 610
+          "line": 617
         },
         {
           "name": "read",
-          "line": 684
+          "line": 694
         },
         {
           "name": "get",
-          "line": 347
+          "line": 348
         },
         {
           "name": "check",
-          "line": 689
+          "line": 699
         },
         {
           "name": "validate",
-          "line": 111
+          "line": 112
         }
       ],
       "symbolic_callees": [
@@ -17671,6 +17680,7 @@
         "contains_sensitive_material",
         "data.extend",
         "data.get",
+        "datetime.fromisoformat",
         "directory.resolve",
         "directory.stat",
         "encoded.append",
@@ -17756,8 +17766,8 @@
         "yaml.scan",
         "zip"
       ],
-      "call_site_count": 613,
-      "call_sites_sha256": "a9e9123fe164e1d5b0c7fb9cc25dad9a178e486656e4e8a90ebf9ed3807e7e96"
+      "call_site_count": 619,
+      "call_sites_sha256": "e35063c46e8407b688aba3bd556cb324065a0eaa5501b5778b37d109758d805b"
     },
     "runtime/mission/target_projection.py": {
       "path": "runtime/mission/target_projection.py",

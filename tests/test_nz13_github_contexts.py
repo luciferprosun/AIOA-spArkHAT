@@ -127,6 +127,18 @@ class RichGitHubContextTests(unittest.TestCase):
         self.assertEqual((1, 1), (item['changed_files'], item['commits']))
         self.assertFalse(item['checks_verified'])
 
+    def test_closed_pull_requires_a_real_timestamp_to_be_projected_as_merged(self):
+        for value in ('', 'not-a-timestamp', '2026-02-30T10:00:00Z'):
+            fixture = RichContextFixture()
+            fixture.responses[fixture.page_endpoint('pulls', 1)][0].update(state='closed', merged_at=value)
+            with self.subTest(value=value), self.assertRaisesRegex(ValueError, 'GITHUB_CONTEXT_STATE'):
+                self.read(fixture, OPERATIONS[2])
+        fixture = RichContextFixture()
+        fixture.responses[fixture.page_endpoint('pulls', 1)][0].update(
+            state='closed', merged_at='2026-11-22T23:32:46Z',
+        )
+        self.assertEqual('MERGED', self.read(fixture, OPERATIONS[2])['data']['items'][0]['state'])
+
     def test_pull_list_missing_optional_detail_counts_stays_unknown(self):
         fixture = RichContextFixture()
         row = fixture.responses[fixture.page_endpoint('pulls', 1)][0]
@@ -146,6 +158,22 @@ class RichGitHubContextTests(unittest.TestCase):
         self.assertEqual('', item['log_context'])
         self.assertFalse(item['logs_fetched'])
         self.assertFalse(item['core_completion_verified'])
+
+    def test_active_actions_cannot_project_a_conclusion_from_fresh_remote_data(self):
+        fixture = RichContextFixture()
+        row = fixture.responses[fixture.page_endpoint('actions/runs', 1)]['workflow_runs'][0]
+        row['status'] = 'in_progress'
+        with self.assertRaisesRegex(ValueError, 'GITHUB_CONTEXT_STATE'):
+            self.read(fixture, OPERATIONS[3])
+        row['conclusion'] = None
+        item = self.read(fixture, OPERATIONS[3])['data']['items'][0]
+        self.assertEqual(('in_progress', None), (item['status'], item['conclusion']))
+
+    def test_retained_actions_projection_keeps_its_recorded_observation(self):
+        data = self.read(RichContextFixture(), OPERATIONS[3])['data']
+        historically_projectable = copy.deepcopy(data)
+        historically_projectable['items'][0]['status'] = 'in_progress'
+        native_read.validate_context_data(OPERATIONS[3], historically_projectable)
 
     def test_page_limit_is_explicit_and_never_follows_a_remote_next_url(self):
         fixture = RichContextFixture()
