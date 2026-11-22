@@ -48,7 +48,8 @@ def git_intent(fixture, commit, session):
 
 class ColdIntentReadTests(unittest.TestCase):
     def test_cold_git_intent_has_no_replay_or_writer_proof_from_ref(self):
-        for scenario in ("before-cas", "after-cas", "after-ref-drift"):
+        scenarios = ("before-cas", "after-cas", "after-ref-drift", "matching-ref-from-another-writer")
+        for scenario in scenarios:
             with self.subTest(scenario=scenario), TemporaryDirectory() as scratch:
                 root = Path(scratch)
                 repository = root / "target.git"
@@ -65,7 +66,12 @@ class ColdIntentReadTests(unittest.TestCase):
                 ref_file = repository / CAS_REF
                 if scenario == "after-ref-drift":
                     git(repository, "update-ref", CAS_REF, later, commit)
-                expected = {"before-cas": None, "after-cas": commit, "after-ref-drift": later}[scenario]
+                if scenario == "matching-ref-from-another-writer":
+                    git(repository, "update-ref", CAS_REF, commit, "0" * 40)
+                expected = {
+                    "before-cas": None, "after-cas": commit, "after-ref-drift": later,
+                    "matching-ref-from-another-writer": commit,
+                }[scenario]
                 self.assertEqual(ref_file.read_text().strip() if ref_file.exists() else None, expected)
                 before = path.read_bytes()
                 reader = self.run_process("read", path, commit, original_session)
