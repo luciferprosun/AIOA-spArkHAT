@@ -370,6 +370,24 @@
       "status": "PASS",
       "tests_run_per_python": 2,
       "source_manifest_sha256": "146d4a8a5d46cc8e894747b42de225a694ed1b3b885e9316d4a87cbef2d6bcea"
+    },
+    {
+      "commit": "5cfe72a72176252715104e6e4bde75d387d77611",
+      "tree": "119a1430979e97f2b0df055b1a34297b2412a25d",
+      "scope": "Owner handoff: 17 modules covering Native and offline LIVE validation",
+      "python": "3.11.18",
+      "status": "PASS",
+      "tests_run": 203,
+      "log_sha256": "d6d9bacfe2e200a7a3e3b39c65f91737bcddae6d2a58790f4d244a0af2188ca4"
+    },
+    {
+      "commit": "5cfe72a72176252715104e6e4bde75d387d77611",
+      "tree": "119a1430979e97f2b0df055b1a34297b2412a25d",
+      "scope": "Owner handoff: 17 modules covering Native and offline LIVE validation",
+      "python": "3.12.14",
+      "status": "PASS",
+      "tests_run": 203,
+      "log_sha256": "beab7e02bf228df6552d9f61cb1ace8a0192413833489d8c4179f74dc73dcb28"
     }
   ],
   "local_observed_errors": [
@@ -387,5 +405,22 @@
     "B": "NOT_RUN",
     "C": "NOT_RUN",
     "D": "NOT_RUN"
-  }
+  },
+  "handoff_negative_controls": [
+    {
+      "scope": "GitHub workflow-containing base preflight",
+      "red": "preflight permitted execution in mocked GitHub transport",
+      "green": "existing workflow policy denies before any POST"
+    },
+    {
+      "scope": "Dangling scratch symlink",
+      "red": "runtime snapshot was called",
+      "green": "occupied scratch is refused before capture"
+    },
+    {
+      "scope": "Model start after cold held Git intent",
+      "red": "isolated mutation of Core admission guard reached test worker factory once",
+      "green": "original guard denies, task stays QUEUED and factory remains unused"
+    }
+  ]
 }
