@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import re
 import threading
 import time
@@ -273,6 +274,8 @@ class WorkerMailbox:
         )
         self._lock = threading.RLock()
         self._events, self._count, self._terminal = [], 0, None
+        self._captured = False
+        self._late_failure = None
         self._append("STARTED", digest=task.digest)
 
     def _check(self, session):
@@ -289,8 +292,20 @@ class WorkerMailbox:
     def _ready(self):
         if isinstance(self._terminal, WorkerFailure):
             return False
-        if self._terminal is not None:
-            self._fail("LATE_EVENT")
+        if isinstance(self._terminal, WorkerResult):
+            if self._late_failure is None:
+                s = self.session
+                self._late_failure = WorkerFailure(s.session_id, s.task_id, s.run_id, "LATE_EVENT")
+                # Drained events are advisory history. Pending success events
+                # must not advertise advice that was never handed off.
+                if not self._captured:
+                    self._terminal = self._late_failure
+                    self._events = [
+                        event for event in self._events if event.kind not in ("CANDIDATE", "COMPLETED")
+                    ]
+                logging.getLogger(__name__).warning(
+                    "LATE_EVENT worker_session=%s captured=%s", s.session_id, self._captured
+                )
             return False
         if self.clock() >= self.task.deadline_at:
             self._fail("TIMEOUT")
@@ -331,7 +346,7 @@ class WorkerMailbox:
                     candidate,
                     session.worker_id,
                 )
-            return self._terminal
+            return self._late_failure or self._terminal
 
     def complete_json(self, session, raw, *, completion_tokens):
         """Admit one inert, budgeted transport message into this owned mailbox.
@@ -343,7 +358,7 @@ class WorkerMailbox:
         with self._lock:
             self._check(session)
             if not self._ready():
-                return self._terminal
+                return self._late_failure or self._terminal
 
             def unique_fields(pairs):
                 result = {}
@@ -419,11 +434,19 @@ class WorkerMailbox:
             return result
 
     def result(self, session):
+        """Hand off a terminal result. Success remains advice after handoff."""
         with self._lock:
             self._check(session)
             if self._terminal is None:
                 self._ready()
+            if isinstance(self._terminal, WorkerResult):
+                self._captured = True
             return self._terminal
+
+    def _is_pending(self, session):
+        with self._lock:
+            self._check(session)
+            return self._terminal is None and self._ready()
 
 
 class SyntheticWorker:
@@ -445,7 +468,7 @@ class SyntheticWorker:
         with self._lock:
             require(not self._closed, "WORKER_CLOSED")
             require(
-                self._box is None or self._box.result(self._box.session) is not None,
+                self._box is None or not self._box._is_pending(self._box.session),
                 "WORKER_BUSY",
             )
             self._box = WorkerMailbox(
@@ -462,7 +485,7 @@ class SyntheticWorker:
     def poll(self, session):
         with self._lock:
             box = self._mailbox(session)
-            if self._pending and box.result(session) is None:
+            if self._pending and box._is_pending(session):
                 self._pending = False
                 try:
                     candidate = next(self._candidates)
