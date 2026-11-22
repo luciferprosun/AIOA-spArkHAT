@@ -11124,8 +11124,8 @@
     },
     "runtime/mcp_bridge/github_remote.py": {
       "path": "runtime/mcp_bridge/github_remote.py",
-      "git_blob": "bfd86ecdac0404d1031b91e58b7f674b59ad10fc",
-      "sha256": "622e1325f37342236357b94dc1037c5f23184d92784349f832a5304b94a014a8",
+      "git_blob": "644262dba4564d08b3ad2d0b1caa7714960a3a16",
+      "sha256": "7dd0f1ded5aa77e91cc862ccaf56a90ec0514fea9d54625d20accc2e42a36862",
       "definitions": [
         {
           "name": "_https_once",
@@ -11144,12 +11144,16 @@
           "line": 95
         },
         {
-          "name": "GitHubCreateOnly",
+          "name": "_require_workflow_free_base",
           "line": 166
         },
         {
+          "name": "GitHubCreateOnly",
+          "line": 171
+        },
+        {
           "name": "read_demo_base",
-          "line": 346
+          "line": 352
         },
         {
           "name": "evidence",
@@ -11169,43 +11173,43 @@
         },
         {
           "name": "__init__",
-          "line": 173
+          "line": 178
         },
         {
           "name": "_call",
-          "line": 191
+          "line": 196
         },
         {
           "name": "_repo",
-          "line": 225
+          "line": 230
         },
         {
           "name": "_main",
-          "line": 231
-        },
-        {
-          "name": "preflight",
           "line": 236
         },
         {
+          "name": "preflight",
+          "line": 241
+        },
+        {
           "name": "execute",
-          "line": 247
+          "line": 253
         },
         {
           "name": "_commit",
-          "line": 277
+          "line": 283
         },
         {
           "name": "readback",
-          "line": 288
+          "line": 294
         },
         {
           "name": "get",
-          "line": 352
+          "line": 358
         },
         {
           "name": "post",
-          "line": 253
+          "line": 259
         }
       ],
       "symbolic_callees": [
@@ -11218,6 +11222,7 @@
         "Path().absolute",
         "ValueError",
         "_private_file",
+        "_require_workflow_free_base",
         "actual.get",
         "all",
         "any",
@@ -11266,7 +11271,6 @@
         "os.getuid",
         "os.open",
         "p.get",
-        "p.startswith",
         "padding.PKCS1v15",
         "path.startswith",
         "permissions.get",
@@ -11323,8 +11327,8 @@
         "value.get().get",
         "value[data].get"
       ],
-      "call_site_count": 378,
-      "call_sites_sha256": "2d54b3ab5a87faf41dd33fe5ecbde6f7cb9cdd66ccfb57053974f681fb99da68"
+      "call_site_count": 380,
+      "call_sites_sha256": "23aa4956ee33cea8ca3352174dc0ef4b7a0935301fa858f28ff405d80236f03f"
     },
     "runtime/mcp_bridge/contracts.py": {
       "path": "runtime/mcp_bridge/contracts.py",
@@ -17185,8 +17189,8 @@
     },
     "runtime/mission/render_runtime.py": {
       "path": "runtime/mission/render_runtime.py",
-      "git_blob": "6c97ff9ecaeb6fb4712095270c50a77772d1cf8d",
-      "sha256": "4878ebc0c9b13f75206a2d4dda4a64717c3b21b1aa9b3e1f896e5883b6bb9ca6",
+      "git_blob": "47dd140a71acd40702b81580c13ce7c705664613",
+      "sha256": "a483200d97f1a1061103b9999f4b65c71c59e2933a044d577baadeb85b50ef9e",
       "definitions": [
         {
           "name": "require",
@@ -17237,6 +17241,7 @@
         "os.fstat",
         "os.fsync",
         "os.open",
+        "os.path.lexists",
         "os.read",
         "output.splitlines",
         "parse_renderer_dependencies",
@@ -17250,7 +17255,6 @@
         "replace",
         "require",
         "resolved.lstat",
-        "root.exists",
         "root.with_name",
         "set",
         "snapshot_python_runtime",
@@ -17267,7 +17271,7 @@
         "tuple",
         "type"
       ],
-      "call_sites_sha256": "43dfe5e0a179042bfc0838ffbdf0319ce212a328f1cdc4b292d9d589c604ad1f"
+      "call_sites_sha256": "3e177802bcc6dd0d381cf24ca9f8d73e013dee8e1eb4392d77e172c5d1ace290"
     },
     "runtime/mission/render_worker.py": {
       "path": "runtime/mission/render_worker.py",

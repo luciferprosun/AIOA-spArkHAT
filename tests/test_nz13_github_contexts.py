@@ -93,6 +93,14 @@ class RichGitHubContextTests(unittest.TestCase):
         self.assertEqual('NONE', data['authority'])
         self.assertEqual([], data['items'])
 
+    def test_native_read_context_cannot_claim_official_mcp_or_live_evidence(self):
+        operation = OPERATIONS[0]
+        data = self.read(RichContextFixture(), operation)['data']
+        native_read.validate_context_data(operation, data)
+        for claim in ({'mcp_server': 'github/github-mcp-server'}, {'live_verified': True}, {'authority': 'READ'}):
+            with self.subTest(claim=claim), self.assertRaises(ValueError):
+                native_read.validate_context_data(operation, {**data, **claim})
+
     def test_issue_details_are_projected_and_unrecognized_fields_dropped(self):
         fixture = RichContextFixture()
         row = fixture.responses[fixture.page_endpoint('issues', 1)][0]

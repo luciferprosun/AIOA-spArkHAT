@@ -3,6 +3,7 @@ import base64
 import json
 import time
 import unittest
+from dataclasses import replace
 
 from runtime.mission.git_publish import RemoteGitPlan, GitTreeSnapshot, git_object, DEMO_REPOSITORY
 from runtime.mcp_bridge.github_remote import InstallationCredential, PREFIX
@@ -95,8 +96,60 @@ class RemoteExecutionTests(unittest.TestCase):
         with self.assertRaises(ValueError):self.execute(self.api())
         self.assertEqual(posts,sum(m=='POST' for m,_,_ in self.calls))
 
+    def test_workflow_in_pinned_base_blocks_execution_before_any_post(self):
+        blob = git_object('blob', b'name: Existing workflow\n')
+        workflows = git_object('tree', b'100644 check.yml\0' + bytes.fromhex(blob))
+        github = git_object('tree', b'40000 workflows\0' + bytes.fromhex(workflows))
+        root = git_object('tree', b'40000 .github\0' + bytes.fromhex(github))
+        self.base = GitTreeSnapshot(root, {
+            '.github': ('040000', 'tree', github),
+            '.github/workflows': ('040000', 'tree', workflows),
+            '.github/workflows/check.yml': ('100644', 'blob', blob),
+        })
+        self.plan = replace(self.plan, files=dict(self.plan.files), base_tree_sha=root)
+        self.tree = self.base.add_files(self.plan.files)
+        self.commit = self.plan.commit_sha_for_tree(self.tree.sha)
+
+        with self.assertRaisesRegex(ValueError, '^GITHUB_EXISTING_WORKFLOWS_REVIEW_REQUIRED$'):
+            self.execute(self.api())
+        self.assertEqual({}, self.markers)
+        self.assertEqual({}, self.objects)
+        self.assertTrue(all(method == 'GET' for method, _, _ in self.calls))
+
+    def test_concurrent_ref_creation_stops_without_updating_ref_or_opening_pr(self):
+        from runtime.mcp_bridge.github_remote import GitHubCreateOnly
+
+        branch = PREFIX + '/git/ref/heads/' + self.plan.branch
+        collided = False
+
+        def transport(method, path, body, bearer, cancel, timeout):
+            nonlocal collided
+            if method == 'POST' and path == PREFIX + '/git/refs':
+                self.calls.append((method, path, body))
+                collided = True
+                return 422, b'{}'
+            if method == 'GET' and path == branch and collided:
+                self.calls.append((method, path, body))
+                return 200, json.dumps({'ref': 'refs/heads/' + self.plan.branch,
+                                        'object': {'type': 'commit', 'sha': 'f' * 40}}).encode()
+            return self.transport(method, path, body, bearer, cancel, timeout)
+
+        def adapter():
+            return GitHubCreateOnly(self.plan, self.base, self.credential, mode='OFFLINE_FIXTURE', transport=transport)
+
+        with self.assertRaisesRegex(ValueError, '^GITHUB_WRITE_UNKNOWN_NO_RETRY$'):
+            self.execute(adapter())
+        self.assertEqual(['tree', 'commit', 'branch'], list(self.markers))
+        self.assertEqual([PREFIX + path for path in ('/git/trees', '/git/commits', '/git/refs')],
+                         [path for method, path, _ in self.calls if method != 'GET'])
+        after_dispatch = len(self.calls)
+        with self.assertRaisesRegex(ValueError, '^GITHUB_REF_READBACK_MISMATCH$'):
+            adapter().readback(check=self.check, cancel=self.cancel)
+        with self.assertRaisesRegex(ValueError, '^GITHUB_BRANCH_ALREADY_EXISTS$'):
+            self.execute(adapter())
+        self.assertTrue(all(method == 'GET' for method, _, _ in self.calls[after_dispatch:]))
+
     def test_api_budget_and_expired_credentials_stop_before_network(self):
-        from dataclasses import replace
         api=self.api();api.request_count=48
         with self.assertRaisesRegex(ValueError,'GITHUB_API_BUDGET_EXHAUSTED'):
             api.readback(check=self.check,cancel=self.cancel)
