@@ -4,7 +4,7 @@ Użyj tej samej rozmowy Cloud. Odczytaj aktualny `main`, gałąź `codex/nonzero
 
 - Baseline zakończył próbę 2 run `45045595617` sukcesem. Zweryfikuj stan na nowym headzie PR-u. Brak upoważnienia na kolejne ponowienie tego runu.
 - Dla Native #69 kolejny dowód to zimny restart pełnego kontrolera na kwalifikowanym hoście i wywołanie jego normalnych `reconcile` / `apply` bez oryginalnego uchwytu. Przy stanie `UNKNOWN` odczytaj zapis intentu, `HELD`, rezerwację i brak rekordu wyniku przez istniejący Core. `TERMINAL_CHILD_ACQUISITION` jest istniejącym producentem przypadku po CAS. Odbiór przyszłego świadectwa brokera jest oddzielnym zadaniem bezpieczeństwa.
-- W przypadku potwierdzenia historycznego konsumenta przypnij jego kontrakt, porównaj zachowanie Core i dodaj tylko brakujący adapter. W razie odzyskania poprzedniej macierzy porównaj ID z bieżącą klasyfikacją i zapisz różnice.
+- ID przekazane przez właściciela są już w macierzy. W przypadku potwierdzenia historycznego konsumenta przypnij jego kontrakt, porównaj zachowanie Core i dodaj tylko brakujący adapter. Przy późniejszym transferze lokalnego CSV najpierw zweryfikuj jego SHA-256 z checkpointu.
 - Przed próbą LIVE wypełnij odpowiedni manifest, pozyskaj oddzielny `GO` i sprawdź nadal zgodny cel, zakres i termin.
 
 ## Linux Mint po zatwierdzeniu migracji

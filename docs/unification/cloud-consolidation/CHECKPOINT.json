@@ -19,5 +19,20 @@
     "restored_refs": 13,
     "restored_fsck_exit": 0
   },
-  "resume": "RESUME.md"
+  "resume": "RESUME.md",
+  "owner_handoff": {
+    "local_matrix": {
+      "bytes": 216979,
+      "sha256": "0ce2017a29d7910b3ab7d1a6c86ead6a7347059bb7d10590e47086f7d60508c7",
+      "status": "OWNER_REPORTED_NOT_TRANSFERRED"
+    },
+    "local_native_test": {
+      "commit": "fd941800cd96517b466cfde9398a7972f55c01a4",
+      "status": "NOT_IN_GITHUB_REFS"
+    },
+    "secondary_bundle": {
+      "path": "/media/l/LSC_DATA3/AIOA_NZ12_HISTORY_20261107/backups/nonzero-all-advertised-refs.bundle",
+      "status": "BLOCKED_BACKUP"
+    }
+  }
 }

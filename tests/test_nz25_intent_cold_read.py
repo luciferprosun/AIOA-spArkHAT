@@ -4,10 +4,12 @@ import os
 import subprocess
 import sys
 import unittest
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
 from decimal import Decimal
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from threading import Barrier
 
 from q09_support import Fixture
 
@@ -74,16 +76,36 @@ class ColdIntentReadTests(unittest.TestCase):
                 }[scenario]
                 self.assertEqual(ref_file.read_text().strip() if ref_file.exists() else None, expected)
                 before = path.read_bytes()
-                reader = self.run_process("read", path, commit, original_session)
-                self.assertEqual(reader.returncode, 0, reader.stderr)
-                self.assertEqual(json.loads(reader.stdout), {
-                    "outcome": "Unknown", "grants_replay": False, "reservation": "UNKNOWN",
-                    "outbox": "HELD", "effect_verified": False,
-                    "retry_denial": "LOCAL_ZERO_BINDING",
-                    "reconciliation_denial": "INDEPENDENT_READBACK_REQUIRED",
-                })
+                for reader in self.cold_readers(path, commit, original_session, concurrent=scenario == "after-cas"):
+                    self.assertEqual(reader.returncode, 0, reader.stderr)
+                    self.assertEqual(json.loads(reader.stdout), {
+                        "outcome": "Unknown", "grants_replay": False, "reservation": "UNKNOWN",
+                        "outbox": "HELD", "effect_verified": False,
+                        "retry_denial": "LOCAL_ZERO_BINDING",
+                        "reconciliation_denial": "INDEPENDENT_READBACK_REQUIRED",
+                    })
                 self.assertEqual(path.read_bytes(), before)
                 self.assertEqual(ref_file.read_text().strip() if ref_file.exists() else None, expected)
+                if scenario == "matching-ref-from-another-writer":
+                    probe = self.run_process("start-worker", path, commit, original_session)
+                    self.assertEqual(probe.returncode, 0, probe.stderr)
+                    self.assertEqual(json.loads(probe.stdout), {
+                        "denial": "CODING_UNRESOLVED_INTENT", "task_state": "QUEUED",
+                        "worker_factory_calls": 0, "state_unchanged": True,
+                    })
+
+    def cold_readers(self, path, commit, original_session, *, concurrent):
+        if not concurrent:
+            return [self.run_process("read", path, commit, original_session)]
+        barrier = Barrier(2, timeout=10)
+
+        def read():
+            barrier.wait()
+            return self.run_process("read", path, commit, original_session)
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            readers = [executor.submit(read) for _ in range(2)]
+            return [reader.result() for reader in readers]
 
     def run_process(self, *args):
         return subprocess.run([sys.executable, "-B", __file__, *map(str, args)],
@@ -196,11 +218,49 @@ def cold_read_git_intent(path, commit, original_session):
         fixture.close()
 
 
+def cold_start_worker(path, commit, original_session):
+    from unittest.mock import Mock
+
+    from cryptography.hazmat.primitives.asymmetric import ec
+
+    from runtime.mission.coding_tasks import CoreCodingTasks
+    from runtime.mission.patch_capsule import CorePatchCapsules
+    from runtime.mission.worker import Task
+    from runtime.mobile_gateway.wire import Identity
+
+    fixture = Fixture(path)
+    journal = git_intent(fixture, commit, original_session)
+    identity = Identity(ec.generate_private_key(ec.SECP256R1()))
+    capsules = CorePatchCapsules(journal, identity, source_probe=lambda: ('1' * 40, '2' * 64))
+    factory = Mock(side_effect=AssertionError('worker must stay inert'))
+    controller = CoreCodingTasks(journal, capsules, run_factory=factory, run_principal=fixture.p(), clock=lambda: 100)
+    task = Task('next-task', 'next-run', 'fixture-workspace', 'fixture-repo', '1' * 40,
+                'A synthetic task after a held Git intent', 180)
+    manager = fixture.p(Capability.MANAGE)
+    payload = {'task_id': task.task_id}
+    try:
+        controller.request(manager, 'create_task', {'task': task.to_dict()})
+        before = path.read_bytes()
+        denial = None
+        try:
+            controller.request(manager, 'start', payload)
+        except ValueError as error:
+            denial = str(error)
+        view = controller.request(fixture.p(Capability.READ), 'read_status', payload)
+        print(json.dumps({'denial': denial, 'task_state': view['state'], 'worker_factory_calls': factory.call_count,
+                          'state_unchanged': path.read_bytes() == before}))
+    finally:
+        controller.close()
+        fixture.close()
+
+
 if __name__ == "__main__":
     if sys.argv[1] == "produce":
         _, _, path, repository, commit, scenario = sys.argv
         crash_git_intent(Path(path), Path(repository), commit, scenario)
     elif sys.argv[1] == "read":
         cold_read_git_intent(Path(sys.argv[2]), sys.argv[3], sys.argv[4])
+    elif sys.argv[1] == "start-worker":
+        cold_start_worker(Path(sys.argv[2]), sys.argv[3], sys.argv[4])
     else:
         cold_read(Path(sys.argv[1]))

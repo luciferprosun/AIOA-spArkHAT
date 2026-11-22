@@ -6,11 +6,22 @@ import threading
 import unittest
 
 from runtime.mission import codex_worker
-from runtime.mission.worker import WorkerError
+from runtime.mission.worker import Task, WorkerError, WorkerFailure
 from runtime.providers.exact import CancellationToken
 
 
 class CodexTransportTests(unittest.TestCase):
+    def test_uncertified_codex_worker_returns_no_candidate_or_authority(self):
+        worker = codex_worker.CodexWorker(clock=lambda: 100)
+        self.addCleanup(worker.close)
+        task = Task("fixture-task", "fixture-run", "fixture-workspace", "fixture-repo",
+                    "a" * 40, "Qualify worker refusal offline", 160)
+        session = worker.start(task)
+        outcome = worker.result(session)
+        self.assertIs(type(outcome), WorkerFailure)
+        self.assertEqual(("NOT_CERTIFIED", "NONE"), (outcome.code, outcome.authority))
+        self.assertEqual((task.task_id, task.run_id), (outcome.task_id, outcome.run_id))
+
     def transport(self):
         cls = getattr(codex_worker, "OwnedCodexProtocol", None)
         self.assertTrue(callable(cls), "bounded owned App Server protocol is missing")

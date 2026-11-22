@@ -2,7 +2,7 @@
 
 ## Native #69
 
-**Stan `UNKNOWN / BLOCKED_SECURITY`.** W Core istnieje jedna ścieżka autoryzacji i rozliczenia. Historyczny wiersz 69 opisuje też niezależną weryfikację workspace W7A. Jego przypadek plikowy ma węższe założenia niż odzyskiwanie wykonawcy Native Git CAS.
+**Stan `UNKNOWN / BLOCKED_SECURITY_REVIEW`.** W Core istnieje jedna ścieżka autoryzacji i rozliczenia. Historyczny wiersz 69 opisuje też niezależną weryfikację workspace W7A. Jego przypadek plikowy ma węższe założenia niż odzyskiwanie wykonawcy Native Git CAS.
 
 1. Core wiąże intent z kapsułą, tożsamością celu, refem, oczekiwanym stanem i żądanym commitem. Warrant wiąże dokładny intent, podmiot, sesję, dzierżawę i ryzyko. `CoreIntentJournal` konsumuje warrant w tej samej transakcji, w której przechodzi rezerwacja do `UNKNOWN` i powstaje `HELD` w outboxie.
 2. Native zapisuje stan przed wysłaniem do brokera. Broker sprawdza tożsamość repozytorium i zapisuje zaplanowane obiekty, a następnie wykonuje dokładny CAS. Dla zapisu refu stosuje prywatny plik tymczasowy, synchronizację pliku, wyłączne utworzenie i synchronizację katalogu.

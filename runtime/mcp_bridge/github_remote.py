@@ -163,6 +163,11 @@ class GitHubAppCredentialSource:
         return InstallationCredential(token,config['installation_id'],int(expiry),proof,self.mode)
 
 
+def _require_workflow_free_base(snapshot):
+    require(not any(path.startswith('.github/workflows/') for path in snapshot.entries),
+            'GITHUB_EXISTING_WORKFLOWS_REVIEW_REQUIRED')
+
+
 class GitHubCreateOnly:
     """One exact plan, four create-only steps, then independent GET evidence.
 
@@ -241,6 +246,7 @@ class GitHubCreateOnly:
                 'GITHUB_BASE_CHANGED')
         value=self._call('GET',PREFIX+'/git/trees/'+self.base.sha+'?recursive=1',None,**args)
         require(GitTreeSnapshot.from_github(value,expected_sha=self.base.sha)==self.base,'GITHUB_BASE_CHANGED')
+        _require_workflow_free_base(self.base)
         value=self._call('GET',PREFIX+'/git/ref/heads/'+self.plan.branch,None,absent=True,**args)
         require(value is None,'GITHUB_BRANCH_ALREADY_EXISTS')
 
@@ -368,7 +374,6 @@ def read_demo_base(*,check,cancel,mode='LIVE',transport=None):
     require(commit.get('sha')==obj['sha'] and type(tree) is dict and type(tree.get('sha')) is str
         and re.fullmatch('[a-f0-9]{40}',tree['sha']),'GITHUB_BASE_READ_UNVERIFIED')
     snapshot=GitTreeSnapshot.from_github(get(PREFIX+'/git/trees/'+tree['sha']+'?recursive=1'),expected_sha=tree['sha'])
-    require(not any(p.startswith('.github/workflows/') for p in snapshot.entries),
-        'GITHUB_EXISTING_WORKFLOWS_REVIEW_REQUIRED')
+    _require_workflow_free_base(snapshot)
     check()
     return obj['sha'],snapshot

@@ -9,6 +9,7 @@ import nz13_native_foundation_support as fx
 
 from runtime.core_admission import AdmissionError, Capability
 from runtime.mission.patch_capsule import CorePatchCapsules
+from runtime.mission.warrant import WarrantError
 from runtime.mission.worker import Task
 
 from nz13_native_coding_support import NativeCompletionCase, require_method, require_parameter
@@ -123,3 +124,11 @@ class NativeCodingLifecycleTests(NativeCompletionCase):
             view = tasks.runtime_view(old)
         self.assertEqual("UNBOUND", view["controller_state"])
         self.assertEqual(300, (old.expires_at - old.issued_at).total_seconds())
+
+    def test_public_native_reconcile_requires_original_lifecycle_before_git(self):
+        _, tasks = self.controller(native=True)
+        with patch('runtime.mission.git_publish._bounded_git') as git:
+            with self.assertRaisesRegex(WarrantError, '^CODING_NATIVE_RECONCILIATION_BINDING$'):
+                tasks.request(None, 'reconcile', {'task_id': 'old-task'})
+            git.assert_not_called()
+        self.assertEqual((), tasks.lifecycle_snapshot().work)

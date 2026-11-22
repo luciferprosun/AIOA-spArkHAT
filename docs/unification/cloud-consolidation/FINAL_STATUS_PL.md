@@ -16,7 +16,7 @@ Core modeluje intenty, warrant, rezerwacje, podpisane pokwitowania, STOP i stany
 | `VERIFIED_SCOPED_OFFLINE` | 3 |
 | `SECURITY_BLOCKED` | 3 |
 
-Wcześniejszy podział 23/7 zachował się w opisie PR #55 tylko jako liczebność. Bieżąca macierz przypisuje `PARTIAL` pozycjom #3, #17, #24, #30, #33, #40 i #41, gdzie można wskazać konkretny aktualny wycinek Core i pozostającą lukę. Inne pozycje z nieustalonym bieżącym konsumentem otrzymały `UNKNOWN_EXTERNAL`. Kolumna `release_matrix_status` zachowuje udokumentowaną starszą klasyfikację. `VERIFIED_SCOPED_OFFLINE` dotyczy #5, #15 i #31. Blokady #16 i #53 dotyczą duplikowania źródła autoryzacji, a #69 nieznanego wykonawcy CAS po restarcie.
+Macierz stosuje klasyfikację ID przekazaną w audycie właściciela. `PARTIAL` obejmuje #2, #3, #17, #18, #19, #41 i #63. Każdy z 23 wierszy `UNKNOWN_EXTERNAL` ma własne kryterium odbioru. Wcześniejsze przypisania Cloud zastąpiono dostarczonymi ID. Pełny CSV z Linux Mint pozostaje poza Cloud. Kolumna `release_matrix_status` zachowuje udokumentowaną starszą klasyfikację. `VERIFIED_SCOPED_OFFLINE` dotyczy #5, #15 i #31. Blokady #16 i #53 dotyczą duplikowania źródła autoryzacji, a #69 nieznanego wykonawcy CAS po restarcie.
 
 ## Dowody, odbiory i rollback
 
@@ -26,6 +26,6 @@ Przed merge wystarczy pozostawić Draft bez scalenia. Jeżeli później potrzebn
 
 ## Weryfikacja historii i przyszła archiwizacja
 
-Odtworzony bundle legacy zawiera 13 refów i ma SHA-256 `84e5720c6cab3a8be59669a83396ed00018269be04e80e31bdc1e75d4828331e`. Znormalizowana lista refów ma SHA-256 `9cd19a7d2caa6c3bfc4bb88888e6928b3e642bd92b25442bac96863183f14c36`. Po przywróceniu do osobnego repozytorium lista refów była identyczna, a `git fsck --full --no-dangling` zakończył się kodem 0. Piny Judge freeze i W7A to `4fafed8b1a877e55d96ddd9baea0a737fbeeaa4a` i `392487849eddc7444f5159994b66b72e73f15934`. Bundle jest plikiem w obszarze roboczym Cloud.
+Odtworzony bundle legacy zawiera 13 refów i ma SHA-256 `84e5720c6cab3a8be59669a83396ed00018269be04e80e31bdc1e75d4828331e`. Znormalizowana lista refów ma SHA-256 `9cd19a7d2caa6c3bfc4bb88888e6928b3e642bd92b25442bac96863183f14c36`. Po przywróceniu do osobnego repozytorium lista refów była identyczna, a `git fsck --full --no-dangling` zakończył się kodem 0. Piny Judge freeze i W7A to `4fafed8b1a877e55d96ddd9baea0a737fbeeaa4a` i `392487849eddc7444f5159994b66b72e73f15934`. Bundle jest plikiem w obszarze roboczym Cloud. Drugi bundle ma stan `BLOCKED_BACKUP`, ponieważ nośnik był niedostępny podczas audytu właściciela.
 
 Po zamknięciu zakresu NonZero, rozstrzygnięciu odbiorów, sprawdzeniu niezależnej kopii i potwierdzeniu synchronizacji Linux Mint właściciel może oddzielnie zatwierdzić archiwizację oryginału. Oryginał pozostaje aktywnym repozytorium historycznym do tej decyzji.

@@ -10,13 +10,24 @@
   "baseline_diverged_from_owner_pin": false,
   "legacy_w7a": "392487849eddc7444f5159994b66b72e73f15934",
   "legacy_judge_freeze": "4fafed8b1a877e55d96ddd9baea0a737fbeeaa4a",
-  "merged_prs": [52, 53, 54, 55, 56, 57],
+  "merged_prs": [
+    52,
+    53,
+    54,
+    55,
+    56,
+    57
+  ],
   "latest_test_change": "c6e74366e9acd114c42c51919856f3d4570c8f5c",
   "performed_new_rerun": false,
-  "native_69": "UNKNOWN / BLOCKED_SECURITY",
+  "native_69": "UNKNOWN / BLOCKED_SECURITY_REVIEW",
   "live_tests_executed": 0,
-  "runtime_changes": 0,
+  "runtime_changes": 2,
   "matrix_source_objects_verified": 69,
-  "matrix_prior_exact_partial_unknown_ids_recovered": false,
-  "full_parity": false
+  "matrix_prior_exact_partial_unknown_ids_recovered": true,
+  "full_parity": false,
+  "matrix_classification_evidence": "Owner Linux audit handoff",
+  "matrix_local_evidence_transferred": false,
+  "owner_handoff_reported_core_role_mappings": 42,
+  "legacy_secondary_backup": "BLOCKED_BACKUP"
 }
