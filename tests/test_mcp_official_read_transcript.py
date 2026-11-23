@@ -72,7 +72,9 @@ def fixture_frames():
     ]}
     return [
         request(1, 'initialize', INITIALIZE),
-        response(1, {'protocolVersion': PROTOCOL, 'serverInfo': dict(IDENTITY)}),
+        # Minimal synthetic server capabilities for the selected tool session.
+        response(1, {'protocolVersion': PROTOCOL, 'serverInfo': dict(IDENTITY),
+                     'capabilities': {'tools': {}}}),
         {'jsonrpc': '2.0', 'method': 'notifications/initialized'},
         request(2, 'tools/list', {}), response(2, {'tools': tools}),
         request(3, 'tools/call', {'name': 'search_repositories', 'arguments': dict(SEARCH)}),
@@ -146,7 +148,8 @@ class OfficialMcpReadTranscriptTests(unittest.TestCase):
             for message in (frames[offset], frames[offset - 1]):
                 self.assertIs(type(message['id']), int)
             self.assertEqual(response(identity, frames[offset]['result']), frames[offset])
-        self.assertEqual({'protocolVersion': PROTOCOL, 'serverInfo': IDENTITY}, frames[1]['result'])
+        self.assertEqual({'protocolVersion': PROTOCOL, 'serverInfo': IDENTITY,
+                          'capabilities': {'tools': {}}}, frames[1]['result'])
         inventory = frames[4]['result']
         self.assertEqual({'tools'}, set(inventory))
         self.assertEqual(sorted(TOOLS), sorted(tool['name'] for tool in inventory['tools']))
@@ -205,6 +208,18 @@ class OfficialMcpReadTranscriptTests(unittest.TestCase):
             'git_blob': '00eb8a94bdcf22d647d94e23c9c6938ef93d5802',
             'sha256': 'a039f83d1d59d97624c355653e0eab74a45b867a091d3d10d12ac1183535e14c',
         }, observation['license'])
+
+    def test_fixture_advertises_tools_before_inventory(self):
+        frames = fixture_frames()
+        self.assertEqual({'tools': {}}, frames[1]['result'].get('capabilities'))
+        for capabilities in (None, {}, {'tools': None}, {'tools': []}):
+            with self.subTest(capabilities=capabilities), self.assertRaises(AssertionError):
+                invalid = fixture_frames()
+                if capabilities is None:
+                    invalid[1]['result'].pop('capabilities')
+                else:
+                    invalid[1]['result']['capabilities'] = capabilities
+                self.verify_fixture(self.encode(invalid))
 
     def test_refuses_mismatched_peer_inventory_scope_and_ref(self):
         for offset, change in (
