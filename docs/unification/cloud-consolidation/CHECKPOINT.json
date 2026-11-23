@@ -1,14 +1,14 @@
 {
   "schema": "aioa.nonzero.checkpoint.v1",
   "updated_utc_day": "2026-11-23",
-  "branch": "codex/nonzero-five-phase",
+  "branch": "codex/nonzero-authority-acceptance",
   "draft_pull_request": null,
   "parent_evidence_commit": "c6e74366e9acd114c42c51919856f3d4570c8f5c",
   "parent_evidence_tree": "392fe4dda4497fb5d5459fec7e6bc23b71d1a45f",
   "matrix_path": "PARITY69_UPDATED.csv",
   "test_evidence_path": "TEST_RESULTS.json",
   "queue_path": "TASK_QUEUE.json",
-  "main_ci_run": 45143354368,
+  "main_ci_run": 45159158525,
   "main_ci_attempt_observed": 1,
   "new_run_requested": false,
   "candidate_git_branch_has_no_merge_authority": true,
@@ -103,14 +103,24 @@
   "retirement_gate": "NONZERO_RETIREMENT_GATE.md",
   "draft_url": null,
   "verified_main": {
-    "main": "e071c339942525e8bd8759adafb565c5ad412ce9",
-    "tree": "f3f625a7f34f679638e0a3af3ebb395bb7fd9029",
-    "core": 45143354368,
-    "mcp": 45143354321,
-    "codeql": 45143353783,
-    "linux_base_reported": "914c9b1bf4dc7bf6ff14687d91560d9bcef1a5f6",
-    "linux_fast_forward": "PENDING_OPERATOR"
+    "main": "3b8e38df40ddd019075fc0053af3827ccb45c8bd",
+    "tree": "43664200f8f745b3f981c311c04744fb6b3c8106",
+    "core_ci": 45159158525,
+    "mcp": 45159158522,
+    "codeql": 45159158240,
+    "baseline_last_owner_reported": "914c9b1bf4dc7bf6ff14687d91560d9bcef1a5f6",
+    "status": "PENDING_OPERATOR"
   },
   "five_phase_handoff": "FIVE_PHASE_HANDOFF.md",
-  "retirement": "HOLD"
+  "retirement": "HOLD",
+  "candidate_acceptance_counts": {
+    "ARCHIVE_ONLY": 33,
+    "PARTIAL": 7,
+    "VERIFIED_SCOPED_OFFLINE": 3,
+    "UNKNOWN_EXTERNAL": 23,
+    "CORE_EQUIVALENT_LEGACY_AUTHORITY_RETIRED": 2,
+    "SECURITY_BLOCKED": 1
+  },
+  "native_forward": "BLOCKED_HOST / BLOCKED_SECURITY_REVIEW",
+  "native_historical": "UNKNOWN_CUSTODY_NOT_ATTESTED"
 }

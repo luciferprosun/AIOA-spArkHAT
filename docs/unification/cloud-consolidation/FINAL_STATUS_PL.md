@@ -2,6 +2,10 @@
 
 **Status `PARITY_OPEN`.** Kod i testy działają w jednym AIOA Core. Konsolidacja nie osiągnęła `FULL_PARITY`.
 
+## Odbiór po #61
+
+Zweryfikowany main to `3b8e38df40ddd019075fc0053af3827ccb45c8bd`. Kandydat formalnie akceptuje role #16 i #53 w jednym Core oraz zabezpiecza zapisany odczyt #17. Zakres porównawczy obejmuje 2 `CORE_EQUIVALENT_LEGACY_AUTHORITY_RETIRED`, 33 `ARCHIVE_ONLY`, 23 `UNKNOWN_EXTERNAL`, 7 `PARTIAL`, 3 `VERIFIED_SCOPED_OFFLINE` i 1 `SECURITY_BLOCKED`. Dalszy zakres obejmuje #69, środowiska LIVE, Render, drugą kopię historii i prywatnych konsumentów. Linux Mint oczekuje na fast-forward operatora do #61. [Odbiór #16 i #53](AUTHORITY_16_53_ACCEPTANCE.md) · [Native #69](NATIVE69_FINAL_ACCEPTANCE.md) · [Decyzje](EXTERNAL_CONTRACT_DECISIONS.md)
+
 ## Odbiór #60
 
 `main` to `e071c339942525e8bd8759adafb565c5ad412ce9`, drzewo `f3f625a7f34f679638e0a3af3ebb395bb7fd9029`. Cztery wymagane kontrole, domyślny CodeQL, MCP, One-Core i polityka źródeł przeszły. Linux Mint oczekuje na fast-forward z #59. Stan nowej gałęzi i blokady są w dossier. [Pięć faz](FIVE_PHASE_HANDOFF.md) · [CI po #60](https://github.com/luciferprosun/AIOA-spArkHAT/actions/runs/45143354368)

@@ -507,5 +507,21 @@
     "native_case": "Cold SQLite after physical descriptor ref publication and process loss; fixture OS/TLS and target",
     "hosted_ci": "See exact commit on Draft PR",
     "live_calls": 0
+  },
+  "authority_acceptance_candidate": {
+    "base": "3b8e38df40ddd019075fc0053af3827ccb45c8bd",
+    "local_test_count_per_python": 115,
+    "interpreters": [
+      "3.11.18",
+      "3.12.14"
+    ],
+    "source_only_fixture_count_per_python": 3,
+    "red_to_green": "Stored signed READ receipt with tampered data was incorrectly accepted. Verified data, signature and request now required.",
+    "logs_sha256": {
+      "authority-acceptance-311.log": "2446458375349b82bb6ccbcc5eb6a1bb4853b504b440b19f82a5eef783902769",
+      "authority-acceptance-312.log": "94cc8546d50144d7a49a8e97a9a32476bb20e2e825e52f492a3f52312bf93e73",
+      "authority-acceptance-read-red.log": "48568db3b5539bb51552f0cab88992f3b0ea0fc8b306ea233a6a3f3e4e7b9835",
+      "authority-acceptance-source-only.log": "e04d4f93d6e5b320743b74818ee93e701c0f84f31247f341c15be5f978b0d6ba"
+    }
   }
 }

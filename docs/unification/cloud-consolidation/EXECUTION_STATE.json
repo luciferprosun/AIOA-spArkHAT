@@ -4,7 +4,7 @@
   "state": "PARITY_OPEN",
   "primary_repository": "luciferprosun/AIOA-spArkHAT",
   "legacy_repository": "luciferprosun/AIOA-NonZero-CloudOps-Agent",
-  "branch": "codex/nonzero-five-phase",
+  "branch": "codex/nonzero-authority-acceptance",
   "baseline_commit": "7b5fd205c02603231919451b1cacd241f49fd9e9",
   "baseline_tree": "c6f8f76b5a6e93855e5dd4c80a8af313db0054a2",
   "baseline_diverged_from_owner_pin": false,
@@ -20,7 +20,8 @@
     57,
     58,
     59,
-    60
+    60,
+    61
   ],
   "latest_test_change": "5cfe72a72176252715104e6e4bde75d387d77611",
   "performed_new_rerun": false,
@@ -34,10 +35,16 @@
   "matrix_local_evidence_transferred": false,
   "owner_handoff_reported_core_role_mappings": 42,
   "legacy_secondary_backup": "BLOCKED_BACKUP",
-  "main_commit": "e071c339942525e8bd8759adafb565c5ad412ce9",
-  "main_tree": "f3f625a7f34f679638e0a3af3ebb395bb7fd9029",
+  "main_commit": "3b8e38df40ddd019075fc0053af3827ccb45c8bd",
+  "main_tree": "43664200f8f745b3f981c311c04744fb6b3c8106",
   "linux_mint_sync": "OFFLINE_OWNER_REPORTED_PR59_POST60_FAST_FORWARD_PENDING",
   "native_cloud_host": "BLOCKED_HOST",
   "legacy_retirement": "HOLD",
-  "production_runtime_files_changed_by_prior_candidate": 4
+  "production_runtime_files_changed_by_prior_candidate": 4,
+  "candidate_retired_legacy_authority_rows": [
+    16,
+    53
+  ],
+  "native_forward": "BLOCKED_HOST / BLOCKED_SECURITY_REVIEW",
+  "native_historical": "UNKNOWN_CUSTODY_NOT_ATTESTED"
 }

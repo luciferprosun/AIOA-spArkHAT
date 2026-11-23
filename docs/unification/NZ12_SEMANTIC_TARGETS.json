@@ -20384,6 +20384,141 @@
       ],
       "call_site_count": 218,
       "call_sites_sha256": "ac40ae074406acc52c19a13632303d179e09c378d639822e08ff21a6269b0897"
+    },
+    "runtime/meta_hackathon/native_tools.py": {
+      "path": "runtime/meta_hackathon/native_tools.py",
+      "git_blob": "ea15cca089dfedbe43c5c8a54e884ea4559913ab",
+      "sha256": "d360530c9419c373ae7d4862408ca9267b74d18c9f8cf326b9a933518536e912",
+      "definitions": [
+        {
+          "name": "_verified_read_result",
+          "line": 17
+        },
+        {
+          "name": "chat_read_context",
+          "line": 45
+        },
+        {
+          "name": "registry",
+          "line": 73
+        },
+        {
+          "name": "_read_lock",
+          "line": 141
+        },
+        {
+          "name": "dispatch",
+          "line": 148
+        },
+        {
+          "name": "_record_timeout",
+          "line": 185
+        },
+        {
+          "name": "_perform_read",
+          "line": 201
+        },
+        {
+          "name": "proposal",
+          "line": 244
+        },
+        {
+          "name": "observations",
+          "line": 82
+        },
+        {
+          "name": "failed",
+          "line": 187
+        },
+        {
+          "name": "reserve",
+          "line": 204
+        },
+        {
+          "name": "complete",
+          "line": 233
+        },
+        {
+          "name": "save",
+          "line": 298
+        }
+      ],
+      "symbolic_callees": [
+        "_perform_read",
+        "_read_lock",
+        "_record_timeout",
+        "_verified_read_result",
+        "all",
+        "any",
+        "authorization",
+        "build_native_cpl_preview",
+        "chat.update",
+        "chat_dispatch",
+        "data.get",
+        "data.get().get",
+        "expected.items",
+        "getattr",
+        "github.update",
+        "governor.inspect",
+        "host._require_qualified_operator",
+        "host.core.local_operator",
+        "host.core.require",
+        "host.identity.sign",
+        "host.missions.chat_request",
+        "host.mobile._get",
+        "host.mobile._record",
+        "host.mobile._run",
+        "host.operator_principal",
+        "host.runtime.memory_patch_status",
+        "int",
+        "isinstance",
+        "key.removeprefix",
+        "key.startswith",
+        "len",
+        "lock.acquire",
+        "lock.release",
+        "max",
+        "message.get",
+        "message[data].encode",
+        "message[data].get",
+        "min",
+        "native_read.CONTEXT_REPOSITORIES.get",
+        "native_read._remaining",
+        "native_read._require",
+        "native_read.context_inventory",
+        "native_read.read",
+        "native_read.validate_context_data",
+        "payload.get",
+        "payload.pop",
+        "plain",
+        "prior.payload.get",
+        "proposal",
+        "propose",
+        "raw.get",
+        "raw[data].encode",
+        "raw[data].strip",
+        "reads.append",
+        "receipt.get",
+        "registry",
+        "row.payload.get",
+        "set",
+        "state[data].values",
+        "sum",
+        "time.monotonic",
+        "time.time",
+        "tx.get",
+        "tx.scan",
+        "type",
+        "view",
+        "wire.HEX32.fullmatch",
+        "wire.MobileError",
+        "wire.canonical",
+        "wire.digest",
+        "wire.strict_json",
+        "wire.verify"
+      ],
+      "call_site_count": 180,
+      "call_sites_sha256": "2805c5a0ccf82b1db82c97172a12652b37dac7c17b7a92c7caa6074bb7d741df"
     }
   },
   "dispositions": {

@@ -2,6 +2,10 @@
 
 Punkt odniesienia to scalony `main` `e071c339942525e8bd8759adafb565c5ad412ce9`, drzewo `f3f625a7f34f679638e0a3af3ebb395bb7fd9029`. Surowe źródła 69 pozycji pochodzą z W7A `392487849eddc7444f5159994b66b72e73f15934`. Macierz wiąże ten main z docelowymi blobami oraz z testami. Dodatkowy zakres offline w tym PR ma własny HEAD i własne wyniki. [Macierz](PARITY69_UPDATED.csv)
 
+## Przyrost po #61
+
+#17 dodatkowo weryfikuje podpis, id, wiązanie i hash zapisanych danych przy odczycie zwrotnym oraz ponownym żądaniu. To poprawka normalnego wejścia Core. Official MCP READ czeka na kwalifikację rzeczywistego klienta. Pozostałe warunki dla #2, #3, #18, #19, #41 i #63 zachowują rygor odrębnych odbiorów. Szczegóły #16 i #53 oraz komplet 23 decyzji są w osobnych zapisach. [Odbiór rejestrów](AUTHORITY_16_53_ACCEPTANCE.md) · [Tabela 23 decyzji](EXTERNAL_CONTRACT_DECISIONS.md)
+
 ## Funkcje częściowe i kontrakty
 
 | ID | Odbiór wykonany | Warunek dalszego odbioru |

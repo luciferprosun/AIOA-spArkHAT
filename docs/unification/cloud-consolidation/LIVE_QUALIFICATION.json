@@ -53,8 +53,8 @@
         "repository": "luciferprosun/AIOA-spArkHAT",
         "repository_id": 1247349659,
         "ref": "refs/heads/main",
-        "head": "e071c339942525e8bd8759adafb565c5ad412ce9",
-        "tree": "f3f625a7f34f679638e0a3af3ebb395bb7fd9029",
+        "head": "3b8e38df40ddd019075fc0053af3827ccb45c8bd",
+        "tree": "43664200f8f745b3f981c311c04744fb6b3c8106",
         "file": {
           "path": "LICENSE",
           "bytes": 1074,
@@ -65,7 +65,13 @@
           "sessions": 1,
           "wall_time_seconds": 20,
           "transport_bytes": 262144,
-          "receipt_bytes": 32768
+          "receipt_bytes": 32768,
+          "per_frame_bytes": 65536,
+          "read_calls": 5,
+          "inventory_pages": 2,
+          "write_calls": 0,
+          "retries": 0,
+          "fallbacks": 0
         },
         "pending": [
           "owner-reviewed server/client binary hashes and host",
@@ -76,7 +82,52 @@
       },
       "authorization_status": "NOT_GRANTED",
       "result": "NOT_RUN",
-      "upstream_response_shape": "v1.0.5 returns text JSON for search/list and an embedded resource for LICENSE. Confirm exact pinned URI and digests. get_commit minimal output omits tree, requiring a separate independent proof."
+      "upstream_response_shape": "v1.0.5 returns text JSON for search/list and an embedded resource for LICENSE. Confirm exact pinned URI and digests. get_commit minimal output omits tree, requiring a separate independent proof.",
+      "approval_request": {
+        "command": "GO_OFFICIAL_MCP_READ",
+        "status": "NOT_GRANTED",
+        "common_pins": {
+          "owner": "luciferprosun",
+          "source_commit": "3b8e38df40ddd019075fc0053af3827ccb45c8bd",
+          "source_tree": "43664200f8f745b3f981c311c04744fb6b3c8106",
+          "operator": null,
+          "start_utc": null,
+          "expiry_utc": null,
+          "private_evidence_destination": null
+        },
+        "target_pins": {
+          "repo_id": 1247349659,
+          "ref": "refs/heads/main",
+          "commit": "3b8e38df40ddd019075fc0053af3827ccb45c8bd",
+          "tree": "43664200f8f745b3f981c311c04744fb6b3c8106",
+          "server_commit": "c471ae94bb04059dc26e12c305e219c8fd4299e4",
+          "server_binary_sha256": "e38247271e98ea3e0771db747523914b35e37787fa2c120ab6864ee6b4a2c87c",
+          "protocol": "2025-06-18",
+          "license": {
+            "path": "LICENSE",
+            "bytes": 1074,
+            "git_blob": "00eb8a94bdcf22d647d94e23c9c6938ef93d5802",
+            "sha256": "a039f83d1d59d97624c355653e0eab74a45b867a091d3d10d12ac1183535e14c"
+          },
+          "client_digest": null,
+          "inventory_digest": null,
+          "read_credential_handle": null,
+          "qualified_host": null
+        },
+        "proposed_limits": {
+          "sessions": 1,
+          "wall_time_seconds": 20,
+          "transport_bytes": 262144,
+          "receipt_bytes": 32768,
+          "per_frame_bytes": 65536,
+          "read_calls": 5,
+          "inventory_pages": 2,
+          "write_calls": 0,
+          "retries": 0,
+          "fallbacks": 0
+        },
+        "requires_repin_on_source_change": true
+      }
     },
     {
       "id": "B",
@@ -114,6 +165,42 @@
         "automatic_retry": false,
         "max_repairs": 0,
         "exact_price_and_budget_pending": true
+      },
+      "approval_request": {
+        "command": "GO_MODEL_TEST",
+        "status": "NOT_GRANTED",
+        "common_pins": {
+          "owner": "luciferprosun",
+          "source_commit": "3b8e38df40ddd019075fc0053af3827ccb45c8bd",
+          "source_tree": "43664200f8f745b3f981c311c04744fb6b3c8106",
+          "operator": null,
+          "start_utc": null,
+          "expiry_utc": null,
+          "private_evidence_destination": null
+        },
+        "target_pins": {
+          "adapter_digest": null,
+          "provider": null,
+          "model": null,
+          "endpoint": null,
+          "verified_price": null,
+          "credential_handle": null,
+          "task_digest": null,
+          "request_digest": null,
+          "capsule_digest": null,
+          "workspace": null,
+          "lease_epoch": null
+        },
+        "proposed_limits": {
+          "max_model_calls": 1,
+          "max_repairs": 0,
+          "max_retries": 0,
+          "max_input_units": 2048,
+          "max_output_tokens": 256,
+          "wall_time_seconds": 60,
+          "max_cost_nano_usd": 10000000
+        },
+        "requires_repin_on_source_change": true
       }
     },
     {
@@ -166,6 +253,42 @@
         "automatic_retry": false,
         "wall_time_seconds": 120,
         "app_token_mint_is_separate": true
+      },
+      "approval_request": {
+        "command": "GO_GITHUB_WRITE",
+        "status": "NOT_GRANTED",
+        "common_pins": {
+          "owner": "luciferprosun",
+          "source_commit": "3b8e38df40ddd019075fc0053af3827ccb45c8bd",
+          "source_tree": "43664200f8f745b3f981c311c04744fb6b3c8106",
+          "operator": null,
+          "start_utc": null,
+          "expiry_utc": null,
+          "private_evidence_destination": null
+        },
+        "target_pins": {
+          "candidate_repo_id": 1445911975,
+          "approved_four_mutations": null,
+          "app_id": null,
+          "installation_id": null,
+          "exact_permissions": null,
+          "actions_disabled_evidence": null,
+          "exclusive_writer_evidence": null,
+          "clear_liability_evidence": null,
+          "base": null,
+          "tree": null,
+          "plan_digest": null,
+          "warrant_digest": null
+        },
+        "proposed_limits": {
+          "logical_publications": 1,
+          "repository_mutations": 4,
+          "max_api_requests": 48,
+          "automatic_retry": false,
+          "wall_time_seconds": 120,
+          "app_token_mint_is_separate": true
+        },
+        "requires_repin_on_source_change": true
       }
     },
     {
@@ -199,10 +322,42 @@
       "proposed_effects": {
         "sessions": 1,
         "network": "OFF",
-        "render_profile_timeout_seconds": 20
+        "render_profile_timeout_seconds": 20,
+        "proposed_total_wall_time_seconds": 180
+      },
+      "approval_request": {
+        "command": "GO_NATIVE_G04",
+        "status": "NOT_GRANTED",
+        "common_pins": {
+          "owner": "luciferprosun",
+          "source_commit": "3b8e38df40ddd019075fc0053af3827ccb45c8bd",
+          "source_tree": "43664200f8f745b3f981c311c04744fb6b3c8106",
+          "operator": null,
+          "start_utc": null,
+          "expiry_utc": null,
+          "private_evidence_destination": null
+        },
+        "target_pins": {
+          "host_image_digest": null,
+          "kernel": null,
+          "boot_identity": null,
+          "keeper_digest": null,
+          "chrome_digest": null,
+          "dependency_manifest_digest": null,
+          "profile_and_filter_digests": null,
+          "recipe_digest": null,
+          "fresh_private_scratch": null
+        },
+        "proposed_limits": {
+          "sessions": 1,
+          "network": "OFF",
+          "render_profile_timeout_seconds": 20,
+          "proposed_total_wall_time_seconds": 180
+        },
+        "requires_repin_on_source_change": true
       }
     }
   ],
-  "source_commit": "e071c339942525e8bd8759adafb565c5ad412ce9",
-  "source_tree": "f3f625a7f34f679638e0a3af3ebb395bb7fd9029"
+  "source_commit": "3b8e38df40ddd019075fc0053af3827ccb45c8bd",
+  "source_tree": "43664200f8f745b3f981c311c04744fb6b3c8106"
 }
