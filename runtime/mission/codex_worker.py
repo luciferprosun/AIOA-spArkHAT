@@ -351,9 +351,13 @@ class OwnedCodexProtocol:
         )
         thread = result.get("thread")
         thread_id = thread.get("id") if type(thread) is dict else None
-        require(type(thread_id) is str and not contains_sensitive_material(thread_id),
-                "PROTOCOL_THREAD_BINDING")
-        self._thread_id = logical_id(thread_id)
+        try:
+            require(type(thread_id) is str and not contains_sensitive_material(thread_id),
+                    "PROTOCOL_THREAD_BINDING")
+            self._thread_id = logical_id(thread_id)
+        except ValueError:
+            self.close()
+            raise
         return result
 
     def bind_turn(self, thread_id, turn_id):

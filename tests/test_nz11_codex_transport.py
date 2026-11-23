@@ -281,6 +281,21 @@ class CodexTransportTests(unittest.TestCase):
                 for caller_fd in (read_fd, response_fd, request_fd, write_fd):
                     os.fstat(caller_fd)
 
+    def test_invalid_thread_ack_fences_a_second_thread_start(self):
+        for result in ({}, {"thread": {"id": "invalid thread id"}}):
+            with self.subTest(result=result):
+                transport, peer = self.transport()
+                peer.sendall(b'{"id":1,"result":{}}\n')
+                transport.initialize()
+                response = json.dumps({"id": 2, "result": result}).encode() + b"\n"
+                peer.sendall(response)
+                with self.assertRaises(ValueError):
+                    transport.thread_start()
+                self.assertTrue(transport.closed)
+                with patch("os.write") as write, self.assertRaisesRegex(WorkerError, "^PROTOCOL_CLOSED$"):
+                    transport.thread_start()
+                write.assert_not_called()
+
     def test_diagnostic_transport_has_no_turn_start_or_generic_command_port(self):
         transport, _ = self.transport()
         for name in ("turn_start", "execute", "shell", "dispatch", "approve"):
