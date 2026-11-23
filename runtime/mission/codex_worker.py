@@ -7,6 +7,7 @@ Only the existing Core sandbox can own a future executable worker.
 """
 
 import json
+import math
 import time
 
 from runtime.mission.contracts import bounded_int, logical_id
@@ -26,6 +27,12 @@ def _pairs(pairs):
 
 def _constant(_value):
     raise WorkerError("PROTOCOL_NONFINITE_JSON")
+
+
+def _finite_float(value):
+    number = float(value)
+    require(math.isfinite(number), "PROTOCOL_NONFINITE_JSON")
+    return number
 
 
 class JsonlFramer:
@@ -49,6 +56,7 @@ class JsonlFramer:
                     raw.decode("utf-8"),
                     object_pairs_hook=_pairs,
                     parse_constant=_constant,
+                    parse_float=_finite_float,
                 )
             except (ValueError, UnicodeError, RecursionError):
                 raise WorkerError("PROTOCOL_JSON") from None
@@ -165,6 +173,7 @@ class OwnedCodexProtocol:
         self.framer = JsonlFramer(max_bytes=65536)
         self.events, self._messages = [], []
         self.protocol, self._pending, self._next_id = None, None, 0
+        self._thread_id = None
         self.closed, self.initialized = False, False
 
     def _send(self, message, *, deadline):
@@ -194,9 +203,13 @@ class OwnedCodexProtocol:
         import os
         import select
 
-        while not self._messages:
+        while True:
             require(not self.closed, "PROTOCOL_CLOSED")
             require(cancel is None or not cancel.cancelled, "CANCELLED")
+            if self._messages:
+                message = self._messages.pop(0)
+                require(message.get("jsonrpc", "2.0") == "2.0", "PROTOCOL_VERSION")
+                return message
             require(time.monotonic() < deadline, "PROTOCOL_TIMEOUT")
             ready, _, _ = select.select(
                 [self.read_fd], [], [], min(0.05, max(0, deadline - time.monotonic()))
@@ -209,7 +222,6 @@ class OwnedCodexProtocol:
                 raise WorkerError("PROTOCOL_EOF")
             self._messages.extend(self.framer.feed(raw))
             require(len(self._messages) <= 64, "PROTOCOL_EVENT_LIMIT")
-        return self._messages.pop(0)
 
     def _observe(self, message, deadline):
         import re
@@ -307,7 +319,9 @@ class OwnedCodexProtocol:
 
     def thread_start(self):
         require(self.initialized, "PROTOCOL_INITIALIZE_REQUIRED")
-        return self._request(
+        require(self.protocol is None, "PROTOCOL_TURN_ALREADY_BOUND")
+        self._thread_id = None
+        result = self._request(
             "thread/start",
             {
                 "cwd": "/fixture",
@@ -317,9 +331,16 @@ class OwnedCodexProtocol:
                 "config": {"web_search": "disabled", "analytics.enabled": False},
             },
         )
+        thread = result.get("thread")
+        thread_id = thread.get("id") if type(thread) is dict else None
+        require(type(thread_id) is str and not contains_sensitive_material(thread_id),
+                "PROTOCOL_THREAD_BINDING")
+        self._thread_id = logical_id(thread_id)
+        return result
 
     def bind_turn(self, thread_id, turn_id):
         require(self.protocol is None, "PROTOCOL_TURN_ALREADY_BOUND")
+        require(self._thread_id is not None and thread_id == self._thread_id, "PROTOCOL_THREAD_BINDING")
         self.protocol = CodexProtocol(thread_id, turn_id)
 
     def interrupt(self, thread_id, turn_id):

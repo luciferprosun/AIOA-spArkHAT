@@ -45,7 +45,7 @@ from runtime.mission.sandbox_contracts import (
     SandboxRecipe,
     SandboxRegistry,
 )
-from runtime.mission.warrant import require
+from runtime.mission.warrant import WarrantError, require
 
 # Preserve the earlier export while selection uses the shared closed map.
 RENDER_RESOURCE_CEILINGS = sandbox_contracts.RENDER_RESOURCE_CEILINGS
@@ -1377,6 +1377,16 @@ class LinuxSandboxBroker:
             except FileExistsError:
                 return False
             os.fsync(parent)
+            published = os.fstat(fd)
+            try:
+                named = os.stat(name, dir_fd=parent, follow_symlinks=False)
+            except FileNotFoundError:
+                raise WarrantError("GIT_PUBLISHED_NAME_CHANGED") from None
+            require(
+                published.st_nlink == named.st_nlink == 1
+                and (published.st_dev, published.st_ino) == (named.st_dev, named.st_ino),
+                "GIT_PUBLISHED_NAME_CHANGED",
+            )
             return True
         finally:
             os.close(fd)

@@ -6,6 +6,7 @@ import tempfile
 import unittest
 from dataclasses import replace
 from pathlib import Path
+from unittest.mock import patch
 
 from runtime.mission.patchset import observe_source
 from runtime.mission.worker import CandidateFile, CandidatePatch, SyntheticWorker, Task
@@ -116,7 +117,7 @@ class RepairTests(unittest.TestCase):
             )
         )
 
-    def run_loop(self, candidates, outcomes, *, max_repairs=2, **faults):
+    def run_loop(self, candidates, outcomes, *, max_repairs=2, cancelled=None, **faults):
         producer = DirectoryProducer(
             self.api, self.base, self.root, self.task, candidates
         )
@@ -128,8 +129,37 @@ class RepairTests(unittest.TestCase):
             producer=producer,
             validator=backend,
             max_repairs=max_repairs,
+            cancelled=cancelled,
         )
         return result, producer, backend
+
+    def test_unknown_validation_survives_reported_orphans_without_retry(self):
+        result, _, backend = self.run_loop([self.candidate('a+b')], ['UNKNOWN'], orphans=1)
+        self.assertEqual(('UNKNOWN', 'SANDBOX_CLEANUP_FAILED'), (result.status, result.failure_code))
+        attempt, = result.attempts
+        self.assertEqual(('UNKNOWN', 1), (attempt.status, attempt.cleanup_orphans))
+        self.assertEqual('UNKNOWN', attempt.steps[-1].status)
+        self.assertIsNone(result.final_patchset)
+        self.assertEqual(1, len(backend.sessions))
+
+    def test_stop_after_unknown_validation_does_not_relabel_the_outcome(self):
+        stopped = False
+        run = FaultSession.run
+
+        def stop_after_observation(session, stage):
+            nonlocal stopped
+            step = run(session, stage)
+            stopped = True
+            return step
+
+        with patch.object(FaultSession, 'run', stop_after_observation):
+            result, _, backend = self.run_loop([self.candidate('a+b')], ['UNKNOWN'], cancelled=lambda: stopped)
+        self.assertTrue(stopped)
+        self.assertEqual(('UNKNOWN', 'TEST_UNKNOWN'), (result.status, result.failure_code))
+        attempt, = result.attempts
+        self.assertEqual('UNKNOWN', attempt.status)
+        self.assertIsNone(result.final_patchset)
+        self.assertEqual(1, len(backend.sessions))
 
     def test_one_failed_attempt_then_repair_reaches_reviewed_patch(self):
         result, producer, backend = self.run_loop(

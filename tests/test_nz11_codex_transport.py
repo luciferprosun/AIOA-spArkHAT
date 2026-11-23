@@ -11,6 +11,27 @@ from runtime.providers.exact import CancellationToken
 
 
 class CodexTransportTests(unittest.TestCase):
+    def test_jsonl_rejects_floating_point_overflow(self):
+        self.assertEqual(({"value": 100.0},), codex_worker.JsonlFramer().feed(b'{"value":1e2}\n'))
+        for value in (b"1e999", b"-1e999"):
+            with self.subTest(value=value), self.assertRaisesRegex(WorkerError, "^PROTOCOL_JSON$"):
+                codex_worker.JsonlFramer().feed(b'{"value":' + value + b'}\n')
+
+    def test_explicit_wire_version_must_be_jsonrpc_2_in_responses_and_events(self):
+        for value in ("1.0", None, 2):
+            with self.subTest(value=value):
+                transport, peer = self.transport()
+                peer.sendall(json.dumps({"jsonrpc": value, "id": 1, "result": {}}).encode() + b"\n")
+                with self.assertRaisesRegex(WorkerError, "^PROTOCOL_VERSION$"):
+                    transport.initialize()
+        transport, peer = self.transport()
+        peer.sendall(b'{"jsonrpc":"2.0","id":1,"result":{}}\n')
+        self.assertEqual({}, transport.initialize())
+        peer.sendall(b'{"jsonrpc":"1.0","method":"thread/started"}\n')
+        with self.assertRaisesRegex(WorkerError, "^PROTOCOL_VERSION$"):
+            transport.next_event()
+        self.assertEqual([], transport.events)
+
     def test_uncertified_codex_worker_returns_no_candidate_or_authority(self):
         worker = codex_worker.CodexWorker(clock=lambda: 100)
         self.addCleanup(worker.close)
@@ -91,6 +112,8 @@ class CodexTransportTests(unittest.TestCase):
         thread.start()
         self.assertEqual(transport.initialize()["userAgent"], "synthetic")
         self.assertEqual(transport.thread_start()["thread"]["id"], "thread-1")
+        with self.assertRaisesRegex(WorkerError, "^PROTOCOL_THREAD_BINDING$"):
+            transport.bind_turn("foreign-thread", "turn-1")
         transport.bind_turn("thread-1", "turn-1")
         transport.interrupt("thread-1", "turn-1")
         transport.next_event(seconds=1)
@@ -113,13 +136,22 @@ class CodexTransportTests(unittest.TestCase):
         with self.assertRaisesRegex(WorkerError, "PROTOCOL_EOF"):
             transport.next_event(seconds=0.1)
 
+    def test_cancellation_does_not_deliver_an_already_buffered_event(self):
+        transport, peer = self.transport()
+        peer.sendall(b'{"method":"first"}\n{"method":"second"}\n')
+        token = CancellationToken()
+        self.assertEqual('first', transport.next_event(cancel=token)['method'])
+        token.cancel()
+        with self.assertRaisesRegex(WorkerError, '^CANCELLED$'):
+            transport.next_event(cancel=token)
+        self.assertEqual(['first'], [event['method'] for event in transport.events])
+
     def test_wrong_response_id_and_tool_approval_never_gain_authority(self):
         transport, peer = self.transport()
         peer.sendall(b'{"id":999,"result":{}}\n')
         with self.assertRaisesRegex(WorkerError, "PROTOCOL_RESPONSE_BINDING"):
             transport.initialize()
         other, other_peer = self.transport()
-        other.bind_turn("thread-1", "turn-1")
         other_peer.sendall(
             b'{"id":42,"method":"item/commandExecution/requestApproval","params":{"threadId":"thread-1","turnId":"turn-1"}}\n'
         )

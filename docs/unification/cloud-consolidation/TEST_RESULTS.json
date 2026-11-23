@@ -388,6 +388,24 @@
       "status": "PASS",
       "tests_run": 203,
       "log_sha256": "beab7e02bf228df6552d9f61cb1ace8a0192413833489d8c4179f74dc73dcb28"
+    },
+    {
+      "commit": "ebed8691f84781a5f0413374421a257f8a29b6d1",
+      "tree": "6861041c5929005e58b4f8ca8ffdb0519bf8a0d4",
+      "scope": "postmerge targeted AIOA offline regression",
+      "python": "3.11.18",
+      "status": "PASS",
+      "tests_run": 203,
+      "log_sha256": "680729ddbddeb10201a926d4d80e67ec64686eff9820fc8700a1c7b1fc1607d1"
+    },
+    {
+      "commit": "ebed8691f84781a5f0413374421a257f8a29b6d1",
+      "tree": "6861041c5929005e58b4f8ca8ffdb0519bf8a0d4",
+      "scope": "postmerge targeted AIOA offline regression",
+      "python": "3.12.14",
+      "status": "PASS",
+      "tests_run": 203,
+      "log_sha256": "0298365ea56b1fd6fdd2489bede1f2a6b71328bf1ad8a9037c858506d9e9dbc7"
     }
   ],
   "local_observed_errors": [
@@ -422,5 +440,6 @@
       "red": "isolated mutation of Core admission guard reached test worker factory once",
       "green": "original guard denies, task stays QUEUED and factory remains unused"
     }
-  ]
+  ],
+  "postmerge": "ebed8691f84781a5f0413374421a257f8a29b6d1"
 }

@@ -404,7 +404,7 @@ class BoundedRepairLoopCoordinator:
                                     "VALIDATION_PROFILE_CHANGED",
                                 )
                                 steps.append(observed)
-                                stopped = stop_reason()
+                                stopped = None if observed.status == "UNKNOWN" else stop_reason()
                                 if stopped is not None:
                                     attempt_status, attempt_failure = stopped
                                     break
@@ -449,7 +449,9 @@ class BoundedRepairLoopCoordinator:
                         except (ValueError, RepairBoundaryError):
                             cleanup = 1
                 if cleanup:
-                    attempt_status, attempt_failure = "CRASH", "SANDBOX_CLEANUP_FAILED"
+                    if attempt_status != "UNKNOWN":
+                        attempt_status = "CRASH"
+                    attempt_failure = "SANDBOX_CLEANUP_FAILED"
                 elif (
                     attempt_status == "PASS" and (stopped := stop_reason()) is not None
                 ):

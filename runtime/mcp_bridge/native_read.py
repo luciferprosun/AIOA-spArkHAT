@@ -13,6 +13,7 @@ import selectors
 import stat
 import subprocess
 import time
+from datetime import datetime
 from pathlib import Path
 from urllib.parse import quote
 
@@ -570,8 +571,14 @@ def _rich_pull(row):
     _require(type(base) is dict and type(head) is dict, 'GITHUB_CONTEXT_ITEM')
     _rich_repo(base.get('repo'))
     merged = row.get('merged_at')
-    _require(merged is None or type(merged) is str and row['state'] == 'closed',
-             'GITHUB_CONTEXT_STATE')
+    if merged is not None:
+        _require(type(merged) is str and row['state'] == 'closed'
+                 and re.fullmatch(r'[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]{1,6})?Z', merged),
+                 'GITHUB_CONTEXT_STATE')
+        try:
+            datetime.fromisoformat(merged)
+        except ValueError:
+            _require(False, 'GITHUB_CONTEXT_STATE')
     title, title_meta = _rich_text_projection(row.get('title'), 256)
     body, body_meta = _rich_text_projection(row.get('body'), 768, nullable=True)
     return {'number': number, 'title': title, 'body': body,
@@ -647,6 +654,9 @@ def _rich_repository_context(operation, check, deadline):
                 seen.add(number)
                 if kind == 'issues' and 'pull_request' in row:
                     continue
+                if kind == 'actions/runs':
+                    _require(row.get('status') == 'completed' or row.get('conclusion') is None,
+                             'GITHUB_CONTEXT_STATE')
                 items.append(project(row))
             if total_count is not None:
                 truncated = len(seen) < total_count
