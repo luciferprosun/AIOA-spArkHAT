@@ -1,14 +1,14 @@
 {
   "schema": "aioa.nonzero.checkpoint.v1",
   "updated_utc_day": "2026-11-23",
-  "branch": "codex/nonzero-recovery-hardening",
+  "branch": "codex/nonzero-post63-offline",
   "draft_pull_request": null,
   "parent_evidence_commit": "c6e74366e9acd114c42c51919856f3d4570c8f5c",
   "parent_evidence_tree": "392fe4dda4497fb5d5459fec7e6bc23b71d1a45f",
   "matrix_path": "PARITY69_UPDATED.csv",
   "test_evidence_path": "TEST_RESULTS.json",
   "queue_path": "TASK_QUEUE.json",
-  "main_ci_run": 45184569015,
+  "main_ci_run": 45223650707,
   "main_ci_attempt_observed": 1,
   "new_run_requested": false,
   "candidate_git_branch_has_no_merge_authority": true,
@@ -87,7 +87,8 @@
       "live": "NOT_RUN"
     },
     "report": "/home/l/Desktop/AIOA_NONZERO_LOCAL_NIGHTLY_SYNC_RESULT_20261123.md",
-    "procedure": "LINUX_SYNC_HANDOFF.md"
+    "procedure": "LINUX_SYNC_HANDOFF.md",
+    "synchronization_target": "8bd2fe14033f1b49609092a353cd7e6fd6b8d3ef"
   },
   "verified_parent_candidate": {
     "commit": "41ff260778d5962719ca8c70a6329a765ceaed47",
@@ -103,11 +104,11 @@
   "retirement_gate": "NONZERO_RETIREMENT_GATE.md",
   "draft_url": null,
   "verified_main": {
-    "sha": "f2179eb0e6bb4bfd1c5d53ff4353eeb22fb1a78c",
-    "tree": "f4155563badd40d647896747ad6daedfe861a5d0",
-    "core_ci": 45184569015,
-    "codeql": 45184569180,
-    "mcp": 45184673028
+    "sha": "8bd2fe14033f1b49609092a353cd7e6fd6b8d3ef",
+    "tree": "56709b77f066df0567a9f3c4bdbd8182dd6bc38e",
+    "core_ci": 45223650707,
+    "codeql": 45223650071,
+    "mcp": 45223705533
   },
   "five_phase_handoff": "FIVE_PHASE_HANDOFF.md",
   "retirement": "HOLD",
@@ -121,5 +122,12 @@
   },
   "native_forward": "BLOCKED_HOST / BLOCKED_SECURITY_REVIEW",
   "native_historical": "UNKNOWN_CUSTODY_NOT_ATTESTED",
-  "independent_security_review": "PENDING_NATALIA"
+  "independent_security_review": "PR63_SCOPED_AGENT_REVIEW_WITH_OWNER_WAIVER",
+  "pr63_merge_receipt": {
+    "main": "8bd2fe14033f1b49609092a353cd7e6fd6b8d3ef",
+    "tree": "56709b77f066df0567a9f3c4bdbd8182dd6bc38e",
+    "head": "88a928742643de4e0f747141ad607a25290e9c06",
+    "parent_main": "f2179eb0e6bb4bfd1c5d53ff4353eeb22fb1a78c",
+    "review": "https://github.com/luciferprosun/AIOA-spArkHAT/pull/63"
+  }
 }

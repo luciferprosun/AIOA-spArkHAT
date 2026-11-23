@@ -53,8 +53,8 @@
         "repository": "luciferprosun/AIOA-spArkHAT",
         "repository_id": 1247349659,
         "ref": "refs/heads/main",
-        "head": "f2179eb0e6bb4bfd1c5d53ff4353eeb22fb1a78c",
-        "tree": "f4155563badd40d647896747ad6daedfe861a5d0",
+        "head": "8bd2fe14033f1b49609092a353cd7e6fd6b8d3ef",
+        "tree": "56709b77f066df0567a9f3c4bdbd8182dd6bc38e",
         "file": {
           "path": "LICENSE",
           "bytes": 1074,
@@ -82,14 +82,14 @@
       },
       "authorization_status": "NOT_GRANTED",
       "result": "NOT_RUN",
-      "upstream_response_shape": "v1.0.5 returns text JSON for search/list and an embedded resource for LICENSE. Confirm exact pinned URI and digests. get_commit minimal output omits tree, requiring a separate independent proof.",
+      "upstream_response_shape": "v1.0.5 zwraca JSON w bloku tekstowym, płaskie sha gałęzi oraz osadzony zasób LICENSE. Minimalny get_commit pomija drzewo i wymaga osobnego dowodu.",
       "approval_request": {
         "command": "GO_OFFICIAL_MCP_READ",
         "status": "NOT_GRANTED",
         "common_pins": {
           "owner": "luciferprosun",
-          "source_commit": "f2179eb0e6bb4bfd1c5d53ff4353eeb22fb1a78c",
-          "source_tree": "f4155563badd40d647896747ad6daedfe861a5d0",
+          "source_commit": "8bd2fe14033f1b49609092a353cd7e6fd6b8d3ef",
+          "source_tree": "56709b77f066df0567a9f3c4bdbd8182dd6bc38e",
           "operator": null,
           "start_utc": null,
           "expiry_utc": null,
@@ -98,8 +98,8 @@
         "target_pins": {
           "repo_id": 1247349659,
           "ref": "refs/heads/main",
-          "commit": "f2179eb0e6bb4bfd1c5d53ff4353eeb22fb1a78c",
-          "tree": "f4155563badd40d647896747ad6daedfe861a5d0",
+          "commit": "8bd2fe14033f1b49609092a353cd7e6fd6b8d3ef",
+          "tree": "56709b77f066df0567a9f3c4bdbd8182dd6bc38e",
           "server_commit": "c471ae94bb04059dc26e12c305e219c8fd4299e4",
           "server_binary_sha256": "e38247271e98ea3e0771db747523914b35e37787fa2c120ab6864ee6b4a2c87c",
           "protocol": "2025-06-18",
@@ -171,8 +171,8 @@
         "status": "NOT_GRANTED",
         "common_pins": {
           "owner": "luciferprosun",
-          "source_commit": "f2179eb0e6bb4bfd1c5d53ff4353eeb22fb1a78c",
-          "source_tree": "f4155563badd40d647896747ad6daedfe861a5d0",
+          "source_commit": "8bd2fe14033f1b49609092a353cd7e6fd6b8d3ef",
+          "source_tree": "56709b77f066df0567a9f3c4bdbd8182dd6bc38e",
           "operator": null,
           "start_utc": null,
           "expiry_utc": null,
@@ -259,8 +259,8 @@
         "status": "NOT_GRANTED",
         "common_pins": {
           "owner": "luciferprosun",
-          "source_commit": "f2179eb0e6bb4bfd1c5d53ff4353eeb22fb1a78c",
-          "source_tree": "f4155563badd40d647896747ad6daedfe861a5d0",
+          "source_commit": "8bd2fe14033f1b49609092a353cd7e6fd6b8d3ef",
+          "source_tree": "56709b77f066df0567a9f3c4bdbd8182dd6bc38e",
           "operator": null,
           "start_utc": null,
           "expiry_utc": null,
@@ -278,7 +278,9 @@
           "base": null,
           "tree": null,
           "plan_digest": null,
-          "warrant_digest": null
+          "warrant_digest": null,
+          "app_client_id": null,
+          "app_key_fingerprint": null
         },
         "proposed_limits": {
           "logical_publications": 1,
@@ -330,8 +332,8 @@
         "status": "NOT_GRANTED",
         "common_pins": {
           "owner": "luciferprosun",
-          "source_commit": "f2179eb0e6bb4bfd1c5d53ff4353eeb22fb1a78c",
-          "source_tree": "f4155563badd40d647896747ad6daedfe861a5d0",
+          "source_commit": "8bd2fe14033f1b49609092a353cd7e6fd6b8d3ef",
+          "source_tree": "56709b77f066df0567a9f3c4bdbd8182dd6bc38e",
           "operator": null,
           "start_utc": null,
           "expiry_utc": null,
@@ -358,6 +360,6 @@
       }
     }
   ],
-  "source_commit": "f2179eb0e6bb4bfd1c5d53ff4353eeb22fb1a78c",
-  "source_tree": "f4155563badd40d647896747ad6daedfe861a5d0"
+  "source_commit": "8bd2fe14033f1b49609092a353cd7e6fd6b8d3ef",
+  "source_tree": "56709b77f066df0567a9f3c4bdbd8182dd6bc38e"
 }

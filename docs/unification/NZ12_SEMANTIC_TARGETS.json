@@ -7865,8 +7865,8 @@
   "target_modules": {
     "runtime/mission/worker.py": {
       "path": "runtime/mission/worker.py",
-      "git_blob": "19b42f0fecdc51e9b62cec1c2dcc2ab3435c29fc",
-      "sha256": "ed3d83c3a60bfa23c14b98f4631877ae19bd2fe18b05ede5f06bdbdd53a4382d",
+      "git_blob": "37c5e079982761fd4c1d5839258805b56ce06e29",
+      "sha256": "bb79c7fdd891133ccc088a674767847e75036c4e7bcaffc6074aa9aedc082a27",
       "definitions": [
         {
           "name": "WorkerError",
@@ -7914,11 +7914,11 @@
         },
         {
           "name": "WorkerMailbox",
-          "line": 262
+          "line": 264
         },
         {
           "name": "SyntheticWorker",
-          "line": 452
+          "line": 454
         },
         {
           "name": "__init__",
@@ -7990,111 +7990,111 @@
         },
         {
           "name": "poll",
-          "line": 255
-        },
-        {
-          "name": "result",
-          "line": 256
-        },
-        {
-          "name": "cancel",
           "line": 257
         },
         {
-          "name": "interrupt",
+          "name": "result",
           "line": 258
         },
         {
-          "name": "close",
+          "name": "cancel",
           "line": 259
         },
         {
-          "name": "__init__",
-          "line": 265
-        },
-        {
-          "name": "_check",
-          "line": 281
-        },
-        {
-          "name": "_fail",
-          "line": 287
-        },
-        {
-          "name": "_ready",
-          "line": 292
-        },
-        {
-          "name": "_append",
-          "line": 315
-        },
-        {
-          "name": "progress",
-          "line": 332
-        },
-        {
-          "name": "complete",
-          "line": 337
-        },
-        {
-          "name": "complete_json",
-          "line": 351
-        },
-        {
-          "name": "fail",
-          "line": 407
-        },
-        {
-          "name": "drain",
-          "line": 427
-        },
-        {
-          "name": "result",
-          "line": 436
-        },
-        {
-          "name": "_is_pending",
-          "line": 446
-        },
-        {
-          "name": "__init__",
-          "line": 455
-        },
-        {
-          "name": "start",
-          "line": 467
-        },
-        {
-          "name": "_mailbox",
-          "line": 480
-        },
-        {
-          "name": "poll",
-          "line": 485
-        },
-        {
-          "name": "result",
-          "line": 498
-        },
-        {
-          "name": "cancel",
-          "line": 501
-        },
-        {
           "name": "interrupt",
-          "line": 504
+          "line": 260
         },
         {
           "name": "close",
-          "line": 507
+          "line": 261
+        },
+        {
+          "name": "__init__",
+          "line": 267
+        },
+        {
+          "name": "_check",
+          "line": 283
+        },
+        {
+          "name": "_fail",
+          "line": 289
+        },
+        {
+          "name": "_ready",
+          "line": 294
+        },
+        {
+          "name": "_append",
+          "line": 317
+        },
+        {
+          "name": "progress",
+          "line": 334
+        },
+        {
+          "name": "complete",
+          "line": 339
+        },
+        {
+          "name": "complete_json",
+          "line": 353
+        },
+        {
+          "name": "fail",
+          "line": 409
+        },
+        {
+          "name": "drain",
+          "line": 429
+        },
+        {
+          "name": "result",
+          "line": 438
+        },
+        {
+          "name": "_is_pending",
+          "line": 448
+        },
+        {
+          "name": "__init__",
+          "line": 457
+        },
+        {
+          "name": "start",
+          "line": 469
+        },
+        {
+          "name": "_mailbox",
+          "line": 482
+        },
+        {
+          "name": "poll",
+          "line": 487
+        },
+        {
+          "name": "result",
+          "line": 500
+        },
+        {
+          "name": "cancel",
+          "line": 503
+        },
+        {
+          "name": "interrupt",
+          "line": 506
+        },
+        {
+          "name": "close",
+          "line": 509
         },
         {
           "name": "unique_fields",
-          "line": 363
+          "line": 365
         },
         {
           "name": "no_constant",
-          "line": 370
+          "line": 372
         }
       ],
       "symbolic_callees": [
@@ -8166,122 +8166,125 @@
         "value.pop"
       ],
       "call_site_count": 171,
-      "call_sites_sha256": "83c248b261d3b311d9c64e59ae366d7ccde90b944b423dc2ce4df235f7985c54"
+      "call_sites_sha256": "da09b4e0ae1520e7a3b1500b325669d0916e92e6d2d854c367f3dd702774e5eb"
     },
     "runtime/mission/codex_worker.py": {
       "path": "runtime/mission/codex_worker.py",
-      "git_blob": "77ac0ae17166eef4227df5b4dd52a1f099ef1171",
-      "sha256": "f55653040dae3e3b8543a3c4aa729dda446d3231f74472f87e822b9ff34c01e8",
+      "git_blob": "27bedfff4753c2ded2e64cfb1c24ea2c78046989",
+      "sha256": "3c77e41125ae4a283d5faca3ce464cff1560cae0319216863017f75a18dbefcd",
       "definitions": [
         {
           "name": "_pairs",
-          "line": 20
+          "line": 21
         },
         {
           "name": "_constant",
-          "line": 28
+          "line": 29
         },
         {
           "name": "_finite_float",
-          "line": 32
+          "line": 33
         },
         {
           "name": "JsonlFramer",
-          "line": 38
-        },
-        {
-          "name": "CodexProtocol",
-          "line": 73
-        },
-        {
-          "name": "CodexWorker",
-          "line": 137
-        },
-        {
-          "name": "OwnedCodexProtocol",
-          "line": 153
-        },
-        {
-          "name": "__init__",
           "line": 39
         },
         {
+          "name": "CodexProtocol",
+          "line": 74
+        },
+        {
+          "name": "CodexWorker",
+          "line": 138
+        },
+        {
+          "name": "OwnedCodexProtocol",
+          "line": 154
+        },
+        {
+          "name": "__init__",
+          "line": 40
+        },
+        {
           "name": "feed",
-          "line": 43
+          "line": 44
         },
         {
           "name": "finish",
-          "line": 68
+          "line": 69
         },
         {
           "name": "__init__",
-          "line": 76
+          "line": 77
         },
         {
           "name": "observe",
-          "line": 80
+          "line": 81
         },
         {
           "name": "__init__",
-          "line": 144
+          "line": 145
         },
         {
           "name": "start",
-          "line": 147
+          "line": 148
         },
         {
           "name": "__init__",
-          "line": 163
+          "line": 164
         },
         {
           "name": "_send",
-          "line": 179
+          "line": 185
         },
         {
           "name": "_read",
-          "line": 203
+          "line": 209
         },
         {
           "name": "_observe",
-          "line": 229
+          "line": 235
         },
         {
           "name": "_request",
-          "line": 261
+          "line": 267
         },
         {
           "name": "initialize",
-          "line": 304
+          "line": 310
         },
         {
           "name": "thread_start",
-          "line": 323
+          "line": 329
         },
         {
           "name": "bind_turn",
-          "line": 344
+          "line": 350
         },
         {
           "name": "interrupt",
-          "line": 349
+          "line": 355
         },
         {
           "name": "next_event",
-          "line": 360
+          "line": 366
         },
         {
           "name": "close",
-          "line": 370
+          "line": 376
         }
       ],
       "symbolic_callees": [
         "CodexProtocol",
+        "ExitStack",
         "JsonlFramer",
         "WorkerError",
         "bounded_int",
         "bytearray",
         "bytes",
         "canonical_sha256",
+        "cleanup.callback",
+        "cleanup.pop_all",
         "contains_sensitive_material",
         "data.splitlines",
         "float",
@@ -8333,8 +8336,8 @@
         "turn.get",
         "type"
       ],
-      "call_site_count": 159,
-      "call_sites_sha256": "e19a754d5fde4925f4e878de794dc5079e476fca9329841cc521b8e07d703b13"
+      "call_site_count": 163,
+      "call_sites_sha256": "72834a4ffaa712d8c03297f5138e46ff332a7d31063d9e4770cf22a558bc2c80"
     },
     "runtime/mission/sandbox_linux.py": {
       "path": "runtime/mission/sandbox_linux.py",
@@ -14089,148 +14092,148 @@
     },
     "runtime/mission/repair.py": {
       "path": "runtime/mission/repair.py",
-      "git_blob": "c8af40e87a279ab429b4120097c5e6535779fd26",
-      "sha256": "9ce9f32837475b0dd209499a6e3a02c89da674bb4ce777e2d72a6c157dc60915",
+      "git_blob": "951b0a68f101eb6061044cafe8a40f948932b58e",
+      "sha256": "a975c34235ee961e8b6029c0fb50040b3a37a903a250fe63ade42ad68a0b29c7",
       "definitions": [
         {
           "name": "require",
-          "line": 34
+          "line": 35
         },
         {
           "name": "digest",
-          "line": 39
+          "line": 40
         },
         {
           "name": "CandidateWorkspace",
-          "line": 46
+          "line": 47
         },
         {
           "name": "ValidationStep",
-          "line": 63
+          "line": 64
         },
         {
           "name": "AttemptReceipt",
-          "line": 94
+          "line": 95
         },
         {
           "name": "RepairLoopResult",
-          "line": 130
+          "line": 131
         },
         {
           "name": "CandidateProducer",
-          "line": 237
-        },
-        {
-          "name": "ValidationSession",
-          "line": 244
-        },
-        {
-          "name": "ValidationBackend",
-          "line": 249
-        },
-        {
-          "name": "semantic_review",
-          "line": 253
-        },
-        {
-          "name": "BoundedRepairLoopCoordinator",
-          "line": 278
-        },
-        {
-          "name": "SandboxedCandidateProducer",
-          "line": 531
-        },
-        {
-          "name": "__post_init__",
-          "line": 51
-        },
-        {
-          "name": "__post_init__",
-          "line": 72
-        },
-        {
-          "name": "__post_init__",
-          "line": 102
-        },
-        {
-          "name": "__post_init__",
-          "line": 140
-        },
-        {
-          "name": "from_record",
-          "line": 198
-        },
-        {
-          "name": "authority",
-          "line": 233
-        },
-        {
-          "name": "produce",
           "line": 238
         },
         {
-          "name": "close",
-          "line": 241
-        },
-        {
-          "name": "run",
+          "name": "ValidationSession",
           "line": 245
         },
         {
-          "name": "close",
-          "line": 246
-        },
-        {
-          "name": "open",
+          "name": "ValidationBackend",
           "line": 250
         },
         {
-          "name": "__init__",
+          "name": "semantic_review",
+          "line": 254
+        },
+        {
+          "name": "BoundedRepairLoopCoordinator",
           "line": 279
         },
         {
-          "name": "run",
-          "line": 284
+          "name": "SandboxedCandidateProducer",
+          "line": 532
         },
         {
-          "name": "__init__",
-          "line": 539
+          "name": "__post_init__",
+          "line": 52
         },
         {
-          "name": "_stopped",
-          "line": 581
+          "name": "__post_init__",
+          "line": 73
         },
         {
-          "name": "_start_worker",
-          "line": 586
+          "name": "__post_init__",
+          "line": 103
         },
         {
-          "name": "_check_cancel_uncertainty",
-          "line": 616
+          "name": "__post_init__",
+          "line": 141
         },
         {
-          "name": "_cancel_worker",
-          "line": 622
+          "name": "from_record",
+          "line": 199
         },
         {
-          "name": "_worker_result",
-          "line": 655
+          "name": "authority",
+          "line": 234
         },
         {
           "name": "produce",
-          "line": 670
-        },
-        {
-          "name": "stop",
-          "line": 725
+          "line": 239
         },
         {
           "name": "close",
-          "line": 737
+          "line": 242
+        },
+        {
+          "name": "run",
+          "line": 246
+        },
+        {
+          "name": "close",
+          "line": 247
+        },
+        {
+          "name": "open",
+          "line": 251
+        },
+        {
+          "name": "__init__",
+          "line": 280
+        },
+        {
+          "name": "run",
+          "line": 285
+        },
+        {
+          "name": "__init__",
+          "line": 540
+        },
+        {
+          "name": "_stopped",
+          "line": 582
+        },
+        {
+          "name": "_start_worker",
+          "line": 587
+        },
+        {
+          "name": "_check_cancel_uncertainty",
+          "line": 625
+        },
+        {
+          "name": "_cancel_worker",
+          "line": 631
+        },
+        {
+          "name": "_worker_result",
+          "line": 664
+        },
+        {
+          "name": "produce",
+          "line": 679
+        },
+        {
+          "name": "stop",
+          "line": 734
+        },
+        {
+          "name": "close",
+          "line": 746
         },
         {
           "name": "stop_reason",
-          "line": 304
+          "line": 305
         }
       ],
       "symbolic_callees": [
@@ -14307,8 +14310,8 @@
         "type",
         "validator.open"
       ],
-      "call_site_count": 253,
-      "call_sites_sha256": "fa8caa5f21c0cd7db003832fb62d441f765a0c53a38f010ea8209ee1540f825b"
+      "call_site_count": 257,
+      "call_sites_sha256": "4585797f637f77558425811d9745ee964ba25315867c2a678c5635f49e053ee3"
     },
     "runtime/mission/repair_validation.py": {
       "path": "runtime/mission/repair_validation.py",

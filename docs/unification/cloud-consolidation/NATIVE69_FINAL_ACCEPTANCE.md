@@ -15,10 +15,10 @@ Na zakwalifikowanym hoście uruchomić pełny test producenta i konsumenta z [ma
 
 Stan bieżący to `BLOCKED_HOST / BLOCKED_SECURITY_REVIEW`. [Wyjątek historyczny](NATIVE69_HISTORICAL_EXCEPTION.md)
 
-## Przyrost po #62 — wymagany odbiór Natalii
+## Odbiór ograniczonego zakresu po #63
 
 Uchwyt po rozpoczęciu operacji mógł dotrzeć do uzgadniania również wtedy, gdy broker nigdy nie zwrócił potwierdzenia CAS. Wcześniejszy zapis próby i zgodny ref nie rozstrzygają, czy efekt wykonał ten sam proces. Kandydat wymaga pozytywnego zwrotu przypiętej operacji brokera, zapisanego tylko pod pierwotnym uchwytem i planem. Gdy wrócił broker, ale zginął nowszy ACK, dopuszczalny odczyt w tej samej instancji nadal wymaga obecnych powiązań i kontroli refu. Brak zwrotu, zmieniony uchwyt lub podmienione wiązanie kończą się przed odczytem uzgadniającym. Znacznik jest lokalny dla procesu i nie przyznaje zgody na nowy CAS. Nie stanowi trwałego niezależnego dowodu historycznego.
 
 Core sprawdza już nieaktualną epokę przed wejściem do weryfikatora i zachowuje ponowną kontrolę przy zapisie rozliczenia. Regresja rozdziela te dwa przypadki, zachowując UNKNOWN bez odtworzenia skutku.
 
-Do oceny Natalii przekazać dokładny HEAD, właściwą bazę, testy `test_nz13_native_coding_lifecycle` i `test_core_intent`, różnicę `coding_tasks.py`, `git_publish.py`, `intent.py` oraz wynik pełnego profilu z istniejącego manifestu hosta. Lokalny test skupia się na granicy przed odczytem, z syntetyczną kwalifikacją i bez publikacji rzeczywistego refu. Fizyczny CAS i zimny restart mają osobne odebrane fixture. Pełna ścieżka produkcyjna pozostaje `BLOCKED_HOST / BLOCKED_SECURITY_REVIEW`. Status niezależnej oceny `PENDING_NATALIA`.
+Właściciel ograniczył wymóg recenzji Natalii w zakresie dopuszczonym przez ochronę repozytorium. Trzech niezależnych agentów sprawdziło ACK Native, epoki i autoryzację oraz CI i pochodzenie. Scalone zabezpieczenie obejmuje uzgadnianie w tej samej instancji. Pełna ścieżka pozostaje `BLOCKED_HOST / BLOCKED_SECURITY_REVIEW`, a historia `UNKNOWN / HELD` z zakazem replay. [Zakres recenzji i wyłączenia](https://github.com/luciferprosun/AIOA-spArkHAT/pull/63)
