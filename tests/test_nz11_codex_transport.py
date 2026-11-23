@@ -239,6 +239,48 @@ class CodexTransportTests(unittest.TestCase):
         denial = json.loads(other_peer.recv(4096))
         self.assertEqual(denial["error"]["code"], -32601)
 
+    def test_ambiguous_request_or_handshake_failure_closes_owned_pipes(self):
+        for failure in ("request-write", "response-binding", "handshake-write"):
+            with self.subTest(failure=failure):
+                read_fd, response_fd = os.pipe()
+                request_fd, write_fd = os.pipe()
+                for fd in (read_fd, response_fd, request_fd, write_fd):
+                    self.addCleanup(os.close, fd)
+                transport = codex_worker.OwnedCodexProtocol(read_fd, write_fd)
+                self.addCleanup(transport.close)
+                response_id = 9 if failure == "response-binding" else 1
+                os.write(response_fd, json.dumps({"id": response_id, "result": {}}).encode() + b"\n")
+                write_count = 0
+                original_write = os.write
+
+                def write(fd, data):
+                    nonlocal write_count
+                    write_count += 1
+                    if failure == "request-write" and write_count == 2:
+                        raise BrokenPipeError(errno.EPIPE, "fixture partial request")
+                    if failure == "request-write":
+                        return original_write(fd, data[:4])
+                    if failure == "handshake-write" and write_count == 2:
+                        raise BrokenPipeError(errno.EPIPE, "fixture missing handshake ACK")
+                    return original_write(fd, data)
+
+                code = "PROTOCOL_RESPONSE_BINDING" if failure == "response-binding" else "PROTOCOL_EOF"
+                with patch("os.write", side_effect=write):
+                    with self.assertRaisesRegex(WorkerError, f"^{code}$"):
+                        transport.initialize()
+                    saved = write_count
+                    with self.assertRaisesRegex(WorkerError, "^PROTOCOL_CLOSED$"):
+                        transport.initialize()
+                    self.assertEqual(write_count, saved)
+                self.assertIsNone(transport._pending)
+                self.assertFalse(transport.initialized)
+                for owned_fd in (transport.read_fd, transport.write_fd):
+                    with self.assertRaises(OSError) as closed:
+                        os.fstat(owned_fd)
+                    self.assertEqual(closed.exception.errno, errno.EBADF)
+                for caller_fd in (read_fd, response_fd, request_fd, write_fd):
+                    os.fstat(caller_fd)
+
     def test_diagnostic_transport_has_no_turn_start_or_generic_command_port(self):
         transport, _ = self.transport()
         for name in ("turn_start", "execute", "shell", "dispatch", "approve"):

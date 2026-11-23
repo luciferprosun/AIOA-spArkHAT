@@ -265,6 +265,7 @@ class OwnedCodexProtocol:
         )
 
     def _request(self, method, params, *, seconds=5, cancel=None):
+        require(not self.closed, "PROTOCOL_CLOSED")
         require(
             method in ("initialize", "thread/start", "turn/interrupt")
             and self._pending is None
@@ -277,10 +278,10 @@ class OwnedCodexProtocol:
         identity = self._next_id
         self._pending = identity
         deadline = time.monotonic() + seconds
-        self._send(
-            {"id": identity, "method": method, "params": params}, deadline=deadline
-        )
         try:
+            self._send(
+                {"id": identity, "method": method, "params": params}, deadline=deadline
+            )
             for _ in range(65):
                 message = self._read(deadline, cancel)
                 if "method" in message:
@@ -304,6 +305,10 @@ class OwnedCodexProtocol:
                 )
                 return message["result"]
             raise WorkerError("PROTOCOL_EVENT_LIMIT")
+        except Exception:
+            # A partial request or an unbound reply invalidates this session.
+            self.close()
+            raise
         finally:
             self._pending = None
 
@@ -320,9 +325,13 @@ class OwnedCodexProtocol:
                 "capabilities": {"experimentalApi": False},
             },
         )
-        self._send(
-            {"method": "initialized", "params": {}}, deadline=time.monotonic() + 1
-        )
+        try:
+            self._send(
+                {"method": "initialized", "params": {}}, deadline=time.monotonic() + 1
+            )
+        except Exception:
+            self.close()
+            raise
         self.initialized = True
         return result
 
