@@ -2,7 +2,7 @@
   "schema": "aioa.nonzero.checkpoint.v1",
   "updated_utc_day": "2026-11-23",
   "branch": "codex/nonzero-post59-evidence",
-  "draft_pull_request": null,
+  "draft_pull_request": 60,
   "parent_evidence_commit": "c6e74366e9acd114c42c51919856f3d4570c8f5c",
   "parent_evidence_tree": "392fe4dda4497fb5d5459fec7e6bc23b71d1a45f",
   "matrix_path": "PARITY69_UPDATED.csv",
@@ -100,5 +100,6 @@
     "codeql": "NOT_TRIGGERED_BY_MANUAL_DISPATCH"
   },
   "native_host": "BLOCKED_HOST",
-  "retirement_gate": "NONZERO_RETIREMENT_GATE.md"
+  "retirement_gate": "NONZERO_RETIREMENT_GATE.md",
+  "draft_url": "https://github.com/luciferprosun/AIOA-spArkHAT/pull/60"
 }

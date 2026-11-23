@@ -35,7 +35,10 @@
         "commit": "c471ae94bb04059dc26e12c305e219c8fd4299e4",
         "protocol": "2025-06-18",
         "archive_sha256": "201082f569a846eaefd4318f13bccb5d9227c2cec45037d1d292ee83111173c1",
-        "binary_sha256": "e38247271e98ea3e0771db747523914b35e37787fa2c120ab6864ee6b4a2c87c"
+        "binary_sha256": "e38247271e98ea3e0771db747523914b35e37787fa2c120ab6864ee6b4a2c87c",
+        "release_archive_and_binary_sha256_rechecked_offline": true,
+        "server_executed_in_this_qualification": false,
+        "tag_object": "1d17d33bf5fa4e22b84e5ff28ad7c87f9b3575b3"
       },
       "offline": [
         "tests/host_unified_mcp.py",

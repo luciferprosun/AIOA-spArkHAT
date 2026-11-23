@@ -8,3 +8,6 @@ Punkt odniesienia to scalony `main` `914c9b1bf4dc7bf6ff14687d91560d9bcef1a5f6`. 
 - **Official MCP READ.** Test przedstawia syntetyczne ramki JSON-RPC na podstawie fixture W7A, sprawdza scope, numer odpowiedzi, serwer, narzędzia i stałość refu. Projekcja przechodzi przez istniejący `validate_context_data` i zawiera skróty oraz `authority=NONE` i `live_verified=false`. Osobna kwalifikacja obejmie aktualnego klienta i serwer, pełną inwentaryzację oraz rzeczywistą tożsamość READ.
 
 Cztery LIVE nadal mają stan `NOT_RUN`. W C jedna logiczna publikacja zawiera cztery mutacje repozytorium. Potrzebne są osobne decyzje o kwalifikowanym środowisku, poświadczeniu i zakresie. [Manifest LIVE](LIVE_QUALIFICATION.json)
+
+- **#18.** W prywatnym bare Git sprawdzono brak refu, następnie utworzono go wskazując przodka planowanego OID. Zwykły push bez force przesunął ref do zaplanowanego potomka. Dowód dotyczy semantyki Git w fixture lokalnym. Historyczny backend HTTPS i produkcyjny transport pozostają niekwalifikowane.
+- **Manifest A.** Porównano upstream tag `v1.0.5` z przypiętym commitem i skróty archiwum oraz binarium. Binarium nie zostało uruchomione. Przy odbiorze trzeba osobno zweryfikować klienta, autoryzację, konfigurację serwera i faktyczny spis narzędzi.

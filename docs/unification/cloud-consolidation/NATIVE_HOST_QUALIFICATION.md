@@ -19,7 +19,7 @@
 Przygotować nadzorcę dla `tests/nz12_ci_host.sh` i `tests/nz12_source_runner.py`. Wcześniejszy hosted certify wykazał działanie podstawowych bramek Native Git na runnerze Noble. Dedykowana sekwencja dwóch procesów wymaga pełnego wejścia opisanego niżej.
 
 1. Zbudować manifest runtime przez `snapshot_python_runtime(..., include_git=True)`, ustawić ograniczone odczyty bez podążania za linkiem i wyłączny trwały zapis w prywatnym katalogu.
-2. W procesie producenta użyć etapu `TERMINAL_CHILD_ACQUISITION_PRODUCE` i `NativeOwnedAcceptance.test_produce_terminal_child_acquisition_history_for_new_process`. Po zakończeniu procesu zachować i sprawdzić SHA-256 handoffu `aioa.native-owned-restart-handoff.v1` i obrazu stanu przed restartem.
+2. W procesie producenta użyć etapu `TERMINAL_CHILD_ACQUISITION_PRODUCE` i `NativeOwnedAcceptance.test_produce_terminal_child_acquisition_history_for_new_process`. Po zakończeniu procesu zachować i sprawdzić SHA-256 handoffu `nz13.native-owned-restart-handoff.v1` i obrazu stanu przed restartem.
 3. Uruchomić drugi proces przez `NativeRestartFixture`, otworzyć utrwalony stan z nową instancją admission, wykonać `test_populated_restart_reads_declared_linux_and_git_history` i rozszerzyć odbiór o normalne `reconcile` i `apply`. Potwierdzić `UNKNOWN`, aktywną rezerwację, niezmienione `HELD` i brak ponownego wywołania CAS lub modelu.
 4. Powtórzyć kontrolowane warianty utraty ACK, braku refu, obcego zgodnego refu, driftu, STOP, wygaśnięcia warrantu i współbieżnego odczytu. Sprawdzić podpisy istniejących dowodów i brak artefaktu, który mógłby poświadczyć błędnego wykonawcę.
 
