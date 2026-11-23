@@ -8,15 +8,18 @@ import hashlib
 import json
 import os
 import unittest
+from dataclasses import replace
 from unittest.mock import patch
 
 import test_mobile_pairing as pairing
 from test_native_repository_context import PublicRepositoryFixture
 
-from runtime.core_admission import AdmissionError
+from runtime.core_admission import AdmissionError, Capability
 from runtime.mcp_bridge import native_read
 from runtime.meta_hackathon.native_tools import registry
 from runtime.mobile_gateway import wire
+from runtime.memory_patch.persistence.ports import RecordKind
+from runtime.mobile_gateway.service import plain
 
 OPERATIONS = (
     'github.repository_context', 'github.issue_contexts',
@@ -385,8 +388,42 @@ class SignedRichContextTests(unittest.TestCase):
         self.app.close()
         self.start()
         with patch.object(native_read, '_github_json') as transport:
+            self.assertEqual(result, self.app.operator_request(
+                os.getuid(), {'op': 'tool_readback', 'request_id': 'a' * 32}))
             self.assertEqual(result, self.request())
         transport.assert_not_called()
+
+    def test_retained_read_must_authenticate_data_on_readback_and_duplicate(self):
+        fixture = RichContextFixture()
+        with patch.object(native_read, '_github_json', side_effect=fixture.get):
+            original = self.request()
+        key = 'native-tool-read-' + 'a' * 32
+        self.assertEqual('VERIFIED_READ', registry(self.app)['github_read']['status'])
+
+        variants = (
+            ('data', {**original, 'data': {**original['data'], 'observed_sha': 'f' * 40}}),
+            ('signature', {**original, 'signature': 'forged'}),
+        )
+        foreign = {**original['receipt'], 'request_id': 'b' * 32, 'task_id': 'read-' + 'b' * 32}
+        variants += (('request', {**original, 'receipt': foreign, 'signature': self.app.identity.sign(foreign)}),)
+
+        for label, result in variants:
+            with self.subTest(label=label):
+                def alter(tx):
+                    row = tx.get(RecordKind.OPERATION, key)
+                    payload = plain(row.payload)
+                    payload['result'] = result
+                    tx.replace(replace(row, revision=row.revision + 1, payload=payload),
+                               expected_revision=row.revision)
+
+                self.app.mobile._run(Capability.COMMIT, alter)
+                with patch.object(native_read, '_github_json') as transport:
+                    with self.assertRaises(wire.MobileError):
+                        self.app.operator_request(os.getuid(), {'op': 'tool_readback', 'request_id': 'a' * 32})
+                    with self.assertRaises(wire.MobileError):
+                        self.request()
+                    self.assertEqual('NOT_RUN', registry(self.app)['github_read']['status'])
+                transport.assert_not_called()
 
     def test_missing_ack_remains_unknown_and_does_not_retry_a_get(self):
         from runtime.memory_patch.errors import CommitOutcomeUnknown

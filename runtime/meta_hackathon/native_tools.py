@@ -14,6 +14,34 @@ from runtime.mobile_gateway import wire
 from runtime.mobile_gateway.service import plain
 
 
+def _verified_read_result(host, payload, request_id):
+    """Authenticate an inert stored observation without contacting its transport."""
+    try:
+        binding = payload['binding']
+        result = payload['result']
+        receipt = result['receipt']
+        if (set(binding) != {'request_id', 'operation', 'source_sha', 'capsule_digest'}
+                or binding['request_id'] != request_id
+                or not wire.HEX32.fullmatch(request_id)
+                or binding['operation'] not in native_read.OPERATIONS
+                or set(result) != {'receipt', 'data', 'signature'}):
+            raise wire.MobileError(409)
+        wire.verify(host.identity.spki, result['signature'], receipt)
+        expected = {
+            **binding, 'schema': 'aioa.native-tool-read-receipt.v1', 'task_id': 'read-' + request_id,
+            'effect': 'READ', 'authority': 'LOCAL_NATIVE_OWNER_READ',
+            'owner_scope_digest': host.mobile.owner_scope_digest,
+            'data_sha256': wire.digest(wire.canonical(result['data'])),
+        }
+        if (any(receipt.get(key) != value for key, value in expected.items())
+                or receipt.get('automatic_retry') is not False
+                or type(receipt.get('observed_at')) is not int):
+            raise wire.MobileError(409)
+        return result
+    except (KeyError, TypeError, ValueError):
+        raise wire.MobileError(409) from None
+
+
 def chat_read_context(host,request_id):
     """Resolve an exact existing receipt, never caller-supplied tool output.
 
@@ -24,8 +52,8 @@ def chat_read_context(host,request_id):
     native_read._require(type(request_id) is str and wire.HEX32.fullmatch(request_id),'CHAT_READ_REFERENCE_INVALID')
     row=host.mobile._get('native-tool-read-'+request_id)
     native_read._require(row is not None and row.payload.get('state')=='TOOL_READ_VERIFIED','CHAT_READ_NOT_VERIFIED')
-    result=plain(row.payload['result']);receipt=result['receipt'];data=result['data']
-    wire.verify(host.identity.spki,result['signature'],receipt)
+    result = _verified_read_result(host, plain(row.payload), request_id)
+    receipt=result['receipt'];data=result['data']
     operation=receipt.get('operation')
     native_read._require(operation in ('github.repository', *native_read.VERIFIED_CONTEXT_OPERATIONS), 'CHAT_READ_BINDING_MISMATCH')
     expected={'schema':'aioa.native-tool-read-receipt.v1','request_id':request_id,'operation':operation,
@@ -36,7 +64,6 @@ def chat_read_context(host,request_id):
     observed=receipt.get('observed_at');now=int(time.time())
     native_read._require(type(observed) is int and observed<=now<observed+300,'CHAT_READ_EXPIRED')
     native_read.validate_context_data(operation,data)
-    native_read._require(wire.digest(wire.canonical(data))==receipt.get('data_sha256'),'CHAT_READ_DATA_MISMATCH')
     return {'schema':'aioa.chat.read-context.v1','trust':'UNTRUSTED_READ_DATA','request_id':request_id,
         'operation':operation,'observed_at':observed,'expires_at':observed+300,
         'source_sha':host.source[0],'capsule_digest':host.source[1],
@@ -54,12 +81,21 @@ def registry(host):
         unknown = sum(e['state'] == 'UNKNOWN' for e in state['reservations'].values())
     def observations(tx):
         rows=tx.scan(RecordKind.OPERATION,limit=128,states=('TOOL_READ_VERIFIED',))
-        results=[plain(row.payload['result']) for row in rows]
-        return [r['receipt'] for r in results if r['receipt'].get('transport')=='LIVE_GITHUB_GET'
-                and r['receipt'].get('source_sha')==host.source[0]
-                and r['receipt'].get('capsule_digest')==host.source[1]
-                and r['receipt'].get('core_instance_id')==host.instance_id]
-    reads=host.mobile._run(Capability.READ,observations)
+        return [(row.record_id, plain(row.payload)) for row in rows]
+
+    reads = []
+    for key, payload in host.mobile._run(Capability.READ, observations):
+        if not key.startswith('native-tool-read-'):
+            continue
+        try:
+            receipt = _verified_read_result(host, payload, key.removeprefix('native-tool-read-'))['receipt']
+        except wire.MobileError:
+            continue
+        if (receipt.get('transport') == 'LIVE_GITHUB_GET'
+                and receipt['source_sha'] == host.source[0]
+                and receipt['capsule_digest'] == host.source[1]
+                and receipt.get('core_instance_id') == host.instance_id):
+            reads.append(receipt)
     github={'status':'NOT_RUN','enabled':True,'repository':native_read.REPOSITORY,
             'context_inventory':native_read.context_inventory()}
     if reads:
@@ -122,7 +158,8 @@ def dispatch(host, owner, value):
         if row is None:
             return {'state': 'NOT_FOUND', 'request_id': value['request_id'], 'automatic_retry': False}
         data = plain(row.payload)
-        if data['state']=='TOOL_READ_VERIFIED':return data['result']
+        if data['state']=='TOOL_READ_VERIFIED':
+            return _verified_read_result(host, data, value['request_id'])
         result={'state':'UNKNOWN','request_id':value['request_id'],'automatic_retry':False}
         if data.get('failure',{}).get('code')=='TOOL_READ_TIMEOUT':
             result['error_code']='TOOL_READ_TIMEOUT'
@@ -172,12 +209,12 @@ def _perform_read(host,key,binding,operation,deadline):
                     raise wire.MobileError(409)
                 if payload['state'] != 'TOOL_READ_VERIFIED':
                     raise wire.MobileError(409)
-                return payload['result']
+                return payload
             host.mobile._record(tx, key, {'state': 'TOOL_READ_PENDING', 'binding': binding}, at=int(time.time()))
             return None
         prior = host.mobile._run(Capability.COMMIT, reserve)
         if prior is not None:
-            return prior  # Historical observation, never repeat an external GET.
+            return _verified_read_result(host, prior, binding['request_id'])
         from .runtime_adapter import ROOT
         value = native_read.read(operation, ROOT, check=host._require_qualified_operator,
                                  deadline=deadline)  # Never inside retryable transaction.

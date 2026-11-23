@@ -7,7 +7,7 @@
 | Jeden Core | PASS | One-Core i source policy na przypiętym main. Historyczny pakiet jest wykluczony z importów i dystrybucji. |
 | Zależności w badanym kodzie i CI | PASS | Przeszukanie śledzonego runtime, konfiguracji pakowania, skryptów i workflow. Wystąpienia nazwy źródła dotyczą strażników i pochodzenia. Powtórzyć w finalnym SHA, w tym URL, nazwę pakietu i pin W7A. |
 | Zewnętrzne wdrożenia i klienci | UNKNOWN | 23 kontrakty oczekują na ustalenie bieżącego odbiorcy. Sprawdzić deploymenty, prywatne integracje, importy, URL i wsparcie poza tym repozytorium.  Bieżący stan usługi, rollout, domenę, możliwość odtworzenia i ewentualne wymagania jury lub Devpost potwierdza właściciel. |
-| Pozycje funkcjonalne | FAIL | Otwartych jest siedem PARTIAL i trzy SECURITY_BLOCKED. Odbiór musi wykazać normalne wejścia Core i rozliczyć cel wykluczeń #16 i #53. Użycie historycznego HTTPS #18 wymaga ustalonego odbiorcy, atomowego create-if-absent i atrybucji. |
+| Pozycje funkcjonalne | FAIL | Kandydat zamyka #16 i #53 w zakresie roli autoryzacyjnej. Siedem PARTIAL i historyczny #69 nadal wymagają odbioru. Użycie historycznego HTTPS #18 wymaga ustalonego odbiorcy, atomowego create-if-absent i atrybucji. |
 | Pakowanie i uruchomienie bez legacy | PASS | Hosted packaging 3.11/3.12 buduje i uruchamia instalację z pojedynczego repozytorium. Objąć docelowy commit i deklarowane profile wdrożeń. |
 | Licencja i pochodzenie | PASS | `runtime/nonzero_cloudops/LICENSE-NONZERO.txt`, polityka pochodzenia, inventory NZ12, piny W7A i Judge. Zachować prawa, noty, źródła blobów i świadectwa po finalnym scaleniu. |
 | Cztery kwalifikacje środowiskowe | FAIL | Wszystkie LIVE mają wynik NOT_RUN. Dla każdego toru wymagany rzeczywisty wynik albo formalnie zatwierdzona zmiana zakresu. |
@@ -34,3 +34,11 @@ GitHub pokazuje 20 wdrożeń Render w środowisku `21068474465`. Najnowsze `6378
 W widocznym API zidentyfikowano jeden scalony PR, #1, bez zwykłych issues, releases, Actions artifacts ani Pages. Flagi Wiki i Projects są włączone. Publiczny odczyt Git Wiki zwrócił brak repozytorium. Odczyt webhooków zwrócił HTTP 403. Na 179 commitach osiągalnych z reklamowanych refów brak trafień dokładnego nagłówka LFS i historii konfiguracji LFS lub submodule. Zakres Git ma osobny dowód odtworzenia. Zawartość Wiki i Projects, ustawienia dostępu, integracje, eksporty PR i deploymentów oraz retencja danych pozostają do zweryfikowania przed usunięciem. [Historyczny PR](https://github.com/luciferprosun/AIOA-NonZero-CloudOps-Agent/pull/1)
 
 Scoped test po utracie procesu odtwarza Native SQLite, klucz i prywatny ref wyłącznie z fixture AIOA oraz odmawia replay bez odwołania do legacy. Produkcyjne miejsca przechowywania starszych intentów i kluczy wymagają potwierdzenia właściciela. Do tego czasu zachować całość stanu i kopii. [Opis testu](FIVE_PHASE_HANDOFF.md)
+
+## Ponowny odczyt Render po #61
+
+Read-only odczyt GitHub pokazuje 20 rekordów, środowisko `21068474465` i najnowszy deployment `6378024487`, z ostatnim statusem success z 10 września 2026 r. Nie ma późniejszego dowodu runtime ani potwierdzenia aktywnych odbiorców. Stan bieżący to UNKNOWN.
+
+**Jedna kontrola po stronie właściciela.** W panelu Render otwórz usługę `aioa-agents-for-humans-demo` (`srv-dabtq00n74is738f147g`), sprawdź stan usługi, źródło repo/ref i ostatni wdrożony SHA, domeny, podłączone integracje i zanonimizowaną aktywność z ostatnich 30 dni. Zapisz datę, te pola oraz potwierdzenie, czy któryś odbiorca zależy od usługi. Przekaż wynik bez sekretów i treści requestów.
+
+Druga niezależna kopia pozostaje `BLOCKED_BACKUP`. Nośnik `LSC_DATA3` jest niedostępny w Cloud. Po udostępnieniu przywrócić bundle do nowego katalogu, porównać nazwy i OID wszystkich 13 refów oraz wykonać `git fsck --full --no-dangling`. [Native historyczny](NATIVE69_HISTORICAL_EXCEPTION.md) · [Kontrakty](EXTERNAL_CONTRACT_DECISIONS.md)

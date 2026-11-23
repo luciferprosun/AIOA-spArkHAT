@@ -23,8 +23,8 @@
     },
     {
       "id": "C-provenance",
-      "status": "BLOCKED_SECURITY",
-      "next": "Zweryfikować niezależny dowód oryginalnego CAS. Do tego czasu UNKNOWN, HELD i blokada replay."
+      "status": "BLOCKED_HOST / BLOCKED_SECURITY_REVIEW",
+      "next": "Przyszłe świadectwo ma fixture procesów. Zakwalifikować zaufaną produkcyjną tożsamość brokera i historyczną retencję oddzielnie."
     },
     {
       "id": "D-legacy-contracts",
@@ -53,8 +53,8 @@
     },
     {
       "id": "F-consolidation-merge",
-      "status": "PR60_MERGED",
-      "next": "Nowe zmiany z tego sprintu mają osobny HEAD i wymagają właściwej zgody."
+      "status": "PR61_MERGED",
+      "next": "Draft odbioru #16 i #53 oraz odczytu #17 czeka na wymagane CI i zgodę scalenia."
     },
     {
       "id": "F-legacy-history",
@@ -70,6 +70,11 @@
       "id": "F-retirement",
       "status": "HOLD",
       "next": "Rozliczyć NONZERO_RETIREMENT_GATE.md. Archiwizacja i usunięcie mają odrębne zgody."
+    },
+    {
+      "id": "B-legacy-authority",
+      "status": "CANDIDATE_OFFLINE_ACCEPTED",
+      "next": "Zachować dowód w AUTHORITY_16_53_ACCEPTANCE.md. Odbiór DTO i LIVE rozpatrywać w poszczególnych kontraktach."
     }
   ]
 }
