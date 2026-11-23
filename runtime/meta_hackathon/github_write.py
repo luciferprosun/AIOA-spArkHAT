@@ -29,7 +29,7 @@ from runtime.mission.git_publish import (
 )
 from runtime.mission.governor import ReservationRequest
 from runtime.mission.intent import CoreIntentJournal
-from runtime.mission.warrant import approval_digest, require
+from runtime.mission.warrant import WarrantError, approval_digest, require
 from runtime.mobile_gateway import wire
 from runtime.mobile_gateway.service import SCHEMA as MOBILE_SCHEMA
 from runtime.mobile_gateway.service import plain
@@ -318,10 +318,13 @@ def view(host,operation_id):
         if data.get('stop_requested') is True:result['blockers'].append('GITHUB_STOPPED')
         saved=_run(host,Capability.READ,lambda tx:tx.get(RecordKind.OPERATION,'github-result-'+operation_id))
         if saved is not None:
-            result['result'] = verify_retained_github_result(
-                saved.payload, operation_id=operation_id, plan_digest=plan.digest,
-                mode='LIVE', signer_spki=host.identity.spki,
-            )
+            try:
+                result['result'] = verify_retained_github_result(
+                    saved.payload, operation_id=operation_id, plan_digest=plan.digest,
+                    mode='LIVE', signer_spki=host.identity.spki,
+                )
+            except WarrantError:
+                raise wire.MobileError(409) from None
         result['approval_available']=data['state']=='GITHUB_PROPOSED' and not result['blockers']
         active=_worker_active(host,operation_id)
         result['readback_available']=data.get('warrant') is not None and not active
@@ -334,6 +337,10 @@ def view(host,operation_id):
         # Read projection only: a lost preflight ACK never grants execution.
         result.update(status='GITHUB_PROPOSAL_FAILED',error='GITHUB_PROPOSAL_INTERRUPTED')
     if 'policy_decision' in data:result['policy_decision']=data['policy_decision']
+    if result['status']=='GITHUB_VERIFIED':
+        receipt=result.get('result',{}).get('receipt',{})
+        if receipt.get('live_verified') is not True:
+            raise wire.MobileError(409)
     result['signature']=host.identity.sign(result)
     require(len(wire.canonical(result))<=wire.RESPONSE_LIMIT,'GITHUB_REVIEW_RESPONSE_LIMIT')
     return result

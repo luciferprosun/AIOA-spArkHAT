@@ -647,13 +647,19 @@ def verify_retained_github_result(payload, *, operation_id, plan_digest, mode, s
     receipt, observation = result["receipt"], result["observation"]
     core_require(type(receipt) is dict and type(observation) is dict, error)
     terminal = observation.get("remote_effect_verified")
+    live = mode == "LIVE"
+    receipt_state = "UNKNOWN"
+    if terminal is True:
+        receipt_state = "CODE_COMMITTED_AND_DRAFT_PR_CREATED" if live else "OFFLINE_PROTOCOL_VERIFIED"
     core_require(
         receipt.get("schema") == "aioa.github-write-receipt.v1"
         and receipt.get("operation_id") == operation_id
         and receipt.get("plan_digest") == observation.get("plan_digest") == plan_digest
         and receipt.get("mode") == mode
-        and observation.get("mode") in (("LIVE", "PUBLIC_READ_ONLY") if mode == "LIVE" else ("OFFLINE_FIXTURE",))
+        and observation.get("mode") in (("LIVE", "PUBLIC_READ_ONLY") if live else ("OFFLINE_FIXTURE",))
         and type(terminal) is bool
+        and receipt.get("state") == receipt_state
+        and receipt.get("live_verified") is (live and terminal is True)
         and payload.get("state") == ("GITHUB_VERIFIED" if terminal else "GITHUB_UNKNOWN"),
         error,
     )
