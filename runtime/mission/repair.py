@@ -661,10 +661,22 @@ class SandboxedCandidateProducer:
             self._cancel_unknown = self._cancel_unknown or not known
         self._check_cancel_uncertainty()
 
+    def _read_worker(self, read):
+        self._check_cancel_uncertainty()
+        try:
+            with failure_boundary("WORKER_READBACK_UNCERTAIN"):
+                result = read(self.session)
+        except (RepairBoundaryError, WorkerOutcomeUnknown):
+            # START has a bound session, but an interrupted read supplies
+            # no terminal outcome. STOP or close cannot clear that uncertainty.
+            with self._cancel_lock:
+                self._cancel_unknown = True
+            raise WorkerOutcomeUnknown() from None
+        self._check_cancel_uncertainty()
+        return result
+
     def _worker_result(self):
-        self._check_cancel_uncertainty()
-        result = self.worker.result(self.session)
-        self._check_cancel_uncertainty()
+        result = self._read_worker(self.worker.result)
         if type(result) is WorkerFailure:
             require(
                 result.session_id == self.session.session_id
@@ -708,7 +720,7 @@ class SandboxedCandidateProducer:
                 # uncertainty before considering cancellation or timeout.
                 self._worker_result()
                 raise ValueError("CANCELLED" if self._stopped() else "WORKER_TIMEOUT")
-            self.worker.poll(self.session)
+            self._read_worker(self.worker.poll)
             result = self._worker_result()
             if result is not None:
                 break
