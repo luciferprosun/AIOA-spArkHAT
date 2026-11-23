@@ -296,6 +296,40 @@ class CodexTransportTests(unittest.TestCase):
                     transport.thread_start()
                 write.assert_not_called()
 
+    def test_bound_rpc_denial_preserves_passive_diagnostic_observation(self):
+        transport, peer = self.transport()
+        peer.sendall(b'{"id":1,"result":{}}\n{"id":2,"result":{"thread":{"id":"thread-1"}}}\n')
+        transport.initialize()
+        transport.thread_start()
+        transport.bind_turn("thread-1", "idle-turn")
+        peer.sendall(b'{"id":3,"error":{"code":-32600,"message":"no active turn"}}\n')
+        with self.assertRaisesRegex(WorkerError, "^PROTOCOL_RPC_ERROR$"):
+            transport.interrupt("thread-1", "idle-turn")
+        self.assertFalse(transport.closed)
+        with self.assertRaisesRegex(WorkerError, "^PROTOCOL_TIMEOUT$"):
+            transport.next_event(seconds=0.02)
+        peer.shutdown(socket.SHUT_WR)
+        with self.assertRaisesRegex(WorkerError, "^PROTOCOL_EOF$"):
+            transport.next_event()
+
+    def test_malformed_rpc_denial_closes_ambiguous_session(self):
+        for denial in (None, {"code": True, "message": "idle"}, {"code": -32600}):
+            with self.subTest(denial=denial):
+                transport, peer = self.transport()
+                peer.sendall(json.dumps({"id": 1, "error": denial}).encode() + b"\n")
+                with self.assertRaisesRegex(WorkerError, "^PROTOCOL_RPC_ERROR$"):
+                    transport.initialize()
+                self.assertTrue(transport.closed)
+
+    def test_failure_sending_tool_denial_closes_transport(self):
+        transport, peer = self.transport()
+        peer.sendall(b'{"id":42,"method":"item/commandExecution/requestApproval"}\n')
+        with patch("os.write", side_effect=BrokenPipeError(errno.EPIPE, "fixture")):
+            with self.assertRaisesRegex(WorkerError, "^PROTOCOL_EOF$"):
+                transport.next_event()
+        self.assertTrue(transport.closed)
+        self.assertEqual(transport.events, [])
+
     def test_diagnostic_transport_has_no_turn_start_or_generic_command_port(self):
         transport, _ = self.transport()
         for name in ("turn_start", "execute", "shell", "dispatch", "approve"):

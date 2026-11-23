@@ -191,20 +191,25 @@ class OwnedCodexProtocol:
         )
         require(len(raw) <= 8192 and not self.closed, "PROTOCOL_WRITE_BOUND")
         view = memoryview(raw)
-        while view:
-            require(time.monotonic() < deadline, "PROTOCOL_TIMEOUT")
-            _, ready, _ = select.select(
-                [], [self.write_fd], [], min(0.05, max(0, deadline - time.monotonic()))
-            )
-            if not ready:
-                continue
-            require(time.monotonic() < deadline, "PROTOCOL_TIMEOUT")
-            try:
-                written = os.write(self.write_fd, view)
-            except (BrokenPipeError, OSError):
-                raise WorkerError("PROTOCOL_EOF") from None
-            require(written > 0, "PROTOCOL_EOF")
-            view = view[written:]
+        try:
+            while view:
+                require(time.monotonic() < deadline, "PROTOCOL_TIMEOUT")
+                _, ready, _ = select.select(
+                    [], [self.write_fd], [], min(0.05, max(0, deadline - time.monotonic()))
+                )
+                if not ready:
+                    continue
+                require(time.monotonic() < deadline, "PROTOCOL_TIMEOUT")
+                try:
+                    written = os.write(self.write_fd, view)
+                except (BrokenPipeError, OSError):
+                    raise WorkerError("PROTOCOL_EOF") from None
+                require(written > 0, "PROTOCOL_EOF")
+                view = view[written:]
+        except Exception:
+            # An incomplete outbound frame invalidates the owned stream.
+            self.close()
+            raise
 
     def _read(self, deadline, cancel):
         import os
@@ -299,18 +304,28 @@ class OwnedCodexProtocol:
                     and message["id"] == identity,
                     "PROTOCOL_RESPONSE_BINDING",
                 )
-                require(
-                    "error" not in message and type(message.get("result")) is dict,
-                    "PROTOCOL_RPC_ERROR",
-                )
+                if "error" in message:
+                    error = message["error"]
+                    require(
+                        type(error) is dict
+                        and set(error) in ({"code", "message"}, {"code", "message", "data"})
+                        and type(error["code"]) is int
+                        and type(error["message"]) is str,
+                        "PROTOCOL_RPC_ERROR",
+                    )
+                    break
+                require(type(message.get("result")) is dict, "PROTOCOL_RPC_ERROR")
                 return message["result"]
-            raise WorkerError("PROTOCOL_EVENT_LIMIT")
+            else:
+                raise WorkerError("PROTOCOL_EVENT_LIMIT")
         except Exception:
             # A partial request or an unbound reply invalidates this session.
             self.close()
             raise
         finally:
             self._pending = None
+        # A bound negative acknowledgement still leaves a usable stream.
+        raise WorkerError("PROTOCOL_RPC_ERROR")
 
     def initialize(self):
         require(not self.initialized, "PROTOCOL_INITIALIZE_ORDER")
@@ -325,13 +340,9 @@ class OwnedCodexProtocol:
                 "capabilities": {"experimentalApi": False},
             },
         )
-        try:
-            self._send(
-                {"method": "initialized", "params": {}}, deadline=time.monotonic() + 1
-            )
-        except Exception:
-            self.close()
-            raise
+        self._send(
+            {"method": "initialized", "params": {}}, deadline=time.monotonic() + 1
+        )
         self.initialized = True
         return result
 
