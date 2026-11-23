@@ -14093,8 +14093,8 @@
     },
     "runtime/mission/repair.py": {
       "path": "runtime/mission/repair.py",
-      "git_blob": "41f479728d0fbec5089daf2534c2630f491e04a0",
-      "sha256": "f7d1e71acaf73f86e3d987fd5624231accc44362aaa87e4cc1fad48dfe0d0f23",
+      "git_blob": "cf27f0296438a3a2007001303b7b0dd905b93862",
+      "sha256": "109dda8f8ab3791a83552c1403c322dc1644a52517fa4b487132e2bdc4b30624",
       "definitions": [
         {
           "name": "require",
@@ -14222,19 +14222,19 @@
         },
         {
           "name": "_worker_result",
-          "line": 678
+          "line": 679
         },
         {
           "name": "produce",
-          "line": 691
+          "line": 692
         },
         {
           "name": "stop",
-          "line": 746
+          "line": 747
         },
         {
           "name": "close",
-          "line": 758
+          "line": 759
         },
         {
           "name": "stop_reason",
@@ -14316,8 +14316,8 @@
         "type",
         "validator.open"
       ],
-      "call_site_count": 260,
-      "call_sites_sha256": "5578cb2900a844db9f4a444611ce2f9a6f9f41f105ff572c57ef62e3a1444930"
+      "call_site_count": 261,
+      "call_sites_sha256": "8b0b83c08ccb8e9cc63b29ef7dd27cafe16b121c8b23f7fb78a6f6e91e2d8e5e"
     },
     "runtime/mission/repair_validation.py": {
       "path": "runtime/mission/repair_validation.py",
