@@ -142,6 +142,8 @@ class NativeGitHubWriteTests(unittest.TestCase):
         data.pop('schema')
         request = {'op': 'github_write_status', 'operation_id': operation_id}
         plan, _ = github_write._decode(data)
+        warrant = github_write._warrant(self.app, data, github_write._route(self.app, data, write=False))
+        data['warrant'] = warrant.to_dict()
         observation = {
             'schema': 'aioa.github-write-readback.v1', 'plan_digest': plan.digest,
             'mode': 'PUBLIC_READ_ONLY', 'remote_effect_verified': False,
@@ -151,6 +153,7 @@ class NativeGitHubWriteTests(unittest.TestCase):
             'schema': 'aioa.github-write-receipt.v1', 'operation_id': operation_id,
             'plan_digest': plan.digest, 'mode': 'LIVE', 'state': 'UNKNOWN',
             'live_verified': False, 'readback_sha256': canonical_sha256(observation),
+            'operation_hash': warrant.operation_hash, 'warrant_digest': warrant.digest(),
         }
         payload = {'schema': 'aioa.github-result.v1', 'state': 'GITHUB_UNKNOWN', 'result': {
             'observation': observation, 'receipt': receipt, 'signature': self.app.identity.sign(receipt),
@@ -165,11 +168,20 @@ class NativeGitHubWriteTests(unittest.TestCase):
             github_write._save(self.app, operation_id, {**data, 'state': 'GITHUB_VERIFIED'})
             with self.subTest(saved_result='absent'):
                 self.assert_readback_conflict_without_signature(request)
+                history = self.app.operator_request(os.getuid(), {'op': 'github_write_list'})
+                self.assertEqual('GITHUB_UNKNOWN', history['operations'][0]['status'])
             self.app.mobile._run(Capability.COMMIT, lambda tx: tx.insert(StoredRecord(
                 RecordKind.OPERATION, 'github-result-' + operation_id, self.app.mobile.scope, 1, payload,
             )))
+            github_write._save(self.app, operation_id, {**data, 'state': 'GITHUB_UNKNOWN'})
+            unknown = self.app.operator_request(os.getuid(), request)
+            self.assertEqual('GITHUB_UNKNOWN', unknown['status'])
+            self.assertEqual(payload['result'], unknown['result'])
+            github_write._save(self.app, operation_id, {**data, 'state': 'GITHUB_VERIFIED'})
             with self.subTest(saved_result='authenticated unknown'):
                 self.assert_readback_conflict_without_signature(request)
+                history = self.app.operator_request(os.getuid(), {'op': 'github_write_list'})
+                self.assertEqual('GITHUB_UNKNOWN', history['operations'][0]['status'])
             network.assert_not_called()
 
     def test_native_owner_to_core_to_git_protocol_receipt_is_offline_test_only(self):
@@ -216,21 +228,58 @@ class NativeGitHubWriteTests(unittest.TestCase):
 
             proposal = plain(self.app.mobile._get('native-github-' + 'd' * 32).payload)
             proposal.pop('schema')
+            history_request = {'op': 'github_write_list'}
+            verified_item = {'operation_id': 'd' * 32, 'status': 'GITHUB_VERIFIED',
+                             'created_at': proposal['created_at'], 'mode': 'APPROVED WRITE'}
+            self.assertEqual([verified_item], self.app.operator_request(os.getuid(), history_request)['operations'])
+
+            def replace_result(transform):
+                def update(tx):
+                    row = tx.get(RecordKind.OPERATION, 'github-result-' + 'd' * 32)
+                    payload = plain(row.payload)
+                    transform(payload['result'])
+                    tx.replace(replace(row, revision=row.revision + 1, payload=payload),
+                               expected_revision=row.revision)
+                self.app.mobile._run(Capability.COMMIT, update)
+
+            for field in ('operation_hash', 'warrant_digest'):
+                with self.subTest(signed_binding=field):
+                    def replace_signed_binding(packet):
+                        receipt = {**state['result']['receipt'], field: 'sha256:' + 'f' * 64}
+                        packet.update(receipt=receipt, signature=self.app.identity.sign(receipt),
+                                      receipt_sha256=wire.digest(wire.canonical(receipt)))
+
+                    replace_result(replace_signed_binding)
+                    self.assert_readback_conflict_without_signature(request)
+                    history = self.app.operator_request(os.getuid(), history_request)
+                    self.assertEqual([{**verified_item, 'status': 'GITHUB_UNKNOWN'}], history['operations'])
+            replace_result(lambda packet: packet.update(state['result']))
+
+            for overrides in ({'warrant': None}, {'operation': {**proposal['operation'], 'kind': 'different'}}):
+                with self.subTest(retained_proposal=tuple(overrides)):
+                    github_write._save(self.app, 'd' * 32, {**proposal, **overrides})
+                    self.assert_readback_conflict_without_signature(request)
+                    history = self.app.operator_request(os.getuid(), history_request)
+                    self.assertEqual([{**verified_item, 'status': 'GITHUB_UNKNOWN',
+                                      'mode': 'APPROVED WRITE' if overrides.get('warrant', True) else 'PROPOSE'}],
+                                     history['operations'])
+
             github_write._save(self.app, 'd' * 32, {**proposal, 'state': 'GITHUB_UNKNOWN'})
             stale = self.app.operator_request(os.getuid(), request)
             self.assertEqual('GITHUB_UNKNOWN', stale['status'])
             self.assertEqual(state['result'], stale['result'])
             wire.verify(self.app.identity.spki, stale['signature'], {k: v for k, v in stale.items() if k != 'signature'})
+            self.assertEqual([{**verified_item, 'status': 'GITHUB_UNKNOWN'}],
+                             self.app.operator_request(os.getuid(), history_request)['operations'])
 
-            def alter_readback(tx):
-                row = tx.get(RecordKind.OPERATION, 'github-result-' + 'd' * 32)
-                payload = plain(row.payload)
-                payload['result']['observation']['pr_url'] = 'https://github.com/' + DEMO_REPOSITORY + '/pull/999'
-                tx.replace(replace(row, revision=row.revision + 1, payload=payload),
-                           expected_revision=row.revision)
+            def alter_readback(packet):
+                packet['observation']['pr_url'] = 'https://github.com/' + DEMO_REPOSITORY + '/pull/999'
 
-            self.app.mobile._run(Capability.COMMIT, alter_readback)
+            github_write._save(self.app, 'd' * 32, {**proposal, 'state': 'GITHUB_VERIFIED'})
+            replace_result(alter_readback)
             self.assert_readback_conflict_without_signature(request)
+            self.assertEqual([{**verified_item, 'status': 'GITHUB_UNKNOWN'}],
+                             self.app.operator_request(os.getuid(), history_request)['operations'])
             network.assert_not_called()
             mint.assert_not_called()
 
