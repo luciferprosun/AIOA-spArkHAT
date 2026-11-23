@@ -145,6 +145,17 @@ class CoreIntentTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'STALE_EPOCH'):
             self.fx.journal.acknowledge_delivery(self.fx.p(),self.fx.warrant,1,delivery['delivery_revision'])
 
+    def test_reconcile_with_already_stale_epoch_never_calls_verifier(self):
+        self.fx.start()
+        self.fx.gov.start_epoch(self.fx.p(Capability.MANAGE))
+        before = self.path.read_bytes()
+        with patch.object(self.fx.journal, 'verifier', wraps=self.fx.verify) as verifier:
+            with self.assertRaisesRegex(ValueError, '^STALE_EPOCH$'):
+                self.fx.journal.reconcile(self.fx.p(), self.fx.warrant, 1)
+            verifier.assert_not_called()
+        self.assertEqual(before, self.path.read_bytes())
+        self.assertEqual('Unknown', self.fx.inspect()['outcome']['contract_type'])
+
     def test_takeover_during_verification_cannot_commit_stale_result(self):
         self.fx.start()
         def verify(operation):

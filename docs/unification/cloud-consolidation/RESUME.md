@@ -17,3 +17,7 @@ Scalony main po #60 to `e071c339942525e8bd8759adafb565c5ad412ce9`, drzewo `f3f62
 Punkt bazowy po #61 to `3b8e38df40ddd019075fc0053af3827ccb45c8bd`, drzewo `43664200f8f745b3f981c311c04744fb6b3c8106`. Odbiór techniczny #16 i #53 jest na gałęzi `codex/nonzero-authority-acceptance`. Sprawdź rzeczywisty Draft i kontrole dokładnego HEAD przed przejściem do Ready i scalenia. Właściciel zatwierdził architekturę jednego Core. Operacje LIVE, merge oraz ewentualna archiwizacja i usunięcie mają osobne zgody.
 
 Nie odtwarzać historycznego świadectwa #69 z aktualnego refu. Potwierdzenie przechowywania istniejącego UNKNOWN i HELD stanowi odrębny odbiór. [Odbiór przyszłej ścieżki](NATIVE69_FINAL_ACCEPTANCE.md) · [Wyjątek historyczny](NATIVE69_HISTORICAL_EXCEPTION.md) · [Handoff Linux](LINUX_SYNC_HANDOFF.md)
+
+## Wznowienie odbioru recovery
+
+Zweryfikowany `main` po #62 to `f2179eb0e6bb4bfd1c5d53ff4353eeb22fb1a78c`, drzewo `f4155563badd40d647896747ad6daedfe861a5d0`. Odczytaj rzeczywisty Draft gałęzi `codex/nonzero-recovery-hardening` i jego exact HEAD. Wymagane są zielone kontrole, niezależny odbiór Natalii dla zmian recovery i zgoda właściciela na merge. Osobne bramki nadal obejmują Native pełny host, historyczną retencję, LIVE A–D, Render i drugą kopię. [Native](NATIVE69_FINAL_ACCEPTANCE.md) · [Kontrakty](EXTERNAL_CONTRACT_DECISIONS.md)

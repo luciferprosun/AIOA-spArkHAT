@@ -3,6 +3,7 @@ import threading
 import time
 from dataclasses import FrozenInstanceError, asdict
 from datetime import timedelta
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import nz13_native_foundation_support as fx
@@ -132,3 +133,68 @@ class NativeCodingLifecycleTests(NativeCompletionCase):
                 tasks.request(None, 'reconcile', {'task_id': 'old-task'})
             git.assert_not_called()
         self.assertEqual((), tasks.lifecycle_snapshot().work)
+
+    def test_retained_native_handle_without_positive_broker_ack_cannot_read_back(self):
+        from lab_archaioa.test_warrant import WarrantTests
+        from runtime.memory_patch.contracts.serialization import canonical_json_bytes
+        from runtime.meta_hackathon.native_authority import NativeOwnedWorkHandle
+        from runtime.mission.git_publish import CoreRemoteGitRoute
+        from runtime.providers.exact import CancellationToken
+
+        owner, tasks = self.controller(native=True)
+        foundation = owner.foundation
+        lifecycle = foundation.lifecycle
+        route = object.__new__(CoreRemoteGitRoute)
+        warrant = WarrantTests().fixture()
+        task_id = warrant.task_id
+        route.capsule = SimpleNamespace(task_id=task_id, digest='a' * 64)
+        route.plan = SimpleNamespace(digest='c' * 64)
+        cancel = CancellationToken()
+        thread = threading.current_thread()
+        done, guard = threading.Event(), threading.Lock()
+        handle = NativeOwnedWorkHandle(
+            foundation, tasks, 'CODING_HTTP_EFFECT', 'coding-effect-' + task_id,
+            cancel, thread, done, started=True, synchronous=True, kind='LOCAL_GIT_APPLY',
+        )
+        operation = {'fixture': 'original operation before positive broker return'}
+        item = {
+            'route': route, 'warrant': warrant, 'operation': operation, 'thread': thread,
+            'cancel': cancel, 'done': done, 'native_handle': handle, 'quarantined': False,
+            'returned': False, 'admission_held': False, 'admission_guard': guard, 'phase': 'EXECUTING',
+        }
+        item['binding'] = handle.context = (
+            item, tasks, foundation, route, warrant, canonical_json_bytes(operation),
+            thread, cancel, done, guard, handle.kind,
+        )
+        tasks._effect_ownership[task_id] = item
+        tasks._effects[task_id] = cancel
+        lifecycle._handles[handle.task_id] = handle
+        self.addCleanup(tasks._effect_ownership.pop, task_id)
+        self.addCleanup(tasks._effects.pop, task_id)
+        self.addCleanup(lifecycle._handles.pop, handle.task_id)
+        # Capture through the original invocation boundary. The fixture
+        # supplies the broker return; it never claims physical publication.
+        lifecycle._boundary.coding_effect = item
+        try:
+            tasks._native_git_record_cas_ack(route, warrant, route.plan, route.plan.digest)
+            ack = item.pop('cas_ack')
+        finally:
+            del lifecycle._boundary.coding_effect
+        item.update(quarantined=True, returned=True)
+        handle.returned = (tasks, item, thread, done)
+        lifecycle.quarantine(handle)
+        done.set()
+        managed = SimpleNamespace(effects={(task_id, route.capsule.digest): ((route, warrant),)},
+                                  graph_complete=False)
+        with (patch.object(owner, '_native_coding', managed, create=True),
+              patch.object(tasks, '_run', side_effect=RuntimeError('bounded read entry')) as read):
+            for substitute in (None, (object(), ack[1], ack[2]), (ack[0], ack[1], 'f' * 64)):
+                with self.subTest(substitute=bool(substitute)):
+                    item['cas_ack'] = substitute
+                    with self.assertRaisesRegex(WarrantError, '^CODING_NATIVE_GIT_CAS_ACK_REQUIRED$'):
+                        tasks.request(None, 'reconcile', {'task_id': task_id})
+                    read.assert_not_called()
+            item['cas_ack'] = ack
+            with self.assertRaisesRegex(RuntimeError, '^bounded read entry$'):
+                tasks.request(None, 'reconcile', {'task_id': task_id})
+            read.assert_called_once()

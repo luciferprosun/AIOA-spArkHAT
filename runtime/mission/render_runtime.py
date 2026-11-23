@@ -117,6 +117,7 @@ def prepare_html_render_sandbox(root, *, workspace, recipe):
     require(type(recipe) is HtmlRenderRecipe, 'RENDER_OPERATOR_RECIPE_REQUIRED')
     recipe.__post_init__()
     root = Path(root).absolute()
+    require(root.parent.resolve() == root.parent, 'RENDER_PREPARATION_LOCATOR_DENIED')
     runtime_root = root.with_name(root.name + '-runtime')
     require(not os.path.lexists(root) and not os.path.lexists(runtime_root), 'RENDER_PREPARATION_EXISTS')
     runtime = snapshot_renderer_runtime(runtime_root)

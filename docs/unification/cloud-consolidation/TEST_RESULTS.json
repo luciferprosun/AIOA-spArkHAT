@@ -523,5 +523,26 @@
       "authority-acceptance-read-red.log": "48568db3b5539bb51552f0cab88992f3b0ea0fc8b306ea233a6a3f3e4e7b9835",
       "authority-acceptance-source-only.log": "e04d4f93d6e5b320743b74818ee93e701c0f84f31247f341c15be5f978b0d6ba"
     }
+  },
+  "recovery_hardening": {
+    "main_commit": "f2179eb0e6bb4bfd1c5d53ff4353eeb22fb1a78c",
+    "targeted_tests_per_python": 131,
+    "targeted_skipped_per_python": 0,
+    "targeted_failed_per_python": 0,
+    "p00_p11_separate_runs": [],
+    "gold": "HISTORICAL_REFERENCE_ONLY",
+    "production_native_full_host": "NOT_RUN_BLOCKED_HOST",
+    "live": "NOT_RUN",
+    "red_green": [
+      "stale epoch before verifier",
+      "native CAS return before reconcile",
+      "Codex bounds at dequeue and write",
+      "renderer parent symlink"
+    ],
+    "local_logs_sha256": {
+      "recovery-hardening-local-311.log": "6e1c2a7d20aeac78ac3a27adb95f8494d7619efdd9847d4acb4fed70a2fbfc99",
+      "recovery-hardening-local-312.log": "6a586a2beff94e0cdbef8235575400359f68fc853612df1450f0723098c5574d",
+      "recovery-hardening-red.log": "63a074553c7c3a688f129c0395be7565faa157933ba0adb9ac21a04e3dc4ba40"
+    }
   }
 }

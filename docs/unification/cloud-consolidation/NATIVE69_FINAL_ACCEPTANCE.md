@@ -14,3 +14,11 @@ Wariant odrębnego UID wymaga odebranej ścieżki przekazania deskryptora i niez
 Na zakwalifikowanym hoście uruchomić pełny test producenta i konsumenta z [manifestu](NATIVE_HOST_QUALIFICATION.md), wykorzystując nowe tymczasowe repo, osobny zaufany klucz, broker z kontrolą deskryptora, rejestrowany nonce i odczyt świadectwa z nowego procesu. Wymagać odtworzenia wszystkich pięciu scenariuszy i odmów przy podstawieniu klucza oraz domeny, wykazania niezmienności rezerwacji w przypadkach ujemnych i jednorazowego rozliczenia w przypadku utraty ACK po świadectwie. Dopiero taki wynik kwalifikuje `NATIVE_FORWARD_PATH_VERIFIED`.
 
 Stan bieżący to `BLOCKED_HOST / BLOCKED_SECURITY_REVIEW`. [Wyjątek historyczny](NATIVE69_HISTORICAL_EXCEPTION.md)
+
+## Przyrost po #62 — wymagany odbiór Natalii
+
+Uchwyt po rozpoczęciu operacji mógł dotrzeć do uzgadniania również wtedy, gdy broker nigdy nie zwrócił potwierdzenia CAS. Wcześniejszy zapis próby i zgodny ref nie rozstrzygają, czy efekt wykonał ten sam proces. Kandydat wymaga pozytywnego zwrotu przypiętej operacji brokera, zapisanego tylko pod pierwotnym uchwytem i planem. Gdy wrócił broker, ale zginął nowszy ACK, dopuszczalny odczyt w tej samej instancji nadal wymaga obecnych powiązań i kontroli refu. Brak zwrotu, zmieniony uchwyt lub podmienione wiązanie kończą się przed odczytem uzgadniającym. Znacznik jest lokalny dla procesu i nie przyznaje zgody na nowy CAS. Nie stanowi trwałego niezależnego dowodu historycznego.
+
+Core sprawdza już nieaktualną epokę przed wejściem do weryfikatora i zachowuje ponowną kontrolę przy zapisie rozliczenia. Regresja rozdziela te dwa przypadki, zachowując UNKNOWN bez odtworzenia skutku.
+
+Do oceny Natalii przekazać dokładny HEAD, właściwą bazę, testy `test_nz13_native_coding_lifecycle` i `test_core_intent`, różnicę `coding_tasks.py`, `git_publish.py`, `intent.py` oraz wynik pełnego profilu z istniejącego manifestu hosta. Lokalny test skupia się na granicy przed odczytem, z syntetyczną kwalifikacją i bez publikacji rzeczywistego refu. Fizyczny CAS i zimny restart mają osobne odebrane fixture. Pełna ścieżka produkcyjna pozostaje `BLOCKED_HOST / BLOCKED_SECURITY_REVIEW`. Status niezależnej oceny `PENDING_NATALIA`.

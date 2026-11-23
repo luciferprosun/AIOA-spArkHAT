@@ -29,3 +29,7 @@ Zakres potwierdzonych aktywnych odbiorców zewnętrznych pozostaje pusty. GitHub
 | 67 | Adapter przy potwierdzonym odbiorcy | Porównać report, receipt i proof origin z zachowaniem podpisu, UNKNOWN i zakazu automatycznego apply. |
 
 Dla potwierdzonego kontraktu zapisać właściciela, dokładny punkt wejścia, wspieraną wersję, przykładowy poprawny i błędny fixture oraz dowody odczytu. Dla formalnego wycofania zapisać zakres, termin, powiadomienie i decyzję właściciela. [Macierz 69](PARITY69_UPDATED.csv)
+
+## Klasyfikacja decyzji
+
+W kolumnie `external_contract_disposition` wszystkie 23 wpisy mają `UNKNOWN`. Dziewięć ról ma odpowiednik Core, dziesięć może wymagać adaptera po potwierdzeniu odbiorcy, trzy są kandydatami do wycofania, a #57 ma nierozstrzygnięty wymagany efekt. Żaden kontrakt zewnętrzny nie uzyskał dowodu `VERIFIED`, `IMPLEMENTATION_REQUIRED` ani `NOT_APPLICABLE_WITH_EVIDENCE`.

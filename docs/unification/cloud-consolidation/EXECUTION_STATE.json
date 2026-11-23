@@ -4,7 +4,7 @@
   "state": "PARITY_OPEN",
   "primary_repository": "luciferprosun/AIOA-spArkHAT",
   "legacy_repository": "luciferprosun/AIOA-NonZero-CloudOps-Agent",
-  "branch": "codex/nonzero-authority-acceptance",
+  "branch": "codex/nonzero-recovery-hardening",
   "baseline_commit": "7b5fd205c02603231919451b1cacd241f49fd9e9",
   "baseline_tree": "c6f8f76b5a6e93855e5dd4c80a8af313db0054a2",
   "baseline_diverged_from_owner_pin": false,
@@ -21,7 +21,8 @@
     58,
     59,
     60,
-    61
+    61,
+    62
   ],
   "latest_test_change": "5cfe72a72176252715104e6e4bde75d387d77611",
   "performed_new_rerun": false,
@@ -35,8 +36,8 @@
   "matrix_local_evidence_transferred": false,
   "owner_handoff_reported_core_role_mappings": 42,
   "legacy_secondary_backup": "BLOCKED_BACKUP",
-  "main_commit": "3b8e38df40ddd019075fc0053af3827ccb45c8bd",
-  "main_tree": "43664200f8f745b3f981c311c04744fb6b3c8106",
+  "main_commit": "f2179eb0e6bb4bfd1c5d53ff4353eeb22fb1a78c",
+  "main_tree": "f4155563badd40d647896747ad6daedfe861a5d0",
   "linux_mint_sync": "OFFLINE_OWNER_REPORTED_PR59_POST60_FAST_FORWARD_PENDING",
   "native_cloud_host": "BLOCKED_HOST",
   "legacy_retirement": "HOLD",
@@ -46,5 +47,7 @@
     53
   ],
   "native_forward": "BLOCKED_HOST / BLOCKED_SECURITY_REVIEW",
-  "native_historical": "UNKNOWN_CUSTODY_NOT_ATTESTED"
+  "native_historical": "UNKNOWN_CUSTODY_NOT_ATTESTED",
+  "remaining_open_rows": 31,
+  "independent_security_review": "PENDING_NATALIA"
 }

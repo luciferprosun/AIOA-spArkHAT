@@ -192,6 +192,7 @@ class OwnedCodexProtocol:
             )
             if not ready:
                 continue
+            require(time.monotonic() < deadline, "PROTOCOL_TIMEOUT")
             try:
                 written = os.write(self.write_fd, view)
             except (BrokenPipeError, OSError):
@@ -206,16 +207,18 @@ class OwnedCodexProtocol:
         while True:
             require(not self.closed, "PROTOCOL_CLOSED")
             require(cancel is None or not cancel.cancelled, "CANCELLED")
+            require(time.monotonic() < deadline, "PROTOCOL_TIMEOUT")
             if self._messages:
                 message = self._messages.pop(0)
                 require(message.get("jsonrpc", "2.0") == "2.0", "PROTOCOL_VERSION")
                 return message
-            require(time.monotonic() < deadline, "PROTOCOL_TIMEOUT")
             ready, _, _ = select.select(
                 [self.read_fd], [], [], min(0.05, max(0, deadline - time.monotonic()))
             )
             if not ready:
                 continue
+            require(cancel is None or not cancel.cancelled, "CANCELLED")
+            require(time.monotonic() < deadline, "PROTOCOL_TIMEOUT")
             raw = os.read(self.read_fd, 65536)
             if not raw:
                 self.framer.finish()

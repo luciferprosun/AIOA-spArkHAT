@@ -258,6 +258,7 @@ class CoreIntentJournal:
         require(self.verifier is not None, 'INDEPENDENT_READBACK_REQUIRED')
         # Read validated immutable intent first; never accept remote resolution input.
         def read(tx):
+            self.governor._epoch(self.governor._load(tx), epoch)
             _, state = self._load(tx, warrant)
             require(state is not None, 'INTENT_REQUIRED')
             return state['operation']

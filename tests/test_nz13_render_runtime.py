@@ -86,3 +86,24 @@ class RenderRuntimeClosureTests(unittest.TestCase):
                   self.assertRaisesRegex(ValueError, '^RENDER_PREPARATION_EXISTS$')):
                 module.prepare_html_render_sandbox(root, workspace='fixture', recipe=recipe)
             capture.assert_not_called()
+
+    def test_renderer_builder_rejects_ancestor_symlink_before_snapshot(self):
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+        from unittest.mock import patch
+
+        from runtime.mission.render_recipe import HtmlRenderRecipe
+
+        recipe = HtmlRenderRecipe(bundle=(('index.html', b'<p>Fixture</p>'),), viewport=(2, 1),
+                                  expected_title='Fixture', expected_text='Fixture')
+        module = self.module()
+        with TemporaryDirectory() as directory:
+            parent = Path(directory) / 'redirect'
+            original = Path(directory) / 'original'
+            original.mkdir()
+            parent.symlink_to(original, target_is_directory=True)
+            with (patch.object(module, 'snapshot_renderer_runtime') as capture,
+                  self.assertRaisesRegex(ValueError, '^RENDER_PREPARATION_LOCATOR_DENIED$')):
+                module.prepare_html_render_sandbox(parent / 'scratch', workspace='fixture', recipe=recipe)
+            capture.assert_not_called()
+            self.assertEqual([], list(original.iterdir()))
