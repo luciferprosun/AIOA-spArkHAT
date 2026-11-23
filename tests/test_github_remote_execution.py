@@ -4,6 +4,7 @@ import json
 import time
 import unittest
 from dataclasses import replace
+from unittest.mock import patch
 
 from runtime.mission.git_publish import RemoteGitPlan, GitTreeSnapshot, git_object, DEMO_REPOSITORY
 from runtime.mcp_bridge.github_remote import InstallationCredential, PREFIX
@@ -35,7 +36,7 @@ class RemoteExecutionTests(unittest.TestCase):
 
     def pull(self):
         return {'number':1,'html_url':'https://github.com/'+DEMO_REPOSITORY+'/pull/1','state':'open',
-            'draft':True,'merged':False,'title':self.plan.title,'body':self.plan.body,
+            'draft':True,'merged':False,'maintainer_can_modify':False,'title':self.plan.title,'body':self.plan.body,
             'head':{'ref':self.plan.branch,'sha':self.commit,'repo':{'id':1445911975,'full_name':DEMO_REPOSITORY}},
             'base':{'ref':'main','sha':self.plan.base_sha,'repo':{'id':1445911975,'full_name':DEMO_REPOSITORY}}}
 
@@ -95,6 +96,27 @@ class RemoteExecutionTests(unittest.TestCase):
         posts=sum(m=='POST' for m,_,_ in self.calls)
         with self.assertRaises(ValueError):self.execute(self.api())
         self.assertEqual(posts,sum(m=='POST' for m,_,_ in self.calls))
+
+    def test_independent_pr_readback_requires_exact_maintainer_permission(self):
+        self.execute(self.api())
+        original_transport = self.transport
+
+        for fields in ({}, {"maintainer_can_modify": True}, {"maintainer_can_modify": 0}):
+            with self.subTest(fields=fields):
+                def transport(method, path, payload, bearer, cancel, timeout):
+                    status, raw = original_transport(method, path, payload, bearer, cancel, timeout)
+                    if method == "GET" and path == PREFIX + "/pulls/1":
+                        pull = json.loads(raw)
+                        del pull["maintainer_can_modify"]
+                        pull.update(fields)
+                        raw = json.dumps(pull).encode()
+                    return status, raw
+
+                calls_before = len(self.calls)
+                with patch.object(self, "transport", side_effect=transport):
+                    with self.assertRaisesRegex(ValueError, "^GITHUB_PR_READBACK_MISMATCH$"):
+                        self.api().readback(check=self.check, cancel=self.cancel)
+                self.assertTrue(all(method == "GET" for method, _, _ in self.calls[calls_before:]))
 
     def test_workflow_in_pinned_base_blocks_execution_before_any_post(self):
         blob = git_object('blob', b'name: Existing workflow\n')

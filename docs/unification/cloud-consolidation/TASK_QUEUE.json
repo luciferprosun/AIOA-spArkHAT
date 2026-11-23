@@ -4,17 +4,17 @@
     {
       "id": "A-baseline",
       "status": "VERIFIED",
-      "next": "Próba 2 run 45045595617 przeszła cztery wymagane kontrole. Przy nowej bazie odczytać jej dokładny head i CI."
+      "next": "Main #60 przyjęty na dokładnym SHA i tree z CHECKPOINT.json."
     },
     {
       "id": "B-parity69",
       "status": "AUDITED_WITH_GAPS",
-      "next": "Zachować klasyfikację ID z lokalnego audytu i wiązania Cloud. Pełny lokalny CSV można dołączyć po transferze."
+      "next": "Macierz przypięta do main #60; zachować zakres dowodów RED–GREEN i rozliczyć pozostałe luki."
     },
     {
       "id": "C-cold-journal",
       "status": "TESTED_OFFLINE",
-      "next": "Utrzymać przypadki awarii w CI."
+      "next": "Odtworzono SQLite po fizycznej publikacji refu i utracie procesu. Pełny broker wymaga izolowanego hosta."
     },
     {
       "id": "C-native-host",
@@ -48,13 +48,13 @@
     },
     {
       "id": "E-D-native-g04",
-      "status": "BLOCKED_TARGET",
-      "next": "Przypiąć host, Chrome, keeper i prywatny scratch. Wniosek w LIVE_QUALIFICATION.json."
+      "status": "BLOCKED_HOST",
+      "next": "Wymagania izolowanego hosta zawiera NATIVE_HOST_QUALIFICATION.md."
     },
     {
       "id": "F-consolidation-merge",
-      "status": "PR59_MERGED",
-      "next": "Na dokładnym HEAD kolejnego PR zweryfikować wymagane CI i CodeQL, a następnie uzyskać zgodę właściciela."
+      "status": "PR60_MERGED",
+      "next": "Nowe zmiany z tego sprintu mają osobny HEAD i wymagają właściwej zgody."
     },
     {
       "id": "F-legacy-history",
@@ -63,8 +63,8 @@
     },
     {
       "id": "F-linux-handoff",
-      "status": "OWNER_REPORTED_SYNCED_POST_PR59",
-      "next": "Po kolejnym odbiorze main użyć istniejącego checkoutu zgodnie z LINUX_SYNC_HANDOFF.md."
+      "status": "POST60_FAST_FORWARD_PENDING",
+      "next": "Operator korzysta z istniejącego checkoutu i pinów w LINUX_SYNC_HANDOFF.md."
     },
     {
       "id": "F-retirement",

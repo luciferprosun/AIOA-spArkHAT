@@ -1,16 +1,22 @@
-# Linux Mint po PR #59
+# Linux Mint po PR #60
 
 Właściciel przekazał wynik audytu z 23 listopada 2026 r. Kanoniczny checkout `/home/l/projects/AIOA-spArkHAT` ma czystą gałąź `main` śledzącą `origin/main`. Zweryfikowano 2010 śledzonych plików, 98/98 testów offline na każdej wersji Python 3.11 i 3.12, source policy i One-Core. SHA to `914c9b1bf4dc7bf6ff14687d91560d9bcef1a5f6`, a drzewo `f4238a014e210e46863a4f6e7abadc40bf71fa61`. Cloud korzysta z przekazanego wyniku. Wskazany przez właściciela raport znajduje się na Linux Mint pod `/home/l/Desktop/AIOA_NONZERO_LOCAL_NIGHTLY_SYNC_RESULT_20261123.md`.
 
 GitHub potwierdził cztery wymagane kontrole, One-Core, pochodzenie źródeł, MCP i domyślny CodeQL dla tego samego SHA. Wcześniejsza historia obejmuje #52–#59. [Core i packaging](https://github.com/luciferprosun/AIOA-spArkHAT/actions/runs/45107463038) · [CodeQL](https://github.com/luciferprosun/AIOA-spArkHAT/actions/runs/45107462144)
 
-## Po kolejnym zaakceptowanym scaleniu
+## Odbiór GitHub
 
-Przypnij SHA i drzewo **rzeczywistego merge commita z GitHuba** oraz wynik jego postmerge CI. Ustaw `AIOA_APPROVED_MAIN_SHA` i `AIOA_APPROVED_MAIN_TREE` z tego odbioru. Następnie w istniejącym checkoutcie operator uruchamia:
+Cztery wymagane kontrole na `e071c339942525e8bd8759adafb565c5ad412ce9` mają wynik PASS. Przeszły też One-Core, pochodzenie źródeł, MCP Bridge i domyślny CodeQL. Na każdej wersji Pythona odnotowano 4402 przypadki z 5 pominięciami. Zweryfikowano archiwa pokwitowań z 8 bramkami każde. [Core i packaging](https://github.com/luciferprosun/AIOA-spArkHAT/actions/runs/45143354368) · [MCP](https://github.com/luciferprosun/AIOA-spArkHAT/actions/runs/45143354321) · [CodeQL](https://github.com/luciferprosun/AIOA-spArkHAT/actions/runs/45143353783)
+
+## Fast-forward po PR #60
+
+GitHub potwierdził nowy `main` po #60. Użyj poniższych pinów po potwierdzeniu wyników w sekcji Odbiór GitHub. W istniejącym checkoutcie operator uruchamia:
 
 ```sh
 (
   set -eu
+  AIOA_APPROVED_MAIN_SHA=e071c339942525e8bd8759adafb565c5ad412ce9
+  AIOA_APPROVED_MAIN_TREE=f3f625a7f34f679638e0a3af3ebb395bb7fd9029
   cd /home/l/projects/AIOA-spArkHAT
   before=914c9b1bf4dc7bf6ff14687d91560d9bcef1a5f6
   case "$(git remote get-url origin)" in

@@ -53,8 +53,8 @@
         "repository": "luciferprosun/AIOA-spArkHAT",
         "repository_id": 1247349659,
         "ref": "refs/heads/main",
-        "head": "914c9b1bf4dc7bf6ff14687d91560d9bcef1a5f6",
-        "tree": "f4238a014e210e46863a4f6e7abadc40bf71fa61",
+        "head": "e071c339942525e8bd8759adafb565c5ad412ce9",
+        "tree": "f3f625a7f34f679638e0a3af3ebb395bb7fd9029",
         "file": {
           "path": "LICENSE",
           "bytes": 1074,
@@ -73,7 +73,10 @@
           "UTC window and private proof destination",
           "same-Core official transport qualification"
         ]
-      }
+      },
+      "authorization_status": "NOT_GRANTED",
+      "result": "NOT_RUN",
+      "upstream_response_shape": "v1.0.5 returns text JSON for search/list and an embedded resource for LICENSE. Confirm exact pinned URI and digests. get_commit minimal output omits tree, requiring a separate independent proof."
     },
     {
       "id": "B",
@@ -103,7 +106,15 @@
         "tests/nz13_worker_acceptance.py",
         "tests/test_g07_live_gate.py"
       ],
-      "acceptance": "Rzeczywiste wywołanie w ramach LiveCallGate i istniejącego Core. Dowód zużycia dostawcy i podpisany łańcuch WorkerMailbox, CandidatePatch bez uprawnień, niezależna walidacja PatchSet i weryfikacja. STOP i brak ACK pozostawiają UNKNOWN bez powtórnego wywołania."
+      "acceptance": "Rzeczywiste wywołanie w ramach LiveCallGate i istniejącego Core. Dowód zużycia dostawcy i podpisany łańcuch WorkerMailbox, CandidatePatch bez uprawnień, niezależna walidacja PatchSet i weryfikacja. STOP i brak ACK pozostawiają UNKNOWN bez powtórnego wywołania.",
+      "authorization_status": "NOT_GRANTED",
+      "result": "NOT_RUN",
+      "proposed_effects": {
+        "max_model_calls": 1,
+        "automatic_retry": false,
+        "max_repairs": 0,
+        "exact_price_and_budget_pending": true
+      }
     },
     {
       "id": "C",
@@ -145,7 +156,17 @@
         "tests/test_github_remote_execution.py",
         "tests/test_github_remote_credential.py"
       ],
-      "acceptance": "Izolowany cel bez Actions i zapis dokładnie w zatwierdzonym zakresie. Jedna publikacja w aktualnym adapterze obejmuje cztery mutacje. Limit jednej mutacji wymaga zatwierdzenia innego kontraktu. Wymagany podpisany LIVE Muse receipt, rozliczony governor i niezależny GET potwierdzający tożsamość, ref, commit, tree i draft. Brak replay i brak automatycznego sprzątania."
+      "acceptance": "Izolowany cel bez Actions i zapis dokładnie w zatwierdzonym zakresie. Jedna publikacja w aktualnym adapterze obejmuje cztery mutacje. Limit jednej mutacji wymaga zatwierdzenia innego kontraktu. Wymagany podpisany LIVE Muse receipt, rozliczony governor i niezależny GET potwierdzający tożsamość, ref, commit, tree i draft. Brak replay i brak automatycznego sprzątania.",
+      "authorization_status": "NOT_GRANTED",
+      "result": "NOT_RUN",
+      "proposed_effects": {
+        "logical_publications": 1,
+        "repository_mutations": 4,
+        "max_api_requests": 48,
+        "automatic_retry": false,
+        "wall_time_seconds": 120,
+        "app_token_mint_is_separate": true
+      }
     },
     {
       "id": "D",
@@ -172,7 +193,16 @@
         "tests/test_nz13_render_observation.py"
       ],
       "acceptance": "Zarejestrować rzeczywisty start keepera, niezależny stan cgroup, izolację Chrome, orakel DOM/console/PNG i podpisane pokwitowanie. Sprawdzić STOP do UNKNOWN, sprzątanie procesów i brak replay po restarcie. Uruchamiać z nowym prywatnym katalogiem, bez stanu produkcyjnego i sieci.",
-      "host_qualification": "NATIVE_HOST_QUALIFICATION.md"
+      "host_qualification": "NATIVE_HOST_QUALIFICATION.md",
+      "authorization_status": "NOT_GRANTED",
+      "result": "NOT_RUN",
+      "proposed_effects": {
+        "sessions": 1,
+        "network": "OFF",
+        "render_profile_timeout_seconds": 20
+      }
     }
-  ]
+  ],
+  "source_commit": "e071c339942525e8bd8759adafb565c5ad412ce9",
+  "source_tree": "f3f625a7f34f679638e0a3af3ebb395bb7fd9029"
 }

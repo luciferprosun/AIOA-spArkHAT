@@ -8,6 +8,6 @@ Użyj tej samej rozmowy Cloud. Odczytaj aktualny `main`, gałąź `codex/nonzero
 - ID przekazane przez właściciela są już w macierzy. W przypadku potwierdzenia historycznego konsumenta przypnij jego kontrakt, porównaj zachowanie Core i dodaj tylko brakujący adapter. Przy późniejszym transferze lokalnego CSV najpierw zweryfikuj jego SHA-256 z checkpointu.
 - Przed próbą LIVE wypełnij odpowiedni manifest, pozyskaj oddzielny `GO` i sprawdź nadal zgodny cel, zakres i termin.
 
-## Linux Mint
+## Aktualny sprint
 
-Wynik właściciela potwierdza synchronizację kanonicznego checkoutu do #59. Kolejny fast-forward wykonuje operator zgodnie z [handoffem](LINUX_SYNC_HANDOFF.md). [Kwalifikacja hosta Native](NATIVE_HOST_QUALIFICATION.md) i [bramka wycofania](NONZERO_RETIREMENT_GATE.md) utrwalają pozostałe warunki.
+Scalony main po #60 to `e071c339942525e8bd8759adafb565c5ad412ce9`, drzewo `f3f625a7f34f679638e0a3af3ebb395bb7fd9029`. PR-y #51–#60 są scalone. Nowe wyniki offline z tego sprintu odczytaj na gałęzi `codex/nonzero-five-phase`, bez powtarzania odbioru #60. Użyj lokalnego checkoutu Linux Mint z ostatnim potwierdzonym #59 i odrębnego, przypiętego handoffu. [Pięć faz](FIVE_PHASE_HANDOFF.md) · [Linux Mint](LINUX_SYNC_HANDOFF.md)
