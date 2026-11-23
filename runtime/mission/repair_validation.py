@@ -830,10 +830,21 @@ class _CoreValidationSession:
                                       self.owner.profile.digest, canonical_sha256({"preparation_unknown": stage}))
         args = step.arguments
         warrant = args["warrant"]
+        warrant_digest = warrant.digest()
+        if self.owner.cancel is not None and self.owner.cancel.cancelled:
+            return ValidationStep(
+                stage,
+                "CANCELLED",
+                None,
+                self.patchset.patchset_sha256,
+                self.owner.profile.digest,
+                canonical_sha256({"cancelled_before_dispatch": warrant_digest}),
+                warrant_digest,
+            )
         status, code, evidence = (
             "UNKNOWN",
             None,
-            canonical_sha256({"unresolved": warrant.digest()}),
+            canonical_sha256({"unresolved": warrant_digest}),
         )
         try:
             with failure_boundary("VALIDATION_UNRESOLVED"):
@@ -863,7 +874,7 @@ class _CoreValidationSession:
                     "exit_code": code,
                     "patchset_sha256": self.patchset.patchset_sha256,
                     "profile_digest": self.owner.profile.digest,
-                    "warrant_digest": warrant.digest(),
+                    "warrant_digest": warrant_digest,
                     "evidence_digest": evidence,
                     "operation_digest": warrant.operation_hash,
                     "warrant": warrant.to_dict(),
@@ -883,9 +894,7 @@ class _CoreValidationSession:
                 if re.fullmatch(r"[A-Z0-9_]{1,96}", str(error))
                 else "VALIDATION_UNRESOLVED"
             )
-            if self.owner.cancel is not None and self.owner.cancel.cancelled:
-                status = "CANCELLED"
-            # Unknown/malformed output never becomes a repairable test failure.
+            # STOP after the dispatch boundary does not resolve a missing receipt.
         return ValidationStep(
             stage,
             status,
@@ -893,7 +902,7 @@ class _CoreValidationSession:
             self.patchset.patchset_sha256,
             self.owner.profile.digest,
             evidence,
-            warrant.digest(),
+            warrant_digest,
         )
 
     def close(self):
