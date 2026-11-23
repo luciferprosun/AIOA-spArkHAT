@@ -9,6 +9,7 @@ Only the existing Core sandbox can own a future executable worker.
 import json
 import math
 import time
+from contextlib import ExitStack
 
 from runtime.mission.contracts import bounded_int, logical_id
 from runtime.mission.worker import SyntheticWorker, WorkerError, require
@@ -167,14 +168,19 @@ class OwnedCodexProtocol:
             type(read_fd) is int and type(write_fd) is int,
             "PROTOCOL_OWNED_PIPES_REQUIRED",
         )
-        self.read_fd, self.write_fd = os.dup(read_fd), os.dup(write_fd)
-        os.set_blocking(self.read_fd, False)
-        os.set_blocking(self.write_fd, False)
         self.framer = JsonlFramer(max_bytes=65536)
         self.events, self._messages = [], []
         self.protocol, self._pending, self._next_id = None, None, 0
         self._thread_id = None
         self.closed, self.initialized = False, False
+        with ExitStack() as cleanup:
+            self.read_fd = os.dup(read_fd)
+            cleanup.callback(os.close, self.read_fd)
+            self.write_fd = os.dup(write_fd)
+            cleanup.callback(os.close, self.write_fd)
+            os.set_blocking(self.read_fd, False)
+            os.set_blocking(self.write_fd, False)
+            cleanup.pop_all()
 
     def _send(self, message, *, deadline):
         import os

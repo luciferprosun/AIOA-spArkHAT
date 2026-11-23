@@ -1,5 +1,6 @@
 """Strict communication with a pre-owned peer; no tool or inference authority."""
 
+import errno
 import json
 import os
 import socket
@@ -54,6 +55,49 @@ class CodexTransportTests(unittest.TestCase):
         value = cls(client.fileno(), client.fileno())
         self.addCleanup(value.close)
         return value, peer
+
+    def test_partial_descriptor_setup_closes_only_owned_duplicates(self):
+        for operation, failure_call in (("dup", 2), ("set_blocking", 1), ("set_blocking", 2)):
+            with self.subTest(operation=operation, call=failure_call):
+                read_fd, write_fd = os.pipe()
+                owned = []
+                real_dup, real_set_blocking = os.dup, os.set_blocking
+                blocking_calls = 0
+                setup_error = OSError(errno.EMFILE, "fixture setup failure")
+
+                def duplicate(fd):
+                    if operation == "dup" and len(owned) + 1 == failure_call:
+                        raise setup_error
+                    duplicate_fd = real_dup(fd)
+                    owned.append(duplicate_fd)
+                    return duplicate_fd
+
+                def set_blocking(fd, blocking):
+                    nonlocal blocking_calls
+                    blocking_calls += 1
+                    if operation == "set_blocking" and blocking_calls == failure_call:
+                        raise setup_error
+                    real_set_blocking(fd, blocking)
+
+                try:
+                    with (patch("os.dup", side_effect=duplicate),
+                          patch("os.set_blocking", side_effect=set_blocking),
+                          self.assertRaises(OSError) as failure):
+                        codex_worker.OwnedCodexProtocol(read_fd, write_fd)
+                    self.assertIs(setup_error, failure.exception)
+                    for fd in (read_fd, write_fd):
+                        os.fstat(fd)
+                    for fd in owned:
+                        with self.assertRaises(OSError) as closed:
+                            os.fstat(fd)
+                        self.assertEqual(errno.EBADF, closed.exception.errno)
+                finally:
+                    for fd in (*owned, read_fd, write_fd):
+                        try:
+                            os.close(fd)
+                        except OSError as error:
+                            if error.errno != errno.EBADF:
+                                raise
 
     def test_initialize_thread_events_and_interrupt_correlate_with_current_v2_shape(
         self,
