@@ -41,7 +41,8 @@
         "tests/host_unified_mcp.py",
         "tests/test_mcp_bridge_contract.py",
         "tests/test_nz13_github_contexts.py",
-        "tests/test_nz26_mcp_public_license.py"
+        "tests/test_nz26_mcp_public_license.py",
+        "tests/test_mcp_official_read_transcript.py"
       ],
       "acceptance": "Zakwalifikować transport w aktualnym Core. Zweryfikować initialize/serverInfo i stabilną listę tools/list, ograniczone READ na przypiętym repozytorium, lokalną odmowę niedozwolonego narzędzia, brak mutacji, integralność i oznaczenie niezaufanych danych oraz podpisany odczyt z wiązaniem źródła i celu. Wyniki gh/REST są osobnym dowodem.",
       "read_only_smoke_candidate": {
@@ -49,8 +50,8 @@
         "repository": "luciferprosun/AIOA-spArkHAT",
         "repository_id": 1247349659,
         "ref": "refs/heads/main",
-        "head": "ebed8691f84781a5f0413374421a257f8a29b6d1",
-        "tree": "6861041c5929005e58b4f8ca8ffdb0519bf8a0d4",
+        "head": "914c9b1bf4dc7bf6ff14687d91560d9bcef1a5f6",
+        "tree": "f4238a014e210e46863a4f6e7abadc40bf71fa61",
         "file": {
           "path": "LICENSE",
           "bytes": 1074,

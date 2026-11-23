@@ -116,6 +116,28 @@ class RemoteExecutionTests(unittest.TestCase):
         self.assertEqual({}, self.objects)
         self.assertTrue(all(method == 'GET' for method, _, _ in self.calls))
 
+    def test_model_proposal_rejects_credential_shaped_fields_without_echo(self):
+        canary = 'ghp_' + 'A' * 36
+        candidate = {'schema': 'aioa.muse.github-change.v1', 'operation': 'code.commit_draft_pr',
+                     'target_repo': DEMO_REPOSITORY, 'files': {'agent-demo/proposal.py': 'VALUE = 1\n'},
+                     'title': self.plan.title, 'body': self.plan.body}
+        binding = {field: getattr(self.plan, field) for field in (
+            'operation_id', 'issued_at', 'base_sha', 'base_tree_sha', 'source_sha', 'capsule_digest',
+            'source_reply_sha256', 'source_receipt_sha256',
+        )}
+        for update in ({'title': canary}, {'body': canary},
+                       {'files': {'agent-demo/proposal.py': canary + '\n'}},
+                       {'files': {'agent-demo/' + canary + '.txt': 'fixture\n'}}):
+            with self.assertRaisesRegex(ValueError, '^GITHUB_PROPOSAL_SENSITIVE_CONTENT$'):
+                RemoteGitPlan.from_model(json.dumps({**candidate, **update}).encode(), **binding)
+
+    def test_retained_plan_with_credential_shaped_content_cannot_dispatch(self):
+        self.plan = replace(self.plan, files=dict(self.plan.files), body='ghp_' + 'A' * 36)
+        with self.assertRaisesRegex(ValueError, '^GITHUB_PROPOSAL_SENSITIVE_CONTENT$'):
+            self.execute(self.api())
+        self.assertEqual([], self.calls)
+        self.assertEqual({}, self.markers)
+
     def test_concurrent_ref_creation_stops_without_updating_ref_or_opening_pr(self):
         from runtime.mcp_bridge.github_remote import GitHubCreateOnly
 
@@ -148,6 +170,30 @@ class RemoteExecutionTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, '^GITHUB_BRANCH_ALREADY_EXISTS$'):
             self.execute(adapter())
         self.assertTrue(all(method == 'GET' for method, _, _ in self.calls[after_dispatch:]))
+
+    def test_ref_moved_during_pr_lookup_prevents_a_draft_post(self):
+        from runtime.mcp_bridge.github_remote import GitHubCreateOnly
+
+        original = self.transport
+        moved = False
+
+        def concurrent_writer(method, path, body, bearer, cancel, timeout):
+            nonlocal moved
+            response = original(method, path, body, bearer, cancel, timeout)
+            if method == 'GET' and path == PREFIX + '/git/ref/heads/' + self.plan.branch and moved:
+                ref = json.loads(response[1])
+                ref['object']['sha'] = 'f' * 40
+                return 200, json.dumps(ref).encode()
+            if method == 'GET' and path.startswith(PREFIX + '/pulls?'):
+                moved = True
+            return response
+
+        api = GitHubCreateOnly(self.plan, self.base, self.credential,
+                               mode='OFFLINE_FIXTURE', transport=concurrent_writer)
+        with self.assertRaisesRegex(ValueError, '^GITHUB_REF_CHANGED_DURING_READBACK$'):
+            self.execute(api)
+        self.assertEqual(['tree', 'commit', 'branch'], list(self.markers))
+        self.assertNotIn(PREFIX + '/pulls', self.objects)
 
     def test_api_budget_and_expired_credentials_stop_before_network(self):
         api=self.api();api.request_count=48

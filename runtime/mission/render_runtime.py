@@ -117,8 +117,9 @@ def prepare_html_render_sandbox(root, *, workspace, recipe):
     require(type(recipe) is HtmlRenderRecipe, 'RENDER_OPERATOR_RECIPE_REQUIRED')
     recipe.__post_init__()
     root = Path(root).absolute()
-    require(not os.path.lexists(root), 'RENDER_PREPARATION_EXISTS')
-    runtime = snapshot_renderer_runtime(root.with_name(root.name + '-runtime'))
+    runtime_root = root.with_name(root.name + '-runtime')
+    require(not os.path.lexists(root) and not os.path.lexists(runtime_root), 'RENDER_PREPARATION_EXISTS')
+    runtime = snapshot_renderer_runtime(runtime_root)
     config = prepare_linux_sandbox(
         root, runtime, workspace=workspace,
         recipes={'recipe:html-' + recipe.digest[:24]: recipe.recipe_spec()},

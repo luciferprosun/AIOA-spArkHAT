@@ -1,7 +1,7 @@
 {
   "schema": "aioa.nonzero.checkpoint.v1",
   "updated_utc_day": "2026-11-22",
-  "branch": "codex/nonzero-post58-offline",
+  "branch": "codex/nonzero-post59-evidence",
   "draft_pull_request": null,
   "parent_evidence_commit": "c6e74366e9acd114c42c51919856f3d4570c8f5c",
   "parent_evidence_tree": "392fe4dda4497fb5d5459fec7e6bc23b71d1a45f",
@@ -50,6 +50,23 @@
       "required_core": 45083830703,
       "default_codeql": 45083830268,
       "mcp": 45083830672
+    }
+  },
+  "pr59_merge_receipt": {
+    "merge_commit": "914c9b1bf4dc7bf6ff14687d91560d9bcef1a5f6",
+    "tree": "f4238a014e210e46863a4f6e7abadc40bf71fa61",
+    "parents": [
+      "ebed8691f84781a5f0413374421a257f8a29b6d1",
+      "fd6f9f68e1195ba3ea2a6fb3ee4c63c845187f08"
+    ],
+    "github_preview": "d11f704f77ba4f5d5a8330bdfe22cccc04458cc4",
+    "merge_method": "merge",
+    "merged_at_utc": "2026-11-23T03:41:25Z",
+    "rollback_mainline_parent": 1,
+    "postmerge_actions": {
+      "required_core": 45107463038,
+      "default_codeql": 45107462144,
+      "mcp": 45107462899
     }
   }
 }

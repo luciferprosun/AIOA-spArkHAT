@@ -238,7 +238,16 @@ class GitHubCreateOnly:
         require(value.get('ref')=='refs/heads/main' and value.get('object',{}).get('type')=='commit'
             and value['object'].get('sha')==self.plan.base_sha,'GITHUB_BASE_CHANGED')
 
+    def _head(self, **args):
+        return self._call('GET', PREFIX + '/git/ref/heads/' + self.plan.branch, None, **args)
+
+    def _require_head(self, ref):
+        obj = ref.get('object') if type(ref) is dict else None
+        require(type(obj) is dict and obj.get('type') == 'commit' and obj.get('sha') == self.commit_sha
+                and ref.get('ref') == 'refs/heads/' + self.plan.branch, 'GITHUB_REF_READBACK_MISMATCH')
+
     def preflight(self,*,check,cancel,deadline=None):
+        self.plan.require_public_content()
         args={'check':check,'cancel':cancel,'deadline':deadline or time.monotonic()+60}
         self._repo(**args);self._main(**args)
         value=self._call('GET',PREFIX+'/git/commits/'+self.plan.base_sha,None,**args)
@@ -276,6 +285,7 @@ class GitHubCreateOnly:
         observed=self.readback(**args)
         require(observed['state']=='COMMIT_VERIFIED_PR_MISSING','GITHUB_PR_PRECONDITION_DENIED')
         self._main(**args)
+        self._require_head(self._head(**args))
         post('draft_pr',PREFIX+'/pulls',{'title':self.plan.title,'body':self.plan.body,
             'head':self.plan.branch,'base':'main','draft':True,'maintainer_can_modify':False})
         return self.readback(**args)
@@ -299,14 +309,13 @@ class GitHubCreateOnly:
             'api_request_limit':self.plan.payload()['api_request_limit'],'write_retry_limit':0,
             'repository':DEMO_REPOSITORY,'repository_id':DEMO_REPOSITORY_ID,'plan_digest':self.plan.digest,
             'branch':self.plan.branch,'expected_commit_sha':self.commit_sha,'commit_sha':None,'pr_url':None}
-        ref=self._call('GET',PREFIX+'/git/ref/heads/'+self.plan.branch,None,absent=True,**args)
+        ref=self._head(absent=True, **args)
         commit=self._call('GET',PREFIX+'/git/commits/'+self.commit_sha,None,absent=True,**args)
         if commit is not None:self._commit(commit)
         if ref is None:
             if commit is not None:result.update(state='COMMIT_OBJECT_ONLY',commit_sha=self.commit_sha)
             return result
-        require(ref.get('ref')=='refs/heads/'+self.plan.branch and ref.get('object',{}).get('type')=='commit'
-            and ref['object'].get('sha')==self.commit_sha,'GITHUB_REF_READBACK_MISMATCH')
+        self._require_head(ref)
         self._commit(commit)
         tree=self._call('GET',PREFIX+'/git/trees/'+self.tree.sha+'?recursive=1',None,**args)
         require(GitTreeSnapshot.from_github(tree,expected_sha=self.tree.sha)==self.tree,'GITHUB_TREE_READBACK_MISMATCH')
@@ -327,7 +336,9 @@ class GitHubCreateOnly:
             commit_get_sha256=sha256(canonical(commit)),tree_get_sha256=sha256(canonical(tree)),blobs=blobs)
         pulls=self._call('GET',self.pull_query,None,**args)
         require(type(pulls) is list and len(pulls)<=1,'GITHUB_PR_READBACK_AMBIGUOUS')
-        if not pulls:return result
+        if not pulls:
+            require(self._head(absent=True, **args) == ref, 'GITHUB_REF_CHANGED_DURING_READBACK')
+            return result
         require(type(pulls[0]) is dict and type(pulls[0].get('number')) is int and 0<pulls[0]['number']<10**9,
                 'GITHUB_PR_READBACK_MISMATCH')
         number=pulls[0]['number'];pull=self._call('GET',PREFIX+'/pulls/'+str(number),None,**args)
@@ -341,7 +352,7 @@ class GitHubCreateOnly:
                 and value.get('repo',{}).get('id')==DEMO_REPOSITORY_ID
                 and value['repo'].get('full_name')==DEMO_REPOSITORY,'GITHUB_PR_READBACK_MISMATCH')
         # Recheck the ref after the PR GET to detect a concurrent branch change.
-        final=self._call('GET',PREFIX+'/git/ref/heads/'+self.plan.branch,None,**args)
+        final=self._head(**args)
         require(final==ref,'GITHUB_REF_CHANGED_DURING_READBACK')
         result.update(state='COMMIT_AND_DRAFT_PR_VERIFIED',remote_effect_verified=True,
             live_verified=self.mode in ('LIVE','PUBLIC_READ_ONLY'),pr_url=url,pr_number=number,

@@ -458,11 +458,24 @@ class RemoteGitPlan:
             and all(type(v) is str for v in value["files"].values()),
             "GITHUB_FILES_REQUIRED",
         )
-        return cls(
+        plan = cls(
             files={k: v.encode("utf-8") for k, v in value["files"].items()},
             title=value["title"],
             body=value["body"],
             **native_binding,
+        )
+        plan.require_public_content()
+        return plan
+
+    def require_public_content(self):
+        from runtime.secret_redaction import contains_sensitive_material
+
+        require(
+            not contains_sensitive_material(self.title)
+            and not contains_sensitive_material(self.body)
+            and not any(contains_sensitive_material(path) or contains_sensitive_material(data.decode("utf-8"))
+                        for path, data in self.files.items()),
+            "GITHUB_PROPOSAL_SENSITIVE_CONTENT",
         )
 
     @property
@@ -1220,6 +1233,7 @@ class CoreRemoteGitRoute:
             ("update-ref", self.plan.ref, self.plan.commit_sha, "0" * 40),
             cancel=cancel,
             expected_target_identity=self.plan.target_identity,
+            before_ref_link=release,
         )
         release()
         return self._complete_local_patch(principal, warrant, historical=False)
@@ -2105,7 +2119,8 @@ class VerifiedPatchSet:
 
 
 def _bounded_git(
-    repository, arguments, *, data=None, cancel=None, expected_target_identity=None
+    repository, arguments, *, data=None, cancel=None, expected_target_identity=None,
+    before_ref_link=None,
 ):
     """Pinned locator delegated to the existing broker's fixed offline profile."""
     import os
@@ -2146,6 +2161,7 @@ def _bounded_git(
             cancel=cancel,
             expected_storage=storage,
             binding_check=binding_check,
+            before_ref_link=before_ref_link,
         )
         current = repository.stat()
         core_require(

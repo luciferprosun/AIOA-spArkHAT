@@ -27,6 +27,7 @@ from runtime.memory_patch.contracts.serialization import (
     canonical_json_bytes,
     canonical_sha256,
 )
+from runtime.memory_patch.persistence.ports import _IN_TRANSACTION
 from runtime.mission import sandbox_contracts
 from runtime.mission.sandbox_bindings import (
     CONFIG_DOMAIN,
@@ -1343,7 +1344,7 @@ class LinuxSandboxBroker:
             return os.dup(current)
 
     @staticmethod
-    def _git_publish_new(parent, name, data, *, cancel):
+    def _git_publish_new(parent, name, data, *, cancel, before_ref_link=None):
         """Atomic create-only publication of a fully written unnamed inode.
 
         No truncation, chmod, utime, append or write to an existing pathname.
@@ -1367,6 +1368,10 @@ class LinuxSandboxBroker:
             os.fsync(fd)
             require(os.fstat(fd).st_nlink == 0, "GIT_UNNAMED_FILE_REQUIRED")
             require(cancel is None or not cancel.cancelled, "GIT_PLUMBING_CANCELLED")
+            if before_ref_link is not None:
+                require(not _IN_TRANSACTION.get(), "GIT_REF_RELEASE_CONTEXT_DENIED")
+                before_ref_link()
+                require(cancel is None or not cancel.cancelled, "GIT_PLUMBING_CANCELLED")
             try:
                 os.link(
                     "/proc/self/fd/" + str(fd),
@@ -1447,6 +1452,7 @@ class LinuxSandboxBroker:
         cancel=None,
         expected_storage=None,
         binding_check=None,
+        before_ref_link=None,
     ):
         """Fixed offline profile on THIS broker and the route's single START.
 
@@ -1518,6 +1524,10 @@ class LinuxSandboxBroker:
             publish = ("ref", *tail)
         else:
             raise ValueError("GIT_PLUMBING_COMMAND_DENIED")
+        require(
+            before_ref_link is None or (type(publish) is tuple and callable(before_ref_link)),
+            "GIT_REF_RELEASE_CONTEXT_DENIED",
+        )
         require(
             data is None or arguments[0] == "hash-object", "GIT_PLUMBING_INPUT_BOUND"
         )
@@ -2024,6 +2034,7 @@ class LinuxSandboxBroker:
                         target_ref.rsplit("/", 1)[1],
                         object_id.encode() + b"\n",
                         cancel=cancel,
+                        before_ref_link=before_ref_link,
                     ),
                     "GIT_REF_ALREADY_EXISTS",
                 )
