@@ -1,6 +1,6 @@
 {
   "schema": "aioa.nonzero.checkpoint.v1",
-  "updated_utc_day": "2026-11-22",
+  "updated_utc_day": "2026-11-23",
   "branch": "codex/nonzero-post59-evidence",
   "draft_pull_request": null,
   "parent_evidence_commit": "c6e74366e9acd114c42c51919856f3d4570c8f5c",
@@ -8,8 +8,8 @@
   "matrix_path": "PARITY69_UPDATED.csv",
   "test_evidence_path": "TEST_RESULTS.json",
   "queue_path": "TASK_QUEUE.json",
-  "main_ci_run": 45045595617,
-  "main_ci_attempt_observed": 2,
+  "main_ci_run": 45107463038,
+  "main_ci_attempt_observed": 1,
   "new_run_requested": false,
   "candidate_git_branch_has_no_merge_authority": true,
   "legacy_history_restore": {
@@ -68,5 +68,37 @@
       "default_codeql": 45107462144,
       "mcp": 45107462899
     }
-  }
+  },
+  "linux_mint": {
+    "status": "OWNER_REPORTED_VERIFIED",
+    "checkpoint": "PR #59",
+    "checkout": "/home/l/projects/AIOA-spArkHAT",
+    "branch": "main",
+    "upstream": "origin/main",
+    "sha": "914c9b1bf4dc7bf6ff14687d91560d9bcef1a5f6",
+    "tree": "f4238a014e210e46863a4f6e7abadc40bf71fa61",
+    "tracked_files_verified": 2010,
+    "clean_worktree": true,
+    "offline": {
+      "3.11": "98/98 PASS",
+      "3.12": "98/98 PASS",
+      "source_policy": "PASS",
+      "one_core": "PASS",
+      "live": "NOT_RUN"
+    },
+    "report": "/home/l/Desktop/AIOA_NONZERO_LOCAL_NIGHTLY_SYNC_RESULT_20261123.md",
+    "procedure": "LINUX_SYNC_HANDOFF.md"
+  },
+  "verified_parent_candidate": {
+    "commit": "41ff260778d5962719ca8c70a6329a765ceaed47",
+    "tree": "8db6c19b6cdad5467ac1e1f3391935fb2566a5e6",
+    "core_actions": 45108246193,
+    "mcp_actions": 45108247018,
+    "conclusion": "success",
+    "full_suite_per_python": 4402,
+    "skips_per_python": 5,
+    "codeql": "NOT_TRIGGERED_BY_MANUAL_DISPATCH"
+  },
+  "native_host": "BLOCKED_HOST",
+  "retirement_gate": "NONZERO_RETIREMENT_GATE.md"
 }

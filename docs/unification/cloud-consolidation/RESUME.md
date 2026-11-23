@@ -8,6 +8,6 @@ Użyj tej samej rozmowy Cloud. Odczytaj aktualny `main`, gałąź `codex/nonzero
 - ID przekazane przez właściciela są już w macierzy. W przypadku potwierdzenia historycznego konsumenta przypnij jego kontrakt, porównaj zachowanie Core i dodaj tylko brakujący adapter. Przy późniejszym transferze lokalnego CSV najpierw zweryfikuj jego SHA-256 z checkpointu.
 - Przed próbą LIVE wypełnij odpowiedni manifest, pozyskaj oddzielny `GO` i sprawdź nadal zgodny cel, zakres i termin.
 
-## Linux Mint po zatwierdzeniu migracji
+## Linux Mint
 
-Sprawdź `git status --short --branch` oraz `git remote get-url origin`. Upewnij się, że `origin` wskazuje `luciferprosun/AIOA-spArkHAT`. Wykonaj `git fetch origin`. Jeżeli aktualny katalog ma zmiany, zachowaj je na bieżącej gałęzi i skorzystaj z drugiego worktree (`git worktree add --detach ../aioa-verified origin/main`). Przy czystym `main` użyj `git switch main` i `git merge --ff-only origin/main`. W razie rozbieżności zachowaj lokalne commity i przejrzyj `git log --left-right --oneline main...origin/main`. Porównaj wynik `git rev-parse HEAD HEAD^{tree}` z zatwierdzonym SHA i drzewem.
+Wynik właściciela potwierdza synchronizację kanonicznego checkoutu do #59. Kolejny fast-forward wykonuje operator zgodnie z [handoffem](LINUX_SYNC_HANDOFF.md). [Kwalifikacja hosta Native](NATIVE_HOST_QUALIFICATION.md) i [bramka wycofania](NONZERO_RETIREMENT_GATE.md) utrwalają pozostałe warunki.

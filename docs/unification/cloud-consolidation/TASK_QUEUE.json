@@ -18,8 +18,8 @@
     },
     {
       "id": "C-native-host",
-      "status": "BLOCKED_TARGET",
-      "next": "Uzyskać kwalifikowany host pełnego testu Native z normalnym reconcile/apply po restarcie."
+      "status": "BLOCKED_HOST",
+      "next": "Zakwalifikować jednorazowy host oraz zbudować odbiór dwóch procesów według NATIVE_HOST_QUALIFICATION.md."
     },
     {
       "id": "C-provenance",
@@ -53,8 +53,8 @@
     },
     {
       "id": "F-consolidation-merge",
-      "status": "PR58_MERGED",
-      "next": "Zweryfikować wyniki run 45083830703, CodeQL i artefakty dla dokładnego SHA z checkpointu. Dalszy zakres offline ma osobną kwalifikację."
+      "status": "PR59_MERGED",
+      "next": "Na dokładnym HEAD kolejnego PR zweryfikować wymagane CI i CodeQL, a następnie uzyskać zgodę właściciela."
     },
     {
       "id": "F-legacy-history",
@@ -63,8 +63,13 @@
     },
     {
       "id": "F-linux-handoff",
-      "status": "BLOCKED_OWNER",
-      "next": "Po odbiorze GitHub i scaleniu sporządzić LINUX_SYNC_HANDOFF.md dla właściwego lokalnego checkoutu."
+      "status": "OWNER_REPORTED_SYNCED_POST_PR59",
+      "next": "Po kolejnym odbiorze main użyć istniejącego checkoutu zgodnie z LINUX_SYNC_HANDOFF.md."
+    },
+    {
+      "id": "F-retirement",
+      "status": "HOLD",
+      "next": "Rozliczyć NONZERO_RETIREMENT_GATE.md. Archiwizacja i usunięcie mają odrębne zgody."
     }
   ]
 }

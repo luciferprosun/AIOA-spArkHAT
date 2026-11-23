@@ -33,5 +33,9 @@
   "owner_handoff_reported_core_role_mappings": 42,
   "legacy_secondary_backup": "BLOCKED_BACKUP",
   "main_commit": "914c9b1bf4dc7bf6ff14687d91560d9bcef1a5f6",
-  "main_tree": "f4238a014e210e46863a4f6e7abadc40bf71fa61"
+  "main_tree": "f4238a014e210e46863a4f6e7abadc40bf71fa61",
+  "linux_mint_sync": "OWNER_REPORTED_VERIFIED_POST_PR59",
+  "native_cloud_host": "BLOCKED_HOST",
+  "legacy_retirement": "HOLD",
+  "production_runtime_files_changed_by_prior_candidate": 4
 }

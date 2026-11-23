@@ -36,9 +36,13 @@ def result(payload):
     return {'structuredContent': {'result': payload}}
 
 
+def tool_descriptor(name):
+    return {'name': name, 'inputSchema': {'type': 'object', 'additionalProperties': False},
+            'annotations': {'readOnlyHint': True}}
+
+
 def fixture_frames():
-    tools = [{'name': name, 'inputSchema': {'type': 'object', 'additionalProperties': False},
-              'annotations': {'readOnlyHint': True}} for name in sorted(TOOLS)]
+    tools = [tool_descriptor(name) for name in sorted(TOOLS)]
     repo = {'items': [{'id': REPOSITORY_ID, 'full_name': REPOSITORY, 'default_branch': 'main',
                        'private': False, 'html_url': f'https://github.com/{REPOSITORY}'}]}
     return [
@@ -77,10 +81,15 @@ class OfficialMcpReadTranscriptTests(unittest.TestCase):
         self.assertEqual(sorted(TOOLS), sorted(tool['name'] for tool in inventory['tools']))
         for tool in inventory['tools']:
             self.assertIs(tool['annotations']['readOnlyHint'], True)
+            self.assertEqual(tool_descriptor(tool['name']), tool)
         first = frames[8]['result']
         self.assertEqual(first, frames[10]['result'])
         self.assertEqual(result([{'name': 'main', 'sha': PINNED_HEAD}]), first)
-        repo, = frames[6]['result']['structuredContent']['result']['items']
+        search_result = frames[6]['result']
+        payload = search_result['structuredContent']['result']
+        repo, = payload['items']
+        self.assertEqual(result({'items': [repo]}), search_result)
+        self.assertEqual({'id', 'full_name', 'default_branch', 'private', 'html_url'}, set(repo))
         self.assertIs(repo['private'], False)
         projection = {'repository': repo['full_name'], 'repository_id': repo['id'],
                       'url': repo['html_url'], 'branch': repo['default_branch'], 'commit_sha': PINNED_HEAD}
@@ -103,9 +112,15 @@ class OfficialMcpReadTranscriptTests(unittest.TestCase):
             (1, lambda frame: frame['result']['serverInfo'].update(name='untrusted')),
             (4, lambda frame: frame['result']['tools'][0]['annotations'].update(readOnlyHint=False)),
             (4, lambda frame: frame['result']['tools'].append(frame['result']['tools'][0])),
+            (4, lambda frame: frame['result']['tools'][0]['inputSchema'].update(type='array')),
             (5, lambda frame: frame['params'].update(name='write_tool')),
             (6, lambda frame: frame.update(id=True)),
             (6, lambda frame: frame.update(id=2)),
+            (6, lambda frame: frame.update(error={'code': -32603, 'message': 'failed'})),
+            (6, lambda frame: frame['result'].update(isError=True)),
+            (6, lambda frame: frame['result'].update(authority='WRITE')),
+            (6, lambda frame: frame['result']['structuredContent'].update(authority='WRITE')),
+            (6, lambda frame: frame['result']['structuredContent']['result'].update(authority='WRITE')),
             (6, lambda frame: frame['result']['structuredContent']['result']['items'][0].update(id=1)),
             (10, lambda frame: frame['result']['structuredContent']['result'][0].update(sha='f' * 40)),
         ):

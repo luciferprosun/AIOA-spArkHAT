@@ -126,7 +126,10 @@
         "qualified": false,
         "main": "df0754d4cca5c61627fba1e7d5d2a6249830871d",
         "tree": "bc344f4e21ecb903a98004510c0bdb923fc15024",
-        "registered_workflows_observed": 0
+        "registered_workflows_observed": 0,
+        "actions_disabled_confirmed": false,
+        "actions_settings_http_status": 403,
+        "concurrent_writers_excluded": false
       },
       "candidate_effects_in_order": [
         "create_tree",
@@ -144,7 +147,7 @@
     {
       "id": "D",
       "name": "Native G04",
-      "status": "BLOCKED_TARGET",
+      "status": "BLOCKED_HOST",
       "approval": "GO_NATIVE_G04",
       "required_pins": [
         "disposable_host_image_digest",
@@ -165,7 +168,8 @@
         "tests/test_nz13_render_runtime.py",
         "tests/test_nz13_render_observation.py"
       ],
-      "acceptance": "Zarejestrować rzeczywisty start keepera, niezależny stan cgroup, izolację Chrome, orakel DOM/console/PNG i podpisane pokwitowanie. Sprawdzić STOP do UNKNOWN, sprzątanie procesów i brak replay po restarcie. Uruchamiać z nowym prywatnym katalogiem, bez stanu produkcyjnego i sieci."
+      "acceptance": "Zarejestrować rzeczywisty start keepera, niezależny stan cgroup, izolację Chrome, orakel DOM/console/PNG i podpisane pokwitowanie. Sprawdzić STOP do UNKNOWN, sprzątanie procesów i brak replay po restarcie. Uruchamiać z nowym prywatnym katalogiem, bez stanu produkcyjnego i sieci.",
+      "host_qualification": "NATIVE_HOST_QUALIFICATION.md"
     }
   ]
 }
