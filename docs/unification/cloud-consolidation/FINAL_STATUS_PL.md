@@ -2,7 +2,11 @@
 
 **Status `PARITY_OPEN`.** Kod i testy działają w jednym AIOA Core. Konsolidacja nie osiągnęła `FULL_PARITY`.
 
-## Bieżący odbiór
+## Odbiór #60
+
+`main` to `e071c339942525e8bd8759adafb565c5ad412ce9`, drzewo `f3f625a7f34f679638e0a3af3ebb395bb7fd9029`. Cztery wymagane kontrole, domyślny CodeQL, MCP, One-Core i polityka źródeł przeszły. Linux Mint oczekuje na fast-forward z #59. Stan nowej gałęzi i blokady są w dossier. [Pięć faz](FIVE_PHASE_HANDOFF.md) · [CI po #60](https://github.com/luciferprosun/AIOA-spArkHAT/actions/runs/45143354368)
+
+## Wcześniejszy odbiór
 
 Main po #59 to `914c9b1bf4dc7bf6ff14687d91560d9bcef1a5f6`, drzewo `f4238a014e210e46863a4f6e7abadc40bf71fa61`. Cztery wymagane kontrole, domyślny CodeQL i MCP Bridge przeszły. Właściciel potwierdził zsynchronizowany Linux Mint i 98/98 testów na obu wersjach Pythona. Kolejna synchronizacja użyje istniejącego checkoutu. [CI](https://github.com/luciferprosun/AIOA-spArkHAT/actions/runs/45107463038) · [Linux](LINUX_SYNC_HANDOFF.md)
 

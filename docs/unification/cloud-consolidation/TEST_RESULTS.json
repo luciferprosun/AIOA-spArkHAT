@@ -441,7 +441,7 @@
       "green": "original guard denies, task stays QUEUED and factory remains unused"
     }
   ],
-  "postmerge": "914c9b1bf4dc7bf6ff14687d91560d9bcef1a5f6",
+  "postmerge": "e071c339942525e8bd8759adafb565c5ad412ce9",
   "post59_candidate": {
     "commit": "41ff260778d5962719ca8c70a6329a765ceaed47",
     "tree": "8db6c19b6cdad5467ac1e1f3391935fb2566a5e6",
@@ -479,5 +479,33 @@
     "conclusion": "success",
     "full_suite_per_python": 4392,
     "skips_per_python": 5
+  },
+  "post60_main": {
+    "main": "e071c339942525e8bd8759adafb565c5ad412ce9",
+    "tree": "f3f625a7f34f679638e0a3af3ebb395bb7fd9029",
+    "core": 45143354368,
+    "mcp": 45143354321,
+    "codeql": 45143353783,
+    "linux_base_reported": "914c9b1bf4dc7bf6ff14687d91560d9bcef1a5f6",
+    "linux_fast_forward": "PENDING_OPERATOR"
+  },
+  "five_phase_candidate": {
+    "offline_3_11": "103 PASS",
+    "offline_3_12": "103 PASS",
+    "log_sha256": {
+      "five-phase-local-311.log": "6d805c7fec1f0aeb9881dbc8494e155cc74609333236dc12f9594ac3a08c3aec",
+      "five-phase-local-312.log": "2e66e0632236a7e8780595d9a058465a06eb64a0dbad4bb2f07d73e006b41c67",
+      "five-phase-repair-red.log": "7348bfd4d12a822fd28b449f9a24af23314a9ea8faf54051c8ae3fbbfcb1616e",
+      "five-phase-write-red.log": "62d9862de87d313f0970ef981eee576e97b35c9b779c7141c82bdd8acbfd62fb",
+      "five-phase-read-red.log": "275c0656f6133d600409fe2bd1ded316b2196535f128d057182091c0145ade27"
+    },
+    "red_to_green": [
+      "Repair Loop STOP and deadline before dispatch",
+      "GitHub WRITE maintainer permission in readback",
+      "GitHub READ malformed JSON and runtime-independent depth bound"
+    ],
+    "native_case": "Cold SQLite after physical descriptor ref publication and process loss; fixture OS/TLS and target",
+    "hosted_ci": "See exact commit on Draft PR",
+    "live_calls": 0
   }
 }

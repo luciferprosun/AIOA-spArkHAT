@@ -322,6 +322,10 @@ class BoundedRepairLoopCoordinator:
                     with failure_boundary("WORKER_PRODUCER_FAILED"):
                         if on_state is not None:
                             on_state("REPAIRING" if attempt else "RUNNING")
+                            if (stopped := stop_reason()) is not None:
+                                status = "CANCELLED" if stopped[0] == "CANCELLED" else "FAILED"
+                                failure = stopped[1]
+                                break
                         candidate = producer.produce(attempt, feedback)
                         require(type(candidate) is CandidateWorkspace, "WORKER_CONTEXT")
                         result, session = candidate.worker_result, candidate.session
@@ -371,10 +375,16 @@ class BoundedRepairLoopCoordinator:
                             )
                         else:
                             seen.add(patchset.final_tree_sha256)
-                            if on_state is not None:
+                            stopped = stop_reason()
+                            if stopped is None and on_state is not None:
                                 on_state("VALIDATING")
-                            session = validator.open(candidate.root, patchset)
-                            attempt_status, attempt_failure = "PASS", None
+                                stopped = stop_reason()
+                            if stopped is not None:
+                                attempt_status, attempt_failure = stopped
+                            else:
+                                session = validator.open(candidate.root, patchset)
+                                attempt_status, attempt_failure = "PASS", None
+                        if attempt_status == "PASS":
                             for stage in TEST_STAGES:
                                 if cancelled is not None and cancelled():
                                     attempt_status, attempt_failure = (

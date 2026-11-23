@@ -345,7 +345,8 @@ class GitHubCreateOnly:
         url='https://github.com/'+DEMO_REPOSITORY+'/pull/'+str(number)
         require(pull.get('number')==number and pull.get('html_url')==url and pull.get('draft') is True
             and pull.get('state')=='open' and pull.get('merged') is False and pull.get('title')==self.plan.title
-            and pull.get('body')==self.plan.body,'GITHUB_PR_READBACK_MISMATCH')
+            and pull.get('body')==self.plan.body and pull.get('maintainer_can_modify') is False,
+            'GITHUB_PR_READBACK_MISMATCH')
         for name,branch,sha in (('head',self.plan.branch,self.commit_sha),('base','main',self.plan.base_sha)):
             value=pull.get(name,{})
             require(value.get('ref')==branch and value.get('sha')==sha

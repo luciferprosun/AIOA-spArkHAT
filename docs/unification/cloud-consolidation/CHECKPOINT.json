@@ -1,14 +1,14 @@
 {
   "schema": "aioa.nonzero.checkpoint.v1",
   "updated_utc_day": "2026-11-23",
-  "branch": "codex/nonzero-post59-evidence",
-  "draft_pull_request": 60,
+  "branch": "codex/nonzero-five-phase",
+  "draft_pull_request": null,
   "parent_evidence_commit": "c6e74366e9acd114c42c51919856f3d4570c8f5c",
   "parent_evidence_tree": "392fe4dda4497fb5d5459fec7e6bc23b71d1a45f",
   "matrix_path": "PARITY69_UPDATED.csv",
   "test_evidence_path": "TEST_RESULTS.json",
   "queue_path": "TASK_QUEUE.json",
-  "main_ci_run": 45107463038,
+  "main_ci_run": 45143354368,
   "main_ci_attempt_observed": 1,
   "new_run_requested": false,
   "candidate_git_branch_has_no_merge_authority": true,
@@ -101,5 +101,16 @@
   },
   "native_host": "BLOCKED_HOST",
   "retirement_gate": "NONZERO_RETIREMENT_GATE.md",
-  "draft_url": "https://github.com/luciferprosun/AIOA-spArkHAT/pull/60"
+  "draft_url": null,
+  "verified_main": {
+    "main": "e071c339942525e8bd8759adafb565c5ad412ce9",
+    "tree": "f3f625a7f34f679638e0a3af3ebb395bb7fd9029",
+    "core": 45143354368,
+    "mcp": 45143354321,
+    "codeql": 45143353783,
+    "linux_base_reported": "914c9b1bf4dc7bf6ff14687d91560d9bcef1a5f6",
+    "linux_fast_forward": "PENDING_OPERATOR"
+  },
+  "five_phase_handoff": "FIVE_PHASE_HANDOFF.md",
+  "retirement": "HOLD"
 }

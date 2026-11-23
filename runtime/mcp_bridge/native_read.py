@@ -6,6 +6,7 @@ session, database, credential or approval; it never reads a token value.
 import base64
 import hashlib
 import json
+import math
 import os
 import pwd
 import re
@@ -184,9 +185,34 @@ def _github_json(endpoint, *, check=lambda: None, deadline=None):
     raw = _bounded_command(['/usr/bin/gh', 'api', '--hostname', 'github.com', '--method', 'GET', endpoint],
                            cwd=directory, env=env, timeout=8, max_bytes=max_bytes, deadline=deadline)
     check()
+
+    def unique_object(items):
+        obj = {}
+        for key, value in items:
+            _require(key not in obj, 'GITHUB_READ_INVALID_JSON')
+            obj[key] = value
+        return obj
+
+    def finite_number(token):
+        value = float(token)
+        _require(math.isfinite(value), 'GITHUB_READ_INVALID_JSON')
+        return value
+
+    def check_depth(value, depth=0):
+        _require(depth <= 64, 'GITHUB_READ_INVALID_JSON')
+        if isinstance(value, dict):
+            for child in value.values():
+                check_depth(child, depth + 1)
+        elif isinstance(value, list):
+            for child in value:
+                check_depth(child, depth + 1)
+
     try:
-        return json.loads(raw)
-    except (ValueError, UnicodeError):
+        value = json.loads(raw.decode('utf-8'), object_pairs_hook=unique_object,
+                           parse_float=finite_number, parse_constant=finite_number)
+        check_depth(value)
+        return value
+    except (ValueError, RecursionError):
         raise ValueError('GITHUB_READ_INVALID_JSON') from None
 
 

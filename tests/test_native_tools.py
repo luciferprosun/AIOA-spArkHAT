@@ -41,6 +41,31 @@ class NativeReadTests(unittest.TestCase):
         self.assertEqual([4,4,8,4,4,8],caps)
         self.assertEqual([120.0]*6,deadlines)
 
+    def test_github_transport_rejects_ambiguous_json_and_preserves_list_payloads(self):
+        m = module(self)
+        endpoint = 'repos/' + m.REPOSITORY + '/issues?state=all&per_page=5'
+        with tempfile.TemporaryDirectory() as tmp:
+            config = Path(tmp) / 'config.yml'
+            config.write_text('version: 1\n')
+            config.chmod(0o600)
+            def child(argv, **kwargs):
+                return b'' if argv[1] == 'config' else response
+
+            with patch.object(m, '_binary'), patch.object(m, '_qualified_gh'), patch.object(
+                m, '_environment', return_value={'GH_CONFIG_DIR': tmp}
+            ), patch.object(m, '_bounded_command', side_effect=child):
+                response = b'[{"id":1,"unused_rate":0.5}]'
+                self.assertEqual([{'id': 1, 'unused_rate': 0.5}], m._github_json(endpoint))
+                for response in (
+                    b'[{"id":1,"id":2}]',
+                    b'[{"id":1,"unused_rate":NaN}]',
+                    b'[{"id":1,"unused_rate":1e999}]',
+                    b'[' * 1500 + b'0' + b']' * 1500,
+                ):
+                    with self.subTest(frame=response[:60]):
+                        with self.assertRaisesRegex(ValueError, '^GITHUB_READ_INVALID_JSON$'):
+                            m._github_json(endpoint)
+
     def test_parent_deadline_caps_actual_child_even_with_larger_child_timeout(self):
         m=module(self)
         with self.assertRaisesRegex(ValueError,'TOOL_READ_TIMEOUT'):

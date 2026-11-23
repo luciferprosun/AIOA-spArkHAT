@@ -161,6 +161,55 @@ class RepairTests(unittest.TestCase):
         self.assertIsNone(result.final_patchset)
         self.assertEqual(1, len(backend.sessions))
 
+    def test_stop_from_state_observer_fences_the_next_dispatch(self):
+        for boundary in ("RUNNING", "VALIDATING"):
+            with self.subTest(boundary=boundary):
+                stopped = False
+                states = []
+                attempts_root = self.root / boundary
+                attempts_root.mkdir()
+                producer = DirectoryProducer(
+                    self.api, self.base, attempts_root, self.task, [self.candidate("a+b")]
+                )
+                backend = FaultBackend(self.api, ["PASS"])
+
+                def observe(state):
+                    nonlocal stopped
+                    states.append(state)
+                    stopped = stopped or state == boundary
+
+                with patch.object(producer, "produce", wraps=producer.produce) as produce:
+                    result = self.coordinator.run(
+                        task=self.task, source=self.source, base_root=self.base,
+                        producer=producer, validator=backend,
+                        cancelled=lambda: stopped, on_state=observe,
+                    )
+                self.assertEqual(boundary, states[-1])
+                self.assertEqual(("CANCELLED", "CANCELLED"), (result.status, result.failure_code))
+                self.assertEqual(int(boundary == "VALIDATING"), produce.call_count)
+                self.assertEqual([], backend.sessions)
+                self.assertTrue(producer.closed)
+                self.assertIsNone(result.final_patchset)
+
+    def test_deadline_after_production_prevents_opening_validation(self):
+        now = 100
+        self.coordinator = self.api.BoundedRepairLoopCoordinator(clock=lambda: now)
+        original = DirectoryProducer.produce
+
+        def finish_at_deadline(producer, attempt_number, feedback_code):
+            nonlocal now
+            result = original(producer, attempt_number, feedback_code)
+            now = self.task.deadline_at
+            return result
+
+        with patch.object(DirectoryProducer, "produce", finish_at_deadline):
+            result, producer, backend = self.run_loop([self.candidate("a+b")], ["PASS"])
+        self.assertEqual(("FAILED", "TASK_DEADLINE"), (result.status, result.failure_code))
+        self.assertEqual("TIMEOUT", result.attempts[0].status)
+        self.assertEqual([], backend.sessions)
+        self.assertTrue(producer.closed)
+        self.assertIsNone(result.final_patchset)
+
     def test_one_failed_attempt_then_repair_reaches_reviewed_patch(self):
         result, producer, backend = self.run_loop(
             [self.candidate("a*b"), self.candidate("a+b")], ["FAIL", "PASS"]

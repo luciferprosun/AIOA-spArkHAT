@@ -11135,8 +11135,8 @@
     },
     "runtime/mcp_bridge/github_remote.py": {
       "path": "runtime/mcp_bridge/github_remote.py",
-      "git_blob": "8ff7f2d9094fde4b445088e1e13dc81401a6f5c4",
-      "sha256": "8af19ae3eb474a7275e3519ed154ab4043a7f808a093836dee98d2547d8a839b",
+      "git_blob": "93fb1af291db003f8a74d2e4acd39e3a9be6d391",
+      "sha256": "dea0046b0d315b3a4aa2b389d341325534c615eeb47c74538adfc9a84bbec5aa",
       "definitions": [
         {
           "name": "_https_once",
@@ -11164,7 +11164,7 @@
         },
         {
           "name": "read_demo_base",
-          "line": 363
+          "line": 364
         },
         {
           "name": "evidence",
@@ -11224,7 +11224,7 @@
         },
         {
           "name": "get",
-          "line": 369
+          "line": 370
         },
         {
           "name": "post",
@@ -11349,8 +11349,8 @@
         "value.get().get",
         "value[data].get"
       ],
-      "call_site_count": 389,
-      "call_sites_sha256": "190ead9c7d9d25e792546837b37d47d2cdb4d41983f230f542a98487e5b63945"
+      "call_site_count": 390,
+      "call_sites_sha256": "76a4b19d3b476bd96ccdcff4298e3f8ec49e2eb6202dbd63808fb1bf8230b11a"
     },
     "runtime/mcp_bridge/contracts.py": {
       "path": "runtime/mcp_bridge/contracts.py",
@@ -14079,8 +14079,8 @@
     },
     "runtime/mission/repair.py": {
       "path": "runtime/mission/repair.py",
-      "git_blob": "b9293fc5077587e1b04fe333056ff2fa01c77891",
-      "sha256": "c34cbe1ea65b259652338e8e317949ed974f05c25685c74f8ad6b4fc8bbfac6b",
+      "git_blob": "c8af40e87a279ab429b4120097c5e6535779fd26",
+      "sha256": "9ce9f32837475b0dd209499a6e3a02c89da674bb4ce777e2d72a6c157dc60915",
       "definitions": [
         {
           "name": "require",
@@ -14128,7 +14128,7 @@
         },
         {
           "name": "SandboxedCandidateProducer",
-          "line": 521
+          "line": 531
         },
         {
           "name": "__post_init__",
@@ -14184,39 +14184,39 @@
         },
         {
           "name": "__init__",
-          "line": 529
+          "line": 539
         },
         {
           "name": "_stopped",
-          "line": 571
+          "line": 581
         },
         {
           "name": "_start_worker",
-          "line": 576
+          "line": 586
         },
         {
           "name": "_check_cancel_uncertainty",
-          "line": 606
+          "line": 616
         },
         {
           "name": "_cancel_worker",
-          "line": 612
+          "line": 622
         },
         {
           "name": "_worker_result",
-          "line": 645
+          "line": 655
         },
         {
           "name": "produce",
-          "line": 660
+          "line": 670
         },
         {
           "name": "stop",
-          "line": 715
+          "line": 725
         },
         {
           "name": "close",
-          "line": 727
+          "line": 737
         },
         {
           "name": "stop_reason",
@@ -14297,8 +14297,8 @@
         "type",
         "validator.open"
       ],
-      "call_site_count": 250,
-      "call_sites_sha256": "81d266237158bb043356bdaed1e1f8dd479ff279bf9b7356a1de22b390a0154f"
+      "call_site_count": 253,
+      "call_sites_sha256": "fa8caa5f21c0cd7db003832fb62d441f765a0c53a38f010ea8209ee1540f825b"
     },
     "runtime/mission/repair_validation.py": {
       "path": "runtime/mission/repair_validation.py",
@@ -17509,136 +17509,148 @@
     },
     "runtime/mcp_bridge/native_read.py": {
       "path": "runtime/mcp_bridge/native_read.py",
-      "git_blob": "153707c3ba4a69aace30a79040ffbf3357c61408",
-      "sha256": "668c83dc1a5065b46ed8337acd96bf4962554fbbec2aadd4393214ee5cba9b0a",
+      "git_blob": "f2b9556bbd6159bfae46352f579aa8345b509be8",
+      "sha256": "2343881455b37910c0b28b24bf0886c877e2c92f0c8aa6792bba0c35bf64e48e",
       "definitions": [
         {
           "name": "_require",
-          "line": 35
+          "line": 36
         },
         {
           "name": "_remaining",
-          "line": 40
+          "line": 41
         },
         {
           "name": "_bounded_command",
-          "line": 46
+          "line": 47
         },
         {
           "name": "_environment",
-          "line": 81
+          "line": 82
         },
         {
           "name": "_binary",
-          "line": 89
+          "line": 90
         },
         {
           "name": "_qualified_gh",
-          "line": 95
+          "line": 96
         },
         {
           "name": "_preferences",
-          "line": 100
+          "line": 101
         },
         {
           "name": "_github_json",
-          "line": 133
+          "line": 134
         },
         {
           "name": "_repository",
-          "line": 193
+          "line": 219
         },
         {
           "name": "_rich_public_text",
-          "line": 209
+          "line": 235
         },
         {
           "name": "_validate_rich_context_data",
-          "line": 215
+          "line": 241
         },
         {
           "name": "validate_context_data",
-          "line": 298
+          "line": 324
         },
         {
           "name": "_repository_context",
-          "line": 343
+          "line": 369
         },
         {
           "name": "context_inventory",
-          "line": 416
+          "line": 442
         },
         {
           "name": "_rich_integer",
-          "line": 436
+          "line": 462
         },
         {
           "name": "_rich_text",
-          "line": 441
+          "line": 467
         },
         {
           "name": "_rich_text_projection",
-          "line": 454
+          "line": 480
         },
         {
           "name": "_validate_text_projection",
-          "line": 465
+          "line": 491
         },
         {
           "name": "_validate_text_provenance",
-          "line": 494
+          "line": 520
         },
         {
           "name": "_rich_repo",
-          "line": 510
+          "line": 536
         },
         {
           "name": "_rich_sha",
-          "line": 516
+          "line": 542
         },
         {
           "name": "_rich_ref",
-          "line": 521
+          "line": 547
         },
         {
           "name": "_rich_url",
-          "line": 531
+          "line": 557
         },
         {
           "name": "_rich_issue",
-          "line": 537
-        },
-        {
-          "name": "_rich_optional_count",
           "line": 563
         },
         {
+          "name": "_rich_optional_count",
+          "line": 589
+        },
+        {
           "name": "_rich_pull",
-          "line": 567
+          "line": 593
         },
         {
           "name": "_rich_action",
-          "line": 596
+          "line": 622
         },
         {
           "name": "_rich_repository_context",
-          "line": 617
+          "line": 643
         },
         {
           "name": "read",
-          "line": 694
+          "line": 720
+        },
+        {
+          "name": "unique_object",
+          "line": 189
+        },
+        {
+          "name": "finite_number",
+          "line": 196
+        },
+        {
+          "name": "check_depth",
+          "line": 201
         },
         {
           "name": "get",
-          "line": 348
+          "line": 374
         },
         {
           "name": "check",
-          "line": 699
+          "line": 725
         },
         {
           "name": "validate",
-          "line": 112
+          "line": 113
         }
       ],
       "symbolic_callees": [
@@ -17687,6 +17699,7 @@
         "bytes",
         "bytes.fromhex",
         "check",
+        "check_depth",
         "child.kill",
         "child.poll",
         "child.stdout.close",
@@ -17708,6 +17721,7 @@
         "file[data].encode",
         "final.get",
         "final[data].get",
+        "float",
         "frozenset",
         "get",
         "git_object",
@@ -17726,6 +17740,7 @@
         "keys.add",
         "label.get",
         "len",
+        "math.isfinite",
         "max",
         "metadata.get",
         "min",
@@ -17780,13 +17795,14 @@
         "value.encode",
         "value.endswith",
         "value.get",
+        "value.values",
         "yaml.compose",
         "yaml.safe_load",
         "yaml.scan",
         "zip"
       ],
-      "call_site_count": 619,
-      "call_sites_sha256": "e35063c46e8407b688aba3bd556cb324065a0eaa5501b5778b37d109758d805b"
+      "call_site_count": 631,
+      "call_sites_sha256": "34105a30cf01c76e53608d8b7e9de9e3d44fb73010b5412a1de788b43bf25c58"
     },
     "runtime/mission/target_projection.py": {
       "path": "runtime/mission/target_projection.py",
