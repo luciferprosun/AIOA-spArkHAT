@@ -664,9 +664,10 @@ class SandboxedCandidateProducer:
     def _read_worker(self, read):
         self._check_cancel_uncertainty()
         try:
-            with failure_boundary("WORKER_READBACK_UNCERTAIN"):
-                result = read(self.session)
-        except (RepairBoundaryError, WorkerOutcomeUnknown):
+            result = read(self.session)
+        except Exception as error:
+            if isinstance(error, WorkerError) and not isinstance(error, WorkerOutcomeUnknown):
+                raise
             # START has a bound session, but an interrupted read supplies
             # no terminal outcome. STOP or close cannot clear that uncertainty.
             with self._cancel_lock:

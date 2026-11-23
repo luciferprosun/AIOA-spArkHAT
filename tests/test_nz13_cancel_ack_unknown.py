@@ -1,4 +1,5 @@
 """Cancellation is a request; missing acknowledgement is durable uncertainty."""
+import json
 import threading
 import unittest
 from dataclasses import asdict, replace
@@ -410,6 +411,18 @@ class StartAckUnknownTests(unittest.TestCase):
                     self.run_loop(worker, cancel)
                     self.assertEqual((worker.starts, worker.polls, worker.results),
                                      (1, 1, int(method == 'result')))
+
+    def test_untyped_protocol_decode_error_leaves_readback_unknown(self):
+        def malformed_response(detail):
+            return json.JSONDecodeError(detail, "{", 1)
+
+        cancel = CancellationToken()
+        for method in ('poll', 'result'):
+            with self.subTest(method=method):
+                worker = ReadbackAckLostFixture(method, stop_on_failure=cancel, error=malformed_response)
+                self.run_loop(worker, cancel)
+                self.assertEqual(worker.starts, 1)
+                cancel = CancellationToken()
 
     def test_explicit_readback_denial_preserves_known_failure(self):
         for method in ('poll', 'result'):
