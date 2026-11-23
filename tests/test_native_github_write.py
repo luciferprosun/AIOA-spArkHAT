@@ -122,6 +122,10 @@ class NativeGitHubWriteTests(unittest.TestCase):
             self.assertEqual('NOT_FOUND',value['status']);network.assert_not_called()
 
     def test_native_owner_to_core_to_git_protocol_receipt_is_offline_test_only(self):
+        from dataclasses import replace
+
+        from runtime.core_admission import Capability
+        from runtime.memory_patch.persistence.ports import RecordKind
         from runtime.meta_hackathon import github_write
         from runtime.mobile_gateway.service import plain
         self.app.operator_request(os.getuid(),{'op':'chat_session_start','request_id':'f'*32,'local_money_limit_usd':None})
@@ -149,6 +153,28 @@ class NativeGitHubWriteTests(unittest.TestCase):
         self.assertEqual(4,sum(m=='POST' for m,_,_ in port.calls))
         with self.assertRaises(wire.MobileError):self.app.operator_request(os.getuid(),{
             'op':'github_write_approve','operation_id':'d'*32,'review_digest':review['review_digest']})
+
+        self.app.close()
+        self.start()
+        request = {'op': 'github_write_status', 'operation_id': 'd' * 32}
+        with (patch('runtime.mcp_bridge.github_remote._https_once') as network,
+              patch('runtime.mcp_bridge.github_remote.GitHubAppCredentialSource.mint') as mint):
+            restored = self.app.operator_request(os.getuid(), request)
+            self.assertEqual('GITHUB_VERIFIED', restored['status'])
+            self.assertEqual(state['result'], restored['result'])
+
+            def alter_readback(tx):
+                row = tx.get(RecordKind.OPERATION, 'github-result-' + 'd' * 32)
+                payload = plain(row.payload)
+                payload['result']['observation']['pr_url'] = 'https://github.com/' + DEMO_REPOSITORY + '/pull/999'
+                tx.replace(replace(row, revision=row.revision + 1, payload=payload),
+                           expected_revision=row.revision)
+
+            self.app.mobile._run(Capability.COMMIT, alter_readback)
+            with self.assertRaisesRegex(ValueError, '^GITHUB_RESULT_INTEGRITY$'):
+                self.app.operator_request(os.getuid(), request)
+            network.assert_not_called()
+            mint.assert_not_called()
 
     def test_approval_ack_loss_keeps_candidate_and_stop_revokes_without_dispatch(self):
         from runtime.memory_patch.errors import CommitOutcomeUnknown

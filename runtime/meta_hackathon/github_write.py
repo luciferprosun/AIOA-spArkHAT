@@ -25,6 +25,7 @@ from runtime.mission.git_publish import (
     CoreRemoteGitRoute,
     GitTreeSnapshot,
     RemoteGitPlan,
+    verify_retained_github_result,
 )
 from runtime.mission.governor import ReservationRequest
 from runtime.mission.intent import CoreIntentJournal
@@ -316,7 +317,11 @@ def view(host,operation_id):
         if time.time()>=data['expires_at']:result['blockers'].append('GITHUB_REVIEW_EXPIRED')
         if data.get('stop_requested') is True:result['blockers'].append('GITHUB_STOPPED')
         saved=_run(host,Capability.READ,lambda tx:tx.get(RecordKind.OPERATION,'github-result-'+operation_id))
-        if saved is not None:result['result']=plain(saved.payload['result'])
+        if saved is not None:
+            result['result'] = verify_retained_github_result(
+                saved.payload, operation_id=operation_id, plan_digest=plan.digest,
+                mode='LIVE', signer_spki=host.identity.spki,
+            )
         result['approval_available']=data['state']=='GITHUB_PROPOSED' and not result['blockers']
         active=_worker_active(host,operation_id)
         result['readback_available']=data.get('warrant') is not None and not active

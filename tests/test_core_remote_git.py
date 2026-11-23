@@ -4,6 +4,8 @@ from dataclasses import replace
 from decimal import Decimal
 from datetime import timedelta
 from pathlib import Path
+from copy import deepcopy
+import json
 import tempfile
 import unittest
 
@@ -12,12 +14,12 @@ from lab.archaioa.authority import Money
 from q09_support import Fixture
 import test_github_remote_execution as protocol
 from runtime.core_admission import Capability
-from runtime.memory_patch.contracts.serialization import canonical_sha256
+from runtime.memory_patch.contracts.serialization import canonical_json_bytes, canonical_sha256
 from runtime.memory_patch.persistence.ports import RecordKind
 from runtime.mission.git_publish import DEMO_REPOSITORY
 from runtime.mission.governor import ReservationRequest
 from runtime.mission.warrant import approval_digest
-from runtime.mobile_gateway.wire import Identity,verify
+from runtime.mobile_gateway.wire import Identity,canonical,digest,verify
 
 
 class CoreRemoteGitTests(unittest.TestCase):
@@ -124,6 +126,47 @@ class CoreRemoteGitTests(unittest.TestCase):
         before=len(self.protocol.calls)
         self.assertFalse(self.dispatch()['remote_step_now'])
         self.assertEqual(before,len(self.protocol.calls));self.assertEqual(1,self.factories)
+
+    def test_saved_write_receipt_rejects_tampering_and_a_foreign_operation(self):
+        self.approve_plan()
+        self.dispatch()
+        reader = self.fx.p(Capability.READ)
+        key = 'github-result-' + self.protocol.plan.operation_id
+        row = self.fx.journal._run(reader, Capability.READ, lambda tx: tx.get(RecordKind.OPERATION, key))
+        original = json.loads(canonical_json_bytes(row.payload))
+        calls = len(self.protocol.calls)
+
+        def store(payload):
+            def replace_result(tx):
+                current = tx.get(RecordKind.OPERATION, key)
+                tx.replace(replace(current, revision=current.revision + 1, payload=payload),
+                           expected_revision=current.revision)
+            self.fx.journal._run(self.fx.p(), Capability.COMMIT, replace_result)
+
+        for alteration in ('readback', 'signature', 'operation'):
+            with self.subTest(alteration=alteration):
+                payload = deepcopy(original)
+                result = payload['result']
+                if alteration == 'readback':
+                    result['observation']['pr_url'] = 'https://github.com/' + DEMO_REPOSITORY + '/pull/999'
+                elif alteration == 'signature':
+                    result['signature'] = 'invalid'
+                else:
+                    result['receipt']['operation_id'] = 'f' * 32
+                    result['signature'] = self.identity.sign(result['receipt'])
+                    result['receipt_sha256'] = digest(canonical(result['receipt']))
+                store(payload)
+                with self.assertRaisesRegex(ValueError, '^GITHUB_RESULT_INTEGRITY$'):
+                    self.route.result(reader)
+
+        legacy = deepcopy(original)
+        payload = legacy['result']
+        payload['receipt'].pop('credential_scope')
+        payload['signature'] = self.identity.sign(payload['receipt'])
+        payload['receipt_sha256'] = digest(canonical(payload['receipt']))
+        store(legacy)
+        self.assertEqual(payload, self.route.result(reader))
+        self.assertEqual(calls, len(self.protocol.calls))
 
     def test_existing_unknown_blocks_before_credential_factory_or_any_network(self):
         self.approve_plan()
