@@ -42,3 +42,7 @@ Read-only odczyt GitHub pokazuje 20 rekordów, środowisko `21068474465` i najno
 **Jedna kontrola po stronie właściciela.** W panelu Render otwórz usługę `aioa-agents-for-humans-demo` (`srv-dabtq00n74is738f147g`), sprawdź stan usługi, źródło repo/ref i ostatni wdrożony SHA, domeny, podłączone integracje i zanonimizowaną aktywność z ostatnich 30 dni. Zapisz datę, te pola oraz potwierdzenie, czy któryś odbiorca zależy od usługi. Przekaż wynik bez sekretów i treści requestów.
 
 Druga niezależna kopia pozostaje `BLOCKED_BACKUP`. Nośnik `LSC_DATA3` jest niedostępny w Cloud. Po udostępnieniu przywrócić bundle do nowego katalogu, porównać nazwy i OID wszystkich 13 refów oraz wykonać `git fsck --full --no-dangling`. [Native historyczny](NATIVE69_HISTORICAL_EXCEPTION.md) · [Kontrakty](EXTERNAL_CONTRACT_DECISIONS.md)
+
+## Stan zweryfikowany po #62
+
+PR #60 jest scalony. Ostatni wynik operatora Linux Mint jest przypięty do #59, a stan po fast-forward pozostaje do poświadczenia. Świeży odczyt GitHub nadal pokazuje 20 historycznych wdrożeń Render. Aktualny runtime i odbiorcy pozostają UNKNOWN. W śledzonym runtime, pakowaniu, workflow, skryptach i deploy nazwa starego repozytorium pojawia się w strażniku pochodzenia. Odtworzony pierwszy bundle zgadza się z 13 refami GitHuba i przeszedł fsck. Drugi nośnik i checkout Mint pozostają poza środowiskiem wykonawczym Cloud. Wycofanie ma HOLD. [Handoff](LINUX_SYNC_HANDOFF.md)

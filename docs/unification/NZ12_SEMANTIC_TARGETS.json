@@ -8170,8 +8170,8 @@
     },
     "runtime/mission/codex_worker.py": {
       "path": "runtime/mission/codex_worker.py",
-      "git_blob": "a673a79e3e801d6f24a65f40f210e9ecc7aa9b3a",
-      "sha256": "f076a543da12d2925a829d3885c7915b9b524d44b93f8f34c9553ac90b15043f",
+      "git_blob": "77ac0ae17166eef4227df5b4dd52a1f099ef1171",
+      "sha256": "f55653040dae3e3b8543a3c4aa729dda446d3231f74472f87e822b9ff34c01e8",
       "definitions": [
         {
           "name": "_pairs",
@@ -8239,39 +8239,39 @@
         },
         {
           "name": "_read",
-          "line": 202
+          "line": 203
         },
         {
           "name": "_observe",
-          "line": 226
+          "line": 229
         },
         {
           "name": "_request",
-          "line": 258
+          "line": 261
         },
         {
           "name": "initialize",
-          "line": 301
+          "line": 304
         },
         {
           "name": "thread_start",
-          "line": 320
+          "line": 323
         },
         {
           "name": "bind_turn",
-          "line": 341
+          "line": 344
         },
         {
           "name": "interrupt",
-          "line": 346
+          "line": 349
         },
         {
           "name": "next_event",
-          "line": 357
+          "line": 360
         },
         {
           "name": "close",
-          "line": 367
+          "line": 370
         }
       ],
       "symbolic_callees": [
@@ -8333,8 +8333,8 @@
         "turn.get",
         "type"
       ],
-      "call_site_count": 154,
-      "call_sites_sha256": "4e013b09447dcb14e95e967c20611ea620f33668812b8042cafaee8c19945c7e"
+      "call_site_count": 159,
+      "call_sites_sha256": "e19a754d5fde4925f4e878de794dc5079e476fca9329841cc521b8e07d703b13"
     },
     "runtime/mission/sandbox_linux.py": {
       "path": "runtime/mission/sandbox_linux.py",
@@ -10983,8 +10983,8 @@
     },
     "runtime/mission/intent.py": {
       "path": "runtime/mission/intent.py",
-      "git_blob": "a77b6416d0258e4294311b9b0850462a7c260437",
-      "sha256": "d44620999e1e25cabdb329b3ad21070d242f1a0a08dab3c27acd527658e2ad99",
+      "git_blob": "04780abe022fa78b25566f70af96460359fdd8e6",
+      "sha256": "b1687c5cc36b35b8ca0c55de9ba19fb43ce0f356093eef4a9325eaa5b40fe852",
       "definitions": [
         {
           "name": "CoreIntentJournal",
@@ -11044,15 +11044,15 @@
         },
         {
           "name": "apply_resolution_in_transaction",
-          "line": 271
+          "line": 272
         },
         {
           "name": "delivery",
-          "line": 291
+          "line": 292
         },
         {
           "name": "acknowledge_delivery",
-          "line": 301
+          "line": 302
         },
         {
           "name": "read",
@@ -11064,11 +11064,11 @@
         },
         {
           "name": "read",
-          "line": 293
+          "line": 294
         },
         {
           "name": "change",
-          "line": 302
+          "line": 303
         }
       ],
       "symbolic_callees": [
@@ -11130,8 +11130,8 @@
         "type",
         "warrant.digest"
       ],
-      "call_site_count": 182,
-      "call_sites_sha256": "f90396356e9b72eb30544da63c396a98f7f2a267a40ad22710e1e9f9dd9af4fa"
+      "call_site_count": 184,
+      "call_sites_sha256": "4e65a78b1060505513a92e5fc1de0c191e21b9f0ac7399c5d3917ac6e11db373"
     },
     "runtime/mcp_bridge/github_remote.py": {
       "path": "runtime/mcp_bridge/github_remote.py",
@@ -11453,8 +11453,8 @@
     },
     "runtime/mission/git_publish.py": {
       "path": "runtime/mission/git_publish.py",
-      "git_blob": "71d0f267cab80bb90c320b8d0fc82075365f1b76",
-      "sha256": "b53aeb590a5f80c6e137a03af925d24a2fc7847ead8a679ab016994f1daa3fae",
+      "git_blob": "69a12cf27a39b4111187e55b90e59df174414469",
+      "sha256": "2ad8cea6e73c69f0449f032c72bcb1a76e0b920bd714d0ccdbdc7278d9d5b85e",
       "definitions": [
         {
           "name": "LocalGitPlan",
@@ -11482,27 +11482,27 @@
         },
         {
           "name": "VerifiedPatchSet",
-          "line": 1970
+          "line": 1975
         },
         {
           "name": "_bounded_git",
-          "line": 2121
+          "line": 2126
         },
         {
           "name": "GitSourceSnapshot",
-          "line": 2177
+          "line": 2182
         },
         {
           "name": "_git_target_identity_fd",
-          "line": 2384
+          "line": 2389
         },
         {
           "name": "_git_target_identity",
-          "line": 2437
+          "line": 2442
         },
         {
           "name": "LocalPatchGitPlan",
-          "line": 2459
+          "line": 2464
         },
         {
           "name": "__post_init__",
@@ -11670,163 +11670,163 @@
         },
         {
           "name": "_complete_local_patch",
-          "line": 1241
+          "line": 1246
         },
         {
           "name": "__init__",
-          "line": 1365
+          "line": 1370
         },
         {
           "name": "_require_native_local_plan",
-          "line": 1403
+          "line": 1408
         },
         {
           "name": "_require_native_local_source",
-          "line": 1410
-        },
-        {
-          "name": "_local_patch_dependency_root",
           "line": 1415
         },
         {
+          "name": "_local_patch_dependency_root",
+          "line": 1420
+        },
+        {
           "name": "dependency_root",
-          "line": 1429
+          "line": 1434
         },
         {
           "name": "_local_patch_operation",
-          "line": 1466
+          "line": 1471
         },
         {
           "name": "operation",
-          "line": 1486
+          "line": 1491
         },
         {
           "name": "validate",
-          "line": 1528
+          "line": 1533
         },
         {
           "name": "_save",
-          "line": 1568
+          "line": 1573
         },
         {
           "name": "begin_step",
-          "line": 1608
+          "line": 1613
         },
         {
           "name": "bind_api",
-          "line": 1703
+          "line": 1708
         },
         {
           "name": "record_credential_scope",
-          "line": 1721
+          "line": 1726
         },
         {
           "name": "result",
-          "line": 1746
+          "line": 1751
         },
         {
           "name": "complete",
-          "line": 1761
+          "line": 1766
         },
         {
           "name": "dispatch",
-          "line": 1906
+          "line": 1911
         },
         {
           "name": "reconcile",
-          "line": 1922
+          "line": 1927
         },
         {
           "name": "__post_init__",
-          "line": 1982
+          "line": 1987
         },
         {
           "name": "authority",
-          "line": 2070
+          "line": 2075
         },
         {
           "name": "digest",
-          "line": 2074
+          "line": 2079
         },
         {
           "name": "preview",
-          "line": 2088
+          "line": 2093
         },
         {
           "name": "create_only_plan",
-          "line": 2104
+          "line": 2109
         },
         {
           "name": "__post_init__",
-          "line": 2187
+          "line": 2192
         },
         {
           "name": "digest",
-          "line": 2233
+          "line": 2238
         },
         {
           "name": "capture",
-          "line": 2248
+          "line": 2253
         },
         {
           "name": "verify",
-          "line": 2339
+          "line": 2344
         },
         {
           "name": "export_tree_sha256",
-          "line": 2351
-        },
-        {
-          "name": "verify_export",
           "line": 2356
         },
         {
+          "name": "verify_export",
+          "line": 2361
+        },
+        {
           "name": "export",
-          "line": 2365
+          "line": 2370
         },
         {
           "name": "__post_init__",
-          "line": 2468
+          "line": 2473
         },
         {
           "name": "files",
-          "line": 2501
+          "line": 2506
         },
         {
           "name": "operation_id",
-          "line": 2511
+          "line": 2516
         },
         {
           "name": "ref",
-          "line": 2515
+          "line": 2520
         },
         {
           "name": "target_fingerprint",
-          "line": 2519
+          "line": 2524
         },
         {
           "name": "tree_objects",
-          "line": 2531
+          "line": 2536
         },
         {
           "name": "tree_sha",
-          "line": 2564
+          "line": 2569
         },
         {
           "name": "commit_data",
-          "line": 2568
+          "line": 2573
         },
         {
           "name": "commit_sha",
-          "line": 2589
+          "line": 2594
         },
         {
           "name": "objects",
-          "line": 2593
+          "line": 2598
         },
         {
           "name": "digest",
-          "line": 2601
+          "line": 2606
         },
         {
           "name": "load",
@@ -11838,39 +11838,39 @@
         },
         {
           "name": "mark",
-          "line": 1185
+          "line": 1187
         },
         {
           "name": "save",
-          "line": 1297
+          "line": 1302
         },
         {
           "name": "start",
-          "line": 1666
+          "line": 1671
         },
         {
           "name": "save",
-          "line": 1726
+          "line": 1731
         },
         {
           "name": "read",
-          "line": 1751
+          "line": 1756
         },
         {
           "name": "save",
-          "line": 1836
+          "line": 1841
         },
         {
           "name": "binding_check",
-          "line": 2142
+          "line": 2147
         },
         {
           "name": "git",
-          "line": 2270
+          "line": 2275
         },
         {
           "name": "current",
-          "line": 2280
+          "line": 2285
         },
         {
           "name": "pure",
@@ -11952,6 +11952,8 @@
         "contains_sensitive_material",
         "controller._append_transition",
         "controller._load",
+        "controller._native_git_record_cas_ack",
+        "controller._native_git_start_ack",
         "core_require",
         "current",
         "data.decode",
@@ -12073,7 +12075,6 @@
         "self._require_native_binding",
         "self._require_native_binding().foundation.owner.coding_tasks._native_git_begin_settlement",
         "self._require_native_binding().foundation.owner.coding_tasks._native_git_effect_check",
-        "self._require_native_binding().foundation.owner.coding_tasks._native_git_start_ack",
         "self._require_native_local_plan",
         "self._require_native_local_source",
         "self._run",
@@ -12149,8 +12150,8 @@
         "wire_canonical",
         "zip"
       ],
-      "call_site_count": 951,
-      "call_sites_sha256": "f5dc26f5fa9bd3ec82e9826d79d851a5bc6bacf615bf4174ba2ddc4fa8db9dc5"
+      "call_site_count": 953,
+      "call_sites_sha256": "44db6b0d6292429477c2df8e1bb297dd45ccc44cd1a3237b23ecbbd73306e8e7"
     },
     "runtime/core_admission.py": {
       "path": "runtime/core_admission.py",
@@ -12654,8 +12655,8 @@
     },
     "runtime/mission/coding_tasks.py": {
       "path": "runtime/mission/coding_tasks.py",
-      "git_blob": "88abdd16780a1ca8c85612775b9e6ad06f3d5803",
-      "sha256": "3cadd35232df51d578c905db0245e889204d42343ba4b567505e4e04b2385221",
+      "git_blob": "f52db4c8df7b937bd190466dea77f73fb9d7be6b",
+      "sha256": "5420f0c2a1235f44c05f584ecbc2a27ad440921532cab8f12a94e28ecbac4396",
       "definitions": [
         {
           "name": "CodingRun",
@@ -12695,19 +12696,19 @@
         },
         {
           "name": "coding_cli_request",
-          "line": 1691
+          "line": 1713
         },
         {
           "name": "run_coding_cli",
-          "line": 1696
+          "line": 1718
         },
         {
           "name": "coding_http_request",
-          "line": 1725
+          "line": 1747
         },
         {
           "name": "run_coding_http_cli",
-          "line": 1817
+          "line": 1839
         },
         {
           "name": "__post_init__",
@@ -12839,47 +12840,55 @@
         },
         {
           "name": "_native_git_reconciliation_retirement",
-          "line": 1095
+          "line": 1096
         },
         {
           "name": "_native_git_reconcile",
-          "line": 1111
+          "line": 1112
         },
         {
           "name": "_native_git_effect_entry",
-          "line": 1221
+          "line": 1222
         },
         {
           "name": "_native_git_effect_check",
-          "line": 1260
+          "line": 1261
         },
         {
           "name": "_native_git_start_ack",
-          "line": 1274
+          "line": 1275
+        },
+        {
+          "name": "_native_git_record_cas_ack",
+          "line": 1285
+        },
+        {
+          "name": "_native_git_require_cas_ack",
+          "line": 1299
         },
         {
           "name": "_native_git_begin_settlement",
-          "line": 1284
+          "line": 1305
         },
         {
           "name": "_native_git_effect_request",
-          "line": 1306
+          "line": 1328
         },
         {
           "name": "_controller_request",
-          "line": 1381
+          "line": 1403
         },
         {
           "name": "request",
-          "line": 1500
+          "line": 1522
         },
         {
           "name": "attach_review",
-          "line": 1635
+          "line": 1657
         },
         {
           "name": "_attach_review_locked",
-          "line": 1645
+          "line": 1667
         },
         {
           "name": "read",
@@ -12895,19 +12904,19 @@
         },
         {
           "name": "read",
-          "line": 1134
+          "line": 1135
         },
         {
           "name": "cancel",
-          "line": 1623
+          "line": 1645
         },
         {
           "name": "inspect",
-          "line": 1651
+          "line": 1673
         },
         {
           "name": "save",
-          "line": 1679
+          "line": 1701
         },
         {
           "name": "pure",
@@ -12923,11 +12932,11 @@
         },
         {
           "name": "create",
-          "line": 1543
+          "line": 1565
         },
         {
           "name": "read",
-          "line": 1562
+          "line": 1584
         },
         {
           "name": "require_ready",
@@ -13094,6 +13103,7 @@
         "self._native_git_effect_request",
         "self._native_git_reconcile",
         "self._native_git_reconciliation_parent",
+        "self._native_git_require_cas_ack",
         "self._record_loop",
         "self._require_coding_backend_host",
         "self._require_legacy_coding_task",
@@ -13151,8 +13161,8 @@
         "type",
         "verify"
       ],
-      "call_site_count": 726,
-      "call_sites_sha256": "a1dfaeaec8d22cdcbc78072aa35d2dca50f83097778eb3e149a005787bb68a37"
+      "call_site_count": 737,
+      "call_sites_sha256": "14994d6faf71463fac99a2dc7a874d0dade48d8382910298ec9e6fe3cdefc94e"
     },
     "tests/test_hybrid_patchset.py": {
       "path": "tests/test_hybrid_patchset.py",
@@ -17217,8 +17227,8 @@
     },
     "runtime/mission/render_runtime.py": {
       "path": "runtime/mission/render_runtime.py",
-      "git_blob": "18cb2c8b3a2516b1ce33a417131cc603e13e752b",
-      "sha256": "ae11e99d4508dfb50cba01f129ced789bcc0ed3f6ccf3e853e5171c60e846fe0",
+      "git_blob": "22e09f8a4117053015704959a0dc1a05bfc1cebd",
+      "sha256": "6284c658d7bd1d93272985a5176792b1ce07fcd398f75d2b0e957740baacf665",
       "definitions": [
         {
           "name": "require",
@@ -17245,7 +17255,6 @@
           "line": 112
         }
       ],
-      "call_site_count": 90,
       "symbolic_callees": [
         "Path",
         "Path().absolute",
@@ -17283,6 +17292,7 @@
         "replace",
         "require",
         "resolved.lstat",
+        "root.parent.resolve",
         "root.with_name",
         "set",
         "snapshot_python_runtime",
@@ -17299,7 +17309,8 @@
         "tuple",
         "type"
       ],
-      "call_sites_sha256": "372ca55db5bc57ce6f13b0df341a138cb8f73ed329a3420eb13a55432814fc15"
+      "call_site_count": 92,
+      "call_sites_sha256": "752a11c5c3765a16ba8ee726ac41d926f076d7d52a40292952d3dc08cc741309"
     },
     "runtime/mission/render_worker.py": {
       "path": "runtime/mission/render_worker.py",

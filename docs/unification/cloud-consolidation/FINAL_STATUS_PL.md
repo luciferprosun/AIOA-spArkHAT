@@ -43,3 +43,7 @@ Przed merge wystarczy pozostawić Draft bez scalenia. Jeżeli później potrzebn
 Odtworzony bundle legacy zawiera 13 refów i ma SHA-256 `84e5720c6cab3a8be59669a83396ed00018269be04e80e31bdc1e75d4828331e`. Znormalizowana lista refów ma SHA-256 `9cd19a7d2caa6c3bfc4bb88888e6928b3e642bd92b25442bac96863183f14c36`. Po przywróceniu do osobnego repozytorium lista refów była identyczna, a `git fsck --full --no-dangling` zakończył się kodem 0. Piny Judge freeze i W7A to `4fafed8b1a877e55d96ddd9baea0a737fbeeaa4a` i `392487849eddc7444f5159994b66b72e73f15934`. Bundle jest plikiem w obszarze roboczym Cloud. Drugi bundle ma stan `BLOCKED_BACKUP`, ponieważ nośnik był niedostępny podczas audytu właściciela.
 
 Po zamknięciu zakresu NonZero, rozstrzygnięciu odbiorów, sprawdzeniu niezależnej kopii i potwierdzeniu synchronizacji Linux Mint właściciel może oddzielnie zatwierdzić archiwizację oryginału. Oryginał pozostaje aktywnym repozytorium historycznym do tej decyzji.
+
+## Wynik bieżącej iteracji
+
+PR-y #51–#62 są scalone. Baseline `f2179eb0e6bb4bfd1c5d53ff4353eeb22fb1a78c`, drzewo `f4155563badd40d647896747ad6daedfe861a5d0`, przeszedł wymagane kontrole, One-Core, politykę źródeł, domyślny CodeQL i MCP. W #16 i #53 obowiązuje techniczny odbiór roli Core. Macierz pozostawia 38 rozliczonych w dotychczasowym zakresie, 7 PARTIAL, 1 SECURITY_BLOCKED oraz 23 UNKNOWN. Zmiany kandydata mają osobne wyniki i oczekują na wymagany niezależny odbiór. [Macierz](PARITY69_UPDATED.csv) · [Wyniki](TEST_RESULTS.json) · [Wznowienie](RESUME.md)

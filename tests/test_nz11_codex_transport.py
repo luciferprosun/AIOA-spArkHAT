@@ -1,9 +1,11 @@
 """Strict communication with a pre-owned peer; no tool or inference authority."""
 
 import json
+import os
 import socket
 import threading
 import unittest
+from unittest.mock import patch
 
 from runtime.mission import codex_worker
 from runtime.mission.worker import Task, WorkerError, WorkerFailure
@@ -145,6 +147,40 @@ class CodexTransportTests(unittest.TestCase):
         with self.assertRaisesRegex(WorkerError, '^CANCELLED$'):
             transport.next_event(cancel=token)
         self.assertEqual(['first'], [event['method'] for event in transport.events])
+
+    def test_deadline_does_not_deliver_a_buffered_event(self):
+        read_fd, peer_fd = os.pipe()
+        self.addCleanup(os.close, read_fd)
+        self.addCleanup(os.close, peer_fd)
+        transport = codex_worker.OwnedCodexProtocol(read_fd, peer_fd)
+        self.addCleanup(transport.close)
+        os.write(peer_fd, b'{"method":"first"}\n{"method":"second"}\n')
+        self.assertEqual("first", transport.next_event()["method"])
+        with patch.object(codex_worker.time, "monotonic", side_effect=(100, 101)), \
+                self.assertRaisesRegex(WorkerError, "^PROTOCOL_TIMEOUT$"):
+            transport.next_event(seconds=0.01)
+        self.assertEqual(["first"], [event["method"] for event in transport.events])
+        self.assertEqual("second", transport.next_event()["method"])
+
+    def test_send_does_not_write_if_deadline_expires_during_select(self):
+        read_fd, write_fd = os.pipe()
+        self.addCleanup(os.close, read_fd)
+        self.addCleanup(os.close, write_fd)
+        transport = codex_worker.OwnedCodexProtocol(read_fd, write_fd)
+        self.addCleanup(transport.close)
+        now = [100.0]
+
+        def ready(*args):
+            now[0] = 101.0
+            return [], [write_fd], []
+
+        with patch.object(codex_worker.time, "monotonic", side_effect=lambda: now[0]), \
+                patch("select.select", side_effect=ready), patch("os.write", wraps=os.write) as write, \
+                self.assertRaisesRegex(WorkerError, "^PROTOCOL_TIMEOUT$"):
+            try:
+                transport._send({"method": "initialized"}, deadline=100.01)
+            finally:
+                write.assert_not_called()
 
     def test_wrong_response_id_and_tool_approval_never_gain_authority(self):
         transport, peer = self.transport()

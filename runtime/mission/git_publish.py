@@ -1176,9 +1176,11 @@ class CoreRemoteGitRoute:
         from runtime.memory_patch.persistence.ports import RecordKind
 
         self._prospective_local()
+        controller = None
         if getattr(self, 'native_access', None) is not None:
-            self._require_native_binding().foundation.owner.coding_tasks._native_git_start_ack(self, warrant)
-        prepared_plan = self.plan if getattr(self, 'native_access', None) is not None else None
+            controller = self._require_native_binding().foundation.owner.coding_tasks
+            controller._native_git_start_ack(self, warrant)
+        prepared_plan = self.plan if controller is not None else None
         prepared_digest = prepared_plan.digest if prepared_plan is not None else None
         key = "github-step-" + self.plan.operation_id + "-local_patch"
 
@@ -1228,13 +1230,16 @@ class CoreRemoteGitRoute:
             )
             core_require(actual == expected, "GIT_OBJECT_READBACK")
         release()
-        _bounded_git(
+        response = _bounded_git(
             self.target_repository,
             ("update-ref", self.plan.ref, self.plan.commit_sha, "0" * 40),
             cancel=cancel,
             expected_target_identity=self.plan.target_identity,
             before_ref_link=release,
         )
+        if controller is not None:
+            core_require(type(response) is bytes and response == b"", "GIT_CAS_ACK_INVALID")
+            controller._native_git_record_cas_ack(self, warrant, prepared_plan, prepared_digest)
         release()
         return self._complete_local_patch(principal, warrant, historical=False)
 

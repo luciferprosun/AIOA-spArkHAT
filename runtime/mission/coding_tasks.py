@@ -1065,6 +1065,7 @@ class CoreCodingTasks:
                 and parent.returned[0] is self and parent.returned[1] is item
                 and parent.returned[2] is parent.thread and parent.returned[3] is parent.done,
                 "CODING_NATIVE_RECONCILIATION_PARENT")
+        self._native_git_require_cas_ack(item, route)
         for child_item in children:
             child = child_item['native_handle']
             cb = child_item['binding']
@@ -1281,6 +1282,26 @@ class CoreCodingTasks:
         item['admission_held'] = False
         item['admission_guard'].release()
 
+    def _native_git_record_cas_ack(self, route, warrant, plan, digest):
+        from runtime.memory_patch.persistence.ports import _IN_TRANSACTION
+
+        require(not _IN_TRANSACTION.get(), "CODING_NATIVE_SETTLEMENT_INSIDE_SQL")
+        item = self._native_git_effect_entry(route, warrant)
+        require(item['native_handle'].kind == 'LOCAL_GIT_APPLY'
+                and item['phase'] == 'EXECUTING' and not item['admission_held']
+                and route.plan is plan and 'cas_ack' not in item,
+                "CODING_NATIVE_GIT_CAS_ACK_BINDING")
+        # Only the original fixed-route broker return reaches here. This
+        # process-local observation cannot be reconstructed from Git or SQL.
+        item['cas_ack'] = (item['binding'], plan, digest)
+
+    @staticmethod
+    def _native_git_require_cas_ack(item, route):
+        ack = item.get('cas_ack')
+        require(type(ack) is tuple and len(ack) == 3 and ack[0] is item['binding']
+                and ack[1] is route.plan and ack[2] == route.plan.digest,
+                "CODING_NATIVE_GIT_CAS_ACK_REQUIRED")
+
     def _native_git_begin_settlement(self, route, warrant, *, historical):
         from runtime.memory_patch.persistence.ports import _IN_TRANSACTION
         from runtime.meta_hackathon.native_authority import NativeAccessUse
@@ -1289,6 +1310,7 @@ class CoreCodingTasks:
         item = self._native_git_effect_entry(route, warrant)
         require(type(historical) is bool and item['phase'] == ('RECONCILING' if historical else 'EXECUTING')
                 and not item['admission_held'], "CODING_NATIVE_SETTLEMENT_BINDING")
+        self._native_git_require_cas_ack(item.get('parent_item', item), route)
         lifecycle = self.native_access.foundation.lifecycle
         previous = getattr(lifecycle._boundary, 'settlement_handle', None)
         require(previous is None or historical and item['native_handle'].parent is not None
