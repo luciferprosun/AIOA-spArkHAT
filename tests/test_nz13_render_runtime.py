@@ -68,3 +68,21 @@ class RenderRuntimeClosureTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, '^RENDER_PREPARATION_EXISTS$'):
                     module.prepare_html_render_sandbox(root, workspace='fixture', recipe=recipe)
             capture.assert_not_called()
+
+    def test_renderer_builder_rejects_dangling_runtime_link_before_snapshot(self):
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+        from unittest.mock import patch
+
+        from runtime.mission.render_recipe import HtmlRenderRecipe
+
+        recipe = HtmlRenderRecipe(bundle=(('index.html', b'<p>Fixture</p>'),), viewport=(2, 1),
+                                  expected_title='Fixture', expected_text='Fixture')
+        module = self.module()
+        with TemporaryDirectory() as directory:
+            root = Path(directory) / 'scratch'
+            root.with_name('scratch-runtime').symlink_to(Path(directory) / 'missing')
+            with (patch.object(module, 'snapshot_renderer_runtime') as capture,
+                  self.assertRaisesRegex(ValueError, '^RENDER_PREPARATION_EXISTS$')):
+                module.prepare_html_render_sandbox(root, workspace='fixture', recipe=recipe)
+            capture.assert_not_called()

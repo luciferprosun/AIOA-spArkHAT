@@ -8,6 +8,11 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from q09_support import Fixture
+from test_nz25_intent_cold_read import git_intent
+
+from runtime.core_admission import Capability
+from runtime.memory_patch.persistence.ports import _IN_TRANSACTION
 from runtime.mission.sandbox_linux import LinuxSandboxBroker
 from runtime.providers.exact import CancellationToken
 
@@ -75,6 +80,45 @@ class NativeGitPublicationBoundaryTests(unittest.TestCase):
               self.assertRaisesRegex(ValueError, '^GIT_PLUMBING_CANCELLED$')):
             LinuxSandboxBroker._git_publish_new(self.parent, REF_NAME, REF_BYTES, cancel=token)
         self.assertFalse(self.ref.exists())
+
+    def test_warrant_expiry_after_file_sync_prevents_link_and_keeps_reservation(self):
+        path = self.root / 'intent.json'
+        fixture = Fixture(path)
+        self.addCleanup(fixture.close)
+        principal = fixture.p()
+        journal = git_intent(fixture, REF_BYTES.decode().strip(), principal.actor_session_id)
+        fixture.init()
+        journal.start_local_zero(principal, fixture.warrant, fixture.operation, fixture.request)
+        before = path.read_bytes()
+
+        def release():
+            self.assertFalse(_IN_TRANSACTION.get())
+            fixture.ledger._run(principal, Capability.COMMIT, lambda tx:
+                               fixture.ledger.require_active_in_transaction(tx, fixture.warrant, consumed=True))
+
+        release()
+        fsync = os.fsync
+
+        def sync_and_expire(fd):
+            fsync(fd)
+            self.assertNotEqual(self.parent, fd)
+            fixture.ledger.clock = lambda: fixture.warrant.expires_at
+
+        with (patch.object(os, 'fsync', sync_and_expire), patch.object(os, 'link') as link,
+              self.assertRaisesRegex(ValueError, '^WARRANT_EXPIRED$')):
+            LinuxSandboxBroker._git_publish_new(self.parent, REF_NAME, REF_BYTES,
+                                                cancel=None, before_ref_link=release)
+        link.assert_not_called()
+        self.assertFalse(self.ref.exists())
+        self.assertEqual('Unknown', journal.inspect(fixture.p(Capability.READ), fixture.warrant)['outcome']['contract_type'])
+        self.assertEqual(before, path.read_bytes())
+
+    def test_read_only_plumbing_cannot_invoke_ref_release(self):
+        with (patch.object(os, 'link') as link,
+              self.assertRaisesRegex(ValueError, '^GIT_REF_RELEASE_CONTEXT_DENIED$')):
+            LinuxSandboxBroker._git_plumbing(self.parent, ('rev-parse', '--is-bare-repository'),
+                                            git_sha256='0' * 64, before_ref_link=link)
+        link.assert_not_called()
 
     def test_equal_bytes_on_replacement_inode_fail_publication_binding(self):
         link = os.link

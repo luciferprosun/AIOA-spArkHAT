@@ -263,6 +263,23 @@ class GitConfinementTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "GIT_REF_ALREADY_EXISTS"):
             _bounded_git(self.repo.path, arguments, expected_target_identity=identity)
 
+    def test_ref_publication_rechecks_release_and_cleans_locks_on_denial(self):
+        calls = []
+        ref = self.repo.path / 'refs/heads/aioa-final-release'
+
+        def deny_release():
+            calls.append(True)
+            self.assertFalse(ref.exists())
+            raise ValueError('FIXTURE_RELEASE_EXPIRED')
+
+        with self.assertRaisesRegex(ValueError, '^FIXTURE_RELEASE_EXPIRED$'):
+            _bounded_git(self.repo.path, ('update-ref', 'refs/heads/aioa-final-release', self.repo.base, '0' * 40),
+                         before_ref_link=deny_release, expected_target_identity=_git_target_identity(self.repo.path))
+
+        self.assertEqual([True], calls)
+        self.assertFalse(ref.exists())
+        self.assertEqual([], list(self.repo.path.rglob('*.lock')))
+
     def test_existing_packed_ref_cannot_be_shadowed_by_zero_old_create(self):
         ref = "refs/heads/aioa-packed"
         self.repo.git("update-ref", ref, self.repo.base)

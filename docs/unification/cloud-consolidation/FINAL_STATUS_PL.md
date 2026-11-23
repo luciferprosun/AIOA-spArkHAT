@@ -2,6 +2,12 @@
 
 **Status `PARITY_OPEN`.** Kod i testy działają w jednym AIOA Core. Konsolidacja nie osiągnęła `FULL_PARITY`.
 
+## Bieżący odbiór
+
+Main po #59 to `914c9b1bf4dc7bf6ff14687d91560d9bcef1a5f6`, drzewo `f4238a014e210e46863a4f6e7abadc40bf71fa61`. Cztery wymagane kontrole, domyślny CodeQL i MCP Bridge przeszły. Właściciel potwierdził zsynchronizowany Linux Mint i 98/98 testów na obu wersjach Pythona. Kolejna synchronizacja użyje istniejącego checkoutu. [CI](https://github.com/luciferprosun/AIOA-spArkHAT/actions/runs/45107463038) · [Linux](LINUX_SYNC_HANDOFF.md)
+
+Pełny restart Native i G04 mają w obecnym Cloud stan `BLOCKED_HOST`. Wycofanie legacy ma stan `HOLD`. [Host](NATIVE_HOST_QUALIFICATION.md) · [Bramka wycofania](NONZERO_RETIREMENT_GATE.md)
+
 ## Ustalony zakres
 
 Punktem odczytu był `main` `7b5fd205c02603231919451b1cacd241f49fd9e9`, drzewo `c6f8f76b5a6e93855e5dd4c80a8af313db0054a2`. Główna gałąź zawiera PR [#52](https://github.com/luciferprosun/AIOA-spArkHAT/pull/52), [#53](https://github.com/luciferprosun/AIOA-spArkHAT/pull/53), [#54](https://github.com/luciferprosun/AIOA-spArkHAT/pull/54), [#55](https://github.com/luciferprosun/AIOA-spArkHAT/pull/55), [#56](https://github.com/luciferprosun/AIOA-spArkHAT/pull/56) i [#57](https://github.com/luciferprosun/AIOA-spArkHAT/pull/57).
