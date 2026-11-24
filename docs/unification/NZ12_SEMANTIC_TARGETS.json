@@ -8170,8 +8170,8 @@
     },
     "runtime/mission/codex_worker.py": {
       "path": "runtime/mission/codex_worker.py",
-      "git_blob": "27bedfff4753c2ded2e64cfb1c24ea2c78046989",
-      "sha256": "3c77e41125ae4a283d5faca3ce464cff1560cae0319216863017f75a18dbefcd",
+      "git_blob": "41338b3eab18c97bd99ff96d83f97e0e381b44f7",
+      "sha256": "a591dd2b92065ac7ebc2ccec72dc4f9fec84e6acc300cf3c96eede4ca1b62b6a",
       "definitions": [
         {
           "name": "_pairs",
@@ -8239,39 +8239,39 @@
         },
         {
           "name": "_read",
-          "line": 209
+          "line": 214
         },
         {
           "name": "_observe",
-          "line": 235
+          "line": 240
         },
         {
           "name": "_request",
-          "line": 267
+          "line": 272
         },
         {
           "name": "initialize",
-          "line": 310
+          "line": 330
         },
         {
           "name": "thread_start",
-          "line": 329
+          "line": 349
         },
         {
           "name": "bind_turn",
-          "line": 350
+          "line": 374
         },
         {
           "name": "interrupt",
-          "line": 355
+          "line": 379
         },
         {
           "name": "next_event",
-          "line": 366
+          "line": 390
         },
         {
           "name": "close",
-          "line": 376
+          "line": 400
         }
       ],
       "symbolic_callees": [
@@ -8322,6 +8322,7 @@
         "self._read",
         "self._request",
         "self._send",
+        "self.close",
         "self.events.append",
         "self.framer.feed",
         "self.framer.finish",
@@ -8336,8 +8337,8 @@
         "turn.get",
         "type"
       ],
-      "call_site_count": 163,
-      "call_sites_sha256": "72834a4ffaa712d8c03297f5138e46ff332a7d31063d9e4770cf22a558bc2c80"
+      "call_site_count": 173,
+      "call_sites_sha256": "c8c429aa0000a46a1cb1a68df58dd9d490e45d0ef98fede5b173c049cb4038a9"
     },
     "runtime/mission/sandbox_linux.py": {
       "path": "runtime/mission/sandbox_linux.py",
@@ -14092,8 +14093,8 @@
     },
     "runtime/mission/repair.py": {
       "path": "runtime/mission/repair.py",
-      "git_blob": "951b0a68f101eb6061044cafe8a40f948932b58e",
-      "sha256": "a975c34235ee961e8b6029c0fb50040b3a37a903a250fe63ade42ad68a0b29c7",
+      "git_blob": "cf27f0296438a3a2007001303b7b0dd905b93862",
+      "sha256": "109dda8f8ab3791a83552c1403c322dc1644a52517fa4b487132e2bdc4b30624",
       "definitions": [
         {
           "name": "require",
@@ -14216,20 +14217,24 @@
           "line": 631
         },
         {
-          "name": "_worker_result",
+          "name": "_read_worker",
           "line": 664
         },
         {
-          "name": "produce",
+          "name": "_worker_result",
           "line": 679
         },
         {
+          "name": "produce",
+          "line": 692
+        },
+        {
           "name": "stop",
-          "line": 734
+          "line": 747
         },
         {
           "name": "close",
-          "line": 746
+          "line": 759
         },
         {
           "name": "stop_reason",
@@ -14277,10 +14282,12 @@
         "range",
         "re.fullmatch",
         "re.search",
+        "read",
         "require",
         "seen.add",
         "self._cancel_worker",
         "self._check_cancel_uncertainty",
+        "self._read_worker",
         "self._start_worker",
         "self._stopped",
         "self._worker_result",
@@ -14294,7 +14301,6 @@
         "self.root.is_absolute",
         "self.worker.cancel",
         "self.worker.close",
-        "self.worker.poll",
         "self.worker.result",
         "self.worker.start",
         "semantic_review",
@@ -14310,13 +14316,13 @@
         "type",
         "validator.open"
       ],
-      "call_site_count": 257,
-      "call_sites_sha256": "4585797f637f77558425811d9745ee964ba25315867c2a678c5635f49e053ee3"
+      "call_site_count": 261,
+      "call_sites_sha256": "8b0b83c08ccb8e9cc63b29ef7dd27cafe16b121c8b23f7fb78a6f6e91e2d8e5e"
     },
     "runtime/mission/repair_validation.py": {
       "path": "runtime/mission/repair_validation.py",
-      "git_blob": "cccaf08596548f980ff53b34274a63b0c1433343",
-      "sha256": "5a373e738be4c340cd6bb7b2fe19ea4dfc69d077ce571f63230c6d7400023adf",
+      "git_blob": "05d69393795e0c0feae9c625ffed52de3185f990",
+      "sha256": "fdf0750d2baddd24f07176c220f8101128b6bef37a1f2d9579b49732162601fb",
       "definitions": [
         {
           "name": "TrustedTestProfile",
@@ -14440,7 +14446,7 @@
         },
         {
           "name": "close",
-          "line": 899
+          "line": 908
         },
         {
           "name": "save",
@@ -14575,7 +14581,7 @@
         "workspace_tree_digest"
       ],
       "call_site_count": 401,
-      "call_sites_sha256": "7ae02c1bcef0512250cb1e8f1c7f0b997531d4d87464b18996a76f69643a7597"
+      "call_sites_sha256": "8b2199c7bf2256fb59443640c211233e2d1c6bbac8fdf37733fc6945d3cee38f"
     },
     "runtime/mission/sandbox_contracts.py": {
       "path": "runtime/mission/sandbox_contracts.py",

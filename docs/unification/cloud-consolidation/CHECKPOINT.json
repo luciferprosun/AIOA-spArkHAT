@@ -135,5 +135,31 @@
     "head": "88a928742643de4e0f747141ad607a25290e9c06",
     "parent_main": "f2179eb0e6bb4bfd1c5d53ff4353eeb22fb1a78c",
     "review": "https://github.com/luciferprosun/AIOA-spArkHAT/pull/63"
+  },
+  "cloud05": {
+    "base_main": "8bd2fe14033f1b49609092a353cd7e6fd6b8d3ef",
+    "pr64": {
+      "state": "READY",
+      "merge": "BLOCKED_OWNER_PINNED_APPROVAL",
+      "head": "71bfcaf812ba98367ab687512769a7630678175d",
+      "tree": "b1f7dc87ad15e7faf4e7b0cc0e56cdb3e2588a81"
+    },
+    "followup_branch": "codex/nonzero-cloud05",
+    "contract_evidence": {
+      "30": "CORE_SCOPED_EXTERNAL_UNKNOWN",
+      "33": "CORE_SCOPED_EXTERNAL_UNKNOWN",
+      "40": "CORE_SCOPED_EXTERNAL_UNKNOWN"
+    },
+    "partial_remaining": [
+      "2",
+      "3",
+      "17",
+      "18",
+      "19",
+      "41",
+      "63"
+    ],
+    "cloud_scope": "SHARED_SOURCE_GITHUB_ONLY",
+    "retirement": "HOLD"
   }
 }

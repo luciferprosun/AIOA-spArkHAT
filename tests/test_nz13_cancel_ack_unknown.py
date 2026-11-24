@@ -1,9 +1,11 @@
 """Cancellation is a request; missing acknowledgement is durable uncertainty."""
+import json
 import threading
 import unittest
 from dataclasses import asdict, replace
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
 from cryptography.hazmat.primitives.asymmetric import ec
 
@@ -23,8 +25,10 @@ from runtime.mission.repair_validation import (
 from runtime.mission.worker import (
     CandidateFile,
     CandidatePatch,
+    SyntheticWorker,
     Task,
     WorkerError,
+    WorkerFailure,
     WorkerMailbox,
     WorkerOutcomeUnknown,
 )
@@ -66,6 +70,31 @@ class StartAckLostFixture(CancellationAckFixture):
     def start(self, task):
         super().start(task)
         raise OSError('FIXTURE_START_ACK_LOST')
+
+
+class ReadbackAckLostFixture(CancellationAckFixture):
+    def __init__(self, method, *, stop_on_failure=None, error=OSError):
+        super().__init__()
+        self.method, self.stop_on_failure, self.error = method, stop_on_failure, error
+        self.polls, self.results = 0, 0
+
+    def _lose_ack(self):
+        if self.stop_on_failure is not None:
+            self.stop_on_failure.cancel()
+        raise self.error('FIXTURE_READBACK_ACK_LOST')
+
+    def poll(self, session):
+        self.polls += 1
+        events = super().poll(session)
+        if self.method == 'poll':
+            self._lose_ack()
+        return events
+
+    def result(self, session):
+        self.results += 1
+        if self.method == 'result':
+            self._lose_ack()
+        return super().result(session)
 
 
 class BlockingCancellationAckFixture(CancellationAckFixture):
@@ -370,9 +399,98 @@ class StartAckUnknownTests(unittest.TestCase):
         self.run_loop(worker)
         self.assertEqual(worker.starts, 1)
 
-    def test_core_persists_ambiguous_start_and_denies_dispatch_after_reopen(self):
+    def test_lost_poll_or_result_ack_remains_unknown_with_or_without_stop(self):
+        for method in ('poll', 'result'):
+            for stopped in (False, True):
+                with self.subTest(method=method, stopped=stopped):
+                    cancel = CancellationToken()
+                    worker = ReadbackAckLostFixture(
+                        method, stop_on_failure=cancel if stopped else None,
+                        error=OSError if method == 'poll' else EOFError,
+                    )
+                    self.run_loop(worker, cancel)
+                    self.assertEqual((worker.starts, worker.polls, worker.results),
+                                     (1, 1, int(method == 'result')))
+
+    def test_untyped_protocol_decode_error_leaves_readback_unknown(self):
+        def malformed_response(detail):
+            return json.JSONDecodeError(detail, "{", 1)
+
+        cancel = CancellationToken()
+        for method in ('poll', 'result'):
+            with self.subTest(method=method):
+                worker = ReadbackAckLostFixture(method, stop_on_failure=cancel, error=malformed_response)
+                self.run_loop(worker, cancel)
+                self.assertEqual(worker.starts, 1)
+                cancel = CancellationToken()
+
+    def test_explicit_readback_denial_preserves_known_failure(self):
+        for method in ('poll', 'result'):
+            with self.subTest(method=method):
+                worker = ReadbackAckLostFixture(method, error=WorkerError)
+                producer = self.producer(worker)
+                with self.assertRaisesRegex(WorkerError, '^FIXTURE_READBACK_ACK_LOST$') as denial:
+                    producer.produce(0, None)
+                self.assertIs(type(denial.exception), WorkerError)
+                self.assertEqual(producer.close(), 0)
+                self.assertEqual((worker.starts, worker.cancel_calls), (1, 0))
+
+    def test_bound_candidate_still_reaches_materialization(self):
+        candidate = CandidatePatch((
+            CandidateFile('src/textutil.py', 'def slug(value): return value.strip()\n'),
+        ))
+        worker = SyntheticWorker((candidate,), clock=lambda: 100)
+        producer = self.producer(worker)
+        with patch.object(CoreRepositoryMaterializer, 'materialize', return_value=self.root) as materialize:
+            result = producer.produce(0, None)
+        self.assertEqual(result.worker_result.candidate, candidate)
+        materialize.assert_called_once_with(self.task, result.session, candidate)
+        self.assertEqual(producer.close(), 0)
+
+    def test_terminal_readback_preserves_binding_and_status(self):
+        class TerminalReadback(CancellationAckFixture):
+            def __init__(self, bound, code):
+                super().__init__()
+                self.bound, self.code = bound, code
+
+            def result(self, session):
+                return WorkerFailure(
+                    session.session_id, session.task_id,
+                    session.run_id if self.bound else 'wrong-run', self.code,
+                )
+
+        for bound, code, expected in (
+            (True, 'WORKER_CRASH', ('FAILED', 'WORKER_PRODUCER_FAILED')),
+            (True, 'OUTCOME_UNKNOWN', ('UNKNOWN', 'WORKER_OUTCOME_UNKNOWN')),
+            (False, 'OUTCOME_UNKNOWN', ('FAILED', 'WORKER_PRODUCER_FAILED')),
+        ):
+            with self.subTest(bound=bound, code=code):
+                worker = TerminalReadback(bound, code)
+                result = repair.BoundedRepairLoopCoordinator(clock=lambda: 100).run(
+                    task=self.task, source=self.source, base_root=self.root,
+                    producer=self.producer(worker), validator=None,
+                )
+                self.assertEqual((result.status, result.failure_code), expected)
+                self.assertIsNone(result.final_patchset)
+                self.assertEqual(worker.starts, 1)
+
+    def test_acknowledged_stop_stays_cancelled(self):
+        class AcknowledgedStop(CancellationAckFixture):
+            def cancel(self, session):
+                self.cancel_calls += 1
+                self.box.fail(session, 'CANCELLED')
+
+        cancel = CancellationToken()
+        worker = AcknowledgedStop(cancel=cancel)
+        result = repair.BoundedRepairLoopCoordinator(clock=lambda: 100).run(
+            task=self.task, source=self.source, base_root=self.root, producer=self.producer(worker, cancel),
+            validator=None, cancelled=lambda: cancel.cancelled,
+        )
+        self.assertEqual((result.status, result.failure_code), ('CANCELLED', 'CANCELLED'))
+        self.assertEqual((worker.starts, worker.cancel_calls, worker.closed), (1, 1, True))
+
+    def assert_reopen_denies_dispatch(self, worker):
         signer = Identity(ec.generate_private_key(ec.SECP256R1()))
-        worker = StartAckLostFixture()
 
         def run_factory(task, cancel):
             self.assertEqual(task, self.task)
@@ -418,6 +536,12 @@ class StartAckUnknownTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             after.request(manage, 'start', {'task_id': subsequent.task_id})
         self.assertEqual((worker.starts, worker.cancel_calls, worker.closed), (1, 0, True))
+
+    def test_core_persists_ambiguous_start_and_denies_dispatch_after_reopen(self):
+        self.assert_reopen_denies_dispatch(StartAckLostFixture())
+
+    def test_core_persists_ambiguous_result_and_denies_dispatch_after_reopen(self):
+        self.assert_reopen_denies_dispatch(ReadbackAckLostFixture('result'))
 
     def test_explicit_start_denial_preserves_known_failure(self):
         class DeniedStart(CancellationAckFixture):

@@ -33,3 +33,13 @@ Dla potwierdzonego kontraktu zapisać właściciela, dokładny punkt wejścia, w
 ## Klasyfikacja decyzji
 
 W kolumnie `external_contract_disposition` wszystkie 23 wpisy mają `UNKNOWN`. Dziewięć ról ma odpowiednik Core, dziesięć może wymagać adaptera po potwierdzeniu odbiorcy, trzy są kandydatami do wycofania, a #57 ma nierozstrzygnięty wymagany efekt. Żaden kontrakt zewnętrzny nie uzyskał dowodu `VERIFIED`, `IMPLEMENTATION_REQUIRED` ani `NOT_APPLICABLE_WITH_EVIDENCE`.
+
+## Odczyt dowodów C05 dla #30, #33 i #40
+
+| ID | Potwierdzony zakres Core | Brakujący dowód kontraktu |
+| --- | --- | --- |
+| #30 | Fixed vectors Judge i W7A, identyczne pokwitowanie po restarcie, zero drugiej mutacji i odmowa klucza innego przebiegu. Testy `test_nonzero_parity` oraz `test_nz13_cloudops_contracts`. | Aktualny klient, dokładny import lub endpoint, wersja i zapisany rzeczywisty rekord wraz ze skrótami. |
+| #33 | Wyprowadzenie ADD, MODIFY i DELETE z plików. Odtworzenie tej samej projekcji Core oraz odmowa podmienionego zagnieżdżonego PatchSet. Testy `test_hybrid_patchset` i `test_nz25_coding_receipt_read`. | Próbka komunikatu konsumenta. W7A wiąże osobne UUID, trace i run, a Core wiąże task, session i źródło. |
+| #40 | Kolejność porażka, naprawa, PASS, zachowanie UNKNOWN przy problemie sprzątania i niezmienny odczyt po wznowieniu. Testy `test_hybrid_repair` i `test_nz25_coding_receipt_read`. | Próbka historycznego DTO wraz z identyfikatorem sandboxa, skrótami stdout/stderr i regułami pochodzenia lub podpisu etapu. |
+
+Wszystkie trzy wpisy zachowują `UNKNOWN_EXTERNAL`. Pozytywne wyniki odczytano w obu przebiegach Pythona na dokładnym `main` `8bd2fe14033f1b49609092a353cd7e6fd6b8d3ef`. [CI po #63](https://github.com/luciferprosun/AIOA-spArkHAT/actions/runs/45223650707/attempts/2)
