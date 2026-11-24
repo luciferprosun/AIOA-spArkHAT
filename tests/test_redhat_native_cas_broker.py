@@ -60,9 +60,10 @@ def run_child(root, mode, *args):
     anchor = fd(root)
     try:
         if mode == "verify":
+            expected_core_epoch = spec.get("core_epoch", 5)
             observation = verify(
                 anchor, req, enrolled, now=NOW + (60 if "late" in args else 0),
-                core_epoch=6 if "stale" in args else 5, broker_epoch=7,
+                core_epoch=expected_core_epoch + (1 if "stale" in args else 0), broker_epoch=7,
             )
             settled = False
             if observation.settlement_supported:
@@ -140,7 +141,8 @@ def run_child(root, mode, *args):
             print("READY", flush=True)
             with patch("os.link", link), patch("os.fsync", fsync):
                 serve_once(listener, root_fd=anchor, expected=req, enrollment=enrolled,
-                           identity=identity, core_peer=Peer(**spec["peer"]), core_epoch=5,
+                           identity=identity, core_peer=Peer(**spec["peer"]),
+                           core_epoch=spec.get("core_epoch", 5),
                            broker_epoch=7, clock=lambda: NOW, fault=fault)
     finally:
         os.close(anchor)
