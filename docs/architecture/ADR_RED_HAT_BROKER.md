@@ -29,3 +29,43 @@ The exclusive link is the point of irreversibility. The guard lock serializes ST
 ## Qualification boundary
 
 The fixture test matrix verifies ordering and refusal paths, actual link dispatch count, lost ACK recovery, signed evidence freshness, synthetic single settlement and zero redispatch. It cannot set `NATIVE_FORWARD_PATH_VERIFIED`. RH-03 must integrate a durable Core-derived one-attempt permit and a separate qualified broker while preserving or explicitly obtaining approval for the stronger existing pre-link STOP check. Then independent review must test original Core settlement on a pinned qualified host. Historical Native #69 remains `UNKNOWN / HELD / BLOCKED_SECURITY_REVIEW`.
+
+## RH-03 decision: disabled Core adapter, fixture-only recovery
+
+RH-03 adds `runtime/red_hat/core_adapter.py`. It reads the original intent,
+warrant consumption, reservation, epoch, outbox, owner scope and liability
+through the existing `CoreIntentJournal` and `TransactionRunner`. It binds
+fixture requests to exact physical fixture identities when those values are in
+the authorized fixture operation. Current Native local operation state does
+not durably contain the full repository/ref-directory device/inode tuple, and
+the broker nonce/challenge/permit are not stored in a Core permit record; the
+adapter therefore does not manufacture a production request or release grant.
+`require_production_release()` always fails with
+`BLOCKED_SECURITY_REVIEW`.
+
+The fixture-only recovery method runs the existing RH-02 verifier in a fresh
+Python process, then feeds its evidence through the original Core journal's
+`apply_resolution_in_transaction`. It never accepts a caller-provided
+`Reconciliation`. The test covers ACK loss, a missing witness retaining
+UNKNOWN/HELD, post-revocation historical readback, a request permit that expires
+before recovery, two concurrent initial settlement attempts, repeated
+settlement and zero redispatch. This demonstrates the existing intent-ledger
+settlement primitive with RH-02 evidence in fixture state; it does not traverse
+`CoreServiceGuard`, the Native task state machine or its process-local CAS ACK.
+
+Precise STOP semantics: the existing Core path performs fresh pre-link
+authorization and cancellation checks, but the transaction and checks are not
+held atomically through `os.link`. The fixture `flock` serializes only fixture
+STOP with fixture broker release. No common Core/revocation/broker lock exists.
+Therefore neither path proves linearizable STOP-versus-CAS, and no production
+permit transition is approved by this ADR. The existing Native callback remains
+the reference contract; its cross-process realization is blocked pending a
+reviewed serialization mechanism and owner security approval.
+
+`CoreIntentJournal` settlement is idempotent for an identical reconciliation,
+but current Native task settlement additionally requires the original
+process-local `CoreCodingTasks.cas_ack`, Native route and work handle. RH-03
+does not forge or reconstruct them. The fixture test settles the original
+journal intent only; production Native task state remains UNKNOWN/HELD. Full
+source mapping and the narrow RH-04 proposal are in
+`RED_HAT_RH03_CORE_MAPPING.md` and `RED_HAT_RH03_HANDOFF.md`.

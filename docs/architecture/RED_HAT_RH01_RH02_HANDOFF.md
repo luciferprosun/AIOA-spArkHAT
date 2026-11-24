@@ -3,7 +3,7 @@
 Base: PR #69 commit `8bf94361e8d0fdeabc25007b4faeefd33cc0cf8a`, tree `4b0c991a90c9b86712a04266d8acb73de8f91f46`.
 
 RH-01 commit: `RH-01: authenticated broker contract and executor enrollment`.
-RH-02 commit: pending local verification and commit.
+RH-02 commit: `e5c4c795063af13927e3a7bcb99c338dc03bbc44` (`RH-02: isolated one-attempt CAS broker and verifier`).
 
 Focused command:
 
