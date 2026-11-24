@@ -1,4 +1,5 @@
 """Fixture-only comparison of real publication, acknowledgement and signed custody."""
+import base64
 import hashlib
 import json
 import os
@@ -8,6 +9,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from dataclasses import replace
 from pathlib import Path
 from unittest.mock import patch
 
@@ -15,11 +17,15 @@ if __name__ == "__main__":
     checkout = Path(__file__).resolve().parents[1]
     sys.path[:0] = [str(checkout), str(checkout / "tests")]
 
+from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import ec
 
 from runtime.memory_patch.contracts.serialization import canonical_json_bytes
 from runtime.mission.sandbox_linux import LinuxSandboxBroker
 from runtime.mobile_gateway.wire import Identity, MobileError, verify
+from runtime.red_hat.witness import (
+    RegisteredExecutor, WitnessBinding, persist_witness, verify_witness, witness_payload,
+)
 from test_nz25_intent_cold_read import git
 
 REF = "refs/heads/fixture-publication"
@@ -98,6 +104,23 @@ def observed(envelope, expected, trusted_spki, *, published_inode=None):
     return True
 
 
+def sign_candidate(signer, payload):
+    signature = signer.key.sign(canonical_json_bytes(payload), ec.ECDSA(hashes.SHA256()))
+    return base64.b64encode(signature).decode("ascii")
+
+
+def candidate_binding(expected, executor):
+    return WitnessBinding(
+        executor=executor.executor, key_id=executor.key_id, nonce=expected["invocation"],
+        start_digest=expected["start"], intent_digest=expected["intent"],
+        warrant_digest=expected["warrant"], reservation_digest=expected["reservation"],
+        epoch=1, repository=tuple(expected["repository"]),
+        ref_directory=tuple(expected["ref_directory"]), ref=expected["ref"],
+        old_oid=expected["old_oid"], new_oid=expected["new_oid"],
+        issued_at=100, expires_at=200,
+    )
+
+
 def broker(root, scenario, expected):
     signer = new_identity()
     print(signer.spki, flush=True)
@@ -135,6 +158,18 @@ def broker(root, scenario, expected):
         )]
         payload = {**expected, "published_inode": publication[0]}
         receipt_write(root, {"payload": payload, "signature": signer.sign(payload)})
+        executor = RegisteredExecutor("fixture-executor", os.geteuid(), signer.spki)
+        binding = candidate_binding(expected, executor)
+        published_inode = tuple(publication[0])
+        candidate = witness_payload(binding, published_inode=published_inode, published_at=123)
+        witness_directory = directory(root)
+        try:
+            persist_witness(
+                witness_directory, binding, executor, signature=sign_candidate(signer, candidate),
+                published_inode=published_inode, published_at=123,
+            )
+        finally:
+            os.close(witness_directory)
         if scenario == "lost-after-witness":
             os._exit(76)
         print("ACK", flush=True)
@@ -145,13 +180,17 @@ def broker(root, scenario, expected):
 def readback(root, expected, trusted_spki):
     repo = root / "repo.git"
     ref_path = repo / REF
-    if inode(repo.stat()) != expected["repository"]:
-        return False
-    if inode(ref_path.parent.stat()) != expected["ref_directory"]:
-        return False
-    return observed(
-        receipt_read(root), expected, trusted_spki, published_inode=inode(ref_path.lstat())
-    )
+    executor = RegisteredExecutor("fixture-executor", os.geteuid(), trusted_spki)
+    witness_directory = directory(root)
+    try:
+        return verify_witness(
+            witness_directory, candidate_binding(expected, executor), executor,
+            repository=tuple(inode(repo.stat())),
+            ref_directory=tuple(inode(ref_path.parent.stat())),
+            published_inode=tuple(inode(ref_path.lstat())),
+        )
+    finally:
+        os.close(witness_directory)
 
 
 def compare(root, scenario):
@@ -208,6 +247,7 @@ def compare(root, scenario):
         return observed(candidate, bindings, key, published_inode=published_inode)
 
     assert verify_observation(envelope) is valid
+    assert readback(root, expected, trusted_spki) is valid
     if scenario == "lost-after-witness":
         readback_process = subprocess.run(
             [sys.executable, "-I", "-B", __file__, "readback", str(root),
@@ -238,6 +278,7 @@ def compare(root, scenario):
         replacement.write_bytes(ref_path.read_bytes())
         replacement.replace(ref_path)
         assert git(repo, "rev-parse", "--verify", REF) == commit
+        assert not readback(root, expected, trusted_spki)
         assert not observed(
             envelope, expected, trusted_spki, published_inode=inode(ref_path.lstat())
         )
@@ -256,6 +297,97 @@ class NativeWitnessCustodyFixtureTests(unittest.TestCase):
                     result = compare(Path(scratch) / scenario, scenario)
                     self.assertEqual(scenario != "lost-before-cas", result["ref_matches"])
                     self.assertEqual(verified, result["witness_verified"])
+
+
+class NativeWitnessContractTests(unittest.TestCase):
+    def setUp(self):
+        scratch = self.enterContext(tempfile.TemporaryDirectory())
+        self.root = Path(scratch)
+        self.directory_fd = directory(self.root)
+        self.addCleanup(os.close, self.directory_fd)
+        self.signer = new_identity()
+        self.executor = RegisteredExecutor("fixture-executor", os.geteuid(), self.signer.spki)
+        self.binding = WitnessBinding(
+            executor=self.executor.executor, key_id=self.executor.key_id,
+            nonce=digest(b"nonce"), start_digest=digest(b"START"), intent_digest=digest(b"intent"),
+            warrant_digest=digest(b"warrant"), reservation_digest=digest(b"reservation"),
+            epoch=1, repository=(1, 2), ref_directory=(1, 3), ref=REF,
+            old_oid="0" * 40, new_oid="1" * 40, issued_at=100, expires_at=200,
+        )
+        self.inode = (1, 4)
+
+    def persist(self, *, published_at=123, published_inode=None):
+        published_inode = self.inode if published_inode is None else published_inode
+        payload = witness_payload(
+            self.binding, published_inode=published_inode, published_at=published_at
+        )
+        persist_witness(
+            self.directory_fd, self.binding, self.executor, signature=sign_candidate(self.signer, payload),
+            published_inode=published_inode, published_at=published_at,
+        )
+
+    def verify(self, *, binding=None, executor=None, **changes):
+        observation = {
+            "repository": self.binding.repository,
+            "ref_directory": self.binding.ref_directory,
+            "published_inode": self.inode,
+        }
+        return verify_witness(
+            self.directory_fd, binding or self.binding, executor or self.executor,
+            **{**observation, **changes},
+        )
+
+    def test_create_only_witness_and_exact_readback(self):
+        self.assertFalse(self.verify())
+        self.persist()
+        self.assertTrue(self.verify())
+        witness = self.root / self.binding.witness_id
+        original = witness.read_bytes()
+        for inode_override in (self.inode, (1, 5)):
+            with self.subTest(inode=inode_override), self.assertRaises(FileExistsError):
+                self.persist(published_inode=inode_override)
+        self.assertEqual(original, witness.read_bytes())
+
+    def test_changed_bindings_observations_and_registered_key_are_rejected(self):
+        self.persist()
+        raw = (self.root / self.binding.witness_id).read_bytes()
+        for field in ("nonce", "start_digest", "intent_digest", "warrant_digest", "reservation_digest"):
+            other = replace(self.binding, **{field: digest(b"substitution")})
+            with self.subTest(field=field):
+                candidate = self.root / other.witness_id
+                candidate.write_bytes(raw)
+                candidate.chmod(0o400)
+                self.assertFalse(self.verify(binding=other))
+        stale = replace(self.binding, epoch=self.binding.epoch + 1)
+        (self.root / stale.witness_id).write_bytes(raw)
+        (self.root / stale.witness_id).chmod(0o400)
+        self.assertFalse(self.verify(binding=stale))
+        for field in ("repository", "ref_directory", "published_inode"):
+            with self.subTest(field=field):
+                self.assertFalse(self.verify(**{field: (1, 5)}))
+        self.assertFalse(self.verify(executor=replace(self.executor, spki=new_identity().spki)))
+        self.assertFalse(self.verify(executor=replace(self.executor, executor="foreign-executor")))
+
+    def test_expiry_corruption_truncation_and_symlink_fail_closed(self):
+        with self.assertRaisesRegex(ValueError, "CAS_WITNESS_PUBLICATION"):
+            self.persist(published_at=self.binding.expires_at)
+        self.assertFalse(self.verify())
+        self.persist()
+        witness = self.root / self.binding.witness_id
+        raw = witness.read_bytes()
+        envelope = json.loads(raw)
+        envelope["signature"] = sign_candidate(new_identity(), envelope["payload"])
+        for corrupt in (raw[:len(raw) // 2], canonical_json_bytes(envelope)):
+            witness.chmod(0o600)
+            witness.write_bytes(corrupt)
+            witness.chmod(0o400)
+            self.assertFalse(self.verify())
+        witness.unlink()
+        target = self.root / "foreign"
+        target.write_bytes(raw)
+        target.chmod(0o400)
+        witness.symlink_to(target)
+        self.assertFalse(self.verify())
 
 
 if __name__ == "__main__":
