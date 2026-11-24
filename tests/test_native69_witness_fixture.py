@@ -78,7 +78,7 @@ def receipt_read(path):
         os.close(parent)
 
 
-def observed(envelope, expected, trusted_spki):
+def observed(envelope, expected, trusted_spki, *, published_inode=None):
     if envelope is None or set(envelope) != {"payload", "signature"}:
         return False
     payload = envelope["payload"]
@@ -88,6 +88,8 @@ def observed(envelope, expected, trusted_spki):
     if len(payload["published_inode"]) != 2 or not all(
         type(value) is int and value > 0 for value in payload["published_inode"]
     ):
+        return False
+    if payload["published_inode"] != published_inode:
         return False
     try:
         verify(trusted_spki, envelope["signature"], payload)
@@ -100,6 +102,8 @@ def broker(root, scenario, expected):
     signer = new_identity()
     print(signer.spki, flush=True)
     assert sys.stdin.read(1) == "Y"
+    if scenario == "lost-before-cas":
+        os._exit(74)
     repo = root / "repo.git"
     parent = directory(repo / "refs/heads")
     try:
@@ -138,6 +142,18 @@ def broker(root, scenario, expected):
         os.close(parent)
 
 
+def readback(root, expected, trusted_spki):
+    repo = root / "repo.git"
+    ref_path = repo / REF
+    if inode(repo.stat()) != expected["repository"]:
+        return False
+    if inode(ref_path.parent.stat()) != expected["ref_directory"]:
+        return False
+    return observed(
+        receipt_read(root), expected, trusted_spki, published_inode=inode(ref_path.lstat())
+    )
+
+
 def compare(root, scenario):
     root.mkdir(mode=0o700)
     repo = root / "repo.git"
@@ -148,7 +164,7 @@ def compare(root, scenario):
         "schema": SCHEMA, "authority": "NONE", "stage": "EXCLUSIVE_LINK_AND_DIRECTORY_FSYNC",
         "invocation": os.urandom(32).hex(), "operation": digest(b"fixture operation"),
         "warrant": digest(b"fixture warrant"), "reservation": digest(b"fixture reservation"),
-        "intent": digest(b"fixture durable START"),
+        "start": digest(b"fixture durable START"), "intent": digest(b"fixture intent"),
         "repository": inode(repo.stat()), "ref_directory": inode((repo / "refs/heads").stat()),
         "ref": REF, "old_oid": "0" * 40, "new_oid": commit,
     }
@@ -176,21 +192,55 @@ def compare(root, scenario):
                 child.communicate(timeout=5)
     assert not stderr, stderr
     assert result == {
-        "known-success": (0, "ACK"), "lost-after-witness": (76, ""),
+        "lost-before-cas": (74, ""), "known-success": (0, "ACK"), "lost-after-witness": (76, ""),
         "lost-before-witness": (75, ""), "foreign-same-oid": (0, "CONFLICT"),
     }[scenario], result
+    ref_path = repo / REF
+    if scenario == "lost-before-cas":
+        assert not ref_path.exists()
+        assert receipt_read(root) is None
+        return {"ref_matches": False, "witness_verified": False}
     assert git(repo, "rev-parse", "--verify", REF) == commit
+    published_inode = inode(ref_path.lstat())
     envelope = receipt_read(root)
     valid = scenario in {"known-success", "lost-after-witness"}
-    assert observed(envelope, expected, trusted_spki) is valid
+    def verify_observation(candidate, bindings=expected, key=trusted_spki):
+        return observed(candidate, bindings, key, published_inode=published_inode)
+
+    assert verify_observation(envelope) is valid
+    if scenario == "lost-after-witness":
+        readback_process = subprocess.run(
+            [sys.executable, "-I", "-B", __file__, "readback", str(root),
+             json.dumps(expected), trusted_spki],
+            capture_output=True, text=True, timeout=15,
+        )
+        assert readback_process.returncode == 0, readback_process.stderr
+        assert readback_process.stdout.strip() == "VERIFIED_FIXTURE"
     if valid:
-        for field in ("operation", "warrant", "reservation", "intent", "ref", "new_oid", "invocation"):
-            assert not observed(envelope, {**expected, field: "mismatch"}, trusted_spki), field
-        assert not observed(envelope, {**expected, "repository": [1, 2]}, trusted_spki)
-        assert not observed(envelope, expected, new_identity().spki)
+        for field in ("operation", "warrant", "reservation", "start", "intent", "ref", "old_oid", "new_oid", "invocation"):
+            assert not verify_observation(envelope, {**expected, field: "mismatch"}), field
+        for field in ("repository", "ref_directory"):
+            assert not verify_observation(envelope, {**expected, field: [1, 2]})
+        assert not verify_observation(envelope, key=new_identity().spki)
         altered = {"payload": {**envelope["payload"], "published_inode": [1, 2]},
                    "signature": envelope["signature"]}
-        assert not observed(altered, expected, trusted_spki)
+        assert not verify_observation(altered)
+        # Verify the signature even when the caller's inode observation agrees
+        # with the tampered payload.
+        assert not observed(altered, expected, trusted_spki, published_inode=[1, 2])
+
+        for duplicate in (envelope, altered):
+            with unittest.TestCase().assertRaises(FileExistsError):
+                receipt_write(root, duplicate)
+            assert receipt_read(root) == envelope
+
+        replacement = ref_path.with_suffix(".replacement")
+        replacement.write_bytes(ref_path.read_bytes())
+        replacement.replace(ref_path)
+        assert git(repo, "rev-parse", "--verify", REF) == commit
+        assert not observed(
+            envelope, expected, trusted_spki, published_inode=inode(ref_path.lstat())
+        )
     return {"ref_matches": True, "witness_verified": valid, "process_status": result[0], "ack": result[1]}
 
 
@@ -198,18 +248,22 @@ class NativeWitnessCustodyFixtureTests(unittest.TestCase):
     def test_same_ref_state_only_accepts_a_durable_witness_from_enrolled_broker(self):
         expected = {
             "known-success": True, "lost-after-witness": True, "lost-before-witness": False,
-            "foreign-same-oid": False, "older-unknown": False,
+            "lost-before-cas": False, "foreign-same-oid": False, "older-unknown": False,
         }
         with tempfile.TemporaryDirectory(prefix="native69-custody-artifacts-") as scratch:
             for scenario, verified in expected.items():
                 with self.subTest(scenario=scenario):
                     result = compare(Path(scratch) / scenario, scenario)
-                    self.assertTrue(result["ref_matches"])
+                    self.assertEqual(scenario != "lost-before-cas", result["ref_matches"])
                     self.assertEqual(verified, result["witness_verified"])
 
 
 if __name__ == "__main__":
     if len(sys.argv) == 5 and sys.argv[1] == "broker":
         broker(Path(sys.argv[2]), sys.argv[3], json.loads(sys.argv[4]))
+    elif len(sys.argv) == 5 and sys.argv[1] == "readback":
+        if not readback(Path(sys.argv[2]), json.loads(sys.argv[3]), sys.argv[4]):
+            sys.exit(1)
+        print("VERIFIED_FIXTURE")
     else:
         unittest.main()
