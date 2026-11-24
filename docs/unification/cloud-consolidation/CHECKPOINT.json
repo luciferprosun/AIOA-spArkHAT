@@ -120,6 +120,12 @@
     "CORE_EQUIVALENT_LEGACY_AUTHORITY_RETIRED": 2,
     "SECURITY_BLOCKED": 1
   },
+  "red_hat_v0_1": {
+    "base_sha": "9d8b61c6dce9cccbf32ce8dfc2dc87682567dd9c",
+    "base_tree": "b1f7dc87ad15e7faf4e7b0cc0e56cdb3e2588a81",
+    "integration": "BLOCKED_SECURITY_REVIEW",
+    "evidence": "RED_HAT_NATIVE_WITNESS.md"
+  },
   "native_forward": "BLOCKED_HOST / BLOCKED_SECURITY_REVIEW",
   "native_historical": "UNKNOWN_CUSTODY_NOT_ATTESTED",
   "independent_security_review": "PR63_SCOPED_AGENT_REVIEW_WITH_OWNER_WAIVER",
