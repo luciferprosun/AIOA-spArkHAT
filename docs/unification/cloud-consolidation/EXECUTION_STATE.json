@@ -22,7 +22,8 @@
     59,
     60,
     61,
-    62
+    62,
+    63
   ],
   "latest_test_change": "5cfe72a72176252715104e6e4bde75d387d77611",
   "performed_new_rerun": false,
@@ -36,9 +37,9 @@
   "matrix_local_evidence_transferred": false,
   "owner_handoff_reported_core_role_mappings": 42,
   "legacy_secondary_backup": "BLOCKED_BACKUP",
-  "main_commit": "f2179eb0e6bb4bfd1c5d53ff4353eeb22fb1a78c",
-  "main_tree": "f4155563badd40d647896747ad6daedfe861a5d0",
-  "linux_mint_sync": "OFFLINE_OWNER_REPORTED_PR59_POST60_FAST_FORWARD_PENDING",
+  "main_commit": "8bd2fe14033f1b49609092a353cd7e6fd6b8d3ef",
+  "main_tree": "56709b77f066df0567a9f3c4bdbd8182dd6bc38e",
+  "linux_mint_sync": "OWNER_REPORTED_PR59_PR63_FAST_FORWARD_PENDING",
   "native_cloud_host": "BLOCKED_HOST",
   "legacy_retirement": "HOLD",
   "production_runtime_files_changed_by_prior_candidate": 4,
@@ -49,5 +50,5 @@
   "native_forward": "BLOCKED_HOST / BLOCKED_SECURITY_REVIEW",
   "native_historical": "UNKNOWN_CUSTODY_NOT_ATTESTED",
   "remaining_open_rows": 31,
-  "independent_security_review": "PENDING_NATALIA"
+  "independent_security_review": "PR63_SCOPED_AGENT_REVIEW_WITH_OWNER_WAIVER"
 }

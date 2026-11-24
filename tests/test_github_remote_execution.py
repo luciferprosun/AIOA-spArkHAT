@@ -11,6 +11,18 @@ from runtime.mcp_bridge.github_remote import InstallationCredential, PREFIX
 from runtime.providers.exact import CancellationToken
 
 
+def base_with_workflow():
+    blob = git_object('blob', b'name: Existing workflow\n')
+    workflows = git_object('tree', b'100644 check.yml\0' + bytes.fromhex(blob))
+    github = git_object('tree', b'40000 workflows\0' + bytes.fromhex(workflows))
+    root = git_object('tree', b'40000 .github\0' + bytes.fromhex(github))
+    return GitTreeSnapshot(root, {
+        '.github': ('040000', 'tree', github),
+        '.github/workflows': ('040000', 'tree', workflows),
+        '.github/workflows/check.yml': ('100644', 'blob', blob),
+    })
+
+
 class RemoteExecutionTests(unittest.TestCase):
     def setUp(self):
         self.base=GitTreeSnapshot(git_object('tree',b''),{})
@@ -119,16 +131,8 @@ class RemoteExecutionTests(unittest.TestCase):
                 self.assertTrue(all(method == "GET" for method, _, _ in self.calls[calls_before:]))
 
     def test_workflow_in_pinned_base_blocks_execution_before_any_post(self):
-        blob = git_object('blob', b'name: Existing workflow\n')
-        workflows = git_object('tree', b'100644 check.yml\0' + bytes.fromhex(blob))
-        github = git_object('tree', b'40000 workflows\0' + bytes.fromhex(workflows))
-        root = git_object('tree', b'40000 .github\0' + bytes.fromhex(github))
-        self.base = GitTreeSnapshot(root, {
-            '.github': ('040000', 'tree', github),
-            '.github/workflows': ('040000', 'tree', workflows),
-            '.github/workflows/check.yml': ('100644', 'blob', blob),
-        })
-        self.plan = replace(self.plan, files=dict(self.plan.files), base_tree_sha=root)
+        self.base = base_with_workflow()
+        self.plan = replace(self.plan, files=dict(self.plan.files), base_tree_sha=self.base.sha)
         self.tree = self.base.add_files(self.plan.files)
         self.commit = self.plan.commit_sha_for_tree(self.tree.sha)
 

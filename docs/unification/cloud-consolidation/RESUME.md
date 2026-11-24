@@ -1,5 +1,18 @@
 # Wznowienie konsolidacji
 
+## Bieżący checkpoint
+
+Po #63 odczytaj chroniony `main`, `CHECKPOINT.json` i stan gałęzi `codex/nonzero-post63-offline`. Zweryfikowana baza to `8bd2fe14033f1b49609092a353cd7e6fd6b8d3ef`, drzewo `56709b77f066df0567a9f3c4bdbd8182dd6bc38e`. Przebiegi i zakres recenzji dla #63 są trwałą częścią GitHuba.
+
+```sh
+git fetch origin main
+git rev-parse origin/main 'origin/main^{tree}'
+gh pr view 63 -R luciferprosun/AIOA-spArkHAT --json state,mergeCommit,mergedAt
+gh run view 45223650707 -R luciferprosun/AIOA-spArkHAT --json status,conclusion,headSha,jobs
+```
+
+[Checkpoint](CHECKPOINT.json) · [Linux Mint](LINUX_SYNC_HANDOFF.md) · [Odbiór Native](NATIVE69_FINAL_ACCEPTANCE.md)
+
 Użyj tej samej rozmowy Cloud. Odczytaj aktualny `main`, gałąź `codex/nonzero-post59-evidence` oraz `CHECKPOINT.json`, `TASK_QUEUE.json` i `TEST_RESULTS.json`. PR-y #58 i #59 są scalone. Punktem odniesienia po #59 jest commit `914c9b1bf4dc7bf6ff14687d91560d9bcef1a5f6` i drzewo `f4238a014e210e46863a4f6e7abadc40bf71fa61`. Dalsze poprawki i izolowane fixture są opisane w [POST59_OFFLINE](POST59_OFFLINE.md). [CI po scaleniu #59](https://github.com/luciferprosun/AIOA-spArkHAT/actions/runs/45107463038)
 
 - Pierwotny baseline zakończył próbę 2 run `45045595617` sukcesem. Wyniki po scaleniu są przypięte do aktualnego SHA w checkpointcie i opisie PR-u. [CI po scaleniu](https://github.com/luciferprosun/AIOA-spArkHAT/actions/runs/45083830703)

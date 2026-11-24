@@ -1,5 +1,19 @@
 # Konsolidacja AIOA spArkHAT × NonZero
 
+## Stan po #63
+
+Chroniony `main` wskazuje `8bd2fe14033f1b49609092a353cd7e6fd6b8d3ef`, drzewo `56709b77f066df0567a9f3c4bdbd8182dd6bc38e`. PR-y #51–#63 są scalone. Zakres recenzji trzech niezależnych agentów i decyzję właściciela o Natalii zapisano w #63. Do pełnej kwalifikacji Native nadal wymagany jest host. Historyczne UNKNOWN i HELD pozostają z zakazem replay. [PR #63](https://github.com/luciferprosun/AIOA-spArkHAT/pull/63) · [Core CI po scaleniu](https://github.com/luciferprosun/AIOA-spArkHAT/actions/runs/45223650707) · [MCP](https://github.com/luciferprosun/AIOA-spArkHAT/actions/runs/45223705533) · [CodeQL](https://github.com/luciferprosun/AIOA-spArkHAT/actions/runs/45223650071)
+
+| Odbiór | Stan |
+| --- | --- |
+| Scalone poprawki do #63 | `SOURCE_MERGED` |
+| 69 funkcji | 38 rozliczonych w ustalonym zakresie, 7 częściowych, 1 blokada Native, 23 kontrakty nieznane |
+| `FUNCTIONAL_PARITY_VERIFIED` | `PARITY_OPEN`, LIVE 0/4 |
+| `LEGACY_RETIREMENT_APPROVED` | `HOLD`, odtworzono jeden bundle z 13 refami, druga kopia niedostępna i bieżący Render pozostaje UNKNOWN |
+| Linux Mint | Ostatnie potwierdzenie operatora po #59, następny krok w przypiętym handoffie |
+
+[Macierz](PARITY69_UPDATED.csv) · [Linux Mint](LINUX_SYNC_HANDOFF.md) · [Warunki LIVE](LIVE_QUALIFICATION.json) · [Warunki wycofania](NONZERO_RETIREMENT_GATE.md)
+
 **Status `PARITY_OPEN`.** Kod i testy działają w jednym AIOA Core. Konsolidacja nie osiągnęła `FULL_PARITY`.
 
 ## Odbiór po #61

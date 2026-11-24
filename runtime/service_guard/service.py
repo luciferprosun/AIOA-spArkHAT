@@ -39,10 +39,13 @@ class CoreServiceGuard:
     def dispatch_registered_remote_git(route,principal,warrant,operation,reservation,*,cancel):
         """Same-Core, USD0 remote START; no credential/effect before its ACK."""
         from runtime.mission.git_publish import CoreRemoteGitRoute
-        from runtime.mission.warrant import require
+        from runtime.mission.warrant import WarrantError, require
         require(type(route) is CoreRemoteGitRoute,'GITHUB_REGISTERED_ROUTE_REQUIRED')
         route.core.require(principal,Capability.COMMIT,scope=route.scope)
         local_patch=route.mode=='LOCAL_PATCH_FIXTURE'
+        if not local_patch:
+            from runtime.mcp_bridge.github_remote import _require_workflow_free_base
+
         with route.target_guard():
             route.check();require(not cancel.cancelled,'GITHUB_STOPPED')
             prepared_plan = route.plan if local_patch and getattr(route, 'native_access', None) is not None else None
@@ -55,6 +58,14 @@ class CoreServiceGuard:
                     if prepared_plan is None:route.validate(tx,warrant,operation)
                     else:route.validate(tx,warrant,operation,
                         _prepared_plan=prepared_plan,_prepared_plan_digest=prepared_digest)
+                    if not local_patch:
+                        # These checks use only the pinned plan and tree. A local
+                        # policy refusal needs no effect intent or credential.
+                        try:
+                            route.plan.require_public_content()
+                            _require_workflow_free_base(route.base)
+                        except ValueError as denial:
+                            raise WarrantError(str(denial)) from None
                 require(reservation.money_nano==0 and reservation.risk_units==1,'GITHUB_RESOURCE_BINDING')
                 return route.journal._start_in_transaction(tx,warrant,operation,reservation,
                     local_zero=local_patch,remote_zero=not local_patch)

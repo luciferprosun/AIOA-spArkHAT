@@ -29,6 +29,8 @@ class CoreRemoteGitTests(unittest.TestCase):
             Capability.READ,lambda tx:any(r.payload.get('state')=='GITHUB_STEP_UNKNOWN'
                 for r in tx.scan(RecordKind.OPERATION,limit=1024))))
         self.identity=Identity(ec.generate_private_key(ec.SECP256R1()));self.factories=0
+
+    def approve_plan(self):
         from runtime.mission.git_publish import CoreRemoteGitRoute
         self.route=CoreRemoteGitRoute(self.fx.journal,plan=self.protocol.plan,base=self.protocol.base,
             identity=self.identity,api_factory=self.factory,check=self.protocol.check,
@@ -53,7 +55,59 @@ class CoreRemoteGitTests(unittest.TestCase):
         return self.route.dispatch(self.fx.p(),self.fx.warrant,self.fx.operation,self.fx.request,
                                    cancel=self.protocol.cancel)
 
+    def assert_denied_before_start(self, error_code):
+        self.approve_plan()
+        reader = self.fx.p(Capability.READ)
+        before = self.fx.gov.inspect(reader)
+        with self.assertRaisesRegex(ValueError, f'^{error_code}$'):
+            self.dispatch()
+        self.assertEqual(0, self.factories)
+        self.assertEqual([], self.protocol.calls)
+        self.assertEqual(before, self.fx.gov.inspect(reader))
+        self.assertIsNone(self.fx.ledger.inspect(reader, self.fx.warrant))
+        with self.assertRaisesRegex(ValueError, '^INTENT_REQUIRED$'):
+            self.fx.inspect()
+        self.assertIsNone(self.fx.journal._run(
+            reader, Capability.READ,
+            lambda tx: tx.get(RecordKind.OPERATION, 'github-auth-' + self.protocol.plan.operation_id),
+        ))
+
+    def test_retained_sensitive_plan_is_denied_before_start_and_credential_factory(self):
+        self.protocol.plan = replace(
+            self.protocol.plan, files=dict(self.protocol.plan.files), body='ghp_' + 'A' * 36,
+        )
+        self.assert_denied_before_start('GITHUB_PROPOSAL_SENSITIVE_CONTENT')
+
+    def test_workflow_in_retained_base_is_denied_before_start_and_credential_factory(self):
+        self.protocol.base = protocol.base_with_workflow()
+        self.protocol.plan = replace(
+            self.protocol.plan,
+            files=dict(self.protocol.plan.files),
+            base_tree_sha=self.protocol.base.sha,
+        )
+        self.assert_denied_before_start('GITHUB_EXISTING_WORKFLOWS_REVIEW_REQUIRED')
+
+    def test_retained_sensitive_plan_with_existing_intent_is_still_read_only(self):
+        self.protocol.plan = replace(
+            self.protocol.plan, files=dict(self.protocol.plan.files), body='ghp_' + 'A' * 36,
+        )
+        self.approve_plan()
+        original = self.fx.journal.start_remote_zero(
+            self.fx.p(), self.fx.warrant, self.fx.operation, self.fx.request,
+        )
+        self.assertTrue(original['remote_step_now'])
+        before = self.fx.gov.inspect(self.fx.p(Capability.READ))
+        retained = self.dispatch()
+        self.assertFalse(retained['remote_step_now'])
+        self.assertFalse(retained['grants_replay'])
+        self.assertEqual(original['outcome'], retained['outcome'])
+        self.assertEqual(retained['outcome'], self.fx.inspect()['outcome'])
+        self.assertEqual(before, self.fx.gov.inspect(self.fx.p(Capability.READ)))
+        self.assertEqual(0, self.factories)
+        self.assertEqual([], self.protocol.calls)
+
     def test_signed_durable_receipt_and_existing_outbox_after_independent_get(self):
+        self.approve_plan()
         result=self.dispatch()
         self.assertEqual('Applied',result['outcome']['contract_type'])
         stored=self.route.result(self.fx.p(Capability.READ))
@@ -72,6 +126,7 @@ class CoreRemoteGitTests(unittest.TestCase):
         self.assertEqual(before,len(self.protocol.calls));self.assertEqual(1,self.factories)
 
     def test_existing_unknown_blocks_before_credential_factory_or_any_network(self):
+        self.approve_plan()
         p=self.fx.p();old=ReservationRequest('prior-unknown','old-task','fixture',self.fx.request.model_id,'a'*64,1,1)
         self.fx.gov.reserve(p,old,1);self.fx.gov.dispatch_commit(p,old.request_id,1)
         self.fx.gov.mark_unknown(p,old.request_id,1,'b'*64)
@@ -81,6 +136,7 @@ class CoreRemoteGitTests(unittest.TestCase):
         self.assertEqual(before,self.fx.gov.inspect(self.fx.p(Capability.READ)))
 
     def test_lost_pr_ack_leaves_unknown_and_explicit_get_reconciliation_never_replays(self):
+        self.approve_plan()
         self.protocol.fail='/repos/'+DEMO_REPOSITORY+'/pulls'
         with self.assertRaisesRegex(ValueError,'GITHUB_WRITE_UNKNOWN_NO_RETRY'):self.dispatch()
         self.assertEqual('Unknown',self.fx.inspect()['outcome']['contract_type'])
@@ -92,6 +148,7 @@ class CoreRemoteGitTests(unittest.TestCase):
         self.assertFalse(self.dispatch()['remote_step_now'])
 
     def test_revoked_owner_warrant_prevents_factory_and_all_io(self):
+        self.approve_plan()
         self.fx.ledger.revoke(self.fx.p(Capability.OWNER_APPROVAL),self.fx.warrant)
         with self.assertRaisesRegex(ValueError,'WARRANT_REVOKED'):self.dispatch()
         self.assertEqual(0,self.factories);self.assertEqual([],self.protocol.calls)

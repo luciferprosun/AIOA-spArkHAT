@@ -21,6 +21,7 @@ from runtime.mission.contracts import bounded_int, logical_id
 from runtime.mission.patchset import BoundedPatchSetPolicy, PatchSet, SourceIdentity
 from runtime.mission.worker import (
     Task,
+    WorkerError,
     WorkerFailure,
     WorkerOutcomeUnknown,
     WorkerResult,
@@ -597,16 +598,24 @@ class SandboxedCandidateProducer:
             self.session, self._starting = None, True
         try:
             session = self.worker.start(self.task)
-            require(
+            if not (
                 type(session) is WorkerSession
                 and session.task_digest == self.task.digest
                 and session.task_id == self.task.task_id
-                and session.run_id == self.task.run_id,
-                "WORKER_CONTEXT",
+                and session.run_id == self.task.run_id
+            ):
+                raise WorkerOutcomeUnknown()
+        except BaseException as error:
+            # A typed, definite denial from start is distinct from an
+            # unacknowledged dispatch. Neither supplies a handle to cancel.
+            unknown = isinstance(error, Exception) and (
+                isinstance(error, WorkerOutcomeUnknown) or not isinstance(error, WorkerError)
             )
-        except BaseException:
             with self._cancel_lock:
                 self._starting = False
+                self._cancel_unknown = self._cancel_unknown or unknown
+            if unknown:
+                raise WorkerOutcomeUnknown() from None
             raise
         with self._cancel_lock:
             self.session, self._starting = session, False

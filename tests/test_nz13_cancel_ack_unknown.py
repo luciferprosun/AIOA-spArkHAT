@@ -2,17 +2,33 @@
 import threading
 import unittest
 from dataclasses import asdict, replace
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
+from cryptography.hazmat.primitives.asymmetric import ec
+
+import q09_support
+import test_nz11_general_recipe as recipe_support
 import test_nz13_worker_unknown as support
 
 from runtime.core_admission import Capability
 from runtime.mission import coding_tasks, repair
+from runtime.mission.git_publish import GitSourceSnapshot
+from runtime.mission.patch_capsule import CorePatchCapsules
+from runtime.mission.patchset import SourceIdentity
+from runtime.mission.repair_validation import (
+    CoreRepositoryMaterializer,
+    CoreSandboxValidation,
+)
 from runtime.mission.worker import (
     CandidateFile,
     CandidatePatch,
+    Task,
+    WorkerError,
     WorkerMailbox,
     WorkerOutcomeUnknown,
 )
+from runtime.mobile_gateway.wire import Identity
 from runtime.providers.exact import CancellationToken
 
 
@@ -44,6 +60,12 @@ class CancellationAckFixture(support.UncertainFixtureWorker):
             raise OSError('FIXTURE_CANCEL_ACK_LOST')
         # A blind second send would hide the uncertainty of the first one.
         self.box.fail(session, 'CANCELLED')
+
+
+class StartAckLostFixture(CancellationAckFixture):
+    def start(self, task):
+        super().start(task)
+        raise OSError('FIXTURE_START_ACK_LOST')
 
 
 class BlockingCancellationAckFixture(CancellationAckFixture):
@@ -279,6 +301,135 @@ class CancellationAckUnknownTests(unittest.TestCase):
             two.request(manager, 'start', {'task_id': other.task_id})
         self.assertEqual(len(workers), 1)
         self.assertEqual(worker.cancel_calls, 1)
+
+
+class StartAckUnknownTests(unittest.TestCase):
+    def setUp(self):
+        temporary = TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        self.root = Path(temporary.name)
+        self.fixture = q09_support.Fixture(self.root / 'core.json')
+        self.addCleanup(self.fixture.close)
+        recipe = recipe_support.GeneralRecipeTests()
+        recipe.setUp()
+        self.addCleanup(recipe.doCleanups)
+        self.profile = recipe.profile()
+        self.snapshot = GitSourceSnapshot(
+            self.profile.repository_id, 'workspace-1', self.profile.source_base_sha,
+            'b' * 40, (('src/textutil.py', b'def slug(value): return value\n'),),
+        )
+        self.source = SourceIdentity(
+            self.profile.repository_id, 'workspace-1', self.profile.source_base_sha,
+            self.snapshot.export_tree_sha256,
+        )
+        self.task = Task(
+            'test-start-ack', 'start-ack-run', self.source.workspace_id,
+            self.source.repository_id, self.source.source_base_sha, 'Normalize text.', 200,
+        )
+
+    def producer(self, worker, cancel=None):
+        materializer = CoreRepositoryMaterializer(
+            self.fixture.journal, self.fail, profile=self.profile, source_snapshot=self.snapshot,
+            source_repository=self.root / 'git-fixture', base_root=self.root,
+            output_root=self.root / 'output', cancel=cancel,
+        )
+        return repair.SandboxedCandidateProducer(
+            self.task, worker, materializer, cancel=cancel, clock=lambda: 100,
+        )
+
+    def run_loop(self, worker, cancel=None):
+        producer = self.producer(worker, cancel)
+        result = repair.BoundedRepairLoopCoordinator(clock=lambda: 100).run(
+            task=self.task, source=self.source, base_root=self.root, producer=producer,
+            validator=None, cancelled=(lambda: cancel.cancelled) if cancel is not None else None,
+        )
+        self.assertEqual((result.status, result.failure_code), ('UNKNOWN', 'WORKER_OUTCOME_UNKNOWN'))
+        self.assertIsNone(result.final_patchset)
+        self.assertEqual(result.attempts, ())
+        self.assertEqual(worker.cancel_calls, 0)
+        self.assertTrue(worker.closed)
+        self.assertFalse((self.root / 'output').exists())
+        with self.assertRaises(WorkerOutcomeUnknown):
+            producer.produce(1, 'TEST_FAIL')
+
+    def test_lost_start_ack_is_unknown_with_or_without_stop(self):
+        for stopped in (False, True):
+            with self.subTest(stopped=stopped):
+                cancel = CancellationToken()
+                worker = StartAckLostFixture(cancel=cancel if stopped else None)
+                self.run_loop(worker, cancel)
+                self.assertEqual(worker.starts, 1)
+
+    def test_mismatched_start_ack_is_unknown_and_cannot_be_cancelled(self):
+        class UnboundStart(CancellationAckFixture):
+            def start(self, task):
+                session = super().start(task)
+                return replace(session, run_id='unbound-run')
+
+        worker = UnboundStart()
+        self.run_loop(worker)
+        self.assertEqual(worker.starts, 1)
+
+    def test_core_persists_ambiguous_start_and_denies_dispatch_after_reopen(self):
+        signer = Identity(ec.generate_private_key(ec.SECP256R1()))
+        worker = StartAckLostFixture()
+
+        def run_factory(task, cancel):
+            self.assertEqual(task, self.task)
+            validator = CoreSandboxValidation(
+                self.fixture.journal, self.fail, profile=self.profile, cancel=cancel,
+            )
+            return coding_tasks.CodingRun(
+                self.producer(worker, cancel), validator, self.root, self.source,
+                'sha256:' + 'a' * 64, 'target-1', 200,
+            )
+
+        def service(fixture, factory):
+            capsules = CorePatchCapsules(fixture.journal, signer, source_probe=lambda: self.source)
+            controller = coding_tasks.CoreCodingTasks(
+                fixture.journal, capsules, run_factory=factory, run_principal=fixture.p(), clock=lambda: 100,
+            )
+            self.addCleanup(controller.close)
+            return controller
+
+        manager, reader = self.fixture.p(Capability.MANAGE), self.fixture.p(Capability.READ)
+        task_id = {'task_id': self.task.task_id}
+        first = service(self.fixture, run_factory)
+        first.request(manager, 'create_task', {'task': asdict(self.task)})
+        first.request(manager, 'start', task_id)
+        self.assertTrue(first.wait(self.task.task_id, 3))
+        observed = first.request(reader, 'get_receipts', task_id)
+        self.assertEqual(observed['state'], 'UNKNOWN')
+        self.assertFalse(observed['effect_verified'])
+        self.assertIsNone(observed['run_result']['final_patchset'])
+        first.close()
+        self.fixture.close()
+
+        reopened = q09_support.Fixture(self.root / 'core.json')
+        self.addCleanup(reopened.close)
+        after = service(reopened, self.fail)
+        read = reopened.p(Capability.READ)
+        manage = reopened.p(Capability.MANAGE)
+        self.assertEqual(after.request(read, 'get_receipts', task_id), observed)
+        with self.assertRaisesRegex(ValueError, 'CODING_TRANSITION_DENIED'):
+            after.request(manage, 'start', task_id)
+        subsequent = replace(self.task, task_id='later', run_id='later-run')
+        after.request(manage, 'create_task', {'task': asdict(subsequent)})
+        with self.assertRaises(ValueError):
+            after.request(manage, 'start', {'task_id': subsequent.task_id})
+        self.assertEqual((worker.starts, worker.cancel_calls, worker.closed), (1, 0, True))
+
+    def test_explicit_start_denial_preserves_known_failure(self):
+        class DeniedStart(CancellationAckFixture):
+            def start(self, task):
+                raise WorkerError('WORKER_START_DENIED')
+
+        worker = DeniedStart()
+        producer = self.producer(worker)
+        with self.assertRaisesRegex(WorkerError, '^WORKER_START_DENIED$'):
+            producer.produce(0, None)
+        self.assertEqual(producer.close(), 0)
+        self.assertEqual(worker.cancel_calls, 0)
 
 
 if __name__ == '__main__':
