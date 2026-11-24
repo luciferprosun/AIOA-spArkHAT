@@ -295,7 +295,7 @@ class AttemptGuard:
                 self.require_running()
             except ProtocolError:
                 raw = read_record(self.directory, "stopped", os.geteuid(), sync=True)
-                require(decode_record(raw) == {"stopped": True}, "BROKER_STATE_RECORD")
+                require(raw == canonical_json_bytes({"stopped": True}), "BROKER_STATE_RECORD")
                 return
             publish_record(self.directory, "stopped", {"stopped": True})
 
