@@ -239,6 +239,97 @@ class CodexTransportTests(unittest.TestCase):
         denial = json.loads(other_peer.recv(4096))
         self.assertEqual(denial["error"]["code"], -32601)
 
+    def test_ambiguous_request_or_handshake_failure_closes_owned_pipes(self):
+        for failure in ("request-write", "response-binding", "handshake-write"):
+            with self.subTest(failure=failure):
+                read_fd, response_fd = os.pipe()
+                request_fd, write_fd = os.pipe()
+                for fd in (read_fd, response_fd, request_fd, write_fd):
+                    self.addCleanup(os.close, fd)
+                transport = codex_worker.OwnedCodexProtocol(read_fd, write_fd)
+                self.addCleanup(transport.close)
+                response_id = 9 if failure == "response-binding" else 1
+                os.write(response_fd, json.dumps({"id": response_id, "result": {}}).encode() + b"\n")
+                write_count = 0
+                original_write = os.write
+
+                def write(fd, data):
+                    nonlocal write_count
+                    write_count += 1
+                    if failure == "request-write" and write_count == 2:
+                        raise BrokenPipeError(errno.EPIPE, "fixture partial request")
+                    if failure == "request-write":
+                        return original_write(fd, data[:4])
+                    if failure == "handshake-write" and write_count == 2:
+                        raise BrokenPipeError(errno.EPIPE, "fixture missing handshake ACK")
+                    return original_write(fd, data)
+
+                code = "PROTOCOL_RESPONSE_BINDING" if failure == "response-binding" else "PROTOCOL_EOF"
+                with patch("os.write", side_effect=write):
+                    with self.assertRaisesRegex(WorkerError, f"^{code}$"):
+                        transport.initialize()
+                    saved = write_count
+                    with self.assertRaisesRegex(WorkerError, "^PROTOCOL_CLOSED$"):
+                        transport.initialize()
+                    self.assertEqual(write_count, saved)
+                self.assertIsNone(transport._pending)
+                self.assertFalse(transport.initialized)
+                for owned_fd in (transport.read_fd, transport.write_fd):
+                    with self.assertRaises(OSError) as closed:
+                        os.fstat(owned_fd)
+                    self.assertEqual(closed.exception.errno, errno.EBADF)
+                for caller_fd in (read_fd, response_fd, request_fd, write_fd):
+                    os.fstat(caller_fd)
+
+    def test_invalid_thread_ack_fences_a_second_thread_start(self):
+        for result in ({}, {"thread": {"id": "invalid thread id"}}):
+            with self.subTest(result=result):
+                transport, peer = self.transport()
+                peer.sendall(b'{"id":1,"result":{}}\n')
+                transport.initialize()
+                response = json.dumps({"id": 2, "result": result}).encode() + b"\n"
+                peer.sendall(response)
+                with self.assertRaises(ValueError):
+                    transport.thread_start()
+                self.assertTrue(transport.closed)
+                with patch("os.write") as write, self.assertRaisesRegex(WorkerError, "^PROTOCOL_CLOSED$"):
+                    transport.thread_start()
+                write.assert_not_called()
+
+    def test_bound_rpc_denial_preserves_passive_diagnostic_observation(self):
+        transport, peer = self.transport()
+        peer.sendall(b'{"id":1,"result":{}}\n{"id":2,"result":{"thread":{"id":"thread-1"}}}\n')
+        transport.initialize()
+        transport.thread_start()
+        transport.bind_turn("thread-1", "idle-turn")
+        peer.sendall(b'{"id":3,"error":{"code":-32600,"message":"no active turn"}}\n')
+        with self.assertRaisesRegex(WorkerError, "^PROTOCOL_RPC_ERROR$"):
+            transport.interrupt("thread-1", "idle-turn")
+        self.assertFalse(transport.closed)
+        with self.assertRaisesRegex(WorkerError, "^PROTOCOL_TIMEOUT$"):
+            transport.next_event(seconds=0.02)
+        peer.shutdown(socket.SHUT_WR)
+        with self.assertRaisesRegex(WorkerError, "^PROTOCOL_EOF$"):
+            transport.next_event()
+
+    def test_malformed_rpc_denial_closes_ambiguous_session(self):
+        for denial in (None, {"code": True, "message": "idle"}, {"code": -32600}):
+            with self.subTest(denial=denial):
+                transport, peer = self.transport()
+                peer.sendall(json.dumps({"id": 1, "error": denial}).encode() + b"\n")
+                with self.assertRaisesRegex(WorkerError, "^PROTOCOL_RPC_ERROR$"):
+                    transport.initialize()
+                self.assertTrue(transport.closed)
+
+    def test_failure_sending_tool_denial_closes_transport(self):
+        transport, peer = self.transport()
+        peer.sendall(b'{"id":42,"method":"item/commandExecution/requestApproval"}\n')
+        with patch("os.write", side_effect=BrokenPipeError(errno.EPIPE, "fixture")):
+            with self.assertRaisesRegex(WorkerError, "^PROTOCOL_EOF$"):
+                transport.next_event()
+        self.assertTrue(transport.closed)
+        self.assertEqual(transport.events, [])
+
     def test_diagnostic_transport_has_no_turn_start_or_generic_command_port(self):
         transport, _ = self.transport()
         for name in ("turn_start", "execute", "shell", "dispatch", "approve"):

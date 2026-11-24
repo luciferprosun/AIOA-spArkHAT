@@ -191,20 +191,25 @@ class OwnedCodexProtocol:
         )
         require(len(raw) <= 8192 and not self.closed, "PROTOCOL_WRITE_BOUND")
         view = memoryview(raw)
-        while view:
-            require(time.monotonic() < deadline, "PROTOCOL_TIMEOUT")
-            _, ready, _ = select.select(
-                [], [self.write_fd], [], min(0.05, max(0, deadline - time.monotonic()))
-            )
-            if not ready:
-                continue
-            require(time.monotonic() < deadline, "PROTOCOL_TIMEOUT")
-            try:
-                written = os.write(self.write_fd, view)
-            except (BrokenPipeError, OSError):
-                raise WorkerError("PROTOCOL_EOF") from None
-            require(written > 0, "PROTOCOL_EOF")
-            view = view[written:]
+        try:
+            while view:
+                require(time.monotonic() < deadline, "PROTOCOL_TIMEOUT")
+                _, ready, _ = select.select(
+                    [], [self.write_fd], [], min(0.05, max(0, deadline - time.monotonic()))
+                )
+                if not ready:
+                    continue
+                require(time.monotonic() < deadline, "PROTOCOL_TIMEOUT")
+                try:
+                    written = os.write(self.write_fd, view)
+                except (BrokenPipeError, OSError):
+                    raise WorkerError("PROTOCOL_EOF") from None
+                require(written > 0, "PROTOCOL_EOF")
+                view = view[written:]
+        except Exception:
+            # An incomplete outbound frame invalidates the owned stream.
+            self.close()
+            raise
 
     def _read(self, deadline, cancel):
         import os
@@ -265,6 +270,7 @@ class OwnedCodexProtocol:
         )
 
     def _request(self, method, params, *, seconds=5, cancel=None):
+        require(not self.closed, "PROTOCOL_CLOSED")
         require(
             method in ("initialize", "thread/start", "turn/interrupt")
             and self._pending is None
@@ -277,10 +283,10 @@ class OwnedCodexProtocol:
         identity = self._next_id
         self._pending = identity
         deadline = time.monotonic() + seconds
-        self._send(
-            {"id": identity, "method": method, "params": params}, deadline=deadline
-        )
         try:
+            self._send(
+                {"id": identity, "method": method, "params": params}, deadline=deadline
+            )
             for _ in range(65):
                 message = self._read(deadline, cancel)
                 if "method" in message:
@@ -298,14 +304,28 @@ class OwnedCodexProtocol:
                     and message["id"] == identity,
                     "PROTOCOL_RESPONSE_BINDING",
                 )
-                require(
-                    "error" not in message and type(message.get("result")) is dict,
-                    "PROTOCOL_RPC_ERROR",
-                )
+                if "error" in message:
+                    error = message["error"]
+                    require(
+                        type(error) is dict
+                        and set(error) in ({"code", "message"}, {"code", "message", "data"})
+                        and type(error["code"]) is int
+                        and type(error["message"]) is str,
+                        "PROTOCOL_RPC_ERROR",
+                    )
+                    break
+                require(type(message.get("result")) is dict, "PROTOCOL_RPC_ERROR")
                 return message["result"]
-            raise WorkerError("PROTOCOL_EVENT_LIMIT")
+            else:
+                raise WorkerError("PROTOCOL_EVENT_LIMIT")
+        except Exception:
+            # A partial request or an unbound reply invalidates this session.
+            self.close()
+            raise
         finally:
             self._pending = None
+        # A bound negative acknowledgement still leaves a usable stream.
+        raise WorkerError("PROTOCOL_RPC_ERROR")
 
     def initialize(self):
         require(not self.initialized, "PROTOCOL_INITIALIZE_ORDER")
@@ -342,9 +362,13 @@ class OwnedCodexProtocol:
         )
         thread = result.get("thread")
         thread_id = thread.get("id") if type(thread) is dict else None
-        require(type(thread_id) is str and not contains_sensitive_material(thread_id),
-                "PROTOCOL_THREAD_BINDING")
-        self._thread_id = logical_id(thread_id)
+        try:
+            require(type(thread_id) is str and not contains_sensitive_material(thread_id),
+                    "PROTOCOL_THREAD_BINDING")
+            self._thread_id = logical_id(thread_id)
+        except ValueError:
+            self.close()
+            raise
         return result
 
     def bind_turn(self, thread_id, turn_id):

@@ -5,6 +5,8 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import Mock
 
 
 class ValidationTests(unittest.TestCase):
@@ -160,6 +162,50 @@ class ValidationTests(unittest.TestCase):
         for candidate in (tuple(reversed(scripts)), scripts[:2]):
             with self.assertRaises(ValueError):
                 api.TrustedTestProfile(api.CALCULATOR_PROFILE_ID, candidate, counts)
+
+    def validation_session(self, cancel):
+        api = self.api()
+        journal = object()
+        owner = SimpleNamespace(journal=journal, cancel=cancel, profile=SimpleNamespace(digest="a" * 64))
+        patchset = SimpleNamespace(patchset_sha256="b" * 64)
+        route = Mock(journal=journal)
+        warrant = SimpleNamespace(digest=lambda: "sha256:" + "c" * 64)
+        step = SimpleNamespace(route=route, principal=object(), arguments={
+            "warrant": warrant, "operation": {"tool": "run_recipe"},
+        })
+        return api._CoreValidationSession(owner, patchset, (step,)), step
+
+    def test_stop_before_prepared_step_does_not_dispatch(self):
+        from runtime.providers.exact import CancellationToken
+
+        cancel = CancellationToken()
+        cancel.cancel()
+        session, step = self.validation_session(cancel)
+        report = session.run("FAST_TESTS")
+        self.assertEqual("CANCELLED", report.status)
+        self.assertEqual(step.arguments["warrant"].digest(), report.core_warrant_digest)
+        step.route.dispatch.assert_not_called()
+        step.route._sandbox_receipt_after_dispatch.assert_not_called()
+
+    def test_stop_after_dispatch_with_missing_receipt_preserves_unknown(self):
+        from runtime.providers.exact import CancellationToken
+
+        cancel = CancellationToken()
+        session, step = self.validation_session(cancel)
+        step.route.dispatch.return_value = {"outcome": {"contract_type": "Unknown"}}
+
+        def unavailable_receipt(*_args, **_kwargs):
+            cancel.cancel()
+            raise ValueError("VALIDATION_RECEIPT_REQUIRED")
+
+        step.route._sandbox_receipt_after_dispatch.side_effect = unavailable_receipt
+        report = session.run("FAST_TESTS")
+        self.assertEqual("UNKNOWN", report.status)
+        self.assertIsNone(report.exit_code)
+        self.assertEqual("VALIDATION_RECEIPT_REQUIRED", session.failure_code)
+        self.assertEqual(step.arguments["warrant"].digest(), report.core_warrant_digest)
+        step.route.dispatch.assert_called_once_with(step.principal, **step.arguments, cancel=cancel)
+        step.route._sandbox_receipt_after_dispatch.assert_called_once_with(step.principal, **step.arguments)
 
 
 if __name__ == "__main__":
