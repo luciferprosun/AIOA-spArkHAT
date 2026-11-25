@@ -31,7 +31,10 @@ Implementation tree: `133e0afa9d6bce564486124939b889d28e973d5e`
   covers lost ACK, missing witness retaining UNKNOWN/HELD, post-revocation
   historical readback, recovery after the original short permit expires, two
   concurrent initial settlement calls, repeated settlement and zero
-  redispatch.
+  redispatch. The parent now compares witness/completion hashes and published
+  inode/ctime with the fresh verifier's report. Tests replace witness bytes
+  after verifier return and replace the ref inode before the Core settlement
+  callback; both cases retain UNKNOWN/HELD without another dispatch.
 - `RED_HAT_RH03_CORE_MAPPING.md` maps source-backed Core interfaces, STOP/CAS
   ordering, evidence, known gaps and the narrow RH-04 boundary. The RH-01/RH-02
   handoff now records the committed RH-02 SHA.
@@ -43,7 +46,7 @@ PYTHONPATH=.:tests python3 -B -m unittest -v \
   test_redhat_core_adapter test_redhat_core_recovery
 ```
 
-Result: **8 passed**, 0 failed, 0 errors, 0 skipped; 8.803 seconds. The recovery
+Result: **9 passed**, 0 failed, 0 errors, 0 skipped; 13.990 seconds. The recovery
 test observes one broker dispatch and one loose ref publication. It asserts the
 Core intent row revision increments exactly once; concurrent and later repeat
 recovery return the same outcome. Missing witness leaves intent `Unknown`,
@@ -54,22 +57,24 @@ PYTHONPATH=.:tests python3 -B -m unittest -v \
   test_redhat_broker_protocol test_redhat_native_cas_broker
 ```
 
-Result: **23 passed**, 0 failed, 0 errors, 0 skipped; 75.335 seconds.
+Result: **23 passed**, 0 failed, 0 errors, 0 skipped; 85.561 seconds.
 
 ```sh
-PYTHONPATH=.:tests python3 -B -m unittest -v \
+PYTHONPATH=.:tests /home/l/projects/AIOA_NZ_FULL_PRIVATE_20261106/venv/bin/python -B -m unittest -v \
   test_core_intent test_native_git_cold_controller
 ```
 
-Result: 22 Core intent tests passed. The one Native cold-controller test could
-not run its phases because the local Python environment lacks `pydantic`; the
-producer phase failed importing it through
-`runtime.nonzero_cloudops.models.errors`, and the dependent reopen phase then
-had no fixture file. No package was installed. The Core intent tests passed,
-including crash after START, failed verification, stale epoch and no replay.
+Result: **23 passed**, 0 failed, 0 errors, 0 skipped; 20.905 seconds. This uses
+the existing project venv because system Python lacks `pydantic`; no package was
+installed. Core intent coverage includes crash after START, failed verification,
+stale epoch and no replay. The Native cold-controller test confirms a matching
+Git ref cannot grant cold-controller replay.
 
-`python3 -m py_compile` passed for the RH-03 adapter and tests.
-`git diff --check` passed before commit.
+`python3 -B` source compilation passed for the adapter, verifier and recovery
+tests; `git diff --check` passed before the follow-up commits. Settlement ACK
+loss followed by process exit and fresh Core reopen is not exercised: the lost
+ACK case is the broker ACK, while Core settlement retries are concurrent and
+repeated in the same process.
 
 ## Security and integration status
 
@@ -86,8 +91,10 @@ including crash after START, failed verification, stale epoch and no replay.
   are unproven.
 - **Keys and verification:** fixture test keys and the verifier process are
   same-host/same-UID test components. The subprocess result is read from the
-  directly spawned verifier pipe, then the RH-02 witness/completion and
-  physical ref are used to construct Core evidence. There is no production
+  directly spawned verifier pipe; the parent compares its witness/completion
+  hashes and physical `(dev, ino, ctime_ns)` observation with that result, then
+  rereads those facts inside the Core settlement transaction. This narrows but
+  cannot make filesystem state atomic with the Core commit. There is no production
   verifier enrollment/result channel or production key store. The executor's
   signed completion is an ordered producer assertion, not kernel fsync
   attestation.
