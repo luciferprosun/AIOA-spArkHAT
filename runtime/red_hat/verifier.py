@@ -57,6 +57,10 @@ class Verification:
     witness_durable_at_readback: bool = False
     producer_witness_sync_attested: bool = False
     settlement_supported: bool = False
+    witness_sha256: str | None = None
+    completion_sha256: str | None = None
+    published_inode: tuple | None = None
+    published_ctime_ns: int | None = None
 
 
 def verify(root_fd, expected, enrollment, *, now, core_epoch, broker_epoch):
@@ -100,6 +104,14 @@ def verify(root_fd, expected, enrollment, *, now, core_epoch, broker_epoch):
             require(read_record(directory, binding.witness_id, executor.uid) == raw
                     and read_record(directory, _completion_name(expected), executor.uid) == done_bytes,
                     "BROKER_WITNESS_MOVED")
-            return replace(report, producer_witness_sync_attested=True, settlement_supported=True)
+            return replace(
+                report,
+                producer_witness_sync_attested=True,
+                settlement_supported=True,
+                witness_sha256=hashlib.sha256(raw).hexdigest(),
+                completion_sha256=hashlib.sha256(done_bytes).hexdigest(),
+                published_inode=stamp[:2],
+                published_ctime_ns=stamp[2],
+            )
     except (InvalidSignature, OSError, ValueError, TypeError, KeyError, RecursionError):
         return report

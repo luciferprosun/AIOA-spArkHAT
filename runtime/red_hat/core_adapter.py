@@ -290,10 +290,29 @@ sys.stdout.write(json.dumps({"pid": os.getpid(), "facts": facts}, sort_keys=True
                      and type(value["facts"]) is dict,
                      "INDEPENDENT_VERIFIER_PROTOCOL")
             from runtime.red_hat.verifier import Verification
-            _require(set(value["facts"]) == set(Verification.__dataclass_fields__)
-                     and all(type(flag) is bool for flag in value["facts"].values()),
+            facts = value["facts"]
+            boolean_fields = (
+                "effect_observed", "producer_effect_sync_completed",
+                "witness_bytes_verified", "witness_durable_at_readback",
+                "producer_witness_sync_attested", "settlement_supported",
+            )
+            _require(set(facts) == set(Verification.__dataclass_fields__)
+                     and all(type(facts[name]) is bool for name in boolean_fields)
+                     and all(facts[name] is None or type(facts[name]) is str
+                             and _HEX.fullmatch(facts[name])
+                             for name in ("witness_sha256", "completion_sha256"))
+                     and (facts["published_inode"] is None
+                          or type(facts["published_inode"]) is list
+                          and len(facts["published_inode"]) == 2
+                          and all(type(item) is int and item > 0
+                                  for item in facts["published_inode"]))
+                     and (facts["published_ctime_ns"] is None
+                          or type(facts["published_ctime_ns"]) is int
+                          and facts["published_ctime_ns"] > 0),
                      "INDEPENDENT_VERIFIER_PROTOCOL")
-            return Verification(**value["facts"]), value["pid"]
+            if facts["published_inode"] is not None:
+                facts["published_inode"] = tuple(facts["published_inode"])
+            return Verification(**facts), value["pid"]
         except (OSError, subprocess.SubprocessError, ValueError, TypeError, KeyError):
             raise CoreAdapterError("INDEPENDENT_VERIFIER_FAILED") from None
 
@@ -336,6 +355,13 @@ sys.stdout.write(json.dumps({"pid": os.getpid(), "facts": facts}, sort_keys=True
             completion = read_record(evidence, "completion-" + witness_id,
                                      enrollment.executor.uid, sync=True)
             stamp = target.observe(request)
+            _require(type(report.published_inode) is tuple
+                     and len(report.published_inode) == 2
+                     and stamp[:2] == report.published_inode
+                     and stamp[2] == report.published_ctime_ns
+                     and hashlib.sha256(witness).hexdigest() == report.witness_sha256
+                     and hashlib.sha256(completion).hexdigest() == report.completion_sha256,
+                     "VERIFIED_READBACK_IDENTITY_CHANGED")
             target.check(request)
             readback_bytes = canonical_json_bytes({
                 "schema": "aioa.redhat.fixture-independent-readback.v1",
@@ -354,6 +380,34 @@ sys.stdout.write(json.dumps({"pid": os.getpid(), "facts": facts}, sort_keys=True
                                     receipt, readback)
 
         def settle(tx):
+            # Recheck the disposable physical object and authenticated records
+            # inside the Core transaction immediately before settlement. This
+            # narrows, but cannot atomically close, the filesystem/Core commit
+            # interval.
+            from runtime.red_hat.broker_protocol import read_record
+            from runtime.red_hat.fixture_repository import open_dir, open_repository
+
+            with ExitStack() as settle_stack:
+                settle_target = settle_stack.enter_context(
+                    open_repository(root_fd, request, enrollment.executor.uid))
+                marker_now = read_record(
+                    settle_target.repo, ".redhat-disposable", enrollment.executor.uid)
+                _require(marker_now == b"AIOA_RED_HAT_FIXTURE_V1\n",
+                         "DISPOSABLE_REPOSITORY_REQUIRED")
+                evidence_now = open_dir(root_fd, "evidence", settle_stack)
+                witness_now = read_record(
+                    evidence_now, witness_id, enrollment.executor.uid, sync=True)
+                completion_now = read_record(
+                    evidence_now, "completion-" + witness_id,
+                    enrollment.executor.uid, sync=True)
+                stamp_now = settle_target.observe(request)
+                _require(stamp_now == stamp
+                         and hashlib.sha256(witness_now).hexdigest()
+                         == report.witness_sha256
+                         and hashlib.sha256(completion_now).hexdigest()
+                         == report.completion_sha256,
+                         "VERIFIED_READBACK_IDENTITY_CHANGED")
+                settle_target.check(request)
             current = self._read_binding(tx, warrant)
             same_start = replace(current, settled=binding.settled) == binding
             monotonic = not binding.settled or current.settled
