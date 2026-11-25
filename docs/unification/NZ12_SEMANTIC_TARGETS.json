@@ -8342,8 +8342,8 @@
     },
     "runtime/mission/sandbox_linux.py": {
       "path": "runtime/mission/sandbox_linux.py",
-      "git_blob": "33a991de2de8a46ce051fb5cd0bd5af588eee469",
-      "sha256": "bc207da97bd43e7f82138861a1b4626158e5b76778d1ba8242bc2d28a844f713",
+      "git_blob": "33aa44672af8a7d44299ea724cee47a1259ff18a",
+      "sha256": "decfe6c74e6989b07093a988c5a5e675d65c2a52cd443d867a30a0779d6b39ed",
       "definitions": [
         {
           "name": "now",
@@ -8551,23 +8551,23 @@
         },
         {
           "name": "_git_existing_object",
-          "line": 1400
+          "line": 1426
         },
         {
           "name": "_git_plumbing",
-          "line": 1445
+          "line": 1471
         },
         {
           "name": "dispatch",
-          "line": 2046
+          "line": 2100
         },
         {
           "name": "_run",
-          "line": 2150
+          "line": 2204
         },
         {
           "name": "verify",
-          "line": 2625
+          "line": 2679
         },
         {
           "name": "listener_call",
@@ -8579,51 +8579,51 @@
         },
         {
           "name": "hold",
-          "line": 1543
+          "line": 1575
         },
         {
           "name": "sealed",
-          "line": 1548
+          "line": 1580
         },
         {
           "name": "read_local",
-          "line": 1613
+          "line": 1645
         },
         {
           "name": "lock_stamp",
-          "line": 1686
+          "line": 1718
         },
         {
           "name": "check_lock",
-          "line": 1698
+          "line": 1730
         },
         {
           "name": "check_lock_parent",
-          "line": 1708
+          "line": 1740
         },
         {
           "name": "lock_new",
-          "line": 1728
+          "line": 1765
         },
         {
           "name": "check_ref_transaction",
-          "line": 1844
+          "line": 1892
         },
         {
           "name": "bound_release",
-          "line": 2057
+          "line": 2111
         },
         {
           "name": "guarded_cleanup",
-          "line": 2531
+          "line": 2585
         },
         {
           "name": "release",
-          "line": 1752
+          "line": 1789
         },
         {
           "name": "reap_owned",
-          "line": 2560
+          "line": 2614
         }
       ],
       "symbolic_callees": [
@@ -8679,6 +8679,8 @@
         "array.array",
         "asdict",
         "before_ref_link",
+        "before_ref_link_check",
+        "before_ref_link_guard.hold",
         "binding_check",
         "binding_input.__post_init__",
         "block.append",
@@ -8815,6 +8817,7 @@
         "namespaces.values",
         "nonce.encode",
         "now",
+        "nullcontext",
         "object_id.encode",
         "observe_source",
         "oid",
@@ -8993,8 +8996,8 @@
         "zlib.compress",
         "zlib.decompressobj"
       ],
-      "call_site_count": 1348,
-      "call_sites_sha256": "2986eea0b84b324cf7c9a57dea97df8ba5a84a7433b6841174701121abb4514d"
+      "call_site_count": 1375,
+      "call_sites_sha256": "becc20dfea3dc076376ae5e8d9679b295be69ddea1c6a6365fef2fc2366b3772"
     },
     "runtime/nonzero_cloudops/adapters/portable.py": {
       "path": "runtime/nonzero_cloudops/adapters/portable.py",
@@ -10835,108 +10838,112 @@
     },
     "runtime/mission/warrant.py": {
       "path": "runtime/mission/warrant.py",
-      "git_blob": "37ca478f82a9d12d0f5e0f7e68c920d68df261f5",
-      "sha256": "97bbd909dae7fe7fd18980eb6d6ca69dd174f1c20d18a08ae9af2fba5af8ffac",
+      "git_blob": "e344ae43a0b38c80aadb4391d404cc9600d3084a",
+      "sha256": "48a2e0afed91bd7bd21dce28ad076dbfdea2962481e9dd0af486b8f7439fcb1a",
       "definitions": [
         {
           "name": "WarrantError",
-          "line": 31
-        },
-        {
-          "name": "require",
-          "line": 37
-        },
-        {
-          "name": "approval_digest",
-          "line": 42
-        },
-        {
-          "name": "CoreWarrantLedger",
-          "line": 50
-        },
-        {
-          "name": "__init__",
           "line": 32
         },
         {
-          "name": "__init__",
+          "name": "require",
+          "line": 38
+        },
+        {
+          "name": "approval_digest",
+          "line": 43
+        },
+        {
+          "name": "CoreWarrantLedger",
           "line": 51
         },
         {
+          "name": "__init__",
+          "line": 33
+        },
+        {
+          "name": "__init__",
+          "line": 52
+        },
+        {
           "name": "_key",
-          "line": 61
+          "line": 62
         },
         {
           "name": "_run",
-          "line": 66
+          "line": 67
         },
         {
           "name": "_check",
-          "line": 70
+          "line": 71
         },
         {
           "name": "_load",
-          "line": 88
+          "line": 89
         },
         {
           "name": "_load_unrevoked",
-          "line": 111
+          "line": 112
         },
         {
           "name": "_attenuation",
-          "line": 130
+          "line": 131
         },
         {
           "name": "_save",
-          "line": 144
+          "line": 145
         },
         {
           "name": "_receipt",
-          "line": 158
+          "line": 159
         },
         {
           "name": "approve",
-          "line": 166
+          "line": 167
         },
         {
           "name": "approve_in_transaction",
-          "line": 173
+          "line": 174
         },
         {
           "name": "require_active_in_transaction",
-          "line": 215
+          "line": 216
         },
         {
           "name": "revoke",
-          "line": 245
-        },
-        {
-          "name": "delegate",
-          "line": 266
-        },
-        {
-          "name": "consume",
-          "line": 280
-        },
-        {
-          "name": "consume_in_transaction",
-          "line": 291
-        },
-        {
-          "name": "inspect",
-          "line": 311
-        },
-        {
-          "name": "mutation",
           "line": 246
         },
         {
+          "name": "_revoke_under_execution_gate",
+          "line": 251
+        },
+        {
+          "name": "delegate",
+          "line": 272
+        },
+        {
+          "name": "consume",
+          "line": 286
+        },
+        {
+          "name": "consume_in_transaction",
+          "line": 297
+        },
+        {
+          "name": "inspect",
+          "line": 317
+        },
+        {
           "name": "mutation",
-          "line": 267
+          "line": 252
+        },
+        {
+          "name": "mutation",
+          "line": 273
         },
         {
           "name": "read",
-          "line": 314
+          "line": 320
         }
       ],
       "symbolic_callees": [
@@ -10951,8 +10958,11 @@
         "child.to_dict",
         "current.digest",
         "datetime.now",
+        "gate.hold",
+        "getattr",
         "isinstance",
         "json.loads",
+        "nullcontext",
         "parent.authority_scope.contains",
         "parent.to_dict",
         "require",
@@ -10964,6 +10974,7 @@
         "self._load",
         "self._load_unrevoked",
         "self._receipt",
+        "self._revoke_under_execution_gate",
         "self._run",
         "self._save",
         "self.approve_in_transaction",
@@ -10982,97 +10993,97 @@
         "warrant.to_dict",
         "witness.payload.get"
       ],
-      "call_site_count": 126,
-      "call_sites_sha256": "610a3e2cd65ee165354341cc60023c044da62f0c82eaa77d402f21943f62cdc8"
+      "call_site_count": 130,
+      "call_sites_sha256": "a4481064db650056e50fcba87384d8782fac8c9d648b2259c0c95b0a252b91f4"
     },
     "runtime/mission/intent.py": {
       "path": "runtime/mission/intent.py",
-      "git_blob": "04780abe022fa78b25566f70af96460359fdd8e6",
-      "sha256": "b1687c5cc36b35b8ca0c55de9ba19fb43ce0f356093eef4a9325eaa5b40fe852",
+      "git_blob": "4903a9106ade00785f4fa5c4ef1e831306616cae",
+      "sha256": "f960fb4bfbd974c91e9a0b9b8f117436cc33c2d96d6c673fb9f4d1a6ce0d7a18",
       "definitions": [
         {
           "name": "CoreIntentJournal",
-          "line": 35
-        },
-        {
-          "name": "__init__",
           "line": 36
         },
         {
+          "name": "__init__",
+          "line": 37
+        },
+        {
           "name": "_key",
-          "line": 43
+          "line": 44
         },
         {
           "name": "_run",
-          "line": 47
+          "line": 48
         },
         {
           "name": "_load",
-          "line": 51
+          "line": 52
         },
         {
           "name": "_save",
-          "line": 94
+          "line": 95
         },
         {
           "name": "_public",
-          "line": 110
+          "line": 111
         },
         {
           "name": "start",
-          "line": 114
+          "line": 115
         },
         {
           "name": "start_in_transaction",
-          "line": 118
+          "line": 119
         },
         {
           "name": "start_local_zero",
-          "line": 129
+          "line": 130
         },
         {
           "name": "start_remote_zero",
-          "line": 138
+          "line": 139
         },
         {
           "name": "_start_in_transaction",
-          "line": 147
+          "line": 148
         },
         {
           "name": "inspect",
-          "line": 244
+          "line": 264
         },
         {
           "name": "reconcile",
-          "line": 251
+          "line": 271
         },
         {
           "name": "apply_resolution_in_transaction",
-          "line": 272
-        },
-        {
-          "name": "delivery",
           "line": 292
         },
         {
+          "name": "delivery",
+          "line": 312
+        },
+        {
           "name": "acknowledge_delivery",
-          "line": 302
+          "line": 322
         },
         {
           "name": "read",
-          "line": 245
+          "line": 265
         },
         {
           "name": "read",
-          "line": 260
+          "line": 280
         },
         {
           "name": "read",
-          "line": 294
+          "line": 314
         },
         {
           "name": "change",
-          "line": 303
+          "line": 323
         }
       ],
       "symbolic_callees": [
@@ -11082,6 +11093,7 @@
         "Unknown",
         "Unknown().to_dict",
         "Unknown.from_dict",
+        "all",
         "any",
         "before[data].values",
         "callable",
@@ -11101,7 +11113,9 @@
         "json.loads",
         "len",
         "payload.get",
+        "payload[data].endswith",
         "r.payload.get",
+        "re.fullmatch",
         "require",
         "resolution.outcome.to_dict",
         "resolution.to_dict",
@@ -11134,8 +11148,8 @@
         "type",
         "warrant.digest"
       ],
-      "call_site_count": 184,
-      "call_sites_sha256": "4e65a78b1060505513a92e5fc1de0c191e21b9f0ac7399c5d3917ac6e11db373"
+      "call_site_count": 202,
+      "call_sites_sha256": "5916c6ea4845e89a82672c42c355fcc5a2420f52ed298a5b940b06d5226cf578"
     },
     "runtime/mcp_bridge/github_remote.py": {
       "path": "runtime/mcp_bridge/github_remote.py",
@@ -11457,8 +11471,8 @@
     },
     "runtime/mission/git_publish.py": {
       "path": "runtime/mission/git_publish.py",
-      "git_blob": "69a12cf27a39b4111187e55b90e59df174414469",
-      "sha256": "2ad8cea6e73c69f0449f032c72bcb1a76e0b920bd714d0ccdbdc7278d9d5b85e",
+      "git_blob": "ec0da5f341a60e392d65b962e6d6030ec13d4e4a",
+      "sha256": "1848b6c340d8fd131ff7ebd521b943a905d483cc4e3dc050036edc03a0ea95a5",
       "definitions": [
         {
           "name": "LocalGitPlan",
@@ -11486,27 +11500,27 @@
         },
         {
           "name": "VerifiedPatchSet",
-          "line": 1975
+          "line": 2042
         },
         {
           "name": "_bounded_git",
-          "line": 2126
+          "line": 2193
         },
         {
           "name": "GitSourceSnapshot",
-          "line": 2182
+          "line": 2251
         },
         {
           "name": "_git_target_identity_fd",
-          "line": 2389
+          "line": 2458
         },
         {
           "name": "_git_target_identity",
-          "line": 2442
+          "line": 2511
         },
         {
           "name": "LocalPatchGitPlan",
-          "line": 2464
+          "line": 2533
         },
         {
           "name": "__post_init__",
@@ -11642,239 +11656,243 @@
         },
         {
           "name": "_local_proofs",
-          "line": 926
+          "line": 942
         },
         {
           "name": "_local_history",
-          "line": 1035
+          "line": 1051
         },
         {
           "name": "_historical_local_check",
-          "line": 1077
+          "line": 1093
         },
         {
           "name": "_prospective_local",
-          "line": 1084
+          "line": 1100
         },
         {
           "name": "_local_check",
-          "line": 1090
+          "line": 1106
         },
         {
           "name": "approve_local_patch",
-          "line": 1108
+          "line": 1124
         },
         {
           "name": "_local_warrant",
-          "line": 1153
+          "line": 1169
         },
         {
           "name": "_dispatch_local_patch",
-          "line": 1174
+          "line": 1190
         },
         {
           "name": "_complete_local_patch",
-          "line": 1246
+          "line": 1278
         },
         {
           "name": "__init__",
-          "line": 1370
+          "line": 1402
         },
         {
           "name": "_require_native_local_plan",
-          "line": 1408
+          "line": 1440
         },
         {
           "name": "_require_native_local_source",
-          "line": 1415
+          "line": 1447
         },
         {
           "name": "_local_patch_dependency_root",
-          "line": 1420
+          "line": 1452
         },
         {
           "name": "dependency_root",
-          "line": 1434
+          "line": 1466
         },
         {
           "name": "_local_patch_operation",
-          "line": 1471
+          "line": 1503
+        },
+        {
+          "name": "_native_physical_ref_binding",
+          "line": 1536
         },
         {
           "name": "operation",
-          "line": 1491
+          "line": 1575
         },
         {
           "name": "validate",
-          "line": 1533
+          "line": 1600
         },
         {
           "name": "_save",
-          "line": 1573
+          "line": 1640
         },
         {
           "name": "begin_step",
-          "line": 1613
+          "line": 1680
         },
         {
           "name": "bind_api",
-          "line": 1708
+          "line": 1775
         },
         {
           "name": "record_credential_scope",
-          "line": 1726
+          "line": 1793
         },
         {
           "name": "result",
-          "line": 1751
+          "line": 1818
         },
         {
           "name": "complete",
-          "line": 1766
+          "line": 1833
         },
         {
           "name": "dispatch",
-          "line": 1911
+          "line": 1978
         },
         {
           "name": "reconcile",
-          "line": 1927
+          "line": 1994
         },
         {
           "name": "__post_init__",
-          "line": 1987
+          "line": 2054
         },
         {
           "name": "authority",
-          "line": 2075
+          "line": 2142
         },
         {
           "name": "digest",
-          "line": 2079
+          "line": 2146
         },
         {
           "name": "preview",
-          "line": 2093
+          "line": 2160
         },
         {
           "name": "create_only_plan",
-          "line": 2109
+          "line": 2176
         },
         {
           "name": "__post_init__",
-          "line": 2192
+          "line": 2261
         },
         {
           "name": "digest",
-          "line": 2238
+          "line": 2307
         },
         {
           "name": "capture",
-          "line": 2253
+          "line": 2322
         },
         {
           "name": "verify",
-          "line": 2344
+          "line": 2413
         },
         {
           "name": "export_tree_sha256",
-          "line": 2356
+          "line": 2425
         },
         {
           "name": "verify_export",
-          "line": 2361
+          "line": 2430
         },
         {
           "name": "export",
-          "line": 2370
+          "line": 2439
         },
         {
           "name": "__post_init__",
-          "line": 2473
+          "line": 2542
         },
         {
           "name": "files",
-          "line": 2506
+          "line": 2575
         },
         {
           "name": "operation_id",
-          "line": 2516
+          "line": 2585
         },
         {
           "name": "ref",
-          "line": 2520
+          "line": 2589
         },
         {
           "name": "target_fingerprint",
-          "line": 2524
+          "line": 2593
         },
         {
           "name": "tree_objects",
-          "line": 2536
+          "line": 2605
         },
         {
           "name": "tree_sha",
-          "line": 2569
+          "line": 2638
         },
         {
           "name": "commit_data",
-          "line": 2573
+          "line": 2642
         },
         {
           "name": "commit_sha",
-          "line": 2594
+          "line": 2663
         },
         {
           "name": "objects",
-          "line": 2598
+          "line": 2667
         },
         {
           "name": "digest",
-          "line": 2606
+          "line": 2675
         },
         {
           "name": "load",
-          "line": 786
+          "line": 800
         },
         {
           "name": "proofs",
-          "line": 910
+          "line": 926
         },
         {
           "name": "mark",
-          "line": 1187
+          "line": 1212
         },
         {
           "name": "save",
-          "line": 1302
+          "line": 1334
         },
         {
           "name": "start",
-          "line": 1671
+          "line": 1738
         },
         {
           "name": "save",
-          "line": 1731
+          "line": 1798
         },
         {
           "name": "read",
-          "line": 1756
+          "line": 1823
         },
         {
           "name": "save",
-          "line": 1841
+          "line": 1908
         },
         {
           "name": "binding_check",
-          "line": 2147
+          "line": 2214
         },
         {
           "name": "git",
-          "line": 2275
+          "line": 2344
         },
         {
           "name": "current",
-          "line": 2285
+          "line": 2354
         },
         {
           "name": "pure",
@@ -11882,7 +11900,7 @@
         },
         {
           "name": "approve",
-          "line": 1127
+          "line": 1143
         }
       ],
       "symbolic_callees": [
@@ -12023,6 +12041,7 @@
         "observation.get",
         "observe_source",
         "operation.get",
+        "operation.get().get",
         "ord",
         "os.close",
         "os.fstat",
@@ -12030,6 +12049,7 @@
         "os.open",
         "os.pread",
         "os.stat",
+        "owned.append",
         "p.casefold",
         "p.commit_payload",
         "p.commit_sha_for_tree",
@@ -12043,6 +12063,7 @@
         "path.split",
         "path.startswith",
         "payload.get",
+        "payload.update",
         "plan.require_public_content",
         "policy.evaluate",
         "policy.recheck",
@@ -12061,10 +12082,14 @@
         "require",
         "resolution.outcome.to_dict",
         "result.items",
+        "reversed",
         "root.exists",
         "root.is_absolute",
         "root.resolve",
         "root.stat",
+        "root_path.is_absolute",
+        "root_path.resolve",
+        "root_path.stat",
         "row.payload.get",
         "row[data].encode",
         "rows.items",
@@ -12075,6 +12100,7 @@
         "self._local_patch_operation",
         "self._local_proofs",
         "self._local_warrant",
+        "self._native_physical_ref_binding",
         "self._prospective_local",
         "self._require_native_binding",
         "self._require_native_binding().foundation.owner.coding_tasks._native_git_begin_settlement",
@@ -12114,6 +12140,7 @@
         "self.payload",
         "self.plan.commit_sha_for_tree",
         "self.plan.payload",
+        "self.plan.ref.split",
         "self.plan.source.verify",
         "self.plan_bytes",
         "self.preparation.__post_init__",
@@ -12132,6 +12159,7 @@
         "sha256",
         "sorted",
         "source_snapshot.verify",
+        "stat.S_ISDIR",
         "stat.S_ISREG",
         "str",
         "str().encode",
@@ -12154,13 +12182,13 @@
         "wire_canonical",
         "zip"
       ],
-      "call_site_count": 953,
-      "call_sites_sha256": "44db6b0d6292429477c2df8e1bb297dd45ccc44cd1a3237b23ecbbd73306e8e7"
+      "call_site_count": 998,
+      "call_sites_sha256": "e8773a2075b1d85c9f3af7eb268963c2bf7d05e6c32e546cb5833e24b798c201"
     },
     "runtime/core_admission.py": {
       "path": "runtime/core_admission.py",
-      "git_blob": "a16e5559cfee3b24e9bd77aa98b302f889f7c79c",
-      "sha256": "46061f1311c575aadc3c6cce7b3ff64b65ab81942ef42abe6de7227b06458a1d",
+      "git_blob": "35a991e31d992b77d32569fe17ce499b3284acea",
+      "sha256": "7336dad114761542cc1747026908bc36d7f6cf42f6bb75b1f01fcef58bdbc30d",
       "definitions": [
         {
           "name": "AdmissionError",
@@ -12245,6 +12273,10 @@
         {
           "name": "close",
           "line": 247
+        },
+        {
+          "name": "_close_under_execution_gate",
+          "line": 255
         }
       ],
       "symbolic_callees": [
@@ -12257,6 +12289,7 @@
         "datetime.now",
         "field",
         "frozenset",
+        "gate.hold",
         "getattr",
         "hmac.compare_digest",
         "hmac.digest",
@@ -12273,6 +12306,7 @@
         "secrets.token_bytes",
         "secrets.token_hex",
         "self._clock",
+        "self._close_under_execution_gate",
         "self._issue",
         "self._signature",
         "sorted",
@@ -12284,8 +12318,8 @@
         "value.strip",
         "value.utcoffset"
       ],
-      "call_site_count": 67,
-      "call_sites_sha256": "695566b6953f215cadbb0206ea30cbff90cacd321f6dd74ba3525143d2794e48"
+      "call_site_count": 71,
+      "call_sites_sha256": "94834fa886e5fc85a4ac722cde308b87799c259c1c5c8ce0fd5b9b037ff2d43b"
     },
     "runtime/nonzero_cloudops/views.py": {
       "path": "runtime/nonzero_cloudops/views.py",
@@ -12659,8 +12693,8 @@
     },
     "runtime/mission/coding_tasks.py": {
       "path": "runtime/mission/coding_tasks.py",
-      "git_blob": "f52db4c8df7b937bd190466dea77f73fb9d7be6b",
-      "sha256": "5420f0c2a1235f44c05f584ecbc2a27ad440921532cab8f12a94e28ecbac4396",
+      "git_blob": "b7f3deca4ec8f927193a35d416ce26a120f32dae",
+      "sha256": "8c6a96ef31a433bff8cec051820e5a0c18c92024e4c561478201b915b84c0490",
       "definitions": [
         {
           "name": "CodingRun",
@@ -12700,19 +12734,19 @@
         },
         {
           "name": "coding_cli_request",
-          "line": 1713
+          "line": 1850
         },
         {
           "name": "run_coding_cli",
-          "line": 1718
+          "line": 1855
         },
         {
           "name": "coding_http_request",
-          "line": 1747
+          "line": 1884
         },
         {
           "name": "run_coding_http_cli",
-          "line": 1839
+          "line": 1976
         },
         {
           "name": "__post_init__",
@@ -12724,231 +12758,243 @@
         },
         {
           "name": "_require_native_binding",
-          "line": 291
+          "line": 296
         },
         {
           "name": "_require_principal",
-          "line": 302
+          "line": 307
         },
         {
           "name": "_authority",
-          "line": 320
+          "line": 325
         },
         {
           "name": "_run",
-          "line": 341
+          "line": 346
         },
         {
           "name": "_retire_finished",
-          "line": 372
+          "line": 377
         },
         {
           "name": "lifecycle_snapshot",
-          "line": 385
+          "line": 390
         },
         {
           "name": "drain",
-          "line": 402
+          "line": 407
         },
         {
           "name": "_require_coding_backend_host",
-          "line": 426
+          "line": 433
         },
         {
           "name": "bind_coding_backend",
-          "line": 452
+          "line": 459
         },
         {
           "name": "read_coding_backend",
-          "line": 526
+          "line": 533
         },
         {
           "name": "_require_legacy_coding_task",
-          "line": 538
+          "line": 545
         },
         {
           "name": "runtime_view",
-          "line": 547
+          "line": 554
         },
         {
           "name": "_key",
-          "line": 574
+          "line": 581
         },
         {
           "name": "_load",
-          "line": 578
+          "line": 585
         },
         {
           "name": "_signed",
-          "line": 582
+          "line": 589
         },
         {
           "name": "_save",
-          "line": 594
+          "line": 601
         },
         {
           "name": "_view",
-          "line": 626
+          "line": 633
         },
         {
           "name": "_transition",
-          "line": 641
+          "line": 648
         },
         {
           "name": "_append_transition",
-          "line": 690
+          "line": 697
         },
         {
           "name": "_complete_history",
-          "line": 718
+          "line": 725
         },
         {
           "name": "_unresolved_intents",
-          "line": 726
+          "line": 733
         },
         {
           "name": "_start",
-          "line": 735
+          "line": 742
         },
         {
           "name": "_record_loop",
-          "line": 787
+          "line": 796
         },
         {
           "name": "_execute",
-          "line": 825
+          "line": 834
         },
         {
           "name": "_execute_body",
-          "line": 836
+          "line": 845
         },
         {
           "name": "_active_cancel",
-          "line": 966
+          "line": 975
+        },
+        {
+          "name": "_active_cancel_under_gate",
+          "line": 980
         },
         {
           "name": "wait",
-          "line": 987
+          "line": 1001
         },
         {
           "name": "close",
-          "line": 1000
+          "line": 1014
         },
         {
           "name": "_effect",
-          "line": 1003
+          "line": 1017
         },
         {
           "name": "_native_git_reconciliation_parent",
-          "line": 1024
+          "line": 1038
         },
         {
           "name": "_native_git_reconciliation_retirement",
-          "line": 1096
+          "line": 1110
         },
         {
           "name": "_native_git_reconcile",
-          "line": 1112
+          "line": 1126
+        },
+        {
+          "name": "_apply_verified_native_witness_in_transaction",
+          "line": 1237
         },
         {
           "name": "_native_git_effect_entry",
-          "line": 1222
+          "line": 1350
         },
         {
           "name": "_native_git_effect_check",
-          "line": 1261
+          "line": 1389
         },
         {
           "name": "_native_git_start_ack",
-          "line": 1275
-        },
-        {
-          "name": "_native_git_record_cas_ack",
-          "line": 1285
-        },
-        {
-          "name": "_native_git_require_cas_ack",
-          "line": 1299
-        },
-        {
-          "name": "_native_git_begin_settlement",
-          "line": 1305
-        },
-        {
-          "name": "_native_git_effect_request",
-          "line": 1328
-        },
-        {
-          "name": "_controller_request",
           "line": 1403
         },
         {
+          "name": "_native_git_record_cas_ack",
+          "line": 1413
+        },
+        {
+          "name": "_native_git_require_cas_ack",
+          "line": 1427
+        },
+        {
+          "name": "_native_git_begin_settlement",
+          "line": 1433
+        },
+        {
+          "name": "_native_git_effect_request",
+          "line": 1456
+        },
+        {
+          "name": "_controller_request",
+          "line": 1531
+        },
+        {
           "name": "request",
-          "line": 1522
+          "line": 1652
+        },
+        {
+          "name": "_request",
+          "line": 1659
         },
         {
           "name": "attach_review",
-          "line": 1657
+          "line": 1794
         },
         {
           "name": "_attach_review_locked",
-          "line": 1667
+          "line": 1804
         },
         {
           "name": "read",
-          "line": 531
+          "line": 538
         },
         {
           "name": "change",
-          "line": 654
+          "line": 661
         },
         {
           "name": "save",
-          "line": 804
+          "line": 813
         },
         {
           "name": "read",
-          "line": 1135
+          "line": 1149
         },
         {
           "name": "cancel",
-          "line": 1645
+          "line": 1782
         },
         {
           "name": "inspect",
-          "line": 1673
+          "line": 1810
         },
         {
           "name": "save",
-          "line": 1701
+          "line": 1838
         },
         {
           "name": "pure",
-          "line": 358
+          "line": 363
         },
         {
           "name": "publish",
-          "line": 482
+          "line": 489
         },
         {
           "name": "read",
-          "line": 551
+          "line": 558
         },
         {
           "name": "create",
-          "line": 1565
+          "line": 1702
         },
         {
           "name": "read",
-          "line": 1584
+          "line": 1721
         },
         {
           "name": "require_ready",
-          "line": 745
+          "line": 752
         },
         {
           "name": "observe",
-          "line": 865
+          "line": 874
         }
       ],
       "symbolic_callees": [
@@ -12963,6 +13009,8 @@
         "CodingRunPolicyV1.from_dict",
         "CodingRunPolicyV1.from_dict().to_dict",
         "CodingWorkSnapshot",
+        "CoreIntentAdapter",
+        "CoreIntentAdapter()._read_binding",
         "DiagnosticParser",
         "JsonlFramer",
         "OperationBinding.bind",
@@ -13019,6 +13067,7 @@
         "foundation.require_bindings",
         "framer.feed",
         "framer.finish",
+        "gate.hold",
         "getattr",
         "guard.acquire",
         "guard.release",
@@ -13049,6 +13098,8 @@
         "mapping.items",
         "max",
         "min",
+        "nullcontext",
+        "operation.get",
         "os.close",
         "os.fstat",
         "os.getuid",
@@ -13058,13 +13109,18 @@
         "parent_item.get",
         "parser.add_argument",
         "parser.parse_args",
+        "payload.get",
         "principal.expires_at.timestamp",
         "print",
         "producer.stop",
         "profile.to_dict",
         "re.fullmatch",
         "registry._host_sources",
+        "replace",
         "require",
+        "resolution.outcome.to_dict",
+        "resolution.outcome.to_dict().get",
+        "resolution.to_dict",
         "response.read",
         "result.__post_init__",
         "retained.get",
@@ -13088,6 +13144,7 @@
         "self._active.pop",
         "self._active.values",
         "self._active_cancel",
+        "self._active_cancel_under_gate",
         "self._append_transition",
         "self._attach_review_locked",
         "self._authority",
@@ -13109,6 +13166,7 @@
         "self._native_git_reconciliation_parent",
         "self._native_git_require_cas_ack",
         "self._record_loop",
+        "self._request",
         "self._require_coding_backend_host",
         "self._require_legacy_coding_task",
         "self._require_native_binding",
@@ -13133,7 +13191,9 @@
         "self.effect_factory",
         "self.journal._load",
         "self.journal._run",
+        "self.journal.apply_resolution_in_transaction",
         "self.journal.ledger.clock",
+        "self.journal.ledger.core.require",
         "self.lifecycle_snapshot",
         "self.native_access.capture",
         "self.native_access.foundation.lifecycle.quarantine",
@@ -13141,11 +13201,13 @@
         "self.native_access.foundation.lifecycle.retire_work",
         "self.native_access.foundation.owner._native_coding.project_probe",
         "self.native_access.require_capture",
+        "self.native_witness_recovery_port.recover_native_task",
         "self.run_factory",
         "self.runtime_view",
         "set",
         "sorted",
         "stat.S_ISREG",
+        "step.payload.get",
         "str",
         "strict_json",
         "thread.join",
@@ -13163,10 +13225,11 @@
         "tx.replace",
         "tx.scan",
         "type",
-        "verify"
+        "verify",
+        "warrant.digest"
       ],
-      "call_site_count": 737,
-      "call_sites_sha256": "14994d6faf71463fac99a2dc7a874d0dade48d8382910298ec9e6fe3cdefc94e"
+      "call_site_count": 815,
+      "call_sites_sha256": "e4230cea968ca73505df47d26a23226a9db3176169ed55c9b9892c3f6fcf3811"
     },
     "tests/test_hybrid_patchset.py": {
       "path": "tests/test_hybrid_patchset.py",
@@ -19361,8 +19424,8 @@
     },
     "runtime/meta_hackathon/native_authority.py": {
       "path": "runtime/meta_hackathon/native_authority.py",
-      "git_blob": "daba6dd6aec0dee453591e03e1f8980f9e8a2ec3",
-      "sha256": "fe7e860e0612adb84c22e88c2c53ceb61845820f41553474bfcd74e0214465ef",
+      "git_blob": "5d0e326dd67460972eb8218e321b050a7715b16d",
+      "sha256": "d520221f1b6a1a997b5ff92141cfc0c35f00b754839413645e0091a43526c1b0",
       "definitions": [
         {
           "name": "deny",
@@ -19442,19 +19505,19 @@
         },
         {
           "name": "NativeCoreAccess",
-          "line": 881
+          "line": 915
         },
         {
           "name": "NativeAuthorityFoundation",
-          "line": 1040
+          "line": 1074
         },
         {
           "name": "_Pending",
-          "line": 1135
+          "line": 1169
         },
         {
           "name": "NativeCapacityOwnerController",
-          "line": 1142
+          "line": 1176
         },
         {
           "name": "from_dict",
@@ -19586,111 +19649,115 @@
         },
         {
           "name": "begin_synchronous",
-          "line": 690
+          "line": 694
         },
         {
           "name": "complete_synchronous",
-          "line": 723
+          "line": 727
         },
         {
           "name": "retire_work",
-          "line": 748
+          "line": 752
         },
         {
           "name": "invalidate_admission",
-          "line": 780
+          "line": 784
         },
         {
           "name": "begin_capacity_review",
-          "line": 790
+          "line": 798
         },
         {
           "name": "require_fence",
-          "line": 808
-        },
-        {
-          "name": "capture_quiescence",
           "line": 820
         },
         {
+          "name": "capture_quiescence",
+          "line": 832
+        },
+        {
           "name": "abort",
-          "line": 843
+          "line": 855
+        },
+        {
+          "name": "complete_capacity_application",
+          "line": 866
         },
         {
           "name": "drain",
-          "line": 850
+          "line": 880
         },
         {
           "name": "__init__",
-          "line": 882
+          "line": 916
         },
         {
           "name": "_register",
-          "line": 886
+          "line": 920
         },
         {
           "name": "_require_original",
-          "line": 891
+          "line": 925
         },
         {
           "name": "_close",
-          "line": 902
+          "line": 936
         },
         {
           "name": "native_row",
-          "line": 910
+          "line": 944
         },
         {
           "name": "capture",
-          "line": 924
+          "line": 958
         },
         {
           "name": "require_capture",
-          "line": 988
+          "line": 1022
         },
         {
           "name": "bind_owner",
-          "line": 1042
+          "line": 1076
         },
         {
           "name": "finish_owner",
-          "line": 1074
+          "line": 1108
         },
         {
           "name": "require_bindings",
-          "line": 1081
+          "line": 1115
         },
         {
           "name": "__init__",
-          "line": 1143
+          "line": 1177
         },
         {
           "name": "capture_host",
-          "line": 1147
+          "line": 1181
         },
         {
           "name": "require_host",
-          "line": 1180
+          "line": 1214
         },
         {
           "name": "require_core_view",
-          "line": 1211
+          "line": 1245
         },
         {
           "name": "_readback",
-          "line": 1215
+          "line": 1249
         },
         {
           "name": "_call",
-          "line": 1228
+          "line": 1262
         },
         {
           "name": "dispatch",
-          "line": 1238
+          "line": 1272
         },
         {
           "name": "_initialize",
-          "line": 1335
+          "line": 1369
         },
         {
           "name": "identity",
@@ -19698,15 +19765,15 @@
         },
         {
           "name": "read",
-          "line": 826
+          "line": 838
         },
         {
           "name": "read",
-          "line": 1219
+          "line": 1253
         },
         {
           "name": "approve",
-          "line": 1303
+          "line": 1337
         }
       ],
       "symbolic_callees": [
@@ -19795,6 +19862,7 @@
         "f.ledger.approve_in_transaction",
         "f.lifecycle.abort",
         "f.lifecycle.begin_capacity_review",
+        "f.lifecycle.complete_capacity_application",
         "f.lifecycle.require_fence",
         "f.require_bindings",
         "f.runner.run",
@@ -19811,6 +19879,7 @@
         "foundation.owner.missions.retained_in_transaction",
         "foundation.require_bindings",
         "frozenset",
+        "gate.hold",
         "getattr",
         "github_write.retained_in_transaction",
         "handle.cancel.cancel",
@@ -19849,6 +19918,7 @@
         "load_job",
         "min",
         "now.timestamp",
+        "nullcontext",
         "object",
         "object.__new__",
         "object.__setattr__",
@@ -19903,6 +19973,7 @@
         "self._readback",
         "self._require_original",
         "self._roles.get",
+        "self.abort",
         "self.capture_host",
         "self.coding_backend_registry._host_sources",
         "self.controller.require_host",
@@ -19962,8 +20033,8 @@
         "warrants.get",
         "worker.is_alive"
       ],
-      "call_site_count": 776,
-      "call_sites_sha256": "e7a1c0630180063c93db2304ff479935f5c34329757d6912808c33c6217914c5"
+      "call_site_count": 797,
+      "call_sites_sha256": "7792d2f229de3edcf9cbb79b0bbc66b75fdd2d78fa184434e28503c91ebb320c"
     },
     "runtime/mission/execution_capacity.py": {
       "path": "runtime/mission/execution_capacity.py",
