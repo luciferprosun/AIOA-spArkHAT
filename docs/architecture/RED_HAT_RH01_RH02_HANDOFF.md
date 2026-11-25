@@ -21,3 +21,10 @@ Three durability facts remain distinct: readback can observe the ref and re-sync
 The executor runs as the fixture UID. This does not prove independent UID ownership, production key custody, systemd/AppArmor/cgroup isolation or the qualified Ubuntu Noble host. The existing read-only Git child is preserved. The prototype has not changed Core authority, journal or settlement. No live publication occurred. Native forward qualification remains blocked and historical Native #69 remains UNKNOWN/HELD.
 
 RH-03 is implemented on `local/redhat-native69-rh03` (`d37f192` Core adapter and fixture recovery; `9f7637e` Core mapping and handoff). Its adapter binds the RH-02 broker request to the existing durable Core START, warrant, reservation, owner scope and outbox, while production release remains disabled. The test-only recovery path verifies the original witness in a fresh process and settles through the existing intent journal; focused adapter, recovery, Core-intent and Native cold-controller tests pass. It does not wire production Native task state or close the independent executor/STOP trust boundary. RH-04 must integrate the original Native route/task state, establish an owner-approved cross-process STOP/release contract and separate executor/key custody, then qualify the complete path on pinned Ubuntu Noble. Keep unavailable evidence fail-closed.
+
+## Current consolidated status
+
+RH-04 has since added the non-activating Native task/recovery candidate, and
+RH-05B ported that work plus the RH-03 late fixes onto fetched Cloud `main`.
+The integrated source, current regression results and outstanding production
+gates are recorded in [RED_HAT_RH05B_HANDOFF.md](RED_HAT_RH05B_HANDOFF.md).

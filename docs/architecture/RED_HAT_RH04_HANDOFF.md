@@ -1,5 +1,10 @@
 # RH-04 Native #69 handoff
 
+This is the historical handoff for source commit `4b81f1a` on its original local
+branch. RH-05B later consolidated that candidate with the RH-03 late fixes on
+the then-current Cloud `main`; see [RED_HAT_RH05B_HANDOFF.md](RED_HAT_RH05B_HANDOFF.md)
+for integrated source, tests, reviews and current blockers.
+
 Status: **local non-activating prototype; production remains blocked**.
 
 ## Source and scope
