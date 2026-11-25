@@ -8,6 +8,7 @@ production execution.
 import os
 import json
 import select
+import stat
 import subprocess
 import sys
 import tempfile
@@ -987,11 +988,24 @@ class RedHatRH04Tests(unittest.TestCase):
         repository = self.root / "unsafe-target"
         repository.mkdir(mode=0o700)
         git(repository, "init", "--bare", "--template=")
+        ref_root = repository / "refs"
+        ref_heads = ref_root / "heads"
         target_ref_dir = repository / "refs" / "heads" / "unsafe"
-        target_ref_dir.mkdir(mode=0o770)
+        target_ref_dir.mkdir(mode=0o700)
+        # mkdir(mode=...) is filtered by the invoking shell's umask. Set and
+        # assert the intended fixture mode explicitly so this test is stable
+        # under both restrictive and permissive test-runner umasks.
+        for directory in (ref_root, ref_heads, target_ref_dir):
+            os.chmod(directory, 0o700)
+            self.assertEqual(0o700, stat.S_IMODE(directory.stat().st_mode))
         root_fd = os.open(repository, os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC)
         self.addCleanup(os.close, root_fd)
         from runtime.mission.sandbox_linux import LinuxSandboxBroker
+        safe_fd = LinuxSandboxBroker._git_directory(
+            root_fd, ("refs", "heads", "unsafe"), create=False, cancel=None)
+        os.close(safe_fd)
+        os.chmod(target_ref_dir, 0o770)
+        self.assertEqual(0o770, stat.S_IMODE(target_ref_dir.stat().st_mode))
         with self.assertRaisesRegex(ValueError, "GIT_STORAGE_OWNER_OR_MOUNT"):
             LinuxSandboxBroker._git_directory(
                 root_fd, ("refs", "heads", "unsafe"), create=False, cancel=None)
