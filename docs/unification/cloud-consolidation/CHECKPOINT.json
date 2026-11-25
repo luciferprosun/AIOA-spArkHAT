@@ -161,5 +161,75 @@
     ],
     "cloud_scope": "SHARED_SOURCE_GITHUB_ONLY",
     "retirement": "HOLD"
+  },
+  "cloud_final_merge_audit": {
+    "observed_utc_day": "2026-11-25",
+    "main": "1d475a2aef3437854386e7d8a0e1c998735753fe",
+    "tree": "d90822d11f4d05f0effebb1a59e85c17688c947b",
+    "protection": {
+      "enabled": true,
+      "required_checks_app_id": 15368,
+      "enforcement_level": "everyone",
+      "required_checks": [
+        "Installed packaging (3.11)",
+        "Installed packaging (3.12)",
+        "certify (3.11)",
+        "certify (3.12)"
+      ],
+      "administrative_details": "NOT_VERIFIED_HTTP_403"
+    },
+    "ci": {
+      "core_and_packaging": {
+        "run": 45491074941,
+        "result": "PASS"
+      },
+      "default_codeql": {
+        "run": 45491073776,
+        "result": "PASS"
+      },
+      "advanced_codeql": {
+        "run": 45491074774,
+        "result": "SKIPPED"
+      },
+      "standalone_mcp": "NO_EXACT_MAIN_RUN_OBSERVED"
+    },
+    "verified_merges_to_main": {
+      "65": "307af3e2ab43c10f9c90639f55c163321303a3b7",
+      "67": "cd6a6ad9d948768e9f60fe02b7101e433b790605",
+      "68": "1d475a2aef3437854386e7d8a0e1c998735753fe"
+    },
+    "open_pr_dispositions": {
+      "22": "ARCHIVE_ONLY",
+      "25": "ALREADY_IN_MAIN_BY_ANCESTRY",
+      "44": "ALREADY_IN_MAIN_VIA_46",
+      "45": "ALREADY_IN_MAIN_VIA_46",
+      "50": "REQUIRES_CURRENT_MAIN_FORWARD_PORT",
+      "66": "HOLD_LOCAL_OWNERSHIP",
+      "69": "HOLD_NATIVE69"
+    },
+    "pr66_stacked_ci": {
+      "head": "868371c6afb970e0c0e64ff0d1f99281bc60cc0b",
+      "core_and_packaging_run": 45446167945,
+      "mcp_run": 45446271539,
+      "codeql": "NO_EXACT_HEAD_RUN_OBSERVED",
+      "shared_path": "runtime/mission/git_publish.py"
+    },
+    "merge_ready_prs": [],
+    "matrix_rows": 69,
+    "historical_core_pins_differing_from_main_rows": [
+      1,
+      2,
+      3,
+      4,
+      39,
+      40,
+      41,
+      42,
+      63
+    ],
+    "live_qualification": "NOT_RUN",
+    "historical_native69": "UNKNOWN_HELD",
+    "native69_production": "BLOCKED_SECURITY_REVIEW",
+    "legacy_retirement": "HOLD"
   }
 }
