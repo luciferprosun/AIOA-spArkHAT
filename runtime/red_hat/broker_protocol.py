@@ -24,7 +24,7 @@ MAX_ATTEMPTS = 256
 FRAME_TIMEOUT = 2.0
 _IDENTIFIER = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
 _DIGEST = re.compile(r"[0-9a-f]{64}")
-_REF = re.compile(r"refs/heads/[A-Za-z0-9][A-Za-z0-9_-]{0,95}")
+_REF = re.compile(r"refs/heads/[A-Za-z0-9][A-Za-z0-9_-]{0,95}(?:/[A-Za-z0-9][A-Za-z0-9_-]{0,95})*")
 _OPEN_FILE = os.O_CLOEXEC | os.O_NOFOLLOW | os.O_NONBLOCK
 
 

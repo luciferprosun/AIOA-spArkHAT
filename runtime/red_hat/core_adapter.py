@@ -68,6 +68,89 @@ class CoreStartBinding:
     exact_ref: str | None
     old_oid: str | None
     new_oid: str | None
+    device_id: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class VerifiedNativeWitness:
+    """Typed fixture result created only after a fresh independent verifier.
+
+    This public value is evidence metadata, not an authorization capability.
+    Settlement entry points rebind it to the current Core START in one tx.
+    """
+
+    binding: CoreStartBinding
+    request: object
+    resolution: Reconciliation
+    verification_process_pid: int
+    effect_observed: bool
+    producer_effect_sync_completed: bool
+    witness_bytes_verified: bool
+    witness_durable_at_readback: bool
+    producer_witness_sync_attested: bool
+    witness_sha256: str
+    completion_sha256: str
+    receipt_sha256: str
+    readback_sha256: str
+    published_inode: tuple
+    published_ctime_ns: int
+
+    def __post_init__(self):
+        from runtime.red_hat.broker_protocol import BrokerRequest
+
+        _require(type(self.binding) is CoreStartBinding
+                 and type(self.request) is BrokerRequest
+                 and type(self.resolution) is Reconciliation,
+                 "VERIFIED_NATIVE_WITNESS_TYPE")
+        _require(type(self.verification_process_pid) is int and self.verification_process_pid > 0
+                 and all(type(value) is bool and value for value in (
+                     self.effect_observed, self.producer_effect_sync_completed,
+                     self.witness_bytes_verified, self.witness_durable_at_readback,
+                     self.producer_witness_sync_attested)),
+                 "VERIFIED_NATIVE_WITNESS_GRADE")
+        _require(all(type(value) is str and _HEX.fullmatch(value) for value in (
+            self.witness_sha256, self.completion_sha256,
+            self.receipt_sha256, self.readback_sha256))
+            and type(self.published_inode) is tuple and len(self.published_inode) == 2
+            and all(type(value) is int and value > 0 for value in self.published_inode)
+            and type(self.published_ctime_ns) is int and self.published_ctime_ns > 0,
+            "VERIFIED_NATIVE_WITNESS_PHYSICAL")
+
+
+class DisposableNativeTaskWitnessPort:
+    """Test-only adapter from the controller's reconcile action to RH-02.
+
+    A production implementation must resolve the same data from registered
+    Core/host records and a trusted broker channel. This fixture port never
+    accepts broker request, enrollment, or repository data from task payloads.
+    """
+
+    _FIELDS = frozenset({
+        "warrant", "request", "enrollment", "root_fd", "trusted_device_id",
+        "now", "core_epoch", "broker_epoch",
+    })
+
+    def __init__(self, adapter, coding_tasks, resolver):
+        from runtime.mission.coding_tasks import CoreCodingTasks
+
+        _require(type(adapter) is CoreIntentAdapter
+                 and type(coding_tasks) is CoreCodingTasks
+                 and coding_tasks.journal is adapter.journal
+                 and callable(resolver), "NATIVE_TASK_RECOVERY_PORT")
+        self.adapter, self.coding_tasks, self.resolver = adapter, coding_tasks, resolver
+
+    def recover_native_task(self, principal, task_id):
+        material = self.resolver(task_id)
+        _require(type(material) is dict and set(material) == self._FIELDS,
+                 "NATIVE_TASK_RECOVERY_PORT")
+        return self.adapter.recover_disposable_native_task_fixture(
+            principal, self.coding_tasks, task_id,
+            material["warrant"], material["request"], material["enrollment"],
+            root_fd=material["root_fd"],
+            trusted_device_id=material["trusted_device_id"],
+            now=material["now"], core_epoch=material["core_epoch"],
+            broker_epoch=material["broker_epoch"],
+        )
 
 
 class CoreIntentAdapter:
@@ -110,7 +193,8 @@ class CoreIntentAdapter:
         fixture_profile = payload.get("schema") == "aioa.redhat.fixture-core-publication.v1"
         native_profile = (state["schema"] == "aioa-effect-intent-local-zero-v2"
                           and operation.get("operation_class") == "GIT_COMMIT"
-                          and payload.get("schema") == "aioa.local-operation.v2"
+                          and payload.get("schema") in ("aioa.local-operation.v2",
+                                                         "aioa.local-operation.v3")
                           and payload.get("profile") == "DISPOSABLE_BARE_PATCH_V1")
         _require(fixture_profile or native_profile, "CORE_CAS_INTENT_REQUIRED")
         governor = journal.governor._load(tx)
@@ -164,12 +248,16 @@ class CoreIntentAdapter:
             exact_ref, old_oid, new_oid = payload["ref"], payload["old_oid"], payload["new_oid"]
         else:
             repository = ref_directory = exact_ref = old_oid = new_oid = None
+        device_id = payload.get("device_id") if payload.get("schema") == "aioa.local-operation.v3" else None
+        if device_id is not None:
+            _require(type(device_id) is str and re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}", device_id),
+                     "CORE_DEVICE_BINDING")
         return CoreStartBinding(owner, operation_id, attempt_id, start_digest, intent_digest,
                                 warrant.digest().removeprefix("sha256:"), state["reservation"], warrant.operation_hash,
                                 state["epoch"], governor["epoch"], int(warrant.issued_at.timestamp()),
                                 int(warrant.expires_at.timestamp()),
                                 state["liability_id"], settled,
-                                repository, ref_directory, exact_ref, old_oid, new_oid)
+                                repository, ref_directory, exact_ref, old_oid, new_oid, device_id)
 
     def capture_start(self, principal, warrant):
         """Read the original START, including historical starts after revocation."""
@@ -213,6 +301,7 @@ class CoreIntentAdapter:
             request.attempt_id == binding.attempt_id,
             request.owner_id == binding.owner_scope_digest,
             request.device_id == trusted_device_id,
+            binding.device_id is None or request.device_id == binding.device_id,
             request.start_digest == binding.start_digest,
             request.intent_digest == binding.intent_digest,
             request.warrant_digest == binding.warrant_digest,
@@ -304,8 +393,8 @@ sys.stdout.write(json.dumps({"pid": os.getpid(), "facts": facts}, sort_keys=True
                      and (facts["published_inode"] is None
                           or type(facts["published_inode"]) is list
                           and len(facts["published_inode"]) == 2
-                          and all(type(item) is int and item > 0
-                                  for item in facts["published_inode"]))
+                          and all(type(value) is int and value > 0
+                                  for value in facts["published_inode"]))
                      and (facts["published_ctime_ns"] is None
                           or type(facts["published_ctime_ns"]) is int
                           and facts["published_ctime_ns"] > 0),
@@ -325,6 +414,26 @@ sys.stdout.write(json.dumps({"pid": os.getpid(), "facts": facts}, sort_keys=True
         obtains the verifier result itself, and never accepts a caller supplied
         ``Reconciliation`` or success Boolean.
         """
+        witness = self._verify_disposable_fixture(
+            principal, warrant, request, enrollment, root_fd=root_fd,
+            trusted_device_id=trusted_device_id, now=now,
+            core_epoch=core_epoch, broker_epoch=broker_epoch)
+
+        def settle(tx):
+            current = self._read_binding(tx, warrant)
+            same_start = replace(current, settled=witness.binding.settled) == witness.binding
+            monotonic = not witness.binding.settled or current.settled
+            _require(same_start and monotonic, "CORE_START_CHANGED")
+            return self.journal.apply_resolution_in_transaction(
+                tx, warrant, witness.binding.settlement_epoch, witness.resolution)
+
+        result = self.journal._run(principal, Capability.COMMIT, settle)
+        return {**result, "verification_process_pid": witness.verification_process_pid}
+
+    def _verify_disposable_fixture(self, principal, warrant, request, enrollment, *,
+                                   root_fd, trusted_device_id, now, core_epoch,
+                                   broker_epoch):
+        """Return evidence only after fresh-process fixture verification."""
         from runtime.red_hat.broker_protocol import digest, read_record
         from runtime.red_hat.fixture_repository import open_dir, open_repository
         from runtime.red_hat.verifier import Verification
@@ -355,8 +464,7 @@ sys.stdout.write(json.dumps({"pid": os.getpid(), "facts": facts}, sort_keys=True
             completion = read_record(evidence, "completion-" + witness_id,
                                      enrollment.executor.uid, sync=True)
             stamp = target.observe(request)
-            _require(type(report.published_inode) is tuple
-                     and len(report.published_inode) == 2
+            _require(type(report.published_inode) is tuple and len(report.published_inode) == 2
                      and stamp[:2] == report.published_inode
                      and stamp[2] == report.published_ctime_ns
                      and hashlib.sha256(witness).hexdigest() == report.witness_sha256
@@ -378,42 +486,78 @@ sys.stdout.write(json.dumps({"pid": os.getpid(), "facts": facts}, sort_keys=True
                               "sha256:" + readback_digest, "aioa.redhat.fixture-verifier.v1")
         resolution = Reconciliation(warrant.operation_hash, Applied(receipt.evidence_id),
                                     receipt, readback)
+        return VerifiedNativeWitness(
+            binding=binding,
+            request=request,
+            resolution=resolution,
+            verification_process_pid=verifier_pid,
+            effect_observed=report.effect_observed,
+            producer_effect_sync_completed=report.producer_effect_sync_completed,
+            witness_bytes_verified=report.witness_bytes_verified,
+            witness_durable_at_readback=report.witness_durable_at_readback,
+            producer_witness_sync_attested=report.producer_witness_sync_attested,
+            witness_sha256=report.witness_sha256,
+            completion_sha256=report.completion_sha256,
+            receipt_sha256=receipt_digest,
+            readback_sha256=readback_digest,
+            published_inode=report.published_inode,
+            published_ctime_ns=report.published_ctime_ns,
+        )
+
+    def recover_disposable_native_task_fixture(
+        self, principal, coding_tasks, task_id, warrant, request, enrollment, *,
+        root_fd, trusted_device_id, now, core_epoch, broker_epoch,
+    ):
+        """Fixture-only fresh verification + atomic Core intent/task settlement."""
+        from runtime.mission.coding_tasks import CoreCodingTasks
+        _require(type(coding_tasks) is CoreCodingTasks
+                 and coding_tasks.journal is self.journal
+                 and type(task_id) is str and task_id == warrant.task_id,
+                 "NATIVE_TASK_RECOVERY_BINDING")
+        witness = self._verify_disposable_fixture(
+            principal, warrant, request, enrollment, root_fd=root_fd,
+            trusted_device_id=trusted_device_id, now=now,
+            core_epoch=core_epoch, broker_epoch=broker_epoch)
+        _require(witness.binding.device_id == trusted_device_id
+                 and witness.binding.core_epoch == request.core_epoch,
+                 "NATIVE_TASK_PHYSICAL_OR_EPOCH_BINDING")
 
         def settle(tx):
-            # Recheck the disposable physical object and authenticated records
-            # inside the Core transaction immediately before settlement. This
-            # narrows, but cannot atomically close, the filesystem/Core commit
-            # interval.
+            # Recheck the fixture's exact current object in the same Core
+            # transaction that records settlement. This narrows the gap
+            # between independent verification and Core commit; it does not
+            # make filesystem state atomic with the Core journal.
             from runtime.red_hat.broker_protocol import read_record
             from runtime.red_hat.fixture_repository import open_dir, open_repository
 
-            with ExitStack() as settle_stack:
-                settle_target = settle_stack.enter_context(
+            with ExitStack() as stack:
+                target = stack.enter_context(
                     open_repository(root_fd, request, enrollment.executor.uid))
-                marker_now = read_record(
-                    settle_target.repo, ".redhat-disposable", enrollment.executor.uid)
-                _require(marker_now == b"AIOA_RED_HAT_FIXTURE_V1\n",
+                marker = read_record(target.repo, ".redhat-disposable",
+                                     enrollment.executor.uid)
+                _require(marker == b"AIOA_RED_HAT_FIXTURE_V1\n",
                          "DISPOSABLE_REPOSITORY_REQUIRED")
-                evidence_now = open_dir(root_fd, "evidence", settle_stack)
-                witness_now = read_record(
-                    evidence_now, witness_id, enrollment.executor.uid, sync=True)
-                completion_now = read_record(
-                    evidence_now, "completion-" + witness_id,
+                evidence = open_dir(root_fd, "evidence", stack)
+                witness_id = request.witness_binding().witness_id
+                witness_bytes = read_record(evidence, witness_id,
+                                            enrollment.executor.uid, sync=True)
+                completion_bytes = read_record(
+                    evidence, "completion-" + witness_id,
                     enrollment.executor.uid, sync=True)
-                stamp_now = settle_target.observe(request)
-                _require(stamp_now == stamp
-                         and hashlib.sha256(witness_now).hexdigest()
-                         == report.witness_sha256
-                         and hashlib.sha256(completion_now).hexdigest()
-                         == report.completion_sha256,
+                current_stamp = target.observe(request)
+                _require(current_stamp == (*witness.published_inode,
+                                           witness.published_ctime_ns)
+                         and hashlib.sha256(witness_bytes).hexdigest()
+                         == witness.witness_sha256
+                         and hashlib.sha256(completion_bytes).hexdigest()
+                         == witness.completion_sha256,
                          "VERIFIED_READBACK_IDENTITY_CHANGED")
-                settle_target.check(request)
-            current = self._read_binding(tx, warrant)
-            same_start = replace(current, settled=binding.settled) == binding
-            monotonic = not binding.settled or current.settled
-            _require(same_start and monotonic, "CORE_START_CHANGED")
-            return self.journal.apply_resolution_in_transaction(
-                tx, warrant, binding.settlement_epoch, resolution)
+                target.check(request)
+            view = coding_tasks._apply_verified_native_witness_in_transaction(
+                tx, task_id, warrant, witness)
+            _, current = self.journal._load(tx, warrant)
+            return self.journal._public(current), view
 
-        result = self.journal._run(principal, Capability.COMMIT, settle)
-        return {**result, "verification_process_pid": verifier_pid}
+        intent, task_view = self.journal._run(principal, Capability.COMMIT, settle)
+        return {"intent": intent, "task": task_view,
+                "verification_process_pid": witness.verification_process_pid}

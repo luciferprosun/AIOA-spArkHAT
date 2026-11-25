@@ -7,6 +7,7 @@ credential. Constructors/imports are inert; operator configuration is explicit.
 """
 import re
 import time
+from contextlib import nullcontext
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 
@@ -247,6 +248,15 @@ commit or refund it. A lost marker ACK never gives send permission on replay.
         execute_once(tx,binding,append)
 
     def _change(self, principal, purpose, change, *, check_clock=True, reconciliation=False):
+        gate = getattr(self.runner, "execution_gate", None)
+        with gate.hold() if gate is not None else nullcontext():
+            return self._change_under_execution_gate(
+                principal, purpose, change, check_clock=check_clock,
+                reconciliation=reconciliation,
+            )
+
+    def _change_under_execution_gate(self, principal, purpose, change, *,
+                                     check_clock=True, reconciliation=False):
         self._require(principal,purpose);now=self._now()
         def apply(tx):
             before=self._load(tx);state=_plain(before)
@@ -478,6 +488,11 @@ commit or refund it. A lost marker ACK never gives send permission on replay.
 
     def start_epoch(self, principal, *, native_capture=None):
         """Explicit Core operator takeover; never automatic at construction."""
+        gate = getattr(self.runner, "execution_gate", None)
+        with gate.hold() if gate is not None else nullcontext():
+            return self._start_epoch_under_execution_gate(principal, native_capture=native_capture)
+
+    def _start_epoch_under_execution_gate(self, principal, *, native_capture=None):
         now=self._now()
         def change(state):
             _deny(state['last_now'] is None or now >= state['last_now'], 'CLOCK_UNSAFE')

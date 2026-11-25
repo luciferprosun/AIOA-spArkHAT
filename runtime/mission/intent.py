@@ -8,6 +8,7 @@ Serializable transactions and scoped revision CAS are adapter requirements;
 there is no atomic database/target transaction or distributed exactly-once claim.
 """
 import json
+import re
 
 from lab.archaioa.outcome import Unknown
 from lab.archaioa.warrant import EffectWarrant
@@ -180,12 +181,31 @@ class CoreIntentJournal:
             portable = not remote_zero and warrant.operation_class in ('PORTABLE_RELEASE_ELASTIC_IP', 'PORTABLE_REARM_DEMO_V1')
             if portable:
                 require(warrant.authority_scope.monetary_ceiling.currency == 'USD', 'LOCAL_ZERO_USD_REQUIRED')
+            native_v3 = (not remote_zero and not portable
+                         and payload.get('schema') == 'aioa.local-operation.v3')
             expected_schema = ('aioa.github-remote-operation.v1' if remote_zero else
                                'aioa.portable-rearm-operation.v1' if warrant.operation_class == 'PORTABLE_REARM_DEMO_V1' else
-                               'aioa.portable-operation.v1' if portable else 'aioa.local-operation.v2')
+                               'aioa.portable-operation.v1' if portable else
+                               'aioa.local-operation.v3' if native_v3 else 'aioa.local-operation.v2')
             require(payload.get('schema') == expected_schema
                     and payload.get('principal_session_id', payload.get('session_id')) == principal.actor_session_id
                     and payload.get('policy_epoch') == warrant.lease_epoch, 'LOCAL_ZERO_BINDING')
+            if native_v3:
+                physical = ('repository_dev', 'repository_inode',
+                            'ref_directory_dev', 'ref_directory_inode')
+                require(warrant.operation_class == 'GIT_COMMIT'
+                        and all(type(payload.get(name)) is int and payload[name] > 0
+                                for name in physical)
+                        and type(payload.get('device_id')) is str
+                        and re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.-]{0,127}', payload['device_id'])
+                        and type(payload.get('ref')) is str
+                        and re.fullmatch(r'refs/heads/[A-Za-z0-9][A-Za-z0-9/_-]{0,127}', payload['ref'])
+                        and '//' not in payload['ref'] and not payload['ref'].endswith('/')
+                        and payload.get('old_oid') == '0' * 40
+                        and type(payload.get('new_oid')) is str
+                        and re.fullmatch(r'[a-f0-9]{40}', payload['new_oid'])
+                        and payload.get('new_oid') == payload.get('commit_sha'),
+                        'LOCAL_ZERO_PHYSICAL_BINDING')
             if remote_zero:
                 require(type(payload.get('repository_id')) is int and payload['repository_id']==1445911975,
                     'GITHUB_REPOSITORY_DENIED')

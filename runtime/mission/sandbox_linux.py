@@ -793,7 +793,7 @@ def git_storage_identity(root):
                         info.st_uid == os.getuid()
                         and info.st_dev == origin.st_dev
                         and mountid(fd) == origin_mount
-                        and not info.st_mode & 0o7002,
+                        and not info.st_mode & 0o7022,
                         "GIT_STORAGE_OWNER_OR_MOUNT",
                     )
                     if stat.S_ISDIR(info.st_mode):
@@ -1337,14 +1337,16 @@ class LinuxSandboxBroker:
                     info.st_uid == os.getuid()
                     and info.st_dev == origin.st_dev
                     and mountid(fd) == origin_mount
-                    and not info.st_mode & 0o7002,
+                    and not info.st_mode & 0o7022,
                     "GIT_STORAGE_OWNER_OR_MOUNT",
                 )
                 current = fd
             return os.dup(current)
 
     @staticmethod
-    def _git_publish_new(parent, name, data, *, cancel, before_ref_link=None):
+    def _git_publish_new(parent, name, data, *, cancel, before_ref_link=None,
+                         before_ref_link_guard=None, expected_parent_identity=None,
+                         before_ref_link_check=None):
         """Atomic create-only publication of a fully written unnamed inode.
 
         No truncation, chmod, utime, append or write to an existing pathname.
@@ -1357,6 +1359,14 @@ class LinuxSandboxBroker:
         )
         fd = os.open(".", os.O_TMPFILE | os.O_RDWR | os.O_CLOEXEC, 0o400, dir_fd=parent)
         try:
+            if expected_parent_identity is not None:
+                parent_info = os.fstat(parent)
+                require(type(expected_parent_identity) is tuple
+                        and len(expected_parent_identity) == 2
+                        and all(type(value) is int and value > 0
+                                for value in expected_parent_identity)
+                        and (parent_info.st_dev, parent_info.st_ino) == expected_parent_identity,
+                        "GIT_REF_DIRECTORY_CHANGED")
             offset = 0
             while offset < len(data):
                 require(
@@ -1368,19 +1378,35 @@ class LinuxSandboxBroker:
             os.fsync(fd)
             require(os.fstat(fd).st_nlink == 0, "GIT_UNNAMED_FILE_REQUIRED")
             require(cancel is None or not cancel.cancelled, "GIT_PLUMBING_CANCELLED")
-            if before_ref_link is not None:
-                require(not _IN_TRANSACTION.get(), "GIT_REF_RELEASE_CONTEXT_DENIED")
-                before_ref_link()
-                require(cancel is None or not cancel.cancelled, "GIT_PLUMBING_CANCELLED")
-            try:
-                os.link(
-                    "/proc/self/fd/" + str(fd),
-                    name,
-                    dst_dir_fd=parent,
-                    follow_symlinks=True,
-                )
-            except FileExistsError:
-                return False
+            if before_ref_link_guard is not None:
+                require(before_ref_link is not None
+                        and callable(getattr(before_ref_link_guard, "hold", None)),
+                        "GIT_REF_RELEASE_CONTEXT_DENIED")
+                gate = before_ref_link_guard.hold()
+            else:
+                from contextlib import nullcontext
+                gate = nullcontext()
+            with gate:
+                if before_ref_link is not None:
+                    require(not _IN_TRANSACTION.get(), "GIT_REF_RELEASE_CONTEXT_DENIED")
+                    before_ref_link()
+                    require(cancel is None or not cancel.cancelled, "GIT_PLUMBING_CANCELLED")
+                if before_ref_link_check is not None:
+                    require(callable(before_ref_link_check), "GIT_REF_RELEASE_CONTEXT_DENIED")
+                    before_ref_link_check()
+                if expected_parent_identity is not None:
+                    parent_info = os.fstat(parent)
+                    require((parent_info.st_dev, parent_info.st_ino) == expected_parent_identity,
+                            "GIT_REF_DIRECTORY_CHANGED")
+                try:
+                    os.link(
+                        "/proc/self/fd/" + str(fd),
+                        name,
+                        dst_dir_fd=parent,
+                        follow_symlinks=True,
+                    )
+                except FileExistsError:
+                    return False
             os.fsync(parent)
             published = os.fstat(fd)
             try:
@@ -1453,6 +1479,8 @@ class LinuxSandboxBroker:
         expected_storage=None,
         binding_check=None,
         before_ref_link=None,
+        before_ref_link_guard=None,
+        expected_ref_directory=None,
     ):
         """Fixed offline profile on THIS broker and the route's single START.
 
@@ -1528,6 +1556,10 @@ class LinuxSandboxBroker:
             before_ref_link is None or (type(publish) is tuple and callable(before_ref_link)),
             "GIT_REF_RELEASE_CONTEXT_DENIED",
         )
+        require(expected_ref_directory is None
+                or type(expected_ref_directory) is tuple and len(expected_ref_directory) == 2
+                and all(type(value) is int and value > 0 for value in expected_ref_directory),
+                "GIT_REF_DIRECTORY_BINDING")
         require(
             data is None or arguments[0] == "hash-object", "GIT_PLUMBING_INPUT_BOUND"
         )
@@ -1709,6 +1741,11 @@ class LinuxSandboxBroker:
                 require(git_storage_identity(root) == topology, "GIT_STORAGE_CHANGED")
                 if binding_check is not None:
                     binding_check()
+                if (expected_ref_directory is not None and ref_parent is not None
+                        and parent == ref_parent):
+                    info = os.fstat(parent)
+                    require((info.st_dev, info.st_ino) == expected_ref_directory,
+                            "GIT_REF_DIRECTORY_CHANGED")
                 if parent != root:
                     fresh = cls._git_directory(
                         anchors["refs/heads"],
@@ -1767,6 +1804,28 @@ class LinuxSandboxBroker:
                 _, target_ref, _, _ = publish
                 if binding_check is not None:
                     binding_check()
+                try:
+                    ref_parent = hold(
+                        cls._git_directory(
+                            anchors["refs/heads"],
+                            target_ref.split("/")[2:-1],
+                            # A v3 publication names an already existing
+                            # trusted ref parent. Never create directories in
+                            # a replacement path before checking that binding.
+                            create=expected_ref_directory is None,
+                            cancel=cancel,
+                        )
+                    )
+                except (FileExistsError, NotADirectoryError) as error:
+                    raise ValueError("GIT_REF_CONFLICT") from error
+                if expected_ref_directory is not None:
+                    opened_parent = os.fstat(ref_parent)
+                    require((opened_parent.st_dev, opened_parent.st_ino)
+                            == expected_ref_directory,
+                            "GIT_REF_DIRECTORY_CHANGED")
+                    # Validate the pinned descriptor still names the path in
+                    # the authorized repository before creating any lock file.
+                    check_lock_parent(ref_parent)
                 # Git's two files-backend locks serialize cooperating Git
                 # writers, including pack-refs. No waiting or blind retry.
                 lock_new(root, "packed-refs.lock")
@@ -1814,17 +1873,6 @@ class LinuxSandboxBroker:
                         and not requested.startswith(name + b"/"),
                         "GIT_REF_CONFLICT",
                     )
-                try:
-                    ref_parent = hold(
-                        cls._git_directory(
-                            anchors["refs/heads"],
-                            target_ref.split("/")[2:-1],
-                            create=True,
-                            cancel=cancel,
-                        )
-                    )
-                except (FileExistsError, NotADirectoryError) as error:
-                    raise ValueError("GIT_REF_CONFLICT") from error
                 ref_leaf = target_ref.rsplit("/", 1)[1]
                 lock_new(ref_parent, ref_leaf + ".lock")
                 try:
@@ -2035,6 +2083,12 @@ class LinuxSandboxBroker:
                         object_id.encode() + b"\n",
                         cancel=cancel,
                         before_ref_link=before_ref_link,
+                        before_ref_link_guard=before_ref_link_guard,
+                        expected_parent_identity=expected_ref_directory,
+                        before_ref_link_check=(
+                            (lambda: check_ref_transaction())
+                            if expected_ref_directory is not None else None
+                        ),
                     ),
                     "GIT_REF_ALREADY_EXISTS",
                 )

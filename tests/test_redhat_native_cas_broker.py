@@ -161,8 +161,15 @@ class CasBrokerTests(unittest.TestCase):
         for name in ("repo", "state", "evidence"):
             (self.root / name).mkdir(mode=0o700)
         git(repo, "init", "--bare", "--template=", "--object-format=sha1")
+        # The sandbox now rejects group-writable storage components. Normalize
+        # only this disposable fixture, preserving the private workspace root.
+        for path in repo.rglob("*"):
+            path.chmod(0o755 if path.is_dir() else 0o644)
         put(repo / ".redhat-disposable", b"AIOA_RED_HAT_FIXTURE_V1\n", 0o400)
         commit = git(repo, "commit-tree", git(repo, "mktree", input=""), "-m", "Disposable")
+        for path in repo.rglob("*"):
+            if path.name != ".redhat-disposable":
+                path.chmod(0o755 if path.is_dir() else 0o644)
         spki = self.child("key").strip()
         self.enrollment = RegisteredExecutor("fixture-executor", os.getuid(), spki)
         info, directory = repo.stat(), (repo / "refs/heads").stat()
