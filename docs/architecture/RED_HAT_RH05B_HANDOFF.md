@@ -31,6 +31,14 @@ PYTHONPATH=.:tests /home/l/projects/AIOA_NZ_FULL_PRIVATE_20261106/venv/bin/pytho
 
 Results: 23 + 9 + 18 + 33 + 1 + 11 + 29 = **124 passed**, 0 failed, 0 errors, 0 skipped. The umask target also passed once under each requested shell umask. These are focused disposable-fixture and regression results, not hosted CI or production qualification.
 
+## Independent read-only reviews
+
+- **Security:** no new bypass or regression found. Review confirmed the regular Native path fails closed before START without its opt-in gate/device inputs. Production broker/UID/key/descriptor confinement remains unproven; STOP ordering still requires owner/security approval; and the same-UID pathname check-to-link race remains.
+- **Recovery:** identified that the first RH03/RH04 conflict resolution had dropped the journal-only fixture path's in-transaction physical/evidence recheck. Commit `456ee3b` restored marker, ref inode/ctime, and witness/completion hash checks; the final adapter/recovery rerun passed 9/9. The reviewer also confirmed task and intent updates share one Core transaction and restart recovery does not redispatch. Filesystem state still cannot be made atomic with Core journal commit.
+- **Integration:** verified the branch is based on fetched `origin/main`, the latest-main checkpoint and witness document are unchanged, and Cloud runtime/repair paths are untouched. RH03 late checks and RH04 task recovery coexist. The reviewer did not fetch again or run tests; remote freshness is therefore the recorded fetched SHA only.
+
+Reviewers inspected source read-only; regression results above were run independently in this worktree.
+
 ## Security boundary and remaining blockers
 
 - The real Native composition still does not install a qualified production gate/device binding. The route remains fail-closed when those trusted inputs are absent; production release reports `BLOCKED_SECURITY_REVIEW`.
