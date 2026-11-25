@@ -7,7 +7,7 @@ Execution/STOP remain on the existing registered Native routes.
 
 import json
 import hmac
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 import threading
 import time
 from dataclasses import asdict, dataclass
@@ -248,6 +248,7 @@ class CoreCodingTasks:
         coding_backend_registry=None,
         coding_access=None,
         native_access=None,
+        native_witness_recovery_port=None,
     ):
         require(
             type(journal) is CoreIntentJournal
@@ -257,6 +258,10 @@ class CoreCodingTasks:
         )
         self.journal, self.capsules = journal, capsules
         self.native_access = native_access
+        require(native_witness_recovery_port is None or callable(
+                    getattr(native_witness_recovery_port, "recover_native_task", None)),
+                "NATIVE_WITNESS_RECOVERY_PORT")
+        self.native_witness_recovery_port = native_witness_recovery_port
         self.scope = journal.ledger.scope
         require((coding_backend_registry is None) == (coding_access is None),
                 "CODING_BACKEND_HOST_BINDING")
@@ -401,13 +406,15 @@ class CoreCodingTasks:
 
     def drain(self, timeout_seconds):
         require(type(timeout_seconds) in (int, float) and 0 <= timeout_seconds <= 30, "CODING_DRAIN_BOUND")
-        with self._active_lock:
-            self.closed = True
-            work = (tuple(self._active.values()) + tuple(self._effect_ownership.values())
-                    + tuple(child for item in self._effect_ownership.values()
-                            for child in item.get('readbacks', ())))
-            for item in work:
-                item['cancel'].cancel()
+        gate = getattr(self.journal.ledger.runner, "execution_gate", None)
+        with gate.hold() if gate is not None else nullcontext():
+            with self._active_lock:
+                self.closed = True
+                work = (tuple(self._active.values()) + tuple(self._effect_ownership.values())
+                        + tuple(child for item in self._effect_ownership.values()
+                                for child in item.get('readbacks', ())))
+                for item in work:
+                    item['cancel'].cancel()
         # Port cancellation and joins happen outside the controller/global lock.
         deadline = time.monotonic() + timeout_seconds
         for item in work:
@@ -774,7 +781,9 @@ class CoreCodingTasks:
                 require(not active['cancel'].cancelled and not self.closed, "CODING_CANCELLED")
                 active['thread'].start()
         except BaseException:
-            active['cancel'].cancel()
+            gate = getattr(self.journal.ledger.runner, "execution_gate", None)
+            with gate.hold() if gate is not None else nullcontext():
+                active['cancel'].cancel()
             active['done'].set()
             # A lost durable claim ACK is unresolved and never starts a thread.
             # Keep the published ownership until canonical recovery proves idle.
@@ -964,6 +973,11 @@ class CoreCodingTasks:
                     active["completed"] = True
 
     def _active_cancel(self, principal, task_id):
+        gate = getattr(self.journal.ledger.runner, "execution_gate", None)
+        with gate.hold() if gate is not None else nullcontext():
+            return self._active_cancel_under_gate(principal, task_id)
+
+    def _active_cancel_under_gate(self, principal, task_id):
         self._require_principal(principal, Capability.MANAGE, scope=self.scope)
         with self._active_lock:
             active = self._active.get(task_id)
@@ -1209,6 +1223,7 @@ class CoreCodingTasks:
                             parent_item['readbacks'] = children + (item,)
                 lifecycle.quarantine(handle)
             raise
+
         finally:
             if handle is not None:
                 item['returned'] = True
@@ -1218,6 +1233,119 @@ class CoreCodingTasks:
                     del lifecycle._boundary.settlement_handle
             if getattr(lifecycle._boundary, 'coding_effect', None) is item:
                 del lifecycle._boundary.coding_effect
+
+    def _apply_verified_native_witness_in_transaction(
+        self, tx, task_id, warrant, binding
+    ):
+        """Atomically settle a witnessed Native intent and its existing task.
+
+        This cold path requires the future physical-operation schema. It does
+        not manufacture the process-local ``cas_ack`` and never calls a route,
+        publisher, broker, or redispatch port.
+        """
+        from dataclasses import replace
+        from lab.archaioa.warrant import EffectWarrant
+        from runtime.memory_patch.contracts.serialization import canonical_sha256
+        from runtime.memory_patch.persistence.ports import RecordKind
+        from runtime.mission.intent import LOCAL_ZERO_KIND
+        from runtime.mission.liability import Reconciliation
+        from runtime.red_hat.core_adapter import (
+            CoreIntentAdapter, CoreStartBinding, VerifiedNativeWitness,
+        )
+
+        require(tx.context.purpose is Capability.COMMIT
+                and type(warrant) is EffectWarrant
+                and type(binding) is VerifiedNativeWitness
+                and type(binding.binding) is CoreStartBinding
+                and type(binding.resolution) is Reconciliation,
+                "NATIVE_WITNESS_RECOVERY_BINDING")
+        core_binding, resolution = binding.binding, binding.resolution
+        self.journal.ledger.core.require(tx.context.principal, Capability.COMMIT, scope=self.scope)
+        require(warrant.task_id == task_id and core_binding.device_id is not None
+                and resolution.operation_digest == warrant.operation_hash
+                and resolution.outcome.to_dict().get("contract_type") == "Applied",
+                "NATIVE_WITNESS_RECOVERY_BINDING")
+        require(resolution.receipt.digest == "sha256:" + binding.receipt_sha256
+                and resolution.readback.digest == "sha256:" + binding.readback_sha256
+                and all(type(value) is str and len(value) == 64
+                        and all(char in "0123456789abcdef" for char in value)
+                        for value in (binding.witness_sha256, binding.completion_sha256)),
+                "NATIVE_WITNESS_EVIDENCE_HASH_BINDING")
+
+        _, data, task = self._load(tx, task_id)
+        last = data["receipts"][-1]["receipt"]
+        require(last["state"] in ("APPLYING", "UNKNOWN", "VERIFIED")
+                and last["capsule_digest"] is not None,
+                "NATIVE_WITNESS_TASK_STATE")
+        capsule_digest = last["capsule_digest"]
+        capsule_row = tx.get(RecordKind.OPERATION,
+                             canonical_sha256([CAPSULE_KIND, capsule_digest]))
+        require(capsule_row is not None, "NATIVE_WITNESS_CAPSULE_REQUIRED")
+        capsule = self.capsules._decode(capsule_row)
+        require(capsule.task_id == task_id and capsule.task_digest == task.digest
+                and capsule.digest == capsule_digest,
+                "NATIVE_WITNESS_CAPSULE_BINDING")
+
+        _, intent = self.journal._load(tx, warrant)
+        require(intent is not None and intent["schema"] == LOCAL_ZERO_KIND
+                and intent["resolution"] in (None, resolution.to_dict()),
+                "NATIVE_WITNESS_INTENT_REQUIRED")
+        operation = intent["operation"]
+        payload = operation.get("payload", {})
+        require(operation.get("operation_class") == "GIT_COMMIT"
+                and payload.get("schema") == "aioa.local-operation.v3"
+                and payload.get("profile") == "DISPOSABLE_BARE_PATCH_V1"
+                and payload.get("capsule_digest") == capsule_digest
+                and payload.get("device_id") == core_binding.device_id
+                and (payload.get("repository_dev"), payload.get("repository_inode")) == core_binding.repository
+                and (payload.get("ref_directory_dev"), payload.get("ref_directory_inode")) == core_binding.ref_directory
+                and payload.get("ref") == core_binding.exact_ref
+                and payload.get("old_oid") == core_binding.old_oid
+                and payload.get("new_oid") == core_binding.new_oid
+                and payload.get("commit_sha") == core_binding.new_oid,
+                "NATIVE_WITNESS_PHYSICAL_BINDING")
+        plan_digest = payload.get("plan_digest")
+        require(type(plan_digest) is str and len(plan_digest) == 64
+                and all(ch in "0123456789abcdef" for ch in plan_digest),
+                "NATIVE_WITNESS_PLAN_BINDING")
+        step = tx.get(RecordKind.OPERATION,
+                      "github-step-" + capsule_digest[:32] + "-local_patch")
+        require(step is not None
+                and step.payload.get("schema") == "aioa.local-patch-step.v1"
+                and step.payload.get("state") == "GITHUB_STEP_UNKNOWN"
+                and step.payload.get("warrant_digest") == warrant.digest()
+                and step.payload.get("operation_hash") == warrant.operation_hash
+                and step.payload.get("plan_digest") == plan_digest
+                and step.payload.get("automatic_retry") is False,
+                "NATIVE_WITNESS_ROUTE_LINK_REQUIRED")
+
+        current = CoreIntentAdapter(self.journal)._read_binding(tx, warrant)
+        require(replace(current, settled=core_binding.settled) == core_binding
+                and current.settlement_epoch == core_binding.settlement_epoch
+                and binding.request.core_epoch == core_binding.core_epoch
+                and binding.request.operation_id == core_binding.operation_id
+                and binding.request.attempt_id == core_binding.attempt_id
+                and binding.request.owner_id == core_binding.owner_scope_digest
+                and binding.request.device_id == core_binding.device_id
+                and binding.request.start_digest == core_binding.start_digest
+                and binding.request.intent_digest == core_binding.intent_digest
+                and binding.request.warrant_digest == core_binding.warrant_digest
+                and binding.request.reservation_digest == core_binding.reservation_digest
+                and binding.request.repository == core_binding.repository
+                and binding.request.ref_directory == core_binding.ref_directory
+                and binding.request.exact_ref == core_binding.exact_ref
+                and binding.request.old_oid == core_binding.old_oid
+                and binding.request.new_oid == core_binding.new_oid
+                and binding.published_inode is not None
+                and binding.published_ctime_ns is not None,
+                "NATIVE_WITNESS_START_OR_EPOCH_CHANGED")
+        self.journal.apply_resolution_in_transaction(
+            tx, warrant, core_binding.settlement_epoch, resolution
+        )
+        return self._append_transition(
+            tx, task_id, ("APPLYING", "UNKNOWN", "VERIFIED"), "VERIFIED",
+            capsule_digest=capsule_digest, idempotent=True,
+        )
 
     def _native_git_effect_entry(self, route, warrant):
         from runtime.meta_hackathon.native_authority import NativeOwnedWorkHandle
@@ -1420,6 +1548,8 @@ class CoreCodingTasks:
             type(payload) is dict and set(payload) == fields, "CODING_REQUEST_SCHEMA"
         )
         task_id = logical_id(payload["task_id"])
+        if action == 'reconcile' and self.native_witness_recovery_port is not None:
+            return self.native_witness_recovery_port.recover_native_task(principal, task_id)
         if action == 'reconcile' and self.native_access is not None:
             return self._native_git_reconcile(principal, task_id)
         if action == "start":
@@ -1520,6 +1650,13 @@ class CoreCodingTasks:
         return self._transition(principal, task_id, ("APPLYING", "UNKNOWN"), state)
 
     def request(self, principal, action, payload):
+        if action in ("stop", "cancel"):
+            gate = getattr(self.journal.ledger.runner, "execution_gate", None)
+            with gate.hold() if gate is not None else nullcontext():
+                return self._request(principal, action, payload)
+        return self._request(principal, action, payload)
+
+    def _request(self, principal, action, payload):
         if self.native_access is not None and action not in ('runtime_status','read_status','get_receipts','review_effect','reconcile','recover'):
             self.native_access.foundation.lifecycle.require_execution()
         if action == 'runtime_status':

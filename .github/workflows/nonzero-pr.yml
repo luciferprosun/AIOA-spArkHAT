@@ -75,7 +75,7 @@ jobs:
         working-directory: ${{ runner.temp }}
         run: python -I -B "$GITHUB_WORKSPACE/scripts/nvidia_reviewer_preflight.py" --root "$RUNNER_TEMP/aioa-nvidia-reviewer-${{ matrix.python-version }}"
       - name: Install pinned offline acceptance prerequisites on hosted Noble
-        timeout-minutes: 5
+        timeout-minutes: 15
         shell: bash
         run: |
           set -euo pipefail

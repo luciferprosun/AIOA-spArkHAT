@@ -245,5 +245,13 @@ class CoreAdmission:
             raise AdmissionError() from error
 
     def close(self) -> None:
+        gate = getattr(self, "execution_gate", None)
+        if gate is None:
+            self._close_under_execution_gate()
+            return
+        with gate.hold():
+            self._close_under_execution_gate()
+
+    def _close_under_execution_gate(self) -> None:
         self._closed = True
         self._seal_key = b""

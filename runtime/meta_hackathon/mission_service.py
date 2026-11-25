@@ -8,7 +8,7 @@ import json
 import os
 import threading
 import uuid
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from dataclasses import dataclass, replace
 from datetime import UTC, timedelta
 from decimal import Decimal
@@ -724,6 +724,11 @@ class MissionService:
         return replace(warrant, approval_digest=approval_digest(warrant))
 
     def run(self, identity, preview_digest, owner_principal):
+        gate = getattr(getattr(self._native_foundation, "runner", None), "execution_gate", None)
+        with gate.hold() if gate is not None else nullcontext():
+            return self._run_under_execution_gate(identity, preview_digest, owner_principal)
+
+    def _run_under_execution_gate(self, identity, preview_digest, owner_principal):
         self._native_execution_gate()
         self.core.require(owner_principal, Capability.OWNER_APPROVAL, scope=self.scope)
         with self._lock:
@@ -834,6 +839,12 @@ class MissionService:
         return tuple(plain(row.payload) for row in rows)
 
     def stop(self, identity, principal):
+        foundation = self._native_foundation
+        gate = getattr(getattr(foundation, "runner", None), "execution_gate", None)
+        with gate.hold() if gate is not None else nullcontext():
+            return self._stop_under_execution_gate(identity, principal)
+
+    def _stop_under_execution_gate(self, identity, principal):
         self.core.require(principal, Capability.READ, scope=self.scope)
         with self._lock:
             self._live_bindings.pop(identity, None)
@@ -859,6 +870,9 @@ class MissionService:
             'live_verified': False, 'budget_usd': '0'}
 
     def close(self):
-        self._closed = True
-        for cancel in tuple(self._cancels.values()): cancel.cancel()
+        foundation = self._native_foundation
+        gate = getattr(getattr(foundation, "runner", None), "execution_gate", None)
+        with gate.hold() if gate is not None else nullcontext():
+            self._closed = True
+            for cancel in tuple(self._cancels.values()): cancel.cancel()
         for task, thread in tuple(self._workers.items()): thread.join(timeout=12 if task.startswith('agent-') else 2)
