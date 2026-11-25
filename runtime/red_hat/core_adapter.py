@@ -420,6 +420,35 @@ sys.stdout.write(json.dumps({"pid": os.getpid(), "facts": facts}, sort_keys=True
             core_epoch=core_epoch, broker_epoch=broker_epoch)
 
         def settle(tx):
+            # Keep the RH-03 physical/evidence recheck in the same Core
+            # transaction as the intent settlement. This narrows the race; it
+            # cannot atomically couple filesystem state to journal commit.
+            from runtime.red_hat.broker_protocol import read_record
+            from runtime.red_hat.fixture_repository import open_dir, open_repository
+
+            with ExitStack() as stack:
+                target = stack.enter_context(
+                    open_repository(root_fd, request, enrollment.executor.uid))
+                marker = read_record(target.repo, ".redhat-disposable",
+                                     enrollment.executor.uid)
+                _require(marker == b"AIOA_RED_HAT_FIXTURE_V1\n",
+                         "DISPOSABLE_REPOSITORY_REQUIRED")
+                evidence = open_dir(root_fd, "evidence", stack)
+                witness_id = request.witness_binding().witness_id
+                witness_bytes = read_record(evidence, witness_id,
+                                            enrollment.executor.uid, sync=True)
+                completion_bytes = read_record(
+                    evidence, "completion-" + witness_id,
+                    enrollment.executor.uid, sync=True)
+                current_stamp = target.observe(request)
+                _require(current_stamp == (*witness.published_inode,
+                                           witness.published_ctime_ns)
+                         and hashlib.sha256(witness_bytes).hexdigest()
+                         == witness.witness_sha256
+                         and hashlib.sha256(completion_bytes).hexdigest()
+                         == witness.completion_sha256,
+                         "VERIFIED_READBACK_IDENTITY_CHANGED")
+                target.check(request)
             current = self._read_binding(tx, warrant)
             same_start = replace(current, settled=witness.binding.settled) == witness.binding
             monotonic = not witness.binding.settled or current.settled
