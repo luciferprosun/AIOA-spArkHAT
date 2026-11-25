@@ -1,9 +1,9 @@
 # AIOA Red HAT RH-03 local handoff
 
-Base RH-02 HEAD: `e5c4c795063af13927e3a7bcb99c338dc03bbc44`  
-Base tree: `817c08a6fdf1e448bf8d3df8e64cc13d963d814c`  
-Branch: `local/redhat-native69-rh03`  
-RH-03 implementation commit: `d37f192`  
+Base RH-02 HEAD: `e5c4c795063af13927e3a7bcb99c338dc03bbc44`
+Base tree: `817c08a6fdf1e448bf8d3df8e64cc13d963d814c`
+Branch: `local/redhat-native69-rh03`
+RH-03 implementation commit: `d37f192`
 Implementation tree: `133e0afa9d6bce564486124939b889d28e973d5e`
 
 ## Delivered
@@ -122,8 +122,8 @@ the existing Core reconciliation path. Preserve the original intent and do
 not reconstruct `cas_ack`. Repeat the full crash, race, separate-UID and
 qualified Noble-host checks before enabling forward execution.
 
-`NATIVE_FORWARD_PATH_VERIFIED: NO`  
-`HISTORICAL_NATIVE69: UNKNOWN / HELD / BLOCKED_SECURITY_REVIEW`  
-`LIVE_EFFECTS: NONE`  
-`PUSH: NONE`  
+`NATIVE_FORWARD_PATH_VERIFIED: NO`
+`HISTORICAL_NATIVE69: UNKNOWN / HELD / BLOCKED_SECURITY_REVIEW`
+`LIVE_EFFECTS: NONE`
+`PUSH: NONE`
 `MERGE: NONE`

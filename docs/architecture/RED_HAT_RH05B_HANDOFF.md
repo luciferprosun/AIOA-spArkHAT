@@ -40,7 +40,7 @@ Results: 23 + 9 + 18 + 33 + 1 + 11 + 29 = **124 passed**, 0 failed, 0 errors, 0 
 - No pinned Ubuntu 24.04 Noble host qualification, production process channel or real Native producer-to-verifier acceptance has been completed. `NATIVE_FORWARD_PATH_VERIFIED` remains `NO`.
 - Historical Native #69 remains `UNKNOWN / HELD / BLOCKED_SECURITY_REVIEW`; no evidence was reconstructed or altered. NonZero retirement remains on hold.
 
-`LIVE_EFFECTS: NONE`  
-`NATIVE_PRODUCTION_ENABLED: NO`  
-`NATIVE_FORWARD_PATH_VERIFIED: NO`  
+`LIVE_EFFECTS: NONE`
+`NATIVE_PRODUCTION_ENABLED: NO`
+`NATIVE_FORWARD_PATH_VERIFIED: NO`
 `HISTORICAL_NATIVE69: UNKNOWN / HELD`
