@@ -159,6 +159,8 @@ def recover_core(root):
 
 
 class AuthenticatedBoundaryTests(unittest.TestCase):
+    native_plan_ref = False
+
     def setUp(self):
         self.broker = cas.CasBrokerTests("test_lost_ack_one_settlement_zero_actual_redispatch")
         self.addCleanup(self.broker.doCleanups)
@@ -167,12 +169,18 @@ class AuthenticatedBoundaryTests(unittest.TestCase):
         self.anchor = cas.fd(self.root)
         self.addCleanup(os.close, self.anchor)
         req = self.broker.request
+        if self.native_plan_ref:
+            values = asdict(req)
+            values.pop("commit_permit_digest")
+            values["broker_epoch"] = 1
+            self.broker.request = req = BrokerRequest.for_fixture(**values)
         metadata = {**physical_context(self.anchor), "nonce": secrets.token_hex(32),
                     **{key: getattr(req, key) for key in (
                         "executor_id", "executor_key_id", "key_epoch", "broker_epoch",
                         "issued_at", "expires_at",
                     )}}
-        self.case = rh04._prepare_native_task_case(self.root, self.broker, rh06_fixture=metadata)
+        self.case = rh04._prepare_native_task_case(self.root, self.broker, rh06_fixture=metadata,
+                                                   native_plan_ref=self.native_plan_ref)
         self.fx, self.tasks = self.case["fx"], self.case["tasks"]
         self.addCleanup(self.fx.close)
         self.addCleanup(self.tasks.close)

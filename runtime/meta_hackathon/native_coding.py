@@ -157,6 +157,7 @@ class NativeCodingHost:
         self.git_target_repository = Path(body['git_target_repository'])
         self.seed_root = Path(body['sandbox_cache_root'])
         self.cache_root = self.seed_root.parent
+        self.qualification_port = None
         self.candidates = candidates
         self.source_snapshot = self.spec.source_snapshot
         self.graph_complete = False
@@ -410,12 +411,16 @@ class NativeCodingHost:
                 self.candidate_root / ('candidate-' + capsule.worker_session_id),
                 source=self.spec.project_source, task=task,
                 worker_session_id=capsule.worker_session_id, capsule_digest=capsule.digest)
+            port = self.qualification_port
             with self.authority(Capability.COMMIT) as principal:
                 route = CoreRemoteGitRoute.for_local_patch(principal, f.intent_journal,
                     capsules=tasks.capsules, preparation=preparation, profile=self.profile,
                     source_snapshot=self.source_snapshot, source_repository=self.source_repository,
                     target_repository=self.git_target_repository, check=f.require_bindings,
-                    target_guard=self.git_target_guard, native_access=f.access)
+                    target_guard=self.git_target_guard, native_access=f.access,
+                    native_device_id=None if port is None else port.device_id,
+                    native_stop_cas_gate=None if port is None else port.gate,
+                    qualification_port=port)
             if existing is None:
                 require(coding_state == 'REVIEW_REQUIRED' and route.historical_operation is None,
                         'NATIVE_GIT_WARRANT_HISTORY_REQUIRED')
@@ -455,7 +460,7 @@ class NativeCodingHost:
             binding = route, warrant, reservation
             self.effects[key] = (binding, route.plan, route.capsule, route.source_repository,
                 route.target_repository, route.check, route.owner_check, route.target_guard,
-                canonical_json_bytes(route.historical_operation))
+                canonical_json_bytes(route.historical_operation), port)
             try:
                 f.require_bindings()
             except BaseException:
@@ -528,7 +533,7 @@ def require_native_graph(owner):
     require(type(h.effects) is dict, 'NATIVE_GIT_RETAINED_BINDING')
     for key, retained in tuple(h.effects.items()):
         require(type(key) is tuple and len(key) == 2 and type(retained) is tuple
-                and len(retained) == 9 and type(retained[0]) is tuple and len(retained[0]) == 3,
+                and len(retained) == 10 and type(retained[0]) is tuple and len(retained[0]) == 3,
                 'NATIVE_GIT_RETAINED_BINDING')
         route, warrant, reservation = retained[0]
         require(type(route) is CoreRemoteGitRoute and type(warrant) is EffectWarrant
@@ -538,6 +543,8 @@ def require_native_graph(owner):
                 and route.check is retained[5] and route.owner_check is retained[6]
                 and route.target_guard is retained[7]
                 and canonical_json_bytes(route.historical_operation) == retained[8]
+                and route.qualification_port is h.qualification_port is retained[9]
+                and (h.qualification_port is None or route.native_stop_cas_gate is h.qualification_port.gate)
                 and route.journal is f.intent_journal and route.native_access is f.access
                 and route.core is f.core and route.runner is f.runner and route.scope is f.ledger.scope
                 and route.capsules is owner.coding_tasks.capsules and route.identity is owner.identity
