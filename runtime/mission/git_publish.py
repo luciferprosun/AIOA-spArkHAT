@@ -757,6 +757,8 @@ class CoreRemoteGitRoute:
         check,
         target_guard,
         native_access=None,
+        native_stop_cas_gate=None,
+        native_device_id=None,
     ):
         """Native-only, versioned disposable bare profile on THIS registered route."""
         from runtime.core_admission import Capability
@@ -772,6 +774,18 @@ class CoreRemoteGitRoute:
             and capsules.journal is journal,
             "EXISTING_CORE_REQUIRED",
         )
+        if native_access is not None:
+            from runtime.red_hat.native_stop_gate import NativeStopCasGate
+
+            core_require(type(native_stop_cas_gate) is NativeStopCasGate
+                         and getattr(journal.runner, "execution_gate", None) is native_stop_cas_gate,
+                         "NATIVE_STOP_GATE_REQUIRED")
+            core_require(type(native_device_id) is str
+                         and re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}", native_device_id),
+                         "NATIVE_DEVICE_BINDING_REQUIRED")
+        else:
+            core_require(native_stop_cas_gate is None, "NATIVE_STOP_GATE_NOT_SHARED")
+            core_require(native_device_id is None, "NATIVE_DEVICE_BINDING_REQUIRED")
         core_require(
             type(preparation) is VerifiedPatchSet
             and type(profile) is PythonRepositoryRecipe
@@ -899,6 +913,8 @@ class CoreRemoteGitRoute:
             Path(target_repository),
         )
         instance.target_guard, instance.owner_check = target_guard, check
+        instance.native_stop_cas_gate = native_stop_cas_gate
+        instance.native_device_id = native_device_id
         instance.test_profile = profile
         instance.historical_operation = None
 
@@ -1175,6 +1191,15 @@ class CoreRemoteGitRoute:
         from runtime.core_admission import Capability
         from runtime.memory_patch.persistence.ports import RecordKind
 
+        if getattr(self, 'native_access', None) is not None:
+            from runtime.red_hat.native_stop_gate import NativeStopCasGate
+            payload = operation.get("payload", {})
+            core_require(type(getattr(self, "native_stop_cas_gate", None)) is NativeStopCasGate
+                         and getattr(self.journal.runner, "execution_gate", None)
+                             is self.native_stop_cas_gate
+                         and payload.get("schema") == "aioa.local-operation.v3"
+                         and payload.get("device_id") == getattr(self, "native_device_id", None),
+                         "NATIVE_STOP_GATE_REQUIRED")
         self._prospective_local()
         controller = None
         if getattr(self, 'native_access', None) is not None:
@@ -1236,6 +1261,13 @@ class CoreRemoteGitRoute:
             cancel=cancel,
             expected_target_identity=self.plan.target_identity,
             before_ref_link=release,
+            before_ref_link_guard=getattr(self, "native_stop_cas_gate", None),
+            expected_ref_directory=(
+                (operation["payload"]["ref_directory_dev"],
+                 operation["payload"]["ref_directory_inode"])
+                if operation.get("payload", {}).get("schema") == "aioa.local-operation.v3"
+                else None
+            ),
         )
         if controller is not None:
             core_require(type(response) is bytes and response == b"", "GIT_CAS_ACK_INVALID")
@@ -1469,47 +1501,82 @@ class CoreRemoteGitRoute:
         )
 
     def _local_patch_operation(self, session_id, epoch, plan_digest):
+        payload = {
+            "schema": "aioa.local-operation.v2",
+            "principal_session_id": session_id,
+            "policy_epoch": epoch,
+            "profile": "DISPOSABLE_BARE_PATCH_V1",
+            "plan_digest": plan_digest,
+            "capsule_digest": self.capsule.digest,
+            "patchset_sha256": self.capsule.patchset_sha256,
+            "source_base_sha": self.plan.source.source_base_sha,
+            "commit_sha": self.plan.commit_sha,
+            "tree_sha": self.plan.tree_sha,
+            "ref": self.plan.ref,
+        }
+        if getattr(self, "native_stop_cas_gate", None) is not None:
+            repository, ref_directory = self._native_physical_ref_binding()
+            payload.update({
+                "schema": "aioa.local-operation.v3",
+                "device_id": self.native_device_id,
+                "repository_dev": repository[0],
+                "repository_inode": repository[1],
+                "ref_directory_dev": ref_directory[0],
+                "ref_directory_inode": ref_directory[1],
+                "old_oid": "0" * 40,
+                "new_oid": self.plan.commit_sha,
+            })
         return {
             "operation_class": "GIT_COMMIT",
             "target_fingerprint": self.plan.target_fingerprint,
             "expected_target_revision": "git-" + self.plan.source.source_base_sha,
-            "payload": {
-                "schema": "aioa.local-operation.v2",
-                "principal_session_id": session_id,
-                "policy_epoch": epoch,
-                "profile": "DISPOSABLE_BARE_PATCH_V1",
-                "plan_digest": plan_digest,
-                "capsule_digest": self.capsule.digest,
-                "patchset_sha256": self.capsule.patchset_sha256,
-                "source_base_sha": self.plan.source.source_base_sha,
-                "commit_sha": self.plan.commit_sha,
-                "tree_sha": self.plan.tree_sha,
-                "ref": self.plan.ref,
-            },
+            "payload": payload,
         }
+
+    def _native_physical_ref_binding(self):
+        """Observe exact repository/ref-parent identity through no-follow FDs."""
+        import os
+        import stat
+
+        root_path = self.target_repository
+        core_require(root_path.is_absolute() and root_path.resolve(strict=True) == root_path,
+                     "NATIVE_REPOSITORY_LOCATOR")
+        root_fd = os.open(root_path, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC)
+        current = root_fd
+        owned = []
+        try:
+            root_info = os.fstat(root_fd)
+            core_require((root_info.st_dev, root_info.st_ino) == self.plan.target_identity[:2],
+                         "NATIVE_REPOSITORY_CHANGED")
+            for part in ("refs", "heads", *self.plan.ref.split("/")[2:-1]):
+                parent_fd = current
+                next_fd = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC,
+                                  dir_fd=parent_fd)
+                owned.append(next_fd)
+                info = os.fstat(next_fd)
+                named = os.stat(part, dir_fd=parent_fd, follow_symlinks=False)
+                core_require(stat.S_ISDIR(info.st_mode) and info.st_uid == os.getuid()
+                             and info.st_dev == root_info.st_dev and not info.st_mode & 0o7022
+                             and (info.st_dev, info.st_ino) == (named.st_dev, named.st_ino),
+                             "NATIVE_REF_DIRECTORY_UNSAFE")
+                current = next_fd
+            ref_info = os.fstat(current)
+            named_root = root_path.stat()
+            core_require((named_root.st_dev, named_root.st_ino) == self.plan.target_identity[:2],
+                         "NATIVE_REPOSITORY_CHANGED")
+            return (root_info.st_dev, root_info.st_ino), (ref_info.st_dev, ref_info.st_ino)
+        except OSError as error:
+            raise ValueError("NATIVE_REF_DIRECTORY_NOT_READY") from error
+        finally:
+            for fd in reversed(owned):
+                os.close(fd)
+            os.close(root_fd)
 
     def operation(self, session_id, epoch):
         from runtime.memory_patch.contracts.serialization import canonical_sha256
 
         if self.mode == "LOCAL_PATCH_FIXTURE":
-            return {
-                "operation_class": "GIT_COMMIT",
-                "target_fingerprint": self.plan.target_fingerprint,
-                "expected_target_revision": "git-" + self.plan.source.source_base_sha,
-                "payload": {
-                    "schema": "aioa.local-operation.v2",
-                    "principal_session_id": session_id,
-                    "policy_epoch": epoch,
-                    "profile": "DISPOSABLE_BARE_PATCH_V1",
-                    "plan_digest": self.plan.digest,
-                    "capsule_digest": self.capsule.digest,
-                    "patchset_sha256": self.capsule.patchset_sha256,
-                    "source_base_sha": self.plan.source.source_base_sha,
-                    "commit_sha": self.plan.commit_sha,
-                    "tree_sha": self.plan.tree_sha,
-                    "ref": self.plan.ref,
-                },
-            }
+            return self._local_patch_operation(session_id, epoch, self.plan.digest)
         return {
             "operation_class": "GITHUB_CREATE_COMMIT_PR_V1",
             "target_fingerprint": "sha256:"
@@ -2125,7 +2192,7 @@ class VerifiedPatchSet:
 
 def _bounded_git(
     repository, arguments, *, data=None, cancel=None, expected_target_identity=None,
-    before_ref_link=None,
+    before_ref_link=None, before_ref_link_guard=None, expected_ref_directory=None,
 ):
     """Pinned locator delegated to the existing broker's fixed offline profile."""
     import os
@@ -2167,6 +2234,8 @@ def _bounded_git(
             expected_storage=storage,
             binding_check=binding_check,
             before_ref_link=before_ref_link,
+            before_ref_link_guard=before_ref_link_guard,
+            expected_ref_directory=expected_ref_directory,
         )
         current = repository.stat()
         core_require(

@@ -681,11 +681,15 @@ class NativeLifecycle:
             handle.started=True
 
     def quarantine(self,handle):
-        with self.lock:
-            deny(type(handle) is NativeOwnedWorkHandle and self._handles.get(handle.task_id) is handle)
-            handle.quarantined=True;self.work_generation+=1
-            self.invalidate_admission()
-            self._phase=NativePhase.QUARANTINED
+        from contextlib import nullcontext
+
+        gate = getattr(self.foundation.runner, "execution_gate", None)
+        with gate.hold() if gate is not None else nullcontext():
+            with self.lock:
+                deny(type(handle) is NativeOwnedWorkHandle and self._handles.get(handle.task_id) is handle)
+                handle.quarantined=True;self.work_generation+=1
+                self.invalidate_admission()
+                self._phase=NativePhase.QUARANTINED
 
     def begin_synchronous(self,producer,role,identity,cancel,*,parent=None):
         from runtime.providers.exact import CancellationToken
@@ -778,32 +782,40 @@ class NativeLifecycle:
             return True
 
     def invalidate_admission(self):
-        with self.lock:
-            self.admission_generation += 1
-            self.fence_sequence += 1
-            fence=self._fence
-            self._fence = None
-            if fence is not None:fence.close()
-            if self._phase not in (NativePhase.CLOSED, NativePhase.DRAINING, NativePhase.QUARANTINED):
-                self._phase = NativePhase.FENCED
+        from contextlib import nullcontext
+
+        gate = getattr(self.foundation.runner, "execution_gate", None)
+        with gate.hold() if gate is not None else nullcontext():
+            with self.lock:
+                self.admission_generation += 1
+                self.fence_sequence += 1
+                fence=self._fence
+                self._fence = None
+                if fence is not None:fence.close()
+                if self._phase not in (NativePhase.CLOSED, NativePhase.DRAINING, NativePhase.QUARANTINED):
+                    self._phase = NativePhase.FENCED
 
     def begin_capacity_review(self, request_id: str) -> NativeCapacityFence:
+        from contextlib import nullcontext
+
         codec.hexdigest(request_id, 32)
         self.foundation.owner.missions._retire_native_workers()
         if 'CODING_WORKER' in self._roles:
             self.foundation.owner.coding_tasks._retire_finished()
-        with self.lock:
-            self._coverage()
-            deny(self._fence is None and not self._handles)
-            self._capacity_previous_phase = self._phase
-            self._phase = NativePhase.CAPACITY_ADMIN
-            self.fence_sequence += 1
-            f = _original(NativeCapacityFence, self.foundation.access, foundation=self.foundation, request_id=request_id,
-                instance_id=self.foundation.owner.instance_id, admission_generation=self.admission_generation,
-                composition_generation=self.composition_generation, sequence=self.fence_sequence,
-                work_generation=self.work_generation, pid=os.getpid(), expires_at=datetime.now(UTC) + timedelta(seconds=300))
-            self._fence = f
-            return f
+        gate = getattr(self.foundation.runner, "execution_gate", None)
+        with gate.hold() if gate is not None else nullcontext():
+            with self.lock:
+                self._coverage()
+                deny(self._fence is None and not self._handles)
+                self._capacity_previous_phase = self._phase
+                self._phase = NativePhase.CAPACITY_ADMIN
+                self.fence_sequence += 1
+                f = _original(NativeCapacityFence, self.foundation.access, foundation=self.foundation, request_id=request_id,
+                    instance_id=self.foundation.owner.instance_id, admission_generation=self.admission_generation,
+                    composition_generation=self.composition_generation, sequence=self.fence_sequence,
+                    work_generation=self.work_generation, pid=os.getpid(), expires_at=datetime.now(UTC) + timedelta(seconds=300))
+                self._fence = f
+                return f
 
     def require_fence(self, fence):
         with self.lock:
@@ -841,28 +853,50 @@ class NativeLifecycle:
                 view=view, projection=canonical_json_bytes(codec.quiescence(projection)), pid=os.getpid(), thread_id=threading.get_ident())
 
     def abort(self, fence):
-        with self.lock:
-            deny(self._fence is fence)
-            self.fence_sequence += 1; self._fence = None
-            self._phase = getattr(self, "_capacity_previous_phase", NativePhase.CAPACITY_ADMIN)
-            fence.close()
+        from contextlib import nullcontext
+
+        gate = getattr(self.foundation.runner, "execution_gate", None)
+        with gate.hold() if gate is not None else nullcontext():
+            with self.lock:
+                deny(self._fence is fence)
+                self.fence_sequence += 1; self._fence = None
+                self._phase = getattr(self, "_capacity_previous_phase", NativePhase.CAPACITY_ADMIN)
+                fence.close()
+
+    def complete_capacity_application(self, fence, *, activate):
+        """Restore the prior phase and optional ACTIVE phase without a STOP gap."""
+        from contextlib import nullcontext
+
+        deny(type(activate) is bool)
+        gate = getattr(self.foundation.runner, "execution_gate", None)
+        with gate.hold() if gate is not None else nullcontext():
+            self.abort(fence)
+            if activate:
+                with self.lock:
+                    deny(not self._handles and self._fence is None
+                         and self.admission_generation == fence.admission_generation)
+                    self._phase = NativePhase.ACTIVE
 
     def drain(self):
+        from contextlib import nullcontext
+
         self.foundation.owner.missions._retire_native_workers()
-        with self.lock:
-            if self._phase is NativePhase.CLOSED: return True
-            owner=self.foundation.owner
-            if (self._phase is NativePhase.CONSTRUCTING
-                    or self._roles.get('LEGACY_MISSION') is not owner.missions
-                    or self._roles.get('NATIVE_GITHUB') is not owner):
-                self.invalidate_admission()
-                self._phase=NativePhase.QUARANTINED
-                return False
-            self.invalidate_admission(); self._phase = NativePhase.DRAINING
-            handles = tuple(self._handles.values())
-            active = bool(self._calls or self._capturing or self._renewing or self.foundation.access._originals)
-            workers = tuple(self.foundation.owner.missions._workers.values())
-        for handle in handles: handle.cancel.cancel()
+        gate = getattr(self.foundation.runner, "execution_gate", None)
+        with gate.hold() if gate is not None else nullcontext():
+            with self.lock:
+                if self._phase is NativePhase.CLOSED: return True
+                owner=self.foundation.owner
+                if (self._phase is NativePhase.CONSTRUCTING
+                        or self._roles.get('LEGACY_MISSION') is not owner.missions
+                        or self._roles.get('NATIVE_GITHUB') is not owner):
+                    self.invalidate_admission()
+                    self._phase=NativePhase.QUARANTINED
+                    return False
+                self.invalidate_admission(); self._phase = NativePhase.DRAINING
+                handles = tuple(self._handles.values())
+                active = bool(self._calls or self._capturing or self._renewing or self.foundation.access._originals)
+                workers = tuple(self.foundation.owner.missions._workers.values())
+            for handle in handles: handle.cancel.cancel()
         if 'CODING_WORKER' in self._roles:
             self.foundation.owner.coding_tasks.drain(5)
             with self.lock:
@@ -1321,11 +1355,11 @@ class NativeCapacityOwnerController:
                     raise
                 pending.state = 'APPLIED'
                 host.close()
-                f.lifecycle.abort(pending.fence)
-                if getattr(getattr(owner, '_native_coding', None), 'graph_complete', False):
-                    with f.lifecycle.lock:
-                        deny(not f.lifecycle._handles and f.lifecycle._fence is None)
-                        f.lifecycle._phase = NativePhase.ACTIVE
+                f.lifecycle.complete_capacity_application(
+                    pending.fence,
+                    activate=getattr(getattr(owner, '_native_coding', None),
+                                     'graph_complete', False),
+                )
                 return receipt.to_dict()
             except (CommitOutcomeUnknown,codec.CapacityAcknowledgedButFenced):
                 pending.state = 'READBACK_ONLY'

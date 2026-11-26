@@ -298,8 +298,8 @@ class NativeOwnedAcceptance(unittest.TestCase):
             'profile': h.profile, 'source_snapshot': h.source_snapshot,
             'source_repository': h.source_repository, 'target_repository': h.git_target_repository,
             'check': f.require_bindings, 'target_guard': lambda: h.lock}
-        # The old path is still exercised before the new keyword exists. The
-        # assertion below then identifies its actual unguarded initial SQL.
+        # A local Native publisher must have the shared STOP gate and trusted
+        # device before any plan lookup or durable Core START can be attempted.
         if 'native_access' in inspect.signature(CoreRemoteGitRoute.for_local_patch).parameters:
             kwargs['native_access'] = f.access
         actual_capture, actual_run = f.access.capture, fx.host.runner.run
@@ -316,9 +316,9 @@ class NativeOwnedAcceptance(unittest.TestCase):
         with h.authority(Capability.COMMIT) as principal:
             with (patch.object(f.access, 'capture', new=capture), patch.object(fx.host.runner, 'run', new=run),
                   patch.object(f.intent_journal, '_run', side_effect=AssertionError('NATIVE_GIT_RAW_INITIAL_SQL_BYPASS')),
-                  self.assertRaisesRegex(WarrantError, 'CAPSULE_REQUIRED')):
+                  self.assertRaisesRegex(WarrantError, 'NATIVE_STOP_GATE_REQUIRED')):
                 CoreRemoteGitRoute.for_local_patch(principal, f.intent_journal, **kwargs)
-        self.assertEqual([Capability.COMMIT], captures)
+        self.assertEqual([], captures)
         self.assertEqual({}, f.access._originals)
         self.assertEqual({}, h.jobs)
         self.assertTrue(fx.host.close()['closed'])

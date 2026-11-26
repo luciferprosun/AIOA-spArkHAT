@@ -9,6 +9,7 @@ selected metadata change invalidates the decision; ordering does not.
 """
 
 import json
+from contextlib import nullcontext
 from datetime import UTC, datetime
 
 from lab.archaioa.warrant import EffectWarrant, RevisionPolicy
@@ -243,6 +244,11 @@ class CoreWarrantLedger:
         return stored, state
 
     def revoke(self, principal, warrant):
+        gate = getattr(self.runner, "execution_gate", None)
+        with gate.hold() if gate is not None else nullcontext():
+            return self._revoke_under_execution_gate(principal, warrant)
+
+    def _revoke_under_execution_gate(self, principal, warrant):
         def mutation(tx):
             row = tx.get(RecordKind.APPROVAL, self._key(warrant))
             require(

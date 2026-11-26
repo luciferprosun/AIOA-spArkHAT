@@ -1,0 +1,144 @@
+"""Descriptor-relative access to the broker's disposable SHA-1 loose repository."""
+
+import configparser
+import hashlib
+import os
+import stat
+import zlib
+from contextlib import ExitStack, contextmanager
+from dataclasses import dataclass
+
+from runtime.mission.sandbox_linux import git_storage_identity, mountid
+from runtime.red_hat.broker_protocol import file_identity, read_record, require
+
+
+_DIRECTORY = os.O_DIRECTORY | os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW
+_MARKER = b"AIOA_RED_HAT_FIXTURE_V1\n"
+_MAX_COMMIT = 1024 * 1024
+
+
+def require_private(directory, uid):
+    info = os.fstat(directory)
+    require(stat.S_ISDIR(info.st_mode) and info.st_uid == uid
+            and stat.S_IMODE(info.st_mode) == 0o700, "BROKER_PRIVATE_DIRECTORY")
+
+
+def open_dir(parent, name, stack):
+    directory = os.open(name, _DIRECTORY, dir_fd=parent)
+    stack.callback(os.close, directory)
+    return directory
+
+
+def require_named_directory(parent, name, directory):
+    info = os.stat(name, dir_fd=parent, follow_symlinks=False)
+    require(stat.S_ISDIR(info.st_mode)
+            and file_identity(info) == file_identity(os.fstat(directory))
+            and mountid(parent) == mountid(directory),
+            "BROKER_DIRECTORY_MOVED")
+
+
+def absent(parent, name):
+    try:
+        os.stat(name, dir_fd=parent, follow_symlinks=False)
+    except FileNotFoundError:
+        return
+    raise ValueError("BROKER_REPO_PACKED_OR_LOCKED")
+
+
+@dataclass(frozen=True, slots=True)
+class FixtureRepository:
+    root: int
+    repo: int
+    refs: int
+    heads: int
+    topology: tuple
+    uid: int
+
+    def check(self, request, *, publishing=False):
+        for directory, parent, name in (
+            (self.repo, self.root, "repo"), (self.refs, self.repo, "refs"),
+            (self.heads, self.refs, "heads"),
+        ):
+            require_named_directory(parent, name, directory)
+        require(file_identity(os.fstat(self.repo)) == request.repository
+                and file_identity(os.fstat(self.heads)) == request.ref_directory,
+                "BROKER_REPOSITORY_BINDING")
+        require(read_record(self.repo, ".redhat-disposable", self.uid) == _MARKER,
+                "BROKER_DISPOSABLE_MARKER")
+        self.check_config()
+        absent(self.repo, "packed-refs")
+        require(git_storage_identity(self.repo) == self.topology, "BROKER_REPOSITORY_MOVED")
+        if publishing:
+            absent(self.repo, "packed-refs.lock")
+            absent(self.heads, self.leaf(request) + ".lock")
+
+    def check_config(self):
+        fd = os.open("config", os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC,
+                     dir_fd=self.repo)
+        try:
+            info = os.fstat(fd)
+            require(stat.S_ISREG(info.st_mode) and info.st_uid == self.uid
+                    and info.st_nlink == 1 and 0 < info.st_size <= 4096, "BROKER_REPO_CONFIG")
+            raw = os.pread(fd, 4097, 0)
+            require(len(raw) == info.st_size, "BROKER_REPO_CONFIG")
+            config = configparser.ConfigParser(interpolation=None, strict=True)
+            try:
+                config.read_string(raw.decode("ascii"))
+            except (UnicodeError, configparser.Error):
+                raise ValueError("BROKER_REPO_CONFIG") from None
+            require(config.sections() == ["core"] and not config.defaults()
+                    and set(config["core"]) <= {"repositoryformatversion", "filemode", "bare"}
+                    and config["core"].get("repositoryformatversion") == "0"
+                    and config["core"].get("bare") == "true", "BROKER_REPO_CONFIG")
+        finally:
+            os.close(fd)
+
+    @staticmethod
+    def leaf(request):
+        return request.exact_ref.rsplit("/", 1)[1]
+
+    def check_commit(self, request):
+        with ExitStack() as stack:
+            objects = open_dir(self.repo, "objects", stack)
+            prefix = open_dir(objects, request.new_oid[:2], stack)
+            fd = os.open(request.new_oid[2:], os.O_RDONLY | os.O_NOFOLLOW
+                         | os.O_NONBLOCK | os.O_CLOEXEC, dir_fd=prefix)
+            stack.callback(os.close, fd)
+            row = os.fstat(fd)
+            require(stat.S_ISREG(row.st_mode) and row.st_uid == self.uid
+                    and row.st_nlink == 1 and 0 < row.st_size <= _MAX_COMMIT,
+                    "BROKER_COMMIT_OBJECT")
+            packed = os.pread(fd, _MAX_COMMIT + 1, 0)
+            decoder = zlib.decompressobj()
+            try:
+                raw = decoder.decompress(packed, _MAX_COMMIT + 1)
+            except zlib.error:
+                raise ValueError("BROKER_COMMIT_OBJECT") from None
+            header, separator, content = raw.partition(b"\0")
+            require(len(packed) == row.st_size and len(raw) <= _MAX_COMMIT
+                    and decoder.eof and not decoder.unused_data and not decoder.unconsumed_tail
+                    and separator and header == b"commit " + str(len(content)).encode("ascii")
+                    and hashlib.sha1(raw).hexdigest() == request.new_oid,
+                    "BROKER_COMMIT_OBJECT")
+
+    def observe(self, request):
+        leaf = self.leaf(request)
+        before = os.stat(leaf, dir_fd=self.heads, follow_symlinks=False)
+        raw = read_record(self.heads, leaf, self.uid, maximum=41)
+        after = os.stat(leaf, dir_fd=self.heads, follow_symlinks=False)
+        require(file_identity(before) == file_identity(after)
+                and before.st_ctime_ns == after.st_ctime_ns
+                and raw == request.new_oid.encode("ascii") + b"\n", "BROKER_REF_OBSERVATION")
+        return (*file_identity(after), after.st_ctime_ns)
+
+
+@contextmanager
+def open_repository(root, request, uid):
+    require_private(root, uid)
+    with ExitStack() as stack:
+        repo = open_dir(root, "repo", stack)
+        refs = open_dir(repo, "refs", stack)
+        heads = open_dir(refs, "heads", stack)
+        target = FixtureRepository(root, repo, refs, heads, git_storage_identity(repo), uid)
+        target.check(request)
+        yield target
