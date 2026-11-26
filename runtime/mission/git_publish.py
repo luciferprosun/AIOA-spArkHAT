@@ -823,7 +823,8 @@ class CoreRemoteGitRoute:
 
             if qualification_port is not None:
                 from runtime.red_hat.native_qualification import NativeQualificationPort
-                core_require(type(qualification_port) is NativeQualificationPort
+                from runtime.red_hat.sequencer import SequencedCoreGate
+                core_require(type(qualification_port) is NativeQualificationPort and type(qualification_port.gate) is SequencedCoreGate
                              and qualification_port.gate is native_stop_cas_gate
                              and qualification_port.device_id == native_device_id,
                              "NATIVE_QUALIFICATION_CONFIGURATION")
@@ -1249,7 +1250,8 @@ class CoreRemoteGitRoute:
             gate = getattr(self, "native_stop_cas_gate", None)
             if port is not None:
                 from runtime.red_hat.native_qualification import NativeQualificationPort
-                core_require(type(port) is NativeQualificationPort and port.gate is gate
+                from runtime.red_hat.sequencer import SequencedCoreGate
+                core_require(type(port) is NativeQualificationPort and type(port.gate) is SequencedCoreGate and port.gate is gate
                              and port.device_id == self.native_device_id, "NATIVE_QUALIFICATION_CONFIGURATION")
             core_require(("rh06_fixture" in payload) == (port is not None),
                          "NATIVE_QUALIFICATION_CONFIGURATION")
