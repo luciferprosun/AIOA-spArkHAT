@@ -48,6 +48,19 @@ class QualificationContracts(unittest.TestCase):
                 with self.subTest(path=path), self.assertRaises(OSError):
                     role.try_open(root, Path(path), mode)
 
+    def test_role_denials_use_the_authorized_empty_ref_and_same_pattern_siblings(self):
+        target = 'refs/heads/aioa/nz11-' + 'a' * 32
+        root = Path('/example')
+        rows = role.probe_paths(root, {'exact_ref': target}, 'verifier')
+        self.assertEqual(rows['exact_create'][0], root / 'repo' / target)
+        self.assertTrue(rows['exact_create'][1] & os.O_EXCL)
+        for key in ('sibling_write', 'sibling_create'):
+            self.assertEqual(rows[key][0].parent, rows['exact_create'][0].parent)
+            self.assertRegex(rows[key][0].name, r'^nz11-[0-9a-f]{32}$')
+        self.assertEqual(len({rows[k][0] for k in ('sibling_write', 'sibling_create', 'exact_create')}), 3)
+        with self.assertRaisesRegex(ValueError, 'NATIVE_PLAN_REF_REQUIRED'):
+            role.probe_paths(root, {'exact_ref': 'refs/heads/qualification'}, 'broker')
+
     def export(self):
         signer = Identity(ec.generate_private_key(ec.SECP256R1()))
         fixed = g04.recipe()

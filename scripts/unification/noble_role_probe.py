@@ -5,6 +5,7 @@ only write probes are exclusive empty sentinel creations in the reserved
 disposable namespace. An unexpected success leaves the sentinel as evidence.
 """
 import argparse
+from contextlib import ExitStack
 import ctypes
 import fcntl
 import errno
@@ -43,22 +44,45 @@ def try_open(root, relative, flags):
         os.close(fd)
 
 
-def check_role(root, role):
-    head = root / 'target.git' / 'refs' / 'heads'
+def probe_paths(root, native, role):
+    match = re.fullmatch(r'refs/heads/aioa/(nz11-([a-f0-9]{32}))', native['exact_ref'])
+    require(match is not None, 'NATIVE_PLAN_REF_REQUIRED')
+    leaf, suffix = match.groups()
+
+    # These distinct names obey the identical Native ref grammar. A probe
+    # outside this ref parent would measure a different filesystem policy.
+    def sibling(delta):
+        return 'nz11-' + format(int(suffix, 16) ^ delta, '032x')
+
+    parent = root / 'repo' / 'refs' / 'heads' / 'aioa'
+    create = os.O_WRONLY | os.O_CREAT | os.O_EXCL
     probes = {
-        'signer_read': (root / 'broker' / 'test-signing-key', os.O_RDONLY,
-                        'DENIED'),
+        'signer_read': (root / 'broker' / 'test-signing-key', os.O_RDONLY, 'DENIED'),
         'signer_write': (root / 'broker' / 'test-signing-key', os.O_WRONLY, 'DENIED'),
-        'sibling_write': (head / 'sibling', os.O_WRONLY, 'DENIED'),
-        'sibling_create': (head / ('probe-' + role), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 'DENIED'),
+        'sibling_write': (parent / sibling(1), os.O_WRONLY, 'DENIED'),
+        'sibling_create': (parent / sibling(2 + ROLES.index(role)), create, 'DENIED'),
         'foreign_write': (root / 'foreign' / 'existing', os.O_WRONLY, 'DENIED'),
-        'foreign_create': (root / 'foreign' / ('probe-' + role), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 'DENIED'),
+        'foreign_create': (root / 'foreign' / ('probe-' + role), create, 'DENIED'),
     }
     if role != 'broker':
-        probes['exact_write'] = (head / 'qualification', os.O_WRONLY, 'DENIED')
-        probes['exact_lock_create'] = (head / 'qualification.lock', os.O_WRONLY | os.O_CREAT | os.O_EXCL, 'DENIED')
-    if role == 'verifier':
-        probes['exact_read'] = (head / 'qualification', os.O_RDONLY, 'OPENED')
+        probes['exact_create'] = (parent / leaf, create, 'DENIED')
+        probes['exact_lock_create'] = (parent / (leaf + '.lock'), create, 'DENIED')
+    return probes
+
+
+def check_role(root, role, native):
+    probes = probe_paths(root, native, role)
+    with ExitStack() as stack:
+        parent = os.open(root, os.O_PATH | os.O_DIRECTORY | os.O_NOFOLLOW)
+        stack.callback(os.close, parent)
+        for part in ('repo', 'refs', 'heads', 'aioa'):
+            parent = os.open(part, os.O_PATH | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=parent)
+            stack.callback(os.close, parent)
+            if part in ('repo', 'aioa'):
+                stem = 'repository' if part == 'repo' else 'ref_directory'
+                info = os.fstat(parent)
+                require((info.st_dev, info.st_ino) == (native[stem + '_dev'], native[stem + '_ino']),
+                        'NATIVE_PINNED_DIRECTORY_REQUIRED')
     rows = {}
     for name, (path, mode, expected) in probes.items():
         try:
@@ -118,11 +142,11 @@ def main():
     expected = native['domains'][args.role]
     require(cgroup.startswith('0::/') and cgroup == expected['cgroup']
             and label == expected['apparmor'] and label.endswith(' (enforce)'), 'DOMAIN_MISMATCH')
-    rows = check_role(root, args.role)
+    rows = check_role(root, args.role, native)
     ok = all(row['observed'] == row['expected'] for row in rows.values())
     print(json.dumps({'result': 'ACCESS_PROBES_MATCHED' if ok else 'FAIL', 'role': args.role,
                       'uid': os.getuid(), 'boot_sha256': obs['boot_sha256'],
-                      'session': native['session'], 'cgroup': cgroup, 'profile': label, 'probes': rows,
+                      'session': native['session'], 'exact_ref': native['exact_ref'], 'cgroup': cgroup, 'profile': label, 'probes': rows,
                       'signer_fd_matched': signer_fd_matched, 'cas_attempts': 0, 'settlements': 0}, sort_keys=True))
     return 0 if ok else 1
 
