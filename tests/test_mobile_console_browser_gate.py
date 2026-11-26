@@ -105,6 +105,20 @@ class BrowserGateTests(unittest.TestCase):
                           'system_ticks':7,'schedstat':[111,222,3],'wchan':'futex_wait_queue'},result)
         self.assertEqual(['/proc/42/stat','/proc/42/schedstat','/proc/42/wchan'],opened)
 
+    def test_profile_scan_barrier_waits_for_remaining_child(self):
+        gate = self.gate()
+        with patch.object(gate.os, 'waitpid', side_effect=[(0, 0), (41, 0), ChildProcessError()]) as reap, \
+                patch.object(gate.time, 'sleep') as sleep:
+            gate.wait_for_browser_descendants()
+        self.assertEqual(3, reap.call_count)
+        sleep.assert_called_once()
+
+    def test_profile_scan_fails_closed_with_live_writer_at_deadline(self):
+        gate = self.gate()
+        with patch.object(gate.os, 'waitpid', return_value=(0, 0)):
+            with self.assertRaisesRegex(RuntimeError, 'PROFILE_STILL_ACTIVE'):
+                gate.wait_for_browser_descendants(timeout=0)
+
     def test_failed_startup_counters_never_mask_original_failure(self):
         from types import SimpleNamespace
         gate=self.gate()
