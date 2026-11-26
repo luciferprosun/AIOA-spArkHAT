@@ -43,7 +43,7 @@ jobs:
           pathlib.Path(os.environ['RUNNER_TEMP'], 'rh06-preparation.sh').write_text(script)
           PY
           bash "$RUNNER_TEMP/rh06-preparation.sh"
-      - name: Four serial trials on the same machine
+      - name: One cold HEAD trial with bounded observation after failure
         run: |
           set -euo pipefail
           echo "ImageOS=$ImageOS ImageVersion=$ImageVersion"
@@ -54,7 +54,7 @@ jobs:
           for exe in "$PY311" "$PY312" /usr/bin/python3; do "$exe" -VV; done
           probe="$GITHUB_WORKSPACE/docs/unification/cloud-consolidation/rh06-ci/measure.py"
           result=0
-          for pair in base:311 head:312 base:312 head:311; do
+          for pair in head:312; do
             tree=${pair%:*}
             var=PY${pair#*:}
             cd "$RUNNER_TEMP/$tree"
@@ -65,7 +65,7 @@ jobs:
             cat /proc/pressure/io /proc/pressure/memory
             start=$SECONDS
             rc=0
-            PATH="$(dirname "${!var}"):$PATH" bash tests/nz12_ci_host.sh "${!var}" -B "$probe" || rc=$?
+            PATH="$(dirname "${!var}"):$PATH" bash tests/nz12_ci_host.sh /usr/bin/env RH06_LATE_OBSERVATION=1 "${!var}" -B "$probe" || rc=$?
             echo "trial_finished=$pair exit=$rc wall_seconds=$((SECONDS-start))"
             if ((rc)); then result=1; fi
           done

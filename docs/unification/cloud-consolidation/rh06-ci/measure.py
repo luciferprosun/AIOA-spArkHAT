@@ -4,6 +4,7 @@ Overlay two clock-instrumented source files only inside the networkless worker.
 The release workflow and its test sources stay byte-for-byte intact.
 """
 import hashlib
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -45,6 +46,31 @@ def main():
                      "            if identity==1 and not hasattr(self,'first_data'):self.first_data=time.monotonic()\n")
     pipe = add_clock(pipe, "                    return value.get('result',{})",
                      "                    if identity==1:self.first_reply=time.monotonic()\n")
+    if os.environ.get("RH06_LATE_OBSERVATION") == "1":
+        browser = add_clock(browser, "                        raise\n                    finally:", """                        if pipe.sequence == 1 and str(sys.exc_info()[1]) == 'CHROME_COMMAND_UNKNOWN':
+                            import select
+                            deadline = time.monotonic() + 10
+                            pending = pipe.buffer
+                            result = 'NO_MATCH'
+                            while len(pending) <= 2 * 1024 * 1024:
+                                remaining = deadline - time.monotonic()
+                                if remaining <= 0 or not select.select([pipe.reader], [], [], remaining)[0]:
+                                    break
+                                chunk = os.read(pipe.reader, 65536)
+                                if not chunk:
+                                    result = 'EOF'
+                                    break
+                                pending += chunk
+                                while b'\\0' in pending:
+                                    packet, pending = pending.split(b'\\0', 1)
+                                    obj = json.loads(packet)
+                                    if type(obj.get('id')) is int and obj['id'] == 1:
+                                        result = 'MATCH_RESULT' if isinstance(obj.get('result'), dict) else 'MATCH_ERROR'
+                                        break
+                                if result != 'NO_MATCH':
+                                    break
+                            print('RH06_LATE', result, round(time.monotonic()-pipe.send_complete, 6), flush=True)
+""")
     build = fixture.browser_command
     with tempfile.TemporaryDirectory() as temp:
         mounts = []
