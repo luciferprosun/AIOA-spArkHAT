@@ -49,7 +49,19 @@ def _publish(target, request, guard, authorize, clock, fault, stack):
 
 def serve_once(listener, *, root_fd, expected, enrollment, identity, core_peer, core_epoch,
                broker_epoch, clock=lambda: int(time.time()), fault=_no_fault):
-    """Serve a single connection under launch-time trusted configuration."""
+    """Serve the RH-02 fixture protocol under launch-time trusted configuration."""
+    def receive(peer):
+        return receive_request(peer, core_peer, expected, enrollment, now=clock(),
+                               core_epoch=core_epoch, broker_epoch=broker_epoch)
+
+    return _serve_fixture(listener, root_fd=root_fd, receive=receive,
+                          enrollment=enrollment, identity=identity, core_epoch=core_epoch,
+                          broker_epoch=broker_epoch, clock=clock, fault=fault)
+
+
+def _serve_fixture(listener, *, root_fd, receive, enrollment, identity, core_epoch,
+                   broker_epoch, clock, fault, check_context=_no_fault):
+    """Shared single-attempt fixture executor. Authentication precedes consumption."""
     require(listener.family == socket.AF_UNIX and listener.type == socket.SOCK_STREAM,
             "BROKER_LISTENER")
     executor = enrollment.executor
@@ -58,10 +70,10 @@ def serve_once(listener, *, root_fd, expected, enrollment, identity, core_peer, 
     with listener.accept()[0] as peer:
         ok = False
         try:
-            request = receive_request(peer, core_peer, expected, enrollment, now=clock(),
-                                      core_epoch=core_epoch, broker_epoch=broker_epoch)
+            request = receive(peer)
 
             with open_repository(root_fd, request, executor.uid) as target, ExitStack() as stack:
+                check_context(target)
                 target.check(request, publishing=True)
                 target.check_commit(request)
                 state = open_dir(root_fd, "state", stack)
@@ -73,6 +85,7 @@ def serve_once(listener, *, root_fd, expected, enrollment, identity, core_peer, 
                 guard = AttemptGuard(state)
 
                 def authorize(now):
+                    check_context(target)
                     require_named_directory(root_fd, "state", state)
                     require_named_directory(root_fd, "evidence", evidence)
                     require_admission(request, enrollment, now=now, core_epoch=core_epoch,

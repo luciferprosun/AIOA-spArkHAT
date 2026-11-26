@@ -429,6 +429,7 @@ sys.stdout.write(json.dumps({"pid": os.getpid(), "facts": facts}, sort_keys=True
             with ExitStack() as stack:
                 target = stack.enter_context(
                     open_repository(root_fd, request, enrollment.executor.uid))
+                self._check_fixture_target(target)
                 marker = read_record(target.repo, ".redhat-disposable",
                                      enrollment.executor.uid)
                 _require(marker == b"AIOA_RED_HAT_FIXTURE_V1\n",
@@ -459,6 +460,9 @@ sys.stdout.write(json.dumps({"pid": os.getpid(), "facts": facts}, sort_keys=True
         result = self.journal._run(principal, Capability.COMMIT, settle)
         return {**result, "verification_process_pid": witness.verification_process_pid}
 
+    def _check_fixture_target(self, target):
+        """Optional physical context check for a trusted fixture composition."""
+
     def _verify_disposable_fixture(self, principal, warrant, request, enrollment, *,
                                    root_fd, trusted_device_id, now, core_epoch,
                                    broker_epoch):
@@ -478,6 +482,7 @@ sys.stdout.write(json.dumps({"pid": os.getpid(), "facts": facts}, sort_keys=True
         with ExitStack() as stack:
             target = stack.enter_context(
                 open_repository(root_fd, request, enrollment.executor.uid))
+            self._check_fixture_target(target)
             marker = read_record(target.repo, ".redhat-disposable", enrollment.executor.uid)
             _require(marker == b"AIOA_RED_HAT_FIXTURE_V1\n", "DISPOSABLE_REPOSITORY_REQUIRED")
             report, verifier_pid = self._verify_fresh_process(
@@ -562,6 +567,7 @@ sys.stdout.write(json.dumps({"pid": os.getpid(), "facts": facts}, sort_keys=True
             with ExitStack() as stack:
                 target = stack.enter_context(
                     open_repository(root_fd, request, enrollment.executor.uid))
+                self._check_fixture_target(target)
                 marker = read_record(target.repo, ".redhat-disposable",
                                      enrollment.executor.uid)
                 _require(marker == b"AIOA_RED_HAT_FIXTURE_V1\n",
