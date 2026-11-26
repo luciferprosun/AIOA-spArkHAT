@@ -203,3 +203,51 @@ class OfficialMcpCoreTests(unittest.TestCase):
                     self.execute(approval)
             self.assertEqual('NOT_FOUND',self.invoke('tool_readback',request_id=mcp.REQUEST_ID)['state'])
             transport.assert_not_called()
+
+
+class OfficialAdmissionTests(unittest.TestCase):
+    def test_foundation_admits_only_pinned_read_with_live_lifecycle(self):
+        import nz13_native_foundation_support as fx
+        from runtime.core_admission import AdmissionError
+        from runtime.meta_hackathon.native_authority import NativePhase
+
+        host, _ = fx.new_host(self)
+        fx.fixture_tls(host)
+        fx.initialize(host)
+        lifecycle = host.foundation.lifecycle
+        call = lambda op, **fields: host.operator_request(os.getuid(), {'op':op, **fields})
+        # Cold, pre-activation readback is read-only. Preparation needs ACTIVE.
+        self.assertEqual('NOT_FOUND', call('tool_readback',request_id=mcp.REQUEST_ID)['state'])
+        with self.assertRaises(AdmissionError):
+            call('tool_read_prepare',operation=mcp.OPERATION)
+        # Only the lifecycle transition is a fixture here. Both requests enter
+        # through the real host's authenticated operator entry and ledger.
+        lifecycle._phase = NativePhase.ACTIVE
+        for value in (
+                {'op':'tool_read','operation':'github.repository','request_id':mcp.REQUEST_ID},
+                {'op':'tool_readback','request_id':'4'*32},
+                {'op':'tool_proposal','operation':mcp.OPERATION},
+                {'op':'tool_read_prepare','operation':'github.demo_context'},
+                {'op':'tool_read','operation':mcp.OPERATION,'request_id':'3'*32,'approval':{}},
+        ):
+            with self.subTest(op=value), self.assertRaises(AdmissionError):
+                host.operator_request(os.getuid(),value)
+        directory = host.root/'official-mcp-read'
+        directory.mkdir(mode=0o700)
+        window = directory/'window.json'
+        window.write_bytes(wire.canonical({'credential_id':'123','credential_sha256':'e'*64,
+            'credential_scope':mcp.SCOPE, 'starts_at':int(time.time())-1,'expires_at':int(time.time())+300}))
+        window.chmod(0o600)
+        with patch.object(host,'_existing_profile',object()), patch.object(
+                mcp,'_source_tree',return_value='d'*40), patch.object(mcp,'preflight'):
+            review = call('tool_read_prepare',operation=mcp.OPERATION)
+            approval = call('tool_read_approve',operation=mcp.OPERATION,permit_digest=review['permit_digest'])
+            wire.verify(host.identity.spki,approval['signature'],approval['permit'])
+            data = {'permit':approval['permit'],'permit_signature':approval['signature'],
+                    'writes':0,'blob':mcp.BLOB,'transcript_sha256':'f'*64}
+            with patch.object(mcp,'run',return_value={'transport':mcp.TRANSPORT,'data':data}) as transport:
+                signed = call('tool_read',operation=mcp.OPERATION,request_id=mcp.REQUEST_ID,approval=approval)
+                wire.verify(host.identity.spki,signed['signature'],signed['receipt'])
+                lifecycle._phase = NativePhase.CAPACITY_ADMIN
+                self.assertEqual(signed,call('tool_readback',request_id=mcp.REQUEST_ID))
+                self.assertEqual(1,transport.call_count)

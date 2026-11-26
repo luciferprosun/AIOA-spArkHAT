@@ -837,7 +837,7 @@ class NativeMobileComposition:
         if self.foundation is not None:
             from .native_authority import CAPACITY_FIELDS
             if op in CAPACITY_FIELDS:return self.foundation.controller.dispatch(peer_uid,value)
-            self.foundation.lifecycle.require_ingress(op)
+            self.foundation.lifecycle.require_ingress(op, request=value)
         owner=self.operator_principal()
         from .advisory import OPS as ADVISORY_OPS
         from .advisory import dispatch as advisory_dispatch

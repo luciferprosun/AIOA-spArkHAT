@@ -647,8 +647,24 @@ class NativeLifecycle:
         finally:
             with self.lock:self._calls.remove(token)
 
-    def require_ingress(self, operation):
+    def require_ingress(self, operation, *, request=None):
         with self.lock:
+            if type(request) is dict and operation in (
+                    'tool_read_prepare', 'tool_read_approve', 'tool_read', 'tool_readback'):
+                from runtime.mcp_bridge.official_read import OPERATION, REQUEST_ID
+                fields = {'tool_read_prepare': {'op', 'operation'},
+                          'tool_read_approve': {'op', 'operation', 'permit_digest'},
+                          'tool_read': {'op', 'request_id', 'operation', 'approval'},
+                          'tool_readback': {'op', 'request_id'}}[operation]
+                deny(request.get('op') == operation and set(request) == fields
+                     and ('operation' not in fields or request['operation'] == OPERATION)
+                     and ('request_id' not in fields or request['request_id'] == REQUEST_ID)
+                     and self._fence is None)
+                if operation == 'tool_readback':
+                    deny(self._phase in (NativePhase.ACTIVE, NativePhase.CAPACITY_ADMIN))
+                else:
+                    self.require_execution()
+                return
             if operation=='github_write_reconcile':
                 deny(self._phase in (NativePhase.CAPACITY_ADMIN,NativePhase.ACTIVE) and self._fence is None)
                 return
