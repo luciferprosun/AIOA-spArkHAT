@@ -1,5 +1,11 @@
 # Bramka wycofania repozytorium NonZero
 
+## Odczyt po bieżącej integracji
+
+Stan `RETIREMENT_HOLD` przy kodzie `d2fc4cb88c1777e572c099c8082b93e6b7a6c0b1`. Dwie kopie odtworzono w różnych środowiskach: na laptopie i w odizolowanym workspace Cloud. Każde odtworzenie objęło 13 zgodnych refów, 179 commitów i 2674 osiągalne obiekty, fsck exit 0. Długoterminowa retencja Cloud i druga niezależna kopia pod trwałą kontrolą właściciela pozostają niepotwierdzone. Wszystkie 1312 osiągalnych blobów sprawdzono pod kątem wskaźników Git LFS v1. Wynik zero. Publiczny odczyt GitHuba pokazuje 1 PR, 0 issues, 0 releases i 0 przebiegów Actions. Uwierzytelniony odczyt .wiki.git zwrócił repository not found mimo włączonej flagi wiki. Zawartość wiki i Projects pozostaje niepotwierdzona. Ostatni z 20 zapisów Render to udane wdrożenie 6378024487 z 10 września 2026 r. Aktualny stan Render i jego odbiorcy pozostają UNKNOWN.
+
+Niezależność kodu i pakowania jest zakresem integracji. Aktywność Render, rozliczenie konsumentów, retencja GitHub, odtwarzalność kopii i utrzymanie historycznej operacji UNKNOWN / HELD są oddzielnymi warunkami wycofania. Oryginał pozostaje źródłem historii. [Checkpoint](CHECKPOINT.json) · [Macierz 69](PARITY69_UPDATED.csv)
+
 **Decyzja bieżąca: HOLD.** Oryginał `luciferprosun/AIOA-NonZero-CloudOps-Agent` pozostaje źródłem historii. Repozytorium wykonawcze to `luciferprosun/AIOA-spArkHAT`. Odczyt dotyczy main po #59 i zakresu badanego kandydata. Znaczenie statusów — PASS potwierdza cel w podanym zakresie, FAIL oznacza niespełniony warunek, UNKNOWN wymaga dalszego dowodu.
 
 | Bramka | Status | Dowód lub warunek odbioru |

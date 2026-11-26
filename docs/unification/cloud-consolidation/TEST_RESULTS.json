@@ -544,5 +544,185 @@
       "recovery-hardening-local-312.log": "6a586a2beff94e0cdbef8235575400359f68fc853612df1450f0723098c5574d",
       "recovery-hardening-red.log": "63a074553c7c3a688f129c0395be7565faa157933ba0adb9ac21a04e3dc4ba40"
     }
+  },
+  "final_migration_observation": {
+    "source_main": {
+      "sha": "d2fc4cb88c1777e572c099c8082b93e6b7a6c0b1",
+      "tree": "60cf25fcd67792840505a1744910460b53545e53"
+    },
+    "main_ci": {
+      "observed_utc": "2026-11-26 06:40:48 UTC",
+      "runs": [
+        {
+          "id": 45769838373,
+          "name": "Graph Update: pip in /., /runtime, /tests #1731971711",
+          "event": "dynamic",
+          "attempt": 1,
+          "status": "in_progress",
+          "conclusion": null
+        },
+        {
+          "id": 45769830676,
+          "name": "Push on main",
+          "event": "dynamic",
+          "attempt": 1,
+          "status": "in_progress",
+          "conclusion": null
+        },
+        {
+          "id": 45769828968,
+          "name": "Core and native NonZero",
+          "event": "push",
+          "attempt": 1,
+          "status": "in_progress",
+          "conclusion": null
+        },
+        {
+          "id": 45769829175,
+          "name": "AIOA CodeQL (owner-gated advanced profile)",
+          "event": "push",
+          "attempt": 1,
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "id": 45769829024,
+          "name": "AIOA MCP Bridge",
+          "event": "push",
+          "attempt": 1,
+          "status": "in_progress",
+          "conclusion": null
+        }
+      ],
+      "required_checks": "PENDING_ON_POSTMERGE_EXACT_SHA_AT_OBSERVATION"
+    },
+    "code_ci": {
+      "independent_packaging": {
+        "scope": "Cloud fixture only. Each candidate built a clean wheel and rebuilt a wheel from its sdist, then installed in four clean virtualenvs without checkout imports, Textual or legacy. Dependences installed offline from staged PyPI wheels. CLI/web help and installed Native fixture smoke passed. Cloud namespace isolation unavailable.",
+        "interpreters": [
+          "3.11.18",
+          "3.12.14"
+        ],
+        "74": {
+          "head": "100b5cce5ea50a900033f696fe27f86c8db783f9",
+          "tree": "88708580a35b0d9ff05342afd8770e4bfeaf7217",
+          "result_hashes": [
+            "a0e2a154422f36e27643003dbf37bbd8ef36d27c1b6b89f853ca45319e4f2e97",
+            "e6180a6744697c1c38959c9e025a47196f946d7e02647c82e016b0143795c5ea"
+          ]
+        },
+        "75": {
+          "head": "3bd01658aecb6446ca5a7c27c0bb9574a061d90b",
+          "tree": "60cf25fcd67792840505a1744910460b53545e53",
+          "resolved_cryptography": "50.0.2",
+          "result_hashes": [
+            "d6ce9f7742bc55ae5982dfab0460b5aa6c1e0ec9e7e0db5d8ee065232ed38f6d",
+            "f1ac218247aa684682ca7f5a3f8c9dd20eb6edcbd3df16af357328521e8b1d3f"
+          ]
+        }
+      },
+      "73": {
+        "exact_pr_head": "933be272d1dabe99dad59108fda8648018d93c50",
+        "exact_pr_tree": "455b274b54e8cc77b5833cf5b6ceb3272bb1e849",
+        "pr_core_run": 45750474198,
+        "pr_core_attempt": 2,
+        "pr_tests_collected_per_interpreter": 4506,
+        "pr_tests_passed_per_interpreter": 4501,
+        "pr_tests_skipped_per_interpreter": 5,
+        "pr_default_codeql": 45750471926,
+        "post_merge_main": "caf6c5ba69bfb66b43264c0da6c8968e84fc8a55",
+        "post_merge_core_run": 45762562206,
+        "post_merge_core_attempt": 1,
+        "post_merge_chrome_rest_failure": {
+          "interpreter": "3.12",
+          "job": 139715720311,
+          "test": "tests/mobile_device_console_browser.py:304",
+          "result": "CHROME_COMMAND_UNKNOWN",
+          "log_sha256": "b4a0be5beee888799077e67d194caad7692d733ff2c014e38814929bcc35ce38"
+        },
+        "scope": "Pinned candidate passed. Post-merge attempt 1 hit an intermittent first Chrome command failure. A targeted 3.12 retry on the same main SHA passed, yielding four green required checks. The underlying environment cause remains unverified.",
+        "post_merge_core_latest_attempt": 2,
+        "post_merge_required_checks": "PASS",
+        "post_merge_tests_passed_per_interpreter": 4501,
+        "post_merge_tests_skipped_per_interpreter": 5
+      },
+      "74": {
+        "exact_pr_head": "100b5cce5ea50a900033f696fe27f86c8db783f9",
+        "exact_pr_tree": "88708580a35b0d9ff05342afd8770e4bfeaf7217",
+        "merge_sha": "9acb6d524f83e642fc29c3dc7683f17095e40765",
+        "pr_core_run": 45762927384,
+        "pr_certify_jobs": {
+          "3.11": 139716917265,
+          "3.12": 139716917001
+        },
+        "pr_tests_collected_per_interpreter": 4508,
+        "pr_tests_passed_per_interpreter": 4503,
+        "pr_tests_skipped_per_interpreter": 5,
+        "pr_required_checks": "PASS",
+        "pr_default_codeql": 45762924516,
+        "pr_advanced_codeql": {
+          "id": 45762927382,
+          "result": "SKIPPED"
+        },
+        "pr_standalone_mcp": {
+          "id": 45762954014,
+          "result": "PASS"
+        },
+        "scope": "Exact tested tree merged into main. Postmerge CI is a separate observation.",
+        "allowlisted_skips": {
+          "Playwright not installed": 2,
+          "NVIDIA NeMo Agent Toolkit site absent": 1,
+          "optional Textual missing": 2
+        },
+        "test_ids_sha256": "7a09fc5fb8f5ef44b8ed3acd422f4e907dfc18658f266ac3b22083b6890c6144",
+        "postmerge_main": {
+          "sha": "9acb6d524f83e642fc29c3dc7683f17095e40765",
+          "tree": "88708580a35b0d9ff05342afd8770e4bfeaf7217",
+          "core": {
+            "id": 45765340826,
+            "attempt": 1,
+            "required_checks": "PASS"
+          },
+          "default_codeql": {
+            "id": 45765341224,
+            "result": "PASS"
+          },
+          "advanced_codeql": {
+            "id": 45765340840,
+            "result": "SKIPPED"
+          }
+        }
+      },
+      "75": {
+        "exact_pr_head": "419520fe61dec3abd6e9554b97b683c56be6843e",
+        "exact_pr_tree": "60cf25fcd67792840505a1744910460b53545e53",
+        "pr_core_run": 45765398244,
+        "pr_default_codeql": 45765393683,
+        "pr_advanced_codeql": {
+          "id": 45765398240,
+          "result": "SKIPPED"
+        },
+        "pr_standalone_mcp": {
+          "id": 45765398253,
+          "result": "PASS"
+        },
+        "first_attempt_3_11_chrome_rest_failure": {
+          "attempt": 1,
+          "job": 139724970229,
+          "test": "tests/mobile_device_console_browser.py:366",
+          "first_command": "Browser.getVersion",
+          "result": "CHROME_COMMAND_UNKNOWN",
+          "log_sha256": "df235f4acd6e053fd7d01d3b866d7da7f0a0f0aa67015cb9ea232c21e6ecaeca",
+          "crypto_observed": "50.0.2, verified private wheel-site origin"
+        },
+        "scope": "First attempt reproduced the existing Chrome first-command symptom. A targeted retry on the unchanged head passed. Cause remains unverified.",
+        "merge_sha": "d2fc4cb88c1777e572c099c8082b93e6b7a6c0b1",
+        "pr_core_latest_attempt": 2,
+        "pr_required_checks": "PASS",
+        "pr_default_codeql_result": "PASS"
+      }
+    },
+    "live": "NOT_RUN",
+    "notes": "Hosted checks and manual/locally observed evidence retain their own commit and test scope. A later docs-only merge is verified separately."
   }
 }

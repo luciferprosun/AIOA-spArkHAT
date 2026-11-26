@@ -361,5 +361,158 @@
     }
   ],
   "source_commit": "8bd2fe14033f1b49609092a353cd7e6fd6b8d3ef",
-  "source_tree": "56709b77f066df0567a9f3c4bdbd8182dd6bc38e"
+  "source_tree": "56709b77f066df0567a9f3c4bdbd8182dd6bc38e",
+  "final_migration_planning": {
+    "source_main": {
+      "sha": "d2fc4cb88c1777e572c099c8082b93e6b7a6c0b1",
+      "tree": "60cf25fcd67792840505a1744910460b53545e53"
+    },
+    "results": "NOT_RUN",
+    "status": "SOURCE_REVIEWED_TARGETS_OR_PERMITS_INCOMPLETE",
+    "proof_storage": {
+      "rule": "Owner-designated private evidence store or mode-0700 private directory. Access only to the owner and named reviewers. Publish only a redacted summary and digests.",
+      "authorization": "NOT_GRANTED",
+      "operator": null,
+      "utc_window": null,
+      "approved_private_destination": null
+    },
+    "gates": {
+      "A": {
+        "approval": "GO_OFFICIAL_MCP_READ",
+        "status": "BLOCKED_TARGET",
+        "result": "NOT_RUN",
+        "target": {
+          "repo": "luciferprosun/AIOA-spArkHAT",
+          "repo_id": 1247349659,
+          "ref": "refs/heads/main",
+          "license_blob": "00eb8a94bdcf22d647d94e23c9c6938ef93d5802",
+          "license_bytes": 1074,
+          "license_sha256": "a039f83d1d59d97624c355653e0eab74a45b867a091d3d10d12ac1183535e14c",
+          "candidate_server_release": "github/github-mcp-server v1.0.5",
+          "candidate_server_commit": "c471ae94bb04059dc26e12c305e219c8fd4299e4",
+          "candidate_server_binary_sha256": "e38247271e98ea3e0771db747523914b35e37787fa2c120ab6864ee6b4a2c87c",
+          "protocol": "2025-06-18"
+        },
+        "limits": {
+          "sessions": 1,
+          "wall_time_seconds": 20,
+          "transport_bytes": 262144,
+          "receipt_bytes": 32768,
+          "frame_bytes": 65536,
+          "reads": 5,
+          "inventory_pages": 2,
+          "writes": 0,
+          "retries": 0,
+          "fallbacks": 0,
+          "max_paid_model_calls": 0
+        },
+        "proof": "Official transport handshake, stable allowlisted inventory, bound signed repository and LICENSE observation, one denied operation, no mutation. gh/REST remains separate.",
+        "missing": [
+          "qualified Core official transport and host",
+          "exact client and inventory digests",
+          "read-only credential handle and scope",
+          "operator and UTC approval window",
+          "approved private evidence destination"
+        ],
+        "proposed_private_evidence_path": "nonzero/live/A/core-official-read-receipt.json",
+        "qualification_input": "Pin the exact observed source SHA/tree above as both the Core source and canonical target snapshot. Re-read LICENSE identity before authorizing.",
+        "historical_scope": "MCP_Server/LIVE_E2E_STATUS.md describes a private GitHub Task Bus / Local Commander system.status run. That transport differs from the official GitHub MCP lane."
+      },
+      "B": {
+        "approval": "GO_MODEL_TEST",
+        "status": "BLOCKED_TARGET",
+        "result": "NOT_RUN",
+        "target": {
+          "command_scope": "existing Core WorkerPort plus LiveCallGate",
+          "task_scope": "one immutable synthetic candidate with zero authority",
+          "provider": null,
+          "model": null,
+          "endpoint": null,
+          "adapter_digest": null,
+          "lease_epoch": null
+        },
+        "limits": {
+          "calls": 1,
+          "input_units": 2048,
+          "output_units": 256,
+          "wall_time_seconds": 60,
+          "max_cost_nano_usd": 10000000,
+          "repairs": 0,
+          "retries": 0
+        },
+        "proof": "Provider spend and bound request/capsule/lease evidence, signed WorkerMailbox result through the existing Core, independent validation and retained UNKNOWN on ambiguous acknowledgment. No repair allowance.",
+        "missing": [
+          "certified executable WorkerPort",
+          "approved provider/model/endpoint and verified live price",
+          "credential handle",
+          "exact task/capsule/lease/workspace bindings",
+          "operator and UTC approval window",
+          "approved private evidence destination"
+        ],
+        "proposed_private_evidence_path": "nonzero/live/B/worker-and-provider-receipt.json",
+        "historical_scope": "docs/nebius/LIVE_VALIDATION_PLAN.json records separate provider-only planning pinned at e7a0a74 with zero authorized calls. It does not establish executable WorkerPort or current lease and budget."
+      },
+      "C": {
+        "approval": "GO_GITHUB_WRITE",
+        "status": "BLOCKED_OWNER",
+        "result": "NOT_RUN",
+        "target": {
+          "repo": "luciferprosun/AIOA-spArkHAT-Meta-Hackathon-2026",
+          "repo_id": 1445911975,
+          "candidate_head": "df0754d4cca5c61627fba1e7d5d2a6249830871d",
+          "candidate_tree": "bc344f4e21ecb903a98004510c0bdb923fc15024",
+          "registered_workflows_observed": 0,
+          "actions_disabled": null,
+          "actions_settings_http": 403
+        },
+        "limits": {
+          "logical_publications": 1,
+          "repository_mutations": 4,
+          "api_requests": 48,
+          "wall_time_seconds": 120,
+          "retries": 0,
+          "max_paid_model_calls": 0,
+          "token_mint_separate": true,
+          "automatic_cleanup": false
+        },
+        "proof": "Exact owner-approved create-only operation through Core, independently observed expected repository, ref, commit/tree and draft PR. Preserve UNKNOWN and hold on ambiguity.",
+        "missing": [
+          "confirm one logical publication versus one API mutation",
+          "prove Actions disabled and isolate competing writers",
+          "approved App/installation identity, permissions and credential handle",
+          "prove a separate eligible scope has no unresolved liability and pin warrant/plan/delta/lease. Preserve existing UNKNOWN / HELD without release or replay.",
+          "operator and UTC approval window",
+          "approved private evidence destination"
+        ],
+        "proposed_private_evidence_path": "nonzero/live/C/core-write-and-independent-readback.json"
+      },
+      "D": {
+        "approval": "GO_NATIVE_G04",
+        "status": "BLOCKED_HOST",
+        "result": "NOT_RUN",
+        "target": {
+          "required_runtime": "disposable host, network disabled, cgroup v2 with a systemd user service, pinned Chrome and keeper",
+          "qualified_host_image": null
+        },
+        "limits": {
+          "sessions": 1,
+          "render_seconds": 20,
+          "total_seconds": 180,
+          "network": "OFF",
+          "max_paid_model_calls": 0,
+          "uses_production_state": false,
+          "network_cost_usd": 0
+        },
+        "proof": "Keeper identity, actual cgroup ownership, bounded Chrome receipt with DOM/console/PNG, STOP cleanup and no replay from fresh private fixture state.",
+        "missing": [
+          "host image, kernel and boot identity",
+          "keeper/Chrome/dependency, profile/filter and recipe digests",
+          "fresh private scratch and journal",
+          "operator and UTC approval window",
+          "approved private evidence destination"
+        ],
+        "proposed_private_evidence_path": "nonzero/live/D/g04-render-isolation-receipt.json"
+      }
+    }
+  }
 }

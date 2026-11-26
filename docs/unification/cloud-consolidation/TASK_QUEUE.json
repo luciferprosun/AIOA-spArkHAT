@@ -76,5 +76,33 @@
       "status": "CANDIDATE_OFFLINE_ACCEPTED",
       "next": "Zachować dowód w AUTHORITY_16_53_ACCEPTANCE.md. Odbiór DTO i LIVE rozpatrywać w poszczególnych kontraktach."
     }
-  ]
+  ],
+  "final_migration_observation": {
+    "source_main": {
+      "sha": "d2fc4cb88c1777e572c099c8082b93e6b7a6c0b1",
+      "tree": "60cf25fcd67792840505a1744910460b53545e53"
+    },
+    "queue": {
+      "CI": "Observe continuation of the exact merged code main run and independently verify final docs merge main on Python 3.11/3.12 plus default CodeQL. Record Chrome first-command flakiness as an unresolved environment finding until causality is verified.",
+      "LOCAL_MAIN": "Verify clean canonical Local checkout, then safe fast-forward and short source-independent smoke. RH07 remains separate and untouched.",
+      "WORKER": "Define permitted same-Core executable WorkerPort and certify one bounded model call. Existing Codex diagnostics intentionally lack turn/start.",
+      "OFFICIAL_MCP": "Connect or qualify the actual pinned official transport through the current Core, then use the owner-approved read-only target.",
+      "LEGACY": "Move the second restore-tested Cloud copy to separately managed long-term owner storage and verify the copy there. Complete the metadata and consumer inventory before retirement.",
+      "NATIVE_RH07": "Local owner. Separate STOP/CAS decision, cross-UID custody and production-shaped verification, no replay.",
+      "GITHUB_WRITE_LIVE": "The integrated #74 source is the lane C baseline. The independent authorization, selected target and effect-unit decision for lane C remain open.",
+      "CRYPTO_DEPLOYMENT": "Code candidate qualification does not update existing deployment, owner runtime, or production Native. Verify security alert resolution at exact default-branch pins and any future deployment separately.",
+      "GITHUB_REPOSITORY_CONTRACT": "Distinguish an identified consumer's exact git-HTTPS protocol from a create-only effect. Existing Core REST fixture evidence is only a bounded alternative. A concurrent-ref race and executor identity after lost ACK still need evidence for any retained HTTPS path.",
+      "REPAIR_LIVE": "Accept only the bounded offline repair coordinator on current evidence. A lane B permit with zero repairs cannot qualify live repair. Obtain distinctly scoped approval if that profile is required.",
+      "RENDER_G04": "A disposable qualified host, exact Chrome and keeper proof, network isolation and signed STOP/cleanup evidence are required for D. Core Chrome smoke does not cover full G04.",
+      "EXTERNAL_CONTRACTS": "Use the 23-row decisions ledger. Confirm actual clients and test their required routes or approve formal retirement with scope, effective date and notice."
+    },
+    "live_results": {
+      "A": "NOT_RUN",
+      "B": "NOT_RUN",
+      "C": "NOT_RUN",
+      "D": "NOT_RUN"
+    },
+    "external_contracts": "UNKNOWN_EXTERNAL_23",
+    "legacy_retirement": "RETIREMENT_HOLD"
+  }
 }
