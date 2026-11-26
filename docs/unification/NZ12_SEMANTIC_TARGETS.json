@@ -11153,100 +11153,100 @@
     },
     "runtime/mcp_bridge/github_remote.py": {
       "path": "runtime/mcp_bridge/github_remote.py",
-      "git_blob": "93fb1af291db003f8a74d2e4acd39e3a9be6d391",
-      "sha256": "dea0046b0d315b3a4aa2b389d341325534c615eeb47c74538adfc9a84bbec5aa",
+      "git_blob": "8d6cfcb62da98ceb2a2b898691ca2d27be7803da",
+      "sha256": "de780bde7b49fc3347fb29c8c1575acd0efbcb150faabc360ace01adf5e7e3c5",
       "definitions": [
         {
           "name": "_https_once",
-          "line": 31
+          "line": 32
         },
         {
           "name": "_private_file",
-          "line": 63
+          "line": 64
         },
         {
           "name": "InstallationCredential",
-          "line": 81
+          "line": 82
         },
         {
           "name": "GitHubAppCredentialSource",
-          "line": 95
+          "line": 96
         },
         {
           "name": "_require_workflow_free_base",
-          "line": 166
+          "line": 167
         },
         {
           "name": "GitHubCreateOnly",
-          "line": 171
+          "line": 172
         },
         {
           "name": "read_demo_base",
-          "line": 364
+          "line": 365
         },
         {
           "name": "evidence",
-          "line": 88
+          "line": 89
         },
         {
           "name": "__init__",
-          "line": 97
+          "line": 98
         },
         {
           "name": "configuration",
-          "line": 103
+          "line": 104
         },
         {
           "name": "mint",
-          "line": 118
+          "line": 119
         },
         {
           "name": "__init__",
-          "line": 178
+          "line": 179
         },
         {
           "name": "_call",
-          "line": 196
+          "line": 197
         },
         {
           "name": "_repo",
-          "line": 230
+          "line": 231
         },
         {
           "name": "_main",
-          "line": 236
+          "line": 237
         },
         {
           "name": "_head",
-          "line": 241
+          "line": 242
         },
         {
           "name": "_require_head",
-          "line": 244
+          "line": 245
         },
         {
           "name": "preflight",
-          "line": 249
+          "line": 250
         },
         {
           "name": "execute",
-          "line": 262
+          "line": 263
         },
         {
           "name": "_commit",
-          "line": 293
+          "line": 294
         },
         {
           "name": "readback",
-          "line": 304
+          "line": 305
         },
         {
           "name": "get",
-          "line": 370
+          "line": 371
         },
         {
           "name": "post",
-          "line": 268
+          "line": 269
         }
       ],
       "symbolic_callees": [
@@ -11368,7 +11368,7 @@
         "value[data].get"
       ],
       "call_site_count": 390,
-      "call_sites_sha256": "76a4b19d3b476bd96ccdcff4298e3f8ec49e2eb6202dbd63808fb1bf8230b11a"
+      "call_sites_sha256": "140ab5a7494af76a3da78cccf1af4b6e5d60be18319fc9cb88ddfecfc4664f3d"
     },
     "runtime/mcp_bridge/contracts.py": {
       "path": "runtime/mcp_bridge/contracts.py",

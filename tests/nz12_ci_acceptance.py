@@ -58,7 +58,7 @@ def namespace_probe():
         os.close(fd)
 
 
-def main(output, codex):
+def main(output, codex, crypto_site):
     os.umask(0o077)
     namespace_probe()
     output = output.resolve()
@@ -97,7 +97,8 @@ def main(output, codex):
          str(manifest_file), str(output / "differential")),
         ("mcp", sys.executable, "tests/host_unified_mcp.py"),
         ("local-git", sys.executable, "tests/host_unified_git.py"),
-        ("chrome-rest", "/usr/bin/python3", "tests/mobile_device_console_browser.py"),
+        ("chrome-rest", "/usr/bin/python3", "tests/mobile_device_console_browser.py",
+         "--crypto-site", str(crypto_site.resolve(strict=True))),
         ("sandbox-policy-matrix", sys.executable, "tests/sandbox_linux_acceptance.py",
          str(matrix), str(ROOT)),
         ("codex-protocol-no-inference", sys.executable, "tests/nz11_codex_acceptance.py",
@@ -130,5 +131,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--codex", type=Path, required=True)
+    parser.add_argument("--crypto-site", type=Path, required=True)
     args = parser.parse_args()
-    raise SystemExit(main(args.output, args.codex))
+    raise SystemExit(main(args.output, args.codex, args.crypto_site))

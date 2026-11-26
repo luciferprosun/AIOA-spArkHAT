@@ -46,6 +46,15 @@ class MobileWireTests(unittest.TestCase):
                       'https://fixture.invalid#x','https://ф.example']:
             with self.subTest(value=value),self.assertRaises(self.wire.MobileError):self.wire.origin(value)
 
+    def test_unsupported_curve_der_is_auth_denied_without_parser_details(self):
+        # Public SECT163K1 SPKI accepted by the old backend, unsupported by 50.
+        spki='MEAwEAYHKoZIzj0CAQYFK4EEAAEDLAAEAQJ61WqFlT7yWcB3Tj4VDOPz/PSpAQnlcIlcBINpDo0/50Ry8PdvXrr9'
+        with self.assertRaises(Exception) as denied:
+            self.wire.public_key(spki)
+        self.assertIsInstance(denied.exception,self.wire.MobileError)
+        self.assertEqual(401,denied.exception.status)
+        self.assertEqual('AUTH_DENIED',str(denied.exception))
+
     def test_routes_are_closed_and_ids_are_opaque(self):
         self.assertEqual(('evidence','meta-'+'a'*32),self.wire.route('GET','/api/mobile/v1/evidence/meta-'+'a'*32))
         for method,path in [('GET','/api/mobile/v1/status?owner=x'),('GET','/api/mobile/v1/tasks/../x'),
