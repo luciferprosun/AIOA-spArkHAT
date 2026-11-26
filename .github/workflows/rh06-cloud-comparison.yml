@@ -1,0 +1,74 @@
+name: RH06 Cloud bounded comparison
+on:
+  push:
+    branches: [cloud/rh06-ci-evidence-20261126]
+    paths: [.github/workflows/rh06-cloud-comparison.yml]
+permissions:
+  contents: read
+jobs:
+  compare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      BASE: 853484d7fe39fabf2922ff87fcedd0a980807817
+      HEAD_RH06: 933be272d1dabe99dad59108fda8648018d93c50
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.11'
+      - run: echo "PY311=$(command -v python)" >> "$GITHUB_ENV"
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+      - run: echo "PY312=$(command -v python)" >> "$GITHUB_ENV"
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22.23.3'
+      - name: Prepare the identical pinned Noble prerequisites
+        timeout-minutes: 15
+        run: |
+          set -euo pipefail
+          git worktree add --detach "$RUNNER_TEMP/base" "$BASE"
+          git worktree add --detach "$RUNNER_TEMP/head" "$HEAD_RH06"
+          cd "$RUNNER_TEMP/head"
+          test "$(git hash-object .github/workflows/nonzero-pr.yml)" = c9a228dfe35775b4391bafc95df9c7e7e4b50afd
+          /usr/bin/python3 - <<'PY'
+          import os, pathlib, yaml
+          steps = yaml.safe_load(pathlib.Path('.github/workflows/nonzero-pr.yml').read_text())['jobs']['certify']['steps']
+          script, = [s['run'] for s in steps if s.get('name') == 'Install pinned offline acceptance prerequisites on hosted Noble']
+          pathlib.Path(os.environ['RUNNER_TEMP'], 'rh06-preparation.sh').write_text(script)
+          PY
+          bash "$RUNNER_TEMP/rh06-preparation.sh"
+      - name: Four serial trials on the same machine
+        run: |
+          set -euo pipefail
+          echo "ImageOS=$ImageOS ImageVersion=$ImageVersion"
+          uname -srmo
+          nproc
+          df -h "$RUNNER_TEMP"
+          free -h
+          for exe in "$PY311" "$PY312" /usr/bin/python3; do "$exe" -VV; done
+          probe="$GITHUB_WORKSPACE/docs/unification/cloud-consolidation/rh06-ci/measure.py"
+          result=0
+          for pair in base:311 head:312 base:312 head:311; do
+            tree=${pair%:*}
+            var=PY${pair#*:}
+            cd "$RUNNER_TEMP/$tree"
+            AIOA_TESTED_SHA=$(git rev-parse HEAD)
+            export AIOA_TESTED_SHA
+            git status --porcelain
+            echo "trial=$pair sha=$AIOA_TESTED_SHA tree=$(git rev-parse 'HEAD^{tree}') parent=${!var}"
+            cat /proc/pressure/io /proc/pressure/memory
+            start=$SECONDS
+            rc=0
+            PATH="$(dirname "${!var}"):$PATH" bash tests/nz12_ci_host.sh "${!var}" -B "$probe" || rc=$?
+            echo "trial_finished=$pair exit=$rc wall_seconds=$((SECONDS-start))"
+            if ((rc)); then result=1; fi
+          done
+          sha256sum /opt/google/chrome/chrome
+          dpkg-query -W google-chrome-stable
+          exit "$result"
