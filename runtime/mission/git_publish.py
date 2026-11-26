@@ -13,6 +13,7 @@ from pathlib import Path
 from types import MappingProxyType
 
 from runtime.mission.git_recipe import IDENT, canonical, git_object, require, sha256
+from runtime.mission.warrant import WarrantError
 from runtime.mission.warrant import require as core_require
 
 REPOSITORY = "luciferprosun/AIOA-spArkHAT"
@@ -630,6 +631,48 @@ class RemotePublishBoundary:
             "effect_verified": False,
             "authority": "NONE",
         }
+
+
+def verify_retained_github_result(payload, *, operation_id, plan_digest, mode, signer_spki):
+    """Authenticate the original remote receipt before publishing its saved observation."""
+    from runtime.memory_patch.contracts.serialization import canonical_json_bytes, canonical_sha256
+    from runtime.mobile_gateway.wire import canonical as wire_canonical, verify
+
+    error = "GITHUB_RESULT_INTEGRITY"
+    core_require(payload.get("schema") == "aioa.github-result.v1", error)
+    result = json.loads(canonical_json_bytes(payload)).get("result")
+    core_require(type(result) is dict and set(result) == {
+        "observation", "receipt", "signature", "receipt_sha256",
+    }, error)
+    receipt, observation = result["receipt"], result["observation"]
+    core_require(type(receipt) is dict and type(observation) is dict, error)
+    terminal = observation.get("remote_effect_verified")
+    live = mode == "LIVE"
+    receipt_state = "UNKNOWN"
+    if terminal is True:
+        receipt_state = "CODE_COMMITTED_AND_DRAFT_PR_CREATED" if live else "OFFLINE_PROTOCOL_VERIFIED"
+    core_require(
+        receipt.get("schema") == "aioa.github-write-receipt.v1"
+        and receipt.get("operation_id") == operation_id
+        and receipt.get("plan_digest") == observation.get("plan_digest") == plan_digest
+        and receipt.get("mode") == mode
+        and observation.get("mode") in (("LIVE", "PUBLIC_READ_ONLY") if live else ("OFFLINE_FIXTURE",))
+        and type(terminal) is bool
+        and receipt.get("state") == receipt_state
+        and receipt.get("live_verified") is (live and terminal is True)
+        and payload.get("state") == ("GITHUB_VERIFIED" if terminal else "GITHUB_UNKNOWN"),
+        error,
+    )
+    try:
+        verify(signer_spki, result["signature"], receipt)
+        core_require(
+            result["receipt_sha256"] == sha256(wire_canonical(receipt))
+            and receipt.get("readback_sha256") == canonical_sha256(observation),
+            error,
+        )
+    except (ValueError, TypeError):
+        raise WarrantError(error) from None
+    return result
 
 
 class CoreRemoteGitRoute:
@@ -1820,15 +1863,19 @@ class CoreRemoteGitRoute:
         from runtime.memory_patch.contracts.serialization import canonical_json_bytes
         from runtime.memory_patch.persistence.ports import RecordKind
 
-        def read(tx):
-            row = tx.get(
-                RecordKind.OPERATION, "github-result-" + self.plan.operation_id
-            )
-            return (
-                json.loads(canonical_json_bytes(row.payload))["result"] if row else None
-            )
-
-        return self._run(principal, Capability.READ, read)
+        operation_id = self.plan.operation_id
+        row = self._run(principal, Capability.READ, lambda tx: tx.get(
+            RecordKind.OPERATION, "github-result-" + operation_id,
+        ))
+        if row is None:
+            return None
+        if self.mode == "LOCAL_PATCH_FIXTURE":
+            core_require(row.payload.get("schema") == "aioa.local-patch-result.v1", "GITHUB_RESULT_INTEGRITY")
+            return json.loads(canonical_json_bytes(row.payload))["result"]
+        return verify_retained_github_result(
+            row.payload, operation_id=operation_id, plan_digest=self.plan.digest,
+            mode=self.mode, signer_spki=self.identity.spki,
+        )
 
     def complete(self, principal, warrant, observation, *, historical=False):
         from lab.archaioa.evidence import EvidenceRef
