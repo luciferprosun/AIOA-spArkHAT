@@ -39,7 +39,20 @@ sha256sum "$OUT/restored"
 git -C "$OUT/restored.git" fsck --full --no-dangling
 ```
 
-### Przygotowanie odbiorów wykonawczych
+### Zlecenia pozostające po scaleniu RH-07
+
+Stan GitHub z 26 listopada 2026 o 18:31 UTC. #77 scalono do `cc5aa994`. Dwa pakowania i oba certify przeszły. Każdy interpreter wykonał 4537 testów z pięcioma dozwolonymi pominięciami. Dla #78 na `12a9e25` i #79 na `eaf5ce3` pakowanie przeszło na obu interpreterach, a certify 3.11 zakończyło się błędem przy `Browser.getVersion`. Certify 3.12 w tym odczycie trwało. Wspólny lokalny kandydat miał SHA `f4979881935c45311b8be2c47b83508aa0c8171d`, tree `4223085bd3b20d802b2f852261dfa70b1add1faa`. [CI #77](https://github.com/luciferprosun/AIOA-spArkHAT/actions/runs/45872398086) · [Job #78](https://github.com/luciferprosun/AIOA-spArkHAT/actions/runs/45875168787/job/140100295206) · [Job #79](https://github.com/luciferprosun/AIOA-spArkHAT/actions/runs/45875662319/job/140101968770)
+
+| Właściciel | Konkretna czynność | Dowód potrzebny do odbioru |
+|---|---|---|
+| Inżynier Native i niezależny reviewer | Dokończyć wyłączoną kompozycję różnych UID. `serve_prepared_native_fixture` wymaga równości UID Core, brokera i enrolled executora. `git_storage_identity` wymaga własności tego samego repo przez bieżący UID. Sama zmiana hosta pozostawia te dwie przeszkody. Zachować rzeczywiste STOP i autoryzację przy publikacji. | Dopuszczony dokładny ref w tej samej domenie co sonda, odmowa wobec siblingów i obcych ścieżek, klucz dostępny tylko brokerowi, niezależny verifier z uprawnieniem odczytu. Potem odrębny START dla każdego scenariusza i jeden rzeczywisty wynik właściwego scenariusza. |
+| Sponsor hosta i operator | Dostarczyć jednorazowy Noble z uwierzytelnionym obrazem, boot, snapshotem, AppArmor i delegacją. Uruchomić Native i G04 z osobnymi prywatnymi journalami. D wymaga rzeczywistego kroku render, okna, signer i 180-sekundowego supervisora. | Native obejmuje obie kolejności STOP, awarię przed świadectwem, utratę ACK, zimny odczyt i licznik redispatch. D obejmuje keeper, cgroup, DOM, konsolę, PNG, aktywny STOP i cold read. Na Mint wykonano tylko jeden preflight, wynik `BLOCKED_HOST`. |
+| Operator A | Przypiąć wykonujący SHA/tree do zaakceptowanego testu, cel LICENSE na d2870f33, uchwyt z prawem READ i podpis aktualnej sesji Core. Ustalić operatora i maksymalnie 30-minutowe okno UTC. | Jedna sesja do 20 s z `operator_request(tool_read)`, allowlista i odmowa WRITE przed wysłaniem, ślad oficjalnego `tools/call`, podpis i odczyt po restarcie. |
+| Operator B i osobno #41 | Dla B zatwierdzić rzeczywisty WorkerPort, cenę na koncie, provider/model, scope, dokładny request, suite i lease. `5f22b97` przeszedł 64 testy na każdym interpreterze. Dla #41 podpisać osobne, ograniczone pozwolenia na dwa START-y dopiero zgodnie z warunkiem faktycznej pierwszej porażki. | B obejmuje jeden call, zero retry/repair, limit 0,01 USD i szacunek 0,00018432 USD. Dla #41 szacunek obu wywołań razem wynosi 0,00036864 USD. Zachować niezależne dowody TEST_FAIL, faktycznej naprawy i walidacji. [Payloady](B_C_OWNER_PAYLOADS.json) · [Uruchomienie B](WORKER_MODEL_B.md) |
+| Administrator celu C i operator Core | Wyłączyć Actions w izolowanym repo ID 1445911975, potwierdzić wyłączność writerów, App/installation i prawo do docelowego repo. Odczytać ponownie bazę, absence refa i scope bez nierozliczonej odpowiedzialności. Powiązać dokładny plan i lease. Zmiany `1cb92d6` i `505d6cd` uzyskały w zakresie C 45 testów na interpreter. | Do 4 mutacji, 48 żądań, 120 s, zero retry. Osobno liczyć mint, następnie niezależny GET i oryginalny podpisany receipt. Bieżąca próba LIVE ma 0 mintów i 0 mutacji. |
+| Właściciel legacy i operator retencji | Wykonać wskazane wyżej czynności odczytowe dla Render, Wiki, Projects i potwierdzonych klientów. Wskazać odrębne trwałe miejsce i termin retencji oraz potwierdzić miejsce przechowania istniejącego journalu Native69. | Na drugim nośniku potwierdzić 13/13 aktualnie reklamowanych refów, odtworzenie i metadane. Dla 23 rekordów rejestru zachować odrębne decyzje odbiorców. Bez tych danych obowiązuje HOLD. [Decyzje kontraktowe](EXTERNAL_CONTRACT_DECISIONS.md) |
+
+### Przygotowanie odbiorów wykonawczych, odczyt historyczny z 26 listopada 2026 o 18:10 UTC
 
 | Zakres | Co potwierdzono | Najmniejszy następny krok i właściciel |
 |---|---|---|

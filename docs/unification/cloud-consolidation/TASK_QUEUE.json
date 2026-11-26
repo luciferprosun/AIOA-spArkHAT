@@ -106,11 +106,12 @@
     "legacy_retirement": "RETIREMENT_HOLD"
   },
   "local_astra_acceptance_queue": {
-    "NATIVE": "Publish the disabled RH-07 slice, then exercise both STOP orders, crash, ACK loss and original cold read using the qualified, independently attested Noble domain and exact authorized ref.",
-    "A": "Use the authenticated official binary, target LICENSE, fixed inventory, enrolled READ handle and one admitted operator_request. Compare the original signed readback after restart.",
-    "B": "Sign one source-bound WorkerPort task only after current suite receipt, device and provider enrollment, price and lease checks. Prepare #41 separately.",
-    "C": "Owner of isolated target must disable Actions and attest no competing writer, authenticate the App grant and retain separate eligible scope. Repeat GETs before approving the original four-mutation plan.",
+    "NATIVE": "RH-07 merged via #77. #79 remains a disabled qualification candidate. Storage and key ownership require a reviewed cross-UID Core/broker/verifier composition; the current broker explicitly rejects different UIDs. After that change, use a sponsor-attested Noble image for both STOP orderings, crash, ACK loss, signed original cold read and zero redispatch.",
+    "A": "Pin the accepted execution source separately from target LICENSE at d2870f33. Use one ordinary admitted operator_request(tool_read), official pinned binary, scoped READ credential, approved session/window and signer. Verify signed original readback after a fresh Core restart.",
+    "B": "Use B_C_OWNER_PAYLOADS.json and WORKER_MODEL_B.md to bind accepted source/test receipt, real owner/device, enrolled provider and approved current price, candidate oracle, original lease and exact request. B permits one inference, zero repairs; #41 needs distinct STARTs and a genuine failed first validation.",
+    "C": "Repo 1445911975 returned Actions enabled/all. Administrator disables Actions and establishes exclusive writers; operator validates App/installation, target freshness and separate eligible scope, then binds the proposal in B_C_OWNER_PAYLOADS.json for four mutations and independent GET.",
     "D": "Obtain authenticated Noble image/boot and actual pinned runtime. Run one admitted render with 180-second supervisor, verify DOM/PNG/console and retain active STOP plus restart evidence for the permitted run.",
     "LEGACY": "Confirm Render and client decisions for the 23 contract IDs, nominate independent durable storage, verify restore there and retain historical #69. Final owner decision remains HOLD."
-  }
+  },
+  "local_astra_queue_observed_utc": "2026-11-26T18:31:14Z"
 }

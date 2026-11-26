@@ -551,7 +551,9 @@
         "offline_initialize_reply_sha256": "19661c0fefa7aa4552b4b8b4def8963628e38bdd945f820c052153be66915243",
         "offline_inventory_reply_sha256": "cc91b86b82336a06dff78a7b8660e94322b0842999ed6868c20b777f3a91975d",
         "result": "NOT_RUN",
-        "missing": "Current admitted operator_request(tool_read), approved source and target, qualified READ credential handle, signing principal and trustworthy clock window."
+        "missing": "Current admitted operator_request(tool_read), approved source and target, qualified READ credential handle, signing principal and trustworthy clock window.",
+        "later_reviewed_pr_head": "12a9e2539a5acffac4e1d2875a80658974df3d81",
+        "live_start": "NOT_RUN. Independently re-pin executing commit/tree, operator, device, blob, exact binary/contract, permit and UTC window through the accepted Core host."
       }
     },
     "B": {
@@ -573,7 +575,15 @@
         "result": "NOT_RUN",
         "provider_calls": 0,
         "cost_usd": "0",
-        "missing": "Bind accepted tests at execution SHA, account price and enrolled provider, canonical task, lease, request bytes, cumulative budget and current signer in ordinary Core."
+        "missing": "Bind accepted tests at execution SHA, account price and enrolled provider, canonical task, lease, request bytes, cumulative budget and current signer in ordinary Core.",
+        "source": "5f22b97e4dab06b7567957273a5cd3fe527b38a4",
+        "offline_per_python": {
+          "3.11": 64,
+          "3.12": 64
+        },
+        "operator_payloads": "B_C_OWNER_PAYLOADS.json",
+        "operator_procedure": "WORKER_MODEL_B.md",
+        "repair_41": "Separate two one-attempt STARTs, at most one genuine repair. Require independently validated TEST_FAIL and definite settlement of initial attempt."
       }
     },
     "C": {
@@ -607,7 +617,15 @@
         "app_scope": "UNKNOWN",
         "actions_settings_sha256": "a35d23e555f4ab48e52869663c76cbb8fbd547b50cccb6e607256b16a7bf209f",
         "target_sha256": "892de4b236e75bc8ef78ae865437991be3b7db943e6b378658dbf3e947bb5f30",
-        "base_response_sha256": "143d86153748b3cf8c4ee69eda45b788e2e63e53a007b2cb0248a986fd91be15"
+        "base_response_sha256": "143d86153748b3cf8c4ee69eda45b788e2e63e53a007b2cb0248a986fd91be15",
+        "source_budget": "1cb92d6251ef1d606cc1c51cc3e740e6198b9a92",
+        "source_deadline": "505d6cdf2596789fd0f25c637091ce6c292102d2",
+        "offline_per_python": {
+          "3.11": 45,
+          "3.12": 45
+        },
+        "owner_actions": "Disable Actions on repo 1445911975, establish exclusive writers, scoped App/installation, issued lease and original matching warrant in a scope without outstanding liability. Re-read the target before approval.",
+        "operator_payloads": "B_C_OWNER_PAYLOADS.json"
       }
     },
     "D": {
@@ -630,8 +648,10 @@
         "probe_tree": "3b783638df5a561711198446441de6643ab6b1a2",
         "preflight_exit": 2,
         "preflight_sha256": "6f445bfab9efd51d4ad7b8742790537336554670837fa3bd5f20de4441840500",
-        "live_sessions": 0
+        "live_sessions": 0,
+        "positive_native_cross_uid_dependency": "Independent lane. G04 requires admitted render and real keeper/STOP on Noble. Native additionally needs executor / storage ownership and verifier integration."
       }
-    }
+    },
+    "observed_followup_utc": "2026-11-26T18:31:14Z"
   }
 }

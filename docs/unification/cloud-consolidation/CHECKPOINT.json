@@ -822,6 +822,62 @@
         "executed_source_sha": null,
         "executed_source_tree": null
       }
+    },
+    "integration_followup": {
+      "observed_utc": "2026-11-26T18:31:14Z",
+      "combined_local_source": "f4979881935c45311b8be2c47b83508aa0c8171d",
+      "combined_local_tree": "4223085bd3b20d802b2f852261dfa70b1add1faa",
+      "main_at_observation": "cc5aa99401e164f53db12c6ef72597ce91185063",
+      "main_tree": "5366b09bf2da1b0708b2d17511826472bb0c2b62",
+      "required_checks": {
+        "77": {
+          "head": "af4676ab009b0eb1c02399787f60df348fec831e",
+          "merge": "cc5aa99401e164f53db12c6ef72597ce91185063",
+          "merged_utc": "2026-11-26T18:20:20Z",
+          "run": 45872398086,
+          "result": "4/4 PASS",
+          "per_certify_interpreter": {
+            "tests": 4537,
+            "pass": 4532,
+            "allowed_skip": 5
+          }
+        },
+        "78": {
+          "head": "12a9e2539a5acffac4e1d2875a80658974df3d81",
+          "tree": "50d46404a98eaffd9630107a28907aa5d0604bf4",
+          "status_at_observation": "OPEN",
+          "run": 45875168787,
+          "packaging": "3.11/3.12 PASS",
+          "certify_311": "FAIL Browser.getVersion",
+          "failed_job": 140100295206,
+          "certify_312": "IN_PROGRESS"
+        },
+        "79": {
+          "head": "eaf5ce3524a85813ddd5a8bb90db11cb076eeb14",
+          "tree": "c6adbf9bf68894cfd65e5ce94be7e4f993eab3b4",
+          "status_at_observation": "OPEN",
+          "run": 45875662319,
+          "packaging": "3.11/3.12 PASS",
+          "certify_311": "FAIL Browser.getVersion",
+          "failed_job": 140101968770,
+          "certify_312": "IN_PROGRESS"
+        }
+      },
+      "local_sources": {
+        "worker": "5f22b97e4dab06b7567957273a5cd3fe527b38a4",
+        "github_budget": "1cb92d6251ef1d606cc1c51cc3e740e6198b9a92",
+        "github_post_tls_deadline": "505d6cdf2596789fd0f25c637091ce6c292102d2",
+        "combined_source_provenance": "f4979881935c45311b8be2c47b83508aa0c8171d"
+      },
+      "live_dispatches": {
+        "A": 0,
+        "B": 0,
+        "C": 0,
+        "D": 0
+      },
+      "native_positive_cross_uid": "NOT_RUN; different UIDs are rejected by the fixture executor, and shared storage has incompatible owner checks; code integration plus host qualification required",
+      "production_native": "DISABLED",
+      "legacy": "HOLD"
     }
   }
 }
