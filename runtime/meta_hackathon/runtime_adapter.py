@@ -120,7 +120,8 @@ SOURCE_FILES += ('runtime/meta_hackathon/chat.py','runtime/meta_hackathon/chat_s
         'runtime/mobile_gateway/operator_chat.py','runtime/mobile_gateway/chrome_console.py',
         'protocol/mobile_chat_v1.json','web/mobile_chat.js',
         'clients/android/app/src/main/java/eu/sparkhat/aioa/companion/ChatView.kt')
-SOURCE_FILES += ('runtime/mcp_bridge/native_read.py','runtime/meta_hackathon/native_tools.py')
+SOURCE_FILES += ('runtime/mcp_bridge/native_read.py','runtime/mcp_bridge/official_read.py',
+                 'runtime/meta_hackathon/native_tools.py')
 SOURCE_FILES += ('runtime/secret_redaction.py','runtime/failure_boundary.py')
 SOURCE_FILES += ('runtime/mission/python_test_contracts.py', 'runtime/mission/dependency_lock.py', 'runtime/mission/function_isolation.py', 'runtime/mission/python_function_worker.py', 'runtime/mission/python_function_child.py', 'runtime/mission/repository_worker.py', 'runtime/mission/render_recipe.py', 'runtime/mission/render_worker.py', 'runtime/mission/render_runtime.py', 'runtime/mission/render_observation.py', 'runtime/mission/repair_validation.py', 'runtime/mission/worker.py', 'runtime/mission/codex_worker.py', 'runtime/mission/patchset.py', 'runtime/mission/repair.py', 'runtime/mission/patch_capsule.py', 'runtime/mission/coding_tasks.py')
 SOURCE_FILES += ('runtime/mobile_gateway/desktop.py','runtime/critical_loop/preset.py','web/white-hole.svg')
@@ -836,7 +837,7 @@ class NativeMobileComposition:
         if self.foundation is not None:
             from .native_authority import CAPACITY_FIELDS
             if op in CAPACITY_FIELDS:return self.foundation.controller.dispatch(peer_uid,value)
-            self.foundation.lifecycle.require_ingress(op)
+            self.foundation.lifecycle.require_ingress(op, request=value)
         owner=self.operator_principal()
         from .advisory import OPS as ADVISORY_OPS
         from .advisory import dispatch as advisory_dispatch
@@ -848,7 +849,7 @@ class NativeMobileComposition:
         if op in ('budget_review','budget_approve'):
             from runtime.mobile_gateway.operator_chat import budget_dispatch
             return budget_dispatch(self,owner,value)
-        if op in ('tool_read','tool_readback','tool_proposal'):
+        if op in ('tool_read','tool_readback','tool_proposal','tool_read_prepare','tool_read_approve'):
             from .native_tools import dispatch
             return dispatch(self,owner,value)
         if op.startswith('chat_'):
