@@ -533,7 +533,8 @@ class NativeGitHubReviewTests(ReviewFixture):
         port = github_port(self, self.host)
         observed = []
         request = {'request_id': 'e' * 32, 'chat_request_id': 'f' * 32}
-        def preflight(*, check, cancel):
+        def preflight(*, check, cancel, request_budget):
+            self.assertIsInstance(request_budget, github_write.github_remote.GitHubRequestBudget)
             handle = self.f.lifecycle._handles['sync-github_preflight-' + request['request_id']]
             observed.append(handle); self.assertIs(handle.thread, threading.current_thread()); self.assertIs(handle.cancel, cancel)
             self.f.lifecycle._phase = NativePhase.CAPACITY_ADMIN

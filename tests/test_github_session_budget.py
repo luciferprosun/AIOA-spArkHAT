@@ -266,3 +266,21 @@ class SessionBudgetTests(unittest.TestCase):
         connection.sock.settimeout.assert_called_once_with(0.25)
         connection.request.assert_called_once()
         self.assertEqual(1, self.count()["used"])
+
+    def test_without_boot_clock_only_legacy_transport_can_send(self):
+        self.prepare()
+        connection = Mock()
+        response = connection.getresponse.return_value
+        response.status, response.read.return_value = 200, b"{}"
+        with (
+            patch.object(remote.time, "CLOCK_BOOTTIME", None),
+            patch.object(remote.ssl, "create_default_context"),
+            patch.object(remote.http.client, "HTTPSConnection", return_value=connection),
+        ):
+            args = (None, "GET", remote.PREFIX, None, None, self.port.cancel, 15)
+            with self.assertRaisesRegex(ValueError, "GITHUB_SESSION_CLOCK_UNAVAILABLE"):
+                remote._bounded_send(self.window, *args)
+            connection.connect.assert_not_called()
+            result = remote._bounded_send(None, *args)
+        self.assertEqual((200, b"{}"), result)
+        connection.request.assert_called_once()

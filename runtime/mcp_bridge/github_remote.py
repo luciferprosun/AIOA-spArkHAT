@@ -63,11 +63,16 @@ def _https_once(method,path,payload,bearer,cancel,timeout,*,session_remaining=No
         and not any(ord(c)<33 or ord(c)>126 for c in path),'GITHUB_TRANSPORT_DENIED')
     require(type(timeout) in (int,float) and 0<timeout<=20,'GITHUB_TIMEOUT_DENIED')
     deadline=time.monotonic()+timeout
-    boot_deadline=time.clock_gettime_ns(time.CLOCK_BOOTTIME)+int(timeout*1_000_000_000)
+    boot_clock=getattr(time,'CLOCK_BOOTTIME',None)
+    require(boot_clock is not None or session_remaining is None,'GITHUB_SESSION_CLOCK_UNAVAILABLE')
+    boot_deadline=None if boot_clock is None else time.clock_gettime_ns(boot_clock)+int(timeout*1_000_000_000)
 
     def time_left():
         cancel.check(deadline)
-        left=(boot_deadline-time.clock_gettime_ns(time.CLOCK_BOOTTIME))/1_000_000_000
+        if boot_deadline is None:
+            left=deadline-time.monotonic()
+        else:
+            left=(boot_deadline-time.clock_gettime_ns(boot_clock))/1_000_000_000
         if session_remaining is not None:
             left=min(left,session_remaining())
         require(left>0,'GITHUB_SESSION_DEADLINE')
