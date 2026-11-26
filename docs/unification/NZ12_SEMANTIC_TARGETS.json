@@ -11158,116 +11158,120 @@
     },
     "runtime/mcp_bridge/github_remote.py": {
       "path": "runtime/mcp_bridge/github_remote.py",
-      "git_blob": "cafe0787a9799f05e4973e14a68a16dc44adf68a",
-      "sha256": "3d8f299b309c35235eeb2a43cb14ec76aabad005304d4e9104bc0dba27edbeae",
+      "git_blob": "b3377153d8faaa795d9a56adeb683bfa3fb1b544",
+      "sha256": "5787f79e7142a9f51d17bd6bb061ff0250cbb79e605530d46dc8e25e8902dd4a",
       "definitions": [
         {
           "name": "GitHubRequestBudget",
-          "line": 32
+          "line": 33
         },
         {
           "name": "_bounded_send",
-          "line": 49
+          "line": 50
         },
         {
           "name": "_https_once",
-          "line": 56
+          "line": 60
         },
         {
           "name": "_private_file",
-          "line": 88
+          "line": 112
         },
         {
           "name": "InstallationCredential",
-          "line": 106
+          "line": 130
         },
         {
           "name": "GitHubAppCredentialSource",
-          "line": 120
+          "line": 144
         },
         {
           "name": "_require_workflow_free_base",
-          "line": 191
+          "line": 215
         },
         {
           "name": "GitHubCreateOnly",
-          "line": 196
+          "line": 220
         },
         {
           "name": "read_demo_base",
-          "line": 390
+          "line": 414
         },
         {
           "name": "__init__",
-          "line": 34
+          "line": 35
         },
         {
           "name": "send",
-          "line": 39
+          "line": 40
+        },
+        {
+          "name": "time_left",
+          "line": 68
         },
         {
           "name": "evidence",
-          "line": 113
+          "line": 137
         },
         {
           "name": "__init__",
-          "line": 122
+          "line": 146
         },
         {
           "name": "configuration",
-          "line": 128
+          "line": 152
         },
         {
           "name": "mint",
-          "line": 143
+          "line": 167
         },
         {
           "name": "__init__",
-          "line": 203
+          "line": 227
         },
         {
           "name": "_call",
-          "line": 222
+          "line": 246
         },
         {
           "name": "_repo",
-          "line": 256
+          "line": 280
         },
         {
           "name": "_main",
-          "line": 262
+          "line": 286
         },
         {
           "name": "_head",
-          "line": 267
+          "line": 291
         },
         {
           "name": "_require_head",
-          "line": 270
+          "line": 294
         },
         {
           "name": "preflight",
-          "line": 275
+          "line": 299
         },
         {
           "name": "execute",
-          "line": 288
+          "line": 312
         },
         {
           "name": "_commit",
-          "line": 319
+          "line": 343
         },
         {
           "name": "readback",
-          "line": 330
+          "line": 354
         },
         {
           "name": "get",
-          "line": 396
+          "line": 420
         },
         {
           "name": "post",
-          "line": 294
+          "line": 318
         }
       ],
       "symbolic_callees": [
@@ -11305,6 +11309,7 @@
         "connection.connect",
         "connection.getresponse",
         "connection.request",
+        "connection.sock.settimeout",
         "d.decode",
         "dataclass",
         "datetime.strptime",
@@ -11332,6 +11337,7 @@
         "os.open",
         "p.get",
         "padding.PKCS1v15",
+        "partial",
         "path.startswith",
         "permissions.get",
         "plan.commit_sha_for_tree",
@@ -11351,6 +11357,7 @@
         "result.update",
         "root.lstat",
         "root.resolve",
+        "selected",
         "self._attempted.add",
         "self._call",
         "self._commit",
@@ -11372,6 +11379,7 @@
         "self.readback",
         "self.remaining",
         "serialization.load_pem_private_key",
+        "session_remaining",
         "set",
         "sha256",
         "ssl.create_default_context",
@@ -11381,7 +11389,9 @@
         "stream.read",
         "strict_json",
         "threading.Timer",
+        "time.clock_gettime_ns",
         "time.monotonic",
+        "time_left",
         "timer.cancel",
         "timer.start",
         "transport",
@@ -11391,8 +11401,8 @@
         "value.get().get",
         "value[data].get"
       ],
-      "call_site_count": 406,
-      "call_sites_sha256": "4e382ec7a3d8b434031228fe8000be1b8d1832f2001a25ddb8fcbb09f8f25e9f"
+      "call_site_count": 417,
+      "call_sites_sha256": "c9b9e1b25b24dfd9fdce6bb2eac461cf53677ba71c276747694934f25ff99c4f"
     },
     "runtime/mcp_bridge/contracts.py": {
       "path": "runtime/mcp_bridge/contracts.py",
