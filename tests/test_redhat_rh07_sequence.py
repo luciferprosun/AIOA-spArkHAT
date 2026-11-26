@@ -100,9 +100,6 @@ class SequencedBoundaryTests(unittest.TestCase):
         self.fx, self.root = self.fixture.fx, self.fixture.root
         self.principal = self.fx.p()
         self.work_cancel = CancellationToken()
-        task_id = self.fixture.case["task"].task_id
-        self.fixture.tasks._effects[task_id] = self.work_cancel
-        self.addCleanup(self.fixture.tasks._effects.pop, task_id, None)
         self.anchor = self.root / "sequencer"
         self.anchor.mkdir(mode=0o700)
         self.seq_number = 0
@@ -276,6 +273,9 @@ class SequencedBoundaryTests(unittest.TestCase):
         self.fixture.assert_held()
 
     def _cancel_before_publication(self, action):
+        task_id = self.fixture.case["task"].task_id
+        self.fixture.tasks._effects[task_id] = self.work_cancel
+        self.addCleanup(self.fixture.tasks._effects.pop, task_id, None)
         broker, endpoint, _, client, gate = self.setup_triplet()
         self.fixture.tasks.request(self.fx.p(Capability.MANAGE), action,
                                    {"task_id": self.fixture.case["task"].task_id})
