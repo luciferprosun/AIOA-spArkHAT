@@ -213,7 +213,7 @@ SOURCE_FILES += (
 
 # Exact inert coding-profile codec; no host graph or transport activation.
 SOURCE_FILES += ('runtime/providers/coding_contracts.py','runtime/meta_hackathon/model_qualification.py',
-                 'runtime/mission/qualified_worker.py','runtime/providers/live_gate.py')
+                 'runtime/mission/qualified_worker.py')
 
 def sealed_source_path(relative, *, root=None):
     """Fixed source list only; reject links before any source content read."""
