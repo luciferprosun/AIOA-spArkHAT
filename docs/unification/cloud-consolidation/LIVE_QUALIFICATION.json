@@ -621,11 +621,12 @@
         "source_budget": "1cb92d6251ef1d606cc1c51cc3e740e6198b9a92",
         "source_deadline": "505d6cdf2596789fd0f25c637091ce6c292102d2",
         "offline_per_python": {
-          "3.11": 45,
-          "3.12": 45
+          "3.11": 56,
+          "3.12": 56
         },
         "owner_actions": "Disable Actions on repo 1445911975, establish exclusive writers, scoped App/installation, issued lease and original matching warrant in a scope without outstanding liability. Re-read the target before approval.",
-        "operator_payloads": "B_C_OWNER_PAYLOADS.json"
+        "operator_payloads": "B_C_OWNER_PAYLOADS.json",
+        "offline_source_with_deadline_tests": "7a139e2eb5c471439af735e906d717eb360647c6"
       }
     },
     "D": {

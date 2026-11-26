@@ -878,6 +878,58 @@
       "native_positive_cross_uid": "NOT_RUN; different UIDs are rejected by the fixture executor, and shared storage has incompatible owner checks; code integration plus host qualification required",
       "production_native": "DISABLED",
       "legacy": "HOLD"
+    },
+    "merged_before_worker_verification": {
+      "observed_utc": "2026-11-26T19:22:58+00:00",
+      "pull_requests": {
+        "78": {
+          "reviewed_head": "12a9e2539a5acffac4e1d2875a80658974df3d81",
+          "tree": "50d46404a98eaffd9630107a28907aa5d0604bf4",
+          "merge": "711237edcac7552ed520136eac3a530e879e357c",
+          "merged_utc": "2026-11-26T19:00:41Z",
+          "workflow": "https://github.com/luciferprosun/AIOA-spArkHAT/actions/runs/45875168787",
+          "attempt": 2,
+          "per_interpreter": {
+            "certify (3.11)": {
+              "tests": 4548,
+              "passed": 4543,
+              "allowed_skips": 5
+            },
+            "certify (3.12)": {
+              "tests": 4548,
+              "passed": 4543,
+              "allowed_skips": 5
+            }
+          }
+        },
+        "79": {
+          "reviewed_head": "c0b3b06645e52f991dabe79e453da17c6ce01184",
+          "tree": "46fce6054fe9d3491a78c2216d4e20a9ffe7c25c",
+          "merge": "40f1cf11a9e68c11594828f40e7541eb18d76195",
+          "merged_utc": "2026-11-26T19:22:11Z",
+          "workflow": "https://github.com/luciferprosun/AIOA-spArkHAT/actions/runs/45880454886",
+          "attempt": 1,
+          "per_interpreter": {
+            "certify (3.11)": {
+              "tests": 4562,
+              "passed": 4557,
+              "allowed_skips": 5
+            },
+            "certify (3.12)": {
+              "tests": 4562,
+              "passed": 4557,
+              "allowed_skips": 5
+            }
+          }
+        }
+      },
+      "live_dispatches": {
+        "A": 0,
+        "B": 0,
+        "C": 0,
+        "D": 0
+      },
+      "worker_verification": "Use the subsequent protected PR #80 and main run receipts for the exact final source."
     }
   }
 }
