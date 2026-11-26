@@ -159,7 +159,7 @@ def _recover_native_task_from_restarted_core(config_path, *, lose_settlement_ack
         fixture.close()
 
 
-def _prepare_native_task_case(root, broker):
+def _prepare_native_task_case(root, broker, *, rh06_fixture=None):
     """Create one synthetic original task/START bound to an RH-02 fixture."""
     base = broker.request
     fx = Fixture(Path(root) / "native-core.json")
@@ -209,6 +209,8 @@ def _prepare_native_task_case(root, broker):
         "ref_directory_inode": base.ref_directory_inode,
         "ref": base.exact_ref, "old_oid": base.old_oid, "new_oid": base.new_oid,
     }
+    if rh06_fixture is not None:
+        payload["rh06_fixture"] = rh06_fixture
     operation = {"operation_class": "GIT_COMMIT",
                  "target_fingerprint": fx.warrant.target_fingerprint,
                  "expected_target_revision": fx.warrant.expected_target_revision,
