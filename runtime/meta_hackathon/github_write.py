@@ -12,6 +12,7 @@ import time
 from dataclasses import replace
 from datetime import UTC, datetime
 from decimal import Decimal
+from pathlib import Path
 
 from lab.archaioa.authority import AuthorityScope, Money, RiskLevel
 from lab.archaioa.warrant import EffectWarrant, RevisionPolicy
@@ -19,7 +20,7 @@ from runtime.core_admission import Capability
 from runtime.failure_boundary import RepairBoundaryError, failure_boundary
 from runtime.mcp_bridge import github_remote
 from runtime.memory_patch.contracts.serialization import canonical_sha256
-from runtime.memory_patch.persistence.ports import RecordKind
+from runtime.memory_patch.persistence.ports import RecordKind, StoredRecord
 from runtime.mission.git_publish import (
     DEMO_REPOSITORY,
     CoreRemoteGitRoute,
@@ -195,6 +196,8 @@ def _verify_native_result(host,data,plan,operation_id,saved):
 def _check(host,data,*,write):
     host._require_qualified_operator()
     require(not host.missions._closed,'GITHUB_HOST_CLOSED')
+    if 'request_window' in data:
+        require(_remaining_request_seconds(data['request_window'])>0,'GITHUB_SESSION_DEADLINE')
     if write:
         require(host.source==(data['source_sha'],data['capsule_digest'])
             and host.instance_id==data['core_instance_id'],'GITHUB_OWNER_OR_SOURCE_CHANGED')
@@ -212,6 +215,72 @@ def _check(host,data,*,write):
     require(canonical_sha256(data['operation'])==data['review_digest'],'GITHUB_REVIEW_CHANGED')
 
 
+def _boot_digest(operation_id):
+    # A boot-local monotonic window cannot gain time across a reboot.
+    boot=Path('/proc/sys/kernel/random/boot_id').read_text().strip()
+    return canonical_sha256((operation_id,boot))
+
+
+def _elapsed_clock_ms():
+    # Linux boot time is monotonic and includes time spent suspended.
+    return time.clock_gettime_ns(time.CLOCK_BOOTTIME)//1_000_000
+
+
+def _budget_template(operation_id):
+    return {'schema':'aioa.github-session-request-count.v1','operation_id':operation_id,
+            'boot_digest':_boot_digest(operation_id),'start_ms':_elapsed_clock_ms(),
+            'used':0,'repository_posts':0,'token_mints':0}
+
+
+def _remaining_request_seconds(window):
+    require(window['boot_digest']==_boot_digest(window['operation_id']),'GITHUB_SESSION_BOOT_CHANGED')
+    elapsed=_elapsed_clock_ms()-window['start_ms']
+    require(elapsed>=0,'GITHUB_SESSION_CLOCK_CHANGED')
+    return (120000-elapsed)/1000
+
+
+def _count_payload(row,window):
+    require(row is not None, 'GITHUB_SESSION_WINDOW_MISSING')
+    count=plain(row.payload)
+    require(set(count)==set(window) and all(count[k]==window[k] for k in
+            ('operation_id','schema','boot_digest','start_ms'))
+            and all(type(count[k]) is int for k in ('used','repository_posts','token_mints'))
+            and 0<=count['used']<=48 and 0<=count['repository_posts']<=4 and 0<=count['token_mints']<=1
+            and count['repository_posts']+count['token_mints']<=count['used'], 'GITHUB_SESSION_WINDOW_CHANGED')
+    return count
+
+
+def _request_budget(host, data):
+    key='github-request-count-'+data['operation_id']
+    if 'request_window' not in data:
+        # Earlier durable plans did not have a session quota record. Distinguish
+        # those from a new retained proposal with a lost/malformed reference.
+        require(_run(host,Capability.READ,lambda tx:tx.get(RecordKind.OPERATION,key)) is None,
+                'GITHUB_SESSION_WINDOW_MISSING')
+        return None
+    window=data['request_window']
+    require(window['schema']=='aioa.github-session-request-count.v1'
+            and window['operation_id']==data['operation_id'],'GITHUB_SESSION_WINDOW_CHANGED')
+    def remaining():
+        return _remaining_request_seconds(window)
+    def consume(method,path):
+        def reserve(tx):
+            row=tx.get(RecordKind.OPERATION,key)
+            require(row is not None and remaining()>0,'GITHUB_SESSION_DEADLINE')
+            count=_count_payload(row,window)
+            require(count['used']<48,'GITHUB_SESSION_REQUEST_LIMIT')
+            if method=='POST':
+                kind='token_mints' if path.startswith('/app/installations/') else 'repository_posts'
+                limit=1 if kind=='token_mints' else 4
+                require(count[kind]<limit,'GITHUB_SESSION_REQUEST_LIMIT')
+                count[kind]+=1
+            count['used']+=1
+            tx.replace(StoredRecord(RecordKind.OPERATION,key,host.missions.scope,row.revision+1,count),
+                       expected_revision=row.revision)
+        _run(host,Capability.COMMIT,reserve)
+    return github_remote.GitHubRequestBudget(remaining=remaining,consume=consume)
+
+
 def _route(host,data,*,write):
     plan,base=_decode(data)
     if getattr(host,'foundation',None) is not None:
@@ -220,13 +289,14 @@ def _route(host,data,*,write):
         require(journal is host.foundation.intent_journal and journal.ledger is host.ledger
                 and journal.governor is host.foundation.governor,'GITHUB_CANONICAL_JOURNAL_REQUIRED')
     else:journal=CoreIntentJournal(host.ledger,host.missions._chat_governor)
+    budget=_request_budget(host,data)
     def factory(check,cancel):
         # Called only by ServiceGuard AFTER the exact first START ACK.
-        credential=_source(host).mint(cancel=cancel,check=check)
-        return github_remote.GitHubCreateOnly(plan,base,credential,mode='LIVE')
+        credential=_source(host).mint(cancel=cancel,check=check,request_budget=budget)
+        return github_remote.GitHubCreateOnly(plan,base,credential,mode='LIVE',request_budget=budget)
     return CoreRemoteGitRoute(journal,plan=plan,base=base,identity=host.identity,
         api_factory=factory,check=lambda:_check(host,data,write=write),
-        target_guard=lambda:host.missions._lock,mode='LIVE')
+        target_guard=lambda:host.missions._lock,mode='LIVE',request_budget=budget)
 
 
 def _proposal_read_context(host,message):
@@ -268,7 +338,8 @@ def _propose(host,value,message,*,cancel=None):
         require(old.payload.get('source_chat_request_id')==value['chat_request_id'],'GITHUB_REQUEST_CONFLICT')
         return view(host,operation_id)
     now=int(time.time())
-    pending={'state':'GITHUB_PROPOSAL_READING','operation_id':operation_id,
+    window=_budget_template(operation_id)
+    pending={'request_window':window,'state':'GITHUB_PROPOSAL_READING','operation_id':operation_id,
         'source_chat_request_id':value['chat_request_id'],'source_reply_sha256':message['receipt']['response_sha256'],
         'source_sha':host.source[0],'capsule_digest':host.source[1],'core_instance_id':host.instance_id,
         'created_at':now,'expires_at':now+300,'stop_requested':False,'warrant':None}
@@ -283,13 +354,16 @@ def _propose(host,value,message,*,cancel=None):
         host.mobile._record(tx,key,{'state':'GITHUB_SOURCE_BINDING','operation_id':operation_id,
             'source_reply_sha256':pending['source_reply_sha256'],'source_chat_request_id':value['chat_request_id']},at=now)
         host.mobile._record(tx,'native-github-'+operation_id,pending,at=now)
+        tx.insert(StoredRecord(RecordKind.OPERATION,'github-request-count-'+operation_id,
+                               host.missions.scope,1,window))
         return operation_id,True
     bound,first=_run(host,Capability.COMMIT,reserve)
     if not first:return view(host,bound)
     try:
         with failure_boundary('OWNED_WORK_CALLBACK_FAILED'):
             context=_proposal_read_context(host,message)
-            base_sha,base=github_remote.read_demo_base(check=host._require_qualified_operator,cancel=cancel or CancellationToken())
+            base_sha,base=github_remote.read_demo_base(check=host._require_qualified_operator,cancel=cancel or CancellationToken(),
+                                                      request_budget=_request_budget(host,pending))
             require(base_sha==context['data']['commit_sha'] and base.sha==context['data']['tree_sha'],
                     'GITHUB_MODEL_READ_BASE_CHANGED')
             plan=RemoteGitPlan.from_model(message['reply'].encode(),operation_id=operation_id,issued_at=now,
@@ -326,6 +400,11 @@ def view(host,operation_id):
         'automatic_retry':False,'authorization':authorization(host),'blockers':blockers(host),
         'proposal':{'operation':'code.commit_draft_pr','target_repo':DEMO_REPOSITORY,
                     'source_chat_request_id':data['source_chat_request_id']}}
+    if 'request_window' in data:
+        count=_run(host,Capability.READ,lambda tx:_count_payload(tx.get(
+            RecordKind.OPERATION,'github-request-count-'+operation_id),data['request_window']))
+        result['session_requests']={'charged_requests':count['used'],'repository_post_attempts':count['repository_posts'],
+                                    'token_mint_attempts':count['token_mints'],'max_requests':48,'max_seconds':120}
     if 'plan' in data:
         plan,_=_decode(data);result.update(review={**plan.preview(),
             'expected_commit_sha':data['operation']['payload']['commit_sha'],

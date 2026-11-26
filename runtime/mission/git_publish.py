@@ -1443,7 +1443,7 @@ class CoreRemoteGitRoute:
         return resolved
 
     def __init__(
-        self, journal, *, plan, base, identity, api_factory, check, target_guard, mode
+        self, journal, *, plan, base, identity, api_factory, check, target_guard, mode, request_budget=None
     ):
         from runtime.mission.intent import CoreIntentJournal
         from runtime.mobile_gateway.wire import Identity
@@ -1471,6 +1471,7 @@ class CoreRemoteGitRoute:
             journal.ledger.runner,
             journal.ledger.scope,
         )
+        self.request_budget = request_budget
         self.api_factory, self.check, self.target_guard, self.mode = (
             api_factory,
             check,
@@ -2060,7 +2061,7 @@ class CoreRemoteGitRoute:
             if self.mode == "LIVE":
                 core_require(api is None, "GITHUB_READBACK_INJECTION_DENIED")
                 api = GitHubCreateOnly(
-                    self.plan, self.base, None, mode="PUBLIC_READ_ONLY"
+                    self.plan, self.base, None, mode="PUBLIC_READ_ONLY", request_budget=self.request_budget
                 )
             core_require(
                 type(api) is GitHubCreateOnly
