@@ -39,6 +39,18 @@ sha256sum "$OUT/restored"
 git -C "$OUT/restored.git" fsck --full --no-dangling
 ```
 
+### Przygotowanie odbiorów wykonawczych
+
+| Zakres | Co potwierdzono | Najmniejszy następny krok i właściciel |
+|---|---|---|
+| #17, oficjalny MCP READ | Lokalna binarka v1.0.5 zwróciła protokół 2025-06-18 oraz narzędzia `get_file_contents` i `search_repositories` w sesji offline. Źródło kandydata `7f3c5fe`; cel to `LICENSE` na `d2870f33`. | Operator Core wiąże bieżące źródło, docelowy blob, uchwyt READ, signer i pojedyncze okno UTC w `operator_request(tool_read)`. Odbiór wymaga podpisanego wyniku i odczytu z oryginalnego journalu po restarcie. [PR #78](https://github.com/luciferprosun/AIOA-spArkHAT/pull/78) |
+| #2, #3 i osobny #41 | Przygotowano zadanie B na maks. jedną inferencję i szacunek 184320 nanoUSD. Liczba wywołań wynosi 0. | Operator przypina bieżące źródło, suite, model, cenę konta, lease i dokładny request. Osobny odbiór #41 obejmuje faktyczną naprawę i oddzielny limit maks. 368640 nanoUSD przy tej samej cenie. |
+| #18 i #19, izolowany GitHub WRITE | Repo ID 1445911975 zwróciło `enabled=true`, `allowed_actions=all`. Proponowany ref był nieobecny. Liczba mintów i mutacji wynosi 0. | Administrator tego repo wyłącza Actions i potwierdza wyłączność writerów dla czasu próby. Operator sprawdza App/installation, bazę i scope rezerwacji przed jednym planem czterech mutacji. Wymóg HTTPS dla #18 wymaga odpowiedzi odbiorcy. |
+| #63, G04 | Na Mint manager użytkownika i delegacja v2 działają. Preflight na `9dbb567` zakończył się kodem 2. | Operator hosta przedstawia uwierzytelniony obraz Noble, boot i profil AppArmor. Odbiór obejmuje rzeczywisty keeper, render, STOP, sprzątanie oraz odczyt tego samego stanu po restarcie. |
+| Przyszły Native | Wyłączony kandydat RH-07 podlega osobnemu CI. Kwalifikacja między rzeczywistymi UID, CAS z normalnego wejścia i zimne rozliczenie pozostają NOT_RUN. | Operator i niezależny reviewer potwierdzają domeny UID, klucz, dopuszczony ref i obie kolejności STOP/CAS. Dla historycznego #69 zachować UNKNOWN, rezerwację oraz HELD bez replay. [PR #77](https://github.com/luciferprosun/AIOA-spArkHAT/pull/77) |
+
+Prywatne potwierdzenia właściciel przekazuje jako skróty lub odnośniki do właściwego chronionego magazynu. Jednoznaczne wartości źródeł, celów, liczników i braków zawiera manifest. Do czasu potwierdzenia dopuszczenia odpowiednie wiersze pozostają otwarte. [Manifest LIVE](LIVE_QUALIFICATION.json) · [Stan odbiorów](CHECKPOINT.json)
+
 ## Historyczny odczyt po integracji d2fc4cb8
 
 Stan `RETIREMENT_HOLD` przy kodzie `d2fc4cb88c1777e572c099c8082b93e6b7a6c0b1`. Dwie kopie odtworzono w różnych środowiskach: na laptopie i w odizolowanym workspace Cloud. Każde odtworzenie objęło 13 zgodnych refów, 179 commitów i 2674 osiągalne obiekty, fsck exit 0. Długoterminowa retencja Cloud i druga niezależna kopia pod trwałą kontrolą właściciela pozostają niepotwierdzone. Wszystkie 1312 osiągalnych blobów sprawdzono pod kątem wskaźników Git LFS v1. Wynik zero. Publiczny odczyt GitHuba pokazuje 1 PR, 0 issues, 0 releases i 0 przebiegów Actions. Uwierzytelniony odczyt .wiki.git zwrócił repository not found mimo włączonej flagi wiki. Zawartość wiki i Projects pozostaje niepotwierdzona. Ostatni z 20 zapisów Render to udane wdrożenie 6378024487 z 10 września 2026 r. Aktualny stan Render i jego odbiorcy pozostają UNKNOWN.

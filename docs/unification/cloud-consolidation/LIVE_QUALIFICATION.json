@@ -536,7 +536,23 @@
       "max_reads": 5,
       "max_inventory_pages": 2,
       "writes": 0,
-      "retry": 0
+      "retry": 0,
+      "prepared": {
+        "pr": 78,
+        "source": "7f3c5fe8a7f550e7fee0080119ebf4a8cf685caf",
+        "tree": "cc430679e10e843da3dbf927769bac0cb45b3bc4",
+        "server_version": "1.0.5",
+        "server_protocol": "2025-06-18",
+        "server_binary_sha256": "e38247271e98ea3e0771db747523914b35e37787fa2c120ab6864ee6b4a2c87c",
+        "offline_tools": [
+          "get_file_contents",
+          "search_repositories"
+        ],
+        "offline_initialize_reply_sha256": "19661c0fefa7aa4552b4b8b4def8963628e38bdd945f820c052153be66915243",
+        "offline_inventory_reply_sha256": "cc91b86b82336a06dff78a7b8660e94322b0842999ed6868c20b777f3a91975d",
+        "result": "NOT_RUN",
+        "missing": "Current admitted operator_request(tool_read), approved source and target, qualified READ credential handle, signing principal and trustworthy clock window."
+      }
     },
     "B": {
       "max_inferences": 1,
@@ -546,7 +562,19 @@
       "max_seconds": 60,
       "repairs": 0,
       "retry": 0,
-      "repair_41": "SEPARATE_PERMIT_REQUIRED"
+      "repair_41": "SEPARATE_PERMIT_REQUIRED",
+      "prepared": {
+        "model": "nvidia/Nemotron-3_5-Lightning",
+        "endpoint": "https://api.tokenfactory.nebius.com/v1/chat/completions",
+        "pricing_page": "https://nebius.com/services/token-factory/models/nvidia-nemotron-models-inference",
+        "pricing_html_sha256": "8ffe95e8004b647235230fcaf3a5240b17d13c06094c688fdfdaa41c39feb35a",
+        "max_estimated_nano_usd": 184320,
+        "separate_repair_41_max_estimated_nano_usd": 368640,
+        "result": "NOT_RUN",
+        "provider_calls": 0,
+        "cost_usd": "0",
+        "missing": "Bind accepted tests at execution SHA, account price and enrolled provider, canonical task, lease, request bytes, cumulative budget and current signer in ordinary Core."
+      }
     },
     "C": {
       "target_repo": "luciferprosun/AIOA-spArkHAT-Meta-Hackathon-2026",
@@ -559,14 +587,51 @@
       ],
       "max_requests": 48,
       "max_seconds": 120,
-      "retry": 0
+      "retry": 0,
+      "prepared": {
+        "repo_id": 1445911975,
+        "base_sha": "df0754d4cca5c61627fba1e7d5d2a6249830871d",
+        "base_tree": "bc344f4e21ecb903a98004510c0bdb923fc15024",
+        "proposed_ref": "refs/heads/aioa/muse-e4a2b3e2204d452ea02a130f60784325",
+        "compact_sorted_utf8_proposal_sha256": "d362b683a78dcb4edfd1c100b2b9b025e727434a23a8660683ba55a464665680",
+        "candidate_tree": "72d257993def4d3c13bdd7ca2289eabfd4dccf94",
+        "candidate_blob": "4a635a08fdd5b433cfb95d963e8b31194842bb57",
+        "branch_get_status": 404,
+        "actual_mints": 0,
+        "actual_repo_mutations": 0,
+        "actual_dispatches": 0,
+        "result": "NOT_RUN",
+        "actions_enabled": true,
+        "allowed_actions": "all",
+        "exclusive_writers": "UNKNOWN",
+        "app_scope": "UNKNOWN",
+        "actions_settings_sha256": "a35d23e555f4ab48e52869663c76cbb8fbd547b50cccb6e607256b16a7bf209f",
+        "target_sha256": "892de4b236e75bc8ef78ae865437991be3b7db943e6b378658dbf3e947bb5f30",
+        "base_response_sha256": "143d86153748b3cf8c4ee69eda45b788e2e63e53a007b2cb0248a986fd91be15"
+      }
     },
     "D": {
       "purpose": "G04",
       "network": "OFF",
       "sessions": 1,
       "max_render_seconds": 20,
-      "max_seconds": 180
+      "max_seconds": 180,
+      "prepared": {
+        "result": "NOT_RUN",
+        "host_gate": "BLOCKED_HOST",
+        "observed_host": "Linux Mint 22.2 (zara), kernel 7.0.0-38-generic, systemd user active and delegated cgroup v2",
+        "missing": [
+          "Ubuntu 24.04 Noble",
+          "exact AppArmor host profile",
+          "external host/image/boot and signed package receipt",
+          "actual admitted render step, isolated journal, STOP and cold-read proofs"
+        ],
+        "probe_source": "9dbb567ff6ea22dc0935c75a075b957fa54ce481",
+        "probe_tree": "3b783638df5a561711198446441de6643ab6b1a2",
+        "preflight_exit": 2,
+        "preflight_sha256": "6f445bfab9efd51d4ad7b8742790537336554670837fa3bd5f20de4441840500",
+        "live_sessions": 0
+      }
     }
   }
 }

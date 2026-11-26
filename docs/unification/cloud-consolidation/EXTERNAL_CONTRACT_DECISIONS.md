@@ -92,3 +92,5 @@ Rekomendacja dla 23 ID: zachować ich osobne `UNKNOWN_EXTERNAL` i wstrzymać dep
 ```
 
 `KEEP_COMPATIBILITY` kieruje do porównania z istniejącą funkcją Core; dla `RETIRE_AFTER_NOTICE` konieczne są potwierdzony zakres i skutki, termin oraz powiadomienie. Wpis pozostaje otwarty przy braku decyzji. W szczególności przed wycofaniem #57 trzeba rozstrzygnąć, czy klient wymaga zmiany YAML Render, czy publikacji Git.
+
+W trakcie przygotowań A–D ustalono konkretne cele prób technicznych. Dotyczą odrębnych wierszy PARTIAL #2, #3, #17, #18, #19, #41 i #63. Dla 23 pozycji tego rejestru nadal potrzeba identyfikacji obecnego klienta, wersji i reprezentatywnego wejścia albo zatwierdzonego zakresu deprecjacji. Potwierdzenie GitHub, że docelowe Actions są włączone, blokuje próbę C. O tym, czy wymagany jest Git HTTPS dla #18, decyduje odbiorca tego kontraktu. [Odbiory wykonawcze](NONZERO_RETIREMENT_GATE.md) · [Dokładne piny](LIVE_QUALIFICATION.json)

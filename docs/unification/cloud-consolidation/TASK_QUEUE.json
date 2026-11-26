@@ -104,5 +104,13 @@
     },
     "external_contracts": "UNKNOWN_EXTERNAL_23",
     "legacy_retirement": "RETIREMENT_HOLD"
+  },
+  "local_astra_acceptance_queue": {
+    "NATIVE": "Publish the disabled RH-07 slice, then exercise both STOP orders, crash, ACK loss and original cold read using the qualified, independently attested Noble domain and exact authorized ref.",
+    "A": "Use the authenticated official binary, target LICENSE, fixed inventory, enrolled READ handle and one admitted operator_request. Compare the original signed readback after restart.",
+    "B": "Sign one source-bound WorkerPort task only after current suite receipt, device and provider enrollment, price and lease checks. Prepare #41 separately.",
+    "C": "Owner of isolated target must disable Actions and attest no competing writer, authenticate the App grant and retain separate eligible scope. Repeat GETs before approving the original four-mutation plan.",
+    "D": "Obtain authenticated Noble image/boot and actual pinned runtime. Run one admitted render with 180-second supervisor, verify DOM/PNG/console and retain active STOP plus restart evidence for the permitted run.",
+    "LEGACY": "Confirm Render and client decisions for the 23 contract IDs, nominate independent durable storage, verify restore there and retain historical #69. Final owner decision remains HOLD."
   }
 }

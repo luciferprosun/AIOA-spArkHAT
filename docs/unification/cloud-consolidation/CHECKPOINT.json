@@ -774,6 +774,54 @@
     },
     "retirement": "HOLD",
     "external_review": "NOT_PERFORMED",
-    "operator_actions": "NONZERO_RETIREMENT_GATE.md"
+    "operator_actions": "NONZERO_RETIREMENT_GATE.md",
+    "integration_observation": {
+      "observed_utc": "2026-11-26T18:10:05Z",
+      "observed_main": "d2870f33bb740184f7c2a18a7ea8f90b070fbd64",
+      "observed_tree": "569f5591b2be0ae34c81701a3a54ea46e018c411",
+      "77": {
+        "pr": "https://github.com/luciferprosun/AIOA-spArkHAT/pull/77",
+        "head": "af4676ab009b0eb1c02399787f60df348fec831e",
+        "tree": "5366b09bf2da1b0708b2d17511826472bb0c2b62",
+        "ci": "https://github.com/luciferprosun/AIOA-spArkHAT/actions/runs/45872398086",
+        "status_at_observation": "OPEN; packaging 3.11 and 3.12 PASS; certify pending"
+      },
+      "78": {
+        "pr": "https://github.com/luciferprosun/AIOA-spArkHAT/pull/78",
+        "head": "7f3c5fe8a7f550e7fee0080119ebf4a8cf685caf",
+        "tree": "cc430679e10e843da3dbf927769bac0cb45b3bc4",
+        "ci": "https://github.com/luciferprosun/AIOA-spArkHAT/actions/runs/45873298209",
+        "status_at_observation": "OPEN; packaging and MCP contract on 3.11 and 3.12 PASS; certify pending"
+      }
+    },
+    "effect_receipts": {
+      "NATIVE_FORWARD": {
+        "result": "NOT_RUN",
+        "executed_source_sha": null,
+        "executed_source_tree": null
+      },
+      "A": {
+        "result": "NOT_RUN",
+        "executed_source_sha": null,
+        "executed_source_tree": null,
+        "target_sha": "d2870f33bb740184f7c2a18a7ea8f90b070fbd64"
+      },
+      "B": {
+        "result": "NOT_RUN",
+        "executed_source_sha": null,
+        "executed_source_tree": null
+      },
+      "C": {
+        "result": "NOT_RUN",
+        "executed_source_sha": null,
+        "executed_source_tree": null,
+        "target_sha": "df0754d4cca5c61627fba1e7d5d2a6249830871d"
+      },
+      "D": {
+        "result": "NOT_RUN",
+        "executed_source_sha": null,
+        "executed_source_tree": null
+      }
+    }
   }
 }
