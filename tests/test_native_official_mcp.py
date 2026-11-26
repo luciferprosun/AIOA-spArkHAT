@@ -211,7 +211,11 @@ class OfficialAdmissionTests(unittest.TestCase):
         from runtime.core_admission import AdmissionError
         from runtime.meta_hackathon.native_authority import NativePhase
 
-        host, _ = fx.new_host(self)
+        original = fx.config_data
+        def enabled(root):
+            return dict(original(root),profile='OWNED_OFFICIAL_READ_A_V1')
+        with patch.object(fx,'config_data',side_effect=enabled):
+            host, _ = fx.new_host(self)
         fx.fixture_tls(host)
         fx.initialize(host)
         lifecycle = host.foundation.lifecycle
@@ -251,3 +255,14 @@ class OfficialAdmissionTests(unittest.TestCase):
                 lifecycle._phase = NativePhase.CAPACITY_ADMIN
                 self.assertEqual(signed,call('tool_readback',request_id=mcp.REQUEST_ID))
                 self.assertEqual(1,transport.call_count)
+
+    def test_existing_offline_foundation_never_admits_the_external_read(self):
+        import nz13_native_foundation_support as fx
+        from runtime.core_admission import AdmissionError
+        from runtime.meta_hackathon.native_authority import NativePhase
+        host, _ = fx.new_host(self)
+        fx.fixture_tls(host)
+        fx.initialize(host)
+        host.foundation.lifecycle._phase = NativePhase.ACTIVE
+        with self.assertRaises(AdmissionError):
+            host.operator_request(os.getuid(),{'op':'tool_read_prepare','operation':mcp.OPERATION})

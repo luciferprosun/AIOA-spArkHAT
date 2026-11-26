@@ -190,7 +190,8 @@ class NativeHostCompositionConfig:
         v2 = type(value) is dict and value.get('schema') == 'aioa.native-host-composition.v2'
         codec.exact(value, CONFIG_FIELDS | {'coding_profiles'} if v2 else CONFIG_FIELDS)
         deny(value['schema'] in ('aioa.native-host-composition.v1', 'aioa.native-host-composition.v2')
-             and value['profile'] == 'OWNED_OFFLINE_PROOF_V1')
+             and (value['profile'] == 'OWNED_OFFLINE_PROOF_V1'
+                  or not v2 and value['profile'] == 'OWNED_OFFICIAL_READ_A_V1'))
         codec.exact(value['host_source'], {'source_sha', 'capsule_digest'})
         codec.hexdigest(value['host_source']['source_sha'], 40); codec.hexdigest(value['host_source']['capsule_digest'])
         registry = None
@@ -656,7 +657,8 @@ class NativeLifecycle:
                           'tool_read_approve': {'op', 'operation', 'permit_digest'},
                           'tool_read': {'op', 'request_id', 'operation', 'approval'},
                           'tool_readback': {'op', 'request_id'}}[operation]
-                deny(request.get('op') == operation and set(request) == fields
+                deny(self.foundation.spec.to_dict()['profile'] == 'OWNED_OFFICIAL_READ_A_V1'
+                     and request.get('op') == operation and set(request) == fields
                      and ('operation' not in fields or request['operation'] == OPERATION)
                      and ('request_id' not in fields or request['request_id'] == REQUEST_ID)
                      and self._fence is None)

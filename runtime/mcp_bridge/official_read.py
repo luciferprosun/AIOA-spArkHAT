@@ -83,6 +83,9 @@ def manifest(host):
     from runtime.meta_hackathon.runtime_adapter import ROOT
 
     _require(host._existing_profile is not None, 'OFFICIAL_MCP_EXISTING_CORE_REQUIRED')
+    if host.foundation is not None:
+        _require(host.foundation.spec.to_dict()['profile'] == 'OWNED_OFFICIAL_READ_A_V1',
+                 'OFFICIAL_MCP_QUALIFICATION_PROFILE_REQUIRED')
     directory = private_dir(host)
     settings = wire.strict_json(_private_bytes(str(directory/'window.json'), 4096))
     _require(set(settings) == {'credential_id', 'credential_sha256', 'credential_scope',

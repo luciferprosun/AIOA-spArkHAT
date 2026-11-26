@@ -43,6 +43,13 @@ independently measures the GitHub grants. A general GitHub CLI login cannot
 establish those permissions.
 
 Use the normal existing Native operator profile and its secured Unix socket.
+An installation using the optional Native authority foundation must load the
+explicit v1 composition profile `OWNED_OFFICIAL_READ_A_V1` with current
+source pins. Its active, unfenced lifecycle admits only the qualification
+recipe; the original `OWNED_OFFLINE_PROOF_V1` excludes this external session.
+The historical readback is available on that qualification profile after
+restart in capacity administration. Existing operator profiles without the
+optional foundation keep their established admission and source checks.
 Set shell variables below to the existing profile directory, the verified
 official binary, an owner-private credential file and its reviewed numeric ID.
 
