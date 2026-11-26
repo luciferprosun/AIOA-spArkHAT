@@ -703,5 +703,77 @@
       "current_production",
       "current_retirement_impact"
     ]
+  },
+  "local_astra_20261126": {
+    "observation": "Start of the Local mission after PR #76. Earlier Cloud observations are historical.",
+    "main": {
+      "sha": "d2870f33bb740184f7c2a18a7ea8f90b070fbd64",
+      "tree": "569f5591b2be0ae34c81701a3a54ea46e018c411"
+    },
+    "canonical_checkout": "CLEAN_SHA_TREE_MATCH_AT_START",
+    "main_ci": {
+      "required": "4/4 PASS",
+      "run_id": 45773195295,
+      "default_codeql": "4/4 PASS",
+      "codeql_run_id": 45773195039,
+      "advanced_owner_profile": "SKIPPED"
+    },
+    "private_legacy_restore": {
+      "bundle_sha256": "84e5720c6cab3a8be59669a83396ed00018269be04e80e31bdc1e75d4828331e",
+      "advertised_refs_matched": 13,
+      "normalized_ref_sha256": "9cd19a7d2caa6c3bfc4bb88888e6928b3e642bd92b25442bac96863183f14c36",
+      "commits": 179,
+      "reachable_objects": 2674,
+      "fsck_exit": 0,
+      "metadata_files_restored_and_rehashed": 38,
+      "metadata_archive_sha256": "41965734d0155f3e84b144dd61f8dc40e775e82d2fc1ba8db9a9e587bab5ab37",
+      "metadata_manifest_sha256": "6f27ca1686831c8c6bd7696ddab10da1b245cf32d98c9742b0b884d69151ab0c",
+      "independent_retention": "BLOCKED_BACKUP",
+      "render_runtime": "UNKNOWN"
+    },
+    "parity": {
+      "rows": 69,
+      "unresolved": 31,
+      "unknown_external": [
+        11,
+        12,
+        13,
+        20,
+        24,
+        26,
+        30,
+        33,
+        34,
+        40,
+        44,
+        46,
+        47,
+        50,
+        52,
+        55,
+        56,
+        57,
+        60,
+        61,
+        62,
+        66,
+        67
+      ],
+      "partial": [
+        2,
+        3,
+        17,
+        18,
+        19,
+        41,
+        63
+      ],
+      "security_blocked": [
+        69
+      ]
+    },
+    "retirement": "HOLD",
+    "external_review": "NOT_PERFORMED",
+    "operator_actions": "NONZERO_RETIREMENT_GATE.md"
   }
 }

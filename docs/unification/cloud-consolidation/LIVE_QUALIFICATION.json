@@ -514,5 +514,59 @@
         "proposed_private_evidence_path": "nonzero/live/D/g04-render-isolation-receipt.json"
       }
     }
+  },
+  "local_mission_scope_20261126": {
+    "observed_before_execution_at_main": {
+      "sha": "d2870f33bb740184f7c2a18a7ea8f90b070fbd64",
+      "tree": "569f5591b2be0ae34c81701a3a54ea46e018c411"
+    },
+    "authorized_scope_only": "Owner instruction specifies bounds. Each effect requires the original runtime admission and its real pins. Record actual execution source separately from target and from report commit.",
+    "A": {
+      "target_repo_id": 1247349659,
+      "target_git_commit": "d2870f33bb740184f7c2a18a7ea8f90b070fbd64",
+      "target_git_tree": "569f5591b2be0ae34c81701a3a54ea46e018c411",
+      "target_path": "LICENSE",
+      "target_blob": "00eb8a94bdcf22d647d94e23c9c6938ef93d5802",
+      "target_sha256": "a039f83d1d59d97624c355653e0eab74a45b867a091d3d10d12ac1183535e14c",
+      "sessions": 1,
+      "max_seconds": 20,
+      "max_transport_bytes": 262144,
+      "max_frame_bytes": 65536,
+      "max_receipt_bytes": 32768,
+      "max_reads": 5,
+      "max_inventory_pages": 2,
+      "writes": 0,
+      "retry": 0
+    },
+    "B": {
+      "max_inferences": 1,
+      "max_usd": "0.01",
+      "max_input_units": 2048,
+      "max_output_tokens": 256,
+      "max_seconds": 60,
+      "repairs": 0,
+      "retry": 0,
+      "repair_41": "SEPARATE_PERMIT_REQUIRED"
+    },
+    "C": {
+      "target_repo": "luciferprosun/AIOA-spArkHAT-Meta-Hackathon-2026",
+      "target_repo_id": 1445911975,
+      "mutations": [
+        "create_tree",
+        "create_commit",
+        "create_ref",
+        "create_draft_pull_request"
+      ],
+      "max_requests": 48,
+      "max_seconds": 120,
+      "retry": 0
+    },
+    "D": {
+      "purpose": "G04",
+      "network": "OFF",
+      "sessions": 1,
+      "max_render_seconds": 20,
+      "max_seconds": 180
+    }
   }
 }

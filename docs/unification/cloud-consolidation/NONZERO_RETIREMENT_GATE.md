@@ -1,6 +1,45 @@
 # Bramka wycofania repozytorium NonZero
 
-## Odczyt po bieżącej integracji
+
+## Decyzja po #76, 26 listopada 2026
+
+**HOLD — zachować oryginał, Render i historyczne UNKNOWN / HELD.** Odczyt przeprowadzono na kodzie `d2870f33bb740184f7c2a18a7ea8f90b070fbd64`, tree `569f5591b2be0ae34c81701a3a54ea46e018c411`. GitHub potwierdził repozytorium legacy ID `1342916553`, `archived=false`, zero forków i brak push po 10 września. Z 69 pozycji 23 pozostają `UNKNOWN_EXTERNAL`, siedem `PARTIAL` (#2, #3, #17, #18, #19, #41, #63), a #69 `SECURITY_BLOCKED`. [23 kontrakty z odtworzonymi importerami](EXTERNAL_CONTRACT_DECISIONS.md) · [Macierz](PARITY69_UPDATED.csv)
+
+| Odbiór | Wynik |
+|---|---|
+| Lokalna pierwsza kopia | **PASS**. Na laptopie przywrócono bundle SHA-256 `84e5720c6cab3a8be59669a83396ed00018269be04e80e31bdc1e75d4828331e` do świeżego, prywatnego repozytorium bare. Wszystkie 13 nazw i OID, w tym `refs/pull/1/head`, są identyczne ze świeżym `ls-remote --refs`. Lista `OID SP REF LF` posortowana bajtowo ma SHA-256 `9cd19a7d2caa6c3bfc4bb88888e6928b3e642bd92b25442bac96863183f14c36`. `git bundle verify` i `git fsck --full --no-dangling` zakończyły się kodem 0. Odtworzono 179 commitów i 2674 osiągalne obiekty. |
+| Druga niezależna lokalizacja | **BLOCKED_BACKUP**. Dwa dostępne, zgodne bajtowo pliki na laptopie leżą na jednym systemie plików. Historyczny katalog na `LSC_DATA3` nie jest zamontowany. Wykryty osobny dysk z etykietą `LSC_DATA` nie ma punktu montowania ani potwierdzonej tożsamości celu retencji. Poprzednie odtworzenie Cloud pozostaje dowodem testu. |
+| Metadane GitHub | Prywatnie zachowano 38 projekcji JSON i sprawdzono ekstrakcję archiwum do osobnego katalogu oraz wszystkich 38 sum. SHA-256 archiwum `41965734d0155f3e84b144dd61f8dc40e775e82d2fc1ba8db9a9e587bab5ab37`, manifestu plików `6f27ca1686831c8c6bd7696ddab10da1b245cf32d98c9742b0b884d69151ab0c`. Zapis obejmuje jeden scalony PR, jego issue i dwa zdarzenia, brak komentarzy i recenzji, 20 deploymentów z ich statusami, 1 environment, 0 hooks dostępnych dla bieżącego właściciela (HTTP 200), 0 releases, workflow, runs i artefaktów. Pages 404, wiki git NOT_FOUND, ProjectsV2 odmowa z powodu braku `read:project`. To projekcje danych, bez tajnych ustawień i gwarancji odtworzenia tożsamości GitHub. |
+| Render | Ostatni deployment `6378024487`: success, status `18168281817` o 18:06:08 UTC 10 września. Bieżący stan procesu, domen i odbiorców **UNKNOWN**. Brak skonfigurowanego dostępu CLI/API do płaszczyzny zarządzania Render. |
+| Historyczny Native #69 | **UNKNOWN / HELD**, z zachowaną rezerwacją. Brakuje zredagowanego potwierdzenia miejsca retencji rzeczywistego journalu i materiału do weryfikacji. Kwalifikacja następnego START jest osobnym odbiorem. |
+
+### Rekord do decyzji właściciela
+
+1. **Nośnik i odtworzenie.** Wskaż faktyczny, odrębny, zarządzany nośnik/konto oraz okres retencji. Udostępnij istniejącą kopię do odczytu pod potwierdzonym punktem montowania albo najpierw zapisz tam zweryfikowany bundle i archiwum metadanych. Na tym nośniku wykonaj poniższe sprawdzenia. Zachowaj receipt identyfikujący operatora, czas UTC, publiczny identyfikator lokalizacji kopii, sumę, politykę dostępu i wynik. Pełne ścieżki oraz surowe dane przekazuje się prywatnie.
+2. **Metadane spoza Git.** Właściciel repozytorium otwiera zakładki Wiki i Projects i zapisuje liczbę/identyfikatory aktywnych obiektów lub potwierdzoną pustą listę. Dla istniejących projektów wskazuje eksport i jego retencję. Właściciel zapisuje identyfikatory potrzebnych instalacji i polityk dostępu oraz sposób ponownego nadania ról. Nie przekazuje credential ani wartości ustawień tajnych.
+3. **Render i odbiorcy.** Otwórz usługę `srv-dabtq00n74is738f147g` w istniejącym koncie, zapisz status, repo/ref, SHA aktywnego deploymentu, domeny, rollback i zanonimizowane zagregowane żądania za 30 dni lub faktyczne krótsze okno retencji. Dla każdego potwierdzonego odbiorcy wpisz kontakt właścicielski i kontrakt do tabeli. Brak ruchu w krótkim oknie nie potwierdza braku konsumentów. [Usługa w panelu](https://dashboard.render.com/web/srv-dabtq00n74is738f147g) · [Dokumentacja metryk Render](https://render.com/docs/service-metrics)
+4. **Stan #69.** Opiekun Core potwierdza prywatne niezmienione identyfikatory środowiska, zapewnioną retencję oryginalnego journalu/HELD i materiału weryfikacyjnego, procedurę odtworzenia z zablokowanym redispatch oraz niezależność tej retencji od usunięcia legacy. Nie wymaga to odczytu historycznego klucza prywatnego. [Wyjątek historyczny](NATIVE69_HISTORICAL_EXCEPTION.md)
+5. **Dyspozycja końcowa.** Rekomendacja teraz: `KEEP`. Po odbiorze powyższych pozycji właściciel wybiera jawnie `KEEP` albo `ARCHIVE`, wskazując repo ID, aktualny manifest refów, oba miejsca retencji, wynik odtworzeń, identyfikatory decyzji kontraktowych, wpływ na Render i #69, datę UTC i podpis. Trwałe usunięcie wymaga odrębnej dyspozycji `DELETE` z akceptacją utraty identyfikatorów GitHub. Brak zatwierdzonego okna lub brak jakiegokolwiek wymaganego dowodu utrzymuje HOLD.
+
+Odtworzenie dla drugiej lokalizacji. `BUNDLE` ma wskazywać zweryfikowany plik na osobnym nośniku, a `OUT` nowe, nieistniejące miejsce na scratch. Przykład używa Bash:
+
+```bash
+set -euo pipefail
+umask 077
+: "${BUNDLE:?}" "${OUT:?}"
+mkdir -- "$OUT"
+printf '%s  %s\n' 84e5720c6cab3a8be59669a83396ed00018269be04e80e31bdc1e75d4828331e "$BUNDLE" | sha256sum -c -
+git init --bare -q "$OUT/restored.git"
+git -C "$OUT/restored.git" bundle verify "$BUNDLE"
+git -C "$OUT/restored.git" fetch --no-tags "$BUNDLE" '+refs/*:refs/*'
+git ls-remote --refs https://github.com/luciferprosun/AIOA-NonZero-CloudOps-Agent.git | awk '{print $1 " " $2}' | LC_ALL=C sort > "$OUT/advertised"
+git -C "$OUT/restored.git" for-each-ref --format='%(objectname) %(refname)' | LC_ALL=C sort > "$OUT/restored"
+cmp "$OUT/advertised" "$OUT/restored"
+sha256sum "$OUT/restored"
+git -C "$OUT/restored.git" fsck --full --no-dangling
+```
+
+## Historyczny odczyt po integracji d2fc4cb8
 
 Stan `RETIREMENT_HOLD` przy kodzie `d2fc4cb88c1777e572c099c8082b93e6b7a6c0b1`. Dwie kopie odtworzono w różnych środowiskach: na laptopie i w odizolowanym workspace Cloud. Każde odtworzenie objęło 13 zgodnych refów, 179 commitów i 2674 osiągalne obiekty, fsck exit 0. Długoterminowa retencja Cloud i druga niezależna kopia pod trwałą kontrolą właściciela pozostają niepotwierdzone. Wszystkie 1312 osiągalnych blobów sprawdzono pod kątem wskaźników Git LFS v1. Wynik zero. Publiczny odczyt GitHuba pokazuje 1 PR, 0 issues, 0 releases i 0 przebiegów Actions. Uwierzytelniony odczyt .wiki.git zwrócił repository not found mimo włączonej flagi wiki. Zawartość wiki i Projects pozostaje niepotwierdzona. Ostatni z 20 zapisów Render to udane wdrożenie 6378024487 z 10 września 2026 r. Aktualny stan Render i jego odbiorcy pozostają UNKNOWN.
 

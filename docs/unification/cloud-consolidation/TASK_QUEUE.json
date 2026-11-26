@@ -29,7 +29,7 @@
     {
       "id": "D-legacy-contracts",
       "status": "BLOCKED_OWNER",
-      "next": "Potwierdzić obecnych konsumentów dla 23 znanych ID. Macierz zawiera indywidualne kryteria porównania."
+      "next": "Zidentyfikowano rzeczywistych importerów W7A dla 23 ID. Opiekunowie obecnych klientów potwierdzają wersję, zakres i próbki albo podpisują wycofanie po powiadomieniu."
     },
     {
       "id": "E-A-official-mcp-read",
@@ -43,8 +43,8 @@
     },
     {
       "id": "E-C-github-write",
-      "status": "BLOCKED_OWNER",
-      "next": "Rozstrzygnąć jednostkę jednego efektu, zakwalifikować izolowany cel i jasno ograniczyć efekt. Wniosek w LIVE_QUALIFICATION.json."
+      "status": "TARGET_DEFINED_ADMISSION_PENDING",
+      "next": "Dyspozycja wskazuje izolowane repo ID 1445911975 i dokładnie cztery mutacje jednej publikacji. Nadal wymagane niezależny dopuszczalny scope, istniejące poświadczenie i rzeczywiste admission."
     },
     {
       "id": "E-D-native-g04",
@@ -53,23 +53,23 @@
     },
     {
       "id": "F-consolidation-merge",
-      "status": "PR61_MERGED",
-      "next": "Draft odbioru #16 i #53 oraz odczytu #17 czeka na wymagane CI i zgodę scalenia."
+      "status": "DONE_73_TO_76",
+      "next": "Zakres konsolidacji do #76 przyjęty. Odbiór przyszłej ścieżki Native i A–D ma osobne wyniki."
     },
     {
       "id": "F-legacy-history",
-      "status": "BLOCKED_BACKUP",
-      "next": "Pierwszy bundle odtworzony i sprawdzony. Zweryfikować drugi bundle na niezależnym nośniku przed decyzją o archiwizacji."
+      "status": "SECOND_LOCATION_UNCONFIRMED",
+      "next": "Świeże odtworzenie 13/13 refów i 38 plików metadanych w NONZERO_RETIREMENT_GATE.md. Właściciel wskazuje niezależny nośnik lub konto i potwierdza jego retencję."
     },
     {
       "id": "F-linux-handoff",
-      "status": "POST60_FAST_FORWARD_PENDING",
-      "next": "Operator korzysta z istniejącego checkoutu i pinów w LINUX_SYNC_HANDOFF.md."
+      "status": "MATCHED_AT_MISSION_START",
+      "next": "Czyste SHA/tree kanonicznego main potwierdzone dla d2870f33; po każdym następnym merge wymagane nowe porównanie."
     },
     {
       "id": "F-retirement",
       "status": "HOLD",
-      "next": "Rozliczyć NONZERO_RETIREMENT_GATE.md. Archiwizacja i usunięcie mają odrębne zgody."
+      "next": "Wykonać zadania dotyczące nośnika, metadanych, kontraktów, Render i historycznego #69 z sekcji decyzji po #76 w NONZERO_RETIREMENT_GATE.md."
     },
     {
       "id": "B-legacy-authority",
