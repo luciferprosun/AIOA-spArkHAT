@@ -11,15 +11,35 @@
   },
   "native": {
     "session": null,
-    "uids": {"core": null, "broker": null, "verifier": null},
-    "gids": {"core": null, "broker": null, "verifier": null},
+    "uids": {
+      "core": null,
+      "broker": null,
+      "verifier": null
+    },
+    "gids": {
+      "core": null,
+      "broker": null,
+      "verifier": null
+    },
     "domains": {
-      "core": {"cgroup": null, "apparmor": null},
-      "broker": {"cgroup": null, "apparmor": null},
-      "verifier": {"cgroup": null, "apparmor": null}
+      "core": {
+        "cgroup": null,
+        "apparmor": null
+      },
+      "broker": {
+        "cgroup": null,
+        "apparmor": null
+      },
+      "verifier": {
+        "cgroup": null,
+        "apparmor": null
+      }
     },
     "signer_dev": null,
-    "signer_ino": null
+    "signer_ino": null,
+    "supervisor_sha256": null,
+    "role_probe_sha256": "f7fccb24af2381438107d4c24e2696c7aaa2b18dff611202554dd782d14624ff",
+    "preflight_sha256": "c74d71e8264eccf8f9a242f181e39173647852fc4b52c1f7a573391037a8f860"
   },
   "g04": {
     "unit": null,
