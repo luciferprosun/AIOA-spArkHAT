@@ -10141,8 +10141,8 @@
     },
     "runtime/webapp.py": {
       "path": "runtime/webapp.py",
-      "git_blob": "b9e007dd46a0712c10f414f85fefc06c28b89cfd",
-      "sha256": "32906fb721255c622491b48d7705e8de89d4c36469e170bbc4a9ffe567fa33e7",
+      "git_blob": "875a684a30ef98e7db3814282a559152cd726e7c",
+      "sha256": "fa8b481e7ecc132c85f157cd461705b7ea631ef1e42ae50ea73b0dbffdd3363f",
       "definitions": [
         {
           "name": "WebRuntimeService",
@@ -10170,27 +10170,27 @@
         },
         {
           "name": "make_server",
-          "line": 1383
+          "line": 1386
         },
         {
           "name": "_launch_mobile_console",
-          "line": 1431
+          "line": 1434
         },
         {
           "name": "_open_mobile_console",
-          "line": 1437
+          "line": 1440
         },
         {
           "name": "_parser",
-          "line": 1446
+          "line": 1449
         },
         {
           "name": "_launch_bounded",
-          "line": 1476
+          "line": 1479
         },
         {
           "name": "main",
-          "line": 1508
+          "line": 1511
         },
         {
           "name": "__init__",
@@ -10678,8 +10678,8 @@
         "worker.start",
         "write_json"
       ],
-      "call_site_count": 896,
-      "call_sites_sha256": "54a43d63638a7ebeca77c8496defb9b1f1b6e865ecddb1abec0af787e9e60e2b"
+      "call_site_count": 897,
+      "call_sites_sha256": "655a772a95cf8b76ab8317e3c7f2e0ec7c1fb9c7454754ae0999b6f26f5b7182"
     },
     "runtime/mission/patch_capsule.py": {
       "path": "runtime/mission/patch_capsule.py",
@@ -10998,92 +10998,96 @@
     },
     "runtime/mission/intent.py": {
       "path": "runtime/mission/intent.py",
-      "git_blob": "4903a9106ade00785f4fa5c4ef1e831306616cae",
-      "sha256": "f960fb4bfbd974c91e9a0b9b8f117436cc33c2d96d6c673fb9f4d1a6ce0d7a18",
+      "git_blob": "c4d021ac87afdef13f9fbf44dfabba0a8cc17ca3",
+      "sha256": "e2df7227b7f3718b77643937d4c70dfaa562f4ea83fdee44ac05bb03b65914dc",
       "definitions": [
         {
           "name": "CoreIntentJournal",
-          "line": 36
-        },
-        {
-          "name": "__init__",
           "line": 37
         },
         {
+          "name": "__init__",
+          "line": 38
+        },
+        {
           "name": "_key",
-          "line": 44
+          "line": 45
         },
         {
           "name": "_run",
-          "line": 48
+          "line": 49
         },
         {
           "name": "_load",
-          "line": 52
+          "line": 53
         },
         {
           "name": "_save",
-          "line": 95
+          "line": 96
         },
         {
           "name": "_public",
-          "line": 111
+          "line": 112
         },
         {
           "name": "start",
-          "line": 115
+          "line": 116
         },
         {
           "name": "start_in_transaction",
-          "line": 119
+          "line": 120
         },
         {
           "name": "start_local_zero",
-          "line": 130
+          "line": 131
         },
         {
           "name": "start_remote_zero",
-          "line": 139
+          "line": 140
+        },
+        {
+          "name": "start_paid_worker",
+          "line": 149
         },
         {
           "name": "_start_in_transaction",
-          "line": 148
+          "line": 154
         },
         {
           "name": "inspect",
-          "line": 264
+          "line": 277
         },
         {
           "name": "reconcile",
-          "line": 271
+          "line": 284
         },
         {
           "name": "apply_resolution_in_transaction",
-          "line": 292
+          "line": 305
         },
         {
           "name": "delivery",
-          "line": 312
+          "line": 325
         },
         {
           "name": "acknowledge_delivery",
-          "line": 322
+          "line": 335
         },
         {
           "name": "read",
-          "line": 265
+          "line": 278
         },
         {
           "name": "read",
-          "line": 280
+          "line": 293
         },
         {
           "name": "read",
-          "line": 314
+          "line": 327
         },
         {
           "name": "change",
-          "line": 323
+          "line": 336
         }
       ],
       "symbolic_callees": [
@@ -11146,107 +11150,128 @@
         "tx.replace",
         "tx.scan",
         "type",
+        "verify_worker_operation",
         "warrant.digest"
       ],
-      "call_site_count": 202,
-      "call_sites_sha256": "5916c6ea4845e89a82672c42c355fcc5a2420f52ed298a5b940b06d5226cf578"
+      "call_site_count": 206,
+      "call_sites_sha256": "8d519fad759027721d967e95477a90ea4b5353d71ffecbbfe5b3ddcbde10cf80"
     },
     "runtime/mcp_bridge/github_remote.py": {
       "path": "runtime/mcp_bridge/github_remote.py",
-      "git_blob": "8d6cfcb62da98ceb2a2b898691ca2d27be7803da",
-      "sha256": "de780bde7b49fc3347fb29c8c1575acd0efbcb150faabc360ace01adf5e7e3c5",
+      "git_blob": "7366f577b8a9e5af518d2a70a8cafac12fd12172",
+      "sha256": "c44fdc740d8f6d31c91e6b717adbd433ac355de91d11459063061e36b44ba3f5",
       "definitions": [
         {
+          "name": "GitHubRequestBudget",
+          "line": 33
+        },
+        {
+          "name": "_bounded_send",
+          "line": 50
+        },
+        {
           "name": "_https_once",
-          "line": 32
+          "line": 60
         },
         {
           "name": "_private_file",
-          "line": 64
+          "line": 117
         },
         {
           "name": "InstallationCredential",
-          "line": 82
+          "line": 135
         },
         {
           "name": "GitHubAppCredentialSource",
-          "line": 96
+          "line": 149
         },
         {
           "name": "_require_workflow_free_base",
-          "line": 167
+          "line": 220
         },
         {
           "name": "GitHubCreateOnly",
-          "line": 172
+          "line": 225
         },
         {
           "name": "read_demo_base",
-          "line": 365
+          "line": 419
+        },
+        {
+          "name": "__init__",
+          "line": 35
+        },
+        {
+          "name": "send",
+          "line": 40
+        },
+        {
+          "name": "time_left",
+          "line": 70
         },
         {
           "name": "evidence",
-          "line": 89
+          "line": 142
         },
         {
           "name": "__init__",
-          "line": 98
+          "line": 151
         },
         {
           "name": "configuration",
-          "line": 104
+          "line": 157
         },
         {
           "name": "mint",
-          "line": 119
+          "line": 172
         },
         {
           "name": "__init__",
-          "line": 179
+          "line": 232
         },
         {
           "name": "_call",
-          "line": 197
+          "line": 251
         },
         {
           "name": "_repo",
-          "line": 231
+          "line": 285
         },
         {
           "name": "_main",
-          "line": 237
+          "line": 291
         },
         {
           "name": "_head",
-          "line": 242
+          "line": 296
         },
         {
           "name": "_require_head",
-          "line": 245
+          "line": 299
         },
         {
           "name": "preflight",
-          "line": 250
+          "line": 304
         },
         {
           "name": "execute",
-          "line": 263
+          "line": 317
         },
         {
           "name": "_commit",
-          "line": 294
+          "line": 348
         },
         {
           "name": "readback",
-          "line": 305
+          "line": 359
         },
         {
           "name": "get",
-          "line": 371
+          "line": 425
         },
         {
           "name": "post",
-          "line": 269
+          "line": 323
         }
       ],
       "symbolic_callees": [
@@ -11258,6 +11283,7 @@
         "Path",
         "Path().absolute",
         "ValueError",
+        "_bounded_send",
         "_private_file",
         "_require_workflow_free_base",
         "actual.get",
@@ -11270,6 +11296,7 @@
         "begin_step",
         "blob.get",
         "blob[data].replace",
+        "budget.send",
         "callable",
         "cancel.attach",
         "cancel.check",
@@ -11282,6 +11309,7 @@
         "connection.connect",
         "connection.getresponse",
         "connection.request",
+        "connection.sock.settimeout",
         "d.decode",
         "dataclass",
         "datetime.strptime",
@@ -11292,6 +11320,7 @@
         "expected[data].items",
         "field",
         "get",
+        "getattr",
         "git_object",
         "hashes.SHA256",
         "http.client.HTTPSConnection",
@@ -11309,10 +11338,10 @@
         "os.open",
         "p.get",
         "padding.PKCS1v15",
+        "partial",
         "path.startswith",
         "permissions.get",
         "plan.commit_sha_for_tree",
-        "port",
         "post",
         "pull.get",
         "pulls[data].get",
@@ -11329,6 +11358,7 @@
         "result.update",
         "root.lstat",
         "root.resolve",
+        "selected",
         "self._attempted.add",
         "self._call",
         "self._commit",
@@ -11338,6 +11368,7 @@
         "self._require_head",
         "self.clock",
         "self.configuration",
+        "self.consume",
         "self.plan.commit_payload",
         "self.plan.files.items",
         "self.plan.manifest",
@@ -11347,7 +11378,9 @@
         "self.plan.require_public_content",
         "self.preflight",
         "self.readback",
+        "self.remaining",
         "serialization.load_pem_private_key",
+        "session_remaining",
         "set",
         "sha256",
         "ssl.create_default_context",
@@ -11357,7 +11390,9 @@
         "stream.read",
         "strict_json",
         "threading.Timer",
+        "time.clock_gettime_ns",
         "time.monotonic",
+        "time_left",
         "timer.cancel",
         "timer.start",
         "transport",
@@ -11367,8 +11402,8 @@
         "value.get().get",
         "value[data].get"
       ],
-      "call_site_count": 390,
-      "call_sites_sha256": "140ab5a7494af76a3da78cccf1af4b6e5d60be18319fc9cb88ddfecfc4664f3d"
+      "call_site_count": 420,
+      "call_sites_sha256": "f2b3ef36e9e0b02c9dca00c47d6a56b376bee34bcd2def93dd9d0dec9a5a46e3"
     },
     "runtime/mcp_bridge/contracts.py": {
       "path": "runtime/mcp_bridge/contracts.py",
@@ -11471,8 +11506,8 @@
     },
     "runtime/mission/git_publish.py": {
       "path": "runtime/mission/git_publish.py",
-      "git_blob": "c3f9122d37c125dd97a0189047f846f56d5cceb3",
-      "sha256": "1eddee46815f00e0f2c78dbaf0c67a0f2bda401635dc4115085f7779616cd37f",
+      "git_blob": "0e506c3fdf931d88025b7a4236efd7c93f95ba20",
+      "sha256": "e3e8c5cc7c55d792ffe081a2d673c7d74ca2dda0272d3f7b69ed77a77274d185",
       "definitions": [
         {
           "name": "LocalGitPlan",
@@ -11504,27 +11539,27 @@
         },
         {
           "name": "VerifiedPatchSet",
-          "line": 2117
+          "line": 2118
         },
         {
           "name": "_bounded_git",
-          "line": 2268
+          "line": 2269
         },
         {
           "name": "GitSourceSnapshot",
-          "line": 2326
+          "line": 2327
         },
         {
           "name": "_git_target_identity_fd",
-          "line": 2533
+          "line": 2534
         },
         {
           "name": "_git_target_identity",
-          "line": 2586
+          "line": 2587
         },
         {
           "name": "LocalPatchGitPlan",
-          "line": 2608
+          "line": 2609
         },
         {
           "name": "__post_init__",
@@ -11700,159 +11735,159 @@
         },
         {
           "name": "_require_native_local_plan",
-          "line": 1508
+          "line": 1509
         },
         {
           "name": "_require_native_local_source",
-          "line": 1515
+          "line": 1516
         },
         {
           "name": "_local_patch_dependency_root",
-          "line": 1520
+          "line": 1521
         },
         {
           "name": "dependency_root",
-          "line": 1534
+          "line": 1535
         },
         {
           "name": "_local_patch_operation",
-          "line": 1571
+          "line": 1572
         },
         {
           "name": "_native_physical_ref_binding",
-          "line": 1607
+          "line": 1608
         },
         {
           "name": "operation",
-          "line": 1646
+          "line": 1647
         },
         {
           "name": "validate",
-          "line": 1671
+          "line": 1672
         },
         {
           "name": "_save",
-          "line": 1711
+          "line": 1712
         },
         {
           "name": "begin_step",
-          "line": 1751
+          "line": 1752
         },
         {
           "name": "bind_api",
-          "line": 1846
+          "line": 1847
         },
         {
           "name": "record_credential_scope",
-          "line": 1864
+          "line": 1865
         },
         {
           "name": "result",
-          "line": 1889
+          "line": 1890
         },
         {
           "name": "complete",
-          "line": 1908
+          "line": 1909
         },
         {
           "name": "dispatch",
-          "line": 2053
+          "line": 2054
         },
         {
           "name": "reconcile",
-          "line": 2069
+          "line": 2070
         },
         {
           "name": "__post_init__",
-          "line": 2129
+          "line": 2130
         },
         {
           "name": "authority",
-          "line": 2217
+          "line": 2218
         },
         {
           "name": "digest",
-          "line": 2221
+          "line": 2222
         },
         {
           "name": "preview",
-          "line": 2235
+          "line": 2236
         },
         {
           "name": "create_only_plan",
-          "line": 2251
+          "line": 2252
         },
         {
           "name": "__post_init__",
-          "line": 2336
+          "line": 2337
         },
         {
           "name": "digest",
-          "line": 2382
+          "line": 2383
         },
         {
           "name": "capture",
-          "line": 2397
+          "line": 2398
         },
         {
           "name": "verify",
-          "line": 2488
+          "line": 2489
         },
         {
           "name": "export_tree_sha256",
-          "line": 2500
+          "line": 2501
         },
         {
           "name": "verify_export",
-          "line": 2505
+          "line": 2506
         },
         {
           "name": "export",
-          "line": 2514
+          "line": 2515
         },
         {
           "name": "__post_init__",
-          "line": 2617
+          "line": 2618
         },
         {
           "name": "files",
-          "line": 2650
+          "line": 2651
         },
         {
           "name": "operation_id",
-          "line": 2660
+          "line": 2661
         },
         {
           "name": "ref",
-          "line": 2664
+          "line": 2665
         },
         {
           "name": "target_fingerprint",
-          "line": 2668
+          "line": 2669
         },
         {
           "name": "tree_objects",
-          "line": 2680
+          "line": 2681
         },
         {
           "name": "tree_sha",
-          "line": 2713
+          "line": 2714
         },
         {
           "name": "commit_data",
-          "line": 2717
+          "line": 2718
         },
         {
           "name": "commit_sha",
-          "line": 2738
+          "line": 2739
         },
         {
           "name": "objects",
-          "line": 2742
+          "line": 2743
         },
         {
           "name": "digest",
-          "line": 2750
+          "line": 2751
         },
         {
           "name": "load",
@@ -11872,27 +11907,27 @@
         },
         {
           "name": "start",
-          "line": 1809
+          "line": 1810
         },
         {
           "name": "save",
-          "line": 1869
+          "line": 1870
         },
         {
           "name": "save",
-          "line": 1983
+          "line": 1984
         },
         {
           "name": "binding_check",
-          "line": 2289
+          "line": 2290
         },
         {
           "name": "git",
-          "line": 2419
+          "line": 2420
         },
         {
           "name": "current",
-          "line": 2429
+          "line": 2430
         },
         {
           "name": "pure",
@@ -12192,7 +12227,7 @@
         "zip"
       ],
       "call_site_count": 1047,
-      "call_sites_sha256": "3bebd64862247cadf0739dd0ee9ff98e4e087447c3ec4f05ecd6469252abf9f2"
+      "call_sites_sha256": "66270aebe77b9bd64e59acb8a29cd0ba3ad26aecc939edb541706af3b8c0ca56"
     },
     "runtime/core_admission.py": {
       "path": "runtime/core_admission.py",
@@ -16266,8 +16301,8 @@
     },
     "runtime/meta_hackathon/runtime_adapter.py": {
       "path": "runtime/meta_hackathon/runtime_adapter.py",
-      "git_blob": "bff4114f333fa6b9278eeb28694d176539adb284",
-      "sha256": "06e31aa8e75ac7017d0b1f633555ef0a193875bbfff6f4ad62911b9f2784ba09",
+      "git_blob": "b2159d8bdf912791174e6120bc9bf105a269a69c",
+      "sha256": "cb96036124818d6b4c25490af175e2dcdd07e35ba9ad19d7ba2f4b7a87594e89",
       "definitions": [
         {
           "name": "__getattr__",
@@ -16275,123 +16310,123 @@
         },
         {
           "name": "sealed_source_path",
-          "line": 217
+          "line": 218
         },
         {
           "name": "current_source",
-          "line": 231
+          "line": 232
         },
         {
           "name": "OfflineMetaComposition",
-          "line": 238
-        },
-        {
-          "name": "_desktop_operator_uid",
-          "line": 325
-        },
-        {
-          "name": "NativeMobileComposition",
-          "line": 355
-        },
-        {
-          "name": "__init__",
           "line": 239
         },
         {
-          "name": "enable_unified",
-          "line": 280
+          "name": "_desktop_operator_uid",
+          "line": 326
         },
         {
-          "name": "close",
-          "line": 316
+          "name": "NativeMobileComposition",
+          "line": 356
         },
         {
           "name": "__init__",
-          "line": 362
+          "line": 240
         },
         {
-          "name": "_initialize",
-          "line": 441
-        },
-        {
-          "name": "readiness",
-          "line": 530
-        },
-        {
-          "name": "operator_principal",
-          "line": 534
-        },
-        {
-          "name": "_chat_authority",
-          "line": 549
-        },
-        {
-          "name": "_chat_credit_authority",
-          "line": 569
-        },
-        {
-          "name": "qualify_tls",
-          "line": 591
-        },
-        {
-          "name": "_require_qualified_operator",
-          "line": 638
-        },
-        {
-          "name": "public_settings",
-          "line": 644
-        },
-        {
-          "name": "model_calls",
-          "line": 650
-        },
-        {
-          "name": "operator_auth_status",
-          "line": 656
-        },
-        {
-          "name": "renew_operator",
-          "line": 671
-        },
-        {
-          "name": "_renew_foundation",
-          "line": 743
-        },
-        {
-          "name": "operator_request",
-          "line": 819
-        },
-        {
-          "name": "_operator_request",
-          "line": 827
-        },
-        {
-          "name": "_close_native",
-          "line": 894
+          "name": "enable_unified",
+          "line": 281
         },
         {
           "name": "close",
-          "line": 948
+          "line": 317
+        },
+        {
+          "name": "__init__",
+          "line": 363
+        },
+        {
+          "name": "_initialize",
+          "line": 442
+        },
+        {
+          "name": "readiness",
+          "line": 534
+        },
+        {
+          "name": "operator_principal",
+          "line": 538
+        },
+        {
+          "name": "_chat_authority",
+          "line": 553
+        },
+        {
+          "name": "_chat_credit_authority",
+          "line": 573
+        },
+        {
+          "name": "qualify_tls",
+          "line": 595
+        },
+        {
+          "name": "_require_qualified_operator",
+          "line": 642
+        },
+        {
+          "name": "public_settings",
+          "line": 648
+        },
+        {
+          "name": "model_calls",
+          "line": 654
+        },
+        {
+          "name": "operator_auth_status",
+          "line": 660
+        },
+        {
+          "name": "renew_operator",
+          "line": 675
+        },
+        {
+          "name": "_renew_foundation",
+          "line": 747
+        },
+        {
+          "name": "operator_request",
+          "line": 823
+        },
+        {
+          "name": "_operator_request",
+          "line": 831
+        },
+        {
+          "name": "_close_native",
+          "line": 901
+        },
+        {
+          "name": "close",
+          "line": 955
         },
         {
           "name": "fixture",
-          "line": 261
+          "line": 262
         },
         {
           "name": "inspect",
-          "line": 881
+          "line": 888
         },
         {
           "name": "record",
-          "line": 793
+          "line": 797
         },
         {
           "name": "revoke",
-          "line": 873
+          "line": 880
         },
         {
           "name": "record",
-          "line": 718
+          "line": 722
         }
       ],
       "symbolic_callees": [
@@ -16519,6 +16554,7 @@
         "secrets.token_hex",
         "self._close_native",
         "self._host_composition.coding_model_ids",
+        "self._host_composition.to_dict",
         "self._initialize",
         "self._meta_key_path.lstat",
         "self._native_close_steps.get",
@@ -16613,8 +16649,8 @@
         "worker.is_alive",
         "x509.load_der_x509_certificate"
       ],
-      "call_site_count": 529,
-      "call_sites_sha256": "b954c556c57aa02eab9f59f27bd4770363ea8f1146c29ea7e254a26755f4c9ee"
+      "call_site_count": 532,
+      "call_sites_sha256": "9376d201109c2356f5ea863b16f8ae1eb5ee0218f01e77baec7af76ccff8cdab"
     },
     "runtime/mission/dependency_lock.py": {
       "path": "runtime/mission/dependency_lock.py",
@@ -19433,8 +19469,8 @@
     },
     "runtime/meta_hackathon/native_authority.py": {
       "path": "runtime/meta_hackathon/native_authority.py",
-      "git_blob": "7cb0e70afaeae3a68bbbcdb74f4db8700f39fc9b",
-      "sha256": "d1a3c1449f15078c369dc7272c9ea83a8976683ad8e3444e874f179bb882b052",
+      "git_blob": "ae665dc51b2db2a2a4e14ca58a14095f2ef2b5f4",
+      "sha256": "361d06e2d36484079ac4f4f287c2be7d64ac8d0625613cbbcb74958e6b40fe59",
       "definitions": [
         {
           "name": "deny",
@@ -19514,19 +19550,19 @@
         },
         {
           "name": "NativeCoreAccess",
-          "line": 933
+          "line": 944
         },
         {
           "name": "NativeAuthorityFoundation",
-          "line": 1092
+          "line": 1103
         },
         {
           "name": "_Pending",
-          "line": 1187
+          "line": 1198
         },
         {
           "name": "NativeCapacityOwnerController",
-          "line": 1194
+          "line": 1205
         },
         {
           "name": "from_dict",
@@ -19638,135 +19674,135 @@
         },
         {
           "name": "require_ingress",
-          "line": 651
+          "line": 653
         },
         {
           "name": "require_execution",
-          "line": 679
+          "line": 690
         },
         {
           "name": "begin_work",
-          "line": 683
-        },
-        {
-          "name": "before_start",
           "line": 694
         },
         {
-          "name": "quarantine",
-          "line": 701
+          "name": "before_start",
+          "line": 705
         },
         {
-          "name": "begin_synchronous",
+          "name": "quarantine",
           "line": 712
         },
         {
+          "name": "begin_synchronous",
+          "line": 723
+        },
+        {
           "name": "complete_synchronous",
-          "line": 745
+          "line": 756
         },
         {
           "name": "retire_work",
-          "line": 770
+          "line": 781
         },
         {
           "name": "invalidate_admission",
-          "line": 802
+          "line": 813
         },
         {
           "name": "begin_capacity_review",
-          "line": 816
+          "line": 827
         },
         {
           "name": "require_fence",
-          "line": 838
+          "line": 849
         },
         {
           "name": "capture_quiescence",
-          "line": 850
+          "line": 861
         },
         {
           "name": "abort",
-          "line": 873
-        },
-        {
-          "name": "complete_capacity_application",
           "line": 884
         },
         {
+          "name": "complete_capacity_application",
+          "line": 895
+        },
+        {
           "name": "drain",
-          "line": 898
+          "line": 909
         },
         {
           "name": "__init__",
-          "line": 934
+          "line": 945
         },
         {
           "name": "_register",
-          "line": 938
+          "line": 949
         },
         {
           "name": "_require_original",
-          "line": 943
-        },
-        {
-          "name": "_close",
           "line": 954
         },
         {
+          "name": "_close",
+          "line": 965
+        },
+        {
           "name": "native_row",
-          "line": 962
+          "line": 973
         },
         {
           "name": "capture",
-          "line": 976
+          "line": 987
         },
         {
           "name": "require_capture",
-          "line": 1040
+          "line": 1051
         },
         {
           "name": "bind_owner",
-          "line": 1094
+          "line": 1105
         },
         {
           "name": "finish_owner",
-          "line": 1126
+          "line": 1137
         },
         {
           "name": "require_bindings",
-          "line": 1133
+          "line": 1144
         },
         {
           "name": "__init__",
-          "line": 1195
+          "line": 1206
         },
         {
           "name": "capture_host",
-          "line": 1199
+          "line": 1210
         },
         {
           "name": "require_host",
-          "line": 1232
+          "line": 1243
         },
         {
           "name": "require_core_view",
-          "line": 1263
+          "line": 1274
         },
         {
           "name": "_readback",
-          "line": 1267
+          "line": 1278
         },
         {
           "name": "_call",
-          "line": 1280
+          "line": 1291
         },
         {
           "name": "dispatch",
-          "line": 1290
+          "line": 1301
         },
         {
           "name": "_initialize",
-          "line": 1387
+          "line": 1398
         },
         {
           "name": "identity",
@@ -19774,15 +19810,15 @@
         },
         {
           "name": "read",
-          "line": 856
+          "line": 867
         },
         {
           "name": "read",
-          "line": 1271
+          "line": 1282
         },
         {
           "name": "approve",
-          "line": 1355
+          "line": 1366
         }
       ],
       "symbolic_callees": [
@@ -20045,8 +20081,8 @@
         "warrants.get",
         "worker.is_alive"
       ],
-      "call_site_count": 804,
-      "call_sites_sha256": "47c5cf36dee0c274304a18487db4543af757058a2a2349f6526f802f7da55b1e"
+      "call_site_count": 809,
+      "call_sites_sha256": "e4d8f41a223669cee274a74d1826cd65c3b2e5536e7cb23c6f66df50531148f8"
     },
     "runtime/mission/execution_capacity.py": {
       "path": "runtime/mission/execution_capacity.py",

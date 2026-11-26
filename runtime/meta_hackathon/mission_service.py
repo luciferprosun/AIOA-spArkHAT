@@ -562,6 +562,9 @@ class MissionService:
                 deny(parent is not None and parent.producer is producer and parent.role==role and parent.foundation is foundation
                      and not parent.synchronous and not parent.quarantined
                      and lifecycle.phase in (NativePhase.CAPACITY_ADMIN,NativePhase.ACTIVE) and lifecycle._fence is None)
+        elif kind == 'WORKER_MODEL_CALL':
+            lifecycle.require_execution()
+            role,producer='LEGACY_MISSION',self
         else:
             deny(kind in ('GITHUB_PREFLIGHT','GITHUB_CONTROL'))
             lifecycle.require_execution()

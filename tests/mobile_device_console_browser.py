@@ -13,6 +13,7 @@ import stat
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from unittest.mock import patch
 
@@ -108,6 +109,29 @@ def verify_isolation():
             or Path('/app/.git').exists() or os.environ.get('HOME')!='/tmp/home'
             or int(re.search(r'^CapEff:\s+([a-f0-9]+)',Path('/proc/self/status').read_text(),re.M)[1],16)!=0):
         raise RuntimeError('CONSOLE_BROWSER_ISOLATION_REQUIRED')
+
+
+def adopt_browser_descendants():
+    """This dedicated Linux fixture owns all children until the profile scan."""
+    import ctypes
+    libc = ctypes.CDLL(None, use_errno=True)
+    pr_set_child_subreaper = 36
+    if libc.prctl(pr_set_child_subreaper, 1, 0, 0, 0) != 0:
+        error = ctypes.get_errno()
+        raise OSError(error, os.strerror(error))
+
+
+def wait_for_browser_descendants(timeout=2):
+    deadline = time.monotonic() + timeout
+    while True:
+        try:
+            pid, _ = os.waitpid(-1, os.WNOHANG)
+        except ChildProcessError:
+            return
+        if time.monotonic() >= deadline:
+            raise RuntimeError('CONSOLE_BROWSER_PROFILE_STILL_ACTIVE')
+        if pid == 0:
+            time.sleep(0.02)
 
 
 def startup_process_state(process):
@@ -357,6 +381,7 @@ def worker():
             # tail on bootstrap failure instead of discarding its start log.
             chrome_stderr=tempfile.TemporaryFile()
             self.addCleanup(chrome_stderr.close)
+            adopt_browser_descendants()
             process=subprocess.Popen(command,pass_fds=(browser_read,browser_write),stdin=subprocess.DEVNULL,
                 stdout=subprocess.DEVNULL,stderr=chrome_stderr,start_new_session=True)
             os.close(browser_read);os.close(browser_write);pipe=Pipe(parent_write,parent_read)
@@ -424,6 +449,7 @@ def worker():
                     Path('/out/cosmic-test-geometry.json').write_text(json.dumps(geometry,indent=2))
                 finally:
                     os.close(parent_write);os.close(parent_read);cleanup_owned(process,group=True,timeout=2)
+            wait_for_browser_descendants()
             persisted={'delivery':[],'csrf':[]}
             for kind,secret in (('delivery',grant['delivery']),('csrf',service.csrf_token)):
                 self.assertNotIn(secret,outputs[0])

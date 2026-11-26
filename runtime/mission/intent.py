@@ -30,7 +30,8 @@ from runtime.mission.warrant import CoreWarrantLedger, require
 KIND = 'aioa-effect-intent-v1'
 LOCAL_ZERO_KIND = 'aioa-effect-intent-local-zero-v2'
 REMOTE_ZERO_KIND = 'aioa-effect-intent-github-zero-v1'
-INTENT_KINDS = (KIND, LOCAL_ZERO_KIND, REMOTE_ZERO_KIND)
+WORKER_KIND = 'aioa-effect-intent-paid-worker-v1'
+INTENT_KINDS = (KIND, LOCAL_ZERO_KIND, REMOTE_ZERO_KIND, WORKER_KIND)
 
 
 class CoreIntentJournal:
@@ -145,11 +146,20 @@ class CoreIntentJournal:
         return self._run(principal,Capability.COMMIT,lambda tx:
             self._start_in_transaction(tx,warrant,operation,reservation,local_zero=False,remote_zero=True))
 
-    def _start_in_transaction(self, tx, warrant, operation, reservation, *, local_zero, remote_zero=False):
+    def start_paid_worker(self, principal, warrant, operation, reservation):
+        """Acknowledge a single signed-off, bounded model call on this journal."""
+        return self._run(principal, Capability.COMMIT, lambda tx:
+            self._start_in_transaction(tx, warrant, operation, reservation, local_zero=False, worker=True))
+
+    def _start_in_transaction(self, tx, warrant, operation, reservation, *, local_zero, remote_zero=False,
+                              worker=False):
         require(type(local_zero) is bool and type(remote_zero) is bool and not (local_zero and remote_zero),'INVALID_INTENT_VARIANT')
         zero=local_zero or remote_zero
         schema=REMOTE_ZERO_KIND if remote_zero else LOCAL_ZERO_KIND if local_zero else KIND
         marker_key='remote_step_now' if remote_zero else 'local_step_now' if local_zero else 'fixture_step_now'
+        if worker:
+            require(not zero, 'INVALID_INTENT_VARIANT')
+            schema, marker_key = WORKER_KIND, 'worker_step_now'
         principal = tx.context.principal
         require(tx.context.purpose is Capability.COMMIT, 'INVALID_INTENT_CONTEXT')
         self.ledger.core.require(principal, Capability.COMMIT, scope=self.ledger.scope)
@@ -169,6 +179,9 @@ class CoreIntentJournal:
                 and reservation.task_id == warrant.task_id
                 and reservation.request_digest == canonical_sha256(operation)
                 and reservation.risk_units > 0, 'RESERVATION_BINDING')
+        if worker:
+            from runtime.mission.qualified_worker import verify_worker_operation
+            verify_worker_operation(operation, warrant, reservation, principal)
         if zero:
             classes=('GITHUB_CREATE_COMMIT_PR_V1',) if remote_zero else ('READ', 'WORKSPACE_WRITE', 'SANDBOX_EXEC',
                     'DEPENDENCY_INSTALL', 'GIT_COMMIT', 'GIT_PUSH', 'GITHUB_DRAFT_PR', 'PORTABLE_RELEASE_ELASTIC_IP',
@@ -236,7 +249,7 @@ class CoreIntentJournal:
         require(len(rows) < 1024, 'INTENT_HISTORY_QUOTA')
         require(not any(r.payload.get('schema') in INTENT_KINDS and r.payload.get('resolution') is None
                         for r in rows), 'UNRESOLVED_INTENT')
-        if zero:
+        if zero or worker:
             stored, approval = self.ledger.require_active_in_transaction(tx, warrant)
         else:
             stored, approval, active = self.ledger._load_unrevoked(tx, warrant)

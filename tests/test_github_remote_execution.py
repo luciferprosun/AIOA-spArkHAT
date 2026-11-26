@@ -52,7 +52,8 @@ class RemoteExecutionTests(unittest.TestCase):
             'head':{'ref':self.plan.branch,'sha':self.commit,'repo':{'id':1445911975,'full_name':DEMO_REPOSITORY}},
             'base':{'ref':'main','sha':self.plan.base_sha,'repo':{'id':1445911975,'full_name':DEMO_REPOSITORY}}}
 
-    def transport(self,method,path,payload,bearer,cancel,timeout):
+    def transport(self,method,path,payload,bearer,cancel,timeout,*,session_remaining=None):
+        if session_remaining is not None:self.assertGreater(session_remaining(),0)
         self.calls.append((method,path,payload))
         result={};status=200
         if method=='POST':

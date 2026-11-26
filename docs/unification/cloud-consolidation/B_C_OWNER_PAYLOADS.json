@@ -1,0 +1,144 @@
+{
+  "schema": "aioa.nonzero.live-preparation.v1",
+  "preparation_base": "d2870f33bb740184f7c2a18a7ea8f90b070fbd64",
+  "proposed_only": true,
+  "B": {
+    "scope": "GO_MODEL_TEST",
+    "status": "NOT_RUN",
+    "endpoint": "https://api.tokenfactory.nebius.com/v1/chat/completions",
+    "provider": "nebius",
+    "model": "nvidia/Nemotron-3_5-Lightning",
+    "pricing": {
+      "page": "https://nebius.com/services/token-factory/models/nvidia-nemotron-models-inference",
+      "catalog": "https://tokenfactory.nebius.com/models/catalog/text2text/nvidia%2FNemotron-3_5-Lightning",
+      "checked_utc": "2026-11-26",
+      "html_sha256": "8ffe95e8004b647235230fcaf3a5240b17d13c06094c688fdfdaa41c39feb35a",
+      "input_usd_per_million": "0.06",
+      "output_usd_per_million": "0.24",
+      "currency": "USD",
+      "max_input_units": 2048,
+      "input_unit": "UTF-8 bytes of message content + 64 bytes per message + 32 envelope bytes",
+      "max_total_completion_tokens_including_reasoning": 256,
+      "max_estimated_cost_nano_usd": 184320,
+      "refresh": "Recheck the exact deployed account rate and spend availability at signature time; expire quote after 24 hours."
+    },
+    "task": {
+      "instruction": "Propose only agent-demo/qualification.txt containing exactly Qualified advice. followed by a newline.",
+      "target_path": "agent-demo/qualification.txt",
+      "expected_utf8": "Qualified advice.\n"
+    },
+    "limits": {
+      "calls": 1,
+      "repairs": 0,
+      "retry": 0,
+      "max_wall_seconds": 60,
+      "transport_seconds": 20,
+      "max_response_bytes": 16384,
+      "hard_ceiling_nano_usd": 10000000
+    },
+    "approval_payload_builder": "runtime.mission.qualified_worker.QualifiedModelWorker.approval_proof",
+    "late_bind": [
+      "current qualified owner principal and source SHA/tree/capsule",
+      "accepted-test evidence for current code",
+      "immutable workspace ID and repository/base SHA",
+      "fresh WorkerMailbox session/task/run IDs + lease",
+      "exact wire SHA256, price timestamp, Core warrant/reservation and transport permit digest",
+      "signature from actual qualified Core signer after owner admission"
+    ],
+    "candidate_oracle": "Accept only the exact host-fixed file and bytes, observe the pinned LICENSE projection, derive the existing BoundedPatchSetPolicy preview, compare with an independently evaluated fresh directory, then record the signed readback and settle the original reservation atomically. No executable candidate code is run.",
+    "live_dispatches": 0,
+    "live_cost_usd": "0",
+    "owner_port": {
+      "profile": "OWNED_WORKER_MODEL_B_V1",
+      "prepare": {
+        "op": "worker_model_prepare"
+      },
+      "approve": {
+        "op": "worker_model_approve",
+        "review_digest": "<digest returned by prepare>"
+      },
+      "cold_readback": {
+        "op": "worker_model_readback"
+      },
+      "instructions": "WORKER_MODEL_B.md"
+    },
+    "remaining": "No accepted suite evidence for this source in the canonical checkout; no active enrolled B host with fresh verified account-specific credit/rate evidence and exact owner signature. Provider credential-file metadata alone does not establish a live grant."
+  },
+  "repair_41": {
+    "scope": "GO_MODEL_REPAIR_41",
+    "status": "NOT_RUN_NEEDS_SEPARATE_SCOPE",
+    "provider": "nebius",
+    "endpoint": "https://api.tokenfactory.nebius.com/v1/chat/completions",
+    "model": "nvidia/Nemotron-3_5-Lightning",
+    "initial_call": "Use a new original task, workspace and budget rather than reusing the B receipt. Require a genuine independently observed TEST_FAIL on the initial candidate. Only a definitive, reconciled initial outcome can release a repair.",
+    "feedback": "TEST_FAIL",
+    "attempts": 2,
+    "repairs": 1,
+    "retry": 0,
+    "max_nano_usd_per_call": 184320,
+    "max_combined_nano_usd": 368640,
+    "release": "Two distinct exact paid worker STARTs, owner-approved attempt-specific permits, max 2048 input units and 256 total completion tokens per attempt. Uncertainty or absence of a genuine failed independent test ends the session."
+  },
+  "C": {
+    "scope": "GO_GITHUB_WRITE",
+    "status": "NOT_RUN",
+    "repo": "luciferprosun/AIOA-spArkHAT-Meta-Hackathon-2026",
+    "repo_id": 1445911975,
+    "base_sha": "df0754d4cca5c61627fba1e7d5d2a6249830871d",
+    "base_tree": "bc344f4e21ecb903a98004510c0bdb923fc15024",
+    "recursive_tree_get_sha256": "17f6d7eb39aad003447c660a3aa7eaac7d08b85308ee94ff101e56839cc3e37f",
+    "proposed_operation_id": "e4a2b3e2204d452ea02a130f60784325",
+    "proposed_ref": "refs/heads/aioa/muse-e4a2b3e2204d452ea02a130f60784325",
+    "proposal": {
+      "body": "Isolated qualification of a single create-only publication and readback.",
+      "files": {
+        "agent-demo/qualification-readback.txt": "One-Core create-only readback qualification.\n"
+      },
+      "operation": "code.commit_draft_pr",
+      "schema": "aioa.muse.github-change.v1",
+      "target_repo": "luciferprosun/AIOA-spArkHAT-Meta-Hackathon-2026",
+      "title": "Qualify create-only Core publication"
+    },
+    "compact_sorted_utf8_proposal_sha256": "d362b683a78dcb4edfd1c100b2b9b025e727434a23a8660683ba55a464665680",
+    "candidate_blob": "4a635a08fdd5b433cfb95d963e8b31194842bb57",
+    "candidate_file_sha256": "0eb6a626c6aaef47b7a4b4e407ef34d8a2cc251f7b83ac54dc1ab019106edc7a",
+    "candidate_tree": "72d257993def4d3c13bdd7ca2289eabfd4dccf94",
+    "branch_get_status": 404,
+    "draft": true,
+    "base_branch": "main",
+    "snapshot": {
+      "actions_enabled": true,
+      "allowed_actions": "all",
+      "open_prs": 0,
+      "running_actions": 0,
+      "exclusive_writers": "UNKNOWN",
+      "app_scope": "UNKNOWN"
+    },
+    "limits": {
+      "mutations": [
+        "create_tree",
+        "create_commit",
+        "create_ref",
+        "create_draft_pull_request"
+      ],
+      "repo_mutations": 4,
+      "total_requests": 48,
+      "wall_seconds": 120,
+      "retry": 0,
+      "cleanup": 0
+    },
+    "late_bind": [
+      "Fresh GET of Actions disabled and evidence of exclusive writer window",
+      "Actual existing restricted App installation (selected repo, contents/write, pull_requests/write, metadata/read); no ambient CLI credential",
+      "Genuine unexpired Native Muse source reply and its real signed read receipt, same source and digest as accepted proposal",
+      "Allowlisted owner scope with available money/risk capacity and no unresolved liability; issue original matching owner witness + warrant/lease",
+      "Core issue time/commit/plan digest from RemoteGitPlan + signed admission; approve before expiry"
+    ],
+    "actual_mints": 0,
+    "actual_repo_mutations": 0,
+    "actual_dispatches": 0,
+    "historical_git_https_transport_18": "UNKNOWN_CONSUMER_REQUIREMENT",
+    "remaining": "Actions currently enabled/all. An isolated writer window, selected App scope, authentic retained Native Muse/READ receipt, available original Core scope and exact permit remain unverified.",
+    "session_accounting": "Durable per-plan Core counter. The four proposal GETs, token mint, installation scope GET, execution preflight, mutation attempts and independent readback GETs share one limit of 48 and one 120-second boot-time deadline."
+  }
+}

@@ -514,5 +514,145 @@
         "proposed_private_evidence_path": "nonzero/live/D/g04-render-isolation-receipt.json"
       }
     }
+  },
+  "local_mission_scope_20261126": {
+    "observed_before_execution_at_main": {
+      "sha": "d2870f33bb740184f7c2a18a7ea8f90b070fbd64",
+      "tree": "569f5591b2be0ae34c81701a3a54ea46e018c411"
+    },
+    "authorized_scope_only": "Owner instruction specifies bounds. Each effect requires the original runtime admission and its real pins. Record actual execution source separately from target and from report commit.",
+    "A": {
+      "target_repo_id": 1247349659,
+      "target_git_commit": "d2870f33bb740184f7c2a18a7ea8f90b070fbd64",
+      "target_git_tree": "569f5591b2be0ae34c81701a3a54ea46e018c411",
+      "target_path": "LICENSE",
+      "target_blob": "00eb8a94bdcf22d647d94e23c9c6938ef93d5802",
+      "target_sha256": "a039f83d1d59d97624c355653e0eab74a45b867a091d3d10d12ac1183535e14c",
+      "sessions": 1,
+      "max_seconds": 20,
+      "max_transport_bytes": 262144,
+      "max_frame_bytes": 65536,
+      "max_receipt_bytes": 32768,
+      "max_reads": 5,
+      "max_inventory_pages": 2,
+      "writes": 0,
+      "retry": 0,
+      "prepared": {
+        "pr": 78,
+        "source": "7f3c5fe8a7f550e7fee0080119ebf4a8cf685caf",
+        "tree": "cc430679e10e843da3dbf927769bac0cb45b3bc4",
+        "server_version": "1.0.5",
+        "server_protocol": "2025-06-18",
+        "server_binary_sha256": "e38247271e98ea3e0771db747523914b35e37787fa2c120ab6864ee6b4a2c87c",
+        "offline_tools": [
+          "get_file_contents",
+          "search_repositories"
+        ],
+        "offline_initialize_reply_sha256": "19661c0fefa7aa4552b4b8b4def8963628e38bdd945f820c052153be66915243",
+        "offline_inventory_reply_sha256": "cc91b86b82336a06dff78a7b8660e94322b0842999ed6868c20b777f3a91975d",
+        "result": "NOT_RUN",
+        "missing": "Current admitted operator_request(tool_read), approved source and target, qualified READ credential handle, signing principal and trustworthy clock window.",
+        "later_reviewed_pr_head": "12a9e2539a5acffac4e1d2875a80658974df3d81",
+        "live_start": "NOT_RUN. Independently re-pin executing commit/tree, operator, device, blob, exact binary/contract, permit and UTC window through the accepted Core host."
+      }
+    },
+    "B": {
+      "max_inferences": 1,
+      "max_usd": "0.01",
+      "max_input_units": 2048,
+      "max_output_tokens": 256,
+      "max_seconds": 60,
+      "repairs": 0,
+      "retry": 0,
+      "repair_41": "SEPARATE_PERMIT_REQUIRED",
+      "prepared": {
+        "model": "nvidia/Nemotron-3_5-Lightning",
+        "endpoint": "https://api.tokenfactory.nebius.com/v1/chat/completions",
+        "pricing_page": "https://nebius.com/services/token-factory/models/nvidia-nemotron-models-inference",
+        "pricing_html_sha256": "8ffe95e8004b647235230fcaf3a5240b17d13c06094c688fdfdaa41c39feb35a",
+        "max_estimated_nano_usd": 184320,
+        "separate_repair_41_max_estimated_nano_usd": 368640,
+        "result": "NOT_RUN",
+        "provider_calls": 0,
+        "cost_usd": "0",
+        "missing": "Bind accepted tests at execution SHA, account price and enrolled provider, canonical task, lease, request bytes, cumulative budget and current signer in ordinary Core.",
+        "source": "5f22b97e4dab06b7567957273a5cd3fe527b38a4",
+        "offline_per_python": {
+          "3.11": 64,
+          "3.12": 64
+        },
+        "operator_payloads": "B_C_OWNER_PAYLOADS.json",
+        "operator_procedure": "WORKER_MODEL_B.md",
+        "repair_41": "Separate two one-attempt STARTs, at most one genuine repair. Require independently validated TEST_FAIL and definite settlement of initial attempt."
+      }
+    },
+    "C": {
+      "target_repo": "luciferprosun/AIOA-spArkHAT-Meta-Hackathon-2026",
+      "target_repo_id": 1445911975,
+      "mutations": [
+        "create_tree",
+        "create_commit",
+        "create_ref",
+        "create_draft_pull_request"
+      ],
+      "max_requests": 48,
+      "max_seconds": 120,
+      "retry": 0,
+      "prepared": {
+        "repo_id": 1445911975,
+        "base_sha": "df0754d4cca5c61627fba1e7d5d2a6249830871d",
+        "base_tree": "bc344f4e21ecb903a98004510c0bdb923fc15024",
+        "proposed_ref": "refs/heads/aioa/muse-e4a2b3e2204d452ea02a130f60784325",
+        "compact_sorted_utf8_proposal_sha256": "d362b683a78dcb4edfd1c100b2b9b025e727434a23a8660683ba55a464665680",
+        "candidate_tree": "72d257993def4d3c13bdd7ca2289eabfd4dccf94",
+        "candidate_blob": "4a635a08fdd5b433cfb95d963e8b31194842bb57",
+        "branch_get_status": 404,
+        "actual_mints": 0,
+        "actual_repo_mutations": 0,
+        "actual_dispatches": 0,
+        "result": "NOT_RUN",
+        "actions_enabled": true,
+        "allowed_actions": "all",
+        "exclusive_writers": "UNKNOWN",
+        "app_scope": "UNKNOWN",
+        "actions_settings_sha256": "a35d23e555f4ab48e52869663c76cbb8fbd547b50cccb6e607256b16a7bf209f",
+        "target_sha256": "892de4b236e75bc8ef78ae865437991be3b7db943e6b378658dbf3e947bb5f30",
+        "base_response_sha256": "143d86153748b3cf8c4ee69eda45b788e2e63e53a007b2cb0248a986fd91be15",
+        "source_budget": "1cb92d6251ef1d606cc1c51cc3e740e6198b9a92",
+        "source_deadline": "505d6cdf2596789fd0f25c637091ce6c292102d2",
+        "offline_per_python": {
+          "3.11": 56,
+          "3.12": 56
+        },
+        "owner_actions": "Disable Actions on repo 1445911975, establish exclusive writers, scoped App/installation, issued lease and original matching warrant in a scope without outstanding liability. Re-read the target before approval.",
+        "operator_payloads": "B_C_OWNER_PAYLOADS.json",
+        "offline_source_with_deadline_tests": "7a139e2eb5c471439af735e906d717eb360647c6"
+      }
+    },
+    "D": {
+      "purpose": "G04",
+      "network": "OFF",
+      "sessions": 1,
+      "max_render_seconds": 20,
+      "max_seconds": 180,
+      "prepared": {
+        "result": "NOT_RUN",
+        "host_gate": "BLOCKED_HOST",
+        "observed_host": "Linux Mint 22.2 (zara), kernel 7.0.0-38-generic, systemd user active and delegated cgroup v2",
+        "missing": [
+          "Ubuntu 24.04 Noble",
+          "exact AppArmor host profile",
+          "external host/image/boot and signed package receipt",
+          "actual admitted render step, isolated journal, STOP and cold-read proofs"
+        ],
+        "probe_source": "9dbb567ff6ea22dc0935c75a075b957fa54ce481",
+        "probe_tree": "3b783638df5a561711198446441de6643ab6b1a2",
+        "preflight_exit": 2,
+        "preflight_sha256": "6f445bfab9efd51d4ad7b8742790537336554670837fa3bd5f20de4441840500",
+        "live_sessions": 0,
+        "positive_native_cross_uid_dependency": "Independent lane. G04 requires admitted render and real keeper/STOP on Noble. Native additionally needs executor / storage ownership and verifier integration."
+      }
+    },
+    "observed_followup_utc": "2026-11-26T18:31:14Z"
   }
 }

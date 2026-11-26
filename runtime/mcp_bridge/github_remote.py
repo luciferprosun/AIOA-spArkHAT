@@ -7,6 +7,7 @@ warrant and acknowledged intent before admitting any mutating request.
 import base64
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from functools import partial
 import http.client
 import os
 from pathlib import Path
@@ -29,36 +30,88 @@ PERMISSIONS={'contents':'write','pull_requests':'write'}
 PREFIX='/repos/'+DEMO_REPOSITORY
 
 
-def _https_once(method,path,payload,bearer,cancel,timeout):
+class GitHubRequestBudget:
+    """The Core consumes one ordinal before each wire attempt in one session."""
+    def __init__(self, *, remaining, consume):
+        require(callable(remaining) and callable(consume), 'GITHUB_SESSION_BUDGET_REQUIRED')
+        self.remaining = remaining
+        self.consume = consume
+
+    def send(self, transport, method, path, payload, bearer, cancel, timeout):
+        require(self.remaining() > 0 and timeout > 0, 'GITHUB_SESSION_DEADLINE')
+        self.consume(method, path)
+        available = min(timeout, self.remaining())
+        require(available > 0, 'GITHUB_SESSION_DEADLINE')
+        result = transport(method, path, payload, bearer, cancel, available)
+        require(self.remaining() > 0, 'GITHUB_SESSION_DEADLINE')
+        return result
+
+
+def _bounded_send(budget, transport, method, path, payload, bearer, cancel, timeout):
+    if budget is None:
+        selected = _https_once if transport is None else transport
+        return selected(method, path, payload, bearer, cancel, timeout)
+    require(type(budget) is GitHubRequestBudget, 'GITHUB_SESSION_BUDGET_REQUIRED')
+    if transport is None:
+        transport = partial(_https_once, session_remaining=budget.remaining)
+    return budget.send(transport, method, path, payload, bearer, cancel, timeout)
+
+
+def _https_once(method,path,payload,bearer,cancel,timeout,*,session_remaining=None):
     """One bounded TLS request to the fixed host, using existing cancellation."""
     require(method in ('GET','POST') and type(path) is str and path.startswith('/')
         and not any(ord(c)<33 or ord(c)>126 for c in path),'GITHUB_TRANSPORT_DENIED')
     require(type(timeout) in (int,float) and 0<timeout<=20,'GITHUB_TIMEOUT_DENIED')
+    deadline=time.monotonic()+timeout
+    boot_clock=getattr(time,'CLOCK_BOOTTIME',None)
+    require(boot_clock is not None or session_remaining is None,'GITHUB_SESSION_CLOCK_UNAVAILABLE')
+    boot_deadline=None if boot_clock is None else time.clock_gettime_ns(boot_clock)+int(timeout*1_000_000_000)
+
+    def time_left():
+        cancel.check(deadline)
+        if boot_deadline is None:
+            left=deadline-time.monotonic()
+        else:
+            left=(boot_deadline-time.clock_gettime_ns(boot_clock))/1_000_000_000
+        if session_remaining is not None:
+            left=min(left,session_remaining())
+        require(left>0,'GITHUB_SESSION_DEADLINE')
+        return left
+
     body=None if payload is None else canonical(payload)
     require(body is None or len(body)<=RESPONSE_LIMIT,'GITHUB_REQUEST_LIMIT')
-    connection=http.client.HTTPSConnection('api.github.com',timeout=timeout,context=ssl.create_default_context())
+    context=ssl.create_default_context()
+    connection=http.client.HTTPSConnection('api.github.com',timeout=time_left(),context=context)
     connection.auto_open=0
     cancel.attach(connection)
-    deadline=time.monotonic()+timeout
-    timer=threading.Timer(timeout,cancel.interrupt_transport);timer.daemon=True;timer.start()
+    timer=None
     try:
-        cancel.check(deadline);connection.connect();cancel.track_socket(connection.sock);cancel.check(deadline)
+        timer=threading.Timer(time_left(),cancel.interrupt_transport)
+        timer.daemon=True
+        timer.start()
+        connection.connect()
+        cancel.track_socket(connection.sock)
         headers={'Accept':'application/vnd.github+json','X-GitHub-Api-Version':API_VERSION,
                  'User-Agent':'AIOA-Core-CreateOnly/1','Content-Type':'application/json'}
         if bearer is not None:
             require(type(bearer) is str and re.fullmatch(r'[A-Za-z0-9_.-]{16,8192}',bearer),
                     'GITHUB_CREDENTIAL_FORMAT_DENIED')
             headers['Authorization']='Bearer '+bearer
+        # Reuse the charged session ordinal. Connect, DNS, TLS or suspend may
+        # have exhausted either deadline before any HTTP bytes were emitted.
+        connection.sock.settimeout(time_left())
         connection.request(method,path,body=body,headers=headers)
         response=connection.getresponse()
+        time_left()
         # Never follow Location and never expose error bodies or request headers.
         if response.status not in (200,201):return response.status,b''
         raw=response.read(RESPONSE_LIMIT+1)
         require(len(raw)<=RESPONSE_LIMIT,'GITHUB_RESPONSE_LIMIT')
-        cancel.check(deadline)
+        time_left()
         return response.status,raw
     finally:
-        timer.cancel();cancel.detach();connection.close()
+        if timer is not None:timer.cancel()
+        cancel.detach();connection.close()
 
 
 def _private_file(root,name,limit):
@@ -116,7 +169,7 @@ class GitHubAppCredentialSource:
         except (OSError,ValueError,TypeError,UnsupportedAlgorithm):
             raise ValueError('GITHUB_PRIVATE_CREDENTIAL_REQUIRED') from None
 
-    def mint(self,*,cancel,check):
+    def mint(self,*,cancel,check,request_budget=None):
         require(self.mode!='DISABLED' and callable(check),'GITHUB_CREDENTIAL_DISABLED')
         config,key=self.configuration();now=int(self.clock());check()
         require(not cancel.cancelled,'GITHUB_STOPPED')
@@ -124,9 +177,9 @@ class GitHubAppCredentialSource:
         data=b'.'.join((encode(canonical({'alg':'RS256','typ':'JWT'})),
             encode(canonical({'iss':config['client_id'],'iat':now-60,'exp':now+120}))))
         jwt=(data+b'.'+encode(key.sign(data,padding.PKCS1v15(),hashes.SHA256()))).decode()
-        transport=self._transport if self.mode=='OFFLINE_FIXTURE' else _https_once
+        transport=self._transport if self.mode=='OFFLINE_FIXTURE' else None
         try:
-            status,raw=transport('POST','/app/installations/'+str(config['installation_id'])+'/access_tokens',
+            status,raw=_bounded_send(request_budget,transport,'POST','/app/installations/'+str(config['installation_id'])+'/access_tokens',
                 {'repository_ids':[DEMO_REPOSITORY_ID],'permissions':dict(PERMISSIONS)},jwt,cancel,15)
             require(status==201,'GITHUB_CREDENTIAL_UNKNOWN_NO_RETRY')
             value=strict_json(raw,limit=RESPONSE_LIMIT)
@@ -150,7 +203,7 @@ class GitHubAppCredentialSource:
         except (KeyError,TypeError,ValueError):raise ValueError('GITHUB_CREDENTIAL_SCOPE_DENIED') from None
         check();require(not cancel.cancelled,'GITHUB_STOPPED')
         try:
-            status,raw=transport('GET','/installation/repositories?per_page=100&page=1',None,token,cancel,15)
+            status,raw=_bounded_send(request_budget,transport,'GET','/installation/repositories?per_page=100&page=1',None,token,cancel,15)
             require(status==200,'GITHUB_CREDENTIAL_UNKNOWN_NO_RETRY')
             result=strict_json(raw,limit=RESPONSE_LIMIT)
         except Exception:raise ValueError('GITHUB_CREDENTIAL_UNKNOWN_NO_RETRY') from None
@@ -176,7 +229,7 @@ class GitHubCreateOnly:
     first-attempt marker; a new object cannot erase it. Readback never POSTs.
     A transport fixture is explicitly labeled and cannot be installed as LIVE.
     """
-    def __init__(self,plan,base,credential,*,mode='DISABLED',transport=None,clock=time.time):
+    def __init__(self,plan,base,credential,*,mode='DISABLED',transport=None,clock=time.time,request_budget=None):
         require(type(plan) is RemoteGitPlan and type(base) is GitTreeSnapshot
             and base.sha==plan.base_tree_sha and (type(credential) is InstallationCredential
                 or credential is None and mode=='PUBLIC_READ_ONLY'),
@@ -191,6 +244,7 @@ class GitHubCreateOnly:
         self.plan,self.base,self.credential,self.mode=plan,base,credential,mode
         self.tree=base.add_files(plan.files);self.commit_sha=plan.commit_sha_for_tree(self.tree.sha)
         self._transport,self.clock=transport,clock
+        self.request_budget=request_budget
         self._attempted=set();self.request_count=0
         self.pull_query=PREFIX+'/pulls?head=luciferprosun%3Aaioa%2Fmuse-'+plan.operation_id+'&base=main&state=all&per_page=2'
 
@@ -209,9 +263,9 @@ class GitHubCreateOnly:
         require(self.credential is None or int(self.clock())<self.credential.expires_at,'GITHUB_CREDENTIAL_EXPIRED')
         require(self.request_count<self.plan.payload()['api_request_limit'],'GITHUB_API_BUDGET_EXHAUSTED')
         self.request_count+=1
-        transport=self._transport if self.mode=='OFFLINE_FIXTURE' else _https_once
+        transport=self._transport if self.mode=='OFFLINE_FIXTURE' else None
         try:
-            status,raw=transport(method,path,payload,self.credential.bearer if self.credential else None,
+            status,raw=_bounded_send(self.request_budget,transport,method,path,payload,self.credential.bearer if self.credential else None,
                 cancel,min(15,deadline-time.monotonic()))
         except Exception:
             raise ValueError('GITHUB_WRITE_UNKNOWN_NO_RETRY' if method=='POST' else 'GITHUB_GET_UNVERIFIED') from None
@@ -362,16 +416,16 @@ class GitHubCreateOnly:
         return result
 
 
-def read_demo_base(*,check,cancel,mode='LIVE',transport=None):
+def read_demo_base(*,check,cancel,mode='LIVE',transport=None,request_budget=None):
     """Fixed public GETs for a proposal; no credential is minted or loaded."""
     require(mode in ('LIVE','OFFLINE_FIXTURE') and callable(check)
         and (transport is None if mode=='LIVE' else callable(transport)),'GITHUB_READ_CONFIGURATION_DENIED')
     deadline=time.monotonic()+40
-    port=_https_once if mode=='LIVE' else transport
+    port=None if mode=='LIVE' else transport
     def get(path):
         check();cancel.check(deadline)
         try:
-            status,raw=port('GET',path,None,None,cancel,min(10,deadline-time.monotonic()))
+            status,raw=_bounded_send(request_budget,port,'GET',path,None,None,cancel,min(10,deadline-time.monotonic()))
             require(status==200,'GITHUB_BASE_READ_UNVERIFIED')
             value=strict_json(raw,limit=RESPONSE_LIMIT);cancel.check(deadline)
             return value

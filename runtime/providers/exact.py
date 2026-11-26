@@ -252,8 +252,29 @@ def decode_response(raw: bytes, request: ExactRequest) -> ProviderResult:
         raise ExactCallError('INVALID_PROVIDER_RESPONSE', safe_metadata=metadata) from None
 
 
+def exact_request_body(request: ExactRequest) -> bytes:
+    """The exact JSON bytes authorized and sent by the host transport."""
+    request.validate()
+    payload = {'model': request.requested_model,
+               'messages': [asdict(m) for m in request.messages],
+               'temperature': 0,
+               'stream': False, 'n': 1}
+    # Nebius documents this field as bounding visible AND reasoning tokens.
+    # Opt-in preserves existing non-reasoning transport contracts.
+    payload['max_completion_tokens' if request.bound_reasoning_tokens else 'max_tokens'] = request.max_output_tokens
+    if request.response_schema_json is not None:
+        try:
+            schema = json.loads(request.response_schema_json)
+            if not isinstance(schema, dict):
+                raise ValueError()
+        except (ValueError, TypeError):
+            raise ExactCallError('INVALID_RESPONSE_SCHEMA') from None
+        payload['response_format'] = {'type': 'json_schema', 'json_schema': schema}
+    return json.dumps(payload, allow_nan=False).encode('utf-8')
+
+
 def generate_http_exact(adapter, request: ExactRequest, cancel: CancellationToken,
-                        deadline: float, *, fixture: bool = False) -> ProviderResult:
+                        deadline: float, *, fixture: bool = False, before_send=None) -> ProviderResult:
     request.validate()
     cancel.check(deadline)
     if (adapter.provider != request.provider_connection_id
@@ -279,22 +300,7 @@ def generate_http_exact(adapter, request: ExactRequest, cancel: CancellationToke
     if parsed.username or parsed.password or parsed.query or parsed.fragment:
         raise ExactCallError('INVALID_ENDPOINT')
     started = time.monotonic()
-    payload = {'model': request.requested_model,
-               'messages': [asdict(m) for m in request.messages],
-               'temperature': 0,
-               'stream': False, 'n': 1}
-    # Nebius documents this field as bounding visible AND reasoning tokens.
-    # Opt-in preserves existing non-reasoning transport contracts.
-    payload['max_completion_tokens' if request.bound_reasoning_tokens else 'max_tokens'] = request.max_output_tokens
-    if request.response_schema_json is not None:
-        try:
-            schema = json.loads(request.response_schema_json)
-            if not isinstance(schema, dict):
-                raise ValueError()
-        except (ValueError, TypeError):
-            raise ExactCallError('INVALID_RESPONSE_SCHEMA') from None
-        payload['response_format'] = {'type': 'json_schema', 'json_schema': schema}
-    body = json.dumps(payload, allow_nan=False).encode('utf-8')
+    body = exact_request_body(request)
     timeout = min(request.timeout_seconds, deadline - time.monotonic())
     call_deadline = min(deadline, time.monotonic() + timeout)
     connection_class = http.client.HTTPConnection if fixture else http.client.HTTPSConnection
@@ -328,6 +334,9 @@ def generate_http_exact(adapter, request: ExactRequest, cancel: CancellationToke
         check_call()
         if transport_socket is not None:
             transport_socket.settimeout(max(.001, call_deadline - time.monotonic()))
+        if before_send is not None:
+            before_send(body)
+            check_call()
         connection.request('POST', parsed.path.rstrip('/') + '/chat/completions', body,
                            {'Authorization': 'Bearer ' + adapter.api_key,
                             'Content-Type': 'application/json', 'Accept': 'application/json'})
