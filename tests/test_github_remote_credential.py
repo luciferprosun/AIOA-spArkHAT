@@ -25,11 +25,11 @@ class GitHubCredentialTests(unittest.TestCase):
         self.token='ghs_'+'x'*20  # Deterministic non-secret offline fixture.
         self.permissions={'contents':'write','pull_requests':'write','metadata':'read'}
         self.repositories=[{'id':1445911975,'full_name':'luciferprosun/AIOA-spArkHAT-Meta-Hackathon-2026'}]
-        self.fail=False
+        self.transport_failure=False
 
     def transport(self,method,path,payload,bearer,cancel,timeout):
         self.calls.append((method,path,payload,bearer))
-        if self.fail:raise TimeoutError('PRIVATE_PROVIDER_BODY_MUST_NOT_ESCAPE')
+        if self.transport_failure:raise TimeoutError('PRIVATE_PROVIDER_BODY_MUST_NOT_ESCAPE')
         if method=='POST':return 201,json.dumps({'token':self.token,'expires_at':datetime.fromtimestamp(
             self.now+3600,timezone.utc).isoformat().replace('+00:00','Z'),'permissions':self.permissions,
             'repository_selection':'selected','repositories':self.repositories}).encode()
@@ -72,7 +72,7 @@ class GitHubCredentialTests(unittest.TestCase):
         with self.assertRaises(ValueError):GitHubAppCredentialSource(self.root,mode='LIVE',transport=self.transport)
 
     def test_unknown_mint_is_not_retried_and_exception_does_not_leak_provider_text(self):
-        self.fail=True
+        self.transport_failure=True
         with self.assertRaisesRegex(ValueError,'^GITHUB_CREDENTIAL_UNKNOWN_NO_RETRY$'):self.mint()
         self.assertEqual(1,len(self.calls))
 
@@ -119,6 +119,17 @@ class GitHubCredentialTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,'^GITHUB_CREDENTIAL_UNKNOWN_NO_RETRY$'):
                 source.mint(cancel=CancellationToken(),check=lambda:None)
             self.assertEqual(['POST'],calls)
+
+    def test_unsupported_curve_pem_is_generic_refusal_before_any_http(self):
+        # RFC5915 SECT163K1 with explicitly public test scalar 1; no credential.
+        der=bytes.fromhex('30230201010415')+bytes(20)+b'\x01'+bytes.fromhex('a00706052b81040001')
+        pem=b'-----BEGIN EC PRIVATE KEY-----\n'+base64.b64encode(der)+b'\n-----END EC PRIVATE KEY-----\n'
+        (self.root/'private-key.pem').write_bytes(pem)
+        with self.assertRaises(Exception) as denied:
+            self.mint()
+        self.assertIs(type(denied.exception),ValueError)
+        self.assertEqual('GITHUB_PRIVATE_CREDENTIAL_REQUIRED',str(denied.exception))
+        self.assertEqual([],self.calls)
 
 
 if __name__=='__main__':unittest.main()

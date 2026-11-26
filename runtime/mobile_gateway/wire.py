@@ -7,7 +7,7 @@ import re
 from dataclasses import dataclass, field
 from urllib.parse import urlsplit
 
-from cryptography.exceptions import InvalidSignature
+from cryptography.exceptions import InvalidSignature, UnsupportedAlgorithm
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 
@@ -108,7 +108,7 @@ def public_key(spki):
         if key.public_bytes(serialization.Encoding.DER, serialization.PublicFormat.SubjectPublicKeyInfo) != unbase64(spki):
             raise ValueError()
         return key
-    except (ValueError, TypeError):
+    except (ValueError, TypeError, UnsupportedAlgorithm):
         raise MobileError(401) from None
 
 

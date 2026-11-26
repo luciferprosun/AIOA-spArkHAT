@@ -62,7 +62,8 @@ jobs:
           node-version: '22.23.3'
       - name: Install one Core package and check dependencies
         run: |
-          python -m pip install '.[nonzero]' ruff==0.16.7 cryptography==41.0.7 PyYAML==6.0.3
+          python -m pip install --require-hashes -r tests/requirements-crypto-linux.txt
+          python -m pip install '.[native,nonzero]' ruff==0.16.7
           python -m pip check
       - name: Verify checked-in Android source inventory before build
         run: |
@@ -124,6 +125,14 @@ jobs:
           sudo apt-get "${apt_args[@]}" -o APT::Update::Error-Mode=any update
           sudo apt-get "${apt_args[@]}" install --no-install-recommends --yes --no-remove --allow-downgrades "${packages[@]}"
           dpkg-query --show --showformat='${binary:Package}=${Version}\n' "${packages[@]%=*}"
+      - name: Install hash-locked crypto for isolated system-Python Chrome
+        shell: bash
+        run: |
+          set -euo pipefail
+          crypto_site="$RUNNER_TEMP/aioa-browser-crypto-${{ matrix.python-version }}"
+          install -d -m 700 "$crypto_site"
+          python -m pip --python /usr/bin/python3 install --ignore-installed --no-compile \
+            --target "$crypto_site" --require-hashes -r tests/requirements-crypto-linux.txt
       - name: Acquire pinned official Codex for isolated protocol diagnostics
         shell: bash
         run: |
@@ -137,11 +146,11 @@ jobs:
           tar --extract --gzip --file "$probe_dir/codex.tar.gz" --directory "$probe_dir" -- codex-x86_64-unknown-linux-musl
           printf '%s  %s\n' cdcb45aaa01d0f14e298985e09465aebccd47f64ecd298aea44814af7b62bbda "$probe_dir/codex-x86_64-unknown-linux-musl" | sha256sum --check --strict
       - name: Required real Core, sandbox, local Git, MCP, Chrome and protocol acceptance
-        # Hard-fails unless bubblewrap, Chrome and system Python cryptography
+        # Hard-fails unless bubblewrap, Chrome and the qualified crypto wheel site
         # are available; never launches the browser on the host network.
         shell: bash
         run: |
-          bash tests/nz12_ci_host.sh python -B tests/nz12_source_runner.py tests/nz12_ci_acceptance.py --output "$RUNNER_TEMP/aioa-nz12-acceptance-${{ matrix.python-version }}" --codex "$RUNNER_TEMP/aioa-codex-probe/codex-x86_64-unknown-linux-musl"
+          bash tests/nz12_ci_host.sh python -B tests/nz12_source_runner.py tests/nz12_ci_acceptance.py --output "$RUNNER_TEMP/aioa-nz12-acceptance-${{ matrix.python-version }}" --codex "$RUNNER_TEMP/aioa-codex-probe/codex-x86_64-unknown-linux-musl" --crypto-site "$RUNNER_TEMP/aioa-browser-crypto-${{ matrix.python-version }}"
       - name: Chat and console transport regressions
         run: node --test tests/*.test.cjs
       - name: Full Core suite and native authority regressions

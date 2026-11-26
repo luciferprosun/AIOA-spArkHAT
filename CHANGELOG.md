@@ -1,5 +1,10 @@
 # Changelog
 
+## Post-submission dependency candidate — 2026-11-06
+
+- Pin Native cryptography50.0.2 and qualify CPython3.11/3.12 Linux wheels with hashed transitive dependencies. Normalize unsupported DER/PEM algorithms to the existing denials, preserving P256 and RSA restrictions.
+- Require an explicit private dependency site for isolated Chrome, with package/version/origin checks before fixture startup and refusal of source-shadowing content. Preserve existing sandbox and source-seal guards; no production library change or deployment is implied.
+
 ## Post-submission security fix — 2026-11-06
 
 - Clear private operator results, proposals and draft inputs on HTTP403; invalidate pending responses and immediately clear the outer panel when chat authorization is refused.

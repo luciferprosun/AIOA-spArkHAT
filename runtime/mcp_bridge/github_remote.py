@@ -16,6 +16,7 @@ import stat
 import threading
 import time
 
+from cryptography.exceptions import UnsupportedAlgorithm
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
 
@@ -112,7 +113,7 @@ class GitHubAppCredentialSource:
             require(isinstance(key,rsa.RSAPrivateKey) and 2048<=key.key_size<=4096,
                     'GITHUB_PRIVATE_CREDENTIAL_REQUIRED')
             return value,key
-        except (OSError,ValueError,TypeError):
+        except (OSError,ValueError,TypeError,UnsupportedAlgorithm):
             raise ValueError('GITHUB_PRIVATE_CREDENTIAL_REQUIRED') from None
 
     def mint(self,*,cancel,check):
