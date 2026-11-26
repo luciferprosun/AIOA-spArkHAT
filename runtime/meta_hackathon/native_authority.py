@@ -191,7 +191,7 @@ class NativeHostCompositionConfig:
         codec.exact(value, CONFIG_FIELDS | {'coding_profiles'} if v2 else CONFIG_FIELDS)
         deny(value['schema'] in ('aioa.native-host-composition.v1', 'aioa.native-host-composition.v2')
              and (value['profile'] == 'OWNED_OFFLINE_PROOF_V1'
-                  or not v2 and value['profile'] == 'OWNED_OFFICIAL_READ_A_V1'))
+                  or not v2 and value['profile'] in ('OWNED_OFFICIAL_READ_A_V1', 'OWNED_WORKER_MODEL_B_V1')))
         codec.exact(value['host_source'], {'source_sha', 'capsule_digest'})
         codec.hexdigest(value['host_source']['source_sha'], 40); codec.hexdigest(value['host_source']['capsule_digest'])
         registry = None
@@ -642,6 +642,8 @@ class NativeLifecycle:
         with self.lock:
             deny(len(self._calls)<64 and (self._phase in (NativePhase.CAPACITY_ADMIN, NativePhase.ACTIVE) or
                  operation=='operator_auth_status' and self._phase is NativePhase.FENCED
+                  or operation=='worker_model_readback' and self._phase is NativePhase.QUARANTINED
+                     and self.foundation.spec.to_dict()['profile'] == 'OWNED_WORKER_MODEL_B_V1'
                   or operation=='github_write_reconcile' and self._phase is NativePhase.ACTIVE))
             self._calls.add(token)
         try:yield
@@ -666,6 +668,15 @@ class NativeLifecycle:
                     deny(self._phase in (NativePhase.ACTIVE, NativePhase.CAPACITY_ADMIN))
                 else:
                     self.require_execution()
+                return
+            if operation in ('worker_model_prepare','worker_model_approve','worker_model_readback'):
+                deny(self.foundation.spec.to_dict()['profile'] == 'OWNED_WORKER_MODEL_B_V1')
+            if operation in ('worker_model_prepare','worker_model_approve'):
+                self.require_execution()
+                return
+            if operation=='worker_model_readback':
+                deny(self._phase in (NativePhase.CAPACITY_ADMIN, NativePhase.ACTIVE, NativePhase.QUARANTINED)
+                     and self._fence is None)
                 return
             if operation=='github_write_reconcile':
                 deny(self._phase in (NativePhase.CAPACITY_ADMIN,NativePhase.ACTIVE) and self._fence is None)

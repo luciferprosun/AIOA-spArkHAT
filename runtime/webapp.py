@@ -1370,7 +1370,10 @@ def mobile_operator_client(root,value):
         raise ValueError('NATIVE_OPERATOR_SOCKET_DENIED')
     with socket.socket(socket.AF_UNIX,socket.SOCK_STREAM) as peer:
         op=value.get('op') if type(value) is dict else None
-        peer.settimeout(140 if op=='operator_renew' else 30 if op=='tool_read' else 10)
+        if op in ('worker_model_prepare','worker_model_approve'):
+            peer.settimeout(60)
+        else:
+            peer.settimeout(140 if op=='operator_renew' else 30 if op=='tool_read' else 10)
         peer.connect(str(path))
         _,uid,_=struct.unpack('3i',peer.getsockopt(socket.SOL_SOCKET,socket.SO_PEERCRED,12))
         if uid!=os.getuid():raise ValueError('NATIVE_OPERATOR_PEER_DENIED')

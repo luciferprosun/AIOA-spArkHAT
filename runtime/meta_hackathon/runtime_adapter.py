@@ -212,7 +212,8 @@ SOURCE_FILES += (
 )
 
 # Exact inert coding-profile codec; no host graph or transport activation.
-SOURCE_FILES += ('runtime/providers/coding_contracts.py',)
+SOURCE_FILES += ('runtime/providers/coding_contracts.py','runtime/meta_hackathon/model_qualification.py',
+                 'runtime/mission/qualified_worker.py','runtime/providers/live_gate.py')
 
 def sealed_source_path(relative, *, root=None):
     """Fixed source list only; reject links before any source content read."""
@@ -459,6 +460,9 @@ class NativeMobileComposition:
         if self._host_composition is not None:
             hats.add(self._host_composition.project_source.workspace_id)
             models.add('aioa/offline-host-worker-v1')
+            if self._host_composition.to_dict()['profile'] == 'OWNED_WORKER_MODEL_B_V1':
+                from runtime.mission.qualified_worker import MODEL as qualification_model
+                models.add(qualification_model)
             if self._host_composition.coding_backend_registry is not None:
                 models.discard('NO_MODEL_PAIRING')
                 models.update(self._host_composition.coding_model_ids())
@@ -842,6 +846,9 @@ class NativeMobileComposition:
         from .advisory import OPS as ADVISORY_OPS
         from .advisory import dispatch as advisory_dispatch
         if op in ADVISORY_OPS:return advisory_dispatch(self,owner,value)
+        if op in ('worker_model_prepare','worker_model_approve','worker_model_readback'):
+            from .model_qualification import dispatch
+            return dispatch(self,owner,value)
         if op.startswith('github_'):
             from .github_write import _owner_reconcile, dispatch
             if self.foundation is not None and op=='github_write_reconcile':return _owner_reconcile(self,owner,value)
