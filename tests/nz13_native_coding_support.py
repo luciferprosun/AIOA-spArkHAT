@@ -21,7 +21,7 @@ OWNED_ROOTS = []
 
 class NativeOwnedFixture:
     """Explicit disposable administration, then one Native graph on retained DB."""
-    def __init__(self, case, *, prepare_execution_capacity=True):
+    def __init__(self, case, *, prepare_execution_capacity=True, broker_fixture=False):
         import base64
         import hashlib
         import json
@@ -74,7 +74,7 @@ class NativeOwnedFixture:
         raw_files = {'README.md': b'# Owned local text fixture\n',
                      'src/textutil.py': b'def slug(text):\n    return text.strip()\n'}
         self.source_repo = BareRepository(self.root / 'source.git', raw_files)
-        self.target_repo = BareRepository(self.root / 'target.git', raw_files)
+        self.target_repo = BareRepository(self.root / ('repo' if broker_fixture else 'target.git'), raw_files)
         self.target_repo.mark_disposable()
         case.assertEqual(self.source_repo.base, self.target_repo.base)
         snapshot = GitSourceSnapshot.capture(self.source_repo.path, expected_sha=self.source_repo.base,
@@ -116,7 +116,7 @@ class NativeOwnedFixture:
             'test_git_ordinary_mutation_callbacks_do_not_read_source_in_sql',
             'test_git_historical_mutation_callbacks_do_not_read_source_in_sql',
         }
-        self.single_good_candidate = (case._testMethodName in ownership_negatives
+        self.single_good_candidate = (broker_fixture or case._testMethodName in ownership_negatives
             or self.context.get('restart_phase') in ('ORPHAN_RUNNING_ACK_PRODUCE',
                                                     'TERMINAL_CHILD_ACQUISITION_PRODUCE'))
         if self.single_good_candidate:

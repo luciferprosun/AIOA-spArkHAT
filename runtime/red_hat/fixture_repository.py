@@ -3,6 +3,7 @@
 import configparser
 import hashlib
 import os
+import re
 import stat
 import zlib
 from contextlib import ExitStack, contextmanager
@@ -37,6 +38,17 @@ def require_named_directory(parent, name, directory):
             "BROKER_DIRECTORY_MOVED")
 
 
+def native_parent_name(exact_ref):
+    """Only the existing Native Git plan's namespace can add a parent."""
+    pieces = exact_ref.split("/")
+    require(pieces[:2] == ["refs", "heads"], "RH06_REF_NOT_DIRECT")
+    if len(pieces) == 3:
+        return None
+    require(len(pieces) == 4 and pieces[2] == "aioa"
+            and re.fullmatch(r"nz11-[0-9a-f]{32}", pieces[3]), "RH06_REF_NOT_DIRECT")
+    return "aioa"
+
+
 def absent(parent, name):
     try:
         os.stat(name, dir_fd=parent, follow_symlinks=False)
@@ -51,6 +63,7 @@ class FixtureRepository:
     repo: int
     refs: int
     heads: int
+    ref_parent: int
     topology: tuple
     uid: int
 
@@ -60,8 +73,14 @@ class FixtureRepository:
             (self.heads, self.refs, "heads"),
         ):
             require_named_directory(parent, name, directory)
+        name = native_parent_name(request.exact_ref)
+        if name is not None:
+            require_named_directory(self.heads, name, self.ref_parent)
+            info = os.fstat(self.ref_parent)
+            require(info.st_uid == self.uid and not info.st_mode & 0o7022,
+                    "BROKER_REF_PARENT_UNSAFE")
         require(file_identity(os.fstat(self.repo)) == request.repository
-                and file_identity(os.fstat(self.heads)) == request.ref_directory,
+                and file_identity(os.fstat(self.ref_parent)) == request.ref_directory,
                 "BROKER_REPOSITORY_BINDING")
         require(read_record(self.repo, ".redhat-disposable", self.uid) == _MARKER,
                 "BROKER_DISPOSABLE_MARKER")
@@ -70,7 +89,7 @@ class FixtureRepository:
         require(git_storage_identity(self.repo) == self.topology, "BROKER_REPOSITORY_MOVED")
         if publishing:
             absent(self.repo, "packed-refs.lock")
-            absent(self.heads, self.leaf(request) + ".lock")
+            absent(self.ref_parent, self.leaf(request) + ".lock")
 
     def check_config(self):
         fd = os.open("config", os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC,
@@ -123,9 +142,9 @@ class FixtureRepository:
 
     def observe(self, request):
         leaf = self.leaf(request)
-        before = os.stat(leaf, dir_fd=self.heads, follow_symlinks=False)
-        raw = read_record(self.heads, leaf, self.uid, maximum=41)
-        after = os.stat(leaf, dir_fd=self.heads, follow_symlinks=False)
+        before = os.stat(leaf, dir_fd=self.ref_parent, follow_symlinks=False)
+        raw = read_record(self.ref_parent, leaf, self.uid, maximum=41)
+        after = os.stat(leaf, dir_fd=self.ref_parent, follow_symlinks=False)
         require(file_identity(before) == file_identity(after)
                 and before.st_ctime_ns == after.st_ctime_ns
                 and raw == request.new_oid.encode("ascii") + b"\n", "BROKER_REF_OBSERVATION")
@@ -139,6 +158,8 @@ def open_repository(root, request, uid):
         repo = open_dir(root, "repo", stack)
         refs = open_dir(repo, "refs", stack)
         heads = open_dir(refs, "heads", stack)
-        target = FixtureRepository(root, repo, refs, heads, git_storage_identity(repo), uid)
+        name = native_parent_name(request.exact_ref)
+        parent = heads if name is None else open_dir(heads, name, stack)
+        target = FixtureRepository(root, repo, refs, heads, parent, git_storage_identity(repo), uid)
         target.check(request)
         yield target

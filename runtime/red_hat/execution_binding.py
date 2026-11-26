@@ -12,7 +12,7 @@ from runtime.mission.intent import LOCAL_ZERO_KIND
 from runtime.mission.sandbox_linux import mountid
 from runtime.red_hat.broker_protocol import BrokerRequest, digest, require
 from runtime.red_hat.core_adapter import CoreIntentAdapter
-from runtime.red_hat.fixture_repository import open_dir
+from runtime.red_hat.fixture_repository import native_parent_name, open_dir
 
 
 SCHEMA = "aioa.redhat.native-execution-binding.v1"
@@ -51,8 +51,10 @@ class NativeExecutionBindingV1:
                 and all(type(value) is int and 0 < value < 2**63 for value in (
                     self.repository_mount, self.ref_parent_mount)),
                 "RH06_BINDING_SCHEMA")
-        # The fixture executor holds refs/heads and links a single leaf there.
-        require(self.request.exact_ref.count("/") == 2, "RH06_REF_NOT_DIRECT")
+        parent = native_parent_name(self.request.exact_ref)
+        if parent is not None:
+            require(self.request.exact_ref == "refs/heads/aioa/nz11-" + self.capsule_digest[:32],
+                    "RH07_NATIVE_PLAN_REF")
         # Existing v1 witness and completion bind the full BrokerRequest.
         require(self.request.challenge == digest(metadata), "RH06_METADATA_BINDING")
 
@@ -79,18 +81,20 @@ def _physical_context(repo, heads):
     }
 
 
-def physical_context(root_fd):
+def physical_context(root_fd, *, exact_ref=None):
     """Observe boot-local mount IDs when preparing the disposable START."""
     with ExitStack() as stack:
         repo = open_dir(root_fd, "repo", stack)
         refs = open_dir(repo, "refs", stack)
         heads = open_dir(refs, "heads", stack)
-        return _physical_context(repo, heads)
+        name = native_parent_name(exact_ref) if exact_ref is not None else None
+        parent = heads if name is None else open_dir(heads, name, stack)
+        return _physical_context(repo, parent)
 
 
 def require_physical_context(target, binding):
     """Check the actual pinned FDs used for link or readback."""
-    observed = _physical_context(target.repo, target.heads)
+    observed = _physical_context(target.repo, target.ref_parent)
     require(all(value == getattr(binding, name) for name, value in observed.items()),
             "RH06_MOUNT_OR_BOOT_CHANGED")
 

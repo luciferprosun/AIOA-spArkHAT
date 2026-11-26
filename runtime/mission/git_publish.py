@@ -802,6 +802,7 @@ class CoreRemoteGitRoute:
         native_access=None,
         native_stop_cas_gate=None,
         native_device_id=None,
+        qualification_port=None,
     ):
         """Native-only, versioned disposable bare profile on THIS registered route."""
         from runtime.core_admission import Capability
@@ -820,14 +821,21 @@ class CoreRemoteGitRoute:
         if native_access is not None:
             from runtime.red_hat.native_stop_gate import NativeStopCasGate
 
-            core_require(type(native_stop_cas_gate) is NativeStopCasGate
+            if qualification_port is not None:
+                from runtime.red_hat.native_qualification import NativeQualificationPort
+                from runtime.red_hat.sequencer import SequencedCoreGate
+                core_require(type(qualification_port) is NativeQualificationPort and type(qualification_port.gate) is SequencedCoreGate
+                             and qualification_port.gate is native_stop_cas_gate
+                             and qualification_port.device_id == native_device_id,
+                             "NATIVE_QUALIFICATION_CONFIGURATION")
+            core_require((type(native_stop_cas_gate) is NativeStopCasGate or qualification_port is not None)
                          and getattr(journal.runner, "execution_gate", None) is native_stop_cas_gate,
                          "NATIVE_STOP_GATE_REQUIRED")
             core_require(type(native_device_id) is str
                          and re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}", native_device_id),
                          "NATIVE_DEVICE_BINDING_REQUIRED")
         else:
-            core_require(native_stop_cas_gate is None, "NATIVE_STOP_GATE_NOT_SHARED")
+            core_require(native_stop_cas_gate is None and qualification_port is None, "NATIVE_STOP_GATE_NOT_SHARED")
             core_require(native_device_id is None, "NATIVE_DEVICE_BINDING_REQUIRED")
         core_require(
             type(preparation) is VerifiedPatchSet
@@ -957,6 +965,7 @@ class CoreRemoteGitRoute:
         )
         instance.target_guard, instance.owner_check = target_guard, check
         instance.native_stop_cas_gate = native_stop_cas_gate
+        instance.qualification_port = qualification_port
         instance.native_device_id = native_device_id
         instance.test_profile = profile
         instance.historical_operation = None
@@ -1237,7 +1246,16 @@ class CoreRemoteGitRoute:
         if getattr(self, 'native_access', None) is not None:
             from runtime.red_hat.native_stop_gate import NativeStopCasGate
             payload = operation.get("payload", {})
-            core_require(type(getattr(self, "native_stop_cas_gate", None)) is NativeStopCasGate
+            port = getattr(self, "qualification_port", None)
+            gate = getattr(self, "native_stop_cas_gate", None)
+            if port is not None:
+                from runtime.red_hat.native_qualification import NativeQualificationPort
+                from runtime.red_hat.sequencer import SequencedCoreGate
+                core_require(type(port) is NativeQualificationPort and type(port.gate) is SequencedCoreGate and port.gate is gate
+                             and port.device_id == self.native_device_id, "NATIVE_QUALIFICATION_CONFIGURATION")
+            core_require(("rh06_fixture" in payload) == (port is not None),
+                         "NATIVE_QUALIFICATION_CONFIGURATION")
+            core_require((type(gate) is NativeStopCasGate or port is not None)
                          and getattr(self.journal.runner, "execution_gate", None)
                              is self.native_stop_cas_gate
                          and payload.get("schema") == "aioa.local-operation.v3"
@@ -1298,6 +1316,9 @@ class CoreRemoteGitRoute:
             )
             core_require(actual == expected, "GIT_OBJECT_READBACK")
         release()
+        if controller is not None and port is not None:
+            port.dispatch(self, controller, principal, warrant, release)
+            raise AssertionError("NATIVE_QUALIFICATION_REQUIRES_VERIFIED_RECOVERY")
         response = _bounded_git(
             self.target_repository,
             ("update-ref", self.plan.ref, self.plan.commit_sha, "0" * 40),
@@ -1326,6 +1347,10 @@ class CoreRemoteGitRoute:
         from runtime.memory_patch.persistence.ports import RecordKind
         from runtime.mission.liability import Reconciliation
 
+        history = getattr(self, "historical_operation", None)
+        core_require(getattr(self, "qualification_port", None) is None
+                     and not (history and "rh06_fixture" in history.get("payload", {})),
+                     "NATIVE_QUALIFICATION_REQUIRES_VERIFIED_RECOVERY")
         if getattr(self, 'native_access', None) is not None:
             self._require_native_binding().foundation.owner.coding_tasks._native_git_begin_settlement(
                 self, warrant, historical=historical)
@@ -1570,6 +1595,9 @@ class CoreRemoteGitRoute:
                 "old_oid": "0" * 40,
                 "new_oid": self.plan.commit_sha,
             })
+            port = getattr(self, "qualification_port", None)
+            if port is not None:
+                payload["rh06_fixture"] = port.metadata(self)
         return {
             "operation_class": "GIT_COMMIT",
             "target_fingerprint": self.plan.target_fingerprint,

@@ -59,7 +59,7 @@ def child(root, mode, name, stage):
         expected = NativeExecutionBindingV1.from_wire(spec["binding"])
         core = Peer(**config["core"])
         enrollment = rh06.enrolled(expected, spec)
-        ref_parent = (root / "repo/refs/heads").stat()
+        ref_parent = (root / "repo" / expected.request.exact_ref).parent.stat()
         real_link = os.link
 
         def count_link(source, name, *, dst_dir_fd, follow_symlinks):
@@ -80,6 +80,17 @@ def child(root, mode, name, stage):
         anchor = cas.fd(root)
         try:
             with patch("os.link", count_link):
+                if mode == "prepared-native":
+                    from runtime.red_hat.native_qualification import serve_prepared_native_fixture
+                    with patch("time.time", return_value=NOW):
+                        serve_prepared_native_fixture(listener, root_fd=anchor,
+                            exact_ref=expected.request.exact_ref, device_id=expected.request.device_id,
+                            sequence=SequenceClient(config["sequence_path"], Peer(**config["sequence"]), 1),
+                            release=CoreReleaseClient(config["release_path"], core, spec["core_spki"]),
+                            core_peer=core, core_spki=spec["core_spki"], identity=rh06.load_key(root / "fixture-key"),
+                            enrollment=enrollment, core_epoch=expected.request.core_epoch,
+                            broker_epoch=expected.request.broker_epoch, enabled=True)
+                    return
                 serve_sequenced_fixture_once(
                     listener, sequence=SequenceClient(config["sequence_path"], Peer(**config["sequence"]), 1),
                     release=CoreReleaseClient(config["release_path"], core, spec["core_spki"]),
@@ -96,6 +107,7 @@ class SequencedBoundaryTests(unittest.TestCase):
     def setUp(self):
         self.fixture = rh06.AuthenticatedBoundaryTests("test_default_off_and_durable_start_binding")
         self.addCleanup(self.fixture.doCleanups)
+        self.fixture.native_plan_ref = getattr(self, "native_plan_ref", False)
         self.fixture.setUp()
         self.fx, self.root = self.fixture.fx, self.fixture.root
         self.principal = self.fx.p()
@@ -135,9 +147,9 @@ class SequencedBoundaryTests(unittest.TestCase):
                        active_timeout=active_timeout)
         return seq, SequenceClient(endpoint, peer(seq.pid), 1)
 
-    def setup_triplet(self, *, stage="", seq_stage="", active_timeout=6):
+    def setup_triplet(self, *, stage="", seq_stage="", active_timeout=6, broker_mode="broker"):
         self.broker_number += 1
-        broker, broker_path = self.start("broker", f"pub-{self.broker_number}.sock", stage)
+        broker, broker_path = self.start(broker_mode, f"pub-{self.broker_number}.sock", stage)
         seq, client = self.start_sequencer(peer(broker.pid), seq_stage, active_timeout=active_timeout)
         gate = SequencedCoreGate(client, enabled=True)
         bind_fixture_runner(self.fx.runner, gate, enabled=True)
