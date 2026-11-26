@@ -38,7 +38,7 @@
     "signer_dev": null,
     "signer_ino": null,
     "supervisor_sha256": null,
-    "role_probe_sha256": "27bc0f501918569f01fd0ed0827f6564d82d9dbbea280e8179571a44d4c68caa",
+    "role_probe_sha256": "f3e7499c7c48448bb81a00d0d0f4291b801fec7876b0aa88a0c79f98951321df",
     "preflight_sha256": "c74d71e8264eccf8f9a242f181e39173647852fc4b52c1f7a573391037a8f860",
     "exact_ref": null,
     "repository_dev": null,

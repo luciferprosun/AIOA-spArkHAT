@@ -5,7 +5,6 @@ only write probes are exclusive empty sentinel creations in the reserved
 disposable namespace. An unexpected success leaves the sentinel as evidence.
 """
 import argparse
-from contextlib import ExitStack
 import ctypes
 import fcntl
 import errno
@@ -22,16 +21,26 @@ ROOT = Path('/run/aioa-qualification')
 ROLES = ('core', 'broker', 'verifier')
 
 
-def try_open(root, relative, flags):
+def try_open(root, relative, flags, directory_pins=None):
     directory = os.open(root, os.O_PATH | os.O_DIRECTORY | os.O_NOFOLLOW)
     try:
+        prefix = Path()
+        reached_parent = False
         for component in relative.parts[:-1]:
+            prefix /= component
             child = os.open(component, os.O_PATH | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=directory)
             os.close(directory)
             directory = child
+            if directory_pins and prefix in directory_pins:
+                info = os.fstat(directory)
+                require((info.st_dev, info.st_ino) == directory_pins[prefix],
+                        'NATIVE_PINNED_DIRECTORY_REQUIRED')
+        reached_parent = True
         fd = os.open(relative.name, flags | os.O_NOFOLLOW | os.O_CLOEXEC | os.O_NONBLOCK,
                      0o600, dir_fd=directory)
     except OSError as exc:
+        if directory_pins and not reached_parent:
+            raise
         if exc.errno in (errno.EPERM, errno.EACCES):
             return 'DENIED'
         raise
@@ -72,23 +81,18 @@ def probe_paths(root, native, role):
 
 def check_role(root, role, native):
     probes = probe_paths(root, native, role)
-    with ExitStack() as stack:
-        parent = os.open(root, os.O_PATH | os.O_DIRECTORY | os.O_NOFOLLOW)
-        stack.callback(os.close, parent)
-        for part in ('repo', 'refs', 'heads', 'aioa'):
-            parent = os.open(part, os.O_PATH | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=parent)
-            stack.callback(os.close, parent)
-            if part in ('repo', 'aioa'):
-                stem = 'repository' if part == 'repo' else 'ref_directory'
-                info = os.fstat(parent)
-                require((info.st_dev, info.st_ino) == (native[stem + '_dev'], native[stem + '_ino']),
-                        'NATIVE_PINNED_DIRECTORY_REQUIRED')
+    pins = {
+        Path('repo'): (native['repository_dev'], native['repository_ino']),
+        Path('repo/refs/heads/aioa'): (native['ref_directory_dev'], native['ref_directory_ino']),
+    }
     rows = {}
     for name, (path, mode, expected) in probes.items():
         try:
-            rows[name] = {'observed': try_open(root, path.relative_to(root), mode), 'expected': expected}
+            relative = path.relative_to(root)
+            observed = try_open(root, relative, mode, pins if relative.parts[0] == 'repo' else None)
+            rows[name] = {'observed': observed, 'expected': expected}
         except OSError as exc:
-            rows[name] = {'observed': errno.errorcode.get(exc.errno, 'ERROR'), 'expected': expected}
+            rows[name] = {'observed': 'ERROR_' + errno.errorcode.get(exc.errno, 'UNKNOWN'), 'expected': expected}
         if rows[name]['observed'] != expected:
             break
     return rows
