@@ -11471,436 +11471,436 @@
     },
     "runtime/mission/git_publish.py": {
       "path": "runtime/mission/git_publish.py",
-      "git_blob": "ec0da5f341a60e392d65b962e6d6030ec13d4e4a",
-      "sha256": "1848b6c340d8fd131ff7ebd521b943a905d483cc4e3dc050036edc03a0ea95a5",
+      "git_blob": "3d00422ddd8a60c55ce64e7e487d43e4fe51f796",
+      "sha256": "285999b11e01481365e76a8bbe475efd870488a69e13f6544f1fe5d1c39a1b22",
       "definitions": [
         {
           "name": "LocalGitPlan",
-          "line": 28
+          "line": 29
         },
         {
           "name": "_tree_hashes",
-          "line": 198
+          "line": 199
         },
         {
           "name": "GitTreeSnapshot",
-          "line": 234
+          "line": 235
         },
         {
           "name": "RemoteGitPlan",
-          "line": 338
+          "line": 339
         },
         {
           "name": "RemotePublishBoundary",
-          "line": 608
+          "line": 609
+        },
+        {
+          "name": "verify_retained_github_result",
+          "line": 636
         },
         {
           "name": "CoreRemoteGitRoute",
-          "line": 635
+          "line": 678
         },
         {
           "name": "VerifiedPatchSet",
-          "line": 2042
+          "line": 2089
         },
         {
           "name": "_bounded_git",
-          "line": 2193
+          "line": 2240
         },
         {
           "name": "GitSourceSnapshot",
-          "line": 2251
+          "line": 2298
         },
         {
           "name": "_git_target_identity_fd",
-          "line": 2458
+          "line": 2505
         },
         {
           "name": "_git_target_identity",
-          "line": 2511
+          "line": 2558
         },
         {
           "name": "LocalPatchGitPlan",
-          "line": 2533
+          "line": 2580
         },
         {
           "name": "__post_init__",
-          "line": 33
+          "line": 34
         },
         {
           "name": "branch",
-          "line": 61
+          "line": 62
         },
         {
           "name": "message",
-          "line": 65
+          "line": 66
         },
         {
           "name": "tree_sha",
-          "line": 71
+          "line": 72
         },
         {
           "name": "commit_sha",
-          "line": 84
+          "line": 85
         },
         {
           "name": "diff_bytes",
-          "line": 97
+          "line": 98
         },
         {
           "name": "manifest",
-          "line": 122
+          "line": 123
         },
         {
           "name": "plan_bytes",
-          "line": 127
+          "line": 128
         },
         {
           "name": "digest",
-          "line": 145
+          "line": 146
         },
         {
           "name": "preview",
-          "line": 148
+          "line": 149
         },
         {
           "name": "result_bytes",
-          "line": 163
+          "line": 164
         },
         {
           "name": "recipe_spec",
-          "line": 179
+          "line": 180
         },
         {
           "name": "__post_init__",
-          "line": 240
+          "line": 241
         },
         {
           "name": "from_github",
-          "line": 285
+          "line": 286
         },
         {
           "name": "add_files",
-          "line": 309
+          "line": 310
         },
         {
           "name": "__post_init__",
-          "line": 358
+          "line": 359
         },
         {
           "name": "from_model",
-          "line": 442
+          "line": 443
         },
         {
           "name": "require_public_content",
-          "line": 470
+          "line": 471
         },
         {
           "name": "branch",
-          "line": 482
+          "line": 483
         },
         {
           "name": "message",
-          "line": 486
+          "line": 487
         },
         {
           "name": "commit_payload",
-          "line": 489
+          "line": 490
         },
         {
           "name": "commit_sha_for_tree",
-          "line": 511
+          "line": 512
         },
         {
           "name": "manifest",
-          "line": 532
+          "line": 533
         },
         {
           "name": "diff_bytes",
-          "line": 543
+          "line": 544
         },
         {
           "name": "payload",
-          "line": 563
+          "line": 564
         },
         {
           "name": "digest",
-          "line": 595
+          "line": 596
         },
         {
           "name": "preview",
-          "line": 598
+          "line": 599
         },
         {
           "name": "dispatch",
-          "line": 615
+          "line": 616
         },
         {
           "name": "classify_observation",
-          "line": 619
+          "line": 620
         },
         {
           "name": "_require_native_binding",
-          "line": 644
+          "line": 687
         },
         {
           "name": "_run",
-          "line": 666
+          "line": 709
         },
         {
           "name": "prepare_patchset",
-          "line": 699
+          "line": 742
         },
         {
           "name": "for_local_patch",
-          "line": 746
+          "line": 789
         },
         {
           "name": "_local_proofs",
-          "line": 942
+          "line": 985
         },
         {
           "name": "_local_history",
-          "line": 1051
+          "line": 1094
         },
         {
           "name": "_historical_local_check",
-          "line": 1093
+          "line": 1136
         },
         {
           "name": "_prospective_local",
-          "line": 1100
+          "line": 1143
         },
         {
           "name": "_local_check",
-          "line": 1106
+          "line": 1149
         },
         {
           "name": "approve_local_patch",
-          "line": 1124
+          "line": 1167
         },
         {
           "name": "_local_warrant",
-          "line": 1169
-        },
-        {
-          "name": "_dispatch_local_patch",
-          "line": 1190
-        },
-        {
-          "name": "_complete_local_patch",
-          "line": 1278
-        },
-        {
-          "name": "__init__",
-          "line": 1402
-        },
-        {
-          "name": "_require_native_local_plan",
-          "line": 1440
-        },
-        {
-          "name": "_require_native_local_source",
-          "line": 1447
-        },
-        {
-          "name": "_local_patch_dependency_root",
-          "line": 1452
-        },
-        {
-          "name": "dependency_root",
-          "line": 1466
-        },
-        {
-          "name": "_local_patch_operation",
-          "line": 1503
-        },
-        {
-          "name": "_native_physical_ref_binding",
-          "line": 1536
-        },
-        {
-          "name": "operation",
-          "line": 1575
-        },
-        {
-          "name": "validate",
-          "line": 1600
-        },
-        {
-          "name": "_save",
-          "line": 1640
-        },
-        {
-          "name": "begin_step",
-          "line": 1680
-        },
-        {
-          "name": "bind_api",
-          "line": 1775
-        },
-        {
-          "name": "record_credential_scope",
-          "line": 1793
-        },
-        {
-          "name": "result",
-          "line": 1818
-        },
-        {
-          "name": "complete",
-          "line": 1833
-        },
-        {
-          "name": "dispatch",
-          "line": 1978
-        },
-        {
-          "name": "reconcile",
-          "line": 1994
-        },
-        {
-          "name": "__post_init__",
-          "line": 2054
-        },
-        {
-          "name": "authority",
-          "line": 2142
-        },
-        {
-          "name": "digest",
-          "line": 2146
-        },
-        {
-          "name": "preview",
-          "line": 2160
-        },
-        {
-          "name": "create_only_plan",
-          "line": 2176
-        },
-        {
-          "name": "__post_init__",
-          "line": 2261
-        },
-        {
-          "name": "digest",
-          "line": 2307
-        },
-        {
-          "name": "capture",
-          "line": 2322
-        },
-        {
-          "name": "verify",
-          "line": 2413
-        },
-        {
-          "name": "export_tree_sha256",
-          "line": 2425
-        },
-        {
-          "name": "verify_export",
-          "line": 2430
-        },
-        {
-          "name": "export",
-          "line": 2439
-        },
-        {
-          "name": "__post_init__",
-          "line": 2542
-        },
-        {
-          "name": "files",
-          "line": 2575
-        },
-        {
-          "name": "operation_id",
-          "line": 2585
-        },
-        {
-          "name": "ref",
-          "line": 2589
-        },
-        {
-          "name": "target_fingerprint",
-          "line": 2593
-        },
-        {
-          "name": "tree_objects",
-          "line": 2605
-        },
-        {
-          "name": "tree_sha",
-          "line": 2638
-        },
-        {
-          "name": "commit_data",
-          "line": 2642
-        },
-        {
-          "name": "commit_sha",
-          "line": 2663
-        },
-        {
-          "name": "objects",
-          "line": 2667
-        },
-        {
-          "name": "digest",
-          "line": 2675
-        },
-        {
-          "name": "load",
-          "line": 800
-        },
-        {
-          "name": "proofs",
-          "line": 926
-        },
-        {
-          "name": "mark",
           "line": 1212
         },
         {
-          "name": "save",
-          "line": 1334
+          "name": "_dispatch_local_patch",
+          "line": 1233
         },
         {
-          "name": "start",
-          "line": 1738
+          "name": "_complete_local_patch",
+          "line": 1321
         },
         {
-          "name": "save",
-          "line": 1798
+          "name": "__init__",
+          "line": 1445
         },
         {
-          "name": "read",
-          "line": 1823
+          "name": "_require_native_local_plan",
+          "line": 1483
         },
         {
-          "name": "save",
-          "line": 1908
+          "name": "_require_native_local_source",
+          "line": 1490
         },
         {
-          "name": "binding_check",
-          "line": 2214
+          "name": "_local_patch_dependency_root",
+          "line": 1495
         },
         {
-          "name": "git",
-          "line": 2344
+          "name": "dependency_root",
+          "line": 1509
         },
         {
-          "name": "current",
+          "name": "_local_patch_operation",
+          "line": 1546
+        },
+        {
+          "name": "_native_physical_ref_binding",
+          "line": 1579
+        },
+        {
+          "name": "operation",
+          "line": 1618
+        },
+        {
+          "name": "validate",
+          "line": 1643
+        },
+        {
+          "name": "_save",
+          "line": 1683
+        },
+        {
+          "name": "begin_step",
+          "line": 1723
+        },
+        {
+          "name": "bind_api",
+          "line": 1818
+        },
+        {
+          "name": "record_credential_scope",
+          "line": 1836
+        },
+        {
+          "name": "result",
+          "line": 1861
+        },
+        {
+          "name": "complete",
+          "line": 1880
+        },
+        {
+          "name": "dispatch",
+          "line": 2025
+        },
+        {
+          "name": "reconcile",
+          "line": 2041
+        },
+        {
+          "name": "__post_init__",
+          "line": 2101
+        },
+        {
+          "name": "authority",
+          "line": 2189
+        },
+        {
+          "name": "digest",
+          "line": 2193
+        },
+        {
+          "name": "preview",
+          "line": 2207
+        },
+        {
+          "name": "create_only_plan",
+          "line": 2223
+        },
+        {
+          "name": "__post_init__",
+          "line": 2308
+        },
+        {
+          "name": "digest",
           "line": 2354
         },
         {
+          "name": "capture",
+          "line": 2369
+        },
+        {
+          "name": "verify",
+          "line": 2460
+        },
+        {
+          "name": "export_tree_sha256",
+          "line": 2472
+        },
+        {
+          "name": "verify_export",
+          "line": 2477
+        },
+        {
+          "name": "export",
+          "line": 2486
+        },
+        {
+          "name": "__post_init__",
+          "line": 2589
+        },
+        {
+          "name": "files",
+          "line": 2622
+        },
+        {
+          "name": "operation_id",
+          "line": 2632
+        },
+        {
+          "name": "ref",
+          "line": 2636
+        },
+        {
+          "name": "target_fingerprint",
+          "line": 2640
+        },
+        {
+          "name": "tree_objects",
+          "line": 2652
+        },
+        {
+          "name": "tree_sha",
+          "line": 2685
+        },
+        {
+          "name": "commit_data",
+          "line": 2689
+        },
+        {
+          "name": "commit_sha",
+          "line": 2710
+        },
+        {
+          "name": "objects",
+          "line": 2714
+        },
+        {
+          "name": "digest",
+          "line": 2722
+        },
+        {
+          "name": "load",
+          "line": 843
+        },
+        {
+          "name": "proofs",
+          "line": 969
+        },
+        {
+          "name": "mark",
+          "line": 1255
+        },
+        {
+          "name": "save",
+          "line": 1377
+        },
+        {
+          "name": "start",
+          "line": 1781
+        },
+        {
+          "name": "save",
+          "line": 1841
+        },
+        {
+          "name": "save",
+          "line": 1955
+        },
+        {
+          "name": "binding_check",
+          "line": 2261
+        },
+        {
+          "name": "git",
+          "line": 2391
+        },
+        {
+          "name": "current",
+          "line": 2401
+        },
+        {
           "name": "pure",
-          "line": 681
+          "line": 724
         },
         {
           "name": "approve",
-          "line": 1143
+          "line": 1186
         }
       ],
       "symbolic_callees": [
@@ -11930,6 +11930,7 @@
         "TransactionContext",
         "ValueError",
         "VerifiedPatchSet",
+        "WarrantError",
         "_TreeFile",
         "_bounded_git",
         "_bounded_git().decode",
@@ -12017,6 +12018,7 @@
         "intent.get",
         "journal._run",
         "json.loads",
+        "json.loads().get",
         "ledger._key",
         "ledger.approve_in_transaction",
         "ledger.require_active_in_transaction",
@@ -12073,6 +12075,7 @@
         "range",
         "raw.split",
         "re.fullmatch",
+        "receipt.get",
         "record.split",
         "release",
         "rendered.append",
@@ -12177,13 +12180,15 @@
         "value.get",
         "value[data].items",
         "value[data].values",
+        "verify",
+        "verify_retained_github_result",
         "warrant.digest",
         "warrant.expires_at.timestamp",
         "wire_canonical",
         "zip"
       ],
-      "call_site_count": 998,
-      "call_sites_sha256": "e8773a2075b1d85c9f3af7eb268963c2bf7d05e6c32e546cb5833e24b798c201"
+      "call_site_count": 1031,
+      "call_sites_sha256": "bff5614ebe5a5efc2146f2cde99f968c1e736fcf40272d86cb259cec5932502d"
     },
     "runtime/core_admission.py": {
       "path": "runtime/core_admission.py",

@@ -25,6 +25,7 @@ from runtime.mission.git_publish import (
     CoreRemoteGitRoute,
     GitTreeSnapshot,
     RemoteGitPlan,
+    verify_retained_github_result,
 )
 from runtime.mission.governor import ReservationRequest
 from runtime.mission.intent import CoreIntentJournal
@@ -124,13 +125,31 @@ def retained_in_transaction(tx):
 
 def history(host):
     host._require_qualified_operator()
-    rows=_run(host,Capability.READ,retained_in_transaction)
-    rows=[r.payload for r in rows if r.payload.get('core_instance_id') and r.payload.get('source_chat_request_id')]
-    rows.sort(key=lambda p:p['created_at'],reverse=True)
-    return {'operations':[{'operation_id':p['operation_id'],
-        'status':'GITHUB_PROPOSAL_FAILED' if _preflight_interrupted(host,p) else p['state'],'created_at':p['created_at'],
-        'mode':'APPROVED WRITE' if p.get('warrant') else 'PROPOSE'} for p in rows[:20]],
-        'history_truncated':len(rows)>20,'authorization':authorization(host),'blockers':blockers(host),
+    def read(tx):
+        rows=[r.payload for r in retained_in_transaction(tx)
+              if r.payload.get('core_instance_id') and r.payload.get('source_chat_request_id')]
+        rows.sort(key=lambda p:p['created_at'],reverse=True)
+        operations=[]
+        for data in rows[:20]:
+            status='GITHUB_PROPOSAL_FAILED' if _preflight_interrupted(host,data) else data['state']
+            operation_id=data['operation_id']
+            if status=='GITHUB_VERIFIED':
+                status='GITHUB_UNKNOWN'
+                saved=tx.get(RecordKind.OPERATION,'github-result-'+operation_id)
+                if saved is not None:
+                    try:
+                        proposal=plain(data)
+                        plan,_=_decode(proposal)
+                        packet=_verify_native_result(host,proposal,plan,operation_id,saved)
+                        if packet['receipt']['live_verified'] is True:status='GITHUB_VERIFIED'
+                    except (AttributeError, KeyError, TypeError, ValueError):
+                        pass  # An unauthenticated index entry remains uncertain.
+            operations.append({'operation_id':operation_id,'status':status,'created_at':data['created_at'],
+                               'mode':'APPROVED WRITE' if data.get('warrant') else 'PROPOSE'})
+        return operations,len(rows)>20
+
+    operations,truncated=_run(host,Capability.READ,read)
+    return {'operations':operations,'history_truncated':truncated,'authorization':authorization(host),'blockers':blockers(host),
         'automatic_retry':False}
 
 
@@ -157,6 +176,20 @@ def _decode(data):
     base=GitTreeSnapshot(p['base_tree_sha'],{k:tuple(v) for k,v in data['base_entries'].items()})
     require(plan.payload()==p,'GITHUB_PLAN_INTEGRITY')
     return plan,base
+
+
+def _verify_native_result(host,data,plan,operation_id,saved):
+    # Reconstruct the original bindings without asking the current warrant ledger for execution authority.
+    operation,raw_warrant=data.get('operation'),data.get('warrant')
+    require(type(operation) is dict and type(raw_warrant) is dict,'GITHUB_RESULT_INTEGRITY')
+    warrant=EffectWarrant.from_dict(raw_warrant)
+    operation_hash='sha256:'+canonical_sha256(operation)
+    result=verify_retained_github_result(saved.payload,operation_id=operation_id,plan_digest=plan.digest,
+        mode='LIVE',signer_spki=host.identity.spki)
+    receipt=result['receipt']
+    require(receipt.get('operation_hash')==warrant.operation_hash==operation_hash
+            and receipt.get('warrant_digest')==warrant.digest(),'GITHUB_RESULT_INTEGRITY')
+    return result
 
 
 def _check(host,data,*,write):
@@ -316,7 +349,11 @@ def view(host,operation_id):
         if time.time()>=data['expires_at']:result['blockers'].append('GITHUB_REVIEW_EXPIRED')
         if data.get('stop_requested') is True:result['blockers'].append('GITHUB_STOPPED')
         saved=_run(host,Capability.READ,lambda tx:tx.get(RecordKind.OPERATION,'github-result-'+operation_id))
-        if saved is not None:result['result']=plain(saved.payload['result'])
+        if saved is not None:
+            try:
+                result['result']=_verify_native_result(host,data,plan,operation_id,saved)
+            except (KeyError, TypeError, ValueError):
+                raise wire.MobileError(409) from None
         result['approval_available']=data['state']=='GITHUB_PROPOSED' and not result['blockers']
         active=_worker_active(host,operation_id)
         result['readback_available']=data.get('warrant') is not None and not active
@@ -329,6 +366,10 @@ def view(host,operation_id):
         # Read projection only: a lost preflight ACK never grants execution.
         result.update(status='GITHUB_PROPOSAL_FAILED',error='GITHUB_PROPOSAL_INTERRUPTED')
     if 'policy_decision' in data:result['policy_decision']=data['policy_decision']
+    if result['status']=='GITHUB_VERIFIED':
+        receipt=result.get('result',{}).get('receipt',{})
+        if receipt.get('live_verified') is not True:
+            raise wire.MobileError(409)
     result['signature']=host.identity.sign(result)
     require(len(wire.canonical(result))<=wire.RESPONSE_LIMIT,'GITHUB_REVIEW_RESPONSE_LIMIT')
     return result
