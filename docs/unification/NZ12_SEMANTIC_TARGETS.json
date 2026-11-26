@@ -11471,8 +11471,8 @@
     },
     "runtime/mission/git_publish.py": {
       "path": "runtime/mission/git_publish.py",
-      "git_blob": "3d00422ddd8a60c55ce64e7e487d43e4fe51f796",
-      "sha256": "285999b11e01481365e76a8bbe475efd870488a69e13f6544f1fe5d1c39a1b22",
+      "git_blob": "c3f9122d37c125dd97a0189047f846f56d5cceb3",
+      "sha256": "1eddee46815f00e0f2c78dbaf0c67a0f2bda401635dc4115085f7779616cd37f",
       "definitions": [
         {
           "name": "LocalGitPlan",
@@ -11504,27 +11504,27 @@
         },
         {
           "name": "VerifiedPatchSet",
-          "line": 2089
+          "line": 2117
         },
         {
           "name": "_bounded_git",
-          "line": 2240
+          "line": 2268
         },
         {
           "name": "GitSourceSnapshot",
-          "line": 2298
+          "line": 2326
         },
         {
           "name": "_git_target_identity_fd",
-          "line": 2505
+          "line": 2533
         },
         {
           "name": "_git_target_identity",
-          "line": 2558
+          "line": 2586
         },
         {
           "name": "LocalPatchGitPlan",
-          "line": 2580
+          "line": 2608
         },
         {
           "name": "__post_init__",
@@ -11660,239 +11660,239 @@
         },
         {
           "name": "_local_proofs",
-          "line": 985
+          "line": 994
         },
         {
           "name": "_local_history",
-          "line": 1094
+          "line": 1103
         },
         {
           "name": "_historical_local_check",
-          "line": 1136
+          "line": 1145
         },
         {
           "name": "_prospective_local",
-          "line": 1143
+          "line": 1152
         },
         {
           "name": "_local_check",
-          "line": 1149
+          "line": 1158
         },
         {
           "name": "approve_local_patch",
-          "line": 1167
+          "line": 1176
         },
         {
           "name": "_local_warrant",
-          "line": 1212
+          "line": 1221
         },
         {
           "name": "_dispatch_local_patch",
-          "line": 1233
+          "line": 1242
         },
         {
           "name": "_complete_local_patch",
-          "line": 1321
+          "line": 1342
         },
         {
           "name": "__init__",
-          "line": 1445
+          "line": 1470
         },
         {
           "name": "_require_native_local_plan",
-          "line": 1483
+          "line": 1508
         },
         {
           "name": "_require_native_local_source",
-          "line": 1490
+          "line": 1515
         },
         {
           "name": "_local_patch_dependency_root",
-          "line": 1495
+          "line": 1520
         },
         {
           "name": "dependency_root",
-          "line": 1509
+          "line": 1534
         },
         {
           "name": "_local_patch_operation",
-          "line": 1546
+          "line": 1571
         },
         {
           "name": "_native_physical_ref_binding",
-          "line": 1579
+          "line": 1607
         },
         {
           "name": "operation",
-          "line": 1618
+          "line": 1646
         },
         {
           "name": "validate",
-          "line": 1643
+          "line": 1671
         },
         {
           "name": "_save",
-          "line": 1683
+          "line": 1711
         },
         {
           "name": "begin_step",
-          "line": 1723
+          "line": 1751
         },
         {
           "name": "bind_api",
-          "line": 1818
+          "line": 1846
         },
         {
           "name": "record_credential_scope",
-          "line": 1836
+          "line": 1864
         },
         {
           "name": "result",
-          "line": 1861
+          "line": 1889
         },
         {
           "name": "complete",
-          "line": 1880
+          "line": 1908
         },
         {
           "name": "dispatch",
-          "line": 2025
+          "line": 2053
         },
         {
           "name": "reconcile",
-          "line": 2041
+          "line": 2069
         },
         {
           "name": "__post_init__",
-          "line": 2101
+          "line": 2129
         },
         {
           "name": "authority",
-          "line": 2189
+          "line": 2217
         },
         {
           "name": "digest",
-          "line": 2193
+          "line": 2221
         },
         {
           "name": "preview",
-          "line": 2207
+          "line": 2235
         },
         {
           "name": "create_only_plan",
-          "line": 2223
+          "line": 2251
         },
         {
           "name": "__post_init__",
-          "line": 2308
+          "line": 2336
         },
         {
           "name": "digest",
-          "line": 2354
+          "line": 2382
         },
         {
           "name": "capture",
-          "line": 2369
+          "line": 2397
         },
         {
           "name": "verify",
-          "line": 2460
+          "line": 2488
         },
         {
           "name": "export_tree_sha256",
-          "line": 2472
+          "line": 2500
         },
         {
           "name": "verify_export",
-          "line": 2477
+          "line": 2505
         },
         {
           "name": "export",
-          "line": 2486
+          "line": 2514
         },
         {
           "name": "__post_init__",
-          "line": 2589
+          "line": 2617
         },
         {
           "name": "files",
-          "line": 2622
+          "line": 2650
         },
         {
           "name": "operation_id",
-          "line": 2632
+          "line": 2660
         },
         {
           "name": "ref",
-          "line": 2636
+          "line": 2664
         },
         {
           "name": "target_fingerprint",
-          "line": 2640
+          "line": 2668
         },
         {
           "name": "tree_objects",
-          "line": 2652
+          "line": 2680
         },
         {
           "name": "tree_sha",
-          "line": 2685
+          "line": 2713
         },
         {
           "name": "commit_data",
-          "line": 2689
+          "line": 2717
         },
         {
           "name": "commit_sha",
-          "line": 2710
+          "line": 2738
         },
         {
           "name": "objects",
-          "line": 2714
+          "line": 2742
         },
         {
           "name": "digest",
-          "line": 2722
+          "line": 2750
         },
         {
           "name": "load",
-          "line": 843
+          "line": 851
         },
         {
           "name": "proofs",
-          "line": 969
+          "line": 978
         },
         {
           "name": "mark",
-          "line": 1255
+          "line": 1273
         },
         {
           "name": "save",
-          "line": 1377
+          "line": 1402
         },
         {
           "name": "start",
-          "line": 1781
+          "line": 1809
         },
         {
           "name": "save",
-          "line": 1841
+          "line": 1869
         },
         {
           "name": "save",
-          "line": 1955
+          "line": 1983
         },
         {
           "name": "binding_check",
-          "line": 2261
+          "line": 2289
         },
         {
           "name": "git",
-          "line": 2391
+          "line": 2419
         },
         {
           "name": "current",
-          "line": 2401
+          "line": 2429
         },
         {
           "name": "pure",
@@ -11900,7 +11900,7 @@
         },
         {
           "name": "approve",
-          "line": 1186
+          "line": 1195
         }
       ],
       "symbolic_callees": [
@@ -11910,6 +11910,7 @@
         "<dynamic>.read_bytes",
         "<dynamic>.total_seconds",
         "Applied",
+        "AssertionError",
         "BoundedPatchSetPolicy",
         "CoreServiceGuard.dispatch_registered_remote_git",
         "DecisionDependencyRoot",
@@ -12009,6 +12010,7 @@
         "governor._load",
         "groups.setdefault",
         "groups.setdefault().append",
+        "history.get",
         "identity",
         "instance._local_history",
         "instance._local_proofs",
@@ -12069,6 +12071,8 @@
         "plan.require_public_content",
         "policy.evaluate",
         "policy.recheck",
+        "port.dispatch",
+        "port.metadata",
         "preparation.__post_init__",
         "profile.validate_patch",
         "proofs.append",
@@ -12187,8 +12191,8 @@
         "wire_canonical",
         "zip"
       ],
-      "call_site_count": 1031,
-      "call_sites_sha256": "bff5614ebe5a5efc2146f2cde99f968c1e736fcf40272d86cb259cec5932502d"
+      "call_site_count": 1047,
+      "call_sites_sha256": "3bebd64862247cadf0739dd0ee9ff98e4e087447c3ec4f05ecd6469252abf9f2"
     },
     "runtime/core_admission.py": {
       "path": "runtime/core_admission.py",

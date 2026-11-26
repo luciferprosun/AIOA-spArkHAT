@@ -15,11 +15,8 @@ from unittest.mock import patch
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 
-from lab.archaioa.warrant import EffectWarrant
 from runtime.core_admission import Capability
 from runtime.memory_patch.persistence.ports import RecordKind, TransactionContext
-from runtime.mission.coding_tasks import CoreCodingTasks
-from runtime.mission.patch_capsule import CorePatchCapsules
 from runtime.mobile_gateway.wire import Identity
 from runtime.red_hat.authenticated_boundary import (
     AUTHORIZATION, READBACK, AuthenticatedFixtureRecoveryPort, authorize_fixture,
@@ -35,7 +32,6 @@ from runtime.red_hat.verifier import sign
 from runtime.red_hat.witness import RegisteredExecutor
 from test_redhat_broker_protocol import NOW
 import test_redhat_native_cas_broker as cas
-import test_redhat_rh04_native_task_gate as rh04
 
 
 def identity():
@@ -123,6 +119,11 @@ def launch(root, role, filename, stage):
 
 
 def recover_core(root):
+    from lab.archaioa.warrant import EffectWarrant
+    from runtime.mission.coding_tasks import CoreCodingTasks
+    from runtime.mission.patch_capsule import CorePatchCapsules
+    import test_redhat_rh04_native_task_gate as rh04
+
     config = json.load(sys.stdin)
     spec = json.loads((root / "rh06-spec.json").read_text())
     binding = NativeExecutionBindingV1.from_wire(spec["binding"])
@@ -159,7 +160,11 @@ def recover_core(root):
 
 
 class AuthenticatedBoundaryTests(unittest.TestCase):
+    native_plan_ref = False
+
     def setUp(self):
+        import test_redhat_rh04_native_task_gate as rh04
+
         self.broker = cas.CasBrokerTests("test_lost_ack_one_settlement_zero_actual_redispatch")
         self.addCleanup(self.broker.doCleanups)
         self.broker.workspace()
@@ -167,12 +172,18 @@ class AuthenticatedBoundaryTests(unittest.TestCase):
         self.anchor = cas.fd(self.root)
         self.addCleanup(os.close, self.anchor)
         req = self.broker.request
+        if self.native_plan_ref:
+            values = asdict(req)
+            values.pop("commit_permit_digest")
+            values["broker_epoch"] = 1
+            self.broker.request = req = BrokerRequest.for_fixture(**values)
         metadata = {**physical_context(self.anchor), "nonce": secrets.token_hex(32),
                     **{key: getattr(req, key) for key in (
                         "executor_id", "executor_key_id", "key_epoch", "broker_epoch",
                         "issued_at", "expires_at",
                     )}}
-        self.case = rh04._prepare_native_task_case(self.root, self.broker, rh06_fixture=metadata)
+        self.case = rh04._prepare_native_task_case(self.root, self.broker, rh06_fixture=metadata,
+                                                   native_plan_ref=self.native_plan_ref)
         self.fx, self.tasks = self.case["fx"], self.case["tasks"]
         self.addCleanup(self.fx.close)
         self.addCleanup(self.tasks.close)
@@ -376,6 +387,8 @@ class AuthenticatedBoundaryTests(unittest.TestCase):
         self.assertEqual(1, len(self.broker.dispatches()))
 
     def test_signed_report_refuses_same_oid_replacement(self):
+        import test_redhat_rh04_native_task_gate as rh04
+
         self.assertTrue(self.dispatch())
         rh04._replace_ref_with_same_oid(self.root, self.binding.request)
         with self.assertRaisesRegex(CoreAdapterError, "WITNESS_NOT_SETTLEMENT_GRADE"):

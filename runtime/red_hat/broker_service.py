@@ -18,7 +18,7 @@ from runtime.red_hat.witness import persist_witness, witness_payload
 
 
 def _publish(target, request, guard, authorize, clock, fault, stack, final_check):
-    fd = os.open(".", os.O_TMPFILE | os.O_RDWR | os.O_CLOEXEC, 0o400, dir_fd=target.heads)
+    fd = os.open(".", os.O_TMPFILE | os.O_RDWR | os.O_CLOEXEC, 0o400, dir_fd=target.ref_parent)
     stack.callback(os.close, fd)
     data = request.new_oid.encode("ascii") + b"\n"
     require(os.write(fd, data) == len(data), "BROKER_REF_WRITE")
@@ -35,9 +35,9 @@ def _publish(target, request, guard, authorize, clock, fault, stack, final_check
         authorize(released_at)
         final_check()
         # The exclusive create is the sole irreversible CAS attempt.
-        os.link(f"/proc/self/fd/{fd}", target.leaf(request), dst_dir_fd=target.heads,
+        os.link(f"/proc/self/fd/{fd}", target.leaf(request), dst_dir_fd=target.ref_parent,
                 follow_symlinks=True)
-        os.fsync(target.heads)
+        os.fsync(target.ref_parent)
         published = os.fstat(fd)
         stamp = (*file_identity(original), published.st_ctime_ns)
         require(published.st_nlink == 1 and target.observe(request) == stamp,

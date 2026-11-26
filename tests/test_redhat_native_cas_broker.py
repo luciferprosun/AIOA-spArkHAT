@@ -385,6 +385,36 @@ class CasBrokerTests(unittest.TestCase):
                 self.assertFalse(denied["settlement_supported"])
                 self.assertFalse(denied["settled"])
 
+    def test_native_ref_is_published_in_its_bound_parent(self):
+        self.workspace()
+        heads = self.root / "repo/refs/heads"
+        parent = heads / "aioa"
+        parent.mkdir(mode=0o700)
+        ref = "refs/heads/aioa/nz11-" + "a" * 32
+        fields = asdict(self.request)
+        fields.pop("commit_permit_digest")
+        fields.update(exact_ref=ref, ref_directory_inode=parent.stat().st_ino)
+        self.request = BrokerRequest.for_fixture(**fields)
+        self.ref = self.root / "repo" / ref
+        self.spec["request"] = self.request.to_wire()
+        (self.root / "fixture.json").write_text(json.dumps(self.spec))
+        self.assertTrue(self.run_broker()["ack"])
+        self.assertEqual(self.request.new_oid, self.ref.read_text().strip())
+        self.assertFalse((heads / self.ref.name).exists())
+        self.assertTrue(self.recover()["settlement_supported"])
+
+    def test_unbound_nested_ref_cannot_alias_a_direct_ref(self):
+        self.workspace()
+        fields = asdict(self.request)
+        fields.pop("commit_permit_digest")
+        fields["exact_ref"] = "refs/heads/other/" + self.ref.name
+        self.request = BrokerRequest.for_fixture(**fields)
+        self.spec["request"] = self.request.to_wire()
+        (self.root / "fixture.json").write_text(json.dumps(self.spec))
+        self.assertFalse(self.run_broker()["ack"])
+        self.assertFalse(self.ref.exists())
+        self.assertEqual([], self.dispatches())
+
     def test_invalid_storage_refuses_publication(self):
         for damage in ("corrupt_commit", "packed_refs", "config"):
             with self.subTest(damage=damage):

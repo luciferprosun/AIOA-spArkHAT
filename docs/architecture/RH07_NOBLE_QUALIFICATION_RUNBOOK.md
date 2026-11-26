@@ -65,3 +65,35 @@ revision changes. Record the exact SHA/tree, role UIDs/GIDs, observable
 ordering, release/attempt IDs only as digests, one-link/settlement counters,
 failures, and sanitized denial evidence. Archive no secrets, raw machine
 identity, credentials, or private-key contents.
+
+
+## Normal Native application fixture
+
+Use the operator pin template and management receipt from
+[Noble qualification](NOBLE_QUALIFICATION_OPERATOR.md). Pin the byte digest
+of the prepared NZ13 runtime snapshot map in `native.owned_runtime_manifest_sha256`.
+Create a fresh 0700 `owned-application` scratch under the manifest's
+`/run/aioa-qualification/<session>` directory. Run as the unprivileged
+fixture operator in the offline disposable host.
+
+```sh
+PYTHONPATH=.:runtime:tests python3 -B tests/nz_native_qualification_acceptance.py \
+  --manifest "$manifest" --manifest-sha256 "$trusted_digest" \
+  --management-receipt "$management_receipt" --runtime-manifest "$snapshot_map"
+```
+
+The trusted fixture installs a typed publication port in the retained Native
+graph before reviewing the capsule. Core signs the persisted START, the
+registered broker consumes the attempt and rechecks release on the applying
+thread. Only the dedicated verifier path can settle. The single initial
+broker and fresh Core record dispatch entries, physical link attempts and
+changes to the original intent revision separately. Preserve the private
+output, signed evidence and source/tree alongside the host receipt.
+
+The application fixture uses one UID and synthetic admission. The supervisor
+runs distinct-UID permission probes only. The executable broker still refuses
+a different Core UID, and the Core and verifier storage readers require
+owner-private repository views. A positive cross-UID run needs enforceable
+role-specific access to the same physical repository and evidence, authenticated
+mapping of those views and a broker using the protected signer. No combination
+of a same-UID publication and separate permission probes qualifies that run.

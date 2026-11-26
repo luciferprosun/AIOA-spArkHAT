@@ -159,7 +159,7 @@ def _recover_native_task_from_restarted_core(config_path, *, lose_settlement_ack
         fixture.close()
 
 
-def _prepare_native_task_case(root, broker, *, rh06_fixture=None):
+def _prepare_native_task_case(root, broker, *, rh06_fixture=None, native_plan_ref=False):
     """Create one synthetic original task/START bound to an RH-02 fixture."""
     base = broker.request
     fx = Fixture(Path(root) / "native-core.json")
@@ -195,6 +195,14 @@ def _prepare_native_task_case(root, broker, *, rh06_fixture=None):
         {"receipt": capsule_receipt, "signature": identity.sign(capsule_receipt),
          "signer_spki": identity.spki})
 
+    if native_plan_ref:
+        parent = broker.root / "repo/refs/heads/aioa"
+        parent.mkdir(mode=0o700)
+        values = asdict(base)
+        values.pop("commit_permit_digest")
+        values.update(exact_ref="refs/heads/aioa/nz11-" + capsule.digest[:32],
+                      ref_directory_inode=parent.stat().st_ino)
+        base = BrokerRequest.for_fixture(**values)
     plan_digest = canonical_sha256({"fixture": "native-plan-v3", "capsule": capsule.digest})
     payload = {
         "schema": "aioa.local-operation.v3", "principal_session_id": fx.p().actor_session_id,
