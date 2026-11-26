@@ -12,6 +12,7 @@ import json
 import sys
 import time
 from collections.abc import Callable, Mapping
+from contextlib import nullcontext
 from dataclasses import dataclass, field
 from enum import Enum
 from types import MappingProxyType
@@ -298,6 +299,11 @@ _IN_TRANSACTION = contextvars.ContextVar("memory_patch_in_transaction", default=
 T = TypeVar("T")
 
 
+def transaction_active() -> bool:
+    """Whether the current context is inside a retryable Core transaction."""
+    return _IN_TRANSACTION.get()
+
+
 class TransactionRunner:
     def __init__(
         self,
@@ -387,9 +393,13 @@ class TransactionRunner:
     def close(self) -> None:
         if self._closed:
             return
-        self._closed = True
-        if self._factory is not None and self._owns_factory:
-            self._factory.close()
+        gate = getattr(self, "execution_gate", None)
+        with gate.hold() if gate is not None else nullcontext():
+            if self._closed:
+                return
+            self._closed = True
+            if self._factory is not None and self._owns_factory:
+                self._factory.close()
 
 
 class LocalCoreRecordFactory:
