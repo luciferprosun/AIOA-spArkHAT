@@ -16301,8 +16301,8 @@
     },
     "runtime/meta_hackathon/runtime_adapter.py": {
       "path": "runtime/meta_hackathon/runtime_adapter.py",
-      "git_blob": "17c6bf4cc331084e9e9be36eb283a031b167b3b5",
-      "sha256": "48256c0e232d1990b923edaf99978775db33f6cc3a2646ab2bdaeb2354dc30da",
+      "git_blob": "b2159d8bdf912791174e6120bc9bf105a269a69c",
+      "sha256": "cb96036124818d6b4c25490af175e2dcdd07e35ba9ad19d7ba2f4b7a87594e89",
       "definitions": [
         {
           "name": "__getattr__",
