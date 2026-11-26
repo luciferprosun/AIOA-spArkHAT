@@ -1,0 +1,1166 @@
+{
+  "recorded_utc": "2026-11-26T05:07:21Z",
+  "pr": {
+    "head": "933be272d1dabe99dad59108fda8648018d93c50",
+    "base": "853484d7fe39fabf2922ff87fcedd0a980807817",
+    "tree": "455b274b54e8cc77b5833cf5b6ceb3272bb1e849",
+    "synthetic_merge": "f9b14de0a8d7bdb14b70597897da4fdaed667810",
+    "draft": true,
+    "merged": false,
+    "mergeable_state": "clean"
+  },
+  "branch_protection": {
+    "http_status": 200,
+    "enforce_admins": true,
+    "strict": true,
+    "contexts": [
+      "Installed packaging (3.11)",
+      "Installed packaging (3.12)",
+      "certify (3.11)",
+      "certify (3.12)"
+    ],
+    "required_approving_review_count": 0,
+    "codeowner_reviews": false,
+    "ruleset_count": 0,
+    "effective_branch_rules": 0
+  },
+  "formal_reviews": [],
+  "checks": [
+    {
+      "name": "Installed packaging (3.11)",
+      "id": 139696744055,
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/luciferprosun/AIOA-spArkHAT/actions/runs/45750474198/job/139696744055"
+    },
+    {
+      "name": "certify (3.12)",
+      "id": 139696704921,
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/luciferprosun/AIOA-spArkHAT/actions/runs/45750474198/job/139696704921"
+    },
+    {
+      "name": "Installed packaging (3.12)",
+      "id": 139696703860,
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/luciferprosun/AIOA-spArkHAT/actions/runs/45750474198/job/139696703860"
+    },
+    {
+      "name": "certify (3.11)",
+      "id": 139696702626,
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/luciferprosun/AIOA-spArkHAT/actions/runs/45750474198/job/139696702626"
+    },
+    {
+      "name": "CodeQL",
+      "id": 139676944928,
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/luciferprosun/AIOA-spArkHAT/runs/139676944928"
+    },
+    {
+      "name": "analyze",
+      "id": 139676768515,
+      "status": "completed",
+      "conclusion": "skipped",
+      "html_url": "https://github.com/luciferprosun/AIOA-spArkHAT/actions/runs/45750474183/job/139676768515"
+    },
+    {
+      "name": "Analyze (actions)",
+      "id": 139676764974,
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/luciferprosun/AIOA-spArkHAT/actions/runs/45750471926/job/139676764974"
+    },
+    {
+      "name": "Analyze (javascript-typescript)",
+      "id": 139676764782,
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/luciferprosun/AIOA-spArkHAT/actions/runs/45750471926/job/139676764782"
+    },
+    {
+      "name": "Analyze (python)",
+      "id": 139676764751,
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/luciferprosun/AIOA-spArkHAT/actions/runs/45750471926/job/139676764751"
+    },
+    {
+      "name": "Analyze (c-cpp)",
+      "id": 139676764619,
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/luciferprosun/AIOA-spArkHAT/actions/runs/45750471926/job/139676764619"
+    }
+  ],
+  "jobs": [
+    {
+      "name": "certify (3.12)",
+      "run_id": 45665799283,
+      "run_attempt": 1,
+      "id": 139387477222,
+      "head_sha": "f28f001784158973ee35048ef5dbfe6b04610c7a",
+      "conclusion": "success",
+      "html_url": "https://github.com/luciferprosun/AIOA-spArkHAT/actions/runs/45665799283/job/139387477222",
+      "labels": [
+        "ubuntu-24.04"
+      ],
+      "tree": "11db20a7ebbac9ee5842e1b8510169987672c486",
+      "workflow": ".github/workflows/nonzero-pr.yml",
+      "workflow_blob": "c9a228dfe35775b4391bafc95df9c7e7e4b50afd",
+      "checkout": "f28f001784158973ee35048ef5dbfe6b04610c7a",
+      "image": "ubuntu-24.04",
+      "image_release": "20261116.376.1",
+      "image_os_env": null,
+      "provider": "Azure",
+      "region": "eastus2",
+      "OS": "24.04.5",
+      "python_matrix": [
+        "3.12.16"
+      ],
+      "python_dirs": [
+        "/opt/hostedtoolcache/Python/3.12.16/x64"
+      ],
+      "kernel": null,
+      "cpu_count": null,
+      "ram_observed": null,
+      "disk": null,
+      "chrome_sha256": null,
+      "chrome_package": null,
+      "chrome_gate": {
+        "gate": "chrome-rest",
+        "exit_code": 0,
+        "status": "PASS",
+        "log_sha256": "17e3878fad1563499bd87bbcb7ec8e3838270891dc8f12dd877469460a771c45"
+      },
+      "full_suite": {
+        "tested_sha": "f28f001784158973ee35048ef5dbfe6b04610c7a",
+        "tests_run": 4494,
+        "unique_ids": 4494,
+        "test_ids_sha256": "bed4bdaaf4c3ac6178f3613fbab3ec96dd4b612d3e4422de0f20eeb574fa15cf",
+        "skips": 5
+      },
+      "rh04_named_ok": [
+        "test_git_plumbing_parent_replacement_is_rejected_before_lock_creation",
+        "test_git_plumbing_v3_ref_link_ack_cleans_both_git_locks"
+      ],
+      "rh06_named_ok": 0
+    },
+    {
+      "name": "certify (3.11)",
+      "run_id": 45665799283,
+      "run_attempt": 1,
+      "id": 139387477472,
+      "head_sha": "f28f001784158973ee35048ef5dbfe6b04610c7a",
+      "conclusion": "success",
+      "html_url": "https://github.com/luciferprosun/AIOA-spArkHAT/actions/runs/45665799283/job/139387477472",
+      "labels": [
+        "ubuntu-24.04"
+      ],
+      "tree": "11db20a7ebbac9ee5842e1b8510169987672c486",
+      "workflow": ".github/workflows/nonzero-pr.yml",
+      "workflow_blob": "c9a228dfe35775b4391bafc95df9c7e7e4b50afd",
+      "checkout": "f28f001784158973ee35048ef5dbfe6b04610c7a",
+      "image": "ubuntu-24.04",
+      "image_release": "20261116.376.1",
+      "image_os_env": null,
+      "provider": "Azure",
+      "region": "northcentralus",
+      "OS": "24.04.5",
+      "python_matrix": [
+        "3.11.18"
+      ],
+      "python_dirs": [
+        "/opt/hostedtoolcache/Python/3.11.18/x64"
+      ],
+      "kernel": null,
+      "cpu_count": null,
+      "ram_observed": null,
+      "disk": null,
+      "chrome_sha256": null,
+      "chrome_package": null,
+      "chrome_gate": {
+        "gate": "chrome-rest",
+        "exit_code": 0,
+        "status": "PASS",
+        "log_sha256": "460e8e1f714f0a2bfae49cd20117da73a7ccad1430b1494e2d75752f1d04dcda"
+      },
+      "full_suite": {
+        "tested_sha": "f28f001784158973ee35048ef5dbfe6b04610c7a",
+        "tests_run": 4494,
+        "unique_ids": 4494,
+        "test_ids_sha256": "bed4bdaaf4c3ac6178f3613fbab3ec96dd4b612d3e4422de0f20eeb574fa15cf",
+        "skips": 5
+      },
+      "rh04_named_ok": [
+        "test_git_plumbing_parent_replacement_is_rejected_before_lock_creation",
+        "test_git_plumbing_v3_ref_link_ack_cleans_both_git_locks"
+      ],
+      "rh06_named_ok": 0
+    },
+    {
+      "name": "certify (3.12)",
+      "run_id": 45682246342,
+      "run_attempt": 1,
+      "id": 139445532022,
+      "head_sha": "853484d7fe39fabf2922ff87fcedd0a980807817",
+      "conclusion": "failure",
+      "html_url": "https://github.com/luciferprosun/AIOA-spArkHAT/actions/runs/45682246342/job/139445532022",
+      "labels": [
+        "ubuntu-24.04"
+      ],
+      "tree": "11db20a7ebbac9ee5842e1b8510169987672c486",
+      "workflow": ".github/workflows/nonzero-pr.yml",
+      "workflow_blob": "c9a228dfe35775b4391bafc95df9c7e7e4b50afd",
+      "checkout": "853484d7fe39fabf2922ff87fcedd0a980807817",
+      "image": "ubuntu-24.04",
+      "image_release": "20261116.133.1",
+      "image_os_env": null,
+      "provider": "AWS",
+      "region": "us-west-2",
+      "OS": "24.04.5",
+      "python_matrix": [
+        "3.12.16"
+      ],
+      "python_dirs": [
+        "/opt/hostedtoolcache/Python/3.12.16/x64"
+      ],
+      "kernel": null,
+      "cpu_count": null,
+      "ram_observed": null,
+      "disk": null,
+      "chrome_sha256": null,
+      "chrome_package": null,
+      "chrome_gate": {
+        "gate": "chrome-rest",
+        "exit_code": 1,
+        "status": "FAIL",
+        "log_sha256": "c4ccfef4d38b6de18cfc04e5eddb6e22457428acb76c1675bf19bca00263ad7f"
+      },
+      "full_suite": null,
+      "startup_error": {
+        "elapsed_seconds": 15.015,
+        "command_id": 1,
+        "returncode": null,
+        "buffered_bytes": 0,
+        "process": {
+          "state": "D",
+          "minor_faults": 16687,
+          "major_faults": 1005,
+          "user_ticks": 6,
+          "system_ticks": 10,
+          "schedstat": [
+            93822567,
+            136852,
+            1175
+          ],
+          "wchan": "folio_wait_bit_common"
+        }
+      },
+      "rh04_named_ok": [],
+      "rh06_named_ok": 0
+    },
+    {
+      "name": "certify (3.11)",
+      "run_id": 45682246342,
+      "run_attempt": 1,
+      "id": 139445532429,
+      "head_sha": "853484d7fe39fabf2922ff87fcedd0a980807817",
+      "conclusion": "failure",
+      "html_url": "https://github.com/luciferprosun/AIOA-spArkHAT/actions/runs/45682246342/job/139445532429",
+      "labels": [
+        "ubuntu-24.04"
+      ],
+      "tree": "11db20a7ebbac9ee5842e1b8510169987672c486",
+      "workflow": ".github/workflows/nonzero-pr.yml",
+      "workflow_blob": "c9a228dfe35775b4391bafc95df9c7e7e4b50afd",
+      "checkout": "853484d7fe39fabf2922ff87fcedd0a980807817",
+      "image": "ubuntu-24.04",
+      "image_release": "20261122.23.1",
+      "image_os_env": null,
+      "provider": "AWS",
+      "region": "us-west-2",
+      "OS": "24.04.5",
+      "python_matrix": [
+        "3.11.18"
+      ],
+      "python_dirs": [
+        "/opt/hostedtoolcache/Python/3.11.18/x64"
+      ],
+      "kernel": null,
+      "cpu_count": null,
+      "ram_observed": null,
+      "disk": null,
+      "chrome_sha256": null,
+      "chrome_package": null,
+      "chrome_gate": {
+        "gate": "chrome-rest",
+        "exit_code": 1,
+        "status": "FAIL",
+        "log_sha256": "733b6da9f0b8b5d354e55e2f33bc0bedee154b332531593f5e0b897618847e9e"
+      },
+      "full_suite": null,
+      "startup_error": {
+        "elapsed_seconds": 15.015,
+        "command_id": 1,
+        "returncode": null,
+        "buffered_bytes": 0,
+        "process": {
+          "state": "S",
+          "minor_faults": 13191,
+          "major_faults": 838,
+          "user_ticks": 3,
+          "system_ticks": 8,
+          "schedstat": [
+            65322549,
+            98199,
+            959
+          ],
+          "wchan": "futex_do_wait"
+        }
+      },
+      "rh04_named_ok": [],
+      "rh06_named_ok": 0
+    },
+    {
+      "name": "certify (3.12)",
+      "run_id": 45682246342,
+      "run_attempt": 2,
+      "id": 139451717438,
+      "head_sha": "853484d7fe39fabf2922ff87fcedd0a980807817",
+      "conclusion": "success",
+      "html_url": "https://github.com/luciferprosun/AIOA-spArkHAT/actions/runs/45682246342/job/139451717438",
+      "labels": [
+        "ubuntu-24.04"
+      ],
+      "tree": "11db20a7ebbac9ee5842e1b8510169987672c486",
+      "workflow": ".github/workflows/nonzero-pr.yml",
+      "workflow_blob": "c9a228dfe35775b4391bafc95df9c7e7e4b50afd",
+      "checkout": "853484d7fe39fabf2922ff87fcedd0a980807817",
+      "image": "ubuntu-24.04",
+      "image_release": "20261116.376.1",
+      "image_os_env": null,
+      "provider": "Azure",
+      "region": "centralus",
+      "OS": "24.04.5",
+      "python_matrix": [
+        "3.12.16"
+      ],
+      "python_dirs": [
+        "/opt/hostedtoolcache/Python/3.12.16/x64"
+      ],
+      "kernel": null,
+      "cpu_count": null,
+      "ram_observed": null,
+      "disk": null,
+      "chrome_sha256": null,
+      "chrome_package": null,
+      "chrome_gate": {
+        "gate": "chrome-rest",
+        "exit_code": 0,
+        "status": "PASS",
+        "log_sha256": "d897fece592c99ef05d9b1dd94a22dd7dfc4d0591108234cd4b7b1f7b026b7db"
+      },
+      "full_suite": {
+        "tested_sha": "853484d7fe39fabf2922ff87fcedd0a980807817",
+        "tests_run": 4494,
+        "unique_ids": 4494,
+        "test_ids_sha256": "bed4bdaaf4c3ac6178f3613fbab3ec96dd4b612d3e4422de0f20eeb574fa15cf",
+        "skips": 5
+      },
+      "rh04_named_ok": [
+        "test_git_plumbing_parent_replacement_is_rejected_before_lock_creation",
+        "test_git_plumbing_v3_ref_link_ack_cleans_both_git_locks"
+      ],
+      "rh06_named_ok": 0
+    },
+    {
+      "name": "certify (3.11)",
+      "run_id": 45682246342,
+      "run_attempt": 2,
+      "id": 139451718003,
+      "head_sha": "853484d7fe39fabf2922ff87fcedd0a980807817",
+      "conclusion": "failure",
+      "html_url": "https://github.com/luciferprosun/AIOA-spArkHAT/actions/runs/45682246342/job/139451718003",
+      "labels": [
+        "ubuntu-24.04"
+      ],
+      "tree": "11db20a7ebbac9ee5842e1b8510169987672c486",
+      "workflow": ".github/workflows/nonzero-pr.yml",
+      "workflow_blob": "c9a228dfe35775b4391bafc95df9c7e7e4b50afd",
+      "checkout": "853484d7fe39fabf2922ff87fcedd0a980807817",
+      "image": "ubuntu-24.04",
+      "image_release": "20261116.133.1",
+      "image_os_env": null,
+      "provider": "AWS",
+      "region": "us-east-1",
+      "OS": "24.04.5",
+      "python_matrix": [
+        "3.11.18"
+      ],
+      "python_dirs": [
+        "/opt/hostedtoolcache/Python/3.11.18/x64"
+      ],
+      "kernel": null,
+      "cpu_count": null,
+      "ram_observed": null,
+      "disk": null,
+      "chrome_sha256": null,
+      "chrome_package": null,
+      "chrome_gate": {
+        "gate": "chrome-rest",
+        "exit_code": 1,
+        "status": "FAIL",
+        "log_sha256": "cbdd17398482f7f04be8535cef4f99e551665feb44d2e2766dfd5eed94a64480"
+      },
+      "full_suite": null,
+      "startup_error": {
+        "elapsed_seconds": 15.015,
+        "command_id": 1,
+        "returncode": null,
+        "buffered_bytes": 0,
+        "process": {
+          "state": "S",
+          "minor_faults": 20408,
+          "major_faults": 1604,
+          "user_ticks": 11,
+          "system_ticks": 11,
+          "schedstat": [
+            157140917,
+            485903,
+            1747
+          ],
+          "wchan": "futex_do_wait"
+        }
+      },
+      "rh04_named_ok": [],
+      "rh06_named_ok": 0
+    },
+    {
+      "name": "Installed packaging (3.12)",
+      "run_id": 45750474198,
+      "run_attempt": 1,
+      "id": 139676766581,
+      "head_sha": "933be272d1dabe99dad59108fda8648018d93c50",
+      "conclusion": "success",
+      "html_url": "https://github.com/luciferprosun/AIOA-spArkHAT/actions/runs/45750474198/job/139676766581",
+      "labels": [
+        "ubuntu-24.04"
+      ],
+      "tree": "455b274b54e8cc77b5833cf5b6ceb3272bb1e849",
+      "workflow": ".github/workflows/nonzero-pr.yml",
+      "workflow_blob": "c9a228dfe35775b4391bafc95df9c7e7e4b50afd",
+      "checkout": "933be272d1dabe99dad59108fda8648018d93c50",
+      "image": "ubuntu-24.04",
+      "image_release": "20261116.376.1",
+      "image_os_env": null,
+      "provider": "Azure",
+      "region": "eastus2",
+      "OS": "24.04.5",
+      "python_matrix": [
+        "3.12.16"
+      ],
+      "python_dirs": [
+        "/opt/hostedtoolcache/Python/3.12.16/x64"
+      ],
+      "kernel": null,
+      "cpu_count": null,
+      "ram_observed": null,
+      "disk": null,
+      "chrome_sha256": null,
+      "chrome_package": null,
+      "chrome_gate": null,
+      "full_suite": null,
+      "rh04_named_ok": [],
+      "rh06_named_ok": 0
+    },
+    {
+      "name": "Installed packaging (3.11)",
+      "run_id": 45750474198,
+      "run_attempt": 1,
+      "id": 139676766837,
+      "head_sha": "933be272d1dabe99dad59108fda8648018d93c50",
+      "conclusion": "success",
+      "html_url": "https://github.com/luciferprosun/AIOA-spArkHAT/actions/runs/45750474198/job/139676766837",
+      "labels": [
+        "ubuntu-24.04"
+      ],
+      "tree": "455b274b54e8cc77b5833cf5b6ceb3272bb1e849",
+      "workflow": ".github/workflows/nonzero-pr.yml",
+      "workflow_blob": "c9a228dfe35775b4391bafc95df9c7e7e4b50afd",
+      "checkout": "933be272d1dabe99dad59108fda8648018d93c50",
+      "image": "ubuntu-24.04",
+      "image_release": "20261116.376.1",
+      "image_os_env": null,
+      "provider": "Azure",
+      "region": "northcentralus",
+      "OS": "24.04.5",
+      "python_matrix": [
+        "3.11.18"
+      ],
+      "python_dirs": [
+        "/opt/hostedtoolcache/Python/3.11.18/x64"
+      ],
+      "kernel": null,
+      "cpu_count": null,
+      "ram_observed": null,
+      "disk": null,
+      "chrome_sha256": null,
+      "chrome_package": null,
+      "chrome_gate": null,
+      "full_suite": null,
+      "rh04_named_ok": [],
+      "rh06_named_ok": 0
+    },
+    {
+      "name": "certify (3.12)",
+      "run_id": 45750474198,
+      "run_attempt": 1,
+      "id": 139676766902,
+      "head_sha": "933be272d1dabe99dad59108fda8648018d93c50",
+      "conclusion": "success",
+      "html_url": "https://github.com/luciferprosun/AIOA-spArkHAT/actions/runs/45750474198/job/139676766902",
+      "labels": [
+        "ubuntu-24.04"
+      ],
+      "tree": "455b274b54e8cc77b5833cf5b6ceb3272bb1e849",
+      "workflow": ".github/workflows/nonzero-pr.yml",
+      "workflow_blob": "c9a228dfe35775b4391bafc95df9c7e7e4b50afd",
+      "checkout": "933be272d1dabe99dad59108fda8648018d93c50",
+      "image": "ubuntu-24.04",
+      "image_release": "20261116.376.1",
+      "image_os_env": null,
+      "provider": "Azure",
+      "region": "eastus",
+      "OS": "24.04.5",
+      "python_matrix": [
+        "3.12.16"
+      ],
+      "python_dirs": [
+        "/opt/hostedtoolcache/Python/3.12.16/x64"
+      ],
+      "kernel": null,
+      "cpu_count": null,
+      "ram_observed": null,
+      "disk": null,
+      "chrome_sha256": null,
+      "chrome_package": null,
+      "chrome_gate": {
+        "gate": "chrome-rest",
+        "exit_code": 0,
+        "status": "PASS",
+        "log_sha256": "171c4a46f6ab5f547484bf8c6194739c10e5cc1689d2e35287fe3cc75ed1e4dd"
+      },
+      "full_suite": {
+        "tested_sha": "933be272d1dabe99dad59108fda8648018d93c50",
+        "tests_run": 4506,
+        "unique_ids": 4506,
+        "test_ids_sha256": "1936d809e62ace3647fad455ca6f4a6bd7f661333090899d927ac1c191458bb1",
+        "skips": 5
+      },
+      "rh04_named_ok": [
+        "test_git_plumbing_parent_replacement_is_rejected_before_lock_creation",
+        "test_git_plumbing_v3_ref_link_ack_cleans_both_git_locks"
+      ],
+      "rh06_named_ok": 12,
+      "chrome_artifact": {
+        "id": 15086851267,
+        "sha256_chrome_log_verified": "171c4a46f6ab5f547484bf8c6194739c10e5cc1689d2e35287fe3cc75ed1e4dd",
+        "tests": 1,
+        "test_wall_seconds": 5.311
+      }
+    },
+    {
+      "name": "certify (3.11)",
+      "run_id": 45750474198,
+      "run_attempt": 1,
+      "id": 139676766945,
+      "head_sha": "933be272d1dabe99dad59108fda8648018d93c50",
+      "conclusion": "failure",
+      "html_url": "https://github.com/luciferprosun/AIOA-spArkHAT/actions/runs/45750474198/job/139676766945",
+      "labels": [
+        "ubuntu-24.04"
+      ],
+      "tree": "455b274b54e8cc77b5833cf5b6ceb3272bb1e849",
+      "workflow": ".github/workflows/nonzero-pr.yml",
+      "workflow_blob": "c9a228dfe35775b4391bafc95df9c7e7e4b50afd",
+      "checkout": "933be272d1dabe99dad59108fda8648018d93c50",
+      "image": "ubuntu-24.04",
+      "image_release": "20261116.133.1",
+      "image_os_env": null,
+      "provider": "AWS",
+      "region": "us-east-1",
+      "OS": "24.04.5",
+      "python_matrix": [
+        "3.11.18"
+      ],
+      "python_dirs": [
+        "/opt/hostedtoolcache/Python/3.11.18/x64"
+      ],
+      "kernel": null,
+      "cpu_count": null,
+      "ram_observed": null,
+      "disk": null,
+      "chrome_sha256": null,
+      "chrome_package": null,
+      "chrome_gate": {
+        "gate": "chrome-rest",
+        "exit_code": 1,
+        "status": "FAIL",
+        "log_sha256": "a4b5fd387051c6fe0575d0f50d80e8bec926ff151a0bf3806ef240f71c028ff4"
+      },
+      "full_suite": null,
+      "startup_error": {
+        "elapsed_seconds": 15.008,
+        "command_id": 1,
+        "returncode": null,
+        "buffered_bytes": 0,
+        "process": {
+          "state": "D",
+          "minor_faults": 18057,
+          "major_faults": 1399,
+          "user_ticks": 10,
+          "system_ticks": 14,
+          "schedstat": [
+            154663754,
+            386461,
+            1541
+          ],
+          "wchan": "folio_wait_bit_common"
+        }
+      },
+      "rh04_named_ok": [],
+      "rh06_named_ok": 0,
+      "chrome_artifact": {
+        "id": 15085327205,
+        "sha256_chrome_log_verified": "a4b5fd387051c6fe0575d0f50d80e8bec926ff151a0bf3806ef240f71c028ff4",
+        "tests": 1,
+        "test_wall_seconds": 16.835
+      }
+    },
+    {
+      "name": "certify (3.11)",
+      "run_id": 45750474198,
+      "run_attempt": 2,
+      "id": 139696702626,
+      "head_sha": "933be272d1dabe99dad59108fda8648018d93c50",
+      "conclusion": "success",
+      "html_url": "https://github.com/luciferprosun/AIOA-spArkHAT/actions/runs/45750474198/job/139696702626",
+      "labels": [
+        "ubuntu-24.04"
+      ],
+      "tree": "455b274b54e8cc77b5833cf5b6ceb3272bb1e849",
+      "workflow": ".github/workflows/nonzero-pr.yml",
+      "workflow_blob": "c9a228dfe35775b4391bafc95df9c7e7e4b50afd",
+      "checkout": "933be272d1dabe99dad59108fda8648018d93c50",
+      "image": "ubuntu-24.04",
+      "image_release": "20261116.376.1",
+      "image_os_env": null,
+      "provider": "Azure",
+      "region": "westus",
+      "OS": "24.04.5",
+      "python_matrix": [
+        "3.11.18"
+      ],
+      "python_dirs": [
+        "/opt/hostedtoolcache/Python/3.11.18/x64"
+      ],
+      "kernel": null,
+      "cpu_count": null,
+      "ram_observed": null,
+      "disk": null,
+      "chrome_sha256": null,
+      "chrome_package": null,
+      "chrome_gate": {
+        "gate": "chrome-rest",
+        "exit_code": 0,
+        "status": "PASS",
+        "log_sha256": "e66e396fe6f799731c3613483f023bdc198bf8dd40543efa8235e5cbf89305b9"
+      },
+      "full_suite": {
+        "tested_sha": "933be272d1dabe99dad59108fda8648018d93c50",
+        "tests_run": 4506,
+        "unique_ids": 4506,
+        "test_ids_sha256": "1936d809e62ace3647fad455ca6f4a6bd7f661333090899d927ac1c191458bb1",
+        "skips": 5
+      },
+      "rh04_named_ok": [
+        "test_git_plumbing_parent_replacement_is_rejected_before_lock_creation",
+        "test_git_plumbing_v3_ref_link_ack_cleans_both_git_locks"
+      ],
+      "rh06_named_ok": 12,
+      "chrome_artifact": {
+        "id": 15089650043,
+        "sha256_chrome_log_verified": "e66e396fe6f799731c3613483f023bdc198bf8dd40543efa8235e5cbf89305b9",
+        "tests": 1,
+        "test_wall_seconds": 5.944
+      }
+    },
+    {
+      "name": "compare",
+      "run_id": 45756967218,
+      "run_attempt": 1,
+      "id": 139697754340,
+      "head_sha": "37fa7dde62b49b8c91a9efd972f33d8d884be94a",
+      "conclusion": "failure",
+      "html_url": "https://github.com/luciferprosun/AIOA-spArkHAT/actions/runs/45756967218/job/139697754340",
+      "labels": [
+        "ubuntu-24.04"
+      ],
+      "tree": "bf63631e232f731d6ee26dc071fcebdb6b6ef0fc",
+      "workflow": ".github/workflows/rh06-cloud-comparison.yml",
+      "workflow_blob": "210027cf9175f7911341e604a261c4568ca524e1",
+      "checkout": "37fa7dde62b49b8c91a9efd972f33d8d884be94a",
+      "image": "ubuntu-24.04",
+      "image_release": "20261116.133.1",
+      "image_os_env": "ubuntu24",
+      "provider": "AWS",
+      "region": "us-west-2",
+      "OS": "24.04.5",
+      "python_matrix": [
+        "3.11.18",
+        "3.12.16"
+      ],
+      "python_dirs": [
+        "/opt/hostedtoolcache/Python/3.11.18/x64",
+        "/opt/hostedtoolcache/Python/3.12.16/x64"
+      ],
+      "kernel": "Linux 7.0.0-1014-aws x86_64 GNU/Linux",
+      "cpu_count": "4",
+      "ram_observed": "Mem:            15Gi       1.0Gi        12Gi        47Mi       2.1Gi        14Gi",
+      "disk": "/dev/mapper/cow-root  145G   57G   88G  40% /",
+      "chrome_sha256": "91e519ce83eac12740d54398364583b3131116055eca863d0a240d6062e84053",
+      "chrome_package": "157.0.8103.78-1",
+      "chrome_gate": null,
+      "full_suite": null,
+      "startup_error": {
+        "elapsed_seconds": 15.014,
+        "command_id": 1,
+        "returncode": null,
+        "buffered_bytes": 0,
+        "process": {
+          "state": "D",
+          "minor_faults": 17703,
+          "major_faults": 1313,
+          "user_ticks": 6,
+          "system_ticks": 11,
+          "schedstat": [
+            105547735,
+            92009,
+            1467
+          ],
+          "wchan": "folio_wait_bit_common"
+        }
+      },
+      "rh04_named_ok": [],
+      "rh06_named_ok": 0,
+      "samples": [
+        {
+          "trial": "trial=base:311 sha=853484d7fe39fabf2922ff87fcedd0a980807817 tree=11db20a7ebbac9ee5842e1b8510169987672c486 parent=/opt/hostedtoolcache/Python/3.11.18/x64/bin/python",
+          "pressure_io_then_memory": [
+            "some avg10=31.33 avg60=20.58 avg300=9.22 total=36508137",
+            "full avg10=31.09 avg60=20.25 avg300=8.97 total=35403529",
+            "some avg10=0.00 avg60=0.00 avg300=0.00 total=3",
+            "full avg10=0.00 avg60=0.00 avg300=0.00 total=3"
+          ],
+          "timestamps_monotonic": {
+            "launch": 164.211377553,
+            "open_document": 164.211728145,
+            "worker_python": "3.12.3",
+            "worker_path": "/usr/bin/python3",
+            "first_data": null,
+            "first_reply": null,
+            "send_complete": 164.211743296
+          },
+          "outcome": "trial_finished=base:311 exit=1 wall_seconds=21"
+        },
+        {
+          "trial": "trial=head:312 sha=933be272d1dabe99dad59108fda8648018d93c50 tree=455b274b54e8cc77b5833cf5b6ceb3272bb1e849 parent=/opt/hostedtoolcache/Python/3.12.16/x64/bin/python",
+          "pressure_io_then_memory": [
+            "some avg10=65.46 avg60=35.26 avg300=13.43 total=51089772",
+            "full avg10=64.76 avg60=34.82 avg300=13.14 total=49881442",
+            "some avg10=0.00 avg60=0.00 avg300=0.00 total=3",
+            "full avg10=0.00 avg60=0.00 avg300=0.00 total=3"
+          ],
+          "timestamps_monotonic": {
+            "launch": 184.473298076,
+            "open_document": 184.473645416,
+            "worker_python": "3.12.3",
+            "worker_path": "/usr/bin/python3",
+            "first_data": 184.625194109,
+            "first_reply": 184.625250489,
+            "send_complete": 184.47366185
+          },
+          "outcome": "trial_finished=head:312 exit=0 wall_seconds=7"
+        },
+        {
+          "trial": "trial=base:312 sha=853484d7fe39fabf2922ff87fcedd0a980807817 tree=11db20a7ebbac9ee5842e1b8510169987672c486 parent=/opt/hostedtoolcache/Python/3.12.16/x64/bin/python",
+          "pressure_io_then_memory": [
+            "some avg10=46.86 avg60=35.24 avg300=14.03 total=53974705",
+            "full avg10=45.03 avg60=34.54 avg300=13.68 total=52562311",
+            "some avg10=0.00 avg60=0.00 avg300=0.00 total=3",
+            "full avg10=0.00 avg60=0.00 avg300=0.00 total=3"
+          ],
+          "timestamps_monotonic": {
+            "launch": 189.553562407,
+            "open_document": 189.553904653,
+            "worker_python": "3.12.3",
+            "worker_path": "/usr/bin/python3",
+            "first_data": 189.710292253,
+            "first_reply": 189.710362461,
+            "send_complete": 189.553920164
+          },
+          "outcome": "trial_finished=base:312 exit=0 wall_seconds=5"
+        },
+        {
+          "trial": "trial=head:311 sha=933be272d1dabe99dad59108fda8648018d93c50 tree=455b274b54e8cc77b5833cf5b6ceb3272bb1e849 parent=/opt/hostedtoolcache/Python/3.11.18/x64/bin/python",
+          "pressure_io_then_memory": [
+            "some avg10=31.42 avg60=32.97 avg300=13.83 total=53975355",
+            "full avg10=30.19 avg60=32.32 avg300=13.50 total=52562682",
+            "some avg10=0.00 avg60=0.00 avg300=0.00 total=3",
+            "full avg10=0.00 avg60=0.00 avg300=0.00 total=3"
+          ],
+          "timestamps_monotonic": {
+            "launch": 193.686354798,
+            "open_document": 193.686683882,
+            "worker_python": "3.12.3",
+            "worker_path": "/usr/bin/python3",
+            "first_data": 193.849734846,
+            "first_reply": 193.849804275,
+            "send_complete": 193.686698794
+          },
+          "outcome": "trial_finished=head:311 exit=0 wall_seconds=4"
+        }
+      ]
+    },
+    {
+      "name": "compare",
+      "run_id": 45757247866,
+      "run_attempt": 1,
+      "id": 139698650439,
+      "head_sha": "1808df98d5ca90be24870d94bd319bc1e4991895",
+      "conclusion": "success",
+      "html_url": "https://github.com/luciferprosun/AIOA-spArkHAT/actions/runs/45757247866/job/139698650439",
+      "labels": [
+        "ubuntu-24.04"
+      ],
+      "tree": "0dfc95d6ab0a2fb6dbf3357843559952fa289c00",
+      "workflow": ".github/workflows/rh06-cloud-comparison.yml",
+      "workflow_blob": "7549b3b02dffbc7f3118834018403e55fb46079e",
+      "checkout": "1808df98d5ca90be24870d94bd319bc1e4991895",
+      "image": "ubuntu-24.04",
+      "image_release": "20261116.133.1",
+      "image_os_env": "ubuntu24",
+      "provider": "AWS",
+      "region": "us-east-1",
+      "OS": "24.04.5",
+      "python_matrix": [
+        "3.11.18",
+        "3.12.16"
+      ],
+      "python_dirs": [
+        "/opt/hostedtoolcache/Python/3.11.18/x64",
+        "/opt/hostedtoolcache/Python/3.12.16/x64"
+      ],
+      "kernel": "Linux 7.0.0-1014-aws x86_64 GNU/Linux",
+      "cpu_count": "4",
+      "ram_observed": "Mem:            15Gi       1.1Gi        12Gi        46Mi       2.1Gi        14Gi",
+      "disk": "/dev/mapper/cow-root  145G   57G   88G  40% /",
+      "chrome_sha256": "91e519ce83eac12740d54398364583b3131116055eca863d0a240d6062e84053",
+      "chrome_package": "157.0.8103.78-1",
+      "chrome_gate": null,
+      "full_suite": null,
+      "rh04_named_ok": [],
+      "rh06_named_ok": 0,
+      "samples": [
+        {
+          "trial": "trial=head:312 sha=933be272d1dabe99dad59108fda8648018d93c50 tree=455b274b54e8cc77b5833cf5b6ceb3272bb1e849 parent=/opt/hostedtoolcache/Python/3.12.16/x64/bin/python",
+          "pressure_io_then_memory": [
+            "some avg10=25.63 avg60=10.24 avg300=3.14 total=23941762",
+            "full avg10=25.41 avg60=10.14 avg300=3.07 total=22882737",
+            "some avg10=0.00 avg60=0.00 avg300=0.00 total=3",
+            "full avg10=0.00 avg60=0.00 avg300=0.00 total=3"
+          ],
+          "timestamps_monotonic": {
+            "launch": 638.462632032,
+            "open_document": 638.463068448,
+            "worker_python": "3.12.3",
+            "worker_path": "/usr/bin/python3",
+            "first_data": 647.518339362,
+            "first_reply": 647.518400903,
+            "send_complete": 638.463084022
+          },
+          "outcome": "trial_finished=head:312 exit=0 wall_seconds=15"
+        }
+      ]
+    }
+  ],
+  "local": {
+    "os": "Linux Mint 22.2 x86_64",
+    "kernel": "7.0.0-38-generic",
+    "python": "3.12.3",
+    "git": "2.43.0",
+    "focused_passed": 107,
+    "focused_failed": 0,
+    "focused_errors": 0,
+    "focused_skipped": 0,
+    "focused_tests": [
+      "test_broker_final_section_wins_over_contending_fixture_stop",
+      "test_broker_stop_before_release_refuses_link",
+      "test_core_revocation_refuses_new_grant_export",
+      "test_crash_before_witness_stays_held_after_cold_recovery",
+      "test_default_off_and_durable_start_binding",
+      "test_expired_core_enrollment_denies_before_verifier_ipc",
+      "test_forged_or_mismatched_requests_never_consume",
+      "test_lost_ack_authenticated_readback_settles_original_once",
+      "test_mount_binding_is_rechecked_before_attempt",
+      "test_nested_ref_refused_instead_of_linking_leaf_at_wrong_path",
+      "test_signed_report_refuses_same_oid_replacement",
+      "test_signed_report_refuses_witness_mutation",
+      "test_attempt_and_nonce_survive_reopen",
+      "test_exact_schema_and_types",
+      "test_expired_permit_and_stale_epochs",
+      "test_orphan_attempt_blocks_further_consumption",
+      "test_repeated_stop_confirms_durability",
+      "test_self_consistent_but_unapproved_permit_cannot_authorize",
+      "test_truncated_oversize_corrupt_and_trailing_frames",
+      "test_unauthorized_peer",
+      "test_unknown_retired_and_expired_enrollment",
+      "test_valid_authenticated_request",
+      "test_wrong_authorized_binding",
+      "test_crash_after_cas_or_before_witness_file_sync",
+      "test_crash_before_permit_and_stop_before_permit",
+      "test_crash_between_permit_and_cas_fences_restart",
+      "test_invalid_storage_refuses_publication",
+      "test_lost_ack_one_settlement_zero_actual_redispatch",
+      "test_old_oid_conflict_and_foreign_same_oid",
+      "test_replaced_inode_invalid_signature_and_revoked_key",
+      "test_stop_after_permit_before_release",
+      "test_stop_contends_with_final_release_lock",
+      "test_surviving_signed_witness_cannot_attest_original_directory_sync",
+      "test_symlink_and_path_traversal_refuse_publication",
+      "test_unreadable_readback_sync_retains_signature_facts",
+      "test_core_start_binding_is_read_from_durable_unknown_and_held_records",
+      "test_expired_or_revoked_core_warrant_blocks_new_candidate",
+      "test_expired_permit_and_missing_trusted_device_fail_closed",
+      "test_self_consistent_permit_digest_is_not_core_release_authority",
+      "test_unrelated_operation_schema_cannot_be_read_as_git_cas",
+      "test_wrong_operation_epoch_and_broker_identity_are_held",
+      "test_wrong_start_warrant_reservation_owner_or_device_is_held",
+      "test_lost_ack_fresh_verifier_and_idempotent_original_core_settlement",
+      "test_same_oid_inode_replacement_before_core_callback_stays_held",
+      "test_actual_native_dispatch_fails_closed_without_shared_gate_and_v3",
+      "test_admission_invalidation_cannot_be_overwritten_by_capacity_activation",
+      "test_core_admission_close_waits_for_final_link_gate",
+      "test_fresh_verifier_atomically_settles_original_native_task_once",
+      "test_gate_close_cannot_release_another_threads_critical_section",
+      "test_gate_lock_is_released_by_kernel_after_process_death",
+      "test_git_plumbing_parent_replacement_is_rejected_before_lock_creation",
+      "test_git_plumbing_v3_ref_link_ack_cleans_both_git_locks",
+      "test_governor_kill_racing_the_final_link_uses_the_same_gate",
+      "test_legacy_operation_without_v3_device_binding_cannot_enter_native_cold_port",
+      "test_native_local_operation_v3_records_exact_existing_ref_parent",
+      "test_native_route_construction_rejects_missing_gate_before_start",
+      "test_ref_link_checks_authorized_parent_identity_and_rejects_group_write",
+      "test_same_oid_ref_replacement_after_verifier_before_settlement_is_held",
+      "test_same_oid_replaced_ref_inode_cannot_settle_original_native_task",
+      "test_shared_gate_times_out_and_replacement_fails_closed",
+      "test_stop_gate_refuses_link_when_revocation_won_first",
+      "test_stop_gate_serializes_core_revoke_before_ref_link",
+      "test_changed_bindings_observations_and_registered_key_are_rejected",
+      "test_create_only_witness_and_exact_readback",
+      "test_expiry_corruption_truncation_and_symlink_fail_closed",
+      "test_same_ref_state_only_accepts_a_durable_witness_from_enrolled_broker",
+      "test_equal_bytes_on_replacement_inode_fail_publication_binding",
+      "test_preexisting_equal_ref_stays_on_original_inode",
+      "test_process_exit_around_link_has_no_success_ack",
+      "test_read_only_plumbing_cannot_invoke_ref_release",
+      "test_stop_before_link_leaves_ref_absent",
+      "test_success_ack_follows_file_sync_link_and_directory_sync",
+      "test_warrant_expiry_after_file_sync_prevents_link_and_keeps_reservation",
+      "test_budget_failure_rolls_back_warrant_intent_and_reservation",
+      "test_changed_fingerprint_revision_payload_or_reservation_deny",
+      "test_competing_starts_have_one_fixture_step",
+      "test_corrupt_prior_resolution_cannot_bypass_unknown_reservation",
+      "test_duplicate_and_restart_never_grant_second_step",
+      "test_intent_insert_failure_rolls_back_consumption_and_budgets",
+      "test_kill_denies_start_but_allows_reconciliation",
+      "test_lost_effect_ack_requires_independent_readback_in_new_process",
+      "test_lost_storage_ack_never_repeats_transaction_or_step",
+      "test_missing_or_timeout_verifier_keeps_unknown_and_budget",
+      "test_no_approval_and_untrusted_principal_deny",
+      "test_not_applied_certificate_resolves_without_refund_or_replay",
+      "test_outbox_corruption_fails_closed",
+      "test_process_crash_after_start_keeps_unknown_and_no_replay",
+      "test_process_crash_before_start_leaves_no_partial_mutation",
+      "test_publication_retries_only_projection_and_revision_cas",
+      "test_reconcile_with_already_stale_epoch_never_calls_verifier",
+      "test_start_atomically_consumes_and_reserves_both_with_exact_intent",
+      "test_takeover_during_verification_cannot_commit_stale_result",
+      "test_takeover_fences_old_start_resolution_and_delivery_commit",
+      "test_unadmitted_model_cannot_consume_or_reserve",
+      "test_unresolved_send_blocks_new_nonce_and_revised_intent",
+      "test_matching_git_ref_never_grants_cold_controller_replay",
+      "test_close_waits_for_real_owned_drain",
+      "test_early_stage_failure_cannot_prestart_later_stages",
+      "test_expired_static_principal_cannot_prevent_new_native_read_capture",
+      "test_five_minute_principal_refresh_has_native_binding",
+      "test_handle_is_published_before_durable_running_and_stop_reaches_same_token",
+      "test_partial_initialization_has_truthful_current_observation",
+      "test_populated_restart_requires_fresh_portable_read_capture",
+      "test_public_native_reconcile_requires_original_lifecycle_before_git",
+      "test_retained_native_handle_without_positive_broker_ack_cannot_read_back",
+      "test_snapshot_and_empty_drain_are_immutable_real_facts",
+      "test_stop_between_claim_and_publication_has_owned_snapshot"
+    ],
+    "pins": [
+      {
+        "path": "/usr/bin/git",
+        "expected": "eb54b535467e0975c1284d4c4d08eea779aeb248a5d34b02e2ee171382e22201",
+        "observed": "eb54b535467e0975c1284d4c4d08eea779aeb248a5d34b02e2ee171382e22201"
+      },
+      {
+        "path": "/usr/bin/bwrap",
+        "expected": "e318903862396f96de3df57264e0158682b952fd3fb53ac23d876413e7b30f71",
+        "observed": "e318903862396f96de3df57264e0158682b952fd3fb53ac23d876413e7b30f71"
+      },
+      {
+        "path": "/usr/bin/prlimit",
+        "expected": "17064f67e650d6152a6902b013aab496b54c87587c8eea6f5023aafee6154069",
+        "observed": "17064f67e650d6152a6902b013aab496b54c87587c8eea6f5023aafee6154069"
+      },
+      {
+        "path": "/lib/x86_64-linux-gnu/libpcre2-8.so.0",
+        "expected": "e00576d71d81d3ba0cfa4903c835a44a8723aac96f72f79ff75200b4cff9071b",
+        "observed": "e00576d71d81d3ba0cfa4903c835a44a8723aac96f72f79ff75200b4cff9071b"
+      },
+      {
+        "path": "/lib/x86_64-linux-gnu/libz.so.1",
+        "expected": "f61677c7bdb7c2aa2a243ea781bfd16afcb361cede7b4ef76127a9d8eb9a5242",
+        "observed": "f61677c7bdb7c2aa2a243ea781bfd16afcb361cede7b4ef76127a9d8eb9a5242"
+      },
+      {
+        "path": "/lib/x86_64-linux-gnu/libc.so.6",
+        "expected": "3a15d66867d83762c7f2f1e37359cb8f6c5743edb369c65285cb0b1c4f7498bf",
+        "observed": "3a15d66867d83762c7f2f1e37359cb8f6c5743edb369c65285cb0b1c4f7498bf"
+      },
+      {
+        "path": "/lib64/ld-linux-x86-64.so.2",
+        "expected": "c20a2dc8917c755f02b94049356320fe1f62ac7d9f8994731f807d9df39302da",
+        "observed": "c20a2dc8917c755f02b94049356320fe1f62ac7d9f8994731f807d9df39302da"
+      }
+    ],
+    "rh04": [
+      {
+        "tree": "base",
+        "matching_runtime": [
+          "test_git_plumbing_parent_replacement_is_rejected_before_lock_creation (test_redhat_rh04_native_task_gate.RedHatRH04Tests.test_git_plumbing_parent_replacement_is_rejected_before_lock_creation) ... ok",
+          "test_git_plumbing_v3_ref_link_ack_cleans_both_git_locks (test_redhat_rh04_native_task_gate.RedHatRH04Tests.test_git_plumbing_v3_ref_link_ack_cleans_both_git_locks) ... ok",
+          "",
+          "----------------------------------------------------------------------",
+          "Ran 2 tests in 2.683s",
+          "",
+          "OK"
+        ],
+        "mismatched_runtime": [
+          "expected eb54b535467e0975c1284d4c4d08eea779aeb248a5d34b02e2ee171382e22201 actual 1d48dde779d2154c9e6c5a9597bebfde3d8c02b9aabe51cff6d9af12b1461ecf",
+          "test_redhat_rh04_native_task_gate.RedHatRH04Tests.test_git_plumbing_parent_replacement_is_rejected_before_lock_creation runtime.mission.warrant.WarrantError: GIT_RUNTIME_CHANGED",
+          "",
+          "During handling of the above exception, another exception occurred:",
+          "",
+          "Traceback (most recent call last):",
+          "  File \"/app/tests/test_redhat_rh04_native_task_gate.py\", line 1048, in test_git_plumbing_parent_replacement_is_rejected_before_lock_creation",
+          "    with self.assertRaisesRegex(ValueError, \"GIT_STORAGE_CHANGED\"):",
+          "AssertionError: \"GIT_STORAGE_CHANGED\" does not match \"GIT_RUNTIME_CHANGED\"",
+          "",
+          "test_redhat_rh04_native_task_gate.RedHatRH04Tests.test_git_plumbing_v3_ref_link_ack_cleans_both_git_locks Traceback (most recent call last):",
+          "  File \"/app/tests/test_redhat_rh04_native_task_gate.py\", line 1090, in test_git_plumbing_v3_ref_link_ack_cleans_both_git_locks",
+          "    response = LinuxSandboxBroker._git_plumbing(",
+          "               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^",
+          "  File \"/app/runtime/mission/sandbox_linux.py\", line 1622, in _git_plumbing",
+          "    require(",
+          "  File \"/app/runtime/mission/warrant.py\", line 40, in require",
+          "    raise WarrantError(reason)",
+          "runtime.mission.warrant.WarrantError: GIT_RUNTIME_CHANGED",
+          "",
+          "mismatched RH-04 tests: 0 PASS, 1 FAIL, 1 ERROR, 0 SKIP"
+        ]
+      },
+      {
+        "tree": "head",
+        "matching_runtime": [
+          "test_git_plumbing_parent_replacement_is_rejected_before_lock_creation (test_redhat_rh04_native_task_gate.RedHatRH04Tests.test_git_plumbing_parent_replacement_is_rejected_before_lock_creation) ... ok",
+          "test_git_plumbing_v3_ref_link_ack_cleans_both_git_locks (test_redhat_rh04_native_task_gate.RedHatRH04Tests.test_git_plumbing_v3_ref_link_ack_cleans_both_git_locks) ... ok",
+          "",
+          "----------------------------------------------------------------------",
+          "Ran 2 tests in 2.652s",
+          "",
+          "OK"
+        ],
+        "mismatched_runtime": [
+          "expected eb54b535467e0975c1284d4c4d08eea779aeb248a5d34b02e2ee171382e22201 actual 1d48dde779d2154c9e6c5a9597bebfde3d8c02b9aabe51cff6d9af12b1461ecf",
+          "test_redhat_rh04_native_task_gate.RedHatRH04Tests.test_git_plumbing_parent_replacement_is_rejected_before_lock_creation runtime.mission.warrant.WarrantError: GIT_RUNTIME_CHANGED",
+          "",
+          "During handling of the above exception, another exception occurred:",
+          "",
+          "Traceback (most recent call last):",
+          "  File \"/app/tests/test_redhat_rh04_native_task_gate.py\", line 1050, in test_git_plumbing_parent_replacement_is_rejected_before_lock_creation",
+          "    with self.assertRaisesRegex(ValueError, \"GIT_STORAGE_CHANGED\"):",
+          "AssertionError: \"GIT_STORAGE_CHANGED\" does not match \"GIT_RUNTIME_CHANGED\"",
+          "",
+          "test_redhat_rh04_native_task_gate.RedHatRH04Tests.test_git_plumbing_v3_ref_link_ack_cleans_both_git_locks Traceback (most recent call last):",
+          "  File \"/app/tests/test_redhat_rh04_native_task_gate.py\", line 1092, in test_git_plumbing_v3_ref_link_ack_cleans_both_git_locks",
+          "    response = LinuxSandboxBroker._git_plumbing(",
+          "               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^",
+          "  File \"/app/runtime/mission/sandbox_linux.py\", line 1622, in _git_plumbing",
+          "    require(",
+          "  File \"/app/runtime/mission/warrant.py\", line 40, in require",
+          "    raise WarrantError(reason)",
+          "runtime.mission.warrant.WarrantError: GIT_RUNTIME_CHANGED",
+          "",
+          "mismatched RH-04 tests: 0 PASS, 1 FAIL, 1 ERROR, 0 SKIP"
+        ]
+      }
+    ],
+    "source_policy": {
+      "status": "PASS",
+      "head": "933be272d1dabe99dad59108fda8648018d93c50",
+      "files": 2062,
+      "source_manifest_sha256": "d6ec5e2cebe6af212153d62be813850f2e9606ee7d30900966fa9543029950f3",
+      "credential_findings": 0,
+      "license_sha256": "4da5bfd2f6754d2a3882c931b3029887af57fa8dc8ebcc435de5c49269bb20a4",
+      "scope": "Tracked source identity and bounded high-signal patterns; not a universal secret proof"
+    },
+    "one_core": {
+      "ONE_SYSTEM_STATIC_GATE": "PASS",
+      "status": "PASS",
+      "native_python_files": 39,
+      "BASELINE_PATH_EXISTS": "NO",
+      "NESTED_GIT": "NO",
+      "SECOND_PACKAGE": "NO",
+      "findings": [],
+      "CORE_OWNERSHIP": "PASS",
+      "ownership_findings": [],
+      "PROVENANCE_LOCK": {
+        "status": "PASS",
+        "findings": [],
+        "source_reads": 0,
+        "git_commands": 0,
+        "source_sha": "4fafed8b1a877e55d96ddd9baea0a737fbeeaa4a"
+      },
+      "PACKAGING": "PASS",
+      "wheel": null,
+      "BASELINE_IMPORTS": 0,
+      "RUNTIME_JURY_DEPENDENCY": "NO",
+      "RUNTIME_SANDBOX_DEPENDENCY": "NO",
+      "SECOND_SERVER_REQUIRED": "NO",
+      "SECOND_CREDENTIAL_LAYER": "NO",
+      "SECOND_PROVIDER_MANAGER": "NO"
+    },
+    "git_diff_check": "PASS"
+  }
+}
