@@ -300,6 +300,14 @@ class SequencedBoundaryTests(unittest.TestCase):
         self.assertEqual({"ack": False}, self.fixture.broker.finish(broker, stream))
         self.assert_link_count(0)
 
+    def test_runner_close_removes_release_authority(self):
+        broker, endpoint, _, client, gate = self.setup_triplet()
+        self.fx.runner.close()
+        stream = self.submit(broker, endpoint)
+        self.release(broker, client, gate)
+        self.assertEqual({"ack": False}, self.fixture.broker.finish(broker, stream))
+        self.assert_link_count(0)
+
     def test_no_sequencer_io_inside_a_core_transaction(self):
         _, client = self.start_sequencer(peer(os.getpid() + 1))
         def read(tx):
