@@ -99,8 +99,11 @@ jobs:
               pcre2) packages+=("$package=10.42-4ubuntu2.1") ;;
             esac
           done <<< "$installed"
-          sources="$(mktemp --suffix=.sources "$RUNNER_TEMP/aioa-noble.XXXXXX")"
-          trap 'rm -f -- "$sources"' EXIT
+          apt_state="$(mktemp -d "$RUNNER_TEMP/aioa-noble.XXXXXX")"
+          trap 'sudo rm -rf -- "$apt_state"' EXIT
+          chmod 0755 "$apt_state"
+          mkdir -- "$apt_state/lists"
+          sources="$apt_state/noble.sources"
           cat > "$sources" <<'APT_SOURCES'
           Types: deb
           URIs: https://archive.ubuntu.com/ubuntu
@@ -109,8 +112,16 @@ jobs:
           Architectures: amd64
           Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
           APT_SOURCES
-          apt_args=(--snapshot 20261027T000000Z -o "Dir::Etc::sourcelist=$sources" -o Dir::Etc::sourceparts=-)
-          sudo apt-get "${apt_args[@]}" update
+          apt_args=(
+            --snapshot 20261027T000000Z
+            -o "Dir::Etc::sourcelist=$sources" -o Dir::Etc::sourceparts=-
+            -o "Dir::State::lists=$apt_state/lists"
+            -o Acquire::Retries=2 -o Acquire::https::Timeout=30
+            -o Acquire::Languages=none
+            -o Acquire::IndexTargets::deb::CNF::DefaultEnabled=false
+          )
+          # An incomplete snapshot refresh must never fall back to runner indexes.
+          sudo apt-get "${apt_args[@]}" -o APT::Update::Error-Mode=any update
           sudo apt-get "${apt_args[@]}" install --no-install-recommends --yes --no-remove --allow-downgrades "${packages[@]}"
           dpkg-query --show --showformat='${binary:Package}=${Version}\n' "${packages[@]%=*}"
       - name: Acquire pinned official Codex for isolated protocol diagnostics
