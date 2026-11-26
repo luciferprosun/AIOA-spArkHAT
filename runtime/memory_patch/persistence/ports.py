@@ -298,6 +298,11 @@ _IN_TRANSACTION = contextvars.ContextVar("memory_patch_in_transaction", default=
 T = TypeVar("T")
 
 
+def transaction_active() -> bool:
+    """Whether the current context is inside a retryable Core transaction."""
+    return _IN_TRANSACTION.get()
+
+
 class TransactionRunner:
     def __init__(
         self,

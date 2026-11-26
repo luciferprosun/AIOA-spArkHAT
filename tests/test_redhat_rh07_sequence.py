@@ -13,6 +13,7 @@ from unittest.mock import patch
 
 from runtime.core_admission import Capability
 from runtime.memory_patch.persistence.ports import RecordKind, TransactionContext
+from runtime.providers.exact import CancellationToken
 from runtime.red_hat.broker_protocol import Peer, ProtocolError, authenticate, digest, send_frame
 from runtime.red_hat.execution_binding import NativeExecutionBindingV1
 from runtime.red_hat.executor_custody import ExecutorRoles, _read_signer_fd, load_broker_signer
@@ -97,6 +98,11 @@ class SequencedBoundaryTests(unittest.TestCase):
         self.addCleanup(self.fixture.doCleanups)
         self.fixture.setUp()
         self.fx, self.root = self.fixture.fx, self.fixture.root
+        self.principal = self.fx.p()
+        self.work_cancel = CancellationToken()
+        task_id = self.fixture.case["task"].task_id
+        self.fixture.tasks._effects[task_id] = self.work_cancel
+        self.addCleanup(self.fixture.tasks._effects.pop, task_id, None)
         self.anchor = self.root / "sequencer"
         self.anchor.mkdir(mode=0o700)
         self.seq_number = 0
@@ -164,13 +170,13 @@ class SequencedBoundaryTests(unittest.TestCase):
         def require_owned_work():
             task = self.fixture.tasks.request(self.fx.p(Capability.READ), "read_status",
                                               {"task_id": case["task"].task_id})
-            if task["state"] != "UNKNOWN":
+            if self.fixture.tasks.closed or self.work_cancel.cancelled or task["state"] != "UNKNOWN":
                 raise ValueError("RH07_TEST_TASK_STATE")
 
         handle_fixture_release(
             self.listener, sequence=client, gate=gate, broker_peer=peer(broker.pid),
             signer=self.fixture.core, expected=self.fixture.binding, adapter=case["adapter"],
-            principal=self.fx.p(), warrant=self.fx.warrant, enrollment=case["enrollment"],
+            principal=self.principal, warrant=self.fx.warrant, enrollment=case["enrollment"],
             trusted_device_id=self.fixture.binding.request.device_id,
             require_owned_work=require_owned_work, clock=lambda: NOW, fault=fault, enabled=True)
 
@@ -215,6 +221,93 @@ class SequencedBoundaryTests(unittest.TestCase):
         self.assertEqual({"ack": False}, self.fixture.broker.finish(broker, stream))
         self.assert_link_count(0)
         self.fixture.assert_held()
+
+    def test_money_policy_uses_control_slot_and_invalidates_export(self):
+        broker, endpoint, _, client, gate = self.setup_triplet()
+        governor = self.fx.gov
+        review = governor.money_policy_review(self.fx.p(Capability.READ),
+            dict.fromkeys(("task_limit", "owner_provider_limit", "global_limit"), 100), request_id="rh07-policy")
+        observed = []
+        def observe_authority():
+            observed.append(self.marker.exists())
+        applied = governor.apply_money_policy(self.fx.p(Capability.MANAGE), review,
+                                               authority_check=observe_authority)
+        self.assertEqual([True, True], observed)
+        self.assertGreater(applied["epoch"], self.fixture.binding.request.core_epoch)
+        stream = self.submit(broker, endpoint)
+        self.release(broker, client, gate)
+        self.assertEqual({"ack": False}, self.fixture.broker.finish(broker, stream))
+        self.assert_link_count(0)
+        self.fixture.assert_held()
+
+    def test_capacity_operator_apply_persists_epoch_under_control_slot(self):
+        import nz13_native_foundation_support as native
+
+        owner, _ = native.new_host(self)
+        native.fixture_tls(owner)
+        native.initialize(owner)
+        review = native.review(owner)
+        native.approve(owner, review)
+        _, client = self.start_sequencer(peer(os.getpid() + 1))
+        gate = SequencedCoreGate(client, enabled=True)
+        bind_fixture_runner(owner.runner, gate, enabled=True)
+        self.addCleanup(delattr, owner.runner, "execution_gate")
+        self.addCleanup(delattr, owner.core, "execution_gate")
+        governor = owner.foundation.governor
+        persist = governor._write
+        observations = []
+        def observed_write(*args, **kwargs):
+            observations.append(self.marker.exists())
+            return persist(*args, **kwargs)
+        with patch.object(governor, "_write", side_effect=observed_write):
+            receipt = native.apply(owner, review)
+        self.assertEqual("APPLIED", receipt["status"])
+        self.assertEqual([True], observations)
+        self.assertFalse(self.marker.exists())
+        self.assertEqual("READBACK_ONLY", native.apply(owner, review)["status"])
+
+    def test_task_drain_forbids_the_exported_operation(self):
+        broker, endpoint, _, client, gate = self.setup_triplet()
+        self.fixture.tasks.drain(0)
+        stream = self.submit(broker, endpoint)
+        self.release(broker, client, gate)
+        self.assertEqual({"ack": False}, self.fixture.broker.finish(broker, stream))
+        self.assert_link_count(0)
+        self.fixture.assert_held()
+
+    def _cancel_before_publication(self, action):
+        broker, endpoint, _, client, gate = self.setup_triplet()
+        self.fixture.tasks.request(self.fx.p(Capability.MANAGE), action,
+                                   {"task_id": self.fixture.case["task"].task_id})
+        self.assertTrue(self.work_cancel.cancelled)
+        stream = self.submit(broker, endpoint)
+        self.release(broker, client, gate)
+        self.assertEqual({"ack": False}, self.fixture.broker.finish(broker, stream))
+        self.assert_link_count(0)
+        self.fixture.assert_held()
+
+    def test_task_stop_cancels_owned_work_before_final_release(self):
+        self._cancel_before_publication("stop")
+
+    def test_task_cancel_cancels_owned_work_before_final_release(self):
+        self._cancel_before_publication("cancel")
+
+    def test_core_close_forbids_exported_operation(self):
+        broker, endpoint, _, client, gate = self.setup_triplet()
+        self.fx.core.close()
+        stream = self.submit(broker, endpoint)
+        self.release(broker, client, gate)
+        self.assertEqual({"ack": False}, self.fixture.broker.finish(broker, stream))
+        self.assert_link_count(0)
+
+    def test_no_sequencer_io_inside_a_core_transaction(self):
+        _, client = self.start_sequencer(peer(os.getpid() + 1))
+        def read(tx):
+            with self.assertRaisesRegex(ProtocolError, "RH07_IPC_IN_TRANSACTION"):
+                with client.hold():
+                    self.fail("slot granted inside a transaction")
+        self.fx.runner.run(TransactionContext(self.fx.p(Capability.READ), Capability.READ), read)
+        self.assertFalse(self.marker.exists())
 
     def test_parent_replacement_during_release_ipc_refuses_link(self):
         broker, endpoint, _, client, gate = self.setup_triplet()
@@ -396,7 +489,7 @@ class SequencedBoundaryTests(unittest.TestCase):
         os.utime(key, ns=(0, key.stat().st_mtime_ns))
         fd = os.open(key, os.O_RDONLY | os.O_CLOEXEC)
         self.addCleanup(os.close, fd)
-        self.assertEqual(_read_signer_fd(fd, os.getuid()), key.read_bytes())
+        self.assertTrue(_read_signer_fd(fd, os.getuid()) == key.read_bytes())
 
     def test_custody_rejects_role_overlap_wrong_process_or_writable_fd(self):
         with self.assertRaisesRegex(ProtocolError, "RH07_DISTINCT_ROLE_UIDS"):

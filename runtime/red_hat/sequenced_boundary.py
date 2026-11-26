@@ -6,6 +6,8 @@ import socket
 import time
 from dataclasses import dataclass
 
+from runtime.memory_patch.errors import MemoryPatchError
+from runtime.memory_patch.persistence.ports import transaction_active
 from runtime.mobile_gateway.wire import Identity
 from runtime.red_hat.authenticated_boundary import _open_seal, _seal, _serve_authenticated_fixture
 from runtime.red_hat.broker_protocol import (
@@ -26,6 +28,7 @@ class CoreReleaseClient:
     core_spki: str
 
     def require_release(self, binding, token, epoch):
+        require(not transaction_active(), "RH07_IPC_IN_TRANSACTION")
         challenge = secrets.token_hex(32)
         query = {"schema": RELEASE, "binding": digest(binding.to_wire()),
                  "token": token, "epoch": epoch, "challenge": challenge}
@@ -42,8 +45,9 @@ def handle_fixture_release(listener, *, sequence, gate, broker_peer, signer, exp
                            adapter, principal, warrant, enrollment, trusted_device_id,
                            require_owned_work, clock=lambda: int(time.time()), fault=lambda _: None,
                            enabled=False):
-    """One request for Core's current authorization. No gate or SQL tx spans an IPC call."""
+    """Validate once without acquiring a control slot or holding a transaction across IPC."""
     require(enabled is True, "RH07_DISABLED")
+    require(not transaction_active(), "RH07_IPC_IN_TRANSACTION")
     require(type(adapter) is CoreIntentAdapter, "RH07_RELEASE_CONFIGURATION")
     runner = adapter.journal.ledger.runner
     require(type(sequence) is SequenceClient and type(gate) is SequencedCoreGate
@@ -71,7 +75,7 @@ def handle_fixture_release(listener, *, sequence, gate, broker_peer, signer, exp
                 adapter, principal, warrant, enrollment, trusted_device_id=trusted_device_id,
                 now=clock(), broker_epoch=expected.request.broker_epoch, for_grant_export=True)
             require(current == expected, "RH07_RELEASE_START")
-        except (OSError, ValueError):
+        except (OSError, ValueError, MemoryPatchError):
             decision = "DENY"
         else:
             decision = "ALLOW"

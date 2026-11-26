@@ -13,6 +13,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 
 from runtime.memory_patch.contracts.serialization import canonical_json_bytes
+from runtime.memory_patch.persistence.ports import transaction_active
 from runtime.red_hat.broker_protocol import Peer, authenticate, decode_record, publish_record, require
 from runtime.red_hat.execution_binding import digest_string
 from runtime.red_hat.fixture_repository import require_private
@@ -75,6 +76,7 @@ class SequenceClient:
 
     @contextmanager
     def _connect(self):
+        require(not transaction_active(), "RH07_IPC_IN_TRANSACTION")
         with socket.socket(socket.AF_UNIX) as stream:
             stream.settimeout(self.timeout)
             stream.connect(self.endpoint)

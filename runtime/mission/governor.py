@@ -419,7 +419,9 @@ commit or refund it. A lost marker ACK never gives send permission on replay.
             self._write(tx,before,state,now,execution_capacity_transition=transition)
             host_capture.require_live(CapacityStage.APPLY,tx=tx)
             return capacity.CapacityTransitionReceipt('APPLIED',state['version'],state['epoch'],r['review_digest'],warrant.digest(),receipt)
-        result=self.runner.run(TransactionContext(commit_principal,Capability.COMMIT),apply)
+        gate = getattr(self.runner, "execution_gate", None)
+        with gate.hold() if gate is not None else nullcontext():
+            result=self.runner.run(TransactionContext(commit_principal,Capability.COMMIT),apply)
         try:host_capture.require_live(CapacityStage.APPLY)
         except ValueError as error:raise capacity.CapacityAcknowledgedButFenced('READBACK_ONLY') from error
         return result
@@ -464,7 +466,6 @@ commit or refund it. A lost marker ACK never gives send permission on replay.
         self._require(principal,Capability.MANAGE)
         _deny(type(review) is dict,'GOVERNOR_INTEGRITY')
         _deny(authority_check is None or callable(authority_check),'INVALID_GOVERNOR_BINDINGS')
-        now=self._now()
         def apply(tx):
             if authority_check is not None:authority_check()
             before=self._load(tx)
@@ -484,7 +485,10 @@ commit or refund it. A lost marker ACK never gives send permission on replay.
             if authority_check is not None:authority_check()
             self._write(tx,before,state,max(now,before['last_now'] or 0),policy_transition=review)
             return {'readback_only':False,'epoch':state['epoch'],'version':state['version']}
-        return self.runner.run(TransactionContext(principal,Capability.MANAGE),apply)
+        gate = getattr(self.runner, "execution_gate", None)
+        with gate.hold() if gate is not None else nullcontext():
+            now=self._now()
+            return self.runner.run(TransactionContext(principal,Capability.MANAGE),apply)
 
     def start_epoch(self, principal, *, native_capture=None):
         """Explicit Core operator takeover; never automatic at construction."""

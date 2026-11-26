@@ -1,7 +1,7 @@
 # RH-07 shared STOP/CAS sequencer
 
-Status: **fixture candidate only**. Owner approval and independent activation
-sign-off are pending. Ordinary Native still denies the route before START.
+Status: **fixture candidate only**. The 2026-11-26 local mission authorizes both event orders for disposable
+engineering qualification. Production activation requires a separate decision. Ordinary Native still denies the route before START.
 
 ## Decision
 
@@ -21,9 +21,8 @@ durably consumes the original attempt before requesting its slot.
 The slot is not the effect. The link is irreversible when the kernel succeeds.
 Directory synchronization and separate signed witness and completion still
 follow. The fixture holds the sequencer slot through all of those steps.
-The owner must explicitly accept the case where STOP has to wait after the
-publisher wins its slot. The older interpretation could attempt to cancel up
-to link. Userspace cannot atomically commit an independent Core STOP and
+Under the qualification contract STOP may wait after the publisher wins its
+slot. A caller must observe the durable Core transaction to report committed STOP. Userspace cannot atomically commit an independent Core STOP and
 preempt that syscall without a common serialization mechanism. Keep the ordinary
 route fail-closed until the ordering is approved and enforced.
 
@@ -72,21 +71,25 @@ mean hard STOP latency is not guaranteed.
    original route and work handle and honor task cancellation. No transaction
    is held open across broker or sequencer IPC.
 
-Read-only source audit found optional gate hooks on warrant revoke,
-governor kill/start_epoch, task stop/cancel/drain, Native lifecycle transitions,
-and admission/mission close. Tests exercise existing Core **warrant revoke,
-kill and explicit start_epoch** against the same broker slot. This does not
-prove exhaustive mutation coverage. In particular, governor
-`apply_execution_capacity` and `apply_money_policy` can increment durable epoch
-through direct runner transactions without this gate. The existing capacity
-admission/quiescence fence is a further route-specific proof obligation.
-Money policy is called from chat session and mobile operator paths. Those
-shared files stay with Cloud. No claim of a bypass in a qualified route is
-made, and no qualified route is wired. Before activation, audit lock ordering,
-scope invalidation, admission/mission close and task cancellation on every
-actual ingress and cover those mutations with a single reviewed order.
+| Core invalidation | Control-slot boundary and evidence |
+| --- | --- |
+| Warrant revoke | `CoreWarrantLedger.revoke` enters before its transaction. RH-07 tests race a real revoke with final release in both orders. |
+| Kill, explicit epoch | Governor `_change` and `start_epoch` enter before the runner. After either invalidation, final Core read refuses a previously exported grant. |
+| Money policy and execution capacity | Both direct epoch writers enter the registered runner gate around the transaction, including its commit. Money time is sampled after acquisition. RH-07 tests observe the durable slot during money authority rechecks and the real capacity write from the operator entry. Capacity still requires its own quiescence, live captures and consumed warrant. |
+| Coding task stop, cancel, drain, close | `CoreCodingTasks.request` gates stop/cancel before touching owned cancellation tokens. Drain changes admission and cancels retained work under the gate, then joins outside it. Close delegates to drain. RH-07 tests exercise stop/cancel of synthetic owned work, drain and final refusal. |
+| Core close and Native lifecycle | CoreAdmission.close enters before closing admission. Native lifecycle quarantine, invalidate, begin/abort capacity review, activate and drain use the runner gate around invalidation. MissionService.stop/close use its registered foundation gate. RH-04 tests cover admission close versus link and invalidation versus capacity activation. RH-07 exercises Core close before final release. |
 
-- [ ] Owner accepts the two orders and the observable STOP wait/failure contract.
-- [ ] Independent reviewer accepts full mutation coverage, recovery and host enforcement.
-- Owner decision / date:
-- Security decision / date:
+Lifecycle construction precedes binding. A phase that is already fenced cannot regain
+publication authority through cleanup. Release checks the original binding, work and live
+epoch while a broker slot is active. A Core transaction failure returns a signed DENY.
+An ambiguous sequencing outcome still fences the service. The IPC client rejects a new
+connection from inside a retryable Core transaction.
+
+These results cover the listed entry points with a registered gate. The fixture callback
+uses a synthetic owned cancellation token. It does not install a production work handle
+or a supervisor. The existing Native route continues to require its registered local
+gate; substituting this IPC adapter there would require qualification of normal apply,
+fresh verifier recovery and all role-specific OS permissions.
+
+Engineering disposition: integrate disabled. External review was not performed.
+Production activation, qualified separate-UID custody and host acceptance remain open.

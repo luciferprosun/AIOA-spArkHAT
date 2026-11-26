@@ -45,12 +45,17 @@ uname -r
 sha256sum /usr/bin/git /usr/bin/bwrap
 dpkg-query -W git bubblewrap python3 libc6 libpcre2-8-0
 stat -fc '%T' /sys/fs/cgroup
-PYTHONPATH=.:tests python3 -B -m unittest -v test_redhat_rh07_sequence
 ```
 
 Stop if the observed profile or installed package/binary digests differ from
 the reviewed manifest. The command output does not attest the hypervisor
 image. The operator supplies its independently verified digest.
+Only after comparing the observed pins to the approved manifest, run the unprivileged regression:
+
+```sh
+PYTHONPATH=.:tests python3 -B -m unittest -v test_redhat_rh07_sequence
+```
+
 After reviewed supervisor/route/policy implementation is available, exercise
 the normal Native apply route with one fresh START per trial. Inject STOP
 before grant, Core revoke after export and before link, STOP while publisher
