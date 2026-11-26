@@ -1,5 +1,39 @@
 # Konsolidacja AIOA spArkHAT × NonZero
 
+## Bieżący odbiór migracji
+
+Odczyt kodu obejmuje `main` `d2fc4cb88c1777e572c099c8082b93e6b7a6c0b1`, drzewo `60cf25fcd67792840505a1744910460b53545e53`. Wyniki po włączeniu niniejszego checkpointu wymagają odrębnego odczytu.
+
+Właściciel polecił kontynuować integrację bez zewnętrznego reviewera. `EXTERNAL_REVIEW=NOT_PERFORMED`. Oceny agentów stanowią przegląd wewnętrzny. Produkcyjny Native pozostaje `DISABLED`. Historyczna operacja Native #69 pozostaje `UNKNOWN / HELD`.
+
+| PR | Dyspozycja | Dowód |
+| --- | --- | --- |
+| [#22](https://github.com/luciferprosun/AIOA-spArkHAT/pull/22) | ARCHIVE_ONLY | Closed as public receipt reporter specimen. The PR published one specimen with no merge request or qualified canonical entrypoint. |
+| [#25](https://github.com/luciferprosun/AIOA-spArkHAT/pull/25) | ALREADY_IN_MAIN | Closed after confirming Android and DEBUG CI ancestry. GitHub compare reports merge base 17280c012561ecc59b1b6f7c65689d8e52506c69 and behind_by=0 at the #73 merge baseline. |
+| [#44](https://github.com/luciferprosun/AIOA-spArkHAT/pull/44) | ALREADY_IN_MAIN | Closed as integrated by #46, merge a095878831f978cb1c8a8df679bbc648dbaedac6. |
+| [#45](https://github.com/luciferprosun/AIOA-spArkHAT/pull/45) | ALREADY_IN_MAIN | Closed as integrated by #46. Scoped remote WRITE source is distinct from LIVE authorization. |
+| [#50](https://github.com/luciferprosun/AIOA-spArkHAT/pull/50) | SUPERSEDED_BY_MERGED_CODE | #75 carries the security and compatibility changes against current main. Native and supported runtime pins are 50.0.2. The original #50 candidate is historical. |
+| [#65](https://github.com/luciferprosun/AIOA-spArkHAT/pull/65) | MERGED | 307af3e2ab43c10f9c90639f55c163321303a3b7. Bounded diagnostic RPC, MCP capabilities and retained UNKNOWN safeguards. No LIVE activation. |
+| [#66](https://github.com/luciferprosun/AIOA-spArkHAT/pull/66) | SUPERSEDED | Original stacked PR closed. #74 directly integrates the retained receipt fix while preserving Native checks and journal semantics. The old head was not merged. |
+| [#69](https://github.com/luciferprosun/AIOA-spArkHAT/pull/69) | SUPERSEDED | Closed after confirming equal stable patch ID be8909ad900d32ccbcfd2a4b42f05baf87f40f07 for 8bf9436 and 40d1e57a4a4def5218c0f431671d99292ee99002, integrated by #71. Historical operation remains UNKNOWN / HELD. |
+| [#70](https://github.com/luciferprosun/AIOA-spArkHAT/pull/70) | HISTORICAL_OBSERVATION_INCLUDED | This successor preserves the exact 2026-11-25 audit block and appends a separately pinned current observation. |
+| [#71](https://github.com/luciferprosun/AIOA-spArkHAT/pull/71) | MERGED | 853484d7fe39fabf2922ff87fcedd0a980807817. Disabled RH01-RH04 code and fixtures. |
+| [#72](https://github.com/luciferprosun/AIOA-spArkHAT/pull/72) | MERGED | Merged to the integration branch at 100b5cce5ea50a900033f696fe27f86c8db783f9, then into main via #74. Existing 15-minute timeout, signed snapshot and package pins preserved. |
+| [#73](https://github.com/luciferprosun/AIOA-spArkHAT/pull/73) | MERGED | caf6c5ba69bfb66b43264c0da6c8968e84fc8a55, tree 455b274b54e8cc77b5833cf5b6ceb3272bb1e849. RH06 remains fixture-only and production disabled. |
+| [#74](https://github.com/luciferprosun/AIOA-spArkHAT/pull/74) | MERGED | 9acb6d524f83e642fc29c3dc7683f17095e40765/tree 88708580a35b0d9ff05342afd8770e4bfeaf7217, identical to the exact qualified PR tree. Receipt validation and APT isolation integrated once. |
+| [#75](https://github.com/luciferprosun/AIOA-spArkHAT/pull/75) | MERGED | d2fc4cb88c1777e572c099c8082b93e6b7a6c0b1/tree 60cf25fcd67792840505a1744910460b53545e53, identical to the reviewed head tree. Four required checks, official CodeQL and separate MCP passed. Production deployment remains separate. |
+
+| Odbiór | Stan |
+| --- | --- |
+| Konsolidacja kodu | SCOPED_CODE_MERGED via #73, #74 and #75. Full functional parity remains open. |
+| Odbiór offline | Exact integrated PR heads passed the required suites. Observe final post-merge CI separately. |
+| LIVE A/B/C/D | 0/4 wykonanych. A i B wymagają celu, C wymaga decyzji właściciela, D kwalifikowanego hosta. |
+| Historyczne kontrakty | 23 `UNKNOWN_EXTERNAL`. Indywidualne rozliczenie pozostaje otwarte. |
+| Wycofanie legacy | RETIREMENT_HOLD |
+
+Porównanie porządków 1–69 zachowuje wszystkie historyczne dane oraz dodaje bieżące SHA, OID i sześć niezależnych wymiarów odbioru. Zmiana OID względem historycznego przypięcia dotyczy 34 wierszy. Klasyfikacja historyczna pozostaje widoczna.
+[Checkpoint](CHECKPOINT.json) · [Macierz 69](PARITY69_UPDATED.csv)
+
 ## Stan po #63
 
 Chroniony `main` wskazuje `8bd2fe14033f1b49609092a353cd7e6fd6b8d3ef`, drzewo `56709b77f066df0567a9f3c4bdbd8182dd6bc38e`. PR-y #51–#63 są scalone. Zakres recenzji trzech niezależnych agentów i decyzję właściciela o Natalii zapisano w #63. Do pełnej kwalifikacji Native nadal wymagany jest host. Historyczne UNKNOWN i HELD pozostają z zakazem replay. [PR #63](https://github.com/luciferprosun/AIOA-spArkHAT/pull/63) · [Core CI po scaleniu](https://github.com/luciferprosun/AIOA-spArkHAT/actions/runs/45223650707) · [MCP](https://github.com/luciferprosun/AIOA-spArkHAT/actions/runs/45223705533) · [CodeQL](https://github.com/luciferprosun/AIOA-spArkHAT/actions/runs/45223650071)

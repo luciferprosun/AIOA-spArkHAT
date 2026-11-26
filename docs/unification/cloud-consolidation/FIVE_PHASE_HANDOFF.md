@@ -1,5 +1,13 @@
 # Odbiór pięciu faz po #60
 
+## Bieżąca kolejność odbioru
+
+Kod referencyjny to `d2fc4cb88c1777e572c099c8082b93e6b7a6c0b1`, drzewo `60cf25fcd67792840505a1744910460b53545e53`. Sprawdź oddzielnie wyniki GitHuba dla każdej integracji i stan dokładnego main. Wersje 3.11 i 3.12 wymagają czterech statusów packaging/certify. Zachowaj CodeQL, source policy i One-Core. Porównaj zainstalowany wheel/sdist oraz smoke bez checkoutu legacy.
+
+Przygotowanie LIVE według [manifestu](LIVE_QUALIFICATION.json) wymaga rzeczywistego transportu dla A, realnego modelu i budżetu dla B, zatwierdzonej izolacji i jednostki efektu dla C oraz kwalifikowanego hosta dla D. B zezwalający na zero napraw nie kwalifikuje wykonania Repair Loop. Porównaj kontrakty tylko na próbce potwierdzonego odbiorcy lub zatwierdź formalne wycofanie z oknem i powiadomieniem.
+
+Po potwierdzeniu całego zaakceptowanego main wykonaj wyłącznie fast-forward czystego kanonicznego checkoutu. Dirty RH-07 pozostaje własnością Local. Nie aktualizuj jego gałęzi ani nie używaj jej do testów release. Zapisz SHA i tree z obu stron oraz wynik smoke. [Checkpoint](CHECKPOINT.json) · [Macierz 69](PARITY69_UPDATED.csv)
+
 Punkt odniesienia to scalony `main` `e071c339942525e8bd8759adafb565c5ad412ce9`, drzewo `f3f625a7f34f679638e0a3af3ebb395bb7fd9029`. Surowe źródła 69 pozycji pochodzą z W7A `392487849eddc7444f5159994b66b72e73f15934`. Macierz wiąże ten main z docelowymi blobami oraz z testami. Dodatkowy zakres offline w tym PR ma własny HEAD i własne wyniki. [Macierz](PARITY69_UPDATED.csv)
 
 ## Przyrost po #61

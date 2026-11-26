@@ -161,5 +161,547 @@
     ],
     "cloud_scope": "SHARED_SOURCE_GITHUB_ONLY",
     "retirement": "HOLD"
+  },
+  "cloud_final_merge_audit": {
+    "observed_utc_day": "2026-11-25",
+    "main": "1d475a2aef3437854386e7d8a0e1c998735753fe",
+    "tree": "d90822d11f4d05f0effebb1a59e85c17688c947b",
+    "protection": {
+      "enabled": true,
+      "required_checks_app_id": 15368,
+      "enforcement_level": "everyone",
+      "required_checks": [
+        "Installed packaging (3.11)",
+        "Installed packaging (3.12)",
+        "certify (3.11)",
+        "certify (3.12)"
+      ],
+      "administrative_details": "NOT_VERIFIED_HTTP_403"
+    },
+    "ci": {
+      "core_and_packaging": {
+        "run": 45491074941,
+        "result": "PASS"
+      },
+      "default_codeql": {
+        "run": 45491073776,
+        "result": "PASS"
+      },
+      "advanced_codeql": {
+        "run": 45491074774,
+        "result": "SKIPPED"
+      },
+      "standalone_mcp": "NO_EXACT_MAIN_RUN_OBSERVED"
+    },
+    "verified_merges_to_main": {
+      "65": "307af3e2ab43c10f9c90639f55c163321303a3b7",
+      "67": "cd6a6ad9d948768e9f60fe02b7101e433b790605",
+      "68": "1d475a2aef3437854386e7d8a0e1c998735753fe"
+    },
+    "open_pr_dispositions": {
+      "22": "ARCHIVE_ONLY",
+      "25": "ALREADY_IN_MAIN_BY_ANCESTRY",
+      "44": "ALREADY_IN_MAIN_VIA_46",
+      "45": "ALREADY_IN_MAIN_VIA_46",
+      "50": "REQUIRES_CURRENT_MAIN_FORWARD_PORT",
+      "66": "HOLD_LOCAL_OWNERSHIP",
+      "69": "HOLD_NATIVE69"
+    },
+    "pr66_stacked_ci": {
+      "head": "868371c6afb970e0c0e64ff0d1f99281bc60cc0b",
+      "core_and_packaging_run": 45446167945,
+      "mcp_run": 45446271539,
+      "codeql": "NO_EXACT_HEAD_RUN_OBSERVED",
+      "shared_path": "runtime/mission/git_publish.py"
+    },
+    "merge_ready_prs": [],
+    "matrix_rows": 69,
+    "historical_core_pins_differing_from_main_rows": [
+      1,
+      2,
+      3,
+      4,
+      39,
+      40,
+      41,
+      42,
+      63
+    ],
+    "live_qualification": "NOT_RUN",
+    "historical_native69": "UNKNOWN_HELD",
+    "native69_production": "BLOCKED_SECURITY_REVIEW",
+    "legacy_retirement": "HOLD"
+  },
+  "final_migration_observation": {
+    "observation_kind": "ACTUAL_MERGED_CODE_MAIN",
+    "source_main": {
+      "sha": "d2fc4cb88c1777e572c099c8082b93e6b7a6c0b1",
+      "tree": "60cf25fcd67792840505a1744910460b53545e53"
+    },
+    "pr70_head": "c7367d33a0e9f1881d9d7a1e3dd2dce452ccfbec",
+    "code_consolidation": "SCOPED_CODE_MERGED via #73, #74 and #75. Full functional parity remains open.",
+    "offline_acceptance": "Exact integrated PR heads passed the required suites. Observe final post-merge CI separately.",
+    "legacy_retirement": "RETIREMENT_HOLD",
+    "row19_main": "BOUNDED_CORE_CREATE_ONLY_AND_RETAINED_REMOTE_RESULT_AUTHENTICATION_MERGED_VIA_PR74",
+    "row19_offline": "SCOPED passed exact #74 Core CI (45762927384). tests/test_core_remote_git.py and tests/test_native_github_write.py bind signature, digest, operation and warrant and refuse false VERIFIED.",
+    "row69_main": "RH01_TO_RH04_AND_RH06_FIXTURE_MERGED / RH07_LOCAL",
+    "row69_offline": "SCOPED RH06 fixtures and Native/Core regressions on exact PR73 head. The ordinary Native route refuses before START without qualified gate and device",
+    "main_ci": {
+      "observed_utc": "2026-11-26 06:40:48 UTC",
+      "runs": [
+        {
+          "id": 45769838373,
+          "name": "Graph Update: pip in /., /runtime, /tests #1731971711",
+          "event": "dynamic",
+          "attempt": 1,
+          "status": "in_progress",
+          "conclusion": null
+        },
+        {
+          "id": 45769830676,
+          "name": "Push on main",
+          "event": "dynamic",
+          "attempt": 1,
+          "status": "in_progress",
+          "conclusion": null
+        },
+        {
+          "id": 45769828968,
+          "name": "Core and native NonZero",
+          "event": "push",
+          "attempt": 1,
+          "status": "in_progress",
+          "conclusion": null
+        },
+        {
+          "id": 45769829175,
+          "name": "AIOA CodeQL (owner-gated advanced profile)",
+          "event": "push",
+          "attempt": 1,
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "id": 45769829024,
+          "name": "AIOA MCP Bridge",
+          "event": "push",
+          "attempt": 1,
+          "status": "in_progress",
+          "conclusion": null
+        }
+      ],
+      "required_checks": "PENDING_ON_POSTMERGE_EXACT_SHA_AT_OBSERVATION"
+    },
+    "code_ci": {
+      "independent_packaging": {
+        "scope": "Cloud fixture only. Each candidate built a clean wheel and rebuilt a wheel from its sdist, then installed in four clean virtualenvs without checkout imports, Textual or legacy. Dependences installed offline from staged PyPI wheels. CLI/web help and installed Native fixture smoke passed. Cloud namespace isolation unavailable.",
+        "interpreters": [
+          "3.11.18",
+          "3.12.14"
+        ],
+        "74": {
+          "head": "100b5cce5ea50a900033f696fe27f86c8db783f9",
+          "tree": "88708580a35b0d9ff05342afd8770e4bfeaf7217",
+          "result_hashes": [
+            "a0e2a154422f36e27643003dbf37bbd8ef36d27c1b6b89f853ca45319e4f2e97",
+            "e6180a6744697c1c38959c9e025a47196f946d7e02647c82e016b0143795c5ea"
+          ]
+        },
+        "75": {
+          "head": "3bd01658aecb6446ca5a7c27c0bb9574a061d90b",
+          "tree": "60cf25fcd67792840505a1744910460b53545e53",
+          "resolved_cryptography": "50.0.2",
+          "result_hashes": [
+            "d6ce9f7742bc55ae5982dfab0460b5aa6c1e0ec9e7e0db5d8ee065232ed38f6d",
+            "f1ac218247aa684682ca7f5a3f8c9dd20eb6edcbd3df16af357328521e8b1d3f"
+          ]
+        }
+      },
+      "73": {
+        "exact_pr_head": "933be272d1dabe99dad59108fda8648018d93c50",
+        "exact_pr_tree": "455b274b54e8cc77b5833cf5b6ceb3272bb1e849",
+        "pr_core_run": 45750474198,
+        "pr_core_attempt": 2,
+        "pr_tests_collected_per_interpreter": 4506,
+        "pr_tests_passed_per_interpreter": 4501,
+        "pr_tests_skipped_per_interpreter": 5,
+        "pr_default_codeql": 45750471926,
+        "post_merge_main": "caf6c5ba69bfb66b43264c0da6c8968e84fc8a55",
+        "post_merge_core_run": 45762562206,
+        "post_merge_core_attempt": 1,
+        "post_merge_chrome_rest_failure": {
+          "interpreter": "3.12",
+          "job": 139715720311,
+          "test": "tests/mobile_device_console_browser.py:304",
+          "result": "CHROME_COMMAND_UNKNOWN",
+          "log_sha256": "b4a0be5beee888799077e67d194caad7692d733ff2c014e38814929bcc35ce38"
+        },
+        "scope": "Pinned candidate passed. Post-merge attempt 1 hit an intermittent first Chrome command failure. A targeted 3.12 retry on the same main SHA passed, yielding four green required checks. The underlying environment cause remains unverified.",
+        "post_merge_core_latest_attempt": 2,
+        "post_merge_required_checks": "PASS",
+        "post_merge_tests_passed_per_interpreter": 4501,
+        "post_merge_tests_skipped_per_interpreter": 5
+      },
+      "74": {
+        "exact_pr_head": "100b5cce5ea50a900033f696fe27f86c8db783f9",
+        "exact_pr_tree": "88708580a35b0d9ff05342afd8770e4bfeaf7217",
+        "merge_sha": "9acb6d524f83e642fc29c3dc7683f17095e40765",
+        "pr_core_run": 45762927384,
+        "pr_certify_jobs": {
+          "3.11": 139716917265,
+          "3.12": 139716917001
+        },
+        "pr_tests_collected_per_interpreter": 4508,
+        "pr_tests_passed_per_interpreter": 4503,
+        "pr_tests_skipped_per_interpreter": 5,
+        "pr_required_checks": "PASS",
+        "pr_default_codeql": 45762924516,
+        "pr_advanced_codeql": {
+          "id": 45762927382,
+          "result": "SKIPPED"
+        },
+        "pr_standalone_mcp": {
+          "id": 45762954014,
+          "result": "PASS"
+        },
+        "scope": "Exact tested tree merged into main. Postmerge CI is a separate observation.",
+        "allowlisted_skips": {
+          "Playwright not installed": 2,
+          "NVIDIA NeMo Agent Toolkit site absent": 1,
+          "optional Textual missing": 2
+        },
+        "test_ids_sha256": "7a09fc5fb8f5ef44b8ed3acd422f4e907dfc18658f266ac3b22083b6890c6144",
+        "postmerge_main": {
+          "sha": "9acb6d524f83e642fc29c3dc7683f17095e40765",
+          "tree": "88708580a35b0d9ff05342afd8770e4bfeaf7217",
+          "core": {
+            "id": 45765340826,
+            "attempt": 1,
+            "required_checks": "PASS"
+          },
+          "default_codeql": {
+            "id": 45765341224,
+            "result": "PASS"
+          },
+          "advanced_codeql": {
+            "id": 45765340840,
+            "result": "SKIPPED"
+          }
+        }
+      },
+      "75": {
+        "exact_pr_head": "419520fe61dec3abd6e9554b97b683c56be6843e",
+        "exact_pr_tree": "60cf25fcd67792840505a1744910460b53545e53",
+        "pr_core_run": 45765398244,
+        "pr_default_codeql": 45765393683,
+        "pr_advanced_codeql": {
+          "id": 45765398240,
+          "result": "SKIPPED"
+        },
+        "pr_standalone_mcp": {
+          "id": 45765398253,
+          "result": "PASS"
+        },
+        "first_attempt_3_11_chrome_rest_failure": {
+          "attempt": 1,
+          "job": 139724970229,
+          "test": "tests/mobile_device_console_browser.py:366",
+          "first_command": "Browser.getVersion",
+          "result": "CHROME_COMMAND_UNKNOWN",
+          "log_sha256": "df235f4acd6e053fd7d01d3b866d7da7f0a0f0aa67015cb9ea232c21e6ecaeca",
+          "crypto_observed": "50.0.2, verified private wheel-site origin"
+        },
+        "scope": "First attempt reproduced the existing Chrome first-command symptom. A targeted retry on the unchanged head passed. Cause remains unverified.",
+        "merge_sha": "d2fc4cb88c1777e572c099c8082b93e6b7a6c0b1",
+        "pr_core_latest_attempt": 2,
+        "pr_required_checks": "PASS",
+        "pr_default_codeql_result": "PASS"
+      }
+    },
+    "prs": {
+      "22": {
+        "disposition": "ARCHIVE_ONLY",
+        "evidence": "Closed as public receipt reporter specimen. The PR published one specimen with no merge request or qualified canonical entrypoint.",
+        "branch": "codex/w7a-verified-pr-agent24h-4dbfc58d3e0a455eaea4fa6692e4ff22",
+        "head": "3a640703e3248476b9e5d3095e14fe28d8f74057",
+        "base_branch": "main",
+        "base_sha_at_observation": "81656e6ccbb0c02307d049e865b6df3225ddb578",
+        "unique_scope": "Standalone report specimen outside installed Core",
+        "ownership": "Cloud evidence archive",
+        "depends_on": null
+      },
+      "25": {
+        "disposition": "ALREADY_IN_MAIN",
+        "evidence": "Closed after confirming Android and DEBUG CI ancestry. GitHub compare reports merge base 17280c012561ecc59b1b6f7c65689d8e52506c69 and behind_by=0 at the #73 merge baseline.",
+        "branch": "codex/android-toolchain-mobile-20261031",
+        "head": "17280c012561ecc59b1b6f7c65689d8e52506c69",
+        "base_branch": "AIOA-METAGuardiansSPARK",
+        "base_sha_at_observation": "0741d37db0630233b4e7212f6f3af6320106c792",
+        "unique_scope": "None after ancestry verification",
+        "ownership": "Android and release tooling",
+        "depends_on": "Current main ancestry"
+      },
+      "44": {
+        "disposition": "ALREADY_IN_MAIN",
+        "evidence": "Closed as integrated by #46, merge a095878831f978cb1c8a8df679bbc648dbaedac6.",
+        "branch": "feat/muse-direct-chat-session-20261104",
+        "head": "16fcfeed477f92f2ec65bd235e0b1cd98f87e7fd",
+        "base_branch": "main",
+        "base_sha_at_observation": "2be99da7aa07f7eb5faa9459fe8a78c5d0b6653a",
+        "unique_scope": "No required Native owner-session delta",
+        "ownership": "Canonical Native composition",
+        "depends_on": "PR #46"
+      },
+      "45": {
+        "disposition": "ALREADY_IN_MAIN",
+        "evidence": "Closed as integrated by #46. Scoped remote WRITE source is distinct from LIVE authorization.",
+        "branch": "feat/muse-github-write-core-20261105",
+        "head": "ff38e17a837b223a65cb095f832e1a103e573572",
+        "base_branch": "main",
+        "base_sha_at_observation": "2be99da7aa07f7eb5faa9459fe8a78c5d0b6653a",
+        "unique_scope": "No required Muse approval and scope delta",
+        "ownership": "Canonical Native composition",
+        "depends_on": "PR #46"
+      },
+      "50": {
+        "disposition": "SUPERSEDED_BY_MERGED_CODE",
+        "evidence": "#75 carries the security and compatibility changes against current main. Native and supported runtime pins are 50.0.2. The original #50 candidate is historical.",
+        "branch": "review/crypto50-qualification-20261106",
+        "head": "185bc3c7d38921b31beaffbfa1e0dd0b4f770662",
+        "base_branch": "main",
+        "base_sha_at_observation": "806a7a63ba2a9e7bcfc520dcb7d2efa0f788c6ef",
+        "unique_scope": "Cryptography compatibility and security pins",
+        "ownership": "Cloud dependency security integration",
+        "depends_on": "PR #75"
+      },
+      "65": {
+        "disposition": "MERGED",
+        "evidence": "307af3e2ab43c10f9c90639f55c163321303a3b7. Bounded diagnostic RPC, MCP capabilities and retained UNKNOWN safeguards. No LIVE activation.",
+        "branch": "codex/nonzero-cloud05",
+        "head": "b663bc57374aa11fb559c8a248cb50de844786c8",
+        "base_branch": "main",
+        "base_sha_at_observation": "cd6a6ad9d948768e9f60fe02b7101e433b790605",
+        "unique_scope": "Already merged offline diagnostic and UNKNOWN safeguards",
+        "ownership": "Cloud bounded NonZero integration",
+        "depends_on": "#64 ancestry"
+      },
+      "66": {
+        "disposition": "SUPERSEDED",
+        "evidence": "Original stacked PR closed. #74 directly integrates the retained receipt fix while preserving Native checks and journal semantics. The old head was not merged.",
+        "branch": "codex/nonzero-cloud05-write-evidence",
+        "head": "868371c6afb970e0c0e64ff0d1f99281bc60cc0b",
+        "base_branch": "codex/nonzero-cloud05",
+        "base_sha_at_observation": "e3e0708c897398c91bc526da6f426ceb36e7e3df",
+        "unique_scope": "Retained remote receipt verification",
+        "ownership": "Cloud retained receipt successor coordinated with Local",
+        "depends_on": "PR #74"
+      },
+      "69": {
+        "disposition": "SUPERSEDED",
+        "evidence": "Closed after confirming equal stable patch ID be8909ad900d32ccbcfd2a4b42f05baf87f40f07 for 8bf9436 and 40d1e57a4a4def5218c0f431671d99292ee99002, integrated by #71. Historical operation remains UNKNOWN / HELD.",
+        "branch": "codex/redhat-broker-forward",
+        "head": "8bf94361e8d0fdeabc25007b4faeefd33cc0cf8a",
+        "base_branch": "codex/red-hat-native-witness",
+        "base_sha_at_observation": "f6bf5c9cc1b1d070467838f0743e8174ce2339dd",
+        "unique_scope": "No unique witness delta after patch identity comparison",
+        "ownership": "Local Native lane",
+        "depends_on": "PR #71"
+      },
+      "70": {
+        "disposition": "HISTORICAL_OBSERVATION_INCLUDED",
+        "evidence": "This successor preserves the exact 2026-11-25 audit block and appends a separately pinned current observation.",
+        "branch": "codex/nonzero-audit-evidence-20261125",
+        "head": "c7367d33a0e9f1881d9d7a1e3dd2dce452ccfbec",
+        "base_branch": "main",
+        "base_sha_at_observation": "1d475a2aef3437854386e7d8a0e1c998735753fe",
+        "unique_scope": "Historical checkpoint observation",
+        "ownership": "Cloud evidence writer",
+        "depends_on": "Current documentation successor"
+      },
+      "71": {
+        "disposition": "MERGED",
+        "evidence": "853484d7fe39fabf2922ff87fcedd0a980807817. Disabled RH01-RH04 code and fixtures.",
+        "branch": "codex/redhat-rh05b-consolidate-20261125",
+        "head": "f28f001784158973ee35048ef5dbfe6b04610c7a",
+        "base_branch": "main",
+        "base_sha_at_observation": "1d475a2aef3437854386e7d8a0e1c998735753fe",
+        "unique_scope": "Already merged disabled RH01–RH04 fixture scope",
+        "ownership": "Local Native lane and integration owner",
+        "depends_on": "#68 baseline"
+      },
+      "72": {
+        "disposition": "MERGED",
+        "evidence": "Merged to the integration branch at 100b5cce5ea50a900033f696fe27f86c8db783f9, then into main via #74. Existing 15-minute timeout, signed snapshot and package pins preserved.",
+        "branch": "codex/nonzero-noble-snapshot-ci",
+        "head": "f7233ece34f9276abd049b73052d3d11fb67a272",
+        "base_branch": "main",
+        "base_sha_at_observation": "caf6c5ba69bfb66b43264c0da6c8968e84fc8a55",
+        "unique_scope": "Noble APT isolated list changes while retaining signed pins and existing timeout",
+        "ownership": "Cloud workflow owner",
+        "depends_on": "PR #74"
+      },
+      "73": {
+        "disposition": "MERGED",
+        "evidence": "caf6c5ba69bfb66b43264c0da6c8968e84fc8a55, tree 455b274b54e8cc77b5833cf5b6ceb3272bb1e849. RH06 remains fixture-only and production disabled.",
+        "branch": "codex/native69-rh06-proof",
+        "head": "933be272d1dabe99dad59108fda8648018d93c50",
+        "base_branch": "main",
+        "base_sha_at_observation": "853484d7fe39fabf2922ff87fcedd0a980807817",
+        "unique_scope": "Already merged disabled RH06 fixture scope",
+        "ownership": "Local Native lane and integration owner",
+        "depends_on": "PR #71"
+      },
+      "74": {
+        "disposition": "MERGED",
+        "evidence": "9acb6d524f83e642fc29c3dc7683f17095e40765/tree 88708580a35b0d9ff05342afd8770e4bfeaf7217, identical to the exact qualified PR tree. Receipt validation and APT isolation integrated once.",
+        "branch": "codex/nonzero-retained-write-receipt-successor",
+        "head": "100b5cce5ea50a900033f696fe27f86c8db783f9",
+        "base_branch": "main",
+        "base_sha_at_observation": "caf6c5ba69bfb66b43264c0da6c8968e84fc8a55",
+        "unique_scope": "Retained remote receipt verification and bounded Noble APT isolation",
+        "ownership": "Cloud code and workflow integration owners",
+        "depends_on": "PR #73 main"
+      },
+      "75": {
+        "disposition": "MERGED",
+        "evidence": "d2fc4cb88c1777e572c099c8082b93e6b7a6c0b1/tree 60cf25fcd67792840505a1744910460b53545e53, identical to the reviewed head tree. Four required checks, official CodeQL and separate MCP passed. Production deployment remains separate.",
+        "branch": "codex/nonzero-crypto50-successor",
+        "head": "419520fe61dec3abd6e9554b97b683c56be6843e",
+        "base_branch": "main",
+        "base_sha_at_observation": "9acb6d524f83e642fc29c3dc7683f17095e40765",
+        "unique_scope": "Patched cryptography pins, parser decline normalization and isolated wheel provenance",
+        "ownership": "Cloud dependency security integration",
+        "depends_on": "PR #74"
+      }
+    },
+    "legacy_backup": {
+      "current_advertised_refs": 13,
+      "restored_refs_match": true,
+      "current_ref_list_sha256": "d88a695bcd30104228e52ce780e876d4b3d8f6d8f86b955371593a3dae942c8e",
+      "manifest_sha256": "d829d73710ba05a3f07997de0120c223d222b853b2afea8448273cd73ca1549a",
+      "restored_commits": 179,
+      "restored_reachable_objects": 2674,
+      "fsck_exit": 0,
+      "second_copy": "An isolated Cloud workspace bundle was verified and restored. Long-term retention and independent physical custody of that Cloud copy are unverified.",
+      "legacy_render_deployments": 20,
+      "latest_recorded_success": {
+        "deployment": 6378024487,
+        "date": "2026-09-10",
+        "sha": "03d1c8f6a1d254c98c0b4e88fc93e25ea85ed4c7"
+      },
+      "current_render_status_and_consumers": "UNKNOWN",
+      "metadata_restore": "PENDING",
+      "github_metadata": {
+        "wiki_enabled": true,
+        "projects_enabled": true,
+        "releases_observed": 0,
+        "actions_artifacts_observed": 0,
+        "metadata_restore": "PENDING",
+        "pull_requests_indexed": 1,
+        "issues_indexed": 0,
+        "actions_runs_observed": 0,
+        "wiki_contents_exported": false,
+        "project_contents_exported": false,
+        "lfs_export": "Scanned all 1312 reachable blobs across current advertised refs with zero Git LFS v1 pointers. No separate LFS content required for those observed refs.",
+        "ref_counts": {
+          "heads": 11,
+          "tags": 1,
+          "pull": 1
+        },
+        "pages_enabled": false,
+        "downloads_enabled": false,
+        "wiki_advertised_refs": "Authenticated ls-remote on legacy .wiki.git returned repository not found. API wiki flag is true. Content export remains unverifiable.",
+        "legacy_main_gitlinks": 0,
+        "legacy_main_gitattributes_observed": false
+      },
+      "canonical_git_refs_required_for_runtime": false,
+      "canonical_source_scan": "Tracked runtime, scripts, CI, packaging and deployment references to legacy are restricted to provenance comments, dependency exclusions and One-Core guards. Current external deployment independence is unproved.",
+      "on_laptop_independent_physical_storage_domains": 1,
+      "restore_validated_copies_across_current_environments": 2,
+      "long_term_owner_retained_storage_domains_verified": 1,
+      "second_copy_bundle": "AIOA-NonZero-CloudOps-Agent-20261126.bundle",
+      "second_copy_sha256": "84e5720c6cab3a8be59669a83396ed00018269be04e80e31bdc1e75d4828331e",
+      "second_copy_restore": {
+        "refs": 13,
+        "commits": 179,
+        "reachable_objects": 2674,
+        "fsck_exit": 0,
+        "identical_to_laptop_bundle": true
+      }
+    },
+    "branch_protection": {
+      "strict_required_checks": true,
+      "required_approvals": 0,
+      "code_owner_reviews_required": false,
+      "last_push_approval_required": false,
+      "enforce_admins": true,
+      "force_push_allowed": false,
+      "evidence_scope": "Owner's refreshed authenticated branch rules. Keep the platform checks enabled."
+    },
+    "local_sync": {
+      "observed_preintegration_checkout_sha": "8bd2fe14033f1b49609092a353cd7e6fd6b8d3ef",
+      "observed_preintegration_checkout_tree": "56709b77f066df0567a9f3c4bdbd8182dd6bc38e",
+      "final_fast_forward": "SEPARATE_ACCEPTANCE_AFTER_DOCS_MERGE",
+      "rh07": {
+        "owner": "CODEX_LOCAL",
+        "branch": "codex/native69-rh07-cross-uid-sequencer",
+        "working_tree_checkpoint": "UNCOMMITTED_WORK_REPORTED_AT_HANDOFF",
+        "handoff": "Give Local the final main SHA/tree to reconcile. Any recast of RH-07 source stays with Local."
+      }
+    },
+    "live_manifest": "LIVE_QUALIFICATION.json",
+    "task_queue": "TASK_QUEUE.json",
+    "external_review": "NOT_PERFORMED",
+    "owner_direction": "CONTINUE_INTEGRATION_WITHOUT_EXTERNAL_REVIEW",
+    "production_native": "DISABLED",
+    "historical_native69": "UNKNOWN / HELD",
+    "parity_rows": 69,
+    "historical_target_oid_drift_rows": [
+      1,
+      2,
+      3,
+      4,
+      11,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      23,
+      27,
+      33,
+      39,
+      40,
+      41,
+      42,
+      43,
+      45,
+      46,
+      50,
+      51,
+      52,
+      53,
+      57,
+      59,
+      60,
+      62,
+      63,
+      66,
+      69
+    ],
+    "matrix_fields": [
+      "current_evidence_main",
+      "current_evidence_tree",
+      "current_target_blobs",
+      "current_main_code",
+      "current_offline_evidence",
+      "current_live_evidence",
+      "current_legacy_contract",
+      "current_production",
+      "current_retirement_impact"
+    ]
   }
 }

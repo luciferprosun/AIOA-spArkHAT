@@ -1,5 +1,11 @@
 # Jedna tabela decyzji dla 23 kontraktów zewnętrznych
 
+## Odczyt bieżący
+
+Źródło Core to `d2fc4cb88c1777e572c099c8082b93e6b7a6c0b1`. Dostępne dane nie potwierdzają aktywnego odbiorcy żadnego z 23 wierszy. Każdy wiersz zachowuje `UNKNOWN_EXTERNAL` i indywidualny warunek z tabeli poniżej.
+
+Przed zmianą danego kontraktu wymagany jest reprezentatywny klient, dokładny import lub endpoint, wspierana wersja i zanonimizowana próbka. Przed formalnym wycofaniem potrzeba decyzji właściciela, zakresu, czasu i powiadomienia. Sama dalsza integracja ograniczonej funkcji Core, bez zmiany kontraktu, nie zależy od zgody na wycofanie całego legacy. #24 wymaga odrębnego porównania tras, trybu i frameworka, a #57 odróżnia Render YAML od efektu Git. [Checkpoint](CHECKPOINT.json) · [Macierz 69](PARITY69_UPDATED.csv)
+
 Zakres potwierdzonych aktywnych odbiorców zewnętrznych pozostaje pusty. GitHub i historia widzą dawne wdrożenie Render oraz historyczne interfejsy. Kategoria w tabeli to rekomendowany tryb rozliczenia, a każdy wiersz zachowuje `UNKNOWN_EXTERNAL` do przypięcia odbiorcy lub decyzji właściciela o zakresie.
 
 | ID | Rekomendowana grupa | Decyzja i konkretny warunek |
