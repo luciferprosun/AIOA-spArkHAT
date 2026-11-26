@@ -7,7 +7,7 @@ import time
 from contextlib import contextmanager
 
 from runtime.core_admission import Capability
-from runtime.mcp_bridge import native_read
+from runtime.mcp_bridge import native_read, official_read
 from runtime.memory_patch.errors import ErrorCode, MemoryPatchError
 from runtime.memory_patch.persistence.ports import RecordKind
 from runtime.mobile_gateway import wire
@@ -20,10 +20,17 @@ def _verified_read_result(host, payload, request_id):
         binding = payload['binding']
         result = payload['result']
         receipt = result['receipt']
-        if (set(binding) != {'request_id', 'operation', 'source_sha', 'capsule_digest'}
+        fields = {'request_id', 'operation', 'source_sha', 'capsule_digest'}
+        if binding['operation'] == official_read.OPERATION:
+            fields.add('permit_digest')
+            if (binding['request_id'] != official_read.REQUEST_ID
+                    or receipt.get('transport') != official_read.TRANSPORT
+                    or binding.get('permit_digest') != wire.digest(wire.canonical(result['data']['permit']))):
+                raise wire.MobileError(409)
+        if (set(binding) != fields
                 or binding['request_id'] != request_id
                 or not wire.HEX32.fullmatch(request_id)
-                or binding['operation'] not in native_read.OPERATIONS
+                or binding['operation'] not in native_read.OPERATIONS | {official_read.OPERATION}
                 or set(result) != {'receipt', 'data', 'signature'}):
             raise wire.MobileError(409)
         wire.verify(host.identity.spki, result['signature'], receipt)
@@ -149,6 +156,23 @@ def dispatch(host, owner, value):
     deadline=time.monotonic()+native_read.READ_TIMEOUT_SECONDS
     host.core.require(owner, Capability.OWNER_APPROVAL, scope=host.missions.scope)
     host._require_qualified_operator()
+    if value['op'] in ('tool_read_prepare', 'tool_read_approve'):
+        approval = value['op'] == 'tool_read_approve'
+        fields = {'op', 'operation'} | ({'permit_digest'} if approval else set())
+        if set(value) != fields or value['operation'] != official_read.OPERATION:
+            raise wire.MobileError(400)
+        permit = official_read.manifest(host)
+        official_read.preflight(host, permit)
+        digest = wire.digest(wire.canonical(permit))
+        if not approval:
+            return {'permit': permit, 'permit_digest': digest}
+        official_read.check_window(permit)
+        if value['permit_digest'] != digest:
+            raise wire.MobileError(409)
+        if host.mobile._get('native-tool-read-'+official_read.REQUEST_ID) is not None:
+            raise wire.MobileError(409)
+        host._require_qualified_operator()
+        return {'permit': permit, 'signature': host.identity.sign(permit)}
     if value['op'] == 'tool_proposal':
         return proposal(host, value)
     if value['op'] == 'tool_readback':
@@ -164,17 +188,26 @@ def dispatch(host, owner, value):
         if data.get('failure',{}).get('code')=='TOOL_READ_TIMEOUT':
             result['error_code']='TOOL_READ_TIMEOUT'
         return result
-    if set(value) != {'op', 'request_id', 'operation'}:
+    official = value.get('operation') == official_read.OPERATION
+    fields = {'op', 'request_id', 'operation'} | ({'approval'} if official else set())
+    if set(value) != fields:
         raise wire.MobileError(400)
     request, operation = value['request_id'], value['operation']
     if (type(request) is not str or not wire.HEX32.fullmatch(request)
-            or type(operation) is not str or operation not in native_read.OPERATIONS):
+            or type(operation) is not str or operation not in native_read.OPERATIONS | {official_read.OPERATION}):
         raise wire.MobileError(400)
     key = 'native-tool-read-'+request
     binding = {'request_id': request, 'operation': operation,
                'source_sha': host.source[0], 'capsule_digest': host.source[1]}
+    approval = None
+    if official:
+        if request != official_read.REQUEST_ID:
+            raise wire.MobileError(403)
+        approval = wire.strict_json(wire.canonical(value['approval']))
+        permit = official_read.validate_authorization(host, approval)
+        binding['permit_digest'] = wire.digest(wire.canonical(permit))
     try:
-        return _perform_read(host,key,binding,operation,deadline)
+        return _perform_read(host,key,binding,operation,deadline,approval=approval)
     except (ValueError,MemoryPatchError) as error:
         cause=error.__cause__ if isinstance(error,MemoryPatchError) and error.code==ErrorCode.TRANSACTION_FAILED else error
         if type(cause) is ValueError and cause.args==('TOOL_READ_TIMEOUT',):
@@ -198,7 +231,7 @@ def _record_timeout(host,key,binding):
     host.mobile._run(Capability.COMMIT,failed)
 
 
-def _perform_read(host,key,binding,operation,deadline):
+def _perform_read(host,key,binding,operation,deadline,*,approval=None):
     with _read_lock(host.missions._lock,deadline):
         host.operator_principal()
         def reserve(tx):
@@ -216,10 +249,15 @@ def _perform_read(host,key,binding,operation,deadline):
         if prior is not None:
             return _verified_read_result(host, prior, binding['request_id'])
         from .runtime_adapter import ROOT
-        value = native_read.read(operation, ROOT, check=host._require_qualified_operator,
-                                 deadline=deadline)  # Never inside retryable transaction.
+        if operation == official_read.OPERATION:
+            value = official_read.run(host, approval, deadline)
+        else:
+            value = native_read.read(operation, ROOT, check=host._require_qualified_operator,
+                                     deadline=deadline)  # Never inside retryable transaction.
         host._require_qualified_operator()  # Recheck expiry, qualified TLS and exact source after IO.
         native_read._remaining(deadline)
+        if approval:
+            official_read.check_window(approval['permit'])
         wire.canonical(value)
         now = int(time.time())
         receipt = {'schema': 'aioa.native-tool-read-receipt.v1', **binding,
@@ -228,10 +266,13 @@ def _perform_read(host,key,binding,operation,deadline):
                    'observed_at': now, 'data_sha256': wire.digest(wire.canonical(value['data'])),
                    'transport': value['transport'], 'automatic_retry': False}
         result = {'data': value['data'], 'receipt': receipt, 'signature': host.identity.sign(receipt)}
-        if len(wire.canonical(result)) > 48000:
+        limit = official_read.BUDGET['receipt_bytes'] if approval else 48000
+        if len(wire.canonical(result)) > limit:
             raise wire.MobileError(413)
         def complete(tx):
             host._require_qualified_operator()
+            if approval:
+                official_read.check_window(approval['permit'])
             native_read._remaining(deadline)
             row = tx.get(RecordKind.OPERATION, key)
             if row is None or row.payload['state'] != 'TOOL_READ_PENDING' or plain(row.payload['binding']) != binding:
