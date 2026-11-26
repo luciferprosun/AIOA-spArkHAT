@@ -1,0 +1,40 @@
+{
+  "schema": "aioa.noble-operator-pins.v1",
+  "host": {
+    "source": null,
+    "tree": null,
+    "kernel": null,
+    "boot_sha256": null,
+    "image_sha256": null,
+    "signed_package_manifest_sha256": null,
+    "management_receipt_sha256": null
+  },
+  "native": {
+    "session": null,
+    "uids": {"core": null, "broker": null, "verifier": null},
+    "gids": {"core": null, "broker": null, "verifier": null},
+    "domains": {
+      "core": {"cgroup": null, "apparmor": null},
+      "broker": {"cgroup": null, "apparmor": null},
+      "verifier": {"cgroup": null, "apparmor": null}
+    },
+    "signer_dev": null,
+    "signer_ino": null
+  },
+  "g04": {
+    "unit": null,
+    "uid": null,
+    "session_id": null,
+    "start_unix": null,
+    "expiry_unix": null,
+    "warrant": null,
+    "core_spki_sha256": null,
+    "profile_sha256": null,
+    "chrome_sha256": null,
+    "runtime_sha256": null,
+    "recipe_sha256": "7058df57bc92abed51b6db6cfd8e6e377e084ace38a392c69096fd8694a99903",
+    "keeper_sha256": "872e6d654b11292751857e06d18c97b7fc0aaa8fb3951c4afa3be6f80ddda4e0",
+    "setup_filter_sha256": "fc3c485848c94f2943791fe5dc23712aa395553c5bd0dde1a2bf09ce40cc825b",
+    "final_filter_sha256": "04dd9da7d6acf2f80118d7cfee57549ed0abc810920f6d4ca19ce79e3b47e073"
+  }
+}
