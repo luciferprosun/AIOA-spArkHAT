@@ -3,6 +3,7 @@
 import secrets
 import socket
 import time
+from contextlib import nullcontext
 from dataclasses import asdict, fields
 
 from cryptography.exceptions import InvalidSignature
@@ -63,6 +64,15 @@ def serve_authenticated_fixture_once(listener, *, root_fd, expected, enrollment,
                                      clock=lambda: int(time.time()), fault=_no_fault, enabled=False):
     """Consume a verified Core envelope before entering the existing fixture CAS."""
     require(enabled is True, "RH06_DISABLED")
+    return _serve_authenticated_fixture(
+        listener, root_fd=root_fd, expected=expected, enrollment=enrollment, identity=identity,
+        core_peer=core_peer, core_spki=core_spki, core_epoch=core_epoch,
+        broker_epoch=broker_epoch, clock=clock, fault=fault)
+
+
+def _serve_authenticated_fixture(listener, *, root_fd, expected, enrollment, identity,
+                                 core_peer, core_spki, core_epoch, broker_epoch, clock, fault,
+                                 sequence=nullcontext, revalidate=_no_fault):
     require(type(expected) is NativeExecutionBindingV1
             and core_spki != enrollment.executor.spki, "RH06_ROLE_KEYS")
 
@@ -79,7 +89,8 @@ def serve_authenticated_fixture_once(listener, *, root_fd, expected, enrollment,
     return _serve_fixture(listener, root_fd=root_fd, receive=receive, enrollment=enrollment,
                           identity=identity, core_epoch=core_epoch, broker_epoch=broker_epoch,
                           clock=clock, fault=fault,
-                          check_context=lambda target: require_physical_context(target, expected))
+                          check_context=lambda target: require_physical_context(target, expected),
+                          sequence=sequence, revalidate=revalidate)
 
 
 def serve_verifier_fixture_once(listener, *, root_fd, binding, enrollment, identity, core_peer,
