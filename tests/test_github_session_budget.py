@@ -1,7 +1,7 @@
 """A single durable API quota for proposal, credential, publication and readback."""
 
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import test_github_remote_credential as credentials
 import test_github_remote_execution as execution
@@ -169,4 +169,100 @@ class SessionBudgetTests(unittest.TestCase):
         with patch.object(github, "_boot_digest", return_value="e" * 64):
             with self.assertRaisesRegex(ValueError, "GITHUB_SESSION_BOOT_CHANGED"):
                 self.window.remaining()
+        self.assertEqual(1, self.count()["used"])
+
+    def test_https_connection_delay_exhausts_original_window_before_wire_post(self):
+        self.prepare()
+        connection = Mock()
+
+        def connect():
+            # Per-request clock is still within 15s in this experiment. The
+            # independently monitored session expires while TLS is completing.
+            self.duration = 120001
+
+        connection.connect.side_effect = connect
+        with (
+            patch.object(remote.ssl, "create_default_context"),
+            patch.object(
+                remote.http.client, "HTTPSConnection", return_value=connection
+            ),
+        ):
+            with self.assertRaisesRegex(ValueError, "GITHUB_SESSION_DEADLINE"):
+                remote._bounded_send(
+                    self.window,
+                    None,
+                    "POST",
+                    remote.PREFIX + "/pulls",
+                    {},
+                    None,
+                    self.port.cancel,
+                    15,
+                )
+        connection.connect.assert_called_once_with()
+        connection.request.assert_not_called()
+        connection.close.assert_called_once_with()
+        self.assertEqual(
+            (1, 1), (self.count()["used"], self.count()["repository_posts"])
+        )
+
+    def test_https_per_request_limit_includes_suspend_during_tls(self):
+        self.prepare()
+        connection = Mock()
+        boot = [100_000_000_000]
+        connection.connect.side_effect = lambda: boot.__setitem__(
+            0, boot[0] + 16_000_000_000
+        )
+        with (
+            patch.object(remote.ssl, "create_default_context"),
+            patch.object(
+                remote.http.client, "HTTPSConnection", return_value=connection
+            ),
+            patch.object(
+                remote.time, "clock_gettime_ns", side_effect=lambda clock: boot[0]
+            ),
+        ):
+            with self.assertRaisesRegex(ValueError, "GITHUB_SESSION_DEADLINE"):
+                remote._bounded_send(
+                    self.window,
+                    None,
+                    "POST",
+                    remote.PREFIX + "/pulls",
+                    {},
+                    None,
+                    self.port.cancel,
+                    15,
+                )
+        connection.request.assert_not_called()
+        self.assertEqual(1, self.count()["used"])
+
+    def test_tls_connection_enforces_reduced_session_timeout_on_actual_socket(self):
+        self.prepare()
+        connection = Mock()
+
+        def connect():
+            self.duration = 119750
+
+        connection.connect.side_effect = connect
+        response = connection.getresponse.return_value
+        response.status = 201
+        response.read.return_value = b"{}"
+        with (
+            patch.object(remote.ssl, "create_default_context"),
+            patch.object(
+                remote.http.client, "HTTPSConnection", return_value=connection
+            ),
+        ):
+            actual = remote._bounded_send(
+                self.window,
+                None,
+                "POST",
+                remote.PREFIX + "/pulls",
+                {},
+                None,
+                self.port.cancel,
+                15,
+            )
+        self.assertEqual((201, b"{}"), actual)
+        connection.sock.settimeout.assert_called_once_with(0.25)
+        connection.request.assert_called_once()
         self.assertEqual(1, self.count()["used"])

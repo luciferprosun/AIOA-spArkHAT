@@ -199,7 +199,8 @@ class NativeGitHubWriteTests(unittest.TestCase):
         port.credential=InstallationCredential('ghs_NATIVE_TEST_FIXTURE_ONLY',73,int(time.time())+3600,'a'*64,'LIVE')
         port.marker_assertion=lambda:self.assertIsNotNone(self.app.mobile._get('github-step-'+'d'*32+'-tree'))
         errors=[]
-        def transport(*args):
+        def transport(*args,session_remaining=None):
+            if session_remaining is not None:self.assertGreater(session_remaining(),0)
             try:return port.transport(*args)
             except Exception as error:
                 errors.append(type(error).__name__+': '+str(error));raise
