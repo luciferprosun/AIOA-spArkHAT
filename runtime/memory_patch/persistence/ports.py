@@ -189,10 +189,11 @@ class TransactionView:
     """Invalidate escaped handles and enforce the Core purpose before adapter calls."""
 
     def __init__(
-        self, adapter: RepositoryTransaction, context: TransactionContext
+        self, adapter: RepositoryTransaction, context: TransactionContext, *, allow_writes: bool = True
     ) -> None:
         self._adapter = adapter
         self.context = context
+        self._allow_writes = allow_writes
         self._active = True
         if type(adapter) is LocalCoreTransaction and adapter.factory._native_history_binding is not None:
             adapter._bind_history_view(self)
@@ -218,7 +219,7 @@ class TransactionView:
     def _check(self, kind: RecordKind, *, write: bool = False) -> None:
         if not self._active or type(kind) is not RecordKind:
             raise MemoryPatchError(ErrorCode.TRANSACTION_FAILED)
-        if write and kind not in _WRITE_KINDS.get(self.context.purpose, frozenset()):
+        if write and (not self._allow_writes or kind not in _WRITE_KINDS.get(self.context.purpose, frozenset())):
             raise MemoryPatchError(ErrorCode.ADMISSION_DENIED)
 
     def _record(self, record: StoredRecord, kind: RecordKind) -> StoredRecord:
@@ -312,11 +313,13 @@ class TransactionRunner:
         *,
         sleep: Callable[[float], None] = time.sleep,
         owns_factory: bool = True,
+        write_key: object | None = None,
     ) -> None:
         self._admission = admission
         self._factory = factory
         self._sleep = sleep
         self._owns_factory = owns_factory
+        self._write_key = write_key
         self._closed = False
 
     @property
@@ -324,7 +327,7 @@ class TransactionRunner:
         return self._factory is not None and not self._closed
 
     def run(
-        self, context: TransactionContext, callback: Callable[[TransactionView], T]
+        self, context: TransactionContext, callback: Callable[[TransactionView], T], *, write_key: object | None = None
     ) -> T:
         if self._closed:
             raise MemoryPatchError(ErrorCode.MODULE_CLOSED)
@@ -345,7 +348,8 @@ class TransactionRunner:
                 committing = False
                 try:
                     adapter = self._factory.begin(context, attempt=attempt)
-                    view = TransactionView(adapter, context)
+                    view = TransactionView(adapter, context, allow_writes=(
+                        self._write_key is None or write_key is self._write_key))
                     result = callback(view)
                     self._admission.require(
                         context.principal, context.purpose, scope=context.scope

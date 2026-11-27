@@ -106,7 +106,7 @@ reader. This does not issue a grant or authorize another publication. A cold
 service can attach `DurableRoleRecoveryPort` and ask a pinned verifier to read the
 evidence using a fresh, Core-signed challenge over that same START.
 
-The installed process coordinator, complete AppArmor profiles and service units
+At the V1 checkpoint the installed process coordinator, complete AppArmor profiles and service units
 remain open. The callable start entrypoints do not yet provision, launch or
 supervise the four services from the operator CLI. In particular the Core process
 must be in a real active local session as its own UID for the existing loginctl
@@ -176,3 +176,34 @@ pidfd and empty subtree do not detect an already exported FD, writable
 aliases or a new writer started by another unit. The root lifecycle
 records assume exclusive operation provisioning by the trusted launcher.
 See [S1 closure and release scope](../unification/cloud-consolidation/NATIVE69_S1_CLOSURE.md).
+
+## V2 integration checkpoint
+
+The supervised operator candidate now provides an installed launcher, a
+scope-limited systemd cgroup holder, rendered profiles, real role entrypoints,
+startup and readiness barriers, and a case/collection CLI. Product admission
+still calls the existing logind/polkit check from the active local Core login
+session. The disposable foreground application uses its existing capacity,
+review, approval and apply path. The same executable later opens the original
+SQLite store in a narrow cold composition without a publisher, routes or
+authorization endpoints.
+
+Cold COMMIT reads retain the original Core capability shape. The transaction
+view rejects writes absent the private settlement permit kept in the
+authenticated verifier adapter. All journal START paths reject cold mode.
+The exact original witness can still settle the task and intent within one
+existing transaction. An original revision check and fresh verifier challenge
+are required on repeated recovery.
+
+The supervisor requires an additional terminal signal before observing the
+effect. Failure of the primary writer-closed directory fsync leaves the name
+visible without this signal. D1–D4 cover the live sequencer after missing
+DONE, failed fsync, failed CLOSED transmission, and a sent but unconsumed
+CLOSED. The same original slot admission is consumed in each case.
+
+See the V2 section of the [operator procedure](NOBLE_QUALIFICATION_OPERATOR.md).
+Installed service coordination, AppArmor exact-link behavior, real kernel
+FD custody and full distinct-UID recovery still require execution on the
+externally approved Noble guest. Local evidence is scoped to the final Git
+tree and distinguishes parser checks, unprivileged syscall checks, and
+same-UID fixtures from real operator sessions.

@@ -11,7 +11,6 @@ from pathlib import Path
 from runtime.core_admission import Capability
 from runtime.red_hat.authenticated_boundary import serve_role_verifier_once
 from runtime.red_hat.broker_protocol import Peer, read_frame, require, send_frame
-from runtime.red_hat.core_adapter import CoreIntentAdapter
 from runtime.red_hat.native_bootstrap import ColdNativeBootstrap
 from runtime.red_hat.native_qualification import NativeQualificationPort, serve_qualified_native_once
 from runtime.red_hat.role_storage import DirectoryPin, RoleStorage, StorageActor
@@ -85,7 +84,7 @@ def await_broker_completion(writer, channel, binding, enrollment, *, deadline):
 
 
 def run_broker(listener, location, control, *, root_fd, storage, device_id, sequencer,
-               release, core_spki, signer_fd, enrollment, core_epoch, completion=None):
+               release, core_spki, signer_fd, enrollment, core_epoch, completion=None, fault=lambda _: None):
     require(type(signer_fd) is int and signer_fd >= 3, "RH07_SIGNER_FD")
     try:
         require(type(storage) is RoleStorage and type(sequencer) is SequenceClient
@@ -105,7 +104,7 @@ def run_broker(listener, location, control, *, root_fd, storage, device_id, sequ
         release=controlled_release, core_peer=release.peer,
         core_spki=core_spki, signer_fd=signer_fd, enrollment=enrollment, core_epoch=core_epoch,
         broker_epoch=sequencer.epoch, enabled=True, on_ready=lambda: _ready(control, "broker"),
-        on_completion=lambda report: send_frame(completion, report),
+        on_completion=lambda report: send_frame(completion, report), fault=fault,
     )
 
 
@@ -122,7 +121,8 @@ def run_verifier(listener, location, control, *, root_fd, storage, enrollment,
 
 
 def run_sequencer(listener, location, control, *, directory, directory_pin, actor, reader_gid, mount_namespace,
-                  core_peer, broker_peer, epoch, stop):
+                  core_peer, broker_peer, epoch, stop, fault=lambda _: None,
+                  publication_fault=lambda _point, _stream: None):
     require(type(directory_pin) is DirectoryPin and type(actor) is StorageActor and type(core_peer) is Peer and type(broker_peer) is Peer
             and len({actor.uid, core_peer.uid, broker_peer.uid}) == 3
             and os.stat("/proc/self/ns/mnt").st_ino == mount_namespace, "NATIVE_SERVICE_SEQUENCE_ROLE")
@@ -131,7 +131,7 @@ def run_sequencer(listener, location, control, *, directory, directory_pin, acto
     start_listener(listener, location)
     serve_sequencer(listener, directory=directory, core_peer=core_peer, broker_peer=broker_peer,
                     epoch=epoch, stop=stop, enabled=True, on_ready=lambda: _ready(control, "sequencer"),
-                    fence_restart=True)
+                    timeout=5, active_timeout=15, fence_restart=True, fault=fault, publication_fault=publication_fault)
 
 
 def start_core(control, *, root, origin, spec, candidates, existing_profile,
@@ -146,6 +146,8 @@ def start_core(control, *, root, origin, spec, candidates, existing_profile,
         root, origin=origin, host_composition=spec, offline_candidates=candidates,
         existing_profile=existing_profile, qualification_gate=gate, cold_bootstrap=cold_bootstrap,
     )
+    if cold_bootstrap is not None:
+        return host  # Recovery readiness follows successful verifier attachment.
     try:
         _ready(control, "core")
     except BaseException:
@@ -190,17 +192,19 @@ def bind_core_publication(host, task_id, *, storage, anchor, sequencer, broker, 
         return port
 
 
-def bind_cold_verifier(host, verifier, verifier_spki):
+def bind_cold_verifier(host, verifier, verifier_spki, *, control=None):
     """Install the only effect-result port available to the authenticated cold Core."""
     from runtime.meta_hackathon.runtime_adapter import NativeMobileComposition
 
     require(type(host) is NativeMobileComposition and type(host._cold_bootstrap) is ColdNativeBootstrap
-            and type(verifier) is RoleEndpoint and host._native_coding.qualification_port is None
+            and type(verifier) is RoleEndpoint and host.foundation is None
             and host.coding_tasks.native_witness_recovery_port is None, "NATIVE_SERVICE_COLD_CONFIGURATION")
     bootstrap = host._cold_bootstrap
-    require(host.foundation.spec.qualification_target == bootstrap.storage.core_target(),
+    require(host._host_composition.qualification_target == bootstrap.storage.core_target(),
             "NATIVE_SERVICE_COLD_CONFIGURATION")
     host.coding_tasks.native_witness_recovery_port = bootstrap.recovery_port(
-        CoreIntentAdapter(host.foundation.intent_journal), host.coding_tasks,
+        host._cold_adapter, host.coding_tasks,
         endpoint=verifier.location, peer=verifier.peer, verifier_spki=verifier_spki, identity=host.identity,
     )
+    if control is not None:
+        _ready(control, "core")

@@ -1173,9 +1173,6 @@ class NativeAuthorityFoundation:
         self.target_projection = CoreTargetProjection(self.intent_journal, self.liability, spec.portable.binding)
         owner.intent_journal = self.intent_journal
         self.controller = NativeCapacityOwnerController(self)
-        if owner._cold_bootstrap is not None:
-            spec = owner._cold_bootstrap.bind(self.intent_journal, owner.identity, spec)
-            self.spec = owner._host_composition = spec
         self.root_observations = spec.observe(owner)
         self.require_bindings()
         if self.runtime is not None:

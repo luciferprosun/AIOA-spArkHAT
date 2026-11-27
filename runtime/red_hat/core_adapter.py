@@ -162,9 +162,12 @@ class CoreIntentAdapter:
     are not accepted from operation JSON as authority.
     """
 
-    def __init__(self, journal):
+    def __init__(self, journal, *, run_verified_settlement=None):
         _require(type(journal) is CoreIntentJournal, "EXISTING_CORE_REQUIRED")
         self.journal = journal
+        _require(run_verified_settlement is None or (journal.recovery_task_id is not None
+                 and callable(run_verified_settlement)), "NATIVE_RECOVERY_WRITE_BINDING")
+        self._run_verified_settlement = run_verified_settlement
 
     @staticmethod
     def _initial_intent(state):
@@ -598,6 +601,11 @@ sys.stdout.write(json.dumps({"pid": os.getpid(), "facts": facts}, sort_keys=True
             _, current = self.journal._load(tx, warrant)
             return self.journal._public(current), view
 
-        intent, task_view = self.journal._run(principal, Capability.COMMIT, settle)
+        runner = self._run_verified_settlement
+        if runner is None:
+            _require(self.journal.recovery_task_id is None, "NATIVE_RECOVERY_WRITE_BINDING")
+            intent, task_view = self.journal._run(principal, Capability.COMMIT, settle)
+        else:
+            intent, task_view = runner(principal, settle)
         return {"intent": intent, "task": task_view,
                 "verification_process_pid": witness.verification_process_pid}

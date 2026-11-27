@@ -15,6 +15,7 @@ from runtime.red_hat.execution_binding import NativeExecutionBindingV1
 _LAUNCH = "writer-launch"
 _PROCESS = "writer-process"
 _CLOSED = "writer-closed"
+_CLOSED_SYNCED = "writer-closed-synced"
 COMPLETION_STAGE = "aioa.redhat.s1.writer-completion-stage.v1"
 
 
@@ -35,7 +36,7 @@ def _read(root_fd, name, storage):
     return value
 
 
-def _publish(root_fd, name, value, storage):
+def _publish(root_fd, name, value, storage, *, sync_directory=True, before_directory_sync=None):
     # The pinned root anchor is intentionally 0750, without setgid inheritance.
     fd = os.open(".", os.O_TMPFILE | os.O_RDWR | os.O_CLOEXEC, 0o440, dir_fd=root_fd)
     try:
@@ -45,7 +46,10 @@ def _publish(root_fd, name, value, storage):
         require(os.write(fd, raw) == len(raw), "NATIVE_S1_WRITER_RECORD")
         os.fsync(fd)
         os.link(f"/proc/self/fd/{fd}", name, dst_dir_fd=root_fd, follow_symlinks=True)
-        os.fsync(root_fd)
+        if sync_directory:
+            if before_directory_sync is not None:
+                before_directory_sync()
+            os.fsync(root_fd)
     finally:
         os.close(fd)
 
@@ -119,8 +123,21 @@ def _closure(binding, storage, process, completion):
     from runtime.red_hat.execution_binding import digest_string
 
     require(digest_string(completion), "NATIVE_S1_COMPLETION_STAGE")
-    return {"schema": "aioa.redhat.s1.writer-closed.v1", "process": digest(process),
+    return {"schema": "aioa.redhat.s1.writer-closed.v2", "process": digest(process),
             "binding": digest(binding.to_wire()), "completion_sha256": completion}
+
+
+def _closure_synced(binding, closure):
+    return {"schema": "aioa.redhat.s1.writer-closure-synced.v1",
+            "boot": binding.boot_id, "closure": digest(closure)}
+
+
+def _publish_closure(root_fd, storage, binding, closure, *, before_directory_sync=None):
+    _publish(root_fd, _CLOSED, closure, storage, before_directory_sync=before_directory_sync)
+    # A same-boot completion signal. Its fsynced bytes can be linked only
+    # after the primary directory barrier returned to this supervisor.
+    _publish(root_fd, _CLOSED_SYNCED, _closure_synced(binding, closure), storage,
+             sync_directory=False)
 
 
 def require_writer_closed(root_fd, storage, binding):
@@ -130,6 +147,8 @@ def require_writer_closed(root_fd, storage, binding):
         recorded = _read(root_fd, _CLOSED, storage)
         expected = _closure(binding, storage, _process(root_fd, storage), recorded.get("completion_sha256"))
         require(recorded == expected, "NATIVE_S1_WRITER_CLOSURE")
+        require(_read(root_fd, _CLOSED_SYNCED, storage) == _closure_synced(binding, expected),
+                "NATIVE_S1_WRITER_CLOSURE_SYNC")
         return recorded["completion_sha256"]
     except OSError as exc:
         raise ValueError("NATIVE_S1_WRITER_CLOSURE_UNAVAILABLE") from exc
@@ -143,7 +162,7 @@ class OneShotWriter:
     must prevent cgroup migration, descriptor export and other writers.
     """
 
-    def __init__(self, root_fd, storage, cgroup_fd):
+    def __init__(self, root_fd, storage, cgroup_fd, *, before_closure_sync=None):
         require(os.geteuid() == 0 and storage.writer_cgroup is not None, "NATIVE_S1_SUPERVISOR")
         storage.require_anchor(root_fd)
         _cgroup(storage, cgroup_fd)
@@ -153,6 +172,7 @@ class OneShotWriter:
         self.storage = storage
         self.cgroup_fd = cgroup_fd
         self.pidfd = None
+        self.before_closure_sync = before_closure_sync
 
     def __enter__(self):
         return self
@@ -200,4 +220,5 @@ class OneShotWriter:
         closure = _closure(binding, self.storage, process, completion)
         require(stage == {"schema": COMPLETION_STAGE, "binding": closure["binding"],
                           "completion_sha256": completion}, "NATIVE_S1_COMPLETION_STAGE")
-        _publish(self.root_fd, _CLOSED, closure, self.storage)
+        _publish_closure(self.root_fd, self.storage, binding, closure,
+                         before_directory_sync=self.before_closure_sync)

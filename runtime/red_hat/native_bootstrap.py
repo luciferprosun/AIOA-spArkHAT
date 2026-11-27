@@ -4,6 +4,7 @@ import os
 import time
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Callable
 
 from runtime.core_admission import Capability
 from runtime.mission.patch_capsule import CorePatchCapsules
@@ -27,12 +28,14 @@ class ColdNativeBootstrap:
     device_id: str
     broker_epoch: int
     core_spki: str
+    observe_original: Callable[[dict], None] | None = None
 
     def bind(self, journal, identity, spec):
         require(type(self.storage) is RoleStorage and type(self.enrollment) is ExecutorEnrollment
                 and self.storage.staging is not None and self.enrollment.executor.uid == self.storage.broker.uid
                 and identity.spki == self.core_spki and spec.qualification_target is not None
                 and spec.qualification_target.exact_ref is None
+                and (self.observe_original is None or callable(self.observe_original))
                 and self.storage.core_target().pre_capsule() == spec.qualification_target,
                 "NATIVE_COLD_BOOTSTRAP_CONFIGURATION")
         self.storage.require_role("core")
@@ -47,11 +50,26 @@ class ColdNativeBootstrap:
         def read(tx):
             warrant = read_original_warrant_in_transaction(
                 tx, journal, capsules, self.task_id, self.storage, expected_source=spec.project_source)
-            return capture_binding_in_transaction(
+            binding = capture_binding_in_transaction(
                 tx, adapter, warrant, self.enrollment, trusted_device_id=self.device_id,
                 now=int(time.time()), broker_epoch=self.broker_epoch)
+            if self.observe_original is None:
+                return binding, None
+            from runtime.memory_patch.contracts.serialization import canonical_sha256
+            from runtime.memory_patch.persistence.ports import RecordKind
+            from runtime.mission.coding_tasks import KIND, decode_coding_task_row
 
-        binding = journal._run(principal, Capability.READ, read)
+            row, state = journal._load(tx, warrant)
+            outbox = tx.get(RecordKind.OUTBOX, journal._key(warrant))
+            task_key = canonical_sha256([KIND, self.task_id])
+            _, coding, _ = decode_coding_task_row(tx.get(RecordKind.OPERATION, task_key), self.task_id, self.core_spki)
+            reservation = journal.governor._load(tx)['reservations'][warrant.risk_reservation_id]
+            return binding, {'intent_revision': row.revision, 'outbox_revision': outbox.revision,
+                             'intent': state['outcome']['contract_type'], 'outbox': outbox.payload['state'],
+                             'reservation': reservation['state'], 'reservation_digest': state['reservation'],
+                             'task': coding['receipts'][-1]['receipt']['state']}
+
+        binding, original = journal._run(principal, Capability.READ, read)
         reader = self.storage.core_target()
         require(binding.storage_digest == self.storage.digest and binding.request.exact_ref == reader.exact_ref
                 and binding.request.repository == (reader.repository.device, reader.repository.inode)
@@ -60,6 +78,8 @@ class ColdNativeBootstrap:
                 and binding.ref_parent_mount == reader.ref_parent.mount
                 and binding.boot_id == Path("/proc/sys/kernel/random/boot_id").read_text(encoding="ascii").strip(),
                 "NATIVE_COLD_BOOTSTRAP_START")
+        if self.observe_original is not None:
+            self.observe_original(original)
         require_writer_closed(self.root_fd, self.storage, binding)
         return spec._with_authenticated_cold_target(reader)
 

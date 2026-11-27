@@ -387,13 +387,14 @@ class NativeMobileComposition:
             from runtime.red_hat.native_bootstrap import ColdNativeBootstrap
 
             if (type(cold_bootstrap) is not ColdNativeBootstrap or existing_profile is not True
-                    or host_composition is None or offline_candidates is None):
+                    or host_composition is None or offline_candidates is not None
+                    or host_composition.qualification_target is None or chat is not False):
                 raise AdmissionError()
         if qualification_gate is not None:
             from runtime.red_hat.sequencer import SequencedCoreGate
 
             if (type(qualification_gate) is not SequencedCoreGate or cold_bootstrap is not None
-                    or host_composition is None or offline_candidates is None
+                    or host_composition is None
                     or host_composition.qualification_target is None
                     or host_composition.qualification_target.exact_ref is not None):
                 raise AdmissionError()
@@ -473,8 +474,10 @@ class NativeMobileComposition:
         # True is derived from successful system authentication above, never a
         # caller-supplied approval flag or a synthetic fixture assignment.
         admitted=self.operator_authentication['uid']==os.getuid()
-        capabilities={Capability.READ,Capability.COMMIT,Capability.OWNER_APPROVAL}
-        if self.chat_enabled or self._host_composition is not None:capabilities.add(Capability.MANAGE)
+        capabilities={Capability.READ,Capability.COMMIT}
+        if self._cold_bootstrap is None:
+            capabilities.add(Capability.OWNER_APPROVAL)
+            if self.chat_enabled or self._host_composition is not None:capabilities.add(Capability.MANAGE)
         hats={'mobile-status'};models={MODEL if self.chat_enabled else 'NO_MODEL_PAIRING'}
         if self._host_composition is not None:
             hats.add(self._host_composition.project_source.workspace_id)
@@ -491,18 +494,20 @@ class NativeMobileComposition:
         self.instance_id=self.core.local_operator(Capability.READ).actor_session_id
         if self._host_composition is None:
             self.runtime=create_runtime(inspection_only=True,borrowed_admission=self.core)
+        write_key = object() if self._cold_bootstrap is not None else None
         self.runner=TransactionRunner(self.core,LocalCoreRecordFactory(self.root/'core-records.sqlite3',self.core,
-            expected_file=self._existing_profile))
+            expected_file=self._existing_profile), write_key=write_key)
         if self._qualification_gate is not None:
             from runtime.red_hat.sequencer import bind_fixture_runner
 
             bind_fixture_runner(self.runner, self._qualification_gate, enabled=True)
         self.ledger=CoreWarrantLedger(self.core,self.runner,scope)
-        self.manager=None
-        if self.chat_enabled:
-            self.manager=ProviderManager(ROOT,meta_only=True)
-            self.manager.configure_meta(MetaModelProvider(mode='LIVE',key_path=self._meta_key_path))
-        self.missions=MissionService(self.ledger,self.manager,None,self.source_probe)
+        if self._cold_bootstrap is None:
+            self.manager=None
+            if self.chat_enabled:
+                self.manager=ProviderManager(ROOT,meta_only=True)
+                self.manager.configure_meta(MetaModelProvider(mode='LIVE',key_path=self._meta_key_path))
+            self.missions=MissionService(self.ledger,self.manager,None,self.source_probe)
         path=self.root/'host-signing-key.pem'
         if path.exists() or path.is_symlink():
             info=path.lstat()
@@ -523,6 +528,9 @@ class NativeMobileComposition:
             with os.fdopen(fd,'wb') as stream:stream.write(data);stream.flush();os.fsync(stream.fileno())
         self.identity=wire.Identity(key)
         self.tls_verified=False
+        if self._cold_bootstrap is not None:
+            self._initialize_cold(write_key)
+            return
         self.mobile=MobileGateway(self.missions,identity=self.identity,native_host=self)
         if self.chat_enabled:
             from runtime.mission.governor import (
@@ -554,12 +562,57 @@ class NativeMobileComposition:
             if self._offline_candidates is not None:
                 self.runner._factory.bind_native_history(foundation.access)
 
+    def _initialize_cold(self, write_key):
+        from runtime.memory_patch.persistence.ports import TransactionContext
+        from runtime.mission.coding_tasks import CoreCodingTasks
+        from runtime.mission.governor import CoreDualGovernor, GovernorPolicy, Limits
+        from runtime.mission.intent import CoreIntentJournal
+        from runtime.mission.patch_capsule import CorePatchCapsules
+        from runtime.red_hat.core_adapter import CoreIntentAdapter
+
+        bootstrap = self._cold_bootstrap
+        spec = self._host_composition
+        limits = Limits(50000000, 20)
+        policy = GovernorPolicy(self.ledger.scope, 'native-mobile-chat-v1', limits, limits, limits,
+                                max_clock_step_seconds=3600)
+        if policy.digest != spec.to_dict()['bootstrap_policy_digest']:
+            raise AdmissionError()
+        governor = CoreDualGovernor(self.core, self.runner, policy)
+        self.intent_journal = CoreIntentJournal(self.ledger, governor, recovery_task_id=bootstrap.task_id)
+        self._cold_unbound_spec = spec
+        self._host_composition = bootstrap.bind(self.intent_journal, self.identity, spec)
+        self._cold_roots = self._host_composition.observe(self)
+        capsules = CorePatchCapsules(self.intent_journal, self.identity,
+                                    source_probe=lambda: self._host_composition.project_source)
+        self.coding_tasks = CoreCodingTasks(self.intent_journal, capsules)
+
+        def run_verified_settlement(principal, callback):
+            return self.runner.run(TransactionContext(principal, Capability.COMMIT), callback, write_key=write_key)
+
+        self._cold_adapter = CoreIntentAdapter(self.intent_journal, run_verified_settlement=run_verified_settlement)
+
+    def cold_task(self, action):
+        import time
+
+        bootstrap = self._cold_bootstrap
+        if (bootstrap is None or action not in ('read_status', 'get_receipts', 'reconcile')
+                or self._closed or os.getuid() != self.uid or time.monotonic() >= self._auth_deadline
+                or tuple(self.source_probe()) != self.source):
+            raise AdmissionError()
+        if (bootstrap.bind(self.intent_journal, self.identity, self._cold_unbound_spec) != self._host_composition
+                or self._host_composition.observe(self) != self._cold_roots):
+            raise AdmissionError()
+        purpose = Capability.COMMIT if action == 'reconcile' else Capability.READ
+        return self.coding_tasks.request(self.core.local_operator(purpose), action, {'task_id': bootstrap.task_id})
+
     def readiness(self, reader_capture):
         from .native_coding import startup_observation
         return startup_observation(self, reader_capture)
 
     def operator_principal(self):
         import time
+        if self._cold_bootstrap is not None:
+            raise AdmissionError()
         if self.foundation is None:
             if (self._closed or os.getuid()!=self.uid or time.monotonic()>=self._auth_deadline
                     or tuple(self.source_probe())!=self.source):raise AdmissionError()
@@ -856,7 +909,7 @@ class NativeMobileComposition:
         from runtime.memory_patch.persistence.ports import RecordKind
         from runtime.mobile_gateway import wire
         from runtime.mobile_gateway.service import plain
-        if peer_uid!=self.uid:raise AdmissionError()
+        if self._cold_bootstrap is not None or peer_uid!=self.uid:raise AdmissionError()
         if type(value) is not dict or type(value.get('op')) is not str:raise wire.MobileError(400)
         op=value['op']
         if value=={'op':'operator_auth_status'}:return self.operator_auth_status()
@@ -976,6 +1029,19 @@ class NativeMobileComposition:
                 if self._native_close_owner is token:self._native_close_owner=None
 
     def close(self):
+        if self._cold_bootstrap is not None:
+            with self._native_close_lock:
+                if self._closed:
+                    return {'status': 'CLOSED', 'closed': True}
+                try:
+                    for name in ('coding_tasks', 'runner', 'core'):
+                        component = getattr(self, name, None)
+                        if component is not None:
+                            component.close()
+                finally:
+                    os.close(self._lease)
+                    self._closed = True
+                return {'status': 'CLOSED', 'closed': True}
         if self._host_composition is not None:return self._close_native()
         if self._closed:return
         self._closed=True

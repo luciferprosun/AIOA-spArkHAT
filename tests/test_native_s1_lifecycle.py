@@ -58,7 +58,7 @@ class NativeWriterLifecycleTests(unittest.TestCase):
                                   broker=SimpleNamespace(uid=os.getuid(), cgroup=Path("/proc/self/cgroup").read_text().strip()))
         records = {}
 
-        def publish(_, name, value, _storage):
+        def publish(_, name, value, _storage, *, sync_directory=True, before_directory_sync=None):
             if name in records:
                 raise FileExistsError(name)
             records[name] = value

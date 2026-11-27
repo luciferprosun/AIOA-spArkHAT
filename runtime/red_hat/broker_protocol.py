@@ -163,14 +163,15 @@ def decode_record(raw):
         raise ProtocolError("BROKER_FRAME_CANONICAL") from None
 
 
-def send_frame(stream, payload, *, body=b""):
+def send_frame(stream, payload, *, body=b"", finish=True):
     raw = canonical_json_bytes(payload)
     require(0 < len(raw) <= MAX_FRAME, "BROKER_FRAME_SIZE")
     stream.settimeout(FRAME_TIMEOUT)
     stream.sendall(struct.pack("!I", len(raw)) + raw)
     if body:
         stream.sendall(body)
-    stream.shutdown(socket.SHUT_WR)
+    if finish:
+        stream.shutdown(socket.SHUT_WR)
 
 
 def recv_data(stream, size):
@@ -188,7 +189,7 @@ def recv_data(stream, size):
     return data
 
 
-def read_frame(stream, *, receive_body=None):
+def read_frame(stream, *, receive_body=None, finished=True):
     deadline = time.monotonic() + FRAME_TIMEOUT
 
     def read(size):
@@ -212,7 +213,8 @@ def read_frame(stream, *, receive_body=None):
     require(0 < size <= MAX_FRAME, "BROKER_FRAME_SIZE")
     frame = decode_record(exact(size))
     result = frame if receive_body is None else receive_body(frame, exact)
-    require(not read(1), "BROKER_FRAME_TRAILING")
+    if finished:
+        require(not read(1), "BROKER_FRAME_TRAILING")
     return result
 
 

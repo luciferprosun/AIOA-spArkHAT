@@ -50,6 +50,7 @@ def _publish(target, request, guard, authorize, clock, fault, stack, final_check
             require_named_directory(target.root, "staging", staging)
             target.storage.require_staging(staging)
         # The exclusive create is the sole irreversible CAS attempt.
+        fault("before_ref_link")
         os.link(f"/proc/self/fd/{fd}", target.leaf(request), dst_dir_fd=target.ref_parent,
                 follow_symlinks=True)
         fault("after_ref_link")
@@ -123,6 +124,7 @@ def _serve_fixture(listener, *, root_fd, receive, enrollment, identity, core_epo
 
                 fault("before_permit")
                 guard.consume(request, fault, authorize=lambda: authorize(clock()))
+                fault("attempt_consumed")
                 if prepare is not None:
                     prepare(target)
                 with sequence() as token:
@@ -163,4 +165,6 @@ def _serve_fixture(listener, *, root_fd, receive, enrollment, identity, core_epo
             send_frame(peer, {"ack": ok})
         except OSError:
             return False
+        if ok:
+            fault("ack_sent")
         return ok

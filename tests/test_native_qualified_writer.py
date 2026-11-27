@@ -157,6 +157,12 @@ class NativeQualifiedWriterTests(unittest.TestCase):
 
         fresh = Fixture(broker.root / "native-core.json")
         self.addCleanup(fresh.close)
+        from runtime.mission.intent import CoreIntentJournal
+        fresh.journal = CoreIntentJournal(fresh.journal.ledger, fresh.journal.governor, recovery_task_id=task_id)
+        from runtime.memory_patch.persistence.ports import TransactionContext
+        runner = fresh.journal.ledger.runner
+        recovery_write_key = object()
+        runner._write_key = recovery_write_key
         from runtime.memory_patch.persistence.ports import RecordKind
         def durable_state():
             journal = fresh.journal
@@ -191,7 +197,21 @@ class NativeQualifiedWriterTests(unittest.TestCase):
 
         tasks = CoreCodingTasks(fresh.journal, CorePatchCapsules(fresh.journal, identity, source_probe=lambda: None))
         self.addCleanup(tasks.close)
-        adapter = CoreIntentAdapter(fresh.journal)
+        adapter = CoreIntentAdapter(fresh.journal, run_verified_settlement=lambda principal, settle: runner.run(
+            TransactionContext(principal, Capability.COMMIT), settle, write_key=recovery_write_key))
+        for action in ('create_task', 'start', 'recover', 'approve', 'apply', 'stop', 'cancel'):
+            with self.subTest(action=action), self.assertRaisesRegex(ValueError, 'NATIVE_RECOVERY_REQUEST_DENIED'):
+                tasks.request(fresh.p(), action, {'task_id': task_id})
+        with self.assertRaisesRegex(ValueError, 'NATIVE_RECOVERY_REQUEST_DENIED'):
+            tasks.request(fresh.p(), 'reconcile', {'task_id': 'other'})
+        with self.assertRaisesRegex(ValueError, 'NATIVE_RECOVERY_PORT_REQUIRED'):
+            tasks.request(fresh.p(), 'reconcile', {'task_id': task_id})
+        with self.assertRaisesRegex(ValueError, 'NATIVE_RECOVERY_START_DENIED'):
+            fresh.journal.start_local_zero(fresh.p(), original_warrant, None, None)
+        with self.assertRaisesRegex(ValueError, 'NATIVE_RECOVERY_REQUEST_DENIED'):
+            tasks.attach_review(fresh.p(), task_id, capsule.digest)
+        with self.assertRaises(MemoryPatchError):
+            runner.run(TransactionContext(fresh.p(), Capability.COMMIT), lambda tx: tx.insert(before[0]))
 
         def recover():
             return adapter.recover_disposable_native_task_fixture(
@@ -220,6 +240,8 @@ class NativeQualifiedWriterTests(unittest.TestCase):
         self.assertEqual(first["task"], second["task"])
         self.assertNotEqual(os.getpid(), first["verification_process_pid"])
         self.assertEqual(1, len(broker.dispatches()))
+        with self.assertRaisesRegex(ValueError, 'NATIVE_RECOVERY_START_DENIED'):
+            fresh.journal.start_local_zero(fresh.p(), original_warrant, None, None)
 
     def test_binding_version_does_not_accept_old_or_incomplete_role_contract(self):
         req = fixture_request()

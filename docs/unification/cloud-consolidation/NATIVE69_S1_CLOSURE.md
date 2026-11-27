@@ -1,6 +1,6 @@
 # Native69 S1 local checkpoint
 
-**Status** — cross-UID S1 BLOCKED_HOST and implementation incomplete. Production Native remains disabled.
+**Status** — V2 qualification kit candidate. Cross-UID S1 is BLOCKED_HOST in the Local environment. Production Native remains disabled.
 
 The local continuation starts at PR #84 `015d70bab5588ce15e47940a0b4e4f4230b54129` (tree `7ab3174e620b6f0abd51503b51661f45171dbb4e`), based on main `4b2c55d9ab90810b99ec0337cae5eef581d53534` (tree `efa9face37bf5ddf94245a82f2c0d265cf473a31`). The local evidence manifest identifies the tested commit and tree.
 
@@ -8,8 +8,8 @@ The local continuation starts at PR #84 `015d70bab5588ce15e47940a0b4e4f4230b5412
 | --- | --- | --- |
 | Core admission and dispatch | Existing approval, START, outbox, final release and attempt fence | Real Core role with active local session and polkit admission through normal apply |
 | Broker | Existing signed Git object import, precise post-link and pre-completion faults, signed post-fsync stage after sequencer close | Effective confinement for exact ref, objects and evidence, including process and FD custody |
-| Sequencer | Existing STOP/CAS ordering and create-only S1 incarnation fence | Review the same-process lost close-ack case and qualify unchanged STOP ingress against the installed services |
-| Cold readback | Original START, closure gate before physical observations, verifier response digest and settlement rechecks | Complete one-service-per-role coordinator and real same-boot restart evidence |
+| Sequencer | Existing STOP/CAS ordering, a create-only incarnation fence, and rejection of the same publication binding by a still-running S1 daemon | Execute document-defined Q/D cases through the real services on Noble |
+| Cold readback | Original START, post-fsync supervisor confirmation, minimal readback graph, and settlement writes scoped to the verified adapter | Execute C4 and C5 with different UIDs on Noble |
 | Host | Read-only Mint 22.2 x86-64 preflight | Independently pinned, disposable Noble x86-64, genuine host management receipt, loaded AppArmor and real admission |
 | Evidence and production | No production activation or historical access; fixture conditions documented separately | Qualified independent operator run and separate approval for exact source, host and STOP/CAS activation |
 
@@ -23,9 +23,37 @@ Every real-role scenario H0, P1, C1–C5, R1–R2, N1–N5, F1–F4, B1–B3, Q1
 | C3 | Witness bytes survive, producer completion is missing, settlement denied | Same UID and disposable fixture |
 | C4/R1/R2 | One counted link attempt, one verified fixture publication, one create-only fixture decision, zero additional links after two injected replay requests; two independent verifier processes | Fixture decision and separate RH04 Core tests; no production-shaped S1 result |
 | F1/F2 | Actual direct-child pidfd prevents closure before exit; simulated nonempty subtree, foreign signature and wrong binding deny | No kernel-level FD custody proof |
-| Q3 | S1 incarnation rejects same-state sequencer restart, even when the old slot name is absent | The existing protocol cannot infer peer receipt from successful socket send. Same-process close-ACK ambiguity is open |
+| Q3 | S1 incarnation rejects same-state sequencer restart, even when the old slot name is absent | The existing protocol cannot infer peer receipt from successful socket send. D1–D4 cover the separate server and client outcomes in socket fixtures |
 
-The launcher must place the broker behind an authenticated startup barrier before its process record is released. The supervisor must stay outside the broker cgroup and retain the unreaped child pidfd. The launch must bind policy, namespaces, socket parents, actual role IDs and allowlisted descriptors to the same operation. Positive publication and the write-denial matrix must run with the same effective policy. See [operator preflight](../../architecture/NOBLE_QUALIFICATION_OPERATOR.md) and [role layout](../../architecture/NATIVE_CROSS_UID_QUALIFICATION_REPORT.md). The currently installed entrypoint is a probe, and no command today qualifies P1.
+The V2 launcher source, installer, service definition and CLI are under
+`scripts/unification/native_s1/`. A systemd unit owns the delegated cgroup
+anchor. The foreground coordinator directly owns the parked and then
+confined broker so its original pidfd remains valid through verification
+of the empty cgroup. The Core remains in a real active seat0 login session
+and starts only after the user-side polkit agent registers for the original
+PID and start time. The same program starts a fresh Core in recovery-only
+mode and an independent verifier. The case runner retains the original
+records and measures the physical link, settlement revisions, Native
+route invocations, and explicit replay separately.
+
+The offline D test exercises four CLOSED fault positions with a live
+sequencer and real Unix sockets. A malformed or unread DONE and a failed
+slot fsync poison the live sequencer. A durable server close releases
+queued STOP even if delivery of CLOSED fails. The same publication binding
+is consumed in that live incarnation and the broker emits no completion
+stage without a checked CLOSED response. The E test uses an actual visible
+primary record after simulated directory-fsync EIO, then a fresh consumer.
+Only a separate root-owned terminal signal establishes that the primary
+fsync returned. It is a same-boot protocol step.
+
+Follow the [operator instructions](../../architecture/NOBLE_QUALIFICATION_OPERATOR.md)
+for installation, the exact host preflight, scenario commands and private
+evidence export. Parser-only policy checks and the unprivileged seccomp
+test do not cover role startup or exact-ref confinement under the Noble
+kernel. The paired N4/F1/F2 cases require the actual kernel and profile.
+B2 drives the changed-signature case, S1B drives a conflicting mount pin,
+and I1 measures isolation of a retained synthetic HELD case. Historical
+journal verification stays separate.
 
 ## Release and retention
 

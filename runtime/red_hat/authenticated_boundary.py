@@ -198,8 +198,8 @@ def _read_authenticated_report(endpoint, peer, spki, binding, *, now, signer=Non
 class _AuthenticatedReadbackAdapter(CoreIntentAdapter):
     """Per-call adapter reusing RH-04 physical rechecks and Core settlement."""
 
-    def __init__(self, journal, binding, endpoint, peer, spki, storage=None, signer=None):
-        super().__init__(journal)
+    def __init__(self, journal, binding, endpoint, peer, spki, storage=None, signer=None, *, run_verified_settlement=None):
+        super().__init__(journal, run_verified_settlement=run_verified_settlement)
         self.binding, self.endpoint, self.peer, self.spki = binding, endpoint, peer, spki
         self.storage = storage
         self.signer = signer
@@ -263,7 +263,8 @@ class AuthenticatedFixtureRecoveryPort(DisposableNativeTaskWitnessPort):
         )
         require(binding.request == material["request"], "RH06_RECOVERY_START")
         target = _AuthenticatedReadbackAdapter(self.adapter.journal, binding, self.endpoint,
-                                               self.peer, self.spki, self.storage, self.signer)
+                                               self.peer, self.spki, self.storage, self.signer,
+                                               run_verified_settlement=self.adapter._run_verified_settlement)
         return target.recover_disposable_native_task_fixture(
             principal, self.coding_tasks, task_id, **material)
 

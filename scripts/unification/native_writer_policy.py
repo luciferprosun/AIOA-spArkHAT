@@ -22,6 +22,7 @@ def storage_rules(session, exact_ref):
         f"{root}/writer-launch r,",
         f"{root}/writer-process r,",
         f"{root}/writer-closed r,",
+        f"{root}/writer-closed-synced r,",
         f"{root}/repo/ r,",
         f"{root}/repo/** r,",
         f"{root}/staging/ rw,",
