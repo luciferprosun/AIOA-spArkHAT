@@ -8342,8 +8342,8 @@
     },
     "runtime/mission/sandbox_linux.py": {
       "path": "runtime/mission/sandbox_linux.py",
-      "git_blob": "71f8670613cfae14126b416b4d0820c99163ec7b",
-      "sha256": "3a1157ea878efacb0488674cb52b406e80131f13b461acc891ecb821b743d0f8",
+      "git_blob": "b05b2be6d2da2d58d18bf1b4a4e7edb84173713c",
+      "sha256": "f7f0c9b0fa2462a990c757d9e92eae92a1695400fdddd55ba8d8b527c9b598bf",
       "definitions": [
         {
           "name": "now",
@@ -8559,23 +8559,23 @@
         },
         {
           "name": "_git_existing_object",
-          "line": 1433
+          "line": 1438
         },
         {
           "name": "_git_plumbing",
-          "line": 1480
+          "line": 1491
         },
         {
           "name": "dispatch",
-          "line": 2109
+          "line": 2120
         },
         {
           "name": "_run",
-          "line": 2213
+          "line": 2224
         },
         {
           "name": "verify",
-          "line": 2688
+          "line": 2699
         },
         {
           "name": "listener_call",
@@ -8587,51 +8587,51 @@
         },
         {
           "name": "hold",
-          "line": 1584
+          "line": 1595
         },
         {
           "name": "sealed",
-          "line": 1589
+          "line": 1600
         },
         {
           "name": "read_local",
-          "line": 1654
+          "line": 1665
         },
         {
           "name": "lock_stamp",
-          "line": 1727
+          "line": 1738
         },
         {
           "name": "check_lock",
-          "line": 1739
+          "line": 1750
         },
         {
           "name": "check_lock_parent",
-          "line": 1749
+          "line": 1760
         },
         {
           "name": "lock_new",
-          "line": 1774
+          "line": 1785
         },
         {
           "name": "check_ref_transaction",
-          "line": 1901
+          "line": 1912
         },
         {
           "name": "bound_release",
-          "line": 2120
+          "line": 2131
         },
         {
           "name": "guarded_cleanup",
-          "line": 2594
+          "line": 2605
         },
         {
           "name": "release",
-          "line": 1798
+          "line": 1809
         },
         {
           "name": "reap_owned",
-          "line": 2623
+          "line": 2634
         }
       ],
       "symbolic_callees": [
@@ -8842,6 +8842,7 @@
         "os.fstatvfs",
         "os.fsync",
         "os.get_inheritable",
+        "os.geteuid",
         "os.getgid",
         "os.getuid",
         "os.link",
@@ -9006,8 +9007,8 @@
         "zlib.compress",
         "zlib.decompressobj"
       ],
-      "call_site_count": 1379,
-      "call_sites_sha256": "de21545aeac23f9f9fd06a5d36d889e223acb3138d0c124d767819f2e9d2a649"
+      "call_site_count": 1386,
+      "call_sites_sha256": "16cadcbabc3f49e1f9d61289dca72198fcacc4c6d77dd2d7ae7b7deb805793dd"
     },
     "runtime/nonzero_cloudops/adapters/portable.py": {
       "path": "runtime/nonzero_cloudops/adapters/portable.py",
