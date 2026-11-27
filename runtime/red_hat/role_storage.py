@@ -23,12 +23,16 @@ class StorageActor:
     uid: int
     gid: int
     apparmor: str
+    cgroup: str
 
     def __post_init__(self):
         require(_positive(self.uid, _ID_LIMIT) and _positive(self.gid, _ID_LIMIT)
                 and type(self.apparmor) is str
                 and re.fullmatch(r"[A-Za-z0-9_./:-]+ \(enforce\)", self.apparmor)
-                and self.apparmor != "unconfined (enforce)", "NATIVE_STORAGE_ACTOR")
+                and self.apparmor != "unconfined (enforce)"
+                and type(self.cgroup) is str
+                and re.fullmatch(r"0::/(?:[A-Za-z0-9_.@:-]+/)*[A-Za-z0-9_.@:-]+", self.cgroup),
+                "NATIVE_STORAGE_ACTOR")
 
     def require_process(self, reader_gid):
         require(os.getresuid() == (self.uid,) * 3
@@ -38,7 +42,8 @@ class StorageActor:
         require(status["NoNewPrivs"].strip() == "1"
                 and all(int(status[field], 16) == 0 for field in ("CapEff", "CapPrm", "CapAmb", "CapInh", "CapBnd"))
                 and ctypes.CDLL(None).prctl(3, 0, 0, 0, 0) == 0
-                and Path("/proc/self/attr/current").read_text().strip() == self.apparmor,
+                and Path("/proc/self/attr/current").read_text().strip() == self.apparmor
+                and Path("/proc/self/cgroup").read_text().strip() == self.cgroup,
                 "NATIVE_STORAGE_ROLE_CONFINEMENT")
 
 
@@ -86,6 +91,7 @@ class RoleStorage:
                 and len({actor.uid for actor in actors}) == 3
                 and len({actor.gid for actor in actors}) == 3
                 and len({actor.apparmor for actor in actors}) == 3
+                and len({actor.cgroup for actor in actors}) == 3
                 and _positive(self.reader_gid, _ID_LIMIT)
                 and self.reader_gid not in {actor.gid for actor in actors}
                 and _positive(self.mount_namespace)

@@ -28,7 +28,14 @@ The operator's sibling probe now creates an unnamed inode on the pinned
 ref parent and requires denial at the same link operation used by
 publication. Failure during setup and absence of the parent are distinct
 from denial at link. Unexpected success retains an empty sentinel and
-fails the probe. The probe itself never creates a valid ref.
+fails the probe. The probe itself never creates a valid ref. An operator manifest may set
+`native.reader_gid` to the dedicated group, distinct from all primary role
+GIDs. The one-shot supervisor drops its capability bounding set before
+launching the shared-storage probe and checks the resulting supplementary
+groups and empty bounding set inside the child. This launch requires
+CAP_SETPCAP in addition to the existing supervisor credential transition
+privileges. The probe remains separate from real role services and no
+privileged instance of this launcher was run here.
 
 ## Reproduction and remaining acceptance
 

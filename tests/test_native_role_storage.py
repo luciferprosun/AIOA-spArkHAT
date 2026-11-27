@@ -18,9 +18,9 @@ from runtime.red_hat.role_storage import DirectoryPin, RoleStorage, StorageActor
 class NativeRoleStorageTests(unittest.TestCase):
     def setUp(self):
         self.ref = "refs/heads/aioa/nz11-" + "a" * 32
-        core = StorageActor(1101, 1101, "aioa-core (enforce)")
-        broker = StorageActor(1102, 1102, "aioa-broker (enforce)")
-        verifier = StorageActor(1103, 1103, "aioa-verifier (enforce)")
+        core = StorageActor(1101, 1101, "aioa-core (enforce)", "0::/native/core")
+        broker = StorageActor(1102, 1102, "aioa-broker (enforce)", "0::/native/broker")
+        verifier = StorageActor(1103, 1103, "aioa-verifier (enforce)", "0::/native/verifier")
         anchor, repo, refs, evidence = (DirectoryPin(12, i, 7) for i in range(1, 5))
         self.storage = RoleStorage(core, broker, verifier, 1200, 17, self.ref,
                                    anchor, repo, refs, evidence)
