@@ -104,7 +104,6 @@ def run_child(root, mode, *args):
         socket_name, stage = args
         identity = Identity(serialization.load_pem_private_key(
             (root / "fixture-key").read_bytes(), password=None))
-        ref_info = (root / "repo" / req.exact_ref).parent.stat()
         evidence_info = (root / "evidence").stat()
         real_link, real_sync = os.link, os.fsync
 
@@ -118,7 +117,7 @@ def run_child(root, mode, *args):
         def link(source, name, *, dst_dir_fd, follow_symlinks):
             inode = os.fstat(dst_dir_fd)
             if (inode.st_dev, inode.st_ino, name) == (
-                ref_info.st_dev, ref_info.st_ino, req.exact_ref.rsplit("/", 1)[1]
+                *req.ref_directory, req.exact_ref.rsplit("/", 1)[1]
             ):
                 with (root / "dispatches").open("a") as counter:
                     counter.write(f"{os.getpid()}\n")

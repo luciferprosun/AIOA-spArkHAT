@@ -44,11 +44,16 @@ def _ready(control, role):
     send_frame(control, {"schema": "aioa.redhat.service-ready.v1", "role": role})
 
 
-def await_service_ready(child, control, expected_role, *, timeout=5.0):
+def await_service_ready(child, control, expected_role, *, timeout=None):
     """Wait for an actual child process and its private readiness frame."""
+    # The existing loginctl + interactive polkit admission can take up to
+    # 130 seconds. Other workers do not get that startup budget.
+    limit = 150 if expected_role == "core" else 20
+    if timeout is None:
+        timeout = limit if expected_role == "core" else 5
     require(type(child) is subprocess.Popen and child.poll() is None
             and type(control) is socket.socket and expected_role in ("core", "broker", "verifier", "sequencer")
-            and type(timeout) in (float, int) and 0 < timeout <= 20, "NATIVE_SERVICE_CONTROL")
+            and type(timeout) in (float, int) and 0 < timeout <= limit, "NATIVE_SERVICE_CONTROL")
     pidfd = os.pidfd_open(child.pid)
     try:
         ready, _, _ = select.select([control, pidfd], [], [], timeout)
