@@ -62,7 +62,7 @@ def serve_once(listener, *, root_fd, expected, enrollment, identity, core_peer, 
 
 def _serve_fixture(listener, *, root_fd, receive, enrollment, identity, core_epoch,
                    broker_epoch, clock, fault, check_context=_no_fault,
-                   sequence=nullcontext, revalidate=_no_fault):
+                   sequence=nullcontext, revalidate=_no_fault, prepare=None):
     """Shared single-attempt fixture executor. Authentication precedes consumption."""
     require(listener.family == socket.AF_UNIX and listener.type == socket.SOCK_STREAM,
             "BROKER_LISTENER")
@@ -77,7 +77,8 @@ def _serve_fixture(listener, *, root_fd, receive, enrollment, identity, core_epo
             with open_repository(root_fd, request, executor.uid) as target, ExitStack() as stack:
                 check_context(target)
                 target.check(request, publishing=True)
-                target.check_commit(request)
+                if prepare is None:
+                    target.check_commit(request)
                 state = open_dir(root_fd, "state", stack)
                 evidence = open_dir(root_fd, "evidence", stack)
                 require_private(evidence, executor.uid)
@@ -95,6 +96,8 @@ def _serve_fixture(listener, *, root_fd, receive, enrollment, identity, core_epo
 
                 fault("before_permit")
                 guard.consume(request, fault, authorize=lambda: authorize(clock()))
+                if prepare is not None:
+                    prepare(target)
                 with sequence() as token:
                     def final_check():
                         revalidate(token)
