@@ -479,7 +479,7 @@ def _cold_roles(stack, root, actors, group, namespace, cgroups, config, proof, *
     return cold, verifier, result
 
 
-def _predecessor(session, source):
+def _predecessor(session, observed_host):
     require(type(session) is str and re.fullmatch('[0-9a-f]{32}', session), 'NATIVE_S1_PREDECESSOR_SESSION')
     root = host.BASE / session
     trusted(root, directory=True)
@@ -487,7 +487,8 @@ def _predecessor(session, source):
     trusted(case_path)
     case = json.loads(case_path.read_bytes())
     require(case['case'] == 'F4' and case['session'] == session and case['status'] == 'PASS'
-            and case['host']['source'] == source and case['old_writer_restart_denied'] is True,
+            and case['old_writer_restart_denied'] is True
+            and all(case['host'][field] == observed_host[field] for field in ('source', 'tree', 'boot_sha256')),
             'NATIVE_S1_PREDECESSOR_CASE')
     request = NativeExecutionBindingV1.from_wire(case['original_binding']).request
     witness = request.witness_binding().witness_id
@@ -617,7 +618,7 @@ def _exercise(stack, root, report, manifest, actors, group, namespace, cgroups, 
                    "core": asdict(core.peer), "sequencer": asdict(seq.peer),
                    "core_spki": offered["core_spki"], "epoch": offered["epoch"]}
     if predecessor is not None:
-        prior_files = _predecessor(predecessor, source)
+        prior_files = _predecessor(predecessor, report['host'])
         before = _predecessor_snapshot(prior_files)
         broker_info['predecessor_files'] = prior_files
     report["role_proofs"]["broker"] = broker.release(**broker_info)
