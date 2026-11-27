@@ -10,11 +10,13 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from runtime.mission.sandbox_linux import mountid
+from runtime.meta_hackathon.native_authority import NativeHostCompositionConfig
+from runtime.mission.git_publish import _git_target_identity
+from runtime.mission.sandbox_linux import LinuxSandboxBroker, mountid
 from runtime.red_hat.broker_protocol import read_record
 from runtime.red_hat.executor_custody import ExecutorRoles, load_broker_signer
 from runtime.red_hat.fixture_repository import open_repository
-from runtime.red_hat.role_storage import DirectoryPin, RoleStorage, StorageActor
+from runtime.red_hat.role_storage import CoreTargetStorage, DirectoryPin, RoleStorage, StorageActor
 
 
 class NativeRoleStorageTests(unittest.TestCase):
@@ -91,6 +93,55 @@ class NativeRoleStorageTests(unittest.TestCase):
         self.assertFalse(s.entry_matches(sibling, entry(s.broker.uid, regular | 0o440)))
         self.assertFalse(s.entry_matches(self.ref + ".lock", entry(0, regular | 0o440)))
         self.assertFalse(s.entry_matches(self.ref, entry(s.broker.uid, regular | 0o440, gid=s.broker.gid)))
+
+    def test_pre_capsule_read_scope_cannot_accept_an_already_published_ref(self):
+        reader = self.storage.core_target()
+        early = reader.pre_capsule()
+        current_ref = SimpleNamespace(st_uid=self.storage.broker.uid, st_gid=self.storage.reader_gid,
+                                      st_mode=stat.S_IFREG | 0o440)
+        self.assertFalse(early.entry_matches(self.ref, current_ref))
+        self.assertTrue(reader.entry_matches(self.ref, current_ref))
+        self.assertEqual(reader, early.with_ref(self.ref))
+        with self.assertRaisesRegex(ValueError, "STORAGE_REF"):
+            reader.with_ref(self.ref[:-1] + "b")
+
+    def test_target_fingerprint_is_the_same_before_and_after_capsule_ref_assignment(self):
+        reader = self.storage.core_target()
+        # Exercise the fingerprint algorithm with real FDs. The role/topology
+        # observation and privileged marker owner are fixture inputs here.
+        with tempfile.TemporaryDirectory() as work, patch.object(
+            CoreTargetStorage, "observe", autospec=True,
+            side_effect=lambda _reader, fd: (os.fstat(fd), (("objects", (1, 2, 3)),)),
+        ) as observe, patch("runtime.red_hat.broker_protocol.read_record",
+                            return_value=b"AIOA_DISPOSABLE_BARE_PATCH_V1\n"):
+            root = Path(work).resolve()
+            before = _git_target_identity(root, shared_reader=reader.pre_capsule())
+            after = _git_target_identity(root, shared_reader=reader)
+            self.assertEqual(before, after)
+            self.assertEqual(2, observe.call_count)
+
+    def test_cold_compose_switches_to_exact_ref_without_changing_layout_digest(self):
+        reader = self.storage.core_target()
+        config = NativeHostCompositionConfig(b'{"profile":"OWNED_OFFLINE_PROOF_V1"}', None, None, None, None)
+        initial = config.with_qualification_target(reader.pre_capsule())
+        cold = config.with_qualification_target(reader)
+        self.assertEqual(initial.digest, cold.digest)
+        self.assertNotEqual(config.digest, cold.digest)
+        owner_without_live_port = SimpleNamespace()
+        self.assertIsNone(initial.qualification_reader(owner_without_live_port).exact_ref)
+        self.assertEqual(self.ref, cold.qualification_reader(owner_without_live_port).exact_ref)
+        changed = config.with_qualification_target(replace(reader, ref_parent=DirectoryPin(12, 9, 7)))
+        self.assertNotEqual(cold.digest, changed.digest)
+
+    def test_shared_git_reader_denies_mutation_before_opening_repository(self):
+        reader = self.storage.core_target()
+        for arguments, data in (
+            (("update-ref", self.ref, "a" * 40, "0" * 40), None),
+            (("hash-object", "-w", "-t", "blob", "--stdin"), b"payload"),
+        ):
+            with self.subTest(arguments=arguments), self.assertRaisesRegex(ValueError, "STORAGE_READ_ONLY"):
+                LinuxSandboxBroker._git_plumbing(-1, arguments, git_sha256="a" * 64,
+                                                   data=data, shared_reader=reader)
 
     def test_inode_pin_rejects_replacement_with_open_original_fd(self):
         with tempfile.TemporaryDirectory() as work:

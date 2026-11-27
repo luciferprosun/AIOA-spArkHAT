@@ -34,9 +34,9 @@ a ref-link destination. AppArmor's mediation of the anonymous source
 inode and the actual denial of alternate mutations remain host acceptance
 requirements. A kernel denial at staging or link stays fail-closed.
 
-The operator's sibling probe now creates an unnamed inode on the pinned
-ref parent and requires denial at the same link operation used by
-publication. Failure during setup and absence of the parent are distinct
+The operator's sibling probe creates an unnamed inode on the pinned staging
+directory for shared storage and requires denial at the same link operation
+used by publication. Failure during setup and absence of the parent are distinct
 from denial at link. Unexpected success retains an empty sentinel and
 fails the probe. The probe itself never creates a valid ref. An operator manifest may set
 `native.reader_gid` to the dedicated group, distinct from all primary role
@@ -72,11 +72,23 @@ disposable attested Noble x86_64 instance. The observed laptop was Mint
 22.2 and returned `BLOCKED_HOST` without an enforcing role domain or an
 external host receipt. No privileged execution was attempted.
 
-Implementation remains open for pre-capsule Core target configuration,
-its immutable shared Git reader, and the installed supervisor that
-launches the real Core, broker, verifier and sequencer with authenticated
-policy and role descriptors. The policy renderer emits storage rules
-for a reviewed complete AppArmor profile. The cold resolver is callable
+Core now has a two-phase read-only target view. Trusted host construction
+attaches `CoreTargetStorage` with `NativeHostCompositionConfig.with_qualification_target`.
+The initial view pins the layout and does not accept a broker-owned ref before the
+capsule. Before `review_effect` can construct the Git route, the supervisor must
+supply a `NativeQualificationPort` for the capsule's exact ref whose storage
+projects to the same reader. The live Core observes that exact ref through the
+bound port. A cold process must attach the full reader for the original ref
+before the first host observation. The composition digest retains the same
+pre-capsule identity; the original signed `START` binds the full role layout
+and exact ref independently. The fixed Git child mounts the target read-only
+and rejects publish forms in this profile before opening repository directories.
+
+Implementation remains open for the installed supervisor that launches real
+Core, broker, verifier and sequencer processes, authenticates the loaded
+policy, and assembles the initial and cold configuration from trusted pins.
+The policy renderer emits storage rules for a reviewed complete AppArmor profile.
+The cold resolver is callable
 from the existing controller with a trusted host composition. The writer pins
 the private attempt-state directory in the signed contract and rejects a
 replacement rather than inheriting an empty attempt fence. /run

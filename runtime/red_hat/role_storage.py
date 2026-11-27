@@ -5,7 +5,8 @@ import hashlib
 import os
 import re
 import stat
-from dataclasses import asdict, dataclass, fields
+from contextlib import ExitStack
+from dataclasses import asdict, dataclass, fields, replace
 from pathlib import Path
 
 from runtime.mission.sandbox_linux import _scan_git_storage, mountid
@@ -13,6 +14,7 @@ from runtime.red_hat.broker_protocol import digest, file_identity, read_record, 
 
 _ID_LIMIT = 2**32 - 1
 _REF = re.compile(r"refs/heads/aioa/nz11-[0-9a-f]{32}")
+_REF_PARENT = "refs/heads/aioa"
 
 
 def _positive(value, upper=2**63):
@@ -64,6 +66,90 @@ class DirectoryPin:
                 and file_identity(info) == (self.device, self.inode)
                 and mountid(fd) == self.mount, "NATIVE_STORAGE_DIRECTORY_MOVED")
         return info
+
+
+def _repository_entry(name, info, *, broker_uid, reader_gid, exact_ref):
+    directory = stat.S_ISDIR(info.st_mode)
+    if name in ("packed-refs", "packed-refs.lock") or name.endswith(".lock"):
+        return False
+    if directory and name == exact_ref:
+        return False
+    writable = (
+        name in ("objects", _REF_PARENT) or bool(re.fullmatch(r"objects/[0-9a-f]{2}", name))
+        if directory else bool(re.fullmatch(r"objects/[0-9a-f]{2}/[0-9a-f]{38}", name)) or name == exact_ref
+    )
+    owner = broker_uid if writable else 0
+    mode = (0o2750 if writable else 0o750) if directory else 0o440
+    return (info.st_uid == owner and info.st_gid == reader_gid and stat.S_IMODE(info.st_mode) == mode)
+
+
+@dataclass(frozen=True, slots=True)
+class CoreTargetStorage:
+    """Read-only Core view, available before the capsule has assigned a ref."""
+
+    core: StorageActor
+    broker_uid: int
+    reader_gid: int
+    mount_namespace: int
+    anchor: DirectoryPin
+    repository: DirectoryPin
+    ref_parent: DirectoryPin
+    exact_ref: str | None = None
+
+    def __post_init__(self):
+        pins = (self.anchor, self.repository, self.ref_parent)
+        require(type(self.core) is StorageActor and _positive(self.broker_uid, _ID_LIMIT)
+                and self.broker_uid != self.core.uid and _positive(self.reader_gid, _ID_LIMIT)
+                and self.reader_gid != self.core.gid and _positive(self.mount_namespace)
+                and all(type(pin) is DirectoryPin for pin in pins)
+                and len({(pin.device, pin.mount) for pin in pins}) == 1
+                and len({pin.inode for pin in pins}) == 3
+                and (self.exact_ref is None or type(self.exact_ref) is str and _REF.fullmatch(self.exact_ref)),
+                "NATIVE_CORE_STORAGE_CONTRACT")
+
+    def pre_capsule(self):
+        return replace(self, exact_ref=None)
+
+    def with_ref(self, exact_ref):
+        require(type(exact_ref) is str and _REF.fullmatch(exact_ref)
+                and self.exact_ref in (None, exact_ref), "NATIVE_CORE_STORAGE_REF")
+        return replace(self, exact_ref=exact_ref)
+
+    def entry_matches(self, name, info):
+        return _repository_entry(name, info, broker_uid=self.broker_uid,
+                                 reader_gid=self.reader_gid, exact_ref=self.exact_ref)
+
+    def observe(self, repository):
+        """Recheck role, named ancestors and Git topology on the opened repository."""
+        from runtime.red_hat.fixture_repository import open_dir, require_named_directory
+
+        require(os.stat("/proc/self/ns/mnt").st_ino == self.mount_namespace, "NATIVE_STORAGE_MOUNT_NAMESPACE")
+        self.core.require_process(self.reader_gid)
+        repo = self.repository.require_fd(repository)
+        locator = os.readlink(f"/proc/self/fd/{repository}")
+        require(re.fullmatch(r"/run/aioa-qualification/[0-9a-f]{32}/repo", locator),
+                "NATIVE_STORAGE_DISPOSABLE_ROOT")
+        path = Path(locator).parent
+        for parent in path.parents:
+            row = parent.lstat()
+            require(stat.S_ISDIR(row.st_mode) and row.st_uid == 0 and not row.st_mode & 0o022,
+                    "NATIVE_STORAGE_DISPOSABLE_ROOT")
+        with ExitStack() as stack:
+            anchor = open_dir(None, path, stack)
+            root = self.anchor.require_fd(anchor)
+            require(root.st_uid == 0 and root.st_gid == self.reader_gid and stat.S_IMODE(root.st_mode) == 0o750,
+                    "NATIVE_STORAGE_ACCESS")
+            refs = open_dir(repository, "refs", stack)
+            heads = open_dir(refs, "heads", stack)
+            leaf_parent = open_dir(heads, "aioa", stack)
+            parent_info = self.ref_parent.require_fd(leaf_parent)
+            require(self.entry_matches(_REF_PARENT, parent_info), "NATIVE_STORAGE_ACCESS")
+            topology = _scan_git_storage(repository, self.entry_matches)
+            for parent, name, child in ((anchor, "repo", repository), (repository, "refs", refs),
+                                        (refs, "heads", heads), (heads, "aioa", leaf_parent)):
+                require_named_directory(parent, name, child)
+            require(file_identity(path.lstat()) == file_identity(root), "NATIVE_STORAGE_DIRECTORY_MOVED")
+            return repo, topology
 
 
 @dataclass(frozen=True, slots=True)
@@ -180,21 +266,13 @@ class RoleStorage:
         require(info.st_uid == owner and info.st_gid == self.reader_gid
                 and stat.S_IMODE(info.st_mode) == mode, "NATIVE_STORAGE_ACCESS")
 
+    def core_target(self):
+        return CoreTargetStorage(self.core, self.broker.uid, self.reader_gid, self.mount_namespace,
+                                 self.anchor, self.repository, self.ref_parent, self.exact_ref)
+
     def entry_matches(self, name, info):
-        directory = stat.S_ISDIR(info.st_mode)
-        ref_parent = self.exact_ref.rsplit("/", 1)[0]
-        oid_prefix = re.fullmatch(r"objects/[0-9a-f]{2}", name)
-        loose_oid = re.fullmatch(r"objects/[0-9a-f]{2}/[0-9a-f]{38}", name)
-        writable = (
-            name in ("objects", ref_parent) or bool(oid_prefix)
-            if directory else bool(loose_oid) or name == self.exact_ref
-        )
-        owner = self.broker.uid if writable else 0
-        mode = (0o2750 if writable else 0o750) if directory else 0o440
-        if name in ("packed-refs", "packed-refs.lock") or name.endswith(".lock"):
-            return False
-        return (info.st_uid == owner and info.st_gid == self.reader_gid
-                and stat.S_IMODE(info.st_mode) == mode)
+        return _repository_entry(name, info, broker_uid=self.broker.uid,
+                                 reader_gid=self.reader_gid, exact_ref=self.exact_ref)
 
     def topology(self, repository, ref_parent):
         self.repository.require_fd(repository)

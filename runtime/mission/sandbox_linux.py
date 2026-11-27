@@ -1310,16 +1310,17 @@ class LinuxSandboxBroker:
         raise ValueError("LIVE_CORE_GATE_REQUIRED")
 
     @staticmethod
-    def _git_directory(anchor, parts, *, create, cancel):
+    def _git_directory(anchor, parts, *, create, cancel, shared_reader=None):
         """No-follow directories beneath a descriptor-bound storage anchor."""
         from contextlib import ExitStack
 
         require(len(parts) <= 16, "GIT_STORAGE_BOUNDS")
+        require(shared_reader is None or not create, "NATIVE_CORE_STORAGE_READ_ONLY")
         origin = os.fstat(anchor)
         origin_mount = mountid(anchor)
         with ExitStack() as stack:
             current = anchor
-            for part in parts:
+            for depth, part in enumerate(parts, 1):
                 require(
                     cancel is None or not cancel.cancelled, "GIT_PLUMBING_CANCELLED"
                 )
@@ -1334,17 +1335,17 @@ class LinuxSandboxBroker:
                     os.O_RDONLY
                     | os.O_DIRECTORY
                     | os.O_NOFOLLOW
-                    | os.O_NOATIME
+                    | (os.O_NOATIME if shared_reader is None else 0)
                     | os.O_CLOEXEC,
                     dir_fd=current,
                 )
                 stack.callback(os.close, fd)
                 info = os.fstat(fd)
                 require(
-                    info.st_uid == os.getuid()
+                    (info.st_uid == os.getuid() and not info.st_mode & 0o7022
+                     if shared_reader is None else shared_reader.entry_matches("/".join(parts[:depth]), info))
                     and info.st_dev == origin.st_dev
-                    and mountid(fd) == origin_mount
-                    and not info.st_mode & 0o7022,
+                    and mountid(fd) == origin_mount,
                     "GIT_STORAGE_OWNER_OR_MOUNT",
                 )
                 current = fd
@@ -1501,6 +1502,7 @@ class LinuxSandboxBroker:
         before_ref_link=None,
         before_ref_link_guard=None,
         expected_ref_directory=None,
+        shared_reader=None,
     ):
         """Fixed offline profile on THIS broker and the route's single START.
 
@@ -1584,7 +1586,17 @@ class LinuxSandboxBroker:
             data is None or arguments[0] == "hash-object", "GIT_PLUMBING_INPUT_BOUND"
         )
         require(cancel is None or not cancel.cancelled, "GIT_PLUMBING_CANCELLED")
-        topology = git_storage_identity(root)
+        if shared_reader is not None:
+            from runtime.red_hat.role_storage import CoreTargetStorage
+
+            require(type(shared_reader) is CoreTargetStorage and publish is None and data is None
+                    and before_ref_link is None and before_ref_link_guard is None
+                    and expected_ref_directory is None, "NATIVE_CORE_STORAGE_READ_ONLY")
+
+        def observe_storage():
+            return git_storage_identity(root) if shared_reader is None else shared_reader.observe(root)[1]
+
+        topology = observe_storage()
         require(
             expected_storage is None or topology == expected_storage, "GIT_TARGET_MOVED"
         )
@@ -1647,12 +1659,10 @@ class LinuxSandboxBroker:
                 descriptors[path] = sealed("aioa-fixed-git-runtime", raw)
 
             anchors = {}
+            directory_options = {} if shared_reader is None else {"shared_reader": shared_reader}
             for name in GIT_CRITICAL_DIRECTORIES:
-                fd = hold(
-                    cls._git_directory(
-                        root, name.split("/"), create=False, cancel=cancel
-                    )
-                )
+                fd = hold(cls._git_directory(root, name.split("/"), create=False, cancel=cancel,
+                                             **directory_options))
                 info = os.fstat(fd)
                 require(
                     (info.st_dev, info.st_ino, mountid(fd)) == storage[name],
@@ -1669,7 +1679,7 @@ class LinuxSandboxBroker:
                         os.O_RDONLY
                         | os.O_NOFOLLOW
                         | os.O_NONBLOCK
-                        | os.O_NOATIME
+                        | (os.O_NOATIME if shared_reader is None else 0)
                         | os.O_CLOEXEC,
                         dir_fd=root,
                     )
@@ -1681,7 +1691,8 @@ class LinuxSandboxBroker:
                     info = os.fstat(fd)
                     require(
                         stat.S_ISREG(info.st_mode)
-                        and info.st_uid == os.getuid()
+                        and (info.st_uid == os.getuid() if shared_reader is None
+                             else shared_reader.entry_matches(name, info) and mountid(fd) == mountid(root))
                         and info.st_nlink == 1
                         and info.st_size <= maximum,
                         "GIT_STORAGE_FILE_TYPE",
@@ -1692,6 +1703,7 @@ class LinuxSandboxBroker:
                         row.st_ino,
                         row.st_mode,
                         row.st_uid,
+                        row.st_gid,
                         row.st_nlink,
                         row.st_size,
                         row.st_mtime_ns,
@@ -1758,7 +1770,7 @@ class LinuxSandboxBroker:
                 )
 
             def check_lock_parent(parent):
-                require(git_storage_identity(root) == topology, "GIT_STORAGE_CHANGED")
+                require(observe_storage() == topology, "GIT_STORAGE_CHANGED")
                 if binding_check is not None:
                     binding_check()
                 if (expected_ref_directory is not None and ref_parent is not None
@@ -2015,6 +2027,7 @@ class LinuxSandboxBroker:
                 "core.fsmonitor=false",
                 "-c",
                 "core.attributesFile=/dev/null",
+                *(() if shared_reader is None else ("-c", "safe.directory=/repo")),
                 *git_arguments,
             ]
             source = stack.enter_context(tempfile.TemporaryFile())
@@ -2063,7 +2076,7 @@ class LinuxSandboxBroker:
                     child.wait(timeout=2)
                 child.stdout.close()
                 child.stderr.close()
-            require(git_storage_identity(root) == topology, "GIT_STORAGE_CHANGED")
+            require(observe_storage() == topology, "GIT_STORAGE_CHANGED")
             if binding_check is not None:
                 binding_check()
             require(cancel is None or not cancel.cancelled, "GIT_PLUMBING_CANCELLED")
@@ -2114,7 +2127,7 @@ class LinuxSandboxBroker:
                 )
                 output = b""
                 check_ref_transaction()
-            require(git_storage_identity(root) == topology, "GIT_STORAGE_CHANGED")
+            require(observe_storage() == topology, "GIT_STORAGE_CHANGED")
             return bytes(output)
 
     def dispatch(self, request, release_check, *, cancel=None):

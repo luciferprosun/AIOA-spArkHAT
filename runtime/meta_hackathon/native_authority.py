@@ -14,7 +14,7 @@ import stat
 import threading
 import time
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass, replace
 from datetime import UTC, datetime, timedelta
 from enum import Enum
 from pathlib import Path
@@ -50,6 +50,7 @@ from runtime.providers.coding_contracts import (
 )
 
 if TYPE_CHECKING:
+    from runtime.red_hat.role_storage import CoreTargetStorage
     from .runtime_adapter import NativeMobileComposition
 
 
@@ -178,6 +179,7 @@ class NativeHostCompositionConfig:
     _descriptor_path: Path | None = None
     _descriptor_bytes: bytes | None = None
     coding_backend_registry: CodingBackendRegistry | None = None
+    qualification_target: CoreTargetStorage | None = None
 
     @classmethod
     def from_dict(cls, value):
@@ -277,9 +279,20 @@ class NativeHostCompositionConfig:
     def to_dict(self):
         return codec.strict_json(self._bytes, maximum=2097152)
 
+    def with_qualification_target(self, target):
+        from runtime.red_hat.role_storage import CoreTargetStorage
+
+        deny(type(target) is CoreTargetStorage and self.qualification_target is None
+             and self.to_dict()['profile'] == 'OWNED_OFFLINE_PROOF_V1')
+        return replace(self, qualification_target=target)
+
     @property
     def digest(self):
-        return hashlib.sha256(self._bytes).hexdigest()
+        if self.qualification_target is None:
+            return hashlib.sha256(self._bytes).hexdigest()
+        # The capsule assigns the leaf later. The START separately signs its full role/storage digest.
+        target = _host_bytes(asdict(self.qualification_target.pre_capsule()))
+        return hashlib.sha256(b'aioa.native-host-qualification.v1\0' + self._bytes + b'\0' + target).hexdigest()
 
     def coding_model_ids(self) -> frozenset[str]:
         """Pure eligibility from the retained full profiles; no selection or spend."""
@@ -294,6 +307,20 @@ class NativeHostCompositionConfig:
         deny(registry._profiles == tuple(canonical_json_bytes(profile) for profile in profiles)
              and all(profile['host_source'] == value['host_source'] for profile in profiles))
         return frozenset(profile['model_id'] for profile in profiles)
+
+    def qualification_reader(self, owner):
+        target = self.qualification_target
+        if target is None:
+            return None
+        port = getattr(getattr(owner, '_native_coding', None), 'qualification_port', None)
+        if port is None:
+            return target
+        from runtime.red_hat.native_qualification import NativeQualificationPort
+
+        deny(type(port) is NativeQualificationPort and port.storage is not None)
+        reader = port.storage.core_target()
+        deny(reader == target.with_ref(reader.exact_ref))
+        return reader
 
     def observe(self, owner):
         """Host-owned source/config/root observations, never called in SQL."""
@@ -310,7 +337,21 @@ class NativeHostCompositionConfig:
         observed_roots = (*roots, self.portable.inventory_path.parent)
         if getattr(owner, '_offline_candidates', None) is not None:
             observed_roots += (roots[-1].parent,)
-        identities = tuple((str(root), _directory_identity(root)) for root in observed_roots)
+        reader = self.qualification_reader(owner)
+
+        def identity(index, root):
+            if index != 3 or reader is None:
+                return _directory_identity(root)
+            fd = os.open(root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC)
+            try:
+                row, _ = reader.observe(fd)
+                named = root.lstat()
+                deny(stat.S_ISDIR(named.st_mode) and (named.st_dev, named.st_ino) == (row.st_dev, row.st_ino))
+                return row.st_dev, row.st_ino, row.st_uid, stat.S_IMODE(row.st_mode)
+            finally:
+                os.close(fd)
+
+        identities = tuple((str(root), identity(index, root)) for index, root in enumerate(observed_roots))
         self.source_snapshot.verify_export(roots[0])
         return identities
 
