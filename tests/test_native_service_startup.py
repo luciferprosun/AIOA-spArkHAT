@@ -111,7 +111,9 @@ with socket.socket(fileno=int(sys.argv[1])) as listener, socket.socket(fileno=in
             start_listener(listener, address)
             with patch.object(RoleStorage, "require_role"), patch.object(RoleStorage, "require_anchor"), patch(
                 "runtime.red_hat.authenticated_boundary.verify", return_value=report
-            ) as verify, ThreadPoolExecutor(max_workers=1) as pool:
+            ) as verify, patch(
+                "runtime.red_hat.writer_lifecycle.require_writer_closed", return_value=None
+            ), ThreadPoolExecutor(max_workers=1) as pool:
                 def serve():
                     return serve_role_verifier_once(listener, root_fd=-1, storage=storage, enrollment=enrolled,
                                                     identity=verifier, core_peer=peer, core_spki=core.spki, enabled=True)

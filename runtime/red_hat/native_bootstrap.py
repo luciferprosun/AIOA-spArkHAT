@@ -13,6 +13,7 @@ from runtime.red_hat.core_adapter import CoreIntentAdapter
 from runtime.red_hat.enrollment import ExecutorEnrollment
 from runtime.red_hat.execution_binding import capture_binding_in_transaction
 from runtime.red_hat.role_storage import RoleStorage
+from runtime.red_hat.writer_lifecycle import require_writer_closed
 
 
 @dataclass(frozen=True, slots=True)
@@ -59,6 +60,7 @@ class ColdNativeBootstrap:
                 and binding.ref_parent_mount == reader.ref_parent.mount
                 and binding.boot_id == Path("/proc/sys/kernel/random/boot_id").read_text(encoding="ascii").strip(),
                 "NATIVE_COLD_BOOTSTRAP_START")
+        require_writer_closed(self.root_fd, self.storage, binding)
         return spec._with_authenticated_cold_target(reader)
 
     def recovery_port(self, adapter, coding_tasks, *, endpoint, peer, verifier_spki, identity):

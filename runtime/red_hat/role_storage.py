@@ -173,6 +173,7 @@ class RoleStorage:
     staging: DirectoryPin | None = None
     policy_sha256: str | None = None
     state: DirectoryPin | None = None
+    writer_cgroup: DirectoryPin | None = None
 
     def __post_init__(self):
         actors = (self.core, self.broker, self.verifier)
@@ -184,6 +185,8 @@ class RoleStorage:
                     and type(self.policy_sha256) is str
                     and re.fullmatch(r"[0-9a-f]{64}", self.policy_sha256)),
                 "NATIVE_STORAGE_WRITER_PINS")
+        require(self.writer_cgroup is None or (type(self.writer_cgroup) is DirectoryPin
+                                               and self.staging is not None), "NATIVE_STORAGE_S1_PINS")
         require(all(type(actor) is StorageActor for actor in actors)
                 and len({actor.uid for actor in actors}) == 3
                 and len({actor.gid for actor in actors}) == 3
@@ -199,23 +202,34 @@ class RoleStorage:
 
     @classmethod
     def from_dict(cls, value):
-        require(type(value) is dict
-                and set(value) == {"schema", *(field.name for field in fields(cls))}
-                and value["schema"] == "aioa.redhat.role-storage.v1", "NATIVE_STORAGE_SCHEMA")
+        require(type(value) is dict, "NATIVE_STORAGE_SCHEMA")
+        version = value.get("schema")
+        names = {field.name for field in fields(cls)}
+        if version == "aioa.redhat.role-storage.v1":
+            names.remove("writer_cgroup")
+        else:
+            require(version == "aioa.redhat.role-storage.s1.v1" and value.get("writer_cgroup") is not None,
+                    "NATIVE_STORAGE_SCHEMA")
+        require(set(value) == {"schema", *names}, "NATIVE_STORAGE_SCHEMA")
         decoded = {key: item for key, item in value.items() if key != "schema"}
-        for names, kind in ((("core", "broker", "verifier"), StorageActor),
-                            (("anchor", "repository", "ref_parent", "evidence", "staging", "state"), DirectoryPin)):
-            keys = {field.name for field in fields(kind)}
-            for name in names:
-                item = value[name]
-                if name in ("staging", "state") and item is None:
+        for keys, kind in ((("core", "broker", "verifier"), StorageActor),
+                           (("anchor", "repository", "ref_parent", "evidence", "staging", "state", "writer_cgroup"),
+                            DirectoryPin)):
+            expected = {field.name for field in fields(kind)}
+            for name in keys:
+                item = value.get(name)
+                if name in ("staging", "state", "writer_cgroup") and item is None:
                     continue
-                require(type(item) is dict and set(item) == keys, "NATIVE_STORAGE_SCHEMA")
+                require(type(item) is dict and set(item) == expected, "NATIVE_STORAGE_SCHEMA")
                 decoded[name] = kind(**item)
         return cls(**decoded)
 
     def to_dict(self):
-        return {"schema": "aioa.redhat.role-storage.v1", **asdict(self)}
+        value = asdict(self)
+        if self.writer_cgroup is None:
+            value.pop("writer_cgroup")
+            return {"schema": "aioa.redhat.role-storage.v1", **value}
+        return {"schema": "aioa.redhat.role-storage.s1.v1", **value}
 
     @property
     def digest(self):

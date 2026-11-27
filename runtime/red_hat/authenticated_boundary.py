@@ -102,14 +102,9 @@ def serve_verifier_fixture_once(listener, *, root_fd, binding, enrollment, ident
                                 core_spki, now, enabled=False, storage=None):
     """Independently verify physical evidence and sign a fresh challenge response."""
     require(enabled is True, "RH06_DISABLED")
+    require(storage is None, "NATIVE_S1_ROLE_VERIFIER_REQUIRED")
     require(type(binding) is NativeExecutionBindingV1 and type(identity) is Identity
             and len({identity.spki, core_spki, enrollment.executor.spki}) == 3, "RH06_ROLE_KEYS")
-    if storage is not None:
-        from runtime.red_hat.role_storage import RoleStorage
-        require(type(storage) is RoleStorage and type(core_peer) is Peer
-                and (core_peer.uid, core_peer.gid) == (storage.core.uid, storage.core.gid),
-                "NATIVE_STORAGE_CORE_PEER")
-        storage.require_role("verifier")
     binding_digest = digest(binding.to_wire())
     with listener.accept()[0] as peer:
         authenticate(peer, core_peer)
@@ -121,12 +116,15 @@ def serve_verifier_fixture_once(listener, *, root_fd, binding, enrollment, ident
                              challenge=query["challenge"], now=now, storage=storage)
 
 
-def _respond_to_verifier(peer, root_fd, binding, enrollment, identity, *, challenge, now, storage):
+def _respond_to_verifier(peer, root_fd, binding, enrollment, identity, *, challenge, now, storage,
+                         expected_completion=None):
     request = binding.request
     report = verify(root_fd, request, enrollment, now=now, core_epoch=request.core_epoch,
                     broker_epoch=request.broker_epoch,
                     check_context=lambda target: require_physical_context(target, binding),
                     storage=storage)
+    if storage is not None:
+        require(report.completion_sha256 == expected_completion, "NATIVE_S1_COMPLETION_CHANGED")
     send_frame(peer, _seal(identity, {
         "schema": READBACK, "challenge": challenge, "binding_digest": digest(binding.to_wire()),
         "facts": asdict(report), "observed_at": now,
@@ -154,8 +152,11 @@ def serve_role_verifier_once(listener, *, root_fd, storage, enrollment, identity
         binding = NativeExecutionBindingV1.from_wire(query["binding"])
         require(binding.storage_digest == storage.digest and binding.request.exact_ref == storage.exact_ref,
                 "NATIVE_ROLE_VERIFIER_START")
+        from runtime.red_hat.writer_lifecycle import require_writer_closed
+
+        completion = require_writer_closed(root_fd, storage, binding)
         _respond_to_verifier(peer, root_fd, binding, enrollment, identity, challenge=query["challenge"],
-                             now=int(time.time()), storage=storage)
+                             now=int(time.time()), storage=storage, expected_completion=completion)
 
 
 def _report(value):
@@ -207,6 +208,9 @@ class _AuthenticatedReadbackAdapter(CoreIntentAdapter):
         if self.storage is None:
             return super()._open_readback_repository(root_fd, request, executor_uid)
         from runtime.red_hat.fixture_repository import open_repository
+        from runtime.red_hat.writer_lifecycle import require_writer_closed
+
+        require_writer_closed(root_fd, self.storage, self.binding)
         return open_repository(root_fd, request, executor_uid, storage=self.storage, role="core")
 
     def _check_fixture_target(self, target):
@@ -216,7 +220,14 @@ class _AuthenticatedReadbackAdapter(CoreIntentAdapter):
         require(request == self.binding.request and request.core_epoch == core_epoch
                 and request.broker_epoch == broker_epoch, "RH06_VERIFIER_START")
         require(enrollment.permits(request, now), "RH06_VERIFIER_ENROLLMENT")
-        return _read_authenticated_report(self.endpoint, self.peer, self.spki, self.binding, now=now, signer=self.signer)
+        report, pid = _read_authenticated_report(
+            self.endpoint, self.peer, self.spki, self.binding, now=now, signer=self.signer)
+        if self.storage is not None:
+            from runtime.red_hat.writer_lifecycle import require_writer_closed
+
+            completion = require_writer_closed(root_fd, self.storage, self.binding)
+            require(report.completion_sha256 == completion, "NATIVE_S1_COMPLETION_CHANGED")
+        return report, pid
 
 
 class AuthenticatedFixtureRecoveryPort(DisposableNativeTaskWitnessPort):

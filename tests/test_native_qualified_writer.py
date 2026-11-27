@@ -148,7 +148,7 @@ class NativeQualifiedWriterTests(unittest.TestCase):
                                         request.broker_epoch, identity.spki)
 
         # A separate fixture producer publishes and exits before the fresh Core
-        # opens the original durable records. Here only OS role checks are mocked.
+        # opens the original durable records. This is a same-UID fixture.
         broker.request = request
         broker.spec["request"] = request.to_wire()
         (broker.root / "fixture.json").write_text(json.dumps(broker.spec))
@@ -180,7 +180,10 @@ class NativeQualifiedWriterTests(unittest.TestCase):
             with self.assertRaises(MemoryPatchError):
                 others = SimpleNamespace(**{**vars(project), "source_base_sha": "f" * 40})
                 bootstrap.bind(fresh.journal, identity, replace(config, project_source=others))
-            cold = bootstrap.bind(fresh.journal, identity, config)
+            with self.assertRaisesRegex(ValueError, "NATIVE_S1_WRITER_CLOSURE"):
+                bootstrap.bind(fresh.journal, identity, config)
+            with patch("runtime.red_hat.native_bootstrap.require_writer_closed"):
+                cold = bootstrap.bind(fresh.journal, identity, config)
         self.assertEqual(before, durable_state())
         self.assertEqual(config.digest, cold.digest)
         self.assertEqual(request.exact_ref, cold.qualification_target.exact_ref)

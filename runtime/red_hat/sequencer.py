@@ -14,7 +14,7 @@ from dataclasses import dataclass
 
 from runtime.memory_patch.contracts.serialization import canonical_json_bytes
 from runtime.memory_patch.persistence.ports import transaction_active
-from runtime.red_hat.broker_protocol import Peer, authenticate, decode_record, publish_record, require
+from runtime.red_hat.broker_protocol import Peer, authenticate, decode_record, publish_record, recv_data, require
 from runtime.red_hat.execution_binding import digest_string
 from runtime.red_hat.fixture_repository import require_private
 
@@ -23,6 +23,7 @@ SCHEMA = "aioa.redhat.fixture-sequencer.v1"
 MAX_MESSAGE = 1024
 MAX_CONNECTIONS = 8
 SLOT = "outstanding"
+_S1_INCARNATION = "s1-sequencer-incarnation"
 _HEADER = struct.Struct("!I")
 
 
@@ -42,7 +43,7 @@ def _read(stream, timeout):
             remaining = deadline - time.monotonic()
             require(remaining > 0, "RH07_SEQUENCE_TIMEOUT")
             stream.settimeout(remaining)
-            part = stream.recv(size - len(data))
+            part = recv_data(stream, size - len(data))
             require(part, "RH07_SEQUENCE_EOF")
             data.extend(part)
         return data
@@ -237,9 +238,11 @@ class _Sequencer:
 
 
 def serve_sequencer(listener, *, directory, core_peer, broker_peer, epoch, timeout=2.0,
-                    active_timeout=5.0, stop=None, fault=lambda _: None, enabled=False, on_ready=None):
+                    active_timeout=5.0, stop=None, fault=lambda _: None, enabled=False, on_ready=None,
+                    fence_restart=False):
     """Serve ordered capabilities over a trusted listener, with bounded concurrency."""
     require(enabled is True, "RH07_DISABLED")
+    require(type(fence_restart) is bool, "RH07_SEQUENCE_CONFIGURATION")
     _limits(epoch, timeout)
     _limits(epoch, active_timeout)
     require(listener.family == socket.AF_UNIX and listener.type == socket.SOCK_STREAM
@@ -255,6 +258,13 @@ def serve_sequencer(listener, *, directory, core_peer, broker_peer, epoch, timeo
                 "RH07_SEQUENCE_STORAGE")
         fcntl.flock(leader, fcntl.LOCK_EX | fcntl.LOCK_NB)
         service = _Sequencer(directory, core_peer, broker_peer, epoch, timeout, active_timeout, fault)
+        if fence_restart:
+            # S1 uses one sequencer process per aperture. Readback needs no slot.
+            # If unlink of SLOT becomes visible before fsync fails, a process
+            # restart must still fail closed, including under a new epoch.
+            require(not service.poisoned, "RH07_SEQUENCE_OUTSTANDING")
+            publish_record(directory, _S1_INCARNATION,
+                           {"schema": "aioa.redhat.s1.sequencer-incarnation.v1", "epoch": epoch})
         available = threading.BoundedSemaphore(MAX_CONNECTIONS)
 
         def handle(peer):

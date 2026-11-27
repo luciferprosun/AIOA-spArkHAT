@@ -22,6 +22,11 @@
       "next": "Zakwalifikować jednorazowy host oraz zbudować odbiór dwóch procesów według NATIVE_HOST_QUALIFICATION.md."
     },
     {
+      "id": "C-native-s2",
+      "status": "NOT_QUALIFIED",
+      "next": "26/27 November Local scope. After independently accepted S1, specify durable reboot-crossing storage, writer succession and reconciliation. See NATIVE69_S1_CLOSURE.md. Preserve the attempt fence and never reconstruct historical proof."
+    },
+    {
       "id": "C-provenance",
       "status": "BLOCKED_HOST / BLOCKED_SECURITY_REVIEW",
       "next": "Przyszłe świadectwo ma fixture procesów. Zakwalifikować zaufaną produkcyjną tożsamość brokera i historyczną retencję oddzielnie."

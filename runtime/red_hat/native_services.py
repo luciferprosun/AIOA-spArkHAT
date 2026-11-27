@@ -4,6 +4,7 @@ import os
 import select
 import socket
 import subprocess
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -64,12 +65,36 @@ def await_service_ready(child, control, expected_role, *, timeout=None):
         os.close(pidfd)
 
 
+def await_broker_completion(writer, channel, binding, enrollment, *, deadline):
+    """Collect the private broker stage and wait for exit without reaping it."""
+    from runtime.red_hat.writer_lifecycle import OneShotWriter
+
+    require(type(writer) is OneShotWriter and writer.pidfd is not None
+            and type(channel) is socket.socket and channel.family == socket.AF_UNIX
+            and channel.type == socket.SOCK_STREAM and not channel.get_inheritable(),
+            "NATIVE_S1_COMPLETION_CHANNEL")
+    channel.getpeername()
+    remaining = deadline - time.monotonic()
+    require(0 < remaining <= 20 and select.select([channel], [], [], remaining)[0],
+            "NATIVE_S1_COMPLETION_TIMEOUT")
+    report = read_frame(channel)
+    remaining = deadline - time.monotonic()
+    require(remaining > 0 and select.select([writer.pidfd], [], [], remaining)[0]
+            and time.monotonic() < deadline, "NATIVE_S1_WRITER_STILL_LIVE")
+    writer.close_writer(binding, report, enrollment)
+
+
 def run_broker(listener, location, control, *, root_fd, storage, device_id, sequencer,
-               release, core_spki, signer_fd, enrollment, core_epoch):
+               release, core_spki, signer_fd, enrollment, core_epoch, completion=None):
     require(type(signer_fd) is int and signer_fd >= 3, "RH07_SIGNER_FD")
     try:
         require(type(storage) is RoleStorage and type(sequencer) is SequenceClient
                 and type(release) is RoleEndpoint, "NATIVE_SERVICE_CONFIGURATION")
+        require(type(completion) is socket.socket and completion.family == socket.AF_UNIX
+                and completion.type == socket.SOCK_STREAM and not completion.get_inheritable()
+                and len({os.fstat(item.fileno()).st_ino for item in (listener, control, completion)}) == 3,
+                "NATIVE_S1_COMPLETION_CHANNEL")
+        completion.getpeername()  # Reject an unconnected channel before exposing readiness.
         controlled_release = CoreReleaseClient(release.location, release.peer, core_spki)
         start_listener(listener, location)
     except BaseException:
@@ -80,6 +105,7 @@ def run_broker(listener, location, control, *, root_fd, storage, device_id, sequ
         release=controlled_release, core_peer=release.peer,
         core_spki=core_spki, signer_fd=signer_fd, enrollment=enrollment, core_epoch=core_epoch,
         broker_epoch=sequencer.epoch, enabled=True, on_ready=lambda: _ready(control, "broker"),
+        on_completion=lambda report: send_frame(completion, report),
     )
 
 
@@ -104,7 +130,8 @@ def run_sequencer(listener, location, control, *, directory, directory_pin, acto
     directory_pin.require_fd(directory)
     start_listener(listener, location)
     serve_sequencer(listener, directory=directory, core_peer=core_peer, broker_peer=broker_peer,
-                    epoch=epoch, stop=stop, enabled=True, on_ready=lambda: _ready(control, "sequencer"))
+                    epoch=epoch, stop=stop, enabled=True, on_ready=lambda: _ready(control, "sequencer"),
+                    fence_restart=True)
 
 
 def start_core(control, *, root, origin, spec, candidates, existing_profile,

@@ -19,6 +19,9 @@ def storage_rules(session, exact_ref):
     return "\n".join((
         f"{root}/ r,",
         f"{root}/writer-policy r,",
+        f"{root}/writer-launch r,",
+        f"{root}/writer-process r,",
+        f"{root}/writer-closed r,",
         f"{root}/repo/ r,",
         f"{root}/repo/** r,",
         f"{root}/staging/ rw,",

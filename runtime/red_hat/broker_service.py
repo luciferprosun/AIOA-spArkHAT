@@ -52,6 +52,7 @@ def _publish(target, request, guard, authorize, clock, fault, stack, final_check
         # The exclusive create is the sole irreversible CAS attempt.
         os.link(f"/proc/self/fd/{fd}", target.leaf(request), dst_dir_fd=target.ref_parent,
                 follow_symlinks=True)
+        fault("after_ref_link")
         os.fsync(target.ref_parent)
         published = os.fstat(fd)
         stamp = (*file_identity(original), published.st_ctime_ns)
@@ -77,7 +78,7 @@ def serve_once(listener, *, root_fd, expected, enrollment, identity, core_peer, 
 
 def _serve_fixture(listener, *, root_fd, receive, enrollment, identity, core_epoch,
                    broker_epoch, clock, fault, check_context=_no_fault,
-                   sequence=nullcontext, revalidate=_no_fault, prepare=None, storage=None):
+                   sequence=nullcontext, revalidate=_no_fault, prepare=None, storage=None, completed=None):
     """Shared single-attempt fixture executor. Authentication precedes consumption."""
     require(listener.family == socket.AF_UNIX and listener.type == socket.SOCK_STREAM,
             "BROKER_LISTENER")
@@ -144,10 +145,15 @@ def _serve_fixture(listener, *, root_fd, receive, enrollment, identity, core_epo
                     raw = target.record(evidence, binding.witness_id, executor.uid)
                     require(raw == canonical_json_bytes({"payload": payload, "signature": signature}),
                             "BROKER_WITNESS_MOVED")
+                    fault("before_completion")
                     persist_completion(evidence, request, identity, raw, stamp, reader_gid=reader_gid)
                     require_named_directory(root_fd, "evidence", evidence)
                     target.check(request)
                     require(target.observe(request) == stamp, "BROKER_REF_MOVED")
+                    if completed is not None:
+                        completion = target.record(evidence, "completion-" + binding.witness_id, executor.uid)
+                if completed is not None:
+                    completed(completion)
                 fault("witness_durable")
                 ok = True
         except (OSError, ValueError):

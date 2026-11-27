@@ -9,6 +9,7 @@ import socket
 import stat
 import struct
 import time
+from array import array
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass, fields
 
@@ -172,6 +173,21 @@ def send_frame(stream, payload, *, body=b""):
     stream.shutdown(socket.SHUT_WR)
 
 
+def recv_data(stream, size):
+    """Receive payload bytes and dispose of any descriptors before rejecting the message."""
+    fd_size = array("i").itemsize
+    data, ancillary, flags, _ = stream.recvmsg(
+        size, socket.CMSG_SPACE(16 * fd_size), socket.MSG_CMSG_CLOEXEC)
+    for level, kind, payload in ancillary:
+        if (level, kind) == (socket.SOL_SOCKET, socket.SCM_RIGHTS):
+            descriptors = array("i")
+            descriptors.frombytes(payload[:len(payload) - len(payload) % fd_size])
+            for fd in descriptors:
+                os.close(fd)
+    require(not ancillary and not flags & socket.MSG_CTRUNC, "BROKER_FRAME_ANCILLARY")
+    return data
+
+
 def read_frame(stream, *, receive_body=None):
     deadline = time.monotonic() + FRAME_TIMEOUT
 
@@ -180,7 +196,7 @@ def read_frame(stream, *, receive_body=None):
         require(remaining > 0, "BROKER_FRAME_TIMEOUT")
         stream.settimeout(remaining)
         try:
-            return stream.recv(size)
+            return recv_data(stream, size)
         except TimeoutError:
             raise ProtocolError("BROKER_FRAME_TIMEOUT") from None
 

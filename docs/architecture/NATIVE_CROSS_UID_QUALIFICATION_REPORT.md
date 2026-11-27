@@ -148,3 +148,31 @@ selects the shared reader group. Staging is mode 2700, broker-owned with
 the reader GID, and on the same mount as the ref parent. The candidate
 imports objects and records with mode 0440 using a 0027 umask. Preserve the
 actual role, policy, source and host receipts privately.
+
+## S1 writer lifecycle checkpoint
+
+The S1 RoleStorage schema pins the nondelegated cgroup directory on a
+separate cgroup2 mount. The writer must match the supervisor's create-only
+launch and process records before opening the signer. The supervisor
+primitive keeps the original unreaped child pidfd and checks the pinned
+cgroup subtree for `populated 0`. A separate private channel carries a
+broker signature over the exact execution binding and completion bytes.
+The broker emits this stage after completion persistence and the
+sequencer close acknowledgement. A later verifier sync cannot create it.
+
+The closure binds the original boot, layout, process identity, execution
+binding and completion digest. The cold bootstrap requires it before
+attaching the original reader. The verifier checks it before reading
+evidence, and Core checks it again during settlement. Shared-storage
+verification through the legacy fixture entry is rejected. Broker and
+sequencer IPC reject unexpected ancillary data and close received FDs.
+The S1 sequencer service consumes a create-only incarnation marker so
+the same state cannot serve again after same-boot process restart,
+including after uncertainty during slot unlink or directory fsync.
+
+This checkpoint still needs an installed coordinator, exact-ref profiles,
+role units and same-policy positive/negative proof of containment. A
+pidfd and empty subtree do not detect an already exported FD, writable
+aliases or a new writer started by another unit. The root lifecycle
+records assume exclusive operation provisioning by the trusted launcher.
+See [S1 closure and release scope](../unification/cloud-consolidation/NATIVE69_S1_CLOSURE.md).
