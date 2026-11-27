@@ -145,6 +145,22 @@ def check_role(root, role, native):
     return rows
 
 
+def probe_credentials(native):
+    groups = sorted(os.getgroups())
+    status = dict(line.split(":", 1) for line in Path("/proc/self/status").read_text().splitlines())
+    bounding = int(status["CapBnd"], 16)
+    reader_gid = native.get("reader_gid")
+    if reader_gid is not None:
+        require(type(reader_gid) is int and 0 < reader_gid < 2**32 - 1
+                and reader_gid not in native["gids"].values()
+                and groups == [reader_gid] and bounding == 0
+                and status["NoNewPrivs"].strip() == "1"
+                and all(int(status[field], 16) == 0
+                        for field in ("CapEff", "CapPrm", "CapAmb", "CapInh")),
+                "SHARED_PROBE_CREDENTIALS")
+    return {"supplementary_gids": groups, "cap_bnd": bounding}
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--role', choices=ROLES, required=True)
@@ -173,6 +189,7 @@ def main():
     require(set(gids) == set(ROLES) and all(type(gid) is int and gid > 0 for gid in gids.values())
             and len(set(gids.values())) == len(ROLES) and os.getgid() == os.getegid() == gids[args.role],
             'ROLE_GID_MISMATCH')
+    credentials = probe_credentials(native)
     signer_fd_matched = False
     if args.signer_fd is not None:
         info = os.fstat(args.signer_fd)
@@ -198,7 +215,7 @@ def main():
     print(json.dumps({'result': 'ACCESS_PROBES_MATCHED' if ok else 'FAIL', 'role': args.role,
                       'uid': os.getuid(), 'boot_sha256': obs['boot_sha256'],
                       'session': native['session'], 'exact_ref': native['exact_ref'], 'cgroup': cgroup, 'profile': label, 'probes': rows,
-                      'signer_fd_matched': signer_fd_matched, 'cas_attempts': 0, 'settlements': 0}, sort_keys=True))
+                      'signer_fd_matched': signer_fd_matched, **credentials, 'cas_attempts': 0, 'settlements': 0}, sort_keys=True))
     return 0 if ok else 1
 
 

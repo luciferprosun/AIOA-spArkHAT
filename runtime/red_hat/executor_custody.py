@@ -46,7 +46,7 @@ def _broker_process(roles):
 
 def _read_signer_fd(fd, uid):
     require(type(fd) is int and fd >= 3 and not os.get_inheritable(fd)
-            and fcntl.fcntl(fd, fcntl.F_GETFL) & os.O_ACCMODE == os.O_RDONLY,
+            and fcntl.fcntl(fd, fcntl.F_GETFL) & (os.O_ACCMODE | os.O_PATH) == os.O_RDONLY,
             "RH07_SIGNER_FD")
     first = os.fstat(fd)
     require(stat.S_ISREG(first.st_mode) and stat.S_IMODE(first.st_mode) == 0o400
@@ -63,10 +63,18 @@ def _read_signer_fd(fd, uid):
     return raw
 
 
-def load_broker_signer(fd, roles, enrollment, *, key_epoch, now, enabled=False):
+def load_broker_signer(fd, roles, enrollment, *, key_epoch, now, enabled=False, storage=None):
     """Validate the supervisor's FD and return a signer only in the broker role."""
     require(enabled is True, "RH07_DISABLED")
-    _broker_process(roles)
+    if storage is None:
+        _broker_process(roles)
+    else:
+        from runtime.red_hat.role_storage import RoleStorage
+        require(type(storage) is RoleStorage and type(roles) is ExecutorRoles
+                and roles == ExecutorRoles(storage.core.uid, storage.broker.uid,
+                                           storage.verifier.uid, storage.broker.gid),
+                "RH07_BROKER_ROLE")
+        storage.require_role("broker")
     require(type(enrollment) is ExecutorEnrollment and not enrollment.revoked
             and enrollment.executor.uid == roles.broker_uid
             and type(key_epoch) is int and key_epoch == enrollment.key_epoch

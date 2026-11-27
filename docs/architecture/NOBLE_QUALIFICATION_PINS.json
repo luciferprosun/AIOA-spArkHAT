@@ -40,7 +40,7 @@
     "signer_ino": null,
     "owned_runtime_manifest_sha256": null,
     "supervisor_sha256": null,
-    "role_probe_sha256": "026debb171aec4cbc13d309bf7a525d27d17e2c1161c870c4b17cd8f71c66b41",
+    "role_probe_sha256": "4bf6a3243b46521b1938e50460e4e79603c9c85b994c2f64a8b797977fe123d5",
     "preflight_sha256": "c74d71e8264eccf8f9a242f181e39173647852fc4b52c1f7a573391037a8f860",
     "exact_ref": null,
     "repository_dev": null,

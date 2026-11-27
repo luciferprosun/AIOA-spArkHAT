@@ -11,6 +11,7 @@ from unittest.mock import patch
 
 from runtime.mission.sandbox_linux import mountid
 from runtime.red_hat.broker_protocol import read_record
+from runtime.red_hat.executor_custody import ExecutorRoles, load_broker_signer
 from runtime.red_hat.fixture_repository import open_repository
 from runtime.red_hat.role_storage import DirectoryPin, RoleStorage, StorageActor
 
@@ -87,6 +88,21 @@ class NativeRoleStorageTests(unittest.TestCase):
                 with open_repository(-1, request, s.broker.uid, storage=s, role="verifier"):
                     self.fail("foreign ref parent admitted")
             process.assert_not_called()
+
+    def test_signer_checks_bound_role_and_refuses_before_reading_fd(self):
+        s = self.storage
+        wrong = ExecutorRoles(s.core.uid, s.broker.uid, s.verifier.uid, s.core.gid)
+        correct = replace(wrong, broker_gid=s.broker.gid)
+        with patch.object(StorageActor, "require_process", side_effect=ValueError("DENIED")) as actor, patch(
+            "runtime.red_hat.executor_custody._read_signer_fd"
+        ) as read:
+            with self.assertRaisesRegex(ValueError, "BROKER_ROLE"):
+                load_broker_signer(3, wrong, None, key_epoch=1, now=1, enabled=True, storage=s)
+            actor.assert_not_called()
+            with patch("runtime.red_hat.role_storage.os.stat", return_value=SimpleNamespace(st_ino=18)):
+                with self.assertRaisesRegex(ValueError, "STORAGE_MOUNT_NAMESPACE"):
+                    load_broker_signer(3, correct, None, key_epoch=1, now=1, enabled=True, storage=s)
+            read.assert_not_called()
 
     def test_readonly_record_requires_exact_owner_group_and_mode(self):
         with tempfile.TemporaryDirectory() as work:

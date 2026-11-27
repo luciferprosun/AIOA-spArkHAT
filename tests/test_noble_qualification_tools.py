@@ -92,6 +92,18 @@ class QualificationContracts(unittest.TestCase):
             with self.assertRaises(PermissionError):
                 role.try_broker_link(Path(tmp), Path("sibling"), {})
 
+    def test_shared_probe_receipt_checks_actual_groups_and_capabilities(self):
+        native = {"reader_gid": 1200, "gids": {"broker": 1102}}
+        status = ("CapBnd:00000000\nNoNewPrivs:1\nCapEff:0\n"
+                  "CapPrm:0\nCapAmb:0\nCapInh:0\n")
+        with patch.object(role.os, "getgroups", return_value=[1200]), patch.object(
+                role.Path, "read_text", return_value=status) as proc:
+            self.assertEqual({"supplementary_gids": [1200], "cap_bnd": 0},
+                             role.probe_credentials(native))
+            proc.return_value = status.replace("CapBnd:00000000", "CapBnd:00000001")
+            with self.assertRaisesRegex(ValueError, "SHARED_PROBE_CREDENTIALS"):
+                role.probe_credentials(native)
+
     def export(self):
         signer = Identity(ec.generate_private_key(ec.SECP256R1()))
         fixed = g04.recipe()

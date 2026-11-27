@@ -34,7 +34,9 @@ GIDs. The one-shot supervisor drops its capability bounding set before
 launching the shared-storage probe and checks the resulting supplementary
 groups and empty bounding set inside the child. This launch requires
 CAP_SETPCAP in addition to the existing supervisor credential transition
-privileges. The probe remains separate from real role services and no
+privileges. The signer loader can use those same role constraints and still checks
+the existing enrolled P-256 key and read-only FD. The probe remains
+separate from real role services and no
 privileged instance of this launcher was run here.
 
 ## Reproduction and remaining acceptance
