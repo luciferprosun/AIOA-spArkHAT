@@ -31,6 +31,7 @@ def profiles(session, source_sha, core_uid, *, exact_ref=None):
     root = f"/run/aioa-qualification/{session}"
     labels = {role: label(session, role) for role in ROLES}
     endpoints = {role: f"{root}/io/{name}/s" for role, name in SOCKETS.items()}
+    observer = f"/.aioa-s1-worker-{session}"
     common = (
         f"{source}/ r,",
         f"{source}/** mr,",
@@ -50,7 +51,9 @@ def profiles(session, source_sha, core_uid, *, exact_ref=None):
         'unix (send, receive) type=stream addr=none peer=(label=unconfined),',
         'unix (create, getattr, getopt, setopt, shutdown) type=stream,',
         'signal (receive) peer=unconfined,',
-        'deny ptrace,',
+        # Root supervisor uses procfs to attest process and retained FD identity.
+        'ptrace (readby) peer=unconfined,',
+        'deny ptrace (trace, tracedby),',
         'deny /sys/fs/cgroup/** w,',
         "/ r,",
         "/run/ r,",
@@ -92,34 +95,88 @@ def profiles(session, source_sha, core_uid, *, exact_ref=None):
             # delegates its already-pinned validation worker to the user manager.
             rules.extend((
                 "network inet stream,",
+                "network netlink raw,",
                 f"{root}/core/{{,**}} rwkl,",
                 f'{root}/core/** mr,',
                 f'{root}/core/tmp/**/cc* rw,',
                 f"{root}/runtime/{{,**}} r,",
                 f"{root}/tls-ca.pem r,",
+                "/etc/machine-id r,",
                 f'{system_bus} rw,',
                 f'{user_bus} rw,',
+                "dbus send bus=system path=/org/freedesktop/DBus interface=org.freedesktop.DBus "
+                "member={Hello,AddMatch,RemoveMatch,GetNameOwner,NameHasOwner} peer=(name=org.freedesktop.DBus),",
+                "dbus send bus=system path=/org/freedesktop/login1{,/**} "
+                "interface=org.freedesktop.{login1.Manager,DBus.Properties} "
+                "member={GetSession,GetSessionByPID,Get,GetAll} peer=(name=org.freedesktop.login1),",
+                "dbus send bus=system path=/org/freedesktop/PolicyKit1/Authority "
+                "interface=org.freedesktop.PolicyKit1.Authority "
+                "member={CheckAuthorization,CancelCheckAuthorization} peer=(name=org.freedesktop.PolicyKit1),",
+                "dbus send bus=session path=/org/freedesktop/DBus interface=org.freedesktop.DBus "
+                "member={Hello,AddMatch,RemoveMatch,GetNameOwner,NameHasOwner} peer=(name=org.freedesktop.DBus),",
+                "dbus send bus=session path=/org/freedesktop/systemd1{,/**} "
+                "member={StartTransientUnit,StopUnit,ResetFailedUnit,GetUnit,Get,GetAll,Subscribe,Unsubscribe} "
+                "peer=(name=org.freedesktop.systemd1),",
+                "dbus receive bus=session path=/org/freedesktop/systemd1{,/**} "
+                "member={JobRemoved,UnitRemoved,PropertiesChanged} peer=(name=org.freedesktop.systemd1),",
                 "/usr/bin/{git,loginctl,pkcheck,systemctl,systemd-run,prlimit,x86_64-linux-gnu-gcc*,x86_64-linux-gnu-as,x86_64-linux-gnu-ld*,gcc*,as,ld*,cc} rix,",
                 "/usr/bin/bwrap rix,",
+                "/usr/{,bin/} r,",
                 "userns,",
-                "capability sys_admin,",
-                "mount options=(ro, bind) -> /**,",
-                "mount options=(ro, remount, bind) -> /**,",
-                "mount fstype=tmpfs -> /{,**},",
-                "mount fstype=proc -> /proc/,",
-                "umount /**,",
-                f'{root}/operator/{{foreground,cold,cold-lost-reply}}.log w,',
+                # bwrap uses these capabilities after creating its user namespace.
+                "capability sys_admin net_admin sys_chroot setuid setgid setpcap,",
+                "mount options=(rslave, silent) -> /,",
+                "mount options=(rprivate, silent) -> /oldroot/,",
+                "mount fstype=tmpfs -> /{tmp/,newroot/{dev,repo,tmp}/},",
+                "mount fstype=proc -> /newroot/proc/,",
+                "mount fstype=devpts -> /newroot/dev/pts/,",
+                "mount options=(rbind) /tmp/newroot/ -> /tmp/newroot/,",
+                "mount options in (bind, rbind, silent) /oldroot/** -> /newroot/{repo,dev}/**,",
+                "mount options in (bind, rbind) /bindfile* -> /newroot/{repo,usr,lib,lib64}/**,",
+                "remount options in (ro, remount, bind, nosuid, nodev, noexec, silent, relatime) /newroot/{,**},",
+                "pivot_root oldroot=/tmp/oldroot/ /tmp/,",
+                "pivot_root oldroot=/newroot/ /newroot/,",
+                "umount /{oldroot/,},",
+                "/tmp/ r,",
+                "/tmp/{newroot,oldroot}/ rw,",
+                "/oldroot/{,proc/,proc/**} r,",
+                "/oldroot/dev/{,null,zero,full,random,urandom,tty} r,",
+                f"/oldroot{root}/{{core/source.git,repo}}/{{,**}} r,",
+                "/newroot/{,**} rw,",
+                "/bindfile* rw,",
+                "/repo/{,**} r,",
+                "/dev/{,zero,full,tty,fd,stdin,stdout,stderr} r,",
+                f'{root}/operator/{{foreground,cold,cold-lost-reply,cold-observe}}.log w,',
                 "/usr/lib/gcc/** rix,",
                 "/usr/include/** r,",
                 "/usr/share/dpkg/** r,",
                 "/etc/ssl/certs/** r,",
                 "/sys/fs/cgroup/** r,",
-                "@{PROC}/@{pid}/{cmdline,mountinfo} r,",
+                "@{PROC}/@{pid}/{cmdline,mountinfo,exe,limits,root} r,",
                 "@{PROC}/@{pid}/task/** r,",
+                "@{PROC}/@{pid}/{uid_map,gid_map,setgroups} rw,",
+                "/oldroot/proc/@{pid}/{uid_map,gid_map,setgroups} rw,",
+                "/oldroot/proc/sys/user/max_user_namespaces rw,",
+                "@{PROC}/sys/{kernel/{overflowuid,overflowgid},user/max_user_namespaces} r,",
+                "@{PROC}/sys/user/max_user_namespaces w,",
+                # Incoming read proof is still subject to DAC, peer checks and
+                # the existing descriptor/inode/mount checks. Never allow a
+                # disconnected exec or map this alias over a host path.
+                f"{observer}/{{artifacts,work,tmp}}/{{,**}} r,",
+                f"{observer}/bootstrap r,",
+                f'ptrace (read) peer={labels["core"]},',
+                f'ptrace (readby) peer={labels["core"]},',
+                "ptrace (read) peer=unconfined,",
+                f'signal (send, receive) peer={labels["core"]},',
             ))
+            for item in ("sys/", "sysrq-trigger", "irq/", "bus/"):
+                pathname = "/newroot/proc/" + item
+                rules.append(f"mount options in (bind, rbind) {pathname} -> {pathname},")
         profile = labels[role]
-        rendered[role] = ("#include <tunables/global>\n"
-                          f"profile {profile} flags=(mediate_deleted) {{\n"
+        flags = "mediate_deleted" if role != "core" else (
+            f"mediate_deleted,attach_disconnected,attach_disconnected.path={observer}")
+        rendered[role] = ("abi <abi/4.0>,\n#include <tunables/global>\n"
+                          f"profile {profile} flags=({flags}) {{\n"
                           + "\n".join(rules) + "\n}\n")
     return rendered
 

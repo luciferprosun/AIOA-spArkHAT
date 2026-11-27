@@ -2,8 +2,8 @@
 
 Date 2026-11-27. Local owns branch `local/native-cross-uid-qualification`.
 The base is `4b2c55d9ab90810b99ec0337cae5eef581d53534`, tree
-`efa9face37bf5ddf94245a82f2c0d265cf473a31`. This branch changes only the
-disposable Native storage/readback contract, operator probe and their tests.
+`efa9face37bf5ddf94245a82f2c0d265cf473a31`. This branch covers the disposable
+Native storage/readback contract, the S1 service runner and their tests.
 
 ## Contract and trust boundary
 
@@ -13,7 +13,7 @@ disposable Native storage/readback contract, operator probe and their tests.
 | Object and exact-ref directories | Broker with the reader group, mode 2750 | Broker-authored loose objects and the exact loose ref use 0440. Root owns the static repository metadata. The tree walk rejects links, redirection, foreign mounts, packed refs and lockfiles. |
 | Evidence directory | Broker with the reader group, mode 2750 | Require the enrolled owner, group, mode and original evidence directory. Verify exact record bytes and ref inode/ctime again in Core's settlement transaction. |
 | Core, broker and verifier | Distinct process UIDs/GIDs, one supplementary read group, distinct enforcing AppArmor domains | The readback entry requires one pinned mount namespace, real/effective/saved IDs, no capabilities, NoNewPrivs and non-dumpability. All pinned objects refer to that namespace. |
-| Sequencer, journal, signer and enrollment | Existing supervisor-only sequencer state, Core-owned journal, broker-only private signer and separate verifier identity | Existing START, release, attempt fence, signed witness/completion and fresh verifier challenge remain in force. The supervisor does not yet launch these services with this contract. |
+| Sequencer, journal, signer and enrollment | Isolated sequencer state, Core-owned journal, broker-only private signer and separate verifier identity | Existing START, release, attempt fence, signed witness/completion and fresh verifier challenge remain in force. The V2 operator supervisor launches these services under the role contract. |
 
 The explicit writer entry uses the original signed Core authority, durable
 attempt fence, sequencer slot and final Core release. Version 2 signs the

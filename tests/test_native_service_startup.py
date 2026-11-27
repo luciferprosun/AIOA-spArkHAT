@@ -114,9 +114,10 @@ with socket.socket(fileno=int(sys.argv[1])) as listener, socket.socket(fileno=in
             ) as verify, patch(
                 "runtime.red_hat.writer_lifecycle.require_writer_closed", return_value=None
             ), ThreadPoolExecutor(max_workers=1) as pool:
-                def serve():
+                def serve(*, wrong_challenge=False):
                     return serve_role_verifier_once(listener, root_fd=-1, storage=storage, enrollment=enrolled,
-                                                    identity=verifier, core_peer=peer, core_spki=core.spki, enabled=True)
+                                                    identity=verifier, core_peer=peer, core_spki=core.spki, enabled=True,
+                                                    qualification_fault_challenge=wrong_challenge)
                 forged = pool.submit(serve)
                 with self.assertRaises(ValueError):
                     _read_authenticated_report(address, peer, verifier.spki, binding,
@@ -130,3 +131,9 @@ with socket.socket(fileno=int(sys.argv[1])) as listener, socket.socket(fileno=in
                 accepted.result(timeout=3)
                 verify.assert_called_once()
                 self.assertEqual(report, observed)
+                stale = pool.submit(serve, wrong_challenge=True)
+                with self.assertRaisesRegex(ValueError, 'RH06_VERIFIER_REPLAY_OR_BINDING'):
+                    _read_authenticated_report(address, peer, verifier.spki, binding,
+                                               now=int(time.time()), signer=core)
+                stale.result(timeout=3)
+                self.assertEqual(verify.call_count, 2)

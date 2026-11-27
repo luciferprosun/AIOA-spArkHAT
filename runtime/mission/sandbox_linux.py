@@ -18,7 +18,7 @@ import subprocess
 import sys
 import tempfile
 import uuid
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager
 from dataclasses import asdict, dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
@@ -731,6 +731,7 @@ GIT_RUNTIME_PINS = {
     "/lib/x86_64-linux-gnu/libc.so.6": "3a15d66867d83762c7f2f1e37359cb8f6c5743edb369c65285cb0b1c4f7498bf",
     "/lib64/ld-linux-x86-64.so.2": "c20a2dc8917c755f02b94049356320fe1f62ac7d9f8994731f807d9df39302da",
 }
+_GIT_LAUNCH_TOOLS = ("/usr/bin/bwrap", "/usr/bin/prlimit")
 GIT_CRITICAL_DIRECTORIES = (
     "objects",
     "objects/info",
@@ -739,6 +740,34 @@ GIT_CRITICAL_DIRECTORIES = (
     "refs/heads",
     "refs/tags",
 )
+
+
+def _s1_connected_git_child():
+    # AppArmor cannot execute disconnected memfds in this enforced domain.
+    # This selection is based on the actual kernel label, never an input flag.
+    try:
+        label = Path('/proc/self/attr/current').read_text().strip()
+    except OSError:
+        return False
+    return re.fullmatch(r'aioa-n69-[0-9a-f]{32}-core \(enforce\)', label) is not None
+
+
+def _open_s1_git_tool(path):
+    require(path in _GIT_LAUNCH_TOOLS, "GIT_S1_LAUNCH_TOOL")
+    with ExitStack() as stack:
+        parent = None
+        for name in ("/", "usr", "bin"):
+            parent = os.open(name, os.O_PATH | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC, dir_fd=parent)
+            stack.callback(os.close, parent)
+            info = os.fstat(parent)
+            require(info.st_uid == 0 and not info.st_mode & 0o022, "GIT_S1_LAUNCH_ANCESTOR")
+        fd = os.open(Path(path).name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC, dir_fd=parent)
+        with ExitStack() as tool:
+            tool.callback(os.close, fd)
+            info = os.fstat(fd)
+            require(info.st_uid == 0 and info.st_nlink == 1, "GIT_S1_LAUNCH_INODE")
+            tool.pop_all()
+        return fd
 
 
 def git_storage_identity(root):
@@ -1312,7 +1341,6 @@ class LinuxSandboxBroker:
     @staticmethod
     def _git_directory(anchor, parts, *, create, cancel, shared_reader=None):
         """No-follow directories beneath a descriptor-bound storage anchor."""
-        from contextlib import ExitStack
 
         require(len(parts) <= 16, "GIT_STORAGE_BOUNDS")
         require(shared_reader is None or not create, "NATIVE_CORE_STORAGE_READ_ONLY")
@@ -1517,7 +1545,6 @@ class LinuxSandboxBroker:
         import selectors
         import time
         import zlib
-        from contextlib import ExitStack
 
         require(
             sys.platform == "linux" and os.uname().machine == "x86_64",
@@ -1628,18 +1655,22 @@ class LinuxSandboxBroker:
                 )  # F_GET_SEALS
                 return fd
 
-            # Descriptor copies are immutable after their exact hash is checked;
-            # unlike an inode owner number, this also survives outer userns UID
-            # remapping in installed-artifact/source-hidden qualification.
+            # Keep sealed copies in the ordinary path. The dedicated S1 Core can
+            # execute only connected launch inodes of the two already-pinned,
+            # root-controlled tools. All Git binaries/data supplied to bwrap
+            # remain sealed copies. Never select this variant for a write.
+            s1_launch = _s1_connected_git_child()
+            require(not s1_launch or (publish is None and data is None), "GIT_S1_READ_ONLY")
             descriptors = {}
             for path, expected in {
                 "/usr/bin/git": git_sha256,
                 **GIT_RUNTIME_PINS,
             }.items():
-                fd = os.open(
-                    Path(path).resolve(strict=True),
-                    os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC,
-                )
+                connected = s1_launch and path in _GIT_LAUNCH_TOOLS
+                fd = (_open_s1_git_tool(path) if connected else
+                      os.open(Path(path).resolve(strict=True), os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC))
+                if connected:
+                    hold(fd)
                 try:
                     info = os.fstat(fd)
                     require(
@@ -1650,13 +1681,17 @@ class LinuxSandboxBroker:
                     )
                     raw = os.pread(fd, info.st_size + 1, 0)
                 finally:
-                    os.close(fd)
+                    if not connected:
+                        os.close(fd)
                 require(
                     len(raw) == info.st_size
                     and hashlib.sha256(raw).hexdigest() == expected,
                     "GIT_RUNTIME_CHANGED",
                 )
-                descriptors[path] = sealed("aioa-fixed-git-runtime", raw)
+                if connected:
+                    descriptors[path] = fd
+                else:
+                    descriptors[path] = sealed("aioa-fixed-git-runtime", raw)
 
             anchors = {}
             directory_options = {} if shared_reader is None else {"shared_reader": shared_reader}

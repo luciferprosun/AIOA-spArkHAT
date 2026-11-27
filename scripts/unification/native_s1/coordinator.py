@@ -126,16 +126,24 @@ def _repo(root, broker, core, reader_gid):
 
 
 def _console(uid):
-    output = host.run(("/usr/bin/loginctl", "show-session", "self", "-p", "Id", "-p", "User",
-                       "-p", "Active", "-p", "Remote", "-p", "Seat")).decode().splitlines()
+    try:
+        output = host.run(("/usr/bin/loginctl", "show-session", "self", "-p", "Id", "-p", "User",
+                           "-p", "Active", "-p", "Remote", "-p", "Seat")).decode().splitlines()
+    except (OSError, ValueError, subprocess.SubprocessError) as error:
+        raise ValueError("BLOCKED_HOST:CORE_ACTIVE_LOCAL_SEAT0") from error
     values = dict(line.split("=", 1) for line in output)
     cg = Path("/proc/self/cgroup").read_text().strip()
     require(values.get("User") == str(uid) and values.get("Active") == "yes" and values.get("Remote") == "no"
             and values.get("Seat") == "seat0" and re.fullmatch("[A-Za-z0-9]+", values.get("Id", ""))
             and cg.endswith(f"/session-{values['Id']}.scope"), "BLOCKED_HOST:CORE_ACTIVE_LOCAL_SEAT0")
-    user = pwd.getpwuid(uid)
     require(int(os.environ.get("SUDO_UID", "0")) == uid, "BLOCKED_HOST:ADMITTED_CONSOLE_CALLER")
-    return user.pw_gid, cg
+    try:
+        manager = host.run(("/usr/bin/systemctl", "show", f"user@{uid}.service",
+                            "-p", "ActiveState", "-p", "Delegate")).decode().splitlines()
+    except (OSError, ValueError, subprocess.SubprocessError) as error:
+        raise ValueError("BLOCKED_HOST:CORE_USER_MANAGER_DELEGATION") from error
+    require(set(manager) == {"ActiveState=active", "Delegate=yes"}, "BLOCKED_HOST:CORE_USER_MANAGER_DELEGATION")
+    return pwd.getpwuid(uid).pw_gid, cg
 
 
 def _airgap():
@@ -180,6 +188,8 @@ def _cgroups(stack, session):
 
 
 def _install_policy(root, role, rendered):
+    if role == "core":
+        require(not os.path.lexists(f"/.aioa-s1-worker-{root.name}"), "NATIVE_S1_WORKER_ALIAS_PATH")
     profile = root / "operator" / f"{role}.apparmor"
     host.write_new(profile, rendered.encode("ascii"))
     host.run(("/usr/sbin/apparmor_parser", "--add", "--skip-cache", str(profile)), timeout=15)
@@ -405,32 +415,49 @@ def _substitute(root, binding, case):
     original = path.stat()
     data = path.read_bytes()
     after = data
-    if case == 'B2':
+    changed = 'ref-inode-same-oid'
+    if case in roles.B2_CASES:
         corrupted = json.loads(data)
-        corrupted['signature'] = 'AAAA'
         from runtime.memory_patch.contracts.serialization import canonical_json_bytes
 
+        field = roles.B2_FIELDS.get(case)
+        if field is None:
+            corrupted['signature'] = 'AAAA'
+            changed = 'witness-signature'
+        else:
+            original_value = corrupted['payload'][field]
+            if field == 'epoch':
+                invalid_value = original_value + 1
+            elif field == 'ref':
+                invalid_value = original_value + '-foreign'
+            else:
+                invalid_value = ('1' if original_value[0] == '0' else '0') + original_value[1:]
+            corrupted['payload'][field] = invalid_value
+            changed = 'witness-' + field
         after = canonical_json_bytes(corrupted)
     local = root / 'operator/substitution'
     host.write_new(local, after, uid=original.st_uid, gid=original.st_gid, mode=stat.S_IMODE(original.st_mode))
     os.replace(local, path)
     require(original.st_ino != path.stat().st_ino, 'NATIVE_S1_SUBSTITUTION_INODE')
-    return {'changed': 'ref-inode-same-oid' if case == 'B1' else 'witness-signature',
+    return {'changed': changed,
             'original_sha256': host.sha(data), 'substitute_sha256': host.sha(after),
             'original_inode': original.st_ino, 'substitute_inode': path.stat().st_ino}
 
 
-def _cold_roles(stack, root, actors, group, namespace, cgroups, config, proof, *, closure, cut=False):
-    suffix = '-lost-reply' if cut else ''
+def _cold_roles(stack, root, actors, group, namespace, cgroups, config, proof, *, closure, cut=False,
+                observe_only=False):
+    suffix = '-lost-reply' if cut else '-observe' if observe_only else ''
     cold = Child(stack, root, 'cold', actors['core'], group, namespace, label='cold' + suffix)
     verifier = Child(stack, root, 'verifier', actors['verifier'], group, namespace, label='verifier' + suffix)
     verifier.move(cgroups['verifier'])
     if closure:
-        proof['verifier' + suffix] = verifier.release(**config, core=asdict(cold.peer), reads=1 if cut else 2)
+        proof['verifier' + suffix] = verifier.release(**config, core=asdict(cold.peer),
+            reads=1 if cut or config['case'] == 'B2-challenge' else 2)
         if config['case'] in ('N2', 'N3'):
             proof['verifier-denials'] = _denials(roles.hear(verifier.control, 10))
         verifier.ready_listener()
-    proof['cold' + suffix] = cold.release(**config, verifier=asdict(verifier.peer), cut_after_settlement=cut)
+    proof['cold' + suffix] = cold.release(**config, verifier=asdict(verifier.peer), cut_after_settlement=cut,
+                                         observe_only=observe_only)
     _polkit(stack, cold, root)
     roles.tell(cold.control, action='start-core')
     result = roles.hear(cold.control, 140)
@@ -452,8 +479,38 @@ def _cold_roles(stack, root, actors, group, namespace, cgroups, config, proof, *
     return cold, verifier, result
 
 
-def run_case(case, digest):
+def _predecessor(session, source):
+    require(type(session) is str and re.fullmatch('[0-9a-f]{32}', session), 'NATIVE_S1_PREDECESSOR_SESSION')
+    root = host.BASE / session
+    trusted(root, directory=True)
+    case_path = root / 'operator/case.json'
+    trusted(case_path)
+    case = json.loads(case_path.read_bytes())
+    require(case['case'] == 'F4' and case['session'] == session and case['status'] == 'PASS'
+            and case['host']['source'] == source and case['old_writer_restart_denied'] is True,
+            'NATIVE_S1_PREDECESSOR_CASE')
+    request = NativeExecutionBindingV1.from_wire(case['original_binding']).request
+    witness = request.witness_binding().witness_id
+    return {'prior-ref': str(root / 'repo' / request.exact_ref),
+            'prior-object': str(root / 'repo/objects' / request.new_oid[:2] / request.new_oid[2:]),
+            'prior-witness': str(root / 'evidence' / witness),
+            'prior-completion': str(root / 'evidence' / ('completion-' + witness))}
+
+
+def _predecessor_snapshot(paths):
+    result = {}
+    for name, path in paths.items():
+        with os.fdopen(os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC), 'rb') as stream:
+            info = os.fstat(stream.fileno())
+            require(stat.S_ISREG(info.st_mode) and 0 < info.st_size <= 65536,
+                    'NATIVE_S1_PREDECESSOR_FILE')
+            result[name] = (info.st_dev, info.st_ino, info.st_ctime_ns, host.sha(stream.read(65537)))
+    return result
+
+
+def run_case(case, digest, *, predecessor=None):
     require(case in SCENARIOS and os.getresuid() == (0, 0, 0), "NATIVE_S1_RUN_CONFIGURATION")
+    require((case == 'F4-FOLLOWUP') == (predecessor is not None), 'NATIVE_S1_PREDECESSOR_CONFIGURATION')
     manifest, observed = host.host_pins(host.CONFIG / "manifest.json", digest, host.CONFIG / "management.json",
                                        system=True)
     host.trusted(host.INSTALL)
@@ -493,7 +550,7 @@ def run_case(case, digest):
             if case == 'N5':
                 report.update(control=_probe_control(root), status='PASS')
             else:
-                _exercise(stack, root, report, manifest, actors, reader_gid, namespace, cgroups)
+                _exercise(stack, root, report, manifest, actors, reader_gid, namespace, cgroups, predecessor)
         except (OSError, ValueError, TypeError, KeyError, subprocess.SubprocessError) as error:
             report["reason"] = str(error)
         finally:
@@ -501,7 +558,7 @@ def run_case(case, digest):
     return report
 
 
-def _exercise(stack, root, report, manifest, actors, group, namespace, cgroups):
+def _exercise(stack, root, report, manifest, actors, group, namespace, cgroups, predecessor):
     case = report["case"]
     source = manifest["host"]["source"]
     _mkdir(root / "core", actors["core"].uid, actors["core"].gid, 0o700)
@@ -559,6 +616,10 @@ def _exercise(stack, root, report, manifest, actors, group, namespace, cgroups):
     broker_info = {"storage": storage.to_dict(), "enrollment": asdict(enrollment), "case": case,
                    "core": asdict(core.peer), "sequencer": asdict(seq.peer),
                    "core_spki": offered["core_spki"], "epoch": offered["epoch"]}
+    if predecessor is not None:
+        prior_files = _predecessor(predecessor, source)
+        before = _predecessor_snapshot(prior_files)
+        broker_info['predecessor_files'] = prior_files
     report["role_proofs"]["broker"] = broker.release(**broker_info)
     broker.ready_listener()
     roles.tell(core.control, storage=storage.to_dict(), enrollment=asdict(enrollment), broker=asdict(broker.peer))
@@ -621,6 +682,10 @@ def _exercise(stack, root, report, manifest, actors, group, namespace, cgroups):
         require(len(report['denials']) == 6, 'NATIVE_S1_N4_PROBE_COUNT')
     if case == 'F2':
         require(len(report['denials']) == 7 and holder.poll() is None, 'NATIVE_S1_F2_FD_PROOF')
+    if predecessor is not None:
+        require(set(report['denials']) == set(prior_files) and _predecessor_snapshot(prior_files) == before,
+                'NATIVE_S1_PREDECESSOR_CHANGED')
+        report['predecessor'] = {'session': predecessor, 'snapshot': before}
     report["metrics"]["link_attempts"] = events.count("before_ref_link")
     report["metrics"]["publications"] = events.count("after_ref_link")
     report["metrics"]["broker_ack_send_completed"] = "ack_sent" in events
@@ -644,7 +709,9 @@ def _exercise(stack, root, report, manifest, actors, group, namespace, cgroups):
                 raise ValueError("NATIVE_S1_OLD_WRITER_WAS_RELAUNCHED")
         except FileExistsError:
             report["old_writer_restart_denied"] = True
-    if case in roles.SUBSTITUTIONS:
+    if case == 'B2-challenge':
+        report['injected_substitution'] = {'changed': 'signed-readback-challenge'}
+    elif case in roles.SUBSTITUTIONS:
         report['injected_substitution'] = _substitute(root, binding, case)
 
     cfg = {"storage": storage.to_dict(), "enrollment": asdict(enrollment), "core_spki": offered["core_spki"],
@@ -667,12 +734,16 @@ def _exercise(stack, root, report, manifest, actors, group, namespace, cgroups):
                                            proofs, closure=verify_effect)
     if verify_effect:
         if case in roles.SUBSTITUTIONS:
-            require(cold.process.wait(timeout=5) == 3 and verifier.process.wait(timeout=5) == 1
+            verifier_exit = 0 if case == 'B2-challenge' else 1
+            require(cold.process.wait(timeout=5) == 3 and verifier.process.wait(timeout=5) == verifier_exit
                     and recovered['status'] == 'RECOVERY_REJECTED' and recovered['before'] == produced['initial']
                     and recovered['before'] == recovered['after'], 'NATIVE_S1_SUBSTITUTION_REJECTION')
-            log = (root / 'operator/verifier.log').read_text().splitlines()
-            require(log and json.loads(log[-1])['reason'] == 'NATIVE_S1_COMPLETION_CHANGED',
-                    'NATIVE_S1_SUBSTITUTION_VERIFIER_REASON')
+            if case == 'B2-challenge':
+                require(recovered['reason'] == 'RH06_VERIFIER_REPLAY_OR_BINDING', 'NATIVE_S1_CHALLENGE_DENIAL_REASON')
+            else:
+                log = (root / 'operator/verifier.log').read_text().splitlines()
+                require(log and json.loads(log[-1])['reason'] == 'NATIVE_S1_COMPLETION_CHANGED',
+                        'NATIVE_S1_SUBSTITUTION_VERIFIER_REASON')
             report['metrics']['settlements'] = 0
         else:
             require(cold.process.wait(timeout=5) == 0 and verifier.process.wait(timeout=5) == 0
@@ -690,6 +761,13 @@ def _exercise(stack, root, report, manifest, actors, group, namespace, cgroups):
             "status": "COLD_DENIED", "reason": expected_error, "dispatch": zero_dispatch,
             "original": None if case == 'S1B' else produced['initial']},
             "NATIVE_S1_HELD_RECOVERY")
+        if case == 'S1B':
+            original, _, observation = _cold_roles(stack, root, actors, group, namespace, cgroups,
+                {**cfg, 'storage': storage.to_dict()}, proofs, closure=False, observe_only=True)
+            require(original.process.wait(timeout=5) == 0 and observation == {
+                'status': 'ORIGINAL_OBSERVED', 'original': produced['initial'], 'dispatch': zero_dispatch},
+                'NATIVE_S1_ORIGINAL_OBSERVATION')
+            report['original_after_pin_denial'] = observation['original']
         report["metrics"]["settlements"] = 0
     require(recovered["dispatch"] == zero_dispatch, "NATIVE_S1_UNAUTHORIZED_RECOVERY_DISPATCH")
     if holder is not None:

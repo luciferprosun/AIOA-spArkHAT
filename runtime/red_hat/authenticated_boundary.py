@@ -132,11 +132,13 @@ def _respond_to_verifier(peer, root_fd, binding, enrollment, identity, *, challe
 
 
 def serve_role_verifier_once(listener, *, root_fd, storage, enrollment, identity,
-                             core_peer, core_spki, enabled=False, on_ready=None):
+                             core_peer, core_spki, enabled=False, on_ready=None,
+                             qualification_fault_challenge=False):
     """Accept only a signed original-binding challenge from the pinned cold Core."""
     from runtime.red_hat.role_storage import RoleStorage
 
-    require(enabled is True and type(storage) is RoleStorage and type(core_peer) is Peer
+    require(enabled is True and type(qualification_fault_challenge) is bool
+            and type(storage) is RoleStorage and type(core_peer) is Peer
             and (core_peer.uid, core_peer.gid) == (storage.core.uid, storage.core.gid)
             and type(identity) is Identity and len({identity.spki, core_spki, enrollment.executor.spki}) == 3,
             "NATIVE_ROLE_VERIFIER_CONFIGURATION")
@@ -155,7 +157,12 @@ def serve_role_verifier_once(listener, *, root_fd, storage, enrollment, identity
         from runtime.red_hat.writer_lifecycle import require_writer_closed
 
         completion = require_writer_closed(root_fd, storage, binding)
-        _respond_to_verifier(peer, root_fd, binding, enrollment, identity, challenge=query["challenge"],
+        challenge = query["challenge"]
+        if qualification_fault_challenge:
+            # Explicit operator fault after authenticating the original request.
+            # The signed readback is deliberately bound to a different challenge.
+            challenge = ('1' if challenge[0] == '0' else '0') + challenge[1:]
+        _respond_to_verifier(peer, root_fd, binding, enrollment, identity, challenge=challenge,
                              now=int(time.time()), storage=storage, expected_completion=completion)
 
 

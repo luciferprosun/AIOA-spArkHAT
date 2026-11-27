@@ -76,6 +76,24 @@ archive and the wheelhouse to root-controlled directories on the approved
 disposable guest. The installer checks the frozen Git tree, exact Noble
 runtime pins and wheel lock. Existing installation files cause refusal.
 
+From the approved guest console, supply the archive path and digest obtained
+independently from the package owner. Use a fresh staging directory.
+
+```sh
+printf '%s  %s\n' "$trusted_kit_sha256" "$kit_archive" | sha256sum -c -
+sudo install -d -m 0700 /opt/aioa-native-s1-kit
+sudo tar --no-same-owner -xzf "$kit_archive" -C /opt/aioa-native-s1-kit
+sudo sh -c 'cd /opt/aioa-native-s1-kit/native69-s1-v2 && sha256sum -c SHA256SUMS'
+sudo tar --no-same-owner -xzf /opt/aioa-native-s1-kit/native69-s1-v2/detached-source.tar.gz \
+  -C /opt/aioa-native-s1-kit
+sudo git -C /opt/aioa-native-s1-kit/source show -s --format='%H %T' HEAD
+```
+
+Compare both values to `SOURCE.json` through the independent package channel.
+Use `/opt/aioa-native-s1-kit/native69-s1-v2/wheelhouse` for the install input.
+The installation command below runs with the restored source as its working directory.
+The management workstation can separately extract the archive for receipt and manifest generation.
+
 The management operator independently selects the signed image and package
 manifest, confirms the guest instance is disposable and disconnects guest
 egress via the trusted management plane. The external channel supplies
@@ -89,14 +107,15 @@ digest. Transport the receipt and trusted manifest digest independently.
 
 The guest can measure the Python snapshot input. The management operator
 must review it against the approved guest and pinned packages before
-including its digest in the allowed manifest. From the unpacked source:
+including its digest in the allowed manifest. Use an absolute output path.
 
 ```sh
-PYTHONPATH=. /usr/bin/python3.12 -B -m scripts.unification.native_s1 \
-  measure-runtime --output runtime.json
+sudo sh -c 'cd /opt/aioa-native-s1-kit/source && exec /usr/bin/python3.12 -IBS "$@"' aioa-s1 \
+  -c 'import runpy,sys; sys.path.insert(0,"."); runpy.run_module("scripts.unification.native_s1",run_name="__main__")' \
+  measure-runtime --output "$runtime_path"
 ```
 
-From the management workstation, using the externally verified digests
+From the management workstation's extracted checkout, using the externally verified digests
 and the exact feature/integration identity in the kit:
 
 ```sh
@@ -113,14 +132,14 @@ PYTHONPATH=. python3 -B -m scripts.unification.native_s1 manifest \
 The utility serializes these inputs. It does not authenticate their origin.
 Use an authorized fresh Core user on the guest, with an active local
 seat0 login and normal polkit approval. Include the product-pinned system
-packages, AppArmor, compiler, libseccomp, `python3-pip`, systemd and
-polkit in the approved package provisioning. The service runner expects
+packages, AppArmor, compiler, libseccomp, `python3-pip`, `iproute2`, systemd
+and polkit in the approved package provisioning. The service runner expects
 only the loopback interface up, in addition to the management egress gate.
 
 Install from the authenticated, unpacked, root-owned source and wheelhouse:
 
 ```sh
-sudo /usr/bin/python3.12 -IBS -c \
+sudo sh -c 'cd /opt/aioa-native-s1-kit/source && exec /usr/bin/python3.12 -IBS "$@"' aioa-s1 -c \
   'import runpy,sys; sys.path[:0]=[".","/usr/lib/python3/dist-packages"]; runpy.run_module("scripts.unification.native_s1",run_name="__main__")' \
   install --manifest "$manifest_path" --manifest-sha256 "$trusted_manifest_digest" \
   --management-receipt "$management_path" --runtime "$runtime_path" --wheelhouse "$wheelhouse"
@@ -133,8 +152,17 @@ polkit prompts. The per-aperture CA enables the existing loopback TLS 1.3
 challenge from that process only. The Core observes the original authority
 and never exports writable authority to the verifier. The delegated unit
 and all four roles share the mount namespace. The Core stays in its
-actual login scope. Other roles drop capabilities, apply their exact
-AppArmor domains and then install the post-bootstrap syscall filter.
+actual login scope and requires an active delegated user manager. The Core
+profile grants the system and session D-Bus calls used by admission and the
+existing validation worker. That worker's artifacts, work and tmp mounts
+and bootstrap executable may be inspected through a unique read-only alias.
+No other S1 service has the disconnected-path setting. The two Git launcher
+tools use checked, root-owned connected descriptors in the S1 Core domain.
+All Git inputs and the Git executable supplied to the child remain sealed,
+with a read-only mount and the existing seccomp policy. Confirm this branch
+of the policy with the kernel during P1, including both the Git child and
+the distinct systemd user validation worker. The other roles drop capabilities,
+apply their exact AppArmor domains and then install the post-bootstrap syscall filter.
 
 ```sh
 sudo /usr/local/libexec/aioa-native-s1 preflight --manifest-sha256 "$trusted_manifest_digest"
@@ -152,6 +180,7 @@ ending the guest boot. The scope is same-boot S1. `PASS` needs the
 expected observed counters and verification. `FAIL` means the run did
 not meet an assertion or a scenario failed to start after host acceptance.
 `BLOCKED_HOST` indicates a rejected prerequisite before effect.
-`NOT_RUN` means no scenario result is available. I1 checks retained
-synthetic HELD resource isolation only. Review production and historical
-retention separately.
+`NOT_RUN` means required scenario evidence is unavailable. I1 reports the
+synthetic HELD isolation measurement separately from the original historical
+retention, which needs its own authorized read-only evidence. `matrix` reports
+an incomplete acceptance when that evidence is absent. Production stays separate.

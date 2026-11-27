@@ -15,7 +15,7 @@ The local continuation starts at PR #84 `015d70bab5588ce15e47940a0b4e4f4230b5412
 
 ## Acceptance scope
 
-Every real-role scenario H0, P1, C1–C5, R1–R2, N1–N5, F1–F4, B1–B3, Q1–Q3, E1, S1B and I1 in the S1 mission is NOT_RUN. The host launched zero qualifying sessions. Publication, settlement and redispatch counts for those scenarios are unavailable.
+Every real-role scenario H0, P1, C1–C5, R1–R2, N1–N5, F1–F4, B1–B3, Q1–Q3, D1–D4, E1, S1B and I1 in the S1 mission is NOT_RUN. The host launched zero qualifying sessions. Publication, settlement and redispatch counts for those scenarios are unavailable.
 
 | Offline scenario | Expected and locally exercised | Limit |
 | --- | --- | --- |
@@ -51,9 +51,13 @@ for installation, the exact host preflight, scenario commands and private
 evidence export. Parser-only policy checks and the unprivileged seccomp
 test do not cover role startup or exact-ref confinement under the Noble
 kernel. The paired N4/F1/F2 cases require the actual kernel and profile.
-B2 drives the changed-signature case, S1B drives a conflicting mount pin,
-and I1 measures isolation of a retained synthetic HELD case. Historical
-journal verification stays separate.
+B2 drives changed signature, witness fields and an authenticated response
+with the wrong challenge. F4 couples the old attempt's relaunch denial
+with a fresh broker's denied write opens on the prior ref, object, witness
+and completion. S1B drives a conflicting mount pin and reopens the original
+journal for a separate authorized read of its unchanged revisions. I1
+reports synthetic HELD isolation separately and stays NOT_RUN without
+original historical retention evidence.
 
 ## Release and retention
 

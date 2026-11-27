@@ -109,13 +109,14 @@ def run_broker(listener, location, control, *, root_fd, storage, device_id, sequ
 
 
 def run_verifier(listener, location, control, *, root_fd, storage, enrollment,
-                 identity, core_peer, core_spki, reads):
+                 identity, core_peer, core_spki, reads, qualification_fault_challenge=False):
     require(type(reads) is int and 1 <= reads <= 8, "NATIVE_SERVICE_VERIFIER_LIMIT")
     start_listener(listener, location)
     for index in range(reads):
         serve_role_verifier_once(
             listener, root_fd=root_fd, storage=storage, enrollment=enrollment,
             identity=identity, core_peer=core_peer, core_spki=core_spki, enabled=True,
+            qualification_fault_challenge=qualification_fault_challenge,
             on_ready=(lambda: _ready(control, "verifier")) if index == 0 else None,
         )
 

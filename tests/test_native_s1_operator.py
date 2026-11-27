@@ -8,7 +8,9 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
+from runtime.mission.sandbox_linux import _open_s1_git_tool, _s1_connected_git_child
 from scripts.unification.native_s1 import host, policy
 from runtime.red_hat.broker_protocol import read_frame, send_frame
 
@@ -41,10 +43,26 @@ class NativeS1OperatorTests(unittest.TestCase):
             with self.assertRaises(FileExistsError):
                 host.management_receipt(image="1" * 64, boot="2" * 64,
                                         signed_packages="3" * 64, output=receipt)
-            from unittest.mock import patch
             with patch("scripts.unification.native_s1.host.os.getresuid", return_value=(1000,) * 3):
                 with self.assertRaisesRegex(ValueError, "NATIVE_S1_INSTALL_ROOT"):
                     host.install(pinned, digest, receipt, receipt, wheelhouse=Path(root))
+
+    @unittest.skipUnless(sys.platform == "linux" and Path("/usr/bin/prlimit").is_file(), "Linux prlimit is required")
+    def test_connected_launch_is_limited_to_enforced_core_and_pinned_inode(self):
+        with patch("pathlib.Path.read_text", return_value="aioa-n69-" + "1" * 32 + "-core (enforce)\n"):
+            self.assertTrue(_s1_connected_git_child())
+        for name in ("unconfined", "aioa-n69-" + "1" * 32 + "-core (complain)",
+                     "aioa-n69-" + "1" * 32 + "-broker (enforce)"):
+            with patch("pathlib.Path.read_text", return_value=name):
+                self.assertFalse(_s1_connected_git_child())
+        with self.assertRaisesRegex(ValueError, "GIT_S1_LAUNCH_TOOL"):
+            _open_s1_git_tool("/usr/bin/git")
+        fd = _open_s1_git_tool("/usr/bin/prlimit")
+        try:
+            self.assertTrue(os.path.samestat(os.fstat(fd), os.stat("/usr/bin/prlimit")))
+            self.assertFalse(os.get_inheritable(fd))
+        finally:
+            os.close(fd)
 
     @unittest.skipUnless(shutil.which("apparmor_parser"), "AppArmor parser is unavailable")
     def test_full_profiles_parse_without_kernel_load(self):
@@ -53,7 +71,14 @@ class NativeS1OperatorTests(unittest.TestCase):
         self.assertEqual(set(rendered), {"broker", "sequencer", "core", "verifier"})
         self.assertIn("/repo/" + ref, rendered["broker"])
         self.assertNotIn("/refs/** w", rendered["broker"])
-        self.assertNotIn("attach_disconnected", "".join(rendered.values()))
+        for role in ("broker", "verifier", "sequencer"):
+            self.assertNotIn("attach_disconnected", rendered[role])
+            self.assertNotIn("dbus send", rendered[role])
+        alias = "/.aioa-s1-worker-" + "1" * 32
+        core_rules = rendered["core"].splitlines()
+        self.assertIn(f"{alias}/{{artifacts,work,tmp}}/{{,**}} r,", core_rules)
+        self.assertIn(f"{alias}/bootstrap r,", core_rules)
+        self.assertEqual(sum(line.startswith(alias) for line in core_rules), 2)
         self.assertNotIn(" complain", "".join(rendered.values()))
         with tempfile.TemporaryDirectory() as root:
             for role, text in rendered.items():

@@ -38,14 +38,18 @@ DEVICE = "native69-s1-owned"
 KEY_FILES = {"broker": "signer.pem", "verifier": "verifier.pem"}
 CRASHES = {"C1": "after_ref_link", "C2": "effect_synced", "C3": "before_completion",
            "C4": "witness_durable", "R1": "witness_durable",
-           "E1": None, "F1": None, "F3": None, "F4": None, "P1": None,
+           "E1": None, "F1": None, "F3": None, "F4": None, "F4-FOLLOWUP": None, "P1": None,
            "N1": None, "N2": None, "N3": None, "N4": None,
            "Q1": None, "Q2": None, "Q3": None, "D1": None, "D2": None, "D3": None, "D4": None,
            "B1": None, "B2": None, "B3": None, "C5": None, "F2": None, "S1B": None}
 REPLAYS = tuple("R2-" + case for case in ("C1", "C2", "C3", "C4"))
 CRASHES.update({case: CRASHES[case[3:]] for case in REPLAYS})
+B2_FIELDS = {"B2-key": "key_id", "B2-epoch": "epoch", "B2-nonce": "nonce", "B2-start": "start_digest",
+             "B2-warrant": "warrant_digest", "B2-ref": "ref", "B2-digest": "witness_id"}
+B2_CASES = ("B2", *B2_FIELDS, "B2-challenge")
+CRASHES.update(dict.fromkeys(B2_CASES))
 CLOSED_FAULTS = {'Q3': 'done_missing', 'D1': 'done_missing', 'D2': 'before_slot_sync', 'D3': 'slot_closed'}
-SUBSTITUTIONS = frozenset(('B1', 'B2', 'B3'))
+SUBSTITUTIONS = frozenset(('B1', 'B3', *B2_CASES))
 
 
 def tell(channel, **fields):
@@ -224,7 +228,8 @@ def child(role, control_fd, ready_fd, completion_fd):
                         tell(control, status='DENIALS', result=verifier_denials(root, storage.exact_ref, cfg['case']))
                     run_verifier(listener, endpoint(root, role), ready, root_fd=fd, storage=storage,
                                  enrollment=enroll, identity=identity, core_peer=Peer(**cfg["core"]),
-                                 core_spki=cfg["core_spki"], reads=cfg["reads"])
+                                 core_spki=cfg["core_spki"], reads=cfg["reads"],
+                                 qualification_fault_challenge=cfg['case'] == 'B2-challenge')
                 return 0
             finally:
                 os.close(fd)
@@ -349,6 +354,10 @@ def _broker(root, cfg, control, ready, completion, storage, enroll, fd, listener
     point = CRASHES[cfg["case"]]
 
     def fault(mark):
+        if cfg['case'] == 'F4-FOLLOWUP' and mark == 'before_ref_link':
+            from scripts.unification.native_s1.probes import predecessor_write_denials
+
+            tell(control, status='DENIALS', result=predecessor_write_denials(cfg['predecessor_files']))
         if cfg['case'] in ('N4', 'F2') and mark in ('before_ref_link', 'after_ref_link'):
             from scripts.unification.native_s1 import probes
 
@@ -419,6 +428,10 @@ def _cold(root, cfg, control, ready, storage, enroll, fd, counts):
         tell(control, status="COLD_DENIED", reason=reason, dispatch=counts, original=observed or None)
         return 3
     try:
+        if cfg.get('observe_only'):
+            require(cfg['case'] == 'S1B' and bool(observed), 'NATIVE_S1_ORIGINAL_OBSERVATION')
+            tell(control, status='ORIGINAL_OBSERVED', original=observed, dispatch=counts)
+            return 0
         port = RoleEndpoint(endpoint(root, "verifier"), Peer(**cfg["verifier"]))
         bind_cold_verifier(owner, port, cfg["verifier_spki"], control=ready)
         tell(control, status="RECOVERY_READY")

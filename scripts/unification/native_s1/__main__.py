@@ -47,8 +47,9 @@ def parser():
 
     run = commands.add_parser("run", help="run a supported case on the installed, authorized host")
     run.add_argument("--manifest-sha256", required=True)
+    run.add_argument("--predecessor", help="retained F4 session for the F4-FOLLOWUP case")
     run.add_argument("case")
-    matrix = commands.add_parser("matrix", help="run supported cases and explicitly report unimplemented rows")
+    matrix = commands.add_parser("matrix", help="run the installed cases and report uncovered acceptance evidence")
     matrix.add_argument("--manifest-sha256", required=True)
     collect = commands.add_parser("collect", help="create a private redacted case archive with SHA256SUMS")
     collect.add_argument("--session", required=True)
@@ -119,7 +120,7 @@ def _collect(session, output):
 
 def _matrix(digest):
     from scripts.unification.native_s1.coordinator import MANDATORY, SCENARIOS, run_case
-    from scripts.unification.native_s1.roles import REPLAYS
+    from scripts.unification.native_s1.roles import B2_CASES, REPLAYS
 
     rows = []
     cases = {}
@@ -134,9 +135,9 @@ def _matrix(digest):
     for case in MANDATORY:
         if case == 'H0':
             continue  # Report only after actual P1 role attestation below.
-        if case == 'R2':
-            variants = [run_case(name, digest) for name in REPLAYS]
-            rows.append({'case': 'R2', 'status': 'PASS' if all(row['status'] == 'PASS' for row in variants) else 'FAIL',
+        if case in ('R2', 'B2'):
+            variants = [run_case(name, digest) for name in (REPLAYS if case == 'R2' else B2_CASES)]
+            rows.append({'case': case, 'status': 'PASS' if all(row['status'] == 'PASS' for row in variants) else 'FAIL',
                          'cases': [{key: variant[key] for key in ('case', 'status', 'session', 'metrics')}
                                    for variant in variants]})
             continue
@@ -144,9 +145,9 @@ def _matrix(digest):
             separate = cases.get('F3', {})
             covered = held is not None and separate.get('status') == 'PASS'
             unchanged = covered and held == retained_case(cases['C3']['session'])
-            rows.append({'case': 'I1', 'status': 'PASS' if unchanged else 'FAIL' if covered else 'NOT_RUN',
-                         'scope': 'SYNTHETIC_HELD_RESOURCE_ISOLATION', 'historical_journal': 'NOT_ACCESSED',
-                         'unchanged': unchanged if covered else None})
+            rows.append({'case': 'I1', 'status': 'FAIL' if covered and not unchanged else 'NOT_RUN',
+                         'reason': 'ORIGINAL_HISTORY_RETENTION_EVIDENCE_REQUIRED', 'historical_journal': 'NOT_ACCESSED',
+                         'synthetic_held_isolation': 'PASS' if unchanged else 'FAIL' if covered else 'NOT_RUN'})
             continue
         if case not in SCENARIOS:
             rows.append({"case": case, "status": "NOT_RUN", "reason": "HOST_CASE_DRIVER_UNIMPLEMENTED"})
@@ -155,6 +156,11 @@ def _matrix(digest):
         cases[case] = result
         if case == 'C3' and result['status'] == 'PASS':
             held = retained_case(result['session'])
+        if case == 'F4' and result['status'] == 'PASS':
+            second = run_case('F4-FOLLOWUP', digest, predecessor=result['session'])
+            rows.append({'case': 'F4', 'status': second['status'], 'cases': [
+                {key: run[key] for key in ('case', 'status', 'session', 'metrics')} for run in (result, second)]})
+            continue
         rows.append({key: result[key] for key in ("case", "status", "session", "metrics")})
     p1 = cases['P1']
     rows.insert(0, {'case': 'H0', 'status': 'PASS' if p1['status'] == 'PASS' else 'NOT_RUN',
@@ -187,7 +193,7 @@ def main():
         elif args.command == "run":
             from scripts.unification.native_s1.coordinator import run_case
 
-            result = run_case(args.case, args.manifest_sha256)
+            result = run_case(args.case, args.manifest_sha256, predecessor=args.predecessor)
             print(json.dumps(result, sort_keys=True))
             return 0 if result["status"] == "PASS" else 1
         elif args.command == "matrix":

@@ -12,13 +12,11 @@ FOREIGN = "refs/heads/n69-denial-foreign"
 
 def _deny(name, action, results):
     try:
-        value = action()
+        action()
     except OSError as exc:
         require(exc.errno in (errno.EACCES, errno.EPERM), "NATIVE_S1_PROBE_INCONCLUSIVE:" + name)
         results[name] = exc.errno
     else:
-        # Integer results here are FDs or successful send byte counts. The
-        # role fails immediately. No successful mutation is treated as denial.
         raise ValueError("NATIVE_S1_PROBE_UNEXPECTED_SUCCESS:" + name)
 
 
@@ -31,6 +29,15 @@ def core_denials(root, ref):
     result = {}
     _deny("signer-read", lambda: _open(root / "keys/signer.pem", os.O_RDONLY), result)
     _deny("ref-create", lambda: _open(root / "repo" / ref, os.O_WRONLY | os.O_CREAT | os.O_EXCL), result)
+    return result
+
+
+def predecessor_write_denials(files):
+    names = {'prior-ref', 'prior-object', 'prior-witness', 'prior-completion'}
+    require(type(files) is dict and set(files) == names, "NATIVE_S1_PREDECESSOR_FILES")
+    result = {}
+    for name, path in files.items():
+        _deny(name, lambda: _open(path, os.O_WRONLY), result)
     return result
 
 
