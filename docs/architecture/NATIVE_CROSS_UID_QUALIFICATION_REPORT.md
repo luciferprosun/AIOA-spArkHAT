@@ -60,7 +60,7 @@ PYTHONPATH=.:runtime:tests python3 -B -m unittest -v \
   test_native_qualified_writer test_native_role_storage test_native_object_ingress test_native_qualification_channel \
   test_redhat_rh07_sequence test_redhat_rh06_authenticated_boundary \
   test_redhat_rh04_native_task_gate test_redhat_native_cas_broker \
-  test_native_role_supervisor test_noble_qualification_tools
+  test_native_role_supervisor test_noble_qualification_tools test_native_service_startup
 python3 -B tests/nz12_source_policy.py
 python3 -B -m runtime.tools.nonzero_architecture --project-root .
 git diff --check
@@ -84,12 +84,37 @@ pre-capsule identity; the original signed `START` binds the full role layout
 and exact ref independently. The fixed Git child mounts the target read-only
 and rejects publish forms in this profile before opening repository directories.
 
-Implementation remains open for the installed supervisor that launches real
-Core, broker, verifier and sequencer processes, authenticates the loaded
-policy, and assembles the initial and cold configuration from trusted pins.
-The policy renderer emits storage rules for a reviewed complete AppArmor profile.
-The cold resolver is callable
-from the existing controller with a trusted host composition. The writer pins
+## Sprint service and cold startup boundary
+
+`NativeMobileComposition` accepts the qualification sequence only during Core
+construction, before the controller can issue a STOP mutation. The live service
+attaches the publication port after checking the signed task's review receipt
+and capsule-derived ref. It reuses that pre-registered gate for the entire
+publication route. Broker, verifier and sequencer have callable service
+entrypoints. They start listening under their own credentials and report
+readiness over a private control connection. The broker checks the signer before
+readiness; the sequencer pins its state directory and refuses publication
+readiness when a previous slot is unresolved. The parent's readiness helper
+observes the child through a pidfd; service IPC still checks kernel peer credentials.
+
+On a cold launch the existing Core opens its pinned store and loads its original
+host identity. Before the first target observation, `ColdNativeBootstrap` performs
+one read transaction over the authenticated task history, signed capsule,
+consumed warrant, START, outbox, reservation and Git step. It verifies the source,
+original ref, storage digest, device/inode, mount and boot pins before binding a
+reader. This does not issue a grant or authorize another publication. A cold
+service can attach `DurableRoleRecoveryPort` and ask a pinned verifier to read the
+evidence using a fresh, Core-signed challenge over that same START.
+
+The installed process coordinator, complete AppArmor profiles and service units
+remain open. The callable start entrypoints do not yet provision, launch or
+supervise the four services from the operator CLI. In particular the Core process
+must be in a real active local session as its own UID for the existing loginctl
+and polkit admission, including after restart. A booted system unit alone does
+not establish that admission. Host-side policy and identity verification remain
+necessary before any privileged execution.
+
+The writer pins
 the private attempt-state directory in the signed contract and rejects a
 replacement rather than inheriting an empty attempt fence. /run
 supports a process restart on the same boot only. The offline checks exercise real

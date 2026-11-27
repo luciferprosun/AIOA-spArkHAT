@@ -120,57 +120,63 @@ def capture_binding(adapter, principal, warrant, enrollment, *, trusted_device_i
     """Project fixture binding only from the original Core transaction records."""
     require(type(adapter) is CoreIntentAdapter and type(warrant) is EffectWarrant
             and type(for_grant_export) is bool, "RH06_CORE_REQUIRED")
+    return adapter.journal._run(principal, Capability.COMMIT, lambda tx: capture_binding_in_transaction(
+        tx, adapter, warrant, enrollment, trusted_device_id=trusted_device_id, now=now,
+        broker_epoch=broker_epoch, for_grant_export=for_grant_export))
+
+
+def capture_binding_in_transaction(tx, adapter, warrant, enrollment, *, trusted_device_id,
+                                   now, broker_epoch, for_grant_export=False):
+    require(type(for_grant_export) is bool
+            and (tx.context.purpose is Capability.COMMIT if for_grant_export
+                 else tx.context.purpose in (Capability.READ, Capability.COMMIT)), "RH06_CORE_REQUIRED")
     journal = adapter.journal
-
-    def capture(tx):
-        binding = adapter._read_binding(tx, warrant)
-        _, state = journal._load(tx, warrant)
-        payload = state["operation"]["payload"]
-        config = payload.get("rh06_fixture")
-        require(state["schema"] == LOCAL_ZERO_KIND and payload.get("schema") == "aioa.local-operation.v3"
-                and type(config) is dict
-                and (set(config) == CONFIG_FIELDS or (set(config) == CONFIG_FIELDS | {"storage_digest"}
-                     and digest_string(config["storage_digest"])))
-                and binding.repository is not None and binding.device_id == trusted_device_id,
-                "RH06_ORIGINAL_START_REQUIRED")
-        if for_grant_export:
-            governor = journal.governor._load(tx)
-            require(not binding.settled and governor["kill"] is False
-                    and binding.core_epoch == binding.settlement_epoch,
-                    "RH06_CORE_FENCED")
-            journal.ledger.require_active_in_transaction(tx, warrant, consumed=True)
-        box = tx.get(RecordKind.OUTBOX, journal._key(warrant))
-        metadata = {
-            "operation_digest": binding.operation_digest.removeprefix("sha256:"),
-            "capsule_digest": payload["capsule_digest"],
-            "plan_digest": payload["plan_digest"],
-            "source_digest": digest({name: payload[name] for name in (
-                "source_base_sha", "patchset_sha256", "tree_sha",
-            )}),
-            "policy_digest": digest({
-                "approval": warrant.approval_digest, "scope": warrant.owner_scope,
-                "epoch": warrant.lease_epoch,
-            }),
-            "reservation_id_digest": digest([warrant.owner_scope, warrant.risk_reservation_id]),
-            "outbox_id_digest": digest([binding.owner_scope_digest, box.record_id]),
-            **{name: config[name] for name in ("boot_id", "repository_mount", "ref_parent_mount")},
-        }
-        if "storage_digest" in config:
-            metadata["storage_digest"] = config["storage_digest"]
-        request = BrokerRequest.for_fixture(
-            operation_id=binding.operation_id, attempt_id=binding.attempt_id,
-            owner_id=binding.owner_scope_digest, device_id=binding.device_id,
-            start_digest=binding.start_digest, intent_digest=binding.intent_digest,
-            warrant_digest=binding.warrant_digest, reservation_digest=binding.reservation_digest,
-            core_epoch=binding.core_epoch, challenge=digest(metadata),
-            repository_dev=binding.repository[0], repository_inode=binding.repository[1],
-            ref_directory_dev=binding.ref_directory[0], ref_directory_inode=binding.ref_directory[1],
-            exact_ref=binding.exact_ref, old_oid=binding.old_oid, new_oid=binding.new_oid,
-            **{name: config[name] for name in CONFIG_FIELDS - metadata.keys()},
-        )
-        adapter.check_request(binding, request, enrollment, trusted_device_id=trusted_device_id,
-                              core_epoch=binding.core_epoch, broker_epoch=broker_epoch,
-                              now=now, historical=not for_grant_export)
-        return NativeExecutionBindingV1(request, **metadata)
-
-    return journal._run(principal, Capability.COMMIT, capture)
+    binding = adapter._read_binding(tx, warrant)
+    _, state = journal._load(tx, warrant)
+    payload = state["operation"]["payload"]
+    config = payload.get("rh06_fixture")
+    require(state["schema"] == LOCAL_ZERO_KIND and payload.get("schema") == "aioa.local-operation.v3"
+            and type(config) is dict
+            and (set(config) == CONFIG_FIELDS or (set(config) == CONFIG_FIELDS | {"storage_digest"}
+                 and digest_string(config["storage_digest"])))
+            and binding.repository is not None and binding.device_id == trusted_device_id,
+            "RH06_ORIGINAL_START_REQUIRED")
+    if for_grant_export:
+        governor = journal.governor._load(tx)
+        require(not binding.settled and governor["kill"] is False
+                and binding.core_epoch == binding.settlement_epoch,
+                "RH06_CORE_FENCED")
+        journal.ledger.require_active_in_transaction(tx, warrant, consumed=True)
+    box = tx.get(RecordKind.OUTBOX, journal._key(warrant))
+    metadata = {
+        "operation_digest": binding.operation_digest.removeprefix("sha256:"),
+        "capsule_digest": payload["capsule_digest"],
+        "plan_digest": payload["plan_digest"],
+        "source_digest": digest({name: payload[name] for name in (
+            "source_base_sha", "patchset_sha256", "tree_sha",
+        )}),
+        "policy_digest": digest({
+            "approval": warrant.approval_digest, "scope": warrant.owner_scope,
+            "epoch": warrant.lease_epoch,
+        }),
+        "reservation_id_digest": digest([warrant.owner_scope, warrant.risk_reservation_id]),
+        "outbox_id_digest": digest([binding.owner_scope_digest, box.record_id]),
+        **{name: config[name] for name in ("boot_id", "repository_mount", "ref_parent_mount")},
+    }
+    if "storage_digest" in config:
+        metadata["storage_digest"] = config["storage_digest"]
+    request = BrokerRequest.for_fixture(
+        operation_id=binding.operation_id, attempt_id=binding.attempt_id,
+        owner_id=binding.owner_scope_digest, device_id=binding.device_id,
+        start_digest=binding.start_digest, intent_digest=binding.intent_digest,
+        warrant_digest=binding.warrant_digest, reservation_digest=binding.reservation_digest,
+        core_epoch=binding.core_epoch, challenge=digest(metadata),
+        repository_dev=binding.repository[0], repository_inode=binding.repository[1],
+        ref_directory_dev=binding.ref_directory[0], ref_directory_inode=binding.ref_directory[1],
+        exact_ref=binding.exact_ref, old_oid=binding.old_oid, new_oid=binding.new_oid,
+        **{name: config[name] for name in CONFIG_FIELDS - metadata.keys()},
+    )
+    adapter.check_request(binding, request, enrollment, trusted_device_id=trusted_device_id,
+                          core_epoch=binding.core_epoch, broker_epoch=broker_epoch,
+                          now=now, historical=not for_grant_export)
+    return NativeExecutionBindingV1(request, **metadata)

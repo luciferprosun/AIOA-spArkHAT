@@ -8,7 +8,6 @@ from types import SimpleNamespace
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from runtime.red_hat.authenticated_boundary import DurableRoleRecoveryPort
 from runtime.red_hat.broker_service import _publish
 from runtime.red_hat.broker_protocol import BrokerRequest, digest, publish_record, read_record
 from runtime.red_hat.execution_binding import NativeExecutionBindingV1, ROLE_SCHEMA, SCHEMA
@@ -79,12 +78,18 @@ class NativeQualifiedWriterTests(unittest.TestCase):
             self.assertEqual(req.new_oid + "\n", ref.read_text())
             self.assertEqual(0o440, ref.stat().st_mode & 0o777)
 
-    def test_cold_resolver_reopens_original_applying_records_without_warrant_input(self):
+    def test_cold_bootstrap_authenticates_original_ref_after_publication(self):
+        from dataclasses import replace
         from runtime.core_admission import Capability
+        from runtime.memory_patch.errors import MemoryPatchError
+        from runtime.meta_hackathon.native_authority import NativeHostCompositionConfig
         from runtime.mission.coding_tasks import CoreCodingTasks
         from runtime.mission.patch_capsule import CorePatchCapsules
+        from runtime.mission.sandbox_linux import mountid
         from runtime.red_hat.core_adapter import CoreIntentAdapter
-        from runtime.red_hat.execution_binding import physical_context
+        from runtime.red_hat.execution_binding import capture_binding, physical_context
+        from runtime.red_hat.native_bootstrap import ColdNativeBootstrap
+        from runtime.red_hat.role_storage import CoreTargetStorage, DirectoryPin, RoleStorage, StorageActor
         from test_redhat_broker_protocol import NOW
         from test_redhat_native_cas_broker import CasBrokerTests
         from test_redhat_rh04_native_task_gate import Fixture, _prepare_native_task_case
@@ -92,43 +97,126 @@ class NativeQualifiedWriterTests(unittest.TestCase):
         broker = CasBrokerTests("test_lost_ack_one_settlement_zero_actual_redispatch")
         self.addCleanup(broker.doCleanups)
         broker.workspace()
+        (broker.root / "staging").mkdir()
         root_fd = os.open(broker.root, os.O_RDONLY | os.O_DIRECTORY)
         self.addCleanup(os.close, root_fd)
-        fields = ("executor_id", "executor_key_id", "key_epoch", "broker_epoch", "issued_at", "expires_at")
-        storage_digest = "c"*64
-        metadata = {**physical_context(root_fd), "nonce": "a"*64, "storage_digest": storage_digest,
-                    **{name: getattr(broker.request, name) for name in fields}}
+
+        def pin(path):
+            fd = os.open(path, os.O_RDONLY | os.O_DIRECTORY)
+            try:
+                row = os.fstat(fd)
+                return DirectoryPin(row.st_dev, row.st_ino, mountid(fd))
+            finally:
+                os.close(fd)
+
+        storage = None
+
+        def metadata(request):
+            nonlocal storage
+            fields = ("executor_id", "executor_key_id", "key_epoch", "broker_epoch", "issued_at", "expires_at")
+            roles = [StorageActor(uid, gid, f"aioa-{role} (enforce)", f"0::/native/{role}")
+                     for role, uid, gid in (("core", 61001, 61001), ("broker", os.getuid(), 61002),
+                                             ("verifier", 61003, 61003))]
+            storage = RoleStorage(*roles, 61004, os.stat("/proc/self/ns/mnt").st_ino, request.exact_ref,
+                                  *(pin(path) for path in (broker.root, broker.root / "repo",
+                                     (broker.root / "repo" / request.exact_ref).parent, broker.root / "evidence")),
+                                  staging=pin(broker.root / "staging"), state=pin(broker.root / "state"),
+                                  policy_sha256="c" * 64)
+            return {**physical_context(root_fd, exact_ref=request.exact_ref), "nonce": "a" * 64,
+                    "storage_digest": storage.digest, **{name: getattr(request, name) for name in fields}}
+
         case = _prepare_native_task_case(broker.root, broker, rh06_fixture=metadata,
                                          native_plan_ref=True, durable_role=True)
-        task_id, identity, enrollment = case["task"].task_id, case["identity"], case["enrollment"]
-        expected = case["fx"].warrant.digest()
-        device, epoch = case["request"].device_id, case["request"].broker_epoch
-        exact_ref = case["request"].exact_ref
+        original = case["fx"]
+        capsule, identity = case["capsule"], case["identity"]
+        task_id, enrollment = case["task"].task_id, case["enrollment"]
+        request = capture_binding(case["adapter"], original.p(), original.warrant, enrollment,
+                                  trusted_device_id=case["request"].device_id, now=NOW,
+                                  broker_epoch=case["request"].broker_epoch).request
+        original_warrant = original.warrant
         case["tasks"].close()
-        case["fx"].close()
+        original.close()
+
+        import json
+        project = SimpleNamespace(repository_id=capsule.repository_id, workspace_id=capsule.workspace_id,
+                                  source_base_sha=capsule.source_base_sha, base_tree_sha256=capsule.base_tree_sha256)
+        config = NativeHostCompositionConfig(
+            json.dumps({"profile": "OWNED_OFFLINE_PROOF_V1",
+                        "git_target_repository": str(broker.root / "repo")}).encode(), project, None, None, None,
+        ).with_qualification_target(storage.core_target().pre_capsule())
+        bootstrap = ColdNativeBootstrap(task_id, root_fd, storage, enrollment, request.device_id,
+                                        request.broker_epoch, identity.spki)
+
+        # A separate fixture producer publishes and exits before the fresh Core
+        # opens the original durable records. Here only OS role checks are mocked.
+        broker.request = request
+        broker.spec["request"] = request.to_wire()
+        (broker.root / "fixture.json").write_text(json.dumps(broker.spec))
+        self.assertIsNone(broker.run_broker("witness_durable", crash=True))
+        self.assertEqual(request.new_oid + "\n", (broker.root / "repo" / request.exact_ref).read_text())
 
         fresh = Fixture(broker.root / "native-core.json")
         self.addCleanup(fresh.close)
+        from runtime.memory_patch.persistence.ports import RecordKind
+        def durable_state():
+            journal = fresh.journal
+            key = journal._key(original_warrant)
+            return journal._run(fresh.p(Capability.READ), Capability.READ,
+                                lambda tx: (tx.get(RecordKind.OPERATION, key),
+                                            tx.get(RecordKind.OUTBOX, key)))
+        before = durable_state()
+        with patch.object(RoleStorage, "require_anchor"), patch.object(RoleStorage, "require_role"), patch(
+            "runtime.red_hat.native_bootstrap.time.time", return_value=NOW
+        ), patch.object(CoreTargetStorage, "observe", side_effect=AssertionError("early repository observation")):
+            with self.assertRaises(MemoryPatchError):
+                replace(bootstrap, storage=replace(storage, policy_sha256="e" * 64)).bind(
+                    fresh.journal, identity, config)
+            foreign = request.exact_ref[:-1] + ("a" if request.exact_ref[-1] != "a" else "b")
+            foreign_path = broker.root / "repo" / foreign
+            foreign_path.write_text(request.new_oid + "\n")
+            foreign_path.chmod(0o400)
+            with self.assertRaises(MemoryPatchError):
+                replace(bootstrap, storage=replace(storage, exact_ref=foreign)).bind(fresh.journal, identity, config)
+            with self.assertRaises(MemoryPatchError):
+                others = SimpleNamespace(**{**vars(project), "source_base_sha": "f" * 40})
+                bootstrap.bind(fresh.journal, identity, replace(config, project_source=others))
+            cold = bootstrap.bind(fresh.journal, identity, config)
+        self.assertEqual(before, durable_state())
+        self.assertEqual(config.digest, cold.digest)
+        self.assertEqual(request.exact_ref, cold.qualification_target.exact_ref)
+        self.assertEqual("Unknown", fresh.journal.inspect(fresh.p(Capability.READ), original_warrant)["outcome"]["contract_type"])
+
         tasks = CoreCodingTasks(fresh.journal, CorePatchCapsules(fresh.journal, identity, source_probe=lambda: None))
         self.addCleanup(tasks.close)
-        # This checks cold ledger lookup. UID/policy checks require the qualified host.
-        port = DurableRoleRecoveryPort.__new__(DurableRoleRecoveryPort)
-        port.task_id, port.core_spki, port.coding_tasks = task_id, identity.spki, tasks
-        port.adapter = CoreIntentAdapter(fresh.journal)
-        port.enrollment, port.device_id, port.broker_epoch, port.root_fd = enrollment, device, epoch, root_fd
-        port.storage = SimpleNamespace(exact_ref=exact_ref, digest="e"*64)
-        with self.assertRaisesRegex(ValueError, "RECOVERY_TASK"):
-            port._read_original(fresh.p(), "foreign")
-        from runtime.memory_patch.errors import MemoryPatchError
-        with self.assertRaises(MemoryPatchError) as failed:
-            port._read_original(fresh.p(), task_id)
-        self.assertEqual("NATIVE_ROLE_RECOVERY_START", str(failed.exception.__cause__))
-        port.storage.digest = storage_digest
-        with patch("runtime.red_hat.authenticated_boundary.time.time", return_value=NOW):
-            result = port._read_original(fresh.p(), task_id)
-        self.assertEqual(expected, result["warrant"].digest())
-        self.assertEqual(exact_ref, result["request"].exact_ref)
-        self.assertEqual("Unknown", fresh.journal.inspect(fresh.p(Capability.READ), result["warrant"])["outcome"]["contract_type"])
+        adapter = CoreIntentAdapter(fresh.journal)
+
+        def recover():
+            return adapter.recover_disposable_native_task_fixture(
+                fresh.p(), tasks, task_id, original_warrant, request, enrollment,
+                root_fd=root_fd, trusted_device_id=request.device_id, now=NOW,
+                core_epoch=request.core_epoch, broker_epoch=request.broker_epoch,
+            )
+
+        evidence = broker.root / "evidence"
+        completion = evidence / ("completion-" + request.witness_binding().witness_id)
+        retained = completion.with_name("temporarily-retained")
+        completion.rename(retained)
+        try:
+            with self.assertRaisesRegex(ValueError, "WITNESS_NOT_SETTLEMENT_GRADE"):
+                recover()
+            self.assertEqual("Unknown", fresh.journal.inspect(
+                fresh.p(Capability.READ), original_warrant)["outcome"]["contract_type"])
+        finally:
+            retained.rename(completion)
+        revision = durable_state()[0].revision
+        first = recover()
+        second = recover()
+        self.assertEqual(revision + 1, durable_state()[0].revision)
+        self.assertEqual("Applied", first["intent"]["outcome"]["contract_type"])
+        self.assertEqual(first["intent"], second["intent"])
+        self.assertEqual(first["task"], second["task"])
+        self.assertNotEqual(os.getpid(), first["verification_process_pid"])
+        self.assertEqual(1, len(broker.dispatches()))
 
     def test_binding_version_does_not_accept_old_or_incomplete_role_contract(self):
         req = fixture_request()

@@ -124,13 +124,13 @@ class NativeRoleStorageTests(unittest.TestCase):
         reader = self.storage.core_target()
         config = NativeHostCompositionConfig(b'{"profile":"OWNED_OFFLINE_PROOF_V1"}', None, None, None, None)
         initial = config.with_qualification_target(reader.pre_capsule())
-        cold = config.with_qualification_target(reader)
+        cold = initial._with_authenticated_cold_target(reader)
         self.assertEqual(initial.digest, cold.digest)
         self.assertNotEqual(config.digest, cold.digest)
         owner_without_live_port = SimpleNamespace()
         self.assertIsNone(initial.qualification_reader(owner_without_live_port).exact_ref)
         self.assertEqual(self.ref, cold.qualification_reader(owner_without_live_port).exact_ref)
-        changed = config.with_qualification_target(replace(reader, ref_parent=DirectoryPin(12, 9, 7)))
+        changed = config.with_qualification_target(replace(reader.pre_capsule(), ref_parent=DirectoryPin(12, 9, 7)))
         self.assertNotEqual(cold.digest, changed.digest)
 
     def test_shared_git_reader_denies_mutation_before_opening_repository(self):

@@ -237,7 +237,7 @@ class _Sequencer:
 
 
 def serve_sequencer(listener, *, directory, core_peer, broker_peer, epoch, timeout=2.0,
-                    active_timeout=5.0, stop=None, fault=lambda _: None, enabled=False):
+                    active_timeout=5.0, stop=None, fault=lambda _: None, enabled=False, on_ready=None):
     """Serve ordered capabilities over a trusted listener, with bounded concurrency."""
     require(enabled is True, "RH07_DISABLED")
     _limits(epoch, timeout)
@@ -264,6 +264,9 @@ def serve_sequencer(listener, *, directory, core_peer, broker_peer, epoch, timeo
                 available.release()
 
         listener.settimeout(0.25)
+        if on_ready is not None:
+            require(not service.poisoned, "RH07_SEQUENCE_OUTSTANDING")
+            on_ready()
         with ThreadPoolExecutor(max_workers=MAX_CONNECTIONS) as pool:
             while stop is None or not stop.is_set():
                 try:

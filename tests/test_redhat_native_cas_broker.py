@@ -104,7 +104,7 @@ def run_child(root, mode, *args):
         socket_name, stage = args
         identity = Identity(serialization.load_pem_private_key(
             (root / "fixture-key").read_bytes(), password=None))
-        ref_info = (root / "repo/refs/heads").stat()
+        ref_info = (root / "repo" / req.exact_ref).parent.stat()
         evidence_info = (root / "evidence").stat()
         real_link, real_sync = os.link, os.fsync
 

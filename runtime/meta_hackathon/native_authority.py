@@ -282,9 +282,13 @@ class NativeHostCompositionConfig:
     def with_qualification_target(self, target):
         from runtime.red_hat.role_storage import CoreTargetStorage
 
-        deny(type(target) is CoreTargetStorage and self.qualification_target is None
+        deny(type(target) is CoreTargetStorage and self.qualification_target is None and target.exact_ref is None
              and self.to_dict()['profile'] == 'OWNED_OFFLINE_PROOF_V1')
         return replace(self, qualification_target=target)
+
+    def _with_authenticated_cold_target(self, reader):
+        deny(reader.exact_ref is not None and reader.pre_capsule() == self.qualification_target)
+        return replace(self, qualification_target=reader)
 
     @property
     def digest(self):
@@ -1169,6 +1173,9 @@ class NativeAuthorityFoundation:
         self.target_projection = CoreTargetProjection(self.intent_journal, self.liability, spec.portable.binding)
         owner.intent_journal = self.intent_journal
         self.controller = NativeCapacityOwnerController(self)
+        if owner._cold_bootstrap is not None:
+            spec = owner._cold_bootstrap.bind(self.intent_journal, owner.identity, spec)
+            self.spec = owner._host_composition = spec
         self.root_observations = spec.observe(owner)
         self.require_bindings()
         if self.runtime is not None:

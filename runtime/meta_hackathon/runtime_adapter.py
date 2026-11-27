@@ -361,14 +361,17 @@ class NativeMobileComposition:
     This is neither OfflineMetaComposition nor a promotion of its fixture data.
     """
     def __init__(self,root,*,origin,source_probe=current_source,chat=False,key_path=None,existing_profile=False,
-                 host_composition: "NativeHostCompositionConfig | None" = None, offline_candidates=None):
+                 host_composition: "NativeHostCompositionConfig | None" = None, offline_candidates=None,
+                 cold_bootstrap=None, qualification_gate=None):
         import time
 
         from runtime.mobile_gateway import wire
         if host_composition is not None:
             from .native_authority import NativeHostCompositionConfig
 
-            if type(host_composition) is not NativeHostCompositionConfig or chat is not False:
+            if (type(host_composition) is not NativeHostCompositionConfig or chat is not False
+                    or (host_composition.qualification_target is not None
+                        and host_composition.qualification_target.exact_ref is not None)):
                 raise AdmissionError()
         if offline_candidates is not None:
             from runtime.mission.worker import CandidatePatch
@@ -380,6 +383,22 @@ class NativeMobileComposition:
             from runtime.mission.worker import CandidateFile
             offline_candidates = tuple(CandidatePatch(tuple(CandidateFile(file.path, file.text)
                 for file in candidate.files)) for candidate in offline_candidates)
+        if cold_bootstrap is not None:
+            from runtime.red_hat.native_bootstrap import ColdNativeBootstrap
+
+            if (type(cold_bootstrap) is not ColdNativeBootstrap or existing_profile is not True
+                    or host_composition is None or offline_candidates is None):
+                raise AdmissionError()
+        if qualification_gate is not None:
+            from runtime.red_hat.sequencer import SequencedCoreGate
+
+            if (type(qualification_gate) is not SequencedCoreGate or cold_bootstrap is not None
+                    or host_composition is None or offline_candidates is None
+                    or host_composition.qualification_target is None
+                    or host_composition.qualification_target.exact_ref is not None):
+                raise AdmissionError()
+        self._qualification_gate = qualification_gate
+        self._cold_bootstrap = cold_bootstrap
         self._offline_candidates = offline_candidates
         self._host_composition=host_composition
         self.foundation=None
@@ -474,6 +493,10 @@ class NativeMobileComposition:
             self.runtime=create_runtime(inspection_only=True,borrowed_admission=self.core)
         self.runner=TransactionRunner(self.core,LocalCoreRecordFactory(self.root/'core-records.sqlite3',self.core,
             expected_file=self._existing_profile))
+        if self._qualification_gate is not None:
+            from runtime.red_hat.sequencer import bind_fixture_runner
+
+            bind_fixture_runner(self.runner, self._qualification_gate, enabled=True)
         self.ledger=CoreWarrantLedger(self.core,self.runner,scope)
         self.manager=None
         if self.chat_enabled:

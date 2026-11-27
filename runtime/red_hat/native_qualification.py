@@ -142,7 +142,7 @@ def serve_prepared_native_fixture(listener, *, root_fd, exact_ref, device_id, se
 
 def serve_qualified_native_once(listener, *, root_fd, storage, device_id, sequence,
                                 release, core_peer, core_spki, signer_fd, enrollment,
-                                core_epoch, broker_epoch, enabled=False):
+                                core_epoch, broker_epoch, enabled=False, on_ready=None):
     """Explicit disposable entry point for a supervisor-provisioned writer."""
     from runtime.red_hat.executor_custody import ExecutorRoles, load_broker_signer
     from runtime.red_hat.role_storage import RoleStorage
@@ -164,12 +164,12 @@ def serve_qualified_native_once(listener, *, root_fd, storage, device_id, sequen
         listener, root_fd=root_fd, exact_ref=storage.exact_ref, device_id=device_id,
         sequence=sequence, release=release, core_peer=core_peer, core_spki=core_spki,
         identity=identity, enrollment=enrollment, core_epoch=core_epoch,
-        broker_epoch=broker_epoch, storage=storage)
+        broker_epoch=broker_epoch, storage=storage, on_ready=on_ready)
 
 
 def _serve_prepared_native(listener, *, root_fd, exact_ref, device_id, sequence,
                            release, core_peer, core_spki, identity, enrollment,
-                           core_epoch, broker_epoch, storage=None):
+                           core_epoch, broker_epoch, storage=None, on_ready=None):
     from runtime.red_hat.authenticated_boundary import AUTHORIZATION, _open_seal
     from runtime.red_hat.broker_protocol import digest, read_frame, require_admission
     from runtime.red_hat.broker_service import _serve_fixture
@@ -212,6 +212,8 @@ def _serve_prepared_native(listener, *, root_fd, exact_ref, device_id, sequence,
         binding, objects = read_frame(peer, receive_body=validate_and_read)
         return binding.request
 
+    if on_ready is not None:
+        on_ready()
     return _serve_fixture(
         listener, root_fd=root_fd, receive=receive, enrollment=enrollment, identity=identity,
         core_epoch=core_epoch, broker_epoch=broker_epoch, clock=lambda: int(time.time()),

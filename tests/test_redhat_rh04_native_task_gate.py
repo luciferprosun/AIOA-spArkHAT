@@ -204,6 +204,8 @@ def _prepare_native_task_case(root, broker, *, rh06_fixture=None, native_plan_re
         values.update(exact_ref="refs/heads/aioa/nz11-" + capsule.digest[:32],
                       ref_directory_inode=parent.stat().st_ino)
         base = BrokerRequest.for_fixture(**values)
+    if callable(rh06_fixture):
+        rh06_fixture = rh06_fixture(base)
     plan_digest = canonical_sha256({"fixture": "native-plan-v3", "capsule": capsule.digest})
     payload = {
         "schema": "aioa.local-operation.v3", "principal_session_id": fx.p().actor_session_id,
