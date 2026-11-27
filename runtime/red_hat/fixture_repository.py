@@ -67,6 +67,7 @@ class FixtureRepository:
     topology: tuple
     uid: int
     storage: object = None
+    writer: bool = False
 
     def check(self, request, *, publishing=False):
         for directory, parent, name in (
@@ -93,7 +94,9 @@ class FixtureRepository:
                     else self.storage.topology(self.repo, self.ref_parent))
         require(observed == self.topology, "BROKER_REPOSITORY_MOVED")
         if publishing:
-            require(self.storage is None, "NATIVE_STORAGE_READ_ONLY")
+            require(self.storage is None or self.writer, "NATIVE_STORAGE_READ_ONLY")
+            if self.writer:
+                self.storage.require_writer(self.root)
             absent(self.repo, "packed-refs.lock")
             absent(self.ref_parent, self.leaf(request) + ".lock")
 
@@ -163,20 +166,25 @@ class FixtureRepository:
 
 
 @contextmanager
-def open_repository(root, request, uid, *, storage=None, role=None):
+def open_repository(root, request, uid, *, storage=None, role=None, writer=False):
+    require(type(writer) is bool, "NATIVE_STORAGE_ROLE")
     if storage is None:
-        require(role is None, "NATIVE_STORAGE_ROLE")
+        require(role is None and writer is False, "NATIVE_STORAGE_ROLE")
         require_private(root, uid)
     else:
         from runtime.red_hat.role_storage import RoleStorage
 
-        require(role in ("core", "verifier") and type(storage) is RoleStorage and uid == storage.broker.uid
+        require((role == "broker" if writer is True else role in ("core", "verifier"))
+                and type(storage) is RoleStorage and uid == storage.broker.uid
                 and request.exact_ref == storage.exact_ref
                 and request.repository == (storage.repository.device, storage.repository.inode)
                 and request.ref_directory == (storage.ref_parent.device, storage.ref_parent.inode),
                 "NATIVE_STORAGE_ORIGINAL_TARGET")
-        storage.require_role(role)
-        storage.require_anchor(root)
+        if writer:
+            storage.require_writer(root)
+        else:
+            storage.require_role(role)
+            storage.require_anchor(root)
     with ExitStack() as stack:
         repo = open_dir(root, "repo", stack)
         refs = open_dir(repo, "refs", stack)
@@ -185,6 +193,6 @@ def open_repository(root, request, uid, *, storage=None, role=None):
         parent = heads if name is None else open_dir(heads, name, stack)
         topology = (git_storage_identity(repo) if storage is None
                     else storage.topology(repo, parent))
-        target = FixtureRepository(root, repo, refs, heads, parent, topology, uid, storage)
+        target = FixtureRepository(root, repo, refs, heads, parent, topology, uid, storage, writer)
         target.check(request)
         yield target

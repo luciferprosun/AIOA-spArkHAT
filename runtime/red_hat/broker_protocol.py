@@ -250,9 +250,9 @@ def read_record(directory, name, uid, *, maximum=MAX_FRAME, sync=False, reader_g
         os.close(fd)
 
 
-def publish_record(directory, name, value):
+def publish_record(directory, name, value, *, reader_gid=None):
     require(LinuxSandboxBroker._git_publish_new(
-        directory, name, canonical_json_bytes(value), cancel=None
+        directory, name, canonical_json_bytes(value), cancel=None, reader_gid=reader_gid
     ), "BROKER_RECORD_EXISTS")
 
 

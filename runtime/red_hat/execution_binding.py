@@ -16,6 +16,7 @@ from runtime.red_hat.fixture_repository import native_parent_name, open_dir
 
 
 SCHEMA = "aioa.redhat.native-execution-binding.v1"
+ROLE_SCHEMA = "aioa.redhat.native-execution-binding.v2"
 HEX = re.compile(r"[0-9a-f]{64}")
 BOOT_ID = re.compile(r"[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}")
 CONFIG_FIELDS = {
@@ -41,6 +42,7 @@ class NativeExecutionBindingV1:
     boot_id: str
     repository_mount: int
     ref_parent_mount: int
+    storage_digest: str | None = None
 
     def __post_init__(self):
         metadata = self.metadata()
@@ -59,17 +61,28 @@ class NativeExecutionBindingV1:
         require(self.request.challenge == digest(metadata), "RH06_METADATA_BINDING")
 
     def metadata(self):
-        return {f.name: getattr(self, f.name) for f in fields(self) if f.name != "request"}
+        result = {f.name: getattr(self, f.name) for f in fields(self) if f.name != "request"}
+        if self.storage_digest is None:
+            del result["storage_digest"]
+        return result
 
     def to_wire(self):
-        return {"schema": SCHEMA, "request": self.request.to_wire(), **self.metadata()}
+        schema = SCHEMA if self.storage_digest is None else ROLE_SCHEMA
+        return {"schema": schema, "request": self.request.to_wire(), **self.metadata()}
 
     @classmethod
     def from_wire(cls, value):
-        require(type(value) is dict and set(value) == {"schema", *(f.name for f in fields(cls))}
-                and value["schema"] == SCHEMA, "RH06_BINDING_SCHEMA")
+        require(type(value) is dict, "RH06_BINDING_SCHEMA")
+        schema = value.get("schema")
+        keys = {f.name for f in fields(cls)}
+        if schema == SCHEMA:
+            keys.remove("storage_digest")
+        else:
+            require(schema == ROLE_SCHEMA and digest_string(value.get("storage_digest")),
+                    "RH06_BINDING_SCHEMA")
+        require(set(value) == {"schema", *keys}, "RH06_BINDING_SCHEMA")
         return cls(BrokerRequest.from_wire(value["request"]), **{
-            f.name: value[f.name] for f in fields(cls) if f.name != "request"
+            name: value[name] for name in keys - {"request"}
         })
 
 
@@ -95,6 +108,9 @@ def physical_context(root_fd, *, exact_ref=None):
 def require_physical_context(target, binding):
     """Check the actual pinned FDs used for link or readback."""
     observed = _physical_context(target.repo, target.ref_parent)
+    storage = target.storage
+    require(binding.storage_digest == (None if storage is None else storage.digest),
+            "NATIVE_STORAGE_START_DIGEST")
     require(all(value == getattr(binding, name) for name, value in observed.items()),
             "RH06_MOUNT_OR_BOOT_CHANGED")
 
@@ -112,7 +128,9 @@ def capture_binding(adapter, principal, warrant, enrollment, *, trusted_device_i
         payload = state["operation"]["payload"]
         config = payload.get("rh06_fixture")
         require(state["schema"] == LOCAL_ZERO_KIND and payload.get("schema") == "aioa.local-operation.v3"
-                and type(config) is dict and set(config) == CONFIG_FIELDS
+                and type(config) is dict
+                and (set(config) == CONFIG_FIELDS or (set(config) == CONFIG_FIELDS | {"storage_digest"}
+                     and digest_string(config["storage_digest"])))
                 and binding.repository is not None and binding.device_id == trusted_device_id,
                 "RH06_ORIGINAL_START_REQUIRED")
         if for_grant_export:
@@ -137,6 +155,8 @@ def capture_binding(adapter, principal, warrant, enrollment, *, trusted_device_i
             "outbox_id_digest": digest([binding.owner_scope_digest, box.record_id]),
             **{name: config[name] for name in ("boot_id", "repository_mount", "ref_parent_mount")},
         }
+        if "storage_digest" in config:
+            metadata["storage_digest"] = config["storage_digest"]
         request = BrokerRequest.for_fixture(
             operation_id=binding.operation_id, attempt_id=binding.attempt_id,
             owner_id=binding.owner_scope_digest, device_id=binding.device_id,

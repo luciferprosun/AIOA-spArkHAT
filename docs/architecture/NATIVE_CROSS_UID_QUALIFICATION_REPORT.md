@@ -1,4 +1,4 @@
-# Native role-separated readback candidate
+# Native role-separated writer and readback candidate
 
 Date 2026-11-27. Local owns branch `local/native-cross-uid-qualification`.
 The base is `4b2c55d9ab90810b99ec0337cae5eef581d53534`, tree
@@ -15,14 +15,24 @@ disposable Native storage/readback contract, operator probe and their tests.
 | Core, broker and verifier | Distinct process UIDs/GIDs, one supplementary read group, distinct enforcing AppArmor domains | The readback entry requires one pinned mount namespace, real/effective/saved IDs, no capabilities, NoNewPrivs and non-dumpability. All pinned objects refer to that namespace. |
 | Sequencer, journal, signer and enrollment | Existing supervisor-only sequencer state, Core-owned journal, broker-only private signer and separate verifier identity | Existing START, release, attempt fence, signed witness/completion and fresh verifier challenge remain in force. The supervisor does not yet launch these services with this contract. |
 
-Only the explicit readback entry takes the new storage contract. The regular
-fixture still enforces private same-UID storage, and the broker launch
-continues to require its existing same-UID configuration. A common reader
-group permits the required read without granting group write. A filesystem
-mode check cannot constrain the broker to one destination name. An
-AppArmor label identifies a domain, while the operator must separately
-authenticate its actual policy and prove the allowed syscall. Policy names
-alone convey no write authority. Production remains disabled.
+The explicit writer entry uses the original signed Core authority, durable
+attempt fence, sequencer slot and final Core release. Version 2 signs the
+digest of the trusted role descriptor alongside the original binding.
+Version 1 remains valid in the original private fixture. Shared readers
+require the signed descriptor identity. The writer creates the unnamed
+ref inode in a separately pinned staging directory on the same mount and
+checks its inherited group and mode before publication. Objects, witness
+and completion use group read with no group write. The startup entry
+validates the writer role and closes its private signer FD after loading.
+The cold resolver reads the original consumed warrant from Core's signed
+task and capsule records, persisted START and Git step.
+
+The root-controlled writer-policy bytes pin the reviewed configuration
+input. A proof of the actual loaded policy remains essential. The
+renderer emits the broker's storage rules with only the approved ref as
+a ref-link destination. AppArmor's mediation of the anonymous source
+inode and the actual denial of alternate mutations remain host acceptance
+requirements. A kernel denial at staging or link stays fail-closed.
 
 The operator's sibling probe now creates an unnamed inode on the pinned
 ref parent and requires denial at the same link operation used by
@@ -47,7 +57,7 @@ operator lane separate from hosted CI.
 ```bash
 umask 077
 PYTHONPATH=.:runtime:tests python3 -B -m unittest -v \
-  test_native_role_storage test_native_object_ingress test_native_qualification_channel \
+  test_native_qualified_writer test_native_role_storage test_native_object_ingress test_native_qualification_channel \
   test_redhat_rh07_sequence test_redhat_rh06_authenticated_boundary \
   test_redhat_rh04_native_task_gate test_redhat_native_cas_broker \
   test_native_role_supervisor test_noble_qualification_tools
@@ -62,10 +72,15 @@ disposable attested Noble x86_64 instance. The observed laptop was Mint
 22.2 and returned `BLOCKED_HOST` without an enforcing role domain or an
 external host receipt. No privileged execution was attempted.
 
-Implementation remains open for writer-side admission and exact-ref OS
-policy, import and evidence creation under the shared storage modes,
-supervisor launch with broker-only signer FD, Core apply into the role
-layout, and the combined crash harness. The offline checks exercise real
+Implementation remains open for pre-capsule Core target configuration,
+its immutable shared Git reader, and the installed supervisor that
+launches the real Core, broker, verifier and sequencer with authenticated
+policy and role descriptors. The policy renderer emits storage rules
+for a reviewed complete AppArmor profile. The cold resolver is callable
+from the existing controller with a trusted host composition. The writer pins
+the private attempt-state directory in the signed contract and rejects a
+replacement rather than inheriting an empty attempt fence. /run
+supports a process restart on the same boot only. The offline checks exercise real
 temporary descriptors, mode checks, and the existing fixture route.
 They do not qualify a separate UID. All scenarios involving separate real
 roles are `NOT_RUN`, with zero attempts launched and no cross-UID effect
@@ -77,3 +92,22 @@ repeated reconciliation with separate publication and settlement counts.
 
 Historical Native69 remains UNKNOWN / HELD. This candidate does not reopen
 its journal or provide any new authority for LIVE or legacy retirement.
+
+## Writer policy fragment
+
+Generate and syntax-check rules from a reviewed checkout.
+
+```bash
+python3 -B -m scripts.unification.native_writer_policy \
+  --session "$session" --exact-ref "$exact_ref" > "$private/broker.storage"
+{ printf 'profile aioa-native-review {\n'; cat "$private/broker.storage"; printf '}\n'; } \
+  > "$private/parser-only.profile"
+/usr/sbin/apparmor_parser --skip-kernel-load --skip-cache "$private/parser-only.profile"
+```
+
+Use the same pinned staging directory with both the sibling-link probe and
+the writer. Populate the staging device and inode pins when the manifest
+selects the shared reader group. Staging is mode 2700, broker-owned with
+the reader GID, and on the same mount as the ref parent. The candidate
+imports objects and records with mode 0440 using a 0027 umask. Preserve the
+actual role, policy, source and host receipts privately.

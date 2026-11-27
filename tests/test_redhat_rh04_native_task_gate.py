@@ -159,7 +159,8 @@ def _recover_native_task_from_restarted_core(config_path, *, lose_settlement_ack
         fixture.close()
 
 
-def _prepare_native_task_case(root, broker, *, rh06_fixture=None, native_plan_ref=False):
+def _prepare_native_task_case(root, broker, *, rh06_fixture=None, native_plan_ref=False,
+                              durable_role=False):
     """Create one synthetic original task/START bound to an RH-02 fixture."""
     base = broker.request
     fx = Fixture(Path(root) / "native-core.json")
@@ -217,6 +218,9 @@ def _prepare_native_task_case(root, broker, *, rh06_fixture=None, native_plan_re
         "ref_directory_inode": base.ref_directory_inode,
         "ref": base.exact_ref, "old_oid": base.old_oid, "new_oid": base.new_oid,
     }
+    if durable_role:
+        fx.warrant = replace(fx.warrant, nonce="native-git-" + capsule.digest[:40])
+        rh06_fixture = {**rh06_fixture, "ref_parent_mount": rh06_fixture["repository_mount"]}
     if rh06_fixture is not None:
         payload["rh06_fixture"] = rh06_fixture
     operation = {"operation_class": "GIT_COMMIT",
@@ -240,10 +244,11 @@ def _prepare_native_task_case(root, broker, *, rh06_fixture=None, native_plan_re
 
     def seed_task_links(tx):
         tx.insert(capsule_row)
-        for expected, state in (("QUEUED", "REVIEW_REQUIRED"),
-                                ("REVIEW_REQUIRED", "APPROVED"),
-                                ("APPROVED", "APPLYING"),
-                                ("APPLYING", "UNKNOWN")):
+        transitions = (("QUEUED", "REVIEW_REQUIRED"), ("REVIEW_REQUIRED", "APPROVED"),
+                       ("APPROVED", "APPLYING"))
+        if not durable_role:
+            transitions += (("APPLYING", "UNKNOWN"),)
+        for expected, state in transitions:
             tasks._append_transition(tx, task.task_id, (expected,), state,
                 capsule_digest=capsule.digest if state == "REVIEW_REQUIRED" else None)
         step = StoredRecord(RecordKind.OPERATION,

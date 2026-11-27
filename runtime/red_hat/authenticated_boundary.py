@@ -1,5 +1,6 @@
 """Opt-in RH-06 fixture IPC. No production composition installs this port."""
 
+import json
 import secrets
 import socket
 import time
@@ -199,8 +200,11 @@ class AuthenticatedFixtureRecoveryPort(DisposableNativeTaskWitnessPort):
                     "NATIVE_STORAGE_VERIFIER_PEER")
         self.storage = storage
 
+    def _resolve_material(self, principal, task_id):
+        return self.resolver(task_id)
+
     def recover_native_task(self, principal, task_id):
-        material = self.resolver(task_id)
+        material = self._resolve_material(principal, task_id)
         require(type(material) is dict and set(material) == self._FIELDS, "RH06_RECOVERY_PORT")
         enrollment = material["enrollment"]
         require(len({self.spki, self.core_spki, enrollment.executor.spki}) == 3, "RH06_ROLE_KEYS")
@@ -214,3 +218,91 @@ class AuthenticatedFixtureRecoveryPort(DisposableNativeTaskWitnessPort):
                                                self.peer, self.spki, self.storage)
         return target.recover_disposable_native_task_fixture(
             principal, self.coding_tasks, task_id, **material)
+
+
+class DurableRoleRecoveryPort(AuthenticatedFixtureRecoveryPort):
+    """Recover one approved task using its persisted Core records and host pins."""
+
+    def __init__(self, adapter, coding_tasks, *, task_id, root_fd, enrollment,
+                 trusted_device_id, broker_epoch, storage, endpoint, verifier_peer,
+                 verifier_spki, core_spki, enabled=False):
+        from runtime.red_hat.enrollment import ExecutorEnrollment
+        from runtime.red_hat.role_storage import RoleStorage
+
+        require(enabled is True and type(storage) is RoleStorage
+                and type(enrollment) is ExecutorEnrollment
+                and type(root_fd) is int and root_fd >= 3
+                and type(task_id) is str and 0 < len(task_id) <= 96
+                and type(broker_epoch) is int and broker_epoch > 0
+                and enrollment.executor.uid == storage.broker.uid,
+                "NATIVE_ROLE_RECOVERY_CONFIGURATION")
+        storage.require_role("core")
+        storage.require_anchor(root_fd)
+        super().__init__(adapter, coding_tasks, self._read_original, endpoint=endpoint,
+                         verifier_peer=verifier_peer, verifier_spki=verifier_spki,
+                         core_spki=core_spki, enabled=True, storage=storage)
+        self.task_id = task_id
+        self.root_fd = root_fd
+        self.enrollment = enrollment
+        self.device_id = trusted_device_id
+        self.broker_epoch = broker_epoch
+
+    def _resolve_material(self, principal, task_id):
+        return self.resolver(principal, task_id)
+
+    def _read_original(self, principal, task_id):
+        from lab.archaioa.warrant import EffectWarrant
+        from runtime.core_admission import Capability
+        from runtime.memory_patch.contracts.serialization import canonical_sha256
+        from runtime.memory_patch.persistence.ports import RecordKind
+        from runtime.mission.warrant import KIND
+        from runtime.mission.patch_capsule import KIND as CAPSULE_KIND
+
+        require(task_id == self.task_id and self.coding_tasks.capsules.identity.spki == self.core_spki,
+                "NATIVE_ROLE_RECOVERY_TASK")
+        journal = self.adapter.journal
+
+        def read(tx):
+            _, coding, task = self.coding_tasks._load(tx, task_id)
+            receipt = coding["receipts"][-1]["receipt"]
+            capsule = receipt["capsule_digest"]
+            require(receipt["state"] in ("APPLYING", "UNKNOWN", "VERIFIED") and digest_string(capsule)
+                    and self.storage.exact_ref == "refs/heads/aioa/nz11-" + capsule[:32],
+                    "NATIVE_ROLE_RECOVERY_CAPSULE")
+            capsule_row = tx.get(RecordKind.OPERATION, canonical_sha256([CAPSULE_KIND, capsule]))
+            require(capsule_row is not None, "NATIVE_ROLE_RECOVERY_CAPSULE")
+            signed = self.coding_tasks.capsules._decode(capsule_row)
+            require(signed.digest == capsule and signed.task_id == task.task_id
+                    and signed.task_digest == task.digest, "NATIVE_ROLE_RECOVERY_CAPSULE")
+            nonce = "native-git-" + capsule[:40]
+            row = tx.get(RecordKind.OPERATION, canonical_sha256((KIND, journal.ledger.scope, nonce)))
+            require(row is not None, "NATIVE_ROLE_RECOVERY_WARRANT")
+            candidate = EffectWarrant.from_dict(json.loads(canonical_json_bytes(row.payload["active"])))
+            _, state, warrant = journal.ledger._load(tx, candidate)
+            require(state["consumption"] is not None and warrant.task_id == task.task_id == task_id
+                    and warrant.nonce == nonce and warrant.operation_class == "GIT_COMMIT",
+                    "NATIVE_ROLE_RECOVERY_WARRANT")
+            _, intent = journal._load(tx, warrant)
+            require(intent is not None, "NATIVE_ROLE_RECOVERY_START")
+            payload = intent["operation"]["payload"]
+            source = payload.get("rh06_fixture")
+            require(payload.get("capsule_digest") == capsule and type(source) is dict
+                    and source.get("storage_digest") == self.storage.digest, "NATIVE_ROLE_RECOVERY_START")
+            step = tx.get(RecordKind.OPERATION, "github-step-" + capsule[:32] + "-local_patch")
+            require(step is not None and step.payload.get("schema") == "aioa.local-patch-step.v1"
+                    and step.payload.get("state") == "GITHUB_STEP_UNKNOWN"
+                    and step.payload.get("warrant_digest") == warrant.digest()
+                    and step.payload.get("operation_hash") == warrant.operation_hash
+                    and step.payload.get("plan_digest") == payload.get("plan_digest")
+                    and step.payload.get("automatic_retry") is False, "NATIVE_ROLE_RECOVERY_STEP")
+            return warrant
+
+        warrant = journal._run(principal, Capability.COMMIT, read)
+        now = int(time.time())
+        binding = capture_binding(self.adapter, principal, warrant, self.enrollment,
+                                  trusted_device_id=self.device_id, now=now,
+                                  broker_epoch=self.broker_epoch)
+        require(binding.storage_digest == self.storage.digest, "NATIVE_ROLE_RECOVERY_START")
+        return {"warrant": warrant, "request": binding.request, "enrollment": self.enrollment,
+                "root_fd": self.root_fd, "trusted_device_id": self.device_id, "now": now,
+                "core_epoch": binding.request.core_epoch, "broker_epoch": self.broker_epoch}

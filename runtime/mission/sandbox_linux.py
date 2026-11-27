@@ -1353,7 +1353,7 @@ class LinuxSandboxBroker:
     @staticmethod
     def _git_publish_new(parent, name, data, *, cancel, before_ref_link=None,
                          before_ref_link_guard=None, expected_parent_identity=None,
-                         before_ref_link_check=None):
+                         before_ref_link_check=None, reader_gid=None):
         """Atomic create-only publication of a fully written unnamed inode.
 
         No truncation, chmod, utime, append or write to an existing pathname.
@@ -1364,8 +1364,13 @@ class LinuxSandboxBroker:
         require(
             type(data) is bytes and len(data) <= 2097152, "GIT_PLUMBING_INPUT_BOUND"
         )
-        fd = os.open(".", os.O_TMPFILE | os.O_RDWR | os.O_CLOEXEC, 0o400, dir_fd=parent)
+        fd = os.open(".", os.O_TMPFILE | os.O_RDWR | os.O_CLOEXEC,
+                     0o400 if reader_gid is None else 0o440, dir_fd=parent)
         try:
+            if reader_gid is not None:
+                info = os.fstat(fd)
+                require(info.st_uid == os.geteuid() and info.st_gid == reader_gid
+                        and stat.S_IMODE(info.st_mode) == 0o440, "GIT_SHARED_FILE_MODE")
             if expected_parent_identity is not None:
                 parent_info = os.fstat(parent)
                 require(type(expected_parent_identity) is tuple
@@ -1430,12 +1435,13 @@ class LinuxSandboxBroker:
             os.close(fd)
 
     @staticmethod
-    def _git_existing_object(parent, name, expected, *, sync=False):
+    def _git_existing_object(parent, name, expected, *, sync=False, reader_gid=None):
         import zlib
 
         fd = os.open(
             name,
-            os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_NOATIME | os.O_CLOEXEC,
+            os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC
+            | (os.O_NOATIME if reader_gid is None else 0),
             dir_fd=parent,
         )
         try:
@@ -1443,6 +1449,8 @@ class LinuxSandboxBroker:
             require(
                 stat.S_ISREG(info.st_mode)
                 and info.st_uid == os.getuid()
+                and (reader_gid is None or (info.st_gid == reader_gid
+                     and stat.S_IMODE(info.st_mode) == 0o440 and mountid(fd) == mountid(parent)))
                 and info.st_nlink == 1
                 and 0 < info.st_size <= 2097152,
                 "GIT_STORAGE_FILE_TYPE",
@@ -1465,6 +1473,9 @@ class LinuxSandboxBroker:
                 row.st_dev,
                 row.st_ino,
                 row.st_size,
+                row.st_mode,
+                row.st_uid,
+                row.st_gid,
                 row.st_mtime_ns,
                 row.st_ctime_ns,
                 row.st_nlink,

@@ -285,7 +285,7 @@ def run(role, digest):
                 str(groups[0]) if groups else '-', *args]
         # Output goes to the external operator unit's evidence stream.
         with subprocess.Popen(argv, cwd=checkout, env=env, user=uid, group=gid, extra_groups=groups,
-                              umask=0o077, stdin=subprocess.DEVNULL, pass_fds=descriptors,
+                              umask=0o027 if groups else 0o077, stdin=subprocess.DEVNULL, pass_fds=descriptors,
                               close_fds=True, start_new_session=True, preexec_fn=no_new_privileges) as child:
             try:
                 return child.wait(timeout=60)

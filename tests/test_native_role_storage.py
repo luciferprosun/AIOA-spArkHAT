@@ -4,6 +4,7 @@ import os
 import stat
 import tempfile
 import unittest
+from contextlib import ExitStack
 from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
@@ -37,6 +38,43 @@ class NativeRoleStorageTests(unittest.TestCase):
         ):
             with self.subTest(change=change), self.assertRaisesRegex(ValueError, "STORAGE_CONTRACT"):
                 replace(self.storage, **change)
+
+    def test_serialized_layout_requires_all_pins_and_exact_shape(self):
+        product = replace(self.storage, staging=DirectoryPin(12, 5, 7), state=DirectoryPin(12, 6, 7),
+                          policy_sha256="a"*64)
+        wire = product.to_dict()
+        self.assertEqual(product, RoleStorage.from_dict(wire))
+        self.assertEqual(product.digest, RoleStorage.from_dict(wire).digest)
+        with self.assertRaisesRegex(ValueError, "WRITER_PINS"):
+            RoleStorage.from_dict({**wire, "staging": None})
+        with self.assertRaisesRegex(ValueError, "STORAGE_SCHEMA"):
+            RoleStorage.from_dict({**wire, "anchor": {**wire["anchor"], "extra": True}})
+
+    def test_replaced_attempt_state_cannot_use_the_original_writer_pin(self):
+        with tempfile.TemporaryDirectory() as work, ExitStack() as stack:
+            root = Path(work)
+            for name in ("repo", "refs", "evidence", "staging", "state"):
+                (root / name).mkdir(mode=0o700)
+            def pin(path):
+                fd = os.open(path, os.O_RDONLY | os.O_DIRECTORY)
+                stack.callback(os.close, fd)
+                info = os.fstat(fd)
+                return fd, DirectoryPin(info.st_dev, info.st_ino, mountid(fd))
+            _, anchor = pin(root)
+            _, repo = pin(root / "repo")
+            _, refs = pin(root / "refs")
+            _, evidence = pin(root / "evidence")
+            _, staging = pin(root / "staging")
+            original_fd, state = pin(root / "state")
+            writer = replace(self.storage, anchor=anchor, repository=repo, ref_parent=refs,
+                             evidence=evidence, staging=staging, state=state, policy_sha256="a"*64)
+            writer.state.require_fd(original_fd)
+            (root / "state").rename(root / "retained-state")
+            (root / "state").mkdir(mode=0o700)
+            replacement_fd, replacement_pin = pin(root / "state")
+            self.assertNotEqual(writer.digest, replace(writer, state=replacement_pin).digest)
+            with self.assertRaisesRegex(ValueError, "DIRECTORY_MOVED"):
+                writer.require_state(replacement_fd)
 
     def test_layout_distinguishes_immutable_ancestors_and_exact_ref(self):
         s = self.storage

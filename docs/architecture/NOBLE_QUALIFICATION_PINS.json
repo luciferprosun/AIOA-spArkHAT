@@ -40,13 +40,15 @@
     "signer_ino": null,
     "owned_runtime_manifest_sha256": null,
     "supervisor_sha256": null,
-    "role_probe_sha256": "4bf6a3243b46521b1938e50460e4e79603c9c85b994c2f64a8b797977fe123d5",
+    "role_probe_sha256": "4975fbacbb71003e823008a9a7c7d5422f20b316673ac245169c88f89ea39283",
     "preflight_sha256": "c74d71e8264eccf8f9a242f181e39173647852fc4b52c1f7a573391037a8f860",
     "exact_ref": null,
     "repository_dev": null,
     "repository_ino": null,
     "ref_directory_dev": null,
-    "ref_directory_ino": null
+    "ref_directory_ino": null,
+    "staging_dev": null,
+    "staging_ino": null
   },
   "g04": {
     "unit": null,

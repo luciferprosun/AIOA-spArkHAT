@@ -54,11 +54,12 @@ def try_open(root, relative, flags, directory_pins=None):
         os.close(fd)
 
 
-def try_broker_link(root, relative, directory_pins):
+def try_broker_link(root, relative, directory_pins, *, staging_pin=None, reader_gid=None):
     """Measure the publication syscall, after successfully preparing its inode."""
     with ExitStack() as handles:
         directory = os.open(root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
         handles.callback(os.close, directory)
+        anchor = directory
         prefix = Path()
         for component in relative.parts[:-1]:
             prefix /= component
@@ -75,11 +76,25 @@ def try_broker_link(root, relative, directory_pins):
             pass
         else:
             raise ValueError("NATIVE_SIBLING_LINK_SENTINEL_EXISTS")
-        fd = os.open(".", os.O_TMPFILE | os.O_RDWR | os.O_CLOEXEC, 0o400, dir_fd=directory)
+        staging = directory
+        if staging_pin is not None:
+            staging = os.open("staging", os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=anchor)
+            handles.callback(os.close, staging)
+            info = os.fstat(staging)
+            require((info.st_dev, info.st_ino) == staging_pin
+                    and info.st_dev == os.fstat(directory).st_dev
+                    and info.st_uid == os.geteuid() and info.st_gid == reader_gid
+                    and stat.S_IMODE(info.st_mode) == 0o2700, "NATIVE_PROBE_STAGING")
+        fd = os.open(".", os.O_TMPFILE | os.O_RDWR | os.O_CLOEXEC,
+                     0o400 if staging_pin is None else 0o440, dir_fd=staging)
         handles.callback(os.close, fd)
         # No valid ref bytes are produced by this negative probe.
         os.fsync(fd)
-        require(os.fstat(fd).st_nlink == 0, "NATIVE_PROBE_NOT_UNNAMED")
+        info = os.fstat(fd)
+        require(info.st_nlink == 0, "NATIVE_PROBE_NOT_UNNAMED")
+        if staging_pin is not None:
+            require(info.st_gid == reader_gid and stat.S_IMODE(info.st_mode) == 0o440,
+                    "NATIVE_PROBE_STAGING_MODE")
         try:
             os.link(f"/proc/self/fd/{fd}", relative.name, dst_dir_fd=directory,
                     follow_symlinks=True)
@@ -127,7 +142,14 @@ def check_role(root, role, native):
     if role == "broker":
         sibling = probes["sibling_create"][0].relative_to(root)
         try:
-            observed = try_broker_link(root, sibling, pins)
+            staging_pin = None
+            reader_gid = native.get("reader_gid")
+            if reader_gid is not None:
+                staging_pin = (native.get("staging_dev"), native.get("staging_ino"))
+                require(all(type(pin) is int and pin > 0 for pin in staging_pin),
+                        "NATIVE_PROBE_STAGING_PIN")
+            observed = try_broker_link(root, sibling, pins, staging_pin=staging_pin,
+                                       reader_gid=reader_gid)
         except OSError as exc:
             observed = "ERROR_" + errno.errorcode.get(exc.errno, "UNKNOWN")
         rows["sibling_link"] = {"observed": observed, "expected": "DENIED"}

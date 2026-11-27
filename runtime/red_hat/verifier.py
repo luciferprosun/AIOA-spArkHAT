@@ -41,12 +41,12 @@ def _completion_payload(request, witness_bytes, stamp):
     }
 
 
-def persist_completion(directory, request, identity, witness_bytes, stamp):
+def persist_completion(directory, request, identity, witness_bytes, stamp, *, reader_gid=None):
     # The caller must invoke this only after persist_witness returns.
     payload = _completion_payload(request, witness_bytes, stamp)
     publish_record(directory, _completion_name(request), {
         "payload": payload, "signature": sign(identity, payload),
-    })
+    }, reader_gid=reader_gid)
 
 
 @dataclass(frozen=True, slots=True)
