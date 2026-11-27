@@ -12,6 +12,7 @@ import json
 import os
 import re
 import stat
+from contextlib import ExitStack
 from pathlib import Path
 
 from scripts.unification.noble_preflight import compare_manifest, host_gaps, observe, pinned_json, require
@@ -53,6 +54,43 @@ def try_open(root, relative, flags, directory_pins=None):
         os.close(fd)
 
 
+def try_broker_link(root, relative, directory_pins):
+    """Measure the publication syscall, after successfully preparing its inode."""
+    with ExitStack() as handles:
+        directory = os.open(root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        handles.callback(os.close, directory)
+        prefix = Path()
+        for component in relative.parts[:-1]:
+            prefix /= component
+            directory = os.open(component, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
+                                dir_fd=directory)
+            handles.callback(os.close, directory)
+            if prefix in directory_pins:
+                info = os.fstat(directory)
+                require((info.st_dev, info.st_ino) == directory_pins[prefix],
+                        "NATIVE_PINNED_DIRECTORY_REQUIRED")
+        try:
+            os.stat(relative.name, dir_fd=directory, follow_symlinks=False)
+        except FileNotFoundError:
+            pass
+        else:
+            raise ValueError("NATIVE_SIBLING_LINK_SENTINEL_EXISTS")
+        fd = os.open(".", os.O_TMPFILE | os.O_RDWR | os.O_CLOEXEC, 0o400, dir_fd=directory)
+        handles.callback(os.close, fd)
+        # No valid ref bytes are produced by this negative probe.
+        os.fsync(fd)
+        require(os.fstat(fd).st_nlink == 0, "NATIVE_PROBE_NOT_UNNAMED")
+        try:
+            os.link(f"/proc/self/fd/{fd}", relative.name, dst_dir_fd=directory,
+                    follow_symlinks=True)
+        except OSError as exc:
+            if exc.errno in (errno.EPERM, errno.EACCES):
+                return "DENIED"
+            raise
+        os.fsync(directory)
+        return "LINKED"
+
+
 def probe_paths(root, native, role):
     match = re.fullmatch(r'refs/heads/aioa/(nz11-([a-f0-9]{32}))', native['exact_ref'])
     require(match is not None, 'NATIVE_PLAN_REF_REQUIRED')
@@ -86,6 +124,15 @@ def check_role(root, role, native):
         Path('repo/refs/heads/aioa'): (native['ref_directory_dev'], native['ref_directory_ino']),
     }
     rows = {}
+    if role == "broker":
+        sibling = probes["sibling_create"][0].relative_to(root)
+        try:
+            observed = try_broker_link(root, sibling, pins)
+        except OSError as exc:
+            observed = "ERROR_" + errno.errorcode.get(exc.errno, "UNKNOWN")
+        rows["sibling_link"] = {"observed": observed, "expected": "DENIED"}
+        if observed != "DENIED":
+            return rows
     for name, (path, mode, expected) in probes.items():
         try:
             relative = path.relative_to(root)

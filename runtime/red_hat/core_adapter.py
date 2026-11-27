@@ -405,6 +405,23 @@ sys.stdout.write(json.dumps({"pid": os.getpid(), "facts": facts}, sort_keys=True
         except (OSError, subprocess.SubprocessError, ValueError, TypeError, KeyError):
             raise CoreAdapterError("INDEPENDENT_VERIFIER_FAILED") from None
 
+    def _open_readback_repository(self, root_fd, request, executor_uid):
+        from runtime.red_hat.fixture_repository import open_repository
+        return open_repository(root_fd, request, executor_uid)
+
+    def _open_readback_evidence(self, target, root_fd, stack):
+        from runtime.red_hat.fixture_repository import open_dir
+        directory = open_dir(root_fd, "evidence", stack)
+        self._check_readback_evidence(target, root_fd, directory)
+        return directory
+
+    @staticmethod
+    def _check_readback_evidence(target, root_fd, directory):
+        from runtime.red_hat.fixture_repository import require_named_directory
+        if target.storage is not None:
+            require_named_directory(root_fd, "evidence", directory)
+            target.storage.require_evidence(directory)
+
     def recover_disposable_fixture(self, principal, warrant, request, enrollment, *,
                                     root_fd, trusted_device_id, now, core_epoch,
                                     broker_epoch):
@@ -423,22 +440,16 @@ sys.stdout.write(json.dumps({"pid": os.getpid(), "facts": facts}, sort_keys=True
             # Keep the RH-03 physical/evidence recheck in the same Core
             # transaction as the intent settlement. This narrows the race; it
             # cannot atomically couple filesystem state to journal commit.
-            from runtime.red_hat.broker_protocol import read_record
-            from runtime.red_hat.fixture_repository import open_dir, open_repository
 
             with ExitStack() as stack:
                 target = stack.enter_context(
-                    open_repository(root_fd, request, enrollment.executor.uid))
+                    self._open_readback_repository(root_fd, request, enrollment.executor.uid))
                 self._check_fixture_target(target)
-                marker = read_record(target.repo, ".redhat-disposable",
-                                     enrollment.executor.uid)
-                _require(marker == b"AIOA_RED_HAT_FIXTURE_V1\n",
-                         "DISPOSABLE_REPOSITORY_REQUIRED")
-                evidence = open_dir(root_fd, "evidence", stack)
+                evidence = self._open_readback_evidence(target, root_fd, stack)
                 witness_id = request.witness_binding().witness_id
-                witness_bytes = read_record(evidence, witness_id,
+                witness_bytes = target.record(evidence, witness_id,
                                             enrollment.executor.uid, sync=True)
-                completion_bytes = read_record(
+                completion_bytes = target.record(
                     evidence, "completion-" + witness_id,
                     enrollment.executor.uid, sync=True)
                 current_stamp = target.observe(request)
@@ -450,6 +461,7 @@ sys.stdout.write(json.dumps({"pid": os.getpid(), "facts": facts}, sort_keys=True
                          == witness.completion_sha256,
                          "VERIFIED_READBACK_IDENTITY_CHANGED")
                 target.check(request)
+                self._check_readback_evidence(target, root_fd, evidence)
             current = self._read_binding(tx, warrant)
             same_start = replace(current, settled=witness.binding.settled) == witness.binding
             monotonic = not witness.binding.settled or current.settled
@@ -467,8 +479,7 @@ sys.stdout.write(json.dumps({"pid": os.getpid(), "facts": facts}, sort_keys=True
                                    root_fd, trusted_device_id, now, core_epoch,
                                    broker_epoch):
         """Return evidence only after fresh-process fixture verification."""
-        from runtime.red_hat.broker_protocol import digest, read_record
-        from runtime.red_hat.fixture_repository import open_dir, open_repository
+        from runtime.red_hat.broker_protocol import digest
         from runtime.red_hat.verifier import Verification
 
         binding = self.capture_start(principal, warrant)
@@ -481,10 +492,8 @@ sys.stdout.write(json.dumps({"pid": os.getpid(), "facts": facts}, sort_keys=True
         _require(type(root_fd) is int and root_fd >= 0, "FIXTURE_ROOT_REQUIRED")
         with ExitStack() as stack:
             target = stack.enter_context(
-                open_repository(root_fd, request, enrollment.executor.uid))
+                self._open_readback_repository(root_fd, request, enrollment.executor.uid))
             self._check_fixture_target(target)
-            marker = read_record(target.repo, ".redhat-disposable", enrollment.executor.uid)
-            _require(marker == b"AIOA_RED_HAT_FIXTURE_V1\n", "DISPOSABLE_REPOSITORY_REQUIRED")
             report, verifier_pid = self._verify_fresh_process(
                 root_fd, request, enrollment, now=now,
                 core_epoch=core_epoch, broker_epoch=broker_epoch)
@@ -492,10 +501,10 @@ sys.stdout.write(json.dumps({"pid": os.getpid(), "facts": facts}, sort_keys=True
                      and report.producer_effect_sync_completed and report.witness_bytes_verified
                      and report.witness_durable_at_readback and report.producer_witness_sync_attested
                      and report.settlement_supported, "WITNESS_NOT_SETTLEMENT_GRADE")
-            evidence = open_dir(root_fd, "evidence", stack)
+            evidence = self._open_readback_evidence(target, root_fd, stack)
             witness_id = request.witness_binding().witness_id
-            witness = read_record(evidence, witness_id, enrollment.executor.uid, sync=True)
-            completion = read_record(evidence, "completion-" + witness_id,
+            witness = target.record(evidence, witness_id, enrollment.executor.uid, sync=True)
+            completion = target.record(evidence, "completion-" + witness_id,
                                      enrollment.executor.uid, sync=True)
             stamp = target.observe(request)
             _require(type(report.published_inode) is tuple and len(report.published_inode) == 2
@@ -505,6 +514,7 @@ sys.stdout.write(json.dumps({"pid": os.getpid(), "facts": facts}, sort_keys=True
                      and hashlib.sha256(completion).hexdigest() == report.completion_sha256,
                      "VERIFIED_READBACK_IDENTITY_CHANGED")
             target.check(request)
+            self._check_readback_evidence(target, root_fd, evidence)
             readback_bytes = canonical_json_bytes({
                 "schema": "aioa.redhat.fixture-independent-readback.v1",
                 "request_digest": digest(request.to_wire()),
@@ -561,22 +571,16 @@ sys.stdout.write(json.dumps({"pid": os.getpid(), "facts": facts}, sort_keys=True
             # transaction that records settlement. This narrows the gap
             # between independent verification and Core commit; it does not
             # make filesystem state atomic with the Core journal.
-            from runtime.red_hat.broker_protocol import read_record
-            from runtime.red_hat.fixture_repository import open_dir, open_repository
 
             with ExitStack() as stack:
                 target = stack.enter_context(
-                    open_repository(root_fd, request, enrollment.executor.uid))
+                    self._open_readback_repository(root_fd, request, enrollment.executor.uid))
                 self._check_fixture_target(target)
-                marker = read_record(target.repo, ".redhat-disposable",
-                                     enrollment.executor.uid)
-                _require(marker == b"AIOA_RED_HAT_FIXTURE_V1\n",
-                         "DISPOSABLE_REPOSITORY_REQUIRED")
-                evidence = open_dir(root_fd, "evidence", stack)
+                evidence = self._open_readback_evidence(target, root_fd, stack)
                 witness_id = request.witness_binding().witness_id
-                witness_bytes = read_record(evidence, witness_id,
+                witness_bytes = target.record(evidence, witness_id,
                                             enrollment.executor.uid, sync=True)
-                completion_bytes = read_record(
+                completion_bytes = target.record(
                     evidence, "completion-" + witness_id,
                     enrollment.executor.uid, sync=True)
                 current_stamp = target.observe(request)
@@ -588,6 +592,7 @@ sys.stdout.write(json.dumps({"pid": os.getpid(), "facts": facts}, sort_keys=True
                          == witness.completion_sha256,
                          "VERIFIED_READBACK_IDENTITY_CHANGED")
                 target.check(request)
+                self._check_readback_evidence(target, root_fd, evidence)
             view = coding_tasks._apply_verified_native_witness_in_transaction(
                 tx, task_id, warrant, witness)
             _, current = self.journal._load(tx, warrant)

@@ -13,7 +13,7 @@ from contextlib import contextmanager
 from dataclasses import asdict, dataclass, fields
 
 from runtime.memory_patch.contracts.serialization import canonical_json_bytes
-from runtime.mission.sandbox_linux import LinuxSandboxBroker
+from runtime.mission.sandbox_linux import LinuxSandboxBroker, mountid
 from runtime.red_hat.enrollment import ExecutorEnrollment
 from runtime.red_hat.witness import WitnessBinding
 
@@ -223,16 +223,18 @@ def file_identity(info):
 
 
 def _stamp(info):
-    return (*file_identity(info), info.st_mode, info.st_uid, info.st_nlink,
+    return (*file_identity(info), info.st_mode, info.st_uid, info.st_gid, info.st_nlink,
             info.st_size, info.st_mtime_ns, info.st_ctime_ns)
 
 
-def read_record(directory, name, uid, *, maximum=MAX_FRAME, sync=False):
+def read_record(directory, name, uid, *, maximum=MAX_FRAME, sync=False, reader_gid=None):
     fd = os.open(name, os.O_RDONLY | _OPEN_FILE, dir_fd=directory)
     try:
         initial = os.fstat(fd)
         require(stat.S_ISREG(initial.st_mode) and initial.st_uid == uid
-                and stat.S_IMODE(initial.st_mode) == 0o400
+                and (stat.S_IMODE(initial.st_mode) == 0o400 if reader_gid is None
+                     else initial.st_gid == reader_gid and stat.S_IMODE(initial.st_mode) == 0o440
+                     and mountid(fd) == mountid(directory))
                 and initial.st_nlink == 1 and 0 < initial.st_size <= maximum,
                 "BROKER_RECORD_STORAGE")
         raw = os.pread(fd, maximum + 1, 0)

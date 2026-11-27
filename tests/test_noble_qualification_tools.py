@@ -1,12 +1,14 @@
 """Offline operator-harness contracts. No host qualification or Chrome launch."""
 import base64
 import copy
+import errno
 import json
 import os
 import tempfile
 import unittest
 from dataclasses import replace
 from pathlib import Path
+from unittest.mock import patch
 
 from cryptography.hazmat.primitives.asymmetric import ec
 from lab_archaioa import test_warrant
@@ -60,6 +62,35 @@ class QualificationContracts(unittest.TestCase):
         self.assertEqual(len({rows[k][0] for k in ('sibling_write', 'sibling_create', 'exact_create')}), 3)
         with self.assertRaisesRegex(ValueError, 'NATIVE_PLAN_REF_REQUIRED'):
             role.probe_paths(root, {'exact_ref': 'refs/heads/qualification'}, 'broker')
+
+    def test_link_probe_requires_unnamed_inode_before_crediting_denial(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            relative = Path("parent/sibling")
+            parent = root / relative.parent
+            parent.mkdir()
+            info = parent.stat()
+            pins = {relative.parent: (info.st_dev, info.st_ino)}
+            with patch.object(role.os, "link", side_effect=PermissionError(errno.EACCES, "policy")) as link:
+                self.assertEqual("DENIED", role.try_broker_link(root, relative, pins))
+                self.assertEqual("sibling", link.call_args.args[1])
+                self.assertTrue(link.call_args.kwargs["follow_symlinks"])
+            self.assertFalse((root / relative).exists())
+            self.assertEqual("LINKED", role.try_broker_link(root, relative, pins))
+            self.assertEqual(0, (root / relative).stat().st_size)
+            with self.assertRaisesRegex(ValueError, "SENTINEL_EXISTS"):
+                role.try_broker_link(root, relative, pins)
+
+    def test_link_probe_rejects_denial_before_preparation(self):
+        original = os.open
+        def open_without_temporary(path, flags, *args, **kwargs):
+            if flags & os.O_TMPFILE == os.O_TMPFILE:
+                raise PermissionError(errno.EACCES, "inode preparation denied")
+            return original(path, flags, *args, **kwargs)
+
+        with tempfile.TemporaryDirectory() as tmp, patch.object(role.os, "open", open_without_temporary):
+            with self.assertRaises(PermissionError):
+                role.try_broker_link(Path(tmp), Path("sibling"), {})
 
     def export(self):
         signer = Identity(ec.generate_private_key(ec.SECP256R1()))

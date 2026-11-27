@@ -747,13 +747,19 @@ def git_storage_identity(root):
     Identity contains only stable storage directories, not mutable object bytes.
     This preflight is paired with kernel confinement at use; it is not a lock.
     """
+    def owner_policy(name, info):
+        if not name:
+            return info.st_uid == os.getuid() and not info.st_mode & 0o7077
+        return info.st_uid == os.getuid() and not info.st_mode & 0o7022
+
+    return _scan_git_storage(root, owner_policy)
+
+
+def _scan_git_storage(root, owner_policy):
+    """Shared topology scanner. Its caller supplies the complete ownership policy."""
     origin = os.fstat(root)
-    require(
-        stat.S_ISDIR(origin.st_mode)
-        and origin.st_uid == os.getuid()
-        and not origin.st_mode & 0o7077,
-        "GIT_REPOSITORY_OWNER_DENIED",
-    )
+    require(stat.S_ISDIR(origin.st_mode) and owner_policy("", origin),
+            "GIT_REPOSITORY_OWNER_DENIED")
     origin_mount = mountid(root)
     identities = {}
     count = 0
@@ -787,13 +793,10 @@ def git_storage_identity(root):
                 )
                 try:
                     info = os.fstat(fd)
-                    # Git may retain group bits from the operator's umask.
-                    # The mandatory private 0700 root excludes group traversal.
                     require(
-                        info.st_uid == os.getuid()
+                        owner_policy(name, info)
                         and info.st_dev == origin.st_dev
-                        and mountid(fd) == origin_mount
-                        and not info.st_mode & 0o7022,
+                        and mountid(fd) == origin_mount,
                         "GIT_STORAGE_OWNER_OR_MOUNT",
                     )
                     if stat.S_ISDIR(info.st_mode):
@@ -822,6 +825,8 @@ def git_storage_identity(root):
                             info.st_dev,
                             info.st_ino,
                             info.st_mode,
+                            info.st_uid,
+                            info.st_gid,
                             info.st_nlink,
                             info.st_size,
                             info.st_mtime_ns,
@@ -831,6 +836,8 @@ def git_storage_identity(root):
                             named.st_dev,
                             named.st_ino,
                             named.st_mode,
+                            named.st_uid,
+                            named.st_gid,
                             named.st_nlink,
                             named.st_size,
                             named.st_mtime_ns,

@@ -13,7 +13,7 @@ from cryptography.hazmat.primitives.asymmetric import ec
 from runtime.memory_patch.contracts.serialization import canonical_json_bytes
 from runtime.mobile_gateway.wire import Identity, public_key, unbase64
 from runtime.red_hat.broker_protocol import (
-    FRAME_TIMEOUT, _no_fault, authenticate, digest, read_frame, require,
+    FRAME_TIMEOUT, Peer, _no_fault, authenticate, digest, read_frame, require,
     require_admission, send_frame,
 )
 from runtime.red_hat.broker_service import _serve_fixture
@@ -97,11 +97,17 @@ def _serve_authenticated_fixture(listener, *, root_fd, expected, enrollment, ide
 
 
 def serve_verifier_fixture_once(listener, *, root_fd, binding, enrollment, identity, core_peer,
-                                core_spki, now, enabled=False):
+                                core_spki, now, enabled=False, storage=None):
     """Independently verify physical evidence and sign a fresh challenge response."""
     require(enabled is True, "RH06_DISABLED")
     require(type(binding) is NativeExecutionBindingV1 and type(identity) is Identity
             and len({identity.spki, core_spki, enrollment.executor.spki}) == 3, "RH06_ROLE_KEYS")
+    if storage is not None:
+        from runtime.red_hat.role_storage import RoleStorage
+        require(type(storage) is RoleStorage and type(core_peer) is Peer
+                and (core_peer.uid, core_peer.gid) == (storage.core.uid, storage.core.gid),
+                "NATIVE_STORAGE_CORE_PEER")
+        storage.require_role("verifier")
     binding_digest = digest(binding.to_wire())
     with listener.accept()[0] as peer:
         authenticate(peer, core_peer)
@@ -112,7 +118,8 @@ def serve_verifier_fixture_once(listener, *, root_fd, binding, enrollment, ident
         request = binding.request
         report = verify(root_fd, request, enrollment, now=now, core_epoch=request.core_epoch,
                         broker_epoch=request.broker_epoch,
-                        check_context=lambda target: require_physical_context(target, binding))
+                        check_context=lambda target: require_physical_context(target, binding),
+                        storage=storage)
         send_frame(peer, _seal(identity, {
             "schema": READBACK, "challenge": query["challenge"], "binding_digest": binding_digest,
             "facts": asdict(report), "observed_at": now,
@@ -155,9 +162,16 @@ def _read_authenticated_report(endpoint, peer, spki, binding, *, now):
 class _AuthenticatedReadbackAdapter(CoreIntentAdapter):
     """Per-call adapter reusing RH-04 physical rechecks and Core settlement."""
 
-    def __init__(self, journal, binding, endpoint, peer, spki):
+    def __init__(self, journal, binding, endpoint, peer, spki, storage=None):
         super().__init__(journal)
         self.binding, self.endpoint, self.peer, self.spki = binding, endpoint, peer, spki
+        self.storage = storage
+
+    def _open_readback_repository(self, root_fd, request, executor_uid):
+        if self.storage is None:
+            return super()._open_readback_repository(root_fd, request, executor_uid)
+        from runtime.red_hat.fixture_repository import open_repository
+        return open_repository(root_fd, request, executor_uid, storage=self.storage, role="core")
 
     def _check_fixture_target(self, target):
         require_physical_context(target, self.binding)
@@ -173,11 +187,17 @@ class AuthenticatedFixtureRecoveryPort(DisposableNativeTaskWitnessPort):
     """Trusted test composition supplies resolver, endpoint and public role keys."""
 
     def __init__(self, adapter, coding_tasks, resolver, *, endpoint, verifier_peer,
-                 verifier_spki, core_spki, enabled=False):
+                 verifier_spki, core_spki, enabled=False, storage=None):
         require(enabled is True, "RH06_DISABLED")
         super().__init__(adapter, coding_tasks, resolver)
         self.endpoint, self.peer, self.spki = endpoint, verifier_peer, verifier_spki
         self.core_spki = core_spki
+        if storage is not None:
+            from runtime.red_hat.role_storage import RoleStorage
+            require(type(storage) is RoleStorage and type(verifier_peer) is Peer
+                    and (verifier_peer.uid, verifier_peer.gid) == (storage.verifier.uid, storage.verifier.gid),
+                    "NATIVE_STORAGE_VERIFIER_PEER")
+        self.storage = storage
 
     def recover_native_task(self, principal, task_id):
         material = self.resolver(task_id)
@@ -191,6 +211,6 @@ class AuthenticatedFixtureRecoveryPort(DisposableNativeTaskWitnessPort):
         )
         require(binding.request == material["request"], "RH06_RECOVERY_START")
         target = _AuthenticatedReadbackAdapter(self.adapter.journal, binding, self.endpoint,
-                                               self.peer, self.spki)
+                                               self.peer, self.spki, self.storage)
         return target.recover_disposable_native_task_fixture(
             principal, self.coding_tasks, task_id, **material)

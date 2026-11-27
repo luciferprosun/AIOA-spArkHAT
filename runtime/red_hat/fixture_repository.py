@@ -66,6 +66,7 @@ class FixtureRepository:
     ref_parent: int
     topology: tuple
     uid: int
+    storage: object = None
 
     def check(self, request, *, publishing=False):
         for directory, parent, name in (
@@ -76,27 +77,37 @@ class FixtureRepository:
         name = native_parent_name(request.exact_ref)
         if name is not None:
             require_named_directory(self.heads, name, self.ref_parent)
-            info = os.fstat(self.ref_parent)
-            require(info.st_uid == self.uid and not info.st_mode & 0o7022,
-                    "BROKER_REF_PARENT_UNSAFE")
+            if self.storage is None:
+                info = os.fstat(self.ref_parent)
+                require(info.st_uid == self.uid and not info.st_mode & 0o7022,
+                        "BROKER_REF_PARENT_UNSAFE")
         require(file_identity(os.fstat(self.repo)) == request.repository
                 and file_identity(os.fstat(self.ref_parent)) == request.ref_directory,
                 "BROKER_REPOSITORY_BINDING")
-        require(read_record(self.repo, ".redhat-disposable", self.uid) == _MARKER,
+        marker_uid = self.uid if self.storage is None else 0
+        require(self.record(self.repo, ".redhat-disposable", marker_uid) == _MARKER,
                 "BROKER_DISPOSABLE_MARKER")
         self.check_config()
         absent(self.repo, "packed-refs")
-        require(git_storage_identity(self.repo) == self.topology, "BROKER_REPOSITORY_MOVED")
+        observed = (git_storage_identity(self.repo) if self.storage is None
+                    else self.storage.topology(self.repo, self.ref_parent))
+        require(observed == self.topology, "BROKER_REPOSITORY_MOVED")
         if publishing:
+            require(self.storage is None, "NATIVE_STORAGE_READ_ONLY")
             absent(self.repo, "packed-refs.lock")
             absent(self.ref_parent, self.leaf(request) + ".lock")
+
+    def record(self, directory, name, uid, **kwargs):
+        gid = None if self.storage is None else self.storage.reader_gid
+        return read_record(directory, name, uid, reader_gid=gid, **kwargs)
 
     def check_config(self):
         fd = os.open("config", os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC,
                      dir_fd=self.repo)
         try:
             info = os.fstat(fd)
-            require(stat.S_ISREG(info.st_mode) and info.st_uid == self.uid
+            owner = self.uid if self.storage is None else 0
+            require(stat.S_ISREG(info.st_mode) and info.st_uid == owner
                     and info.st_nlink == 1 and 0 < info.st_size <= 4096, "BROKER_REPO_CONFIG")
             raw = os.pread(fd, 4097, 0)
             require(len(raw) == info.st_size, "BROKER_REPO_CONFIG")
@@ -143,7 +154,7 @@ class FixtureRepository:
     def observe(self, request):
         leaf = self.leaf(request)
         before = os.stat(leaf, dir_fd=self.ref_parent, follow_symlinks=False)
-        raw = read_record(self.ref_parent, leaf, self.uid, maximum=41)
+        raw = self.record(self.ref_parent, leaf, self.uid, maximum=41)
         after = os.stat(leaf, dir_fd=self.ref_parent, follow_symlinks=False)
         require(file_identity(before) == file_identity(after)
                 and before.st_ctime_ns == after.st_ctime_ns
@@ -152,14 +163,28 @@ class FixtureRepository:
 
 
 @contextmanager
-def open_repository(root, request, uid):
-    require_private(root, uid)
+def open_repository(root, request, uid, *, storage=None, role=None):
+    if storage is None:
+        require(role is None, "NATIVE_STORAGE_ROLE")
+        require_private(root, uid)
+    else:
+        from runtime.red_hat.role_storage import RoleStorage
+
+        require(role in ("core", "verifier") and type(storage) is RoleStorage and uid == storage.broker.uid
+                and request.exact_ref == storage.exact_ref
+                and request.repository == (storage.repository.device, storage.repository.inode)
+                and request.ref_directory == (storage.ref_parent.device, storage.ref_parent.inode),
+                "NATIVE_STORAGE_ORIGINAL_TARGET")
+        storage.require_role(role)
+        storage.require_anchor(root)
     with ExitStack() as stack:
         repo = open_dir(root, "repo", stack)
         refs = open_dir(repo, "refs", stack)
         heads = open_dir(refs, "heads", stack)
         name = native_parent_name(request.exact_ref)
         parent = heads if name is None else open_dir(heads, name, stack)
-        target = FixtureRepository(root, repo, refs, heads, parent, git_storage_identity(repo), uid)
+        topology = (git_storage_identity(repo) if storage is None
+                    else storage.topology(repo, parent))
+        target = FixtureRepository(root, repo, refs, heads, parent, topology, uid, storage)
         target.check(request)
         yield target
