@@ -11016,8 +11016,8 @@
     },
     "runtime/mission/intent.py": {
       "path": "runtime/mission/intent.py",
-      "git_blob": "c4d021ac87afdef13f9fbf44dfabba0a8cc17ca3",
-      "sha256": "e2df7227b7f3718b77643937d4c70dfaa562f4ea83fdee44ac05bb03b65914dc",
+      "git_blob": "36ec93ffe701973fd82118dfcac311144c34d1ab",
+      "sha256": "e4863cfecccf3a7e848a375dcb94a43a50128b256512fff9a3bb3d5258e8bad9",
       "definitions": [
         {
           "name": "CoreIntentJournal",
@@ -11028,84 +11028,96 @@
           "line": 38
         },
         {
-          "name": "_key",
-          "line": 45
-        },
-        {
-          "name": "_run",
+          "name": "recovery_task_id",
           "line": 49
         },
         {
+          "name": "_key",
+          "line": 52
+        },
+        {
+          "name": "_run",
+          "line": 56
+        },
+        {
           "name": "_load",
-          "line": 53
+          "line": 60
         },
         {
           "name": "_save",
-          "line": 96
+          "line": 103
         },
         {
           "name": "_public",
-          "line": 112
+          "line": 119
         },
         {
           "name": "start",
-          "line": 116
+          "line": 123
         },
         {
           "name": "start_in_transaction",
-          "line": 120
+          "line": 127
         },
         {
           "name": "start_local_zero",
-          "line": 131
+          "line": 138
         },
         {
           "name": "start_remote_zero",
-          "line": 140
+          "line": 147
         },
         {
           "name": "start_paid_worker",
-          "line": 149
+          "line": 156
         },
         {
           "name": "_start_in_transaction",
-          "line": 154
+          "line": 161
         },
         {
           "name": "inspect",
-          "line": 277
+          "line": 285
         },
         {
           "name": "reconcile",
-          "line": 284
+          "line": 292
         },
         {
           "name": "apply_resolution_in_transaction",
-          "line": 305
+          "line": 313
+        },
+        {
+          "name": "_apply_cold_native_resolution",
+          "line": 318
+        },
+        {
+          "name": "_apply_resolution_in_transaction",
+          "line": 326
         },
         {
           "name": "delivery",
-          "line": 325
+          "line": 345
         },
         {
           "name": "acknowledge_delivery",
-          "line": 335
+          "line": 355
         },
         {
           "name": "read",
-          "line": 278
+          "line": 286
         },
         {
           "name": "read",
-          "line": 293
+          "line": 301
         },
         {
           "name": "read",
-          "line": 327
+          "line": 347
         },
         {
           "name": "change",
-          "line": 336
+          "line": 357
         }
       ],
       "symbolic_callees": [
@@ -11141,6 +11153,7 @@
         "require",
         "resolution.outcome.to_dict",
         "resolution.to_dict",
+        "self._apply_resolution_in_transaction",
         "self._key",
         "self._load",
         "self._public",
@@ -11169,10 +11182,11 @@
         "tx.scan",
         "type",
         "verify_worker_operation",
-        "warrant.digest"
+        "warrant.digest",
+        "warrant.digest().removeprefix"
       ],
-      "call_site_count": 206,
-      "call_sites_sha256": "8d519fad759027721d967e95477a90ea4b5353d71ffecbbfe5b3ddcbde10cf80"
+      "call_site_count": 218,
+      "call_sites_sha256": "aae3be1429f472779177b0cf73cb6152cd4fc1c0f2e873e879f821a7b7ad7ca4"
     },
     "runtime/mcp_bridge/github_remote.py": {
       "path": "runtime/mcp_bridge/github_remote.py",
@@ -12764,8 +12778,8 @@
     },
     "runtime/mission/coding_tasks.py": {
       "path": "runtime/mission/coding_tasks.py",
-      "git_blob": "b7f3deca4ec8f927193a35d416ce26a120f32dae",
-      "sha256": "8c6a96ef31a433bff8cec051820e5a0c18c92024e4c561478201b915b84c0490",
+      "git_blob": "54e3fba948e1bc02baa1da4b6ef74cf429058cc5",
+      "sha256": "2b5fae87801845d5ff6711dca26e1167ccd9789dc572e4ded1cdafe396249d7b",
       "definitions": [
         {
           "name": "CodingRun",
@@ -12805,19 +12819,19 @@
         },
         {
           "name": "coding_cli_request",
-          "line": 1850
+          "line": 1862
         },
         {
           "name": "run_coding_cli",
-          "line": 1855
+          "line": 1867
         },
         {
           "name": "coding_http_request",
-          "line": 1884
+          "line": 1896
         },
         {
           "name": "run_coding_http_cli",
-          "line": 1976
+          "line": 1988
         },
         {
           "name": "__post_init__",
@@ -12829,243 +12843,243 @@
         },
         {
           "name": "_require_native_binding",
-          "line": 296
+          "line": 298
         },
         {
           "name": "_require_principal",
-          "line": 307
+          "line": 309
         },
         {
           "name": "_authority",
-          "line": 325
+          "line": 327
         },
         {
           "name": "_run",
-          "line": 346
+          "line": 348
         },
         {
           "name": "_retire_finished",
-          "line": 377
+          "line": 379
         },
         {
           "name": "lifecycle_snapshot",
-          "line": 390
+          "line": 392
         },
         {
           "name": "drain",
-          "line": 407
+          "line": 409
         },
         {
           "name": "_require_coding_backend_host",
-          "line": 433
+          "line": 435
         },
         {
           "name": "bind_coding_backend",
-          "line": 459
+          "line": 461
         },
         {
           "name": "read_coding_backend",
-          "line": 533
+          "line": 535
         },
         {
           "name": "_require_legacy_coding_task",
-          "line": 545
+          "line": 547
         },
         {
           "name": "runtime_view",
-          "line": 554
+          "line": 556
         },
         {
           "name": "_key",
-          "line": 581
+          "line": 583
         },
         {
           "name": "_load",
-          "line": 585
+          "line": 587
         },
         {
           "name": "_signed",
-          "line": 589
+          "line": 591
         },
         {
           "name": "_save",
-          "line": 601
+          "line": 603
         },
         {
           "name": "_view",
-          "line": 633
+          "line": 635
         },
         {
           "name": "_transition",
-          "line": 648
+          "line": 650
         },
         {
           "name": "_append_transition",
-          "line": 697
+          "line": 699
         },
         {
           "name": "_complete_history",
-          "line": 725
+          "line": 727
         },
         {
           "name": "_unresolved_intents",
-          "line": 733
+          "line": 735
         },
         {
           "name": "_start",
-          "line": 742
+          "line": 744
         },
         {
           "name": "_record_loop",
-          "line": 796
+          "line": 798
         },
         {
           "name": "_execute",
-          "line": 834
+          "line": 836
         },
         {
           "name": "_execute_body",
-          "line": 845
+          "line": 847
         },
         {
           "name": "_active_cancel",
-          "line": 975
+          "line": 977
         },
         {
           "name": "_active_cancel_under_gate",
-          "line": 980
+          "line": 982
         },
         {
           "name": "wait",
-          "line": 1001
+          "line": 1003
         },
         {
           "name": "close",
-          "line": 1014
+          "line": 1016
         },
         {
           "name": "_effect",
-          "line": 1017
+          "line": 1019
         },
         {
           "name": "_native_git_reconciliation_parent",
-          "line": 1038
+          "line": 1040
         },
         {
           "name": "_native_git_reconciliation_retirement",
-          "line": 1110
+          "line": 1112
         },
         {
           "name": "_native_git_reconcile",
-          "line": 1126
+          "line": 1128
         },
         {
           "name": "_apply_verified_native_witness_in_transaction",
-          "line": 1237
+          "line": 1239
         },
         {
           "name": "_native_git_effect_entry",
-          "line": 1350
+          "line": 1353
         },
         {
           "name": "_native_git_effect_check",
-          "line": 1389
+          "line": 1392
         },
         {
           "name": "_native_git_start_ack",
-          "line": 1403
+          "line": 1406
         },
         {
           "name": "_native_git_record_cas_ack",
-          "line": 1413
+          "line": 1416
         },
         {
           "name": "_native_git_require_cas_ack",
-          "line": 1427
+          "line": 1430
         },
         {
           "name": "_native_git_begin_settlement",
-          "line": 1433
+          "line": 1436
         },
         {
           "name": "_native_git_effect_request",
-          "line": 1456
+          "line": 1459
         },
         {
           "name": "_controller_request",
-          "line": 1531
+          "line": 1534
         },
         {
           "name": "request",
-          "line": 1652
+          "line": 1655
         },
         {
           "name": "_request",
-          "line": 1659
+          "line": 1662
         },
         {
           "name": "attach_review",
-          "line": 1794
+          "line": 1805
         },
         {
           "name": "_attach_review_locked",
-          "line": 1804
+          "line": 1816
         },
         {
           "name": "read",
-          "line": 538
+          "line": 540
         },
         {
           "name": "change",
-          "line": 661
+          "line": 663
         },
         {
           "name": "save",
-          "line": 813
+          "line": 815
         },
         {
           "name": "read",
-          "line": 1149
+          "line": 1151
         },
         {
           "name": "cancel",
-          "line": 1782
+          "line": 1793
         },
         {
           "name": "inspect",
-          "line": 1810
+          "line": 1822
         },
         {
           "name": "save",
-          "line": 1838
+          "line": 1850
         },
         {
           "name": "pure",
-          "line": 363
+          "line": 365
         },
         {
           "name": "publish",
-          "line": 489
+          "line": 491
         },
         {
           "name": "read",
-          "line": 558
+          "line": 560
         },
         {
           "name": "create",
-          "line": 1702
+          "line": 1713
         },
         {
           "name": "read",
-          "line": 1721
+          "line": 1732
         },
         {
           "name": "require_ready",
-          "line": 752
+          "line": 754
         },
         {
           "name": "observe",
-          "line": 874
+          "line": 876
         }
       ],
       "symbolic_callees": [
@@ -13260,6 +13274,7 @@
         "self.coding_backend_registry.resolve",
         "self.drain",
         "self.effect_factory",
+        "self.journal._apply_cold_native_resolution",
         "self.journal._load",
         "self.journal._run",
         "self.journal.apply_resolution_in_transaction",
@@ -13299,8 +13314,8 @@
         "verify",
         "warrant.digest"
       ],
-      "call_site_count": 815,
-      "call_sites_sha256": "e4230cea968ca73505df47d26a23226a9db3176169ed55c9b9892c3f6fcf3811"
+      "call_site_count": 822,
+      "call_sites_sha256": "40ae218218d7bf32988d953d15da87e022d0b3611b24a7b94cbda901d432a0d2"
     },
     "tests/test_hybrid_patchset.py": {
       "path": "tests/test_hybrid_patchset.py",
@@ -16328,8 +16343,8 @@
     },
     "runtime/meta_hackathon/runtime_adapter.py": {
       "path": "runtime/meta_hackathon/runtime_adapter.py",
-      "git_blob": "7b4fec89b631134b91b31964ab8d309626ec10c0",
-      "sha256": "1a421014ec219eee8039bc1c0243919ee11cb7bf0b4c1ed26b8a4dba4f553edb",
+      "git_blob": "3f5e7714429d428d1e44e0e0d4edbdf65c30a19b",
+      "sha256": "1cecbfbe55478703aefc524b3fbe0536088069185ae8ab21f7a917acc9f2a3ee",
       "definitions": [
         {
           "name": "__getattr__",
@@ -16373,87 +16388,99 @@
         },
         {
           "name": "_initialize",
-          "line": 461
+          "line": 462
+        },
+        {
+          "name": "_initialize_cold",
+          "line": 565
+        },
+        {
+          "name": "cold_task",
+          "line": 594
         },
         {
           "name": "readiness",
-          "line": 557
+          "line": 608
         },
         {
           "name": "operator_principal",
-          "line": 561
+          "line": 612
         },
         {
           "name": "_chat_authority",
-          "line": 576
+          "line": 629
         },
         {
           "name": "_chat_credit_authority",
-          "line": 596
+          "line": 649
         },
         {
           "name": "qualify_tls",
-          "line": 618
-        },
-        {
-          "name": "_require_qualified_operator",
-          "line": 665
-        },
-        {
-          "name": "public_settings",
           "line": 671
         },
         {
+          "name": "_require_qualified_operator",
+          "line": 718
+        },
+        {
+          "name": "public_settings",
+          "line": 724
+        },
+        {
           "name": "model_calls",
-          "line": 677
+          "line": 730
         },
         {
           "name": "operator_auth_status",
-          "line": 683
+          "line": 736
         },
         {
           "name": "renew_operator",
-          "line": 698
+          "line": 751
         },
         {
           "name": "_renew_foundation",
-          "line": 770
+          "line": 823
         },
         {
           "name": "operator_request",
-          "line": 846
+          "line": 899
         },
         {
           "name": "_operator_request",
-          "line": 854
+          "line": 907
         },
         {
           "name": "_close_native",
-          "line": 924
+          "line": 977
         },
         {
           "name": "close",
-          "line": 978
+          "line": 1031
         },
         {
           "name": "fixture",
           "line": 262
         },
         {
+          "name": "run_verified_settlement",
+          "line": 589
+        },
+        {
           "name": "inspect",
-          "line": 911
+          "line": 964
         },
         {
           "name": "record",
-          "line": 820
+          "line": 873
         },
         {
           "name": "revoke",
-          "line": 903
+          "line": 956
         },
         {
           "name": "record",
-          "line": 745
+          "line": 798
         }
       ],
       "symbolic_callees": [
@@ -16464,7 +16491,11 @@
         "CandidatePatch",
         "ChromeReadAdapter",
         "CoreAdmission",
+        "CoreCodingTasks",
         "CoreDualGovernor",
+        "CoreIntentAdapter",
+        "CoreIntentJournal",
+        "CorePatchCapsules",
         "CoreWarrantLedger",
         "DurableFactory",
         "FixtureReadDriver",
@@ -16501,6 +16532,7 @@
         "base64.b64encode().decode",
         "bind_fixture_runner",
         "bind_native_coding",
+        "bootstrap.bind",
         "budget_dispatch",
         "callable",
         "canonical_sha256",
@@ -16513,6 +16545,7 @@
         "chat_read_context",
         "client.getresponse",
         "client.request",
+        "component.close",
         "context.wrap_socket",
         "create_runtime",
         "data.pop",
@@ -16582,8 +16615,10 @@
         "secrets.token_hex",
         "self._close_native",
         "self._host_composition.coding_model_ids",
+        "self._host_composition.observe",
         "self._host_composition.to_dict",
         "self._initialize",
+        "self._initialize_cold",
         "self._meta_key_path.lstat",
         "self._native_close_steps.get",
         "self._operator_renew_attempts.add",
@@ -16596,6 +16631,7 @@
         "self.chat_governor.start_epoch",
         "self.close",
         "self.coding_tasks.close",
+        "self.coding_tasks.request",
         "self.core.close",
         "self.core.local_operator",
         "self.foundation.controller.dispatch",
@@ -16639,6 +16675,7 @@
         "socket.create_connection",
         "sorted",
         "source_probe",
+        "spec.to_dict",
         "ssl.create_default_context",
         "startup_observation",
         "stat.S_ISDIR",
@@ -16677,8 +16714,8 @@
         "worker.is_alive",
         "x509.load_der_x509_certificate"
       ],
-      "call_site_count": 537,
-      "call_sites_sha256": "ee9571a7a5833d676309cd0846092c57feadbdf8878ab2889d53b3538a970fc0"
+      "call_site_count": 567,
+      "call_sites_sha256": "42289d9d12dc3d1d4b6d53e44f12ad900b335bb6063919da5cd3e7014a6d0dbf"
     },
     "runtime/mission/dependency_lock.py": {
       "path": "runtime/mission/dependency_lock.py",
@@ -19497,8 +19534,8 @@
     },
     "runtime/meta_hackathon/native_authority.py": {
       "path": "runtime/meta_hackathon/native_authority.py",
-      "git_blob": "d87e6cba412ffa0688858e7fd8afa104e398ceca",
-      "sha256": "bdfc0f582bd078d149af9e0ea3aea86bf4bdf4d307f755e6165e0a1ef101c0ca",
+      "git_blob": "46b674a68e6e576dd7f7067cc6e8ab3070abe71f",
+      "sha256": "506c11af9de3795cc20cd2a70d0d051b4c6cb142f8b899693d7071909593a0c2",
       "definitions": [
         {
           "name": "deny",
@@ -19586,11 +19623,11 @@
         },
         {
           "name": "_Pending",
-          "line": 1246
+          "line": 1243
         },
         {
           "name": "NativeCapacityOwnerController",
-          "line": 1253
+          "line": 1250
         },
         {
           "name": "from_dict",
@@ -19806,43 +19843,43 @@
         },
         {
           "name": "finish_owner",
-          "line": 1185
+          "line": 1182
         },
         {
           "name": "require_bindings",
-          "line": 1192
+          "line": 1189
         },
         {
           "name": "__init__",
-          "line": 1254
+          "line": 1251
         },
         {
           "name": "capture_host",
-          "line": 1258
+          "line": 1255
         },
         {
           "name": "require_host",
-          "line": 1291
+          "line": 1288
         },
         {
           "name": "require_core_view",
-          "line": 1322
+          "line": 1319
         },
         {
           "name": "_readback",
-          "line": 1326
+          "line": 1323
         },
         {
           "name": "_call",
-          "line": 1339
+          "line": 1336
         },
         {
           "name": "dispatch",
-          "line": 1349
+          "line": 1346
         },
         {
           "name": "_initialize",
-          "line": 1446
+          "line": 1443
         },
         {
           "name": "identity",
@@ -19858,11 +19895,11 @@
         },
         {
           "name": "read",
-          "line": 1330
+          "line": 1327
         },
         {
           "name": "approve",
-          "line": 1414
+          "line": 1411
         }
       ],
       "symbolic_callees": [
@@ -20020,7 +20057,6 @@
         "os.read",
         "os.stat",
         "other.is_relative_to",
-        "owner._cold_bootstrap.bind",
         "owner._native_coding.jobs.values",
         "owner._require_qualified_operator",
         "owner.core.local_operator",
@@ -20136,8 +20172,8 @@
         "warrants.get",
         "worker.is_alive"
       ],
-      "call_site_count": 839,
-      "call_sites_sha256": "5acf09e6d43d47cf9e05954e56c5ad48ea7db054f6c9e4fa9235bc30de79a0fd"
+      "call_site_count": 838,
+      "call_sites_sha256": "b72611a6d69c733c209e513bb2a34f315e408ba91f345bb06a2843ed721ec374"
     },
     "runtime/mission/execution_capacity.py": {
       "path": "runtime/mission/execution_capacity.py",
