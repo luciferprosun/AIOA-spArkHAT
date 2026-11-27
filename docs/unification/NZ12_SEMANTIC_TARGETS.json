@@ -8342,8 +8342,8 @@
     },
     "runtime/mission/sandbox_linux.py": {
       "path": "runtime/mission/sandbox_linux.py",
-      "git_blob": "d08b7047949610b6d5503aab52906c4f924a56ac",
-      "sha256": "4d4074a9db5af76ff3045fa7719b5bde93d5d680339501b6b66d49d4d5e0c208",
+      "git_blob": "71f8670613cfae14126b416b4d0820c99163ec7b",
+      "sha256": "3a1157ea878efacb0488674cb52b406e80131f13b461acc891ecb821b743d0f8",
       "definitions": [
         {
           "name": "now",
@@ -8410,44 +8410,48 @@
           "line": 744
         },
         {
+          "name": "_scan_git_storage",
+          "line": 758
+        },
+        {
           "name": "_parse_descriptor_limits",
-          "line": 858
+          "line": 865
         },
         {
           "name": "_observe_descriptor_limits",
-          "line": 874
+          "line": 881
         },
         {
           "name": "_systemd_properties",
-          "line": 889
+          "line": 896
         },
         {
           "name": "_cache_identity",
-          "line": 916
+          "line": 923
         },
         {
           "name": "_directory_identity",
-          "line": 921
+          "line": 928
         },
         {
           "name": "_private_descriptor",
-          "line": 927
+          "line": 934
         },
         {
           "name": "_private_path",
-          "line": 981
+          "line": 988
         },
         {
           "name": "_private_bytes",
-          "line": 986
+          "line": 993
         },
         {
           "name": "_config_identity",
-          "line": 1000
+          "line": 1007
         },
         {
           "name": "LinuxSandboxBroker",
-          "line": 1008
+          "line": 1015
         },
         {
           "name": "profile",
@@ -8466,108 +8470,112 @@
           "line": 432
         },
         {
+          "name": "owner_policy",
+          "line": 750
+        },
+        {
           "name": "walk",
-          "line": 762
+          "line": 768
         },
         {
           "name": "check_ancestry",
-          "line": 934
+          "line": 941
         },
         {
           "name": "__init__",
-          "line": 1009
+          "line": 1016
         },
         {
           "name": "config",
-          "line": 1034
+          "line": 1041
         },
         {
           "name": "binding_policy",
-          "line": 1039
+          "line": 1046
         },
         {
           "name": "bind_route",
-          "line": 1042
+          "line": 1049
         },
         {
           "name": "require_route_binding",
-          "line": 1053
+          "line": 1060
         },
         {
           "name": "_source_check",
-          "line": 1066
+          "line": 1073
         },
         {
           "name": "_validate_config",
-          "line": 1074
+          "line": 1081
         },
         {
           "name": "_derive_binding",
-          "line": 1140
+          "line": 1147
         },
         {
           "name": "_pin_specs",
-          "line": 1179
+          "line": 1186
         },
         {
           "name": "capture_config",
-          "line": 1187
+          "line": 1194
         },
         {
           "name": "require_capture",
-          "line": 1212
+          "line": 1219
         },
         {
           "name": "revalidate_capture",
-          "line": 1218
+          "line": 1225
         },
         {
           "name": "publish_binding",
-          "line": 1234
+          "line": 1241
         },
         {
           "name": "binding_for_operation",
-          "line": 1254
+          "line": 1261
         },
         {
           "name": "restore_capture",
-          "line": 1269
+          "line": 1276
         },
         {
           "name": "close",
-          "line": 1297
+          "line": 1304
         },
         {
           "name": "__call__",
-          "line": 1302
+          "line": 1309
         },
         {
           "name": "_git_directory",
-          "line": 1306
+          "line": 1313
         },
         {
           "name": "_git_publish_new",
-          "line": 1347
+          "line": 1354
         },
         {
           "name": "_git_existing_object",
-          "line": 1426
+          "line": 1433
         },
         {
           "name": "_git_plumbing",
-          "line": 1473
+          "line": 1480
         },
         {
           "name": "dispatch",
-          "line": 2102
+          "line": 2109
         },
         {
           "name": "_run",
-          "line": 2206
+          "line": 2213
         },
         {
           "name": "verify",
-          "line": 2681
+          "line": 2688
         },
         {
           "name": "listener_call",
@@ -8575,55 +8583,55 @@
         },
         {
           "name": "check_leaf",
-          "line": 969
+          "line": 976
         },
         {
           "name": "hold",
-          "line": 1577
+          "line": 1584
         },
         {
           "name": "sealed",
-          "line": 1582
+          "line": 1589
         },
         {
           "name": "read_local",
-          "line": 1647
+          "line": 1654
         },
         {
           "name": "lock_stamp",
-          "line": 1720
+          "line": 1727
         },
         {
           "name": "check_lock",
-          "line": 1732
+          "line": 1739
         },
         {
           "name": "check_lock_parent",
-          "line": 1742
+          "line": 1749
         },
         {
           "name": "lock_new",
-          "line": 1767
+          "line": 1774
         },
         {
           "name": "check_ref_transaction",
-          "line": 1894
+          "line": 1901
         },
         {
           "name": "bound_release",
-          "line": 2113
+          "line": 2120
         },
         {
           "name": "guarded_cleanup",
-          "line": 2587
+          "line": 2594
         },
         {
           "name": "release",
-          "line": 1791
+          "line": 1798
         },
         {
           "name": "reap_owned",
-          "line": 2616
+          "line": 2623
         }
       ],
       "symbolic_callees": [
@@ -8670,6 +8678,7 @@
         "_private_bytes",
         "_private_descriptor",
         "_private_path",
+        "_scan_git_storage",
         "_systemd_properties",
         "all",
         "ancestry.append",
@@ -8857,6 +8866,7 @@
         "os.unlink",
         "os.write",
         "out[data].decode",
+        "owner_policy",
         "p.get",
         "p[data].items",
         "parsed.to_dict",
@@ -8996,8 +9006,8 @@
         "zlib.compress",
         "zlib.decompressobj"
       ],
-      "call_site_count": 1376,
-      "call_sites_sha256": "1fa7dd7952f739eaa32591a62019cdf98df7109c72fcab18eab138c14ad2b34a"
+      "call_site_count": 1379,
+      "call_sites_sha256": "de21545aeac23f9f9fd06a5d36d889e223acb3138d0c124d767819f2e9d2a649"
     },
     "runtime/nonzero_cloudops/adapters/portable.py": {
       "path": "runtime/nonzero_cloudops/adapters/portable.py",
