@@ -48,7 +48,7 @@ def _open_seal(envelope, spki, schema):
 
 
 def authorize_fixture(adapter, principal, warrant, enrollment, identity, *,
-                      trusted_device_id, now, broker_epoch, enabled=False):
+                      trusted_device_id, now, broker_epoch, object_batch=None, enabled=False):
     """Export a fixture grant after Core confirms durable START and current authority."""
     require(enabled is True, "RH06_DISABLED")
     require(type(identity) is Identity and identity.spki != enrollment.executor.spki,
@@ -56,7 +56,10 @@ def authorize_fixture(adapter, principal, warrant, enrollment, identity, *,
     binding = capture_binding(adapter, principal, warrant, enrollment,
                               trusted_device_id=trusted_device_id, now=now,
                               broker_epoch=broker_epoch, for_grant_export=True)
-    return binding, _seal(identity, {"schema": AUTHORIZATION, "binding": binding.to_wire()})
+    payload = {"schema": AUTHORIZATION, "binding": binding.to_wire()}
+    if object_batch is not None:
+        payload["object_batch"] = object_batch
+    return binding, _seal(identity, payload)
 
 
 def serve_authenticated_fixture_once(listener, *, root_fd, expected, enrollment, identity,

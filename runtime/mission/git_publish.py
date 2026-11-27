@@ -1299,6 +1299,10 @@ class CoreRemoteGitRoute:
         if prepared_plan is not None:
             self._require_native_local_source(prepared_plan, prepared_digest)
         core_require(marked, "GIT_UNKNOWN_NO_RETRY")
+        if controller is not None and port is not None:
+            release()
+            port.dispatch(self, controller, principal, warrant, release)
+            raise AssertionError("NATIVE_QUALIFICATION_REQUIRES_VERIFIED_RECOVERY")
         # Only fixed object plumbing and create-ref CAS; no checkout, hooks,
         # filters, shell, configurable argv, network, main update or force.
         for kind, data, expected in self.plan.objects:
@@ -1316,9 +1320,6 @@ class CoreRemoteGitRoute:
             )
             core_require(actual == expected, "GIT_OBJECT_READBACK")
         release()
-        if controller is not None and port is not None:
-            port.dispatch(self, controller, principal, warrant, release)
-            raise AssertionError("NATIVE_QUALIFICATION_REQUIRES_VERIFIED_RECOVERY")
         response = _bounded_git(
             self.target_repository,
             ("update-ref", self.plan.ref, self.plan.commit_sha, "0" * 40),

@@ -1423,7 +1423,7 @@ class LinuxSandboxBroker:
             os.close(fd)
 
     @staticmethod
-    def _git_existing_object(parent, name, expected):
+    def _git_existing_object(parent, name, expected, *, sync=False):
         import zlib
 
         fd = os.open(
@@ -1450,6 +1450,8 @@ class LinuxSandboxBroker:
                 and not decoder.unused_data,
                 "GIT_EXISTING_OBJECT_MISMATCH",
             )
+            if sync:
+                os.fsync(fd)
             named = os.stat(name, dir_fd=parent, follow_symlinks=False)
             after = os.fstat(fd)
             identity = lambda row: (

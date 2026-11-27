@@ -1,5 +1,6 @@
 """Explicit disposable Native composition. No production factory installs this port."""
 
+import hashlib
 import os
 import secrets
 import select
@@ -16,6 +17,7 @@ from runtime.red_hat.broker_protocol import FRAME_TIMEOUT, Peer, authenticate, r
 from runtime.red_hat.core_adapter import CoreIntentAdapter
 from runtime.red_hat.enrollment import ExecutorEnrollment
 from runtime.red_hat.execution_binding import digest_string, physical_context
+from runtime.red_hat.object_ingress import MAX_BATCH_BYTES, decode_objects, encode_objects, import_objects
 from runtime.red_hat.sequenced_boundary import handle_fixture_release
 from runtime.red_hat.sequencer import SequencedCoreGate
 
@@ -78,9 +80,11 @@ class NativeQualificationPort:
         controller._native_git_effect_check(route, warrant, Capability.COMMIT)
         adapter = CoreIntentAdapter(route.journal)
         seq = self.gate._client
+        objects = encode_objects(route.plan.objects)
+        batch = {"bytes": len(objects), "sha256": hashlib.sha256(objects).hexdigest()}
         binding, grant = authorize_fixture(
             adapter, principal, warrant, self.enrollment, route.identity,
-            trusted_device_id=self.device_id, now=int(time.time()), broker_epoch=seq.epoch, enabled=True)
+            trusted_device_id=self.device_id, now=int(time.time()), broker_epoch=seq.epoch, object_batch=batch, enabled=True)
         req = binding.request
         require((req.nonce, req.issued_at, req.expires_at, req.exact_ref, req.new_oid)
                 == (self.nonce, self.issued_at, self.expires_at, route.plan.ref, route.plan.commit_sha)
@@ -90,7 +94,7 @@ class NativeQualificationPort:
             peer.settimeout(FRAME_TIMEOUT)
             peer.connect(self.endpoint)
             authenticate(peer, self.broker_peer)
-            send_frame(peer, grant)
+            send_frame(peer, grant, body=objects)
             ready, _, _ = select.select([peer, self.release_listener], [], [], FRAME_TIMEOUT)
             if self.release_listener in ready:
                 handle_fixture_release(
@@ -123,24 +127,36 @@ def serve_prepared_native_fixture(listener, *, root_fd, exact_ref, device_id, se
             and core_spki == release.core_spki and core_spki != identity.spki,
             "RH07_FIXTURE_ONLY_NO_QUALIFIED_CONFINEMENT")
     binding = None
+    objects = None
 
     def receive(peer):
-        nonlocal binding
+        nonlocal binding, objects
         authenticate(peer, core_peer)
-        signed = _open_seal(read_frame(peer), core_spki, AUTHORIZATION)
-        require(set(signed) == {"schema", "binding"}, "RH06_AUTHORIZATION")
-        candidate = NativeExecutionBindingV1.from_wire(signed["binding"])
-        req = candidate.request
-        require(req.device_id == device_id and req.exact_ref == exact_ref,
-                "NATIVE_QUALIFICATION_TARGET")
-        require_admission(req, enrollment, now=int(time.time()), core_epoch=core_epoch,
-                          broker_epoch=broker_epoch)
-        binding = candidate
-        return req
+
+        def validate_and_read(frame, read_exact):
+            signed = _open_seal(frame, core_spki, AUTHORIZATION)
+            require(set(signed) == {"schema", "binding", "object_batch"}, "RH06_AUTHORIZATION")
+            candidate = NativeExecutionBindingV1.from_wire(signed["binding"])
+            req = candidate.request
+            require(req.device_id == device_id and req.exact_ref == exact_ref,
+                    "NATIVE_QUALIFICATION_TARGET")
+            require_admission(req, enrollment, now=int(time.time()), core_epoch=core_epoch,
+                              broker_epoch=broker_epoch)
+            batch = signed["object_batch"]
+            require(type(batch) is dict and set(batch) == {"bytes", "sha256"}
+                    and type(batch["bytes"]) is int and 0 < batch["bytes"] <= MAX_BATCH_BYTES
+                    and digest_string(batch["sha256"]), "NATIVE_OBJECT_BATCH")
+            raw = read_exact(batch["bytes"])
+            require(hashlib.sha256(raw).hexdigest() == batch["sha256"], "NATIVE_OBJECT_BATCH")
+            return candidate, decode_objects(raw, expected_commit=req.new_oid)
+
+        binding, objects = read_frame(peer, receive_body=validate_and_read)
+        return binding.request
 
     return _serve_fixture(
         listener, root_fd=root_fd, receive=receive, enrollment=enrollment, identity=identity,
         core_epoch=core_epoch, broker_epoch=broker_epoch, clock=lambda: int(time.time()),
         fault=lambda _: None, check_context=lambda target: require_physical_context(target, binding),
+        prepare=lambda target: import_objects(target.repo, target.uid, objects),
         sequence=lambda: sequence.hold(binding=digest(binding.to_wire())),
         revalidate=lambda token: release.require_release(binding, token, broker_epoch))

@@ -1,6 +1,7 @@
 """Exercise the original synthetic START and the prestarted, fixed Native plan broker."""
 
 import unittest
+import zlib
 from dataclasses import replace
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
@@ -18,11 +19,20 @@ class PreparedChannelTests(unittest.TestCase):
         self.addCleanup(h.doCleanups)
         h.setUp()
         f = h.fixture
-        broker, endpoint, _, _, gate = h.setup_triplet(broker_mode="prepared-native")
         request = f.binding.request
+        storage = f.root / "repo" / "objects"
+        commit_path = storage / request.new_oid[:2] / request.new_oid[2:]
+        commit = zlib.decompress(commit_path.read_bytes()).split(b"\0", 1)[1]
+        tree_oid = commit.splitlines()[0].split()[1].decode("ascii")
+        tree = zlib.decompress((storage / tree_oid[:2] / tree_oid[2:]).read_bytes()).split(b"\0", 1)[1]
+        self.assertEqual(b"", tree)
+        commit_path.unlink()
+        broker, endpoint, _, _, gate = h.setup_triplet(broker_mode="prepared-native")
         route = SimpleNamespace(runner=f.fx.runner, journal=f.fx.journal, identity=f.core,
                                 plan=SimpleNamespace(ref=request.exact_ref, commit_sha=request.new_oid,
-                                                     digest=f.binding.plan_digest),
+                                                     digest=f.binding.plan_digest,
+                                                     objects=(("tree", tree, tree_oid),
+                                                              ("commit", commit, request.new_oid))),
                                 capsule=f.case["capsule"])
         release = Mock()
         before = f.revision()
@@ -43,6 +53,7 @@ class PreparedChannelTests(unittest.TestCase):
             release.assert_called_once_with()
         self.assertEqual(0, broker.wait(timeout=5))
         h.assert_link_count(1)
+        self.assertTrue(commit_path.exists())
         f.assert_held()
         self.assertFalse(f.dispatch())
         first, second = f.recover(), f.recover()
