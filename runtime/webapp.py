@@ -1457,7 +1457,7 @@ def _parser() -> argparse.ArgumentParser:
         'Start aioa-core-bounded-v1 with a pinned JSON manifest and fresh private --state-dir. '
         'Loopback GET fixtures only. See /api/bounded/status.'))
     mode.add_argument('--mobile-native',action='store_true',help='System-authenticated private mobile status only; no model, task execution or fixture')
-    mode.add_argument('--mobile-operator',choices=('settings','enroll','status','revoke','console','desktop','auth-status','renew','budget-review','budget-approve','chat-review','chat-approve','chat-session-start','chat-session-status','chat-session-stop'),help='Private native operator socket; code stays local')
+    mode.add_argument('--mobile-operator',choices=('settings','enroll','status','pairing-status','revoke','console','desktop','auth-status','renew','budget-review','budget-approve','chat-review','chat-approve','chat-session-start','chat-session-status','chat-session-stop'),help='Private native operator socket; code stays local')
     mode.add_argument('--meta-live-one-shot', action='store_true', help='Inspect the explicit one-shot LIVE gate; never implies owner GO')
     parser.add_argument('--state-dir', help='Private state directory for the explicit Meta offline profile')
     parser.add_argument('--mobile-origin')
@@ -1553,6 +1553,7 @@ def main() -> None:
                 print(json.dumps(mobile_operator_client(args.state_dir,{'op':args.mobile_operator.replace('-','_')})),flush=True)
             return
         value={'op':args.mobile_operator}
+        if args.mobile_operator=='pairing-status':value={'op':'pairing_list'}
         if args.mobile_operator in ('enroll','revoke'):value['device_spki']=args.device_spki
         if args.mobile_operator=='enroll':value['request_id']=secrets.token_hex(16)
         try:
@@ -1567,6 +1568,13 @@ def main() -> None:
             except (ValueError, RepairBoundaryError):raise SystemExit('CONSOLE_OPEN_FAILED_NO_AUTOMATIC_RETRY') from None
             print('AIOA_DEVICE_CONSOLE_OPENED',flush=True)
             return
+        if args.mobile_operator == 'pairing-status' and result['ok'] is True:
+            devices = result['data']['devices']
+            revoked = sum(device['revoked'] for device in devices)
+            result = {'ok': True, 'data': {
+                'approved_devices': len(devices) - revoked, 'revoked_devices': revoked,
+                'active_sessions': sum(device['active_sessions'] for device in devices),
+            }}
         print(json.dumps(result,ensure_ascii=False),flush=True)
         return
     if args.mobile_native:
