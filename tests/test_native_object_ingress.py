@@ -25,6 +25,7 @@ class NativeObjectIngressTests(unittest.TestCase):
     def test_import_is_create_only_and_readable_by_git(self):
         with tempfile.TemporaryDirectory() as directory:
             subprocess.run(["/usr/bin/git", "init", "--bare", "-q", directory], check=True)
+            (Path(directory) / "objects").chmod(0o700)
             repo = os.open(directory, os.O_RDONLY | os.O_DIRECTORY)
             self.addCleanup(os.close, repo)
             objects = decode_objects(encode_objects(self.objects), expected_commit=self.commit[2])
@@ -43,7 +44,8 @@ class NativeObjectIngressTests(unittest.TestCase):
             repo = os.open(directory, os.O_RDONLY | os.O_DIRECTORY)
             self.addCleanup(os.close, repo)
             path = Path(directory, "objects", self.blob[2][:2], self.blob[2][2:])
-            path.parent.mkdir(parents=True)
+            path.parent.mkdir(parents=True, mode=0o700)
+            path.parent.parent.chmod(0o700)
             path.write_bytes(b"unexpected")
             objects = decode_objects(encode_objects(self.objects), expected_commit=self.commit[2])
             with self.assertRaisesRegex(ValueError, "NATIVE_OBJECT_EXISTING"):

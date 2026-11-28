@@ -104,7 +104,6 @@ def run_child(root, mode, *args):
         socket_name, stage = args
         identity = Identity(serialization.load_pem_private_key(
             (root / "fixture-key").read_bytes(), password=None))
-        ref_info = (root / "repo/refs/heads").stat()
         evidence_info = (root / "evidence").stat()
         real_link, real_sync = os.link, os.fsync
 
@@ -118,7 +117,7 @@ def run_child(root, mode, *args):
         def link(source, name, *, dst_dir_fd, follow_symlinks):
             inode = os.fstat(dst_dir_fd)
             if (inode.st_dev, inode.st_ino, name) == (
-                ref_info.st_dev, ref_info.st_ino, req.exact_ref.rsplit("/", 1)[1]
+                *req.ref_directory, req.exact_ref.rsplit("/", 1)[1]
             ):
                 with (root / "dispatches").open("a") as counter:
                     counter.write(f"{os.getpid()}\n")
@@ -305,7 +304,7 @@ class CasBrokerTests(unittest.TestCase):
                 self.assert_recovery_denied()
 
     def test_crash_after_cas_or_before_witness_file_sync(self):
-        for stage in ("effect_synced", "before_witness_file_fsync"):
+        for stage in ("after_ref_link", "effect_synced", "before_witness_file_fsync"):
             with self.subTest(stage=stage):
                 self.workspace()
                 self.run_broker(stage, crash=True)
@@ -317,6 +316,17 @@ class CasBrokerTests(unittest.TestCase):
                 self.assertFalse(observed["producer_effect_sync_completed"])
                 self.assertFalse(observed["witness_bytes_verified"])
                 self.assertFalse(observed["settlement_supported"])
+
+    def test_crash_before_completion_does_not_adopt_visible_witness(self):
+        self.workspace()
+        self.run_broker("before_completion", crash=True)
+        observed = self.recover()
+        self.assertTrue(observed["witness_bytes_verified"])
+        self.assertTrue(observed["witness_durable_at_readback"])
+        self.assertFalse(observed["producer_witness_sync_attested"])
+        self.assertFalse(observed["settlement_supported"])
+        self.assertFalse(self.run_broker()["ack"])
+        self.assertEqual(len(self.dispatches()), 1)
 
     def test_surviving_signed_witness_cannot_attest_original_directory_sync(self):
         self.workspace()

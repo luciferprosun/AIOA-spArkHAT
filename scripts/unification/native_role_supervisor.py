@@ -41,13 +41,16 @@ from pathlib import Path
 libc = ctypes.CDLL(None)
 if libc.prctl(4, 0, 0, 0, 0) != 0 or libc.prctl(3, 0, 0, 0, 0) != 0:
     raise SystemExit('ROLE_DUMPABLE')
-checkout, module, uid, gid, label, group, fd, *args = sys.argv[1:]
+checkout, module, uid, gid, label, group, fd, reader_gid, *args = sys.argv[1:]
 uid, gid = int(uid), int(gid)
-if os.getresuid() != (uid,)*3 or os.getresgid() != (gid,)*3 or os.getgroups():
+expected_groups = set() if reader_gid == "-" else {int(reader_gid)}
+if os.getresuid() != (uid,)*3 or os.getresgid() != (gid,)*3 or set(os.getgroups()) != expected_groups:
     raise SystemExit('ROLE_IDENTITY')
 s = dict(line.split(':', 1) for line in Path('/proc/self/status').read_text().splitlines())
 if s['NoNewPrivs'].strip() != '1' or any(int(s[f],16) for f in ('CapEff','CapPrm','CapInh','CapAmb')):
     raise SystemExit('ROLE_PRIVILEGES')
+if expected_groups and int(s['CapBnd'], 16):
+    raise SystemExit('ROLE_BOUNDING_SET')
 if Path('/proc/self/attr/current').read_text().strip() != label or Path('/proc/self/cgroup').read_text().strip() != group:
     raise SystemExit('ROLE_DOMAIN')
 if fd != '-':
@@ -135,6 +138,16 @@ def distinct_ids(mapping):
             and len(set(mapping.values())) == len(ROLES), 'DISTINCT_NONROOT_ROLES')
 
 
+def role_groups(native):
+    """An optional dedicated reader group for the shared storage probe."""
+    reader_gid = native.get("reader_gid")
+    if reader_gid is None:
+        return ()
+    require(type(reader_gid) is int and 0 < reader_gid < 2**32 - 1
+            and reader_gid not in native["gids"].values(), "ROLE_READER_GROUP")
+    return (reader_gid,)
+
+
 def role_config(manifest, role):
     require(role in ROLES and manifest['schema'] == 'aioa.noble-operator-pins.v1', 'ROLE_MANIFEST')
     native, host = manifest['native'], manifest['host']
@@ -142,6 +155,7 @@ def role_config(manifest, role):
             'SOURCE_OR_SESSION_PIN')
     distinct_ids(native['uids'])
     distinct_ids(native['gids'])
+    role_groups(native)
     domains = native['domains']
     require(set(domains) == set(ROLES), 'ROLE_DOMAINS')
     for value in domains.values():
@@ -185,6 +199,21 @@ def mark(session, role, kind='probe'):
         os.fsync(directory)
     finally:
         os.close(directory)
+
+
+def drop_role_bounding_set():
+    """Restrict this one-shot supervisor and its child before the UID transition."""
+    last = int(Path("/proc/sys/kernel/cap_last_cap").read_text())
+    require(0 <= last <= 63, "ROLE_CAPABILITY_RANGE")
+    libc = ctypes.CDLL(None)
+    for capability in range(last + 1):
+        present = libc.prctl(23, capability, 0, 0, 0)  # PR_CAPBSET_READ
+        require(present in (0, 1), "ROLE_BOUNDING_READ")
+        if present:
+            require(libc.prctl(24, capability, 0, 0, 0) == 0, "ROLE_BOUNDING_DROP")
+    # Dropping the bounding set leaves the supervisor's current effective
+    # capabilities available for setgroups/setgid/setuid. They do not survive
+    # the nonroot child transition, which is checked again in the bootstrap.
 
 
 def no_new_privileges():
@@ -231,6 +260,7 @@ def run(role, digest):
     session = SESSIONS/native['session']
     trusted(session, directory=True)
     uid, gid = native['uids'][role], native['gids'][role]
+    groups = role_groups(native)
     env = {'PATH':'/usr/bin:/bin', 'HOME':'/nonexistent', 'LANG':'C',
            'XDG_RUNTIME_DIR':f'/run/user/{uid}', 'GIT_CONFIG_NOSYSTEM':'1',
            'GIT_CONFIG_GLOBAL':'/dev/null', 'GIT_CONFIG_COUNT':'3', 'GIT_CONFIG_KEY_0':'safe.directory',
@@ -247,12 +277,15 @@ def run(role, digest):
             stack.callback(os.close, fd)
             descriptors = (fd,)
             args += ['--signer-fd', str(fd)]
+        if groups:
+            drop_role_bounding_set()
         mark(session, role)
         argv = [str(PYTHON), '-IBS', '-c', _BOOTSTRAP, str(checkout), PROBE_MODULE, str(uid), str(gid),
-                domain['apparmor'], domain['cgroup'], str(descriptors[0]) if descriptors else '-', *args]
+                domain['apparmor'], domain['cgroup'], str(descriptors[0]) if descriptors else '-',
+                str(groups[0]) if groups else '-', *args]
         # Output goes to the external operator unit's evidence stream.
-        with subprocess.Popen(argv, cwd=checkout, env=env, user=uid, group=gid, extra_groups=(),
-                              umask=0o077, stdin=subprocess.DEVNULL, pass_fds=descriptors,
+        with subprocess.Popen(argv, cwd=checkout, env=env, user=uid, group=gid, extra_groups=groups,
+                              umask=0o027 if groups else 0o077, stdin=subprocess.DEVNULL, pass_fds=descriptors,
                               close_fds=True, start_new_session=True, preexec_fn=no_new_privileges) as child:
             try:
                 return child.wait(timeout=60)

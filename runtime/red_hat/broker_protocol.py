@@ -9,11 +9,12 @@ import socket
 import stat
 import struct
 import time
+from array import array
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass, fields
 
 from runtime.memory_patch.contracts.serialization import canonical_json_bytes
-from runtime.mission.sandbox_linux import LinuxSandboxBroker
+from runtime.mission.sandbox_linux import LinuxSandboxBroker, mountid
 from runtime.red_hat.enrollment import ExecutorEnrollment
 from runtime.red_hat.witness import WitnessBinding
 
@@ -162,17 +163,33 @@ def decode_record(raw):
         raise ProtocolError("BROKER_FRAME_CANONICAL") from None
 
 
-def send_frame(stream, payload, *, body=b""):
+def send_frame(stream, payload, *, body=b"", finish=True):
     raw = canonical_json_bytes(payload)
     require(0 < len(raw) <= MAX_FRAME, "BROKER_FRAME_SIZE")
     stream.settimeout(FRAME_TIMEOUT)
     stream.sendall(struct.pack("!I", len(raw)) + raw)
     if body:
         stream.sendall(body)
-    stream.shutdown(socket.SHUT_WR)
+    if finish:
+        stream.shutdown(socket.SHUT_WR)
 
 
-def read_frame(stream, *, receive_body=None):
+def recv_data(stream, size):
+    """Receive payload bytes and dispose of any descriptors before rejecting the message."""
+    fd_size = array("i").itemsize
+    data, ancillary, flags, _ = stream.recvmsg(
+        size, socket.CMSG_SPACE(16 * fd_size), socket.MSG_CMSG_CLOEXEC)
+    for level, kind, payload in ancillary:
+        if (level, kind) == (socket.SOL_SOCKET, socket.SCM_RIGHTS):
+            descriptors = array("i")
+            descriptors.frombytes(payload[:len(payload) - len(payload) % fd_size])
+            for fd in descriptors:
+                os.close(fd)
+    require(not ancillary and not flags & socket.MSG_CTRUNC, "BROKER_FRAME_ANCILLARY")
+    return data
+
+
+def read_frame(stream, *, receive_body=None, finished=True):
     deadline = time.monotonic() + FRAME_TIMEOUT
 
     def read(size):
@@ -180,7 +197,7 @@ def read_frame(stream, *, receive_body=None):
         require(remaining > 0, "BROKER_FRAME_TIMEOUT")
         stream.settimeout(remaining)
         try:
-            return stream.recv(size)
+            return recv_data(stream, size)
         except TimeoutError:
             raise ProtocolError("BROKER_FRAME_TIMEOUT") from None
 
@@ -196,7 +213,8 @@ def read_frame(stream, *, receive_body=None):
     require(0 < size <= MAX_FRAME, "BROKER_FRAME_SIZE")
     frame = decode_record(exact(size))
     result = frame if receive_body is None else receive_body(frame, exact)
-    require(not read(1), "BROKER_FRAME_TRAILING")
+    if finished:
+        require(not read(1), "BROKER_FRAME_TRAILING")
     return result
 
 
@@ -223,19 +241,23 @@ def file_identity(info):
 
 
 def _stamp(info):
-    return (*file_identity(info), info.st_mode, info.st_uid, info.st_nlink,
+    return (*file_identity(info), info.st_mode, info.st_uid, info.st_gid, info.st_nlink,
             info.st_size, info.st_mtime_ns, info.st_ctime_ns)
 
 
-def read_record(directory, name, uid, *, maximum=MAX_FRAME, sync=False):
+def read_record(directory, name, uid, *, maximum=MAX_FRAME, sync=False, reader_gid=None, inspect=None):
     fd = os.open(name, os.O_RDONLY | _OPEN_FILE, dir_fd=directory)
     try:
         initial = os.fstat(fd)
         require(stat.S_ISREG(initial.st_mode) and initial.st_uid == uid
-                and stat.S_IMODE(initial.st_mode) == 0o400
+                and (stat.S_IMODE(initial.st_mode) == 0o400 if reader_gid is None
+                     else initial.st_gid == reader_gid and stat.S_IMODE(initial.st_mode) == 0o440
+                     and mountid(fd) == mountid(directory))
                 and initial.st_nlink == 1 and 0 < initial.st_size <= maximum,
                 "BROKER_RECORD_STORAGE")
         raw = os.pread(fd, maximum + 1, 0)
+        if inspect is not None:
+            inspect(directory, name, fd, raw)
         if sync:
             os.fsync(fd)
             os.fsync(directory)
@@ -248,9 +270,9 @@ def read_record(directory, name, uid, *, maximum=MAX_FRAME, sync=False):
         os.close(fd)
 
 
-def publish_record(directory, name, value):
+def publish_record(directory, name, value, *, reader_gid=None):
     require(LinuxSandboxBroker._git_publish_new(
-        directory, name, canonical_json_bytes(value), cancel=None
+        directory, name, canonical_json_bytes(value), cancel=None, reader_gid=reader_gid
     ), "BROKER_RECORD_EXISTS")
 
 

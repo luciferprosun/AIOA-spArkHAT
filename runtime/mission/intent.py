@@ -35,12 +35,19 @@ INTENT_KINDS = (KIND, LOCAL_ZERO_KIND, REMOTE_ZERO_KIND, WORKER_KIND)
 
 
 class CoreIntentJournal:
-    def __init__(self, ledger, governor, *, verifier=None):
+    def __init__(self, ledger, governor, *, verifier=None, recovery_task_id=None):
         require(type(ledger) is CoreWarrantLedger and type(governor) is CoreDualGovernor
                 and ledger.core is governor.core and ledger.runner is governor.runner
                 and ledger.scope == governor.policy.scope
                 and (verifier is None or callable(verifier)), 'INVALID_INTENT_BINDINGS')
+        require(recovery_task_id is None or (type(recovery_task_id) is str
+                and 0 < len(recovery_task_id) <= 96 and verifier is None), 'INVALID_INTENT_BINDINGS')
         self.ledger, self.governor, self.verifier = ledger, governor, verifier
+        self._recovery_task_id = recovery_task_id
+
+    @property
+    def recovery_task_id(self):
+        return self._recovery_task_id
 
     def _key(self, warrant):
         require(type(warrant) is EffectWarrant, 'INVALID_INTENT_WARRANT')
@@ -153,6 +160,7 @@ class CoreIntentJournal:
 
     def _start_in_transaction(self, tx, warrant, operation, reservation, *, local_zero, remote_zero=False,
                               worker=False):
+        require(self._recovery_task_id is None, 'NATIVE_RECOVERY_START_DENIED')
         require(type(local_zero) is bool and type(remote_zero) is bool and not (local_zero and remote_zero),'INVALID_INTENT_VARIANT')
         zero=local_zero or remote_zero
         schema=REMOTE_ZERO_KIND if remote_zero else LOCAL_ZERO_KIND if local_zero else KIND
@@ -304,6 +312,18 @@ class CoreIntentJournal:
 
     def apply_resolution_in_transaction(self, tx, warrant, epoch, resolution):
         """Apply independently verified truth inside the caller's existing tx."""
+        require(self._recovery_task_id is None, 'NATIVE_RECOVERY_RESOLUTION_DENIED')
+        return self._apply_resolution_in_transaction(tx, warrant, epoch, resolution)
+
+    def _apply_cold_native_resolution(self, tx, warrant, witness):
+        from runtime.red_hat.core_adapter import VerifiedNativeWitness
+
+        require(self._recovery_task_id == warrant.task_id and type(witness) is VerifiedNativeWitness
+                and witness.request.warrant_digest == warrant.digest().removeprefix('sha256:'),
+                'NATIVE_RECOVERY_RESOLUTION_DENIED')
+        return self._apply_resolution_in_transaction(tx, warrant, witness.binding.settlement_epoch, witness.resolution)
+
+    def _apply_resolution_in_transaction(self, tx, warrant, epoch, resolution):
         require(tx.context.purpose is Capability.COMMIT, 'INVALID_INTENT_CONTEXT')
         self.ledger.core.require(tx.context.principal, Capability.COMMIT, scope=self.ledger.scope)
         require(type(resolution) is Reconciliation
@@ -333,6 +353,7 @@ class CoreIntentJournal:
         return self._run(principal, Capability.READ, read)
 
     def acknowledge_delivery(self, principal, warrant, epoch, revision):
+        require(self._recovery_task_id is None, 'NATIVE_RECOVERY_DELIVERY_DENIED')
         def change(tx):
             self.governor._epoch(self.governor._load(tx), epoch)
             _, state = self._load(tx, warrant)

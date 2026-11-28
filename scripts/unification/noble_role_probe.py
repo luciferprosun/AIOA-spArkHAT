@@ -12,6 +12,7 @@ import json
 import os
 import re
 import stat
+from contextlib import ExitStack
 from pathlib import Path
 
 from scripts.unification.noble_preflight import compare_manifest, host_gaps, observe, pinned_json, require
@@ -53,6 +54,58 @@ def try_open(root, relative, flags, directory_pins=None):
         os.close(fd)
 
 
+def try_broker_link(root, relative, directory_pins, *, staging_pin=None, reader_gid=None):
+    """Measure the publication syscall, after successfully preparing its inode."""
+    with ExitStack() as handles:
+        directory = os.open(root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        handles.callback(os.close, directory)
+        anchor = directory
+        prefix = Path()
+        for component in relative.parts[:-1]:
+            prefix /= component
+            directory = os.open(component, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
+                                dir_fd=directory)
+            handles.callback(os.close, directory)
+            if prefix in directory_pins:
+                info = os.fstat(directory)
+                require((info.st_dev, info.st_ino) == directory_pins[prefix],
+                        "NATIVE_PINNED_DIRECTORY_REQUIRED")
+        try:
+            os.stat(relative.name, dir_fd=directory, follow_symlinks=False)
+        except FileNotFoundError:
+            pass
+        else:
+            raise ValueError("NATIVE_SIBLING_LINK_SENTINEL_EXISTS")
+        staging = directory
+        if staging_pin is not None:
+            staging = os.open("staging", os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=anchor)
+            handles.callback(os.close, staging)
+            info = os.fstat(staging)
+            require((info.st_dev, info.st_ino) == staging_pin
+                    and info.st_dev == os.fstat(directory).st_dev
+                    and info.st_uid == os.geteuid() and info.st_gid == reader_gid
+                    and stat.S_IMODE(info.st_mode) == 0o2700, "NATIVE_PROBE_STAGING")
+        fd = os.open(".", os.O_TMPFILE | os.O_RDWR | os.O_CLOEXEC,
+                     0o400 if staging_pin is None else 0o440, dir_fd=staging)
+        handles.callback(os.close, fd)
+        # No valid ref bytes are produced by this negative probe.
+        os.fsync(fd)
+        info = os.fstat(fd)
+        require(info.st_nlink == 0, "NATIVE_PROBE_NOT_UNNAMED")
+        if staging_pin is not None:
+            require(info.st_gid == reader_gid and stat.S_IMODE(info.st_mode) == 0o440,
+                    "NATIVE_PROBE_STAGING_MODE")
+        try:
+            os.link(f"/proc/self/fd/{fd}", relative.name, dst_dir_fd=directory,
+                    follow_symlinks=True)
+        except OSError as exc:
+            if exc.errno in (errno.EPERM, errno.EACCES):
+                return "DENIED"
+            raise
+        os.fsync(directory)
+        return "LINKED"
+
+
 def probe_paths(root, native, role):
     match = re.fullmatch(r'refs/heads/aioa/(nz11-([a-f0-9]{32}))', native['exact_ref'])
     require(match is not None, 'NATIVE_PLAN_REF_REQUIRED')
@@ -86,6 +139,22 @@ def check_role(root, role, native):
         Path('repo/refs/heads/aioa'): (native['ref_directory_dev'], native['ref_directory_ino']),
     }
     rows = {}
+    if role == "broker":
+        sibling = probes["sibling_create"][0].relative_to(root)
+        try:
+            staging_pin = None
+            reader_gid = native.get("reader_gid")
+            if reader_gid is not None:
+                staging_pin = (native.get("staging_dev"), native.get("staging_ino"))
+                require(all(type(pin) is int and pin > 0 for pin in staging_pin),
+                        "NATIVE_PROBE_STAGING_PIN")
+            observed = try_broker_link(root, sibling, pins, staging_pin=staging_pin,
+                                       reader_gid=reader_gid)
+        except OSError as exc:
+            observed = "ERROR_" + errno.errorcode.get(exc.errno, "UNKNOWN")
+        rows["sibling_link"] = {"observed": observed, "expected": "DENIED"}
+        if observed != "DENIED":
+            return rows
     for name, (path, mode, expected) in probes.items():
         try:
             relative = path.relative_to(root)
@@ -96,6 +165,22 @@ def check_role(root, role, native):
         if rows[name]['observed'] != expected:
             break
     return rows
+
+
+def probe_credentials(native):
+    groups = sorted(os.getgroups())
+    status = dict(line.split(":", 1) for line in Path("/proc/self/status").read_text().splitlines())
+    bounding = int(status["CapBnd"], 16)
+    reader_gid = native.get("reader_gid")
+    if reader_gid is not None:
+        require(type(reader_gid) is int and 0 < reader_gid < 2**32 - 1
+                and reader_gid not in native["gids"].values()
+                and groups == [reader_gid] and bounding == 0
+                and status["NoNewPrivs"].strip() == "1"
+                and all(int(status[field], 16) == 0
+                        for field in ("CapEff", "CapPrm", "CapAmb", "CapInh")),
+                "SHARED_PROBE_CREDENTIALS")
+    return {"supplementary_gids": groups, "cap_bnd": bounding}
 
 
 def main():
@@ -126,6 +211,7 @@ def main():
     require(set(gids) == set(ROLES) and all(type(gid) is int and gid > 0 for gid in gids.values())
             and len(set(gids.values())) == len(ROLES) and os.getgid() == os.getegid() == gids[args.role],
             'ROLE_GID_MISMATCH')
+    credentials = probe_credentials(native)
     signer_fd_matched = False
     if args.signer_fd is not None:
         info = os.fstat(args.signer_fd)
@@ -151,7 +237,7 @@ def main():
     print(json.dumps({'result': 'ACCESS_PROBES_MATCHED' if ok else 'FAIL', 'role': args.role,
                       'uid': os.getuid(), 'boot_sha256': obs['boot_sha256'],
                       'session': native['session'], 'exact_ref': native['exact_ref'], 'cgroup': cgroup, 'profile': label, 'probes': rows,
-                      'signer_fd_matched': signer_fd_matched, 'cas_attempts': 0, 'settlements': 0}, sort_keys=True))
+                      'signer_fd_matched': signer_fd_matched, **credentials, 'cas_attempts': 0, 'settlements': 0}, sort_keys=True))
     return 0 if ok else 1
 
 

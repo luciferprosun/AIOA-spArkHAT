@@ -257,6 +257,8 @@ class CoreCodingTasks:
             "EXISTING_CORE_REQUIRED",
         )
         self.journal, self.capsules = journal, capsules
+        require(journal.recovery_task_id is None or (run_factory is None and effect_factory is None
+                and native_access is None and coding_access is None), 'NATIVE_RECOVERY_EFFECT_DENIED')
         self.native_access = native_access
         require(native_witness_recovery_port is None or callable(
                     getattr(native_witness_recovery_port, "recover_native_task", None)),
@@ -1339,9 +1341,10 @@ class CoreCodingTasks:
                 and binding.published_inode is not None
                 and binding.published_ctime_ns is not None,
                 "NATIVE_WITNESS_START_OR_EPOCH_CHANGED")
-        self.journal.apply_resolution_in_transaction(
-            tx, warrant, core_binding.settlement_epoch, resolution
-        )
+        if self.journal.recovery_task_id is None:
+            self.journal.apply_resolution_in_transaction(tx, warrant, core_binding.settlement_epoch, resolution)
+        else:
+            self.journal._apply_cold_native_resolution(tx, warrant, binding)
         return self._append_transition(
             tx, task_id, ("APPLYING", "UNKNOWN", "VERIFIED"), "VERIFIED",
             capsule_digest=capsule_digest, idempotent=True,
@@ -1657,6 +1660,14 @@ class CoreCodingTasks:
         return self._request(principal, action, payload)
 
     def _request(self, principal, action, payload):
+        original = self.journal.recovery_task_id
+        if original is not None:
+            from runtime.red_hat.authenticated_boundary import DurableRoleRecoveryPort
+
+            require(type(payload) is dict and payload == {'task_id': original}
+                    and action in ('read_status', 'get_receipts', 'reconcile'), 'NATIVE_RECOVERY_REQUEST_DENIED')
+            require(action != 'reconcile' or (type(self.native_witness_recovery_port) is DurableRoleRecoveryPort
+                    and self.native_witness_recovery_port.task_id == original), 'NATIVE_RECOVERY_PORT_REQUIRED')
         if self.native_access is not None and action not in ('runtime_status','read_status','get_receipts','review_effect','reconcile','recover'):
             self.native_access.foundation.lifecycle.require_execution()
         if action == 'runtime_status':
@@ -1792,6 +1803,7 @@ class CoreCodingTasks:
         return self._run(principal, purpose, cancel)
 
     def attach_review(self, principal, task_id, capsule_digest):
+        require(self.journal.recovery_task_id is None, "NATIVE_RECOVERY_REQUEST_DENIED")
         with self._active_lock:
             require(not self.closed, "CODING_CONTROLLER_CLOSED")
             active = self._active.get(task_id)
