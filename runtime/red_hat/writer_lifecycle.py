@@ -23,9 +23,9 @@ def _boot():
     return Path("/proc/sys/kernel/random/boot_id").read_text(encoding="ascii").strip()
 
 
-def _launch(storage):
+def _launch(storage, boot=None):
     require(storage.writer_cgroup is not None, "NATIVE_S1_WRITER_PINS")
-    return {"schema": "aioa.redhat.s1.writer-launch.v1", "boot": _boot(),
+    return {"schema": "aioa.redhat.s1.writer-launch.v1", "boot": _boot() if boot is None else boot,
             "storage": storage.digest, "cgroup": asdict(storage.writer_cgroup)}
 
 
@@ -93,8 +93,8 @@ def _cgroup(storage, cgroup_fd):
     require((named.st_dev, named.st_ino) == (row.st_dev, row.st_ino), "NATIVE_S1_CGROUP")
 
 
-def _process(root_fd, storage):
-    launch = _launch(storage)
+def _process(root_fd, storage, boot=None):
+    launch = _launch(storage, boot)
     require(_read(root_fd, _LAUNCH, storage) == launch, "NATIVE_S1_WRITER_LAUNCH")
     process = _read(root_fd, _PROCESS, storage)
     require(set(process) == {"schema", "launch", "pid", "start_ticks"}
@@ -116,9 +116,9 @@ def require_launched_writer(root_fd, storage):
     raise ValueError("NATIVE_S1_WRITER_ALREADY_CLOSED")
 
 
-def _closure(binding, storage, process, completion):
+def _closure(binding, storage, process, completion, *, boot=None):
     require(type(binding) is NativeExecutionBindingV1 and binding.storage_digest == storage.digest
-            and binding.boot_id == _boot() and binding.request.exact_ref == storage.exact_ref,
+            and binding.boot_id == (_boot() if boot is None else boot) and binding.request.exact_ref == storage.exact_ref,
             "NATIVE_S1_WRITER_BINDING")
     from runtime.red_hat.execution_binding import digest_string
 
@@ -137,21 +137,27 @@ def _publish_closure(root_fd, storage, binding, closure, *, before_directory_syn
     # A same-boot completion signal. Its fsynced bytes can be linked only
     # after the primary directory barrier returned to this supervisor.
     _publish(root_fd, _CLOSED_SYNCED, _closure_synced(binding, closure), storage,
-             sync_directory=False)
+             sync_directory=getattr(storage, "persistent", None) is not None)
 
 
-def require_writer_closed(root_fd, storage, binding):
-    """Authenticate root-owned records before the first effect read and at commit."""
-    storage.require_anchor(root_fd)
+def _closed_records(root_fd, storage, binding, *, boot):
+    """Read immutable supervisor evidence for the explicitly bound predecessor."""
     try:
         recorded = _read(root_fd, _CLOSED, storage)
-        expected = _closure(binding, storage, _process(root_fd, storage), recorded.get("completion_sha256"))
+        expected = _closure(binding, storage, _process(root_fd, storage, boot), recorded.get("completion_sha256"),
+                            boot=boot)
         require(recorded == expected, "NATIVE_S1_WRITER_CLOSURE")
         require(_read(root_fd, _CLOSED_SYNCED, storage) == _closure_synced(binding, expected),
                 "NATIVE_S1_WRITER_CLOSURE_SYNC")
-        return recorded["completion_sha256"]
+        return recorded
     except OSError as exc:
         raise ValueError("NATIVE_S1_WRITER_CLOSURE_UNAVAILABLE") from exc
+
+
+def require_writer_closed(root_fd, storage, binding):
+    """Authenticate the current boot's records before the first effect read and at commit."""
+    storage.require_anchor(root_fd)
+    return _closed_records(root_fd, storage, binding, boot=_boot())["completion_sha256"]
 
 
 class OneShotWriter:
@@ -220,5 +226,7 @@ class OneShotWriter:
         closure = _closure(binding, self.storage, process, completion)
         require(stage == {"schema": COMPLETION_STAGE, "binding": closure["binding"],
                           "completion_sha256": completion}, "NATIVE_S1_COMPLETION_STAGE")
+        if getattr(self.storage, "persistent", None) is not None:
+            _publish(self.root_fd, "writer-completion-stage", completion_report, self.storage)
         _publish_closure(self.root_fd, self.storage, binding, closure,
                          before_directory_sync=self.before_closure_sync)

@@ -62,14 +62,16 @@ def hear(channel, timeout):
 
 
 @contextmanager
-def observe_dispatch():
+def observe_dispatch(counts=None):
     """Count the actual Core route and Native handoff; never authorize a call."""
     from runtime.mission.git_publish import CoreRemoteGitRoute
     from runtime.red_hat.native_qualification import NativeQualificationPort
 
     tracked = {NativeQualificationPort.dispatch.__code__: 'handoffs',
                CoreRemoteGitRoute._dispatch_local_patch.__code__: 'routes'}
-    counts = dict.fromkeys(tracked.values(), 0)
+    if counts is None:
+        counts = {}
+    counts.update(dict.fromkeys(tracked.values(), 0))
 
     def trace(frame, event, _arg):
         if event == 'call' and (name := tracked.get(frame.f_code)) is not None:
@@ -167,6 +169,9 @@ def _startup(role, control, ready, completion):
         meta = os.fstat(signer)
         require(stat.S_ISREG(meta.st_mode) and meta.st_uid == actor.uid and meta.st_nlink == 1
                 and stat.S_IMODE(meta.st_mode) == 0o400, "NATIVE_S1_ROLE_KEY")
+    if spec.get("s2_read"):
+        from scripts.unification.native_s2.guest import load_cold_material
+        spec["succession"] = load_cold_material(root, spec["s2_read"])
     _restrict_role(actor, spec["reader_gid"])
     if role in ("broker", "verifier", "sequencer"):
         policy.install_worker_filter(role)
@@ -232,7 +237,7 @@ def child(role, control_fd, ready_fd, completion_fd):
                                  enrollment=enroll, identity=identity, core_peer=Peer(**cfg["core"]),
                                  core_spki=cfg["core_spki"], reads=cfg["reads"],
                                  qualification_fault_challenge=cfg['case'] == 'B2-challenge',
-                                 qualification_read=read_probe)
+                                 qualification_read=read_probe, succession=cfg.get("succession"))
                 return 0
             finally:
                 os.close(fd)
@@ -272,14 +277,30 @@ def _foreground(root, cfg, control, ready):
         try:
             with bound_listener(root, "core") as release:
                 start_listener(release, endpoint(root, "core"))
+                power_case = cfg.get("power_case")
+                power_counts = {}
+                def before_dispatch(binding, grant):
+                    tell(control, status="S2_AUTHORIZED", grant=grant, original=snapshot(owner, warrant), dispatch=power_counts.copy())
+                    require(hear(control, 30) == {"action": "writer-armed"}, "NATIVE_S2_WRITER_NOT_ARMED")
+
+                def hold_ack():
+                    from scripts.unification.native_s2.guest import park
+                    tell(control, status="S2_ACK_HELD")
+                    park()
+
                 bind_core_publication(owner, task.task_id, storage=storage, anchor=root_fd, sequencer=seq,
-                                      broker=broker, release_listener=release, enrollment=enroll, device_id=DEVICE)
+                                      broker=broker, release_listener=release, enrollment=enroll, device_id=DEVICE,
+                                      before_dispatch=before_dispatch if power_case else None,
+                                      hold_ack=hold_ack if power_case else None)
                 result = core.task_request(owner, "review_effect", {"task_id": task.task_id})
                 preview = result["effect_preview"]
                 exact = {k: preview[k] for k in ("task_id", "capsule_digest", "operation_digest")}
                 _, warrant, _ = owner.coding_tasks._effect(task.task_id, capsule)
                 require(core.task_request(owner, "approve", exact)["state"] == "APPROVED",
                         "NATIVE_S1_OWNER_APPROVAL")
+                if power_case:
+                    from scripts.unification.native_s2.guest import save_spec
+                    save_spec(files, body)
                 tell(control, status="APPROVED", operation=exact["operation_digest"])
                 command = hear(control, 30)
                 require(set(command) == {"action", "case"} and command['action'] == 'apply'
@@ -298,7 +319,8 @@ def _foreground(root, cfg, control, ready):
                         tell(control, status='STOP_COMMITTED', kill=killed)
                         applied = applying.result(timeout=12)
                 else:
-                    applied = _apply(owner, exact)
+                    applied = _apply(owner, exact, counts=power_counts if power_case else None)
+                require(not power_case, "NATIVE_S2_DISPATCH_RETURNED_BEFORE_CUT")
                 with observe_dispatch() as replayed:
                     denied = False
                     if command["case"] in REPLAYS:
@@ -326,10 +348,10 @@ def _foreground(root, cfg, control, ready):
     return 0
 
 
-def _apply(owner, exact):
+def _apply(owner, exact, *, counts=None):
     from scripts.unification.native_s1 import core
 
-    with observe_dispatch() as counts:
+    with observe_dispatch(counts) as counts:
         try:
             core.task_request(owner, 'apply', exact)
         except CommitOutcomeUnknown:
@@ -377,7 +399,13 @@ def _broker(root, cfg, control, ready, completion, storage, enroll, fd, listener
             tell(control, status='STOP_POSITION', point=mark)
             require(hear(control, 12) == {'action': 'finish-writer'}, 'NATIVE_S1_STOP_RACE')
         if point == mark:
-            os._exit(74)
+            if cfg.get("power_case"):
+                if cfg["power_case"] != "C4b":
+                    from scripts.unification.native_s2.guest import park
+                    tell(control, status="S2_BARRIER", point=mark)
+                    park()
+            else:
+                os._exit(74)
 
     core = RoleEndpoint(endpoint(root, "core"), Peer(**cfg["core"]))
     def discard_closed():
@@ -390,9 +418,19 @@ def _broker(root, cfg, control, ready, completion, storage, enroll, fd, listener
     seq = SequenceClient(endpoint(root, "sequencer"), Peer(**cfg["sequencer"]), EPOCH,
                          before_done=lose_done if cfg['case'] in ('D1', 'Q3') else None,
                          before_closed=discard_closed if cfg['case'] == 'D4' else None)
+    admission = None
+    before_ack = None
+    if cfg.get("power_case"):
+        from runtime.red_hat.s2_admission import WriterAdmission
+        admission = WriterAdmission(control, cfg["authority_spki"].encode("ascii"))
+        if cfg["power_case"] == "C4b":
+            def before_ack():
+                tell(control, status="S2_BROKER_EXIT_BEFORE_ACK")
+                os._exit(0)
+
     applied = run_broker(listener, endpoint(root, "broker"), ready, root_fd=fd, storage=storage, device_id=DEVICE,
                          sequencer=seq, release=core, signer_fd=signer, enrollment=enroll, core_spki=cfg["core_spki"],
-                         core_epoch=cfg["epoch"], completion=completion, fault=fault)
+                         core_epoch=cfg["epoch"], completion=completion, fault=fault, writer_admission=admission, before_ack=before_ack)
     return 0 if applied else 3
 
 
@@ -420,10 +458,10 @@ def _cold(root, cfg, control, ready, storage, enroll, fd, counts):
         spec = NativeHostCompositionConfig.load(root / "core/retained-spec.json").with_qualification_target(
             storage.core_target().pre_capsule())
         boot = ColdNativeBootstrap(cfg["task_id"], fd, storage, enroll, DEVICE, EPOCH, cfg["core_spki"],
-                                   observe_original=observed.update)
+                                   observe_original=observed.update, succession=cfg.get("succession"))
         owner = start_core(ready, root=root / "core/profile", origin=cfg["origin"], spec=spec,
                            candidates=None, existing_profile=True, cold_bootstrap=boot)
-    except (ValueError, MemoryPatchError) as error:
+    except (ValueError, OSError, MemoryPatchError) as error:
         # The supervisor still checks the exact expected evidence gap.
         underlying = error.__cause__
         reason = (str(underlying) if type(underlying) is ProtocolError

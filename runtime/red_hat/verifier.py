@@ -65,12 +65,16 @@ class Verification:
 
 
 def verify(root_fd, expected, enrollment, *, now, core_epoch, broker_epoch, check_context=_no_fault,
-           storage=None, qualification_read=None):
+           storage=None, qualification_read=None, succession=None):
     """Verify a trusted original request using public enrollment and fresh observations."""
     require(qualification_read is None or storage is not None, "NATIVE_S1_ROLE_VERIFIER_REQUIRED")
     report = Verification()
     try:
-        require(enrollment.permits(expected, now), "BROKER_ENROLLMENT")
+        if succession is not None:
+            from runtime.red_hat.s2_continuity import ColdSuccession
+            require(type(succession) is ColdSuccession and storage is not None and storage.persistent is not None,
+                    "NATIVE_S2_VERIFIER_PROFILE")
+        require(enrollment.permits(expected, now if succession is None else expected.issued_at), "BROKER_ENROLLMENT")
         executor = enrollment.executor
         with open_repository(root_fd, expected, executor.uid, storage=storage,
                              role=None if storage is None else "verifier") as target, ExitStack() as stack:

@@ -117,12 +117,13 @@ def serve_verifier_fixture_once(listener, *, root_fd, binding, enrollment, ident
 
 
 def _respond_to_verifier(peer, root_fd, binding, enrollment, identity, *, challenge, now, storage,
-                         expected_completion=None, qualification_read=None):
+                         expected_completion=None, qualification_read=None, succession=None):
     request = binding.request
     report = verify(root_fd, request, enrollment, now=now, core_epoch=request.core_epoch,
                     broker_epoch=request.broker_epoch,
-                    check_context=lambda target: require_physical_context(target, binding),
-                    storage=storage, qualification_read=qualification_read)
+                    check_context=lambda target: (require_physical_context(target, binding) if succession is None
+                                                  else succession.check_target(target, binding)),
+                    storage=storage, qualification_read=qualification_read, succession=succession)
     if storage is not None:
         require(report.completion_sha256 == expected_completion, "NATIVE_S1_COMPLETION_CHANGED")
     send_frame(peer, _seal(identity, {
@@ -133,7 +134,7 @@ def _respond_to_verifier(peer, root_fd, binding, enrollment, identity, *, challe
 
 def serve_role_verifier_once(listener, *, root_fd, storage, enrollment, identity,
                              core_peer, core_spki, enabled=False, on_ready=None,
-                             qualification_fault_challenge=False, qualification_read=None):
+                             qualification_fault_challenge=False, qualification_read=None, succession=None):
     """Accept only a signed original-binding challenge from the pinned cold Core."""
     from runtime.red_hat.role_storage import RoleStorage
 
@@ -142,6 +143,10 @@ def serve_role_verifier_once(listener, *, root_fd, storage, enrollment, identity
             and (core_peer.uid, core_peer.gid) == (storage.core.uid, storage.core.gid)
             and type(identity) is Identity and len({identity.spki, core_spki, enrollment.executor.spki}) == 3,
             "NATIVE_ROLE_VERIFIER_CONFIGURATION")
+    from runtime.red_hat.s2_continuity import ColdSuccession
+    require((storage.persistent is None and succession is None)
+            or (storage.persistent is not None and type(succession) is ColdSuccession
+                and succession.verifier_spki == identity.spki), "NATIVE_S2_VERIFIER_PROFILE")
     storage.require_role("verifier")
     storage.require_anchor(root_fd)
     if on_ready is not None:
@@ -149,14 +154,22 @@ def serve_role_verifier_once(listener, *, root_fd, storage, enrollment, identity
     with listener.accept()[0] as peer:
         authenticate(peer, core_peer)
         query = _open_seal(read_frame(peer), core_spki, BOUND_CHALLENGE)
-        require(set(query) == {"schema", "binding", "challenge"} and digest_string(query["challenge"]),
+        query_keys = {"schema", "binding", "challenge"}
+        if succession is not None:
+            query_keys.add("succession_sha256")
+        require(set(query) == query_keys and digest_string(query["challenge"]),
                 "RH06_VERIFIER_CHALLENGE")
         binding = NativeExecutionBindingV1.from_wire(query["binding"])
-        require(binding.storage_digest == storage.digest and binding.request.exact_ref == storage.exact_ref,
+        original = storage if succession is None else succession.original
+        require(binding.storage_digest == original.digest and binding.request.exact_ref == storage.exact_ref,
                 "NATIVE_ROLE_VERIFIER_START")
         from runtime.red_hat.writer_lifecycle import require_writer_closed
 
-        completion = require_writer_closed(root_fd, storage, binding)
+        if succession is None:
+            completion = require_writer_closed(root_fd, storage, binding)
+        else:
+            receipt, completion = succession.proof(root_fd, storage, binding, enrollment)
+            require(receipt == query["succession_sha256"], "NATIVE_S2_CHALLENGE_RECEIPT")
         challenge = query["challenge"]
         if qualification_fault_challenge:
             # Explicit operator fault after authenticating the original request.
@@ -164,7 +177,7 @@ def serve_role_verifier_once(listener, *, root_fd, storage, enrollment, identity
             challenge = ('1' if challenge[0] == '0' else '0') + challenge[1:]
         _respond_to_verifier(peer, root_fd, binding, enrollment, identity, challenge=challenge,
                              now=int(time.time()), storage=storage, expected_completion=completion,
-                             qualification_read=qualification_read)
+                             qualification_read=qualification_read, succession=succession)
 
 
 def _report(value):
@@ -183,8 +196,11 @@ def _report(value):
     return Verification(**{**value, "published_inode": None if inode is None else tuple(inode)})
 
 
-def _read_authenticated_report(endpoint, peer, spki, binding, *, now, signer=None):
+def _read_authenticated_report(endpoint, peer, spki, binding, *, now, signer=None, succession_sha256=None):
     challenge = secrets.token_hex(32)
+    if succession_sha256 is not None:
+        require(signer is not None, "NATIVE_S2_SIGNED_CHALLENGE")
+        challenge = digest([challenge, succession_sha256])
     binding_digest = digest(binding.to_wire())
     with socket.socket(socket.AF_UNIX) as stream:
         stream.settimeout(FRAME_TIMEOUT)
@@ -192,7 +208,10 @@ def _read_authenticated_report(endpoint, peer, spki, binding, *, now, signer=Non
         authenticate(stream, peer)
         query = {"schema": CHALLENGE, "binding_digest": binding_digest, "challenge": challenge}
         if signer is not None:
-            query = _seal(signer, {"schema": BOUND_CHALLENGE, "binding": binding.to_wire(), "challenge": challenge})
+            bound = {"schema": BOUND_CHALLENGE, "binding": binding.to_wire(), "challenge": challenge}
+            if succession_sha256 is not None:
+                bound["succession_sha256"] = succession_sha256
+            query = _seal(signer, bound)
         send_frame(stream, query)
         payload = _open_seal(read_frame(stream), spki, READBACK)
     latest = now if signer is None else min(int(time.time()), now + 5)
@@ -206,11 +225,21 @@ def _read_authenticated_report(endpoint, peer, spki, binding, *, now, signer=Non
 class _AuthenticatedReadbackAdapter(CoreIntentAdapter):
     """Per-call adapter reusing RH-04 physical rechecks and Core settlement."""
 
-    def __init__(self, journal, binding, endpoint, peer, spki, storage=None, signer=None, *, run_verified_settlement=None):
+    def __init__(self, journal, binding, endpoint, peer, spki, storage=None, signer=None, *, run_verified_settlement=None, succession=None, enrollment=None):
         super().__init__(journal, run_verified_settlement=run_verified_settlement)
         self.binding, self.endpoint, self.peer, self.spki = binding, endpoint, peer, spki
         self.storage = storage
         self.signer = signer
+        self.succession = succession
+        self.enrollment = enrollment
+
+    def capture_start(self, principal, warrant):
+        original = super().capture_start(principal, warrant)
+        if self.succession is not None:
+            from runtime.mobile_gateway.wire import strict_json
+            expected = strict_json(self.succession.evidence.expected_bytes)
+            require(original.settlement_epoch == expected["current_policy_epoch"], "NATIVE_S2_CURRENT_EPOCH")
+        return original
 
     def _open_readback_repository(self, root_fd, request, executor_uid):
         if self.storage is None:
@@ -218,22 +247,33 @@ class _AuthenticatedReadbackAdapter(CoreIntentAdapter):
         from runtime.red_hat.fixture_repository import open_repository
         from runtime.red_hat.writer_lifecycle import require_writer_closed
 
-        require_writer_closed(root_fd, self.storage, self.binding)
+        if self.succession is None:
+            require_writer_closed(root_fd, self.storage, self.binding)
+        else:
+            self.succession.proof(root_fd, self.storage, self.binding, self.enrollment)
         return open_repository(root_fd, request, executor_uid, storage=self.storage, role="core")
 
     def _check_fixture_target(self, target):
-        require_physical_context(target, self.binding)
+        if self.succession is None:
+            require_physical_context(target, self.binding)
+        else:
+            self.succession.check_target(target, self.binding)
 
     def _verify_fresh_process(self, root_fd, request, enrollment, *, now, core_epoch, broker_epoch):
         require(request == self.binding.request and request.core_epoch == core_epoch
                 and request.broker_epoch == broker_epoch, "RH06_VERIFIER_START")
-        require(enrollment.permits(request, now), "RH06_VERIFIER_ENROLLMENT")
+        require(enrollment.permits(request, now if self.succession is None else request.issued_at),
+                "RH06_VERIFIER_ENROLLMENT")
+        receipt = None
+        if self.succession is not None:
+            receipt, completion = self.succession.proof(root_fd, self.storage, self.binding, enrollment)
         report, pid = _read_authenticated_report(
-            self.endpoint, self.peer, self.spki, self.binding, now=now, signer=self.signer)
+            self.endpoint, self.peer, self.spki, self.binding, now=now, signer=self.signer, succession_sha256=receipt)
         if self.storage is not None:
             from runtime.red_hat.writer_lifecycle import require_writer_closed
 
-            completion = require_writer_closed(root_fd, self.storage, self.binding)
+            if self.succession is None:
+                completion = require_writer_closed(root_fd, self.storage, self.binding)
             require(report.completion_sha256 == completion, "NATIVE_S1_COMPLETION_CHANGED")
         return report, pid
 
@@ -242,7 +282,7 @@ class AuthenticatedFixtureRecoveryPort(DisposableNativeTaskWitnessPort):
     """Trusted test composition supplies resolver, endpoint and public role keys."""
 
     def __init__(self, adapter, coding_tasks, resolver, *, endpoint, verifier_peer,
-                 verifier_spki, core_spki, enabled=False, storage=None, signer=None):
+                 verifier_spki, core_spki, enabled=False, storage=None, signer=None, succession=None):
         require(enabled is True, "RH06_DISABLED")
         super().__init__(adapter, coding_tasks, resolver)
         self.endpoint, self.peer, self.spki = endpoint, verifier_peer, verifier_spki
@@ -255,6 +295,7 @@ class AuthenticatedFixtureRecoveryPort(DisposableNativeTaskWitnessPort):
                     and (verifier_peer.uid, verifier_peer.gid) == (storage.verifier.uid, storage.verifier.gid),
                     "NATIVE_STORAGE_VERIFIER_PEER")
         self.storage = storage
+        self.succession = succession
 
     def _resolve_material(self, principal, task_id):
         return self.resolver(task_id)
@@ -272,7 +313,8 @@ class AuthenticatedFixtureRecoveryPort(DisposableNativeTaskWitnessPort):
         require(binding.request == material["request"], "RH06_RECOVERY_START")
         target = _AuthenticatedReadbackAdapter(self.adapter.journal, binding, self.endpoint,
                                                self.peer, self.spki, self.storage, self.signer,
-                                               run_verified_settlement=self.adapter._run_verified_settlement)
+                                               run_verified_settlement=self.adapter._run_verified_settlement,
+                                               succession=self.succession, enrollment=enrollment)
         return target.recover_disposable_native_task_fixture(
             principal, self.coding_tasks, task_id, **material)
 
@@ -282,7 +324,7 @@ class DurableRoleRecoveryPort(AuthenticatedFixtureRecoveryPort):
 
     def __init__(self, adapter, coding_tasks, *, task_id, root_fd, enrollment,
                  trusted_device_id, broker_epoch, storage, endpoint, verifier_peer,
-                 verifier_spki, core_spki, enabled=False, signer=None):
+                 verifier_spki, core_spki, enabled=False, signer=None, succession=None):
         from runtime.red_hat.enrollment import ExecutorEnrollment
         from runtime.red_hat.role_storage import RoleStorage
 
@@ -293,11 +335,15 @@ class DurableRoleRecoveryPort(AuthenticatedFixtureRecoveryPort):
                 and type(broker_epoch) is int and broker_epoch > 0
                 and enrollment.executor.uid == storage.broker.uid,
                 "NATIVE_ROLE_RECOVERY_CONFIGURATION")
+        from runtime.red_hat.s2_continuity import ColdSuccession
+        require((storage.persistent is None and succession is None)
+                or (storage.persistent is not None and type(succession) is ColdSuccession
+                    and succession.verifier_spki == verifier_spki), "NATIVE_S2_RECOVERY_PROFILE")
         storage.require_role("core")
         storage.require_anchor(root_fd)
         super().__init__(adapter, coding_tasks, self._read_original, endpoint=endpoint,
                          verifier_peer=verifier_peer, verifier_spki=verifier_spki,
-                         core_spki=core_spki, enabled=True, storage=storage, signer=signer)
+                         core_spki=core_spki, enabled=True, storage=storage, signer=signer, succession=succession)
         self.task_id = task_id
         self.root_fd = root_fd
         self.enrollment = enrollment
@@ -313,13 +359,14 @@ class DurableRoleRecoveryPort(AuthenticatedFixtureRecoveryPort):
         from runtime.core_admission import Capability
 
         journal = self.adapter.journal
+        original = self.storage if self.succession is None else self.succession.original
         warrant = journal._run(principal, Capability.COMMIT, lambda tx: read_original_warrant_in_transaction(
-            tx, journal, self.coding_tasks.capsules, task_id, self.storage))
+            tx, journal, self.coding_tasks.capsules, task_id, original))
         now = int(time.time())
         binding = capture_binding(self.adapter, principal, warrant, self.enrollment,
                                   trusted_device_id=self.device_id, now=now,
                                   broker_epoch=self.broker_epoch)
-        require(binding.storage_digest == self.storage.digest, "NATIVE_ROLE_RECOVERY_START")
+        require(binding.storage_digest == original.digest, "NATIVE_ROLE_RECOVERY_START")
         return {"warrant": warrant, "request": binding.request, "enrollment": self.enrollment,
                 "root_fd": self.root_fd, "trusted_device_id": self.device_id, "now": now,
                 "core_epoch": binding.request.core_epoch, "broker_epoch": self.broker_epoch}

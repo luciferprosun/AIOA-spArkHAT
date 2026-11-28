@@ -49,6 +49,20 @@ def parser():
     run.add_argument("--manifest-sha256", required=True)
     run.add_argument("--predecessor", help="retained F4 session for the F4-FOLLOWUP case")
     run.add_argument("case")
+    for action in ("s2-run", "s2-read"):
+        power = commands.add_parser(action, help="run the installed persistent qualification profile")
+        power.add_argument("--plan", type=Path, required=True)
+        power.add_argument("--plan-sha256", required=True)
+        if action == "s2-run":
+            power.add_argument("--manifest-sha256", required=True)
+        else:
+            power.add_argument("--manifest", type=Path, required=True)
+            power.add_argument("--management-receipt", type=Path, required=True)
+            power.add_argument("--manifest-sha256", required=True)
+            power.add_argument("--original-sha256", required=True)
+            power.add_argument("--start-sha256", required=True)
+            power.add_argument("--media", type=Path, required=True)
+            power.add_argument("--expected-sha256", help="independent controller pin for positive recovery")
     matrix = commands.add_parser("matrix", help="run the installed cases and report uncovered acceptance evidence")
     matrix.add_argument("--manifest-sha256", required=True)
     collect = commands.add_parser("collect", help="create a private redacted case archive with SHA256SUMS")
@@ -190,6 +204,17 @@ def main():
         elif args.command == "install":
             print(json.dumps(host.install(args.manifest, args.manifest_sha256, args.management_receipt,
                                           args.runtime, wheelhouse=args.wheelhouse)))
+        elif args.command in ("s2-run", "s2-read"):
+            from scripts.unification.native_s2.guest import cold_read, plan_at
+            plan = plan_at(args.plan, args.plan_sha256)
+            if args.command == "s2-read":
+                result = cold_read(args, plan)
+            else:
+                from scripts.unification.native_s1.coordinator import run_case
+                case = "C4" if plan["case"] in ("C4a", "C4b") else plan["case"]
+                result = run_case(case, args.manifest_sha256, power=plan)
+            print(json.dumps(result, sort_keys=True))
+            return 0 if result["status"] == "PASS" else 1
         elif args.command == "run":
             from scripts.unification.native_s1.coordinator import run_case
 

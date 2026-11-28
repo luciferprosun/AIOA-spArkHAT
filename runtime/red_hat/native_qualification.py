@@ -8,6 +8,7 @@ import socket
 import time
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Callable
 
 from runtime.core_admission import Capability
 from runtime.memory_patch.errors import CommitOutcomeUnknown
@@ -37,6 +38,8 @@ class NativeQualificationPort:
     issued_at: int
     expires_at: int
     storage: object = None
+    before_dispatch: Callable | None = None
+    hold_ack: Callable | None = None
 
     def __post_init__(self):
         require(type(self.gate) is SequencedCoreGate and type(self.enrollment) is ExecutorEnrollment
@@ -52,6 +55,9 @@ class NativeQualificationPort:
                 and self.expires_at <= self.enrollment.valid_until
                 and 0 < self.expires_at - self.issued_at <= 300, "NATIVE_QUALIFICATION_CONFIGURATION")
 
+        if self.before_dispatch is not None or self.hold_ack is not None:
+            require(self.storage is not None and self.storage.persistent is not None and callable(self.before_dispatch)
+                    and (self.hold_ack is None or callable(self.hold_ack)), "NATIVE_S2_CORE_CONTROL")
         if self.storage is not None:
             from runtime.red_hat.role_storage import RoleStorage
             require(type(self.storage) is RoleStorage and self.storage.writer_cgroup is not None
@@ -63,12 +69,12 @@ class NativeQualificationPort:
 
     @classmethod
     def prepare(cls, *, gate, enrollment, device_id, broker_peer, endpoint,
-                release_listener, anchor, lifetime, enabled=False, storage=None):
+                release_listener, anchor, lifetime, enabled=False, storage=None, before_dispatch=None, hold_ack=None):
         require(enabled is True and type(lifetime) is int and 0 < lifetime <= 300,
                 "NATIVE_QUALIFICATION_CONFIGURATION")
         now = int(time.time())
         return cls(gate, enrollment, device_id, broker_peer, endpoint, release_listener,
-                   anchor, secrets.token_hex(32), now, now + lifetime, storage)
+                   anchor, secrets.token_hex(32), now, now + lifetime, storage, before_dispatch, hold_ack)
 
     def metadata(self, route):
         root = Path(route.target_repository).stat()
@@ -109,6 +115,9 @@ class NativeQualificationPort:
                 and binding.storage_digest == (None if self.storage is None else self.storage.digest)
                 and binding.capsule_digest == route.capsule.digest
                 and binding.plan_digest == route.plan.digest, "NATIVE_QUALIFICATION_START_MISMATCH")
+        if self.storage is not None and self.storage.persistent is not None:
+            require(callable(self.before_dispatch), "NATIVE_S2_CORE_CONTROL")
+            self.before_dispatch(binding, grant)
         with socket.socket(socket.AF_UNIX) as peer:
             peer.settimeout(FRAME_TIMEOUT)
             peer.connect(self.endpoint)
@@ -123,6 +132,9 @@ class NativeQualificationPort:
                     require_owned_work=release, enabled=True)
                 # Allow the broker to finish after the final release. An ACK is
                 # informational. Only a separate authenticated verifier can settle.
+                if self.hold_ack is not None:
+                    self.hold_ack()
+                    raise ValueError("NATIVE_S2_UNEXPECTED_ACK_RELEASE")
                 select.select([peer], [], [], FRAME_TIMEOUT)
         raise CommitOutcomeUnknown()
 
@@ -143,7 +155,7 @@ def serve_prepared_native_fixture(listener, *, root_fd, exact_ref, device_id, se
 def serve_qualified_native_once(listener, *, root_fd, storage, device_id, sequence,
                                 release, core_peer, core_spki, signer_fd, enrollment,
                                 core_epoch, broker_epoch, enabled=False, on_ready=None, on_completion=None,
-                                fault=lambda _: None):
+                                fault=lambda _: None, writer_admission=None, before_ack=None):
     """Explicit disposable entry point for a supervisor-provisioned writer."""
     from runtime.red_hat.executor_custody import ExecutorRoles, load_broker_signer
     from runtime.red_hat.role_storage import RoleStorage
@@ -155,6 +167,10 @@ def serve_qualified_native_once(listener, *, root_fd, storage, device_id, sequen
                 and core_peer.pid != os.getpid(), "NATIVE_STORAGE_WRITER_CONFIGURATION")
         from runtime.red_hat.writer_lifecycle import require_launched_writer
 
+        from runtime.red_hat.s2_admission import WriterAdmission
+        require((storage.persistent is None and writer_admission is None and before_ack is None)
+                or (storage.persistent is not None and type(writer_admission) is WriterAdmission),
+                "NATIVE_S2_WRITER_ADMISSION_REQUIRED")
         require(callable(on_completion), "NATIVE_S1_COMPLETION_CHANNEL")
         storage.require_writer(root_fd)
         require_launched_writer(root_fd, storage)
@@ -169,13 +185,14 @@ def serve_qualified_native_once(listener, *, root_fd, storage, device_id, sequen
         listener, root_fd=root_fd, exact_ref=storage.exact_ref, device_id=device_id,
         sequence=sequence, release=release, core_peer=core_peer, core_spki=core_spki,
         identity=identity, enrollment=enrollment, core_epoch=core_epoch,
-        broker_epoch=broker_epoch, storage=storage, on_ready=on_ready, on_completion=on_completion, fault=fault)
+        broker_epoch=broker_epoch, storage=storage, on_ready=on_ready, on_completion=on_completion, fault=fault,
+        writer_admission=writer_admission, before_ack=before_ack)
 
 
 def _serve_prepared_native(listener, *, root_fd, exact_ref, device_id, sequence,
                            release, core_peer, core_spki, identity, enrollment,
                            core_epoch, broker_epoch, storage=None, on_ready=None, on_completion=None,
-                           fault=lambda _: None):
+                           fault=lambda _: None, writer_admission=None, before_ack=None):
     from runtime.red_hat.authenticated_boundary import AUTHORIZATION, _open_seal, _seal
     from runtime.red_hat.broker_protocol import digest, read_frame, require_admission
     from runtime.red_hat.broker_service import _serve_fixture
@@ -225,12 +242,17 @@ def _serve_prepared_native(listener, *, root_fd, exact_ref, device_id, sequence,
             "completion_sha256": hashlib.sha256(record).hexdigest(),
         }))
 
+    def check_target(target):
+        require_physical_context(target, binding)
+        if writer_admission is not None:
+            writer_admission.check(storage, binding)
+
     if on_ready is not None:
         on_ready()
     return _serve_fixture(
         listener, root_fd=root_fd, receive=receive, enrollment=enrollment, identity=identity,
         core_epoch=core_epoch, broker_epoch=broker_epoch, clock=lambda: int(time.time()),
-        fault=fault, check_context=lambda target: require_physical_context(target, binding),
+        fault=fault, check_context=check_target, before_ack=before_ack,
         prepare=lambda target: import_objects(target.repo, target.uid, objects,
                                               reader_gid=None if storage is None else storage.reader_gid),
         storage=storage, completed=complete if on_completion is not None else None,

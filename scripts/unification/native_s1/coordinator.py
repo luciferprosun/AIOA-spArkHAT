@@ -49,10 +49,13 @@ def _key_bytes(key):
                              serialization.NoEncryption())
 
 
-def _keys(root, actors):
+def _keys(root, actors, *, persistent=False):
     from cryptography.hazmat.primitives.asymmetric import ec
 
     _mkdir(root / "keys", 0, 0, 0o700)
+    if persistent:
+        from scripts.unification.native_s2.guest import volatile_dir
+        volatile_dir(root / "keys", 0, 0o700)
     ids = {}
     for role, file in roles.KEY_FILES.items():
         key = ec.generate_private_key(ec.SECP256R1())
@@ -151,18 +154,20 @@ def _airgap():
     require([item["ifname"] for item in links] == ["lo"], "BLOCKED_HOST:DISPOSABLE_GUEST_EGRESS")
 
 
-def _actors(session, uid, gid, console_cgroup, cgroups):
+def _actors(session, uid, gid, console_cgroup, cgroups, *, existing=False):
     # Per-aperture system accounts are deliberately never recycled by this kit.
     reader = f"n69-r-{session[:16]}"
-    host.run(("/usr/sbin/groupadd", "--system", reader))
+    if not existing:
+        host.run(("/usr/sbin/groupadd", "--system", reader))
     import grp
 
     reader_gid = grp.getgrnam(reader).gr_gid
     actors = {"core": StorageActor(uid, gid, policy.label(session, "core") + " (enforce)", console_cgroup)}
     for role in ("broker", "sequencer", "verifier"):
         name = f"n69-{role[0]}-{session[:16]}"
-        host.run(("/usr/sbin/useradd", "--system", "--user-group", "--no-create-home",
-                  "--shell", "/usr/sbin/nologin", name))
+        if not existing:
+            host.run(("/usr/sbin/useradd", "--system", "--user-group", "--no-create-home",
+                      "--shell", "/usr/sbin/nologin", name))
         account = pwd.getpwnam(name)
         actors[role] = StorageActor(account.pw_uid, account.pw_gid, policy.label(session, role) + " (enforce)",
             "0::/" + str(cgroups[role].relative_to("/sys/fs/cgroup")))
@@ -187,11 +192,15 @@ def _cgroups(stack, session):
     return leaves
 
 
-def _install_policy(root, role, rendered):
+def _install_policy(root, role, rendered, *, retained=False):
     if role == "core":
         require(not os.path.lexists(f"/.aioa-s1-worker-{root.name}"), "NATIVE_S1_WORKER_ALIAS_PATH")
     profile = root / "operator" / f"{role}.apparmor"
-    host.write_new(profile, rendered.encode("ascii"))
+    if retained:
+        trusted(profile)
+        require(profile.read_bytes() == rendered.encode("ascii"), "NATIVE_S2_RETAINED_POLICY")
+    else:
+        host.write_new(profile, rendered.encode("ascii"))
     host.run(("/usr/sbin/apparmor_parser", "--add", "--skip-cache", str(profile)), timeout=15)
     label = policy.label(root.name, role) + " (enforce)"
     require(label in Path("/sys/kernel/security/apparmor/profiles").read_text().splitlines(),
@@ -445,8 +454,8 @@ def _substitute(root, binding, case):
 
 
 def _cold_roles(stack, root, actors, group, namespace, cgroups, config, proof, *, closure, cut=False,
-                observe_only=False):
-    suffix = '-lost-reply' if cut else '-observe' if observe_only else ''
+                observe_only=False, repeat=False):
+    suffix = '-repeat' if repeat else '-lost-reply' if cut else '-observe' if observe_only else ''
     cold = Child(stack, root, 'cold', actors['core'], group, namespace, label='cold' + suffix)
     verifier = Child(stack, root, 'verifier', actors['verifier'], group, namespace, label='verifier' + suffix)
     verifier.move(cgroups['verifier'])
@@ -463,6 +472,8 @@ def _cold_roles(stack, root, actors, group, namespace, cgroups, config, proof, *
     _polkit(stack, cold, root)
     roles.tell(cold.control, action='start-core')
     result = roles.hear(cold.control, 140)
+    if config.get("s2_read") and result.get("status") == "COLD_DENIED":
+        return cold, verifier, result
     if closure:
         require(result == {'status': 'RECOVERY_READY'}, 'NATIVE_S1_COLD_READY')
         cold.ready_listener(role='core', timeout=10)
@@ -531,7 +542,7 @@ def _predecessor_snapshot(paths):
     return result
 
 
-def run_case(case, digest, *, predecessor=None):
+def run_case(case, digest, *, predecessor=None, power=None):
     require(case in SCENARIOS and os.getresuid() == (0, 0, 0), "NATIVE_S1_RUN_CONFIGURATION")
     require((case == 'F4-FOLLOWUP') == (predecessor is not None), 'NATIVE_S1_PREDECESSOR_CONFIGURATION')
     manifest, observed = host.host_pins(host.CONFIG / "manifest.json", digest, host.CONFIG / "management.json",
@@ -546,11 +557,18 @@ def run_case(case, digest, *, predecessor=None):
     gid, console_group = _console(uid)
     _airgap()
     os.umask(0o077)
+    if power is not None:
+        from runtime.red_hat.role_storage import PersistentVolume
+        from scripts.unification.native_s2.guest import boot_hash, require_mount
+        require(case == ("C4" if power["case"] in ("C4a", "C4b") else power["case"])
+                and power["source_sha"] == observed["source"] and power["tree"] == observed["tree"]
+                and power["boot_sha256"] == boot_hash(), "NATIVE_S2_PLAN_PINS")
+        require_mount(PersistentVolume(**power["volume"]))
     if not host.BASE.exists():
         _mkdir(host.BASE, 0, 0, 0o755)
     require(stat.S_IMODE(host.BASE.lstat().st_mode) == 0o755, "NATIVE_S1_BASE_MODE")
     trusted(host.BASE, directory=True)
-    session = secrets.token_hex(16)
+    session = secrets.token_hex(16) if power is None else power["session"]
     root = host.BASE / session
     report = {"schema": "aioa.native-s1.case-result.v2", "case": case, "host": observed,
               "session": session, "status": "FAIL", "role_proofs": {}, "policy_sha256": {},
@@ -573,7 +591,7 @@ def run_case(case, digest, *, predecessor=None):
             if case == 'N5':
                 report.update(control=_probe_control(root), status='PASS')
             else:
-                _exercise(stack, root, report, manifest, actors, reader_gid, namespace, cgroups, predecessor)
+                _exercise(stack, root, report, manifest, actors, reader_gid, namespace, cgroups, predecessor, power=power)
         except (OSError, ValueError, TypeError, KeyError, subprocess.SubprocessError) as error:
             report["reason"] = str(error)
         finally:
@@ -581,11 +599,14 @@ def run_case(case, digest, *, predecessor=None):
     return report
 
 
-def _exercise(stack, root, report, manifest, actors, group, namespace, cgroups, predecessor):
+def _exercise(stack, root, report, manifest, actors, group, namespace, cgroups, predecessor, *, power=None):
     case = report["case"]
     source = manifest["host"]["source"]
     _mkdir(root / "core", actors["core"].uid, actors["core"].gid, 0o700)
     _mkdir(root / "io", 0, group, 0o750)
+    if power is not None:
+        from scripts.unification.native_s2 import guest
+        guest.volatile_dir(root / "io", group, 0o750)
     for role, name in policy.SOCKETS.items():
         _mkdir(root / "io" / name, actors[role].uid, group, 0o2750)
     _mkdir(root / "state", actors["broker"].uid, actors["broker"].gid, 0o700)
@@ -594,12 +615,12 @@ def _exercise(stack, root, report, manifest, actors, group, namespace, cgroups, 
     _mkdir(root / "staging", actors["broker"].uid, group, 0o2700)
     base = _repo(root, actors["broker"], actors["core"], group)
     _tls(root, actors["core"].uid, actors["core"].gid)
-    spki = _keys(root, actors)
+    spki = _keys(root, actors, persistent=power is not None)
     now = int(time.time())
     enrollment = ExecutorEnrollment(RegisteredExecutor(
         "native-s1-broker", actors["broker"].uid, spki["broker"]), 1, now - 1, now + 1500)
     host.stage_runtime(root / "runtime", host.CONFIG / "runtime.json", manifest["s1"]["runtime_sha256"])
-    for role, profile in policy.profiles(root.name, source, actors["core"].uid).items():
+    for role, profile in policy.profiles(root.name, source, actors["core"].uid, persistent=power is not None).items():
         report["policy_sha256"][role] = _install_policy(root, role, profile)
 
     pin = roles.pinned_directory
@@ -612,7 +633,8 @@ def _exercise(stack, root, report, manifest, actors, group, namespace, cgroups, 
     report["role_proofs"]["sequencer"] = seq.release(core=asdict(core.peer), broker=asdict(broker.peer),
                                                     case=case, state=asdict(pin(root / "sequencer")))
     seq.ready_listener()
-    report["role_proofs"]["foreground"] = core.release(reader=asdict(reader), sequencer=asdict(seq.peer), base=base)
+    options = {} if power is None else {"power_case": power["case"]}
+    report["role_proofs"]["foreground"] = core.release(reader=asdict(reader), sequencer=asdict(seq.peer), base=base, **options)
     _polkit(stack, core, root)
     roles.tell(core.control, action="start-core")
     core.ready_listener(role="core", timeout=150)
@@ -621,13 +643,16 @@ def _exercise(stack, root, report, manifest, actors, group, namespace, cgroups, 
             and re.fullmatch("[0-9a-f]{64}", offered["capsule"]),
             "NATIVE_S1_NORMAL_REVIEW")
     ref = "refs/heads/aioa/nz11-" + offered["capsule"][:32]
-    profile = policy.profiles(root.name, source, actors["core"].uid, exact_ref=ref)["broker"]
+    profile = policy.profiles(root.name, source, actors["core"].uid, exact_ref=ref, persistent=power is not None)["broker"]
     policy_hash = _install_policy(root, "broker", profile)
     report["policy_sha256"]["broker"] = policy_hash
     host.write_new(root / "writer-policy", profile.encode("ascii"), gid=group, mode=0o440)
     storage = RoleStorage(actors["core"], actors["broker"], actors["verifier"], group, namespace, ref,
         reader.anchor, reader.repository, reader.ref_parent, pin(root / "evidence"), staging=pin(root / "staging"),
         policy_sha256=policy_hash, state=pin(root / "state"), writer_cgroup=pin(cgroups["broker"]))
+    if power is not None:
+        from runtime.red_hat.role_storage import PersistentVolume
+        storage = replace(storage, persistent=PersistentVolume(**power["volume"]))
     root_fd = roles.directory(root)
     stack.callback(os.close, root_fd)
     cgroup_fd = roles.directory(cgroups["broker"])
@@ -639,6 +664,8 @@ def _exercise(stack, root, report, manifest, actors, group, namespace, cgroups, 
     broker_info = {"storage": storage.to_dict(), "enrollment": asdict(enrollment), "case": case,
                    "core": asdict(core.peer), "sequencer": asdict(seq.peer),
                    "core_spki": offered["core_spki"], "epoch": offered["epoch"]}
+    if power is not None:
+        broker_info.update(power_case=power["case"], authority_spki=power["authority_spki"])
     if predecessor is not None:
         prior_files = _predecessor(predecessor, report['host'])
         before = _predecessor_snapshot(prior_files)
@@ -648,7 +675,16 @@ def _exercise(stack, root, report, manifest, actors, group, namespace, cgroups, 
     roles.tell(core.control, storage=storage.to_dict(), enrollment=asdict(enrollment), broker=asdict(broker.peer))
     approved = roles.hear(core.control, 30)
     require(approved["status"] == "APPROVED", "NATIVE_S1_APPROVAL")
+    if power is not None:
+        original = {"storage": storage.to_dict(), "enrollment": asdict(enrollment), "core_spki": offered["core_spki"],
+                    "origin": offered["origin"], "task_id": offered["task_id"], "case": case,
+                    "trial": power["case"], "vm_uuid": power["vm_uuid"], "source": source, "tree": power["tree"],
+                    "predecessor_boot": power["boot_sha256"]}
+        guest.keep_original(root, original)
     roles.tell(core.control, action="apply", case=case)
+    if power is not None:
+        guest.control_trial(root, power, core, broker, writer, enrollment, original)
+        raise ValueError("NATIVE_S2_TRIAL_RESUMED")
     if case == 'N1':
         report['denials'] = _denials(roles.hear(core.control, 10))
     events = _orchestrate_race(case, broker, core, seq)

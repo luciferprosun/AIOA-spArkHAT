@@ -79,7 +79,7 @@ def serve_once(listener, *, root_fd, expected, enrollment, identity, core_peer, 
 
 def _serve_fixture(listener, *, root_fd, receive, enrollment, identity, core_epoch,
                    broker_epoch, clock, fault, check_context=_no_fault,
-                   sequence=nullcontext, revalidate=_no_fault, prepare=None, storage=None, completed=None):
+                   sequence=nullcontext, revalidate=_no_fault, prepare=None, storage=None, completed=None, before_ack=None):
     """Shared single-attempt fixture executor. Authentication precedes consumption."""
     require(listener.family == socket.AF_UNIX and listener.type == socket.SOCK_STREAM,
             "BROKER_LISTENER")
@@ -161,6 +161,8 @@ def _serve_fixture(listener, *, root_fd, receive, enrollment, identity, core_epo
         except (OSError, ValueError):
             # Negative or interrupted ACK does not say whether the ref was published.
             pass
+        if ok and before_ack is not None:
+            before_ack()  # S2 C4b exits after terminal evidence, before ACK transmission.
         try:
             send_frame(peer, {"ack": ok})
         except OSError:

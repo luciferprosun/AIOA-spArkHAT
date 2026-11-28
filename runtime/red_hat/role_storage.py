@@ -153,6 +153,24 @@ class CoreTargetStorage:
 
 
 @dataclass(frozen=True, slots=True)
+class PersistentVolume:
+    """Management-selected device and writer generation included in the signed START."""
+
+    volume_sha256: str
+    filesystem_uuid: str
+    generation: int
+    authority_spki_sha256: str
+
+    def __post_init__(self):
+        import uuid
+
+        require(all(type(item) is str and re.fullmatch("[0-9a-f]{64}", item)
+                    for item in (self.volume_sha256, self.authority_spki_sha256))
+                and type(self.filesystem_uuid) is str and str(uuid.UUID(self.filesystem_uuid)) == self.filesystem_uuid
+                and _positive(self.generation), "NATIVE_S2_VOLUME")
+
+
+@dataclass(frozen=True, slots=True)
 class RoleStorage:
     """Operator configuration for one mount namespace and one create-only ref.
 
@@ -174,8 +192,11 @@ class RoleStorage:
     policy_sha256: str | None = None
     state: DirectoryPin | None = None
     writer_cgroup: DirectoryPin | None = None
+    persistent: PersistentVolume | None = None
 
     def __post_init__(self):
+        require(self.persistent is None or (type(self.persistent) is PersistentVolume
+                                             and self.writer_cgroup is not None), "NATIVE_S2_VOLUME")
         actors = (self.core, self.broker, self.verifier)
         pins = (self.anchor, self.repository, self.ref_parent, self.evidence)
         if self.staging is not None:
@@ -205,13 +226,21 @@ class RoleStorage:
         require(type(value) is dict, "NATIVE_STORAGE_SCHEMA")
         version = value.get("schema")
         names = {field.name for field in fields(cls)}
+        if version != "aioa.redhat.role-storage.s2.v1":
+            names.remove("persistent")
         if version == "aioa.redhat.role-storage.v1":
             names.remove("writer_cgroup")
         else:
-            require(version == "aioa.redhat.role-storage.s1.v1" and value.get("writer_cgroup") is not None,
+            require(version in ("aioa.redhat.role-storage.s1.v1", "aioa.redhat.role-storage.s2.v1")
+                    and value.get("writer_cgroup") is not None,
                     "NATIVE_STORAGE_SCHEMA")
         require(set(value) == {"schema", *names}, "NATIVE_STORAGE_SCHEMA")
         decoded = {key: item for key, item in value.items() if key != "schema"}
+        if version == "aioa.redhat.role-storage.s2.v1":
+            volume = decoded["persistent"]
+            require(type(volume) is dict and set(volume) == {f.name for f in fields(PersistentVolume)},
+                    "NATIVE_S2_VOLUME")
+            decoded["persistent"] = PersistentVolume(**volume)
         for keys, kind in ((("core", "broker", "verifier"), StorageActor),
                            (("anchor", "repository", "ref_parent", "evidence", "staging", "state", "writer_cgroup"),
                             DirectoryPin)):
@@ -226,6 +255,9 @@ class RoleStorage:
 
     def to_dict(self):
         value = asdict(self)
+        if self.persistent is not None:
+            return {"schema": "aioa.redhat.role-storage.s2.v1", **value}
+        value.pop("persistent")
         if self.writer_cgroup is None:
             value.pop("writer_cgroup")
             return {"schema": "aioa.redhat.role-storage.v1", **value}

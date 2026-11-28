@@ -24,7 +24,7 @@ def label(session, role):
     return f"aioa-n69-{session}-{role}"
 
 
-def profiles(session, source_sha, core_uid, *, exact_ref=None):
+def profiles(session, source_sha, core_uid, *, exact_ref=None, persistent=False):
     require(type(source_sha) is str and re.fullmatch("[0-9a-f]{40}", source_sha)
             and type(core_uid) is int and 0 < core_uid < 2**31, "NATIVE_S1_POLICY_SOURCE")
     source = f"/opt/aioa/native-qualification/{source_sha}"
@@ -75,6 +75,10 @@ def profiles(session, source_sha, core_uid, *, exact_ref=None):
         for peer in PEERS[role]:
             rules.append(f'{endpoints[peer]} rw,')
         if role in ("core", "verifier"):
+            if persistent:
+                rules.append(f"{root}/writer-completion-stage r,")
+                repeat_role = "cold" if role == "core" else "verifier"
+                rules.append(f"{root}/operator/{repeat_role}-repeat.log w,")
             rules.extend((
                 f"{root}/repo/{{,**}} r,",
                 f"{root}/evidence/{{,**}} r,",

@@ -84,7 +84,8 @@ def await_broker_completion(writer, channel, binding, enrollment, *, deadline):
 
 
 def run_broker(listener, location, control, *, root_fd, storage, device_id, sequencer,
-               release, core_spki, signer_fd, enrollment, core_epoch, completion=None, fault=lambda _: None):
+               release, core_spki, signer_fd, enrollment, core_epoch, completion=None, fault=lambda _: None,
+               writer_admission=None, before_ack=None):
     require(type(signer_fd) is int and signer_fd >= 3, "RH07_SIGNER_FD")
     try:
         require(type(storage) is RoleStorage and type(sequencer) is SequenceClient
@@ -105,12 +106,13 @@ def run_broker(listener, location, control, *, root_fd, storage, device_id, sequ
         core_spki=core_spki, signer_fd=signer_fd, enrollment=enrollment, core_epoch=core_epoch,
         broker_epoch=sequencer.epoch, enabled=True, on_ready=lambda: _ready(control, "broker"),
         on_completion=lambda report: send_frame(completion, report), fault=fault,
+        writer_admission=writer_admission, before_ack=before_ack,
     )
 
 
 def run_verifier(listener, location, control, *, root_fd, storage, enrollment,
                  identity, core_peer, core_spki, reads, qualification_fault_challenge=False,
-                 qualification_read=None):
+                 qualification_read=None, succession=None):
     require(type(reads) is int and 1 <= reads <= 8, "NATIVE_SERVICE_VERIFIER_LIMIT")
     start_listener(listener, location)
     for index in range(reads):
@@ -118,7 +120,7 @@ def run_verifier(listener, location, control, *, root_fd, storage, enrollment,
             listener, root_fd=root_fd, storage=storage, enrollment=enrollment,
             identity=identity, core_peer=core_peer, core_spki=core_spki, enabled=True,
             qualification_fault_challenge=qualification_fault_challenge,
-            qualification_read=qualification_read if index == 0 else None,
+            qualification_read=qualification_read if index == 0 else None, succession=succession,
             on_ready=(lambda: _ready(control, "verifier")) if index == 0 else None,
         )
 
@@ -160,7 +162,7 @@ def start_core(control, *, root, origin, spec, candidates, existing_profile,
 
 
 def bind_core_publication(host, task_id, *, storage, anchor, sequencer, broker, release_listener,
-                          enrollment, device_id):
+                          enrollment, device_id, before_dispatch=None, hold_ack=None):
     """Bind one reviewed task after its capsule exists, before review_effect."""
     from runtime.meta_hackathon.runtime_adapter import NativeMobileComposition
 
@@ -189,7 +191,7 @@ def bind_core_publication(host, task_id, *, storage, anchor, sequencer, broker, 
         port = NativeQualificationPort.prepare(
             gate=gate, enrollment=enrollment, device_id=device_id, broker_peer=broker.peer,
             endpoint=broker.location, release_listener=release_listener, anchor=anchor,
-            lifetime=300, enabled=True, storage=storage,
+            lifetime=300, enabled=True, storage=storage, before_dispatch=before_dispatch, hold_ack=hold_ack,
         )
         coding.qualification_port = port
         return port
