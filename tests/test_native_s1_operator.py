@@ -2,7 +2,6 @@
 import hashlib
 import json
 import os
-import shutil
 import socket
 import subprocess
 import sys
@@ -21,6 +20,9 @@ from runtime.red_hat.fixture_repository import FixtureRepository, open_dir
 from runtime.red_hat.role_storage import DirectoryPin
 from scripts.unification.native_s1 import host, policy
 from scripts.unification.native_s1.probes import SIBLING, VerifierDenials, verifier_writable_control
+
+
+APPARMOR_PARSER = Path("/usr/sbin/apparmor_parser")
 
 
 class NativeS1OperatorTests(unittest.TestCase):
@@ -134,7 +136,7 @@ class NativeS1OperatorTests(unittest.TestCase):
         finally:
             os.close(fd)
 
-    @unittest.skipUnless(shutil.which("apparmor_parser"), "AppArmor parser is unavailable")
+    @unittest.skipUnless(os.access(APPARMOR_PARSER, os.X_OK), "AppArmor parser is unavailable")
     def test_full_profiles_parse_without_kernel_load(self):
         ref = "refs/heads/aioa/nz11-" + "3" * 32
         rendered = policy.profiles("1" * 32, "2" * 40, 1000, exact_ref=ref)
@@ -154,7 +156,7 @@ class NativeS1OperatorTests(unittest.TestCase):
             for role, text in rendered.items():
                 path = Path(root) / role
                 path.write_text(text)
-                result = subprocess.run([shutil.which("apparmor_parser"), "--skip-kernel-load",
+                result = subprocess.run([str(APPARMOR_PARSER), "--skip-kernel-load",
                                          "--skip-cache", str(path)], capture_output=True, text=True, timeout=12)
                 self.assertEqual(result.returncode, 0, result.stderr)
 
