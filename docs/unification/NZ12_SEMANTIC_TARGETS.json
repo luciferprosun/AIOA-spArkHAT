@@ -10141,8 +10141,8 @@
     },
     "runtime/webapp.py": {
       "path": "runtime/webapp.py",
-      "git_blob": "875a684a30ef98e7db3814282a559152cd726e7c",
-      "sha256": "fa8b481e7ecc132c85f157cd461705b7ea631ef1e42ae50ea73b0dbffdd3363f",
+      "git_blob": "a816f8b78cf736410bbf5fb416a5e7c7d43c769c",
+      "sha256": "243600e9a6215b4819b94ffebf4bdd1743c106fe6a0bdefab9825f10996974da",
       "definitions": [
         {
           "name": "WebRuntimeService",
@@ -10647,6 +10647,7 @@
         "stream.readline",
         "struct.unpack",
         "subprocess.run",
+        "sum",
         "super",
         "super().__init__",
         "super().do_GET",
@@ -10678,8 +10679,8 @@
         "worker.start",
         "write_json"
       ],
-      "call_site_count": 897,
-      "call_sites_sha256": "655a772a95cf8b76ab8317e3c7f2e0ec7c1fb9c7454754ae0999b6f26f5b7182"
+      "call_site_count": 900,
+      "call_sites_sha256": "aeae39ce3c0795553372ac32e2490a20d8f58fa43d0ac011a30b49a1c365a02c"
     },
     "runtime/mission/patch_capsule.py": {
       "path": "runtime/mission/patch_capsule.py",
