@@ -931,5 +931,36 @@
       },
       "worker_verification": "Use the subsequent protected PR #80 and main run receipts for the exact final source."
     }
+  },
+  "execution_m0_m7_20261128": {
+    "observed_utc_day": "2026-11-28",
+    "source": {
+      "sha": "73732a2011364ce5afd2e811d6fbff1f7f4727fc",
+      "tree": "37bfa48ae77be008d3e6f014dadd7518af971fc3"
+    },
+    "retirement": "KEEP_HOLD",
+    "cross_uid": {
+      "s1": "BLOCKED_HOST",
+      "s1_sessions": 0,
+      "link_count": null,
+      "settlement_count": null,
+      "redispatch_count": null,
+      "s2": "NOT_QUALIFIED",
+      "historical_i1": "NOT_RUN",
+      "production": "DISABLED",
+      "historic_intent": "UNKNOWN_HELD"
+    },
+    "r1": {
+      "git_media": 2,
+      "matching_refs_per_medium": 13,
+      "commits_per_medium": 179,
+      "objects_per_medium": 2674,
+      "fsck": "PASS",
+      "metadata_members_each": 38,
+      "metadata_integrity": "PASS",
+      "restore_reference": "../nonzero-archive/RESTORE.md"
+    },
+    "live": "NOT_RUN",
+    "remaining_external_contracts": 23
   }
 }

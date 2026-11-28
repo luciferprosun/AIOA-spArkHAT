@@ -96,3 +96,48 @@ Rekomendacja dla 23 ID: zachować ich osobne `UNKNOWN_EXTERNAL` i wstrzymać dep
 W trakcie przygotowań A–D ustalono konkretne cele prób technicznych. Dotyczą odrębnych wierszy PARTIAL #2, #3, #17, #18, #19, #41 i #63. Dla 23 pozycji tego rejestru nadal potrzeba identyfikacji obecnego klienta, wersji i reprezentatywnego wejścia albo zatwierdzonego zakresu deprecjacji. Potwierdzenie GitHub, że docelowe Actions są włączone, blokuje próbę C. O tym, czy wymagany jest Git HTTPS dla #18, decyduje odbiorca tego kontraktu. [Odbiory wykonawcze](NONZERO_RETIREMENT_GATE.md) · [Dokładne piny](LIVE_QUALIFICATION.json)
 
 **Odczyt 26 listopada 2026, godz. 18:31 UTC.** Scalenie #77 zamknęło integrację wyłączonego zakresu RH-07. Klient i wersja dla każdego z 23 wierszy pozostają niepotwierdzone. Aktualne kroki właściciela wraz z odrębnym pozwoleniem dla naprawy #41, odczytem Render i przywróceniem z drugiego trwałego miejsca opisuje pakiet decyzji. [Pakiet decyzji](NONZERO_RETIREMENT_GATE.md) · [Macierz 69](PARITY69_UPDATED.csv)
+
+## Stan odbiorców i następny wymagany dowód · 28 listopada 2026
+
+Oryginalne importy W7A i ich wersja pozostają przypięte w tabelach wyżej.
+Bieżący przegląd utrzymuje 23 pozycje UNKNOWN_EXTERNAL. Do każdej pozycji
+potrzebna jest poświadczona wersja rzeczywistego klienta lub podpisana
+dyspozycja właściciela z zakresem i datą. Opiekun klienta potwierdza punkt
+wejścia i dostarcza zredagowany pozytywny lub negatywny wynik. Właściciel
+systemu podpisuje ewentualne wycofanie i uzgadnia termin z odbiorcą.
+
+| # | Odpowiedzialny za brakujący dowód | Minimalny dowód w przypiętej wersji klienta |
+| --- | --- | --- |
+| 11 | Właściciel ingress | Związanie zatwierdzenia, nonce, sesji oraz odmowa obcego lub powtórzonego żądania. |
+| 12 | Właściciel klienta repozytorium | Podpisana kapsuła, dokładna baza i ten sam PatchSet. |
+| 13 | Odbiorca DTO repozytorium | Repo, identyfikator wersji poświadczenia i reprezentacja wolna od sekretów. |
+| 20 | Odbiorca wyniku | Związanie oryginalnego źródła i podpisane VERIFIED, DENIED lub UNKNOWN. |
+| 24 | Opiekun Render lub klienta HTTP | Odczyt rzeczywistego route, status, wymagane nagłówki i tryb. |
+| 26 | Odbiorca odczytu audytu | Zredagowana oś czasu z udokumentowanym limitem i kolejnością. |
+| 30 | Właściciel schematu próby | Zachowanie trwałego klucza po restarcie i odmowa innej operacji lub replay. |
+| 33 | Odbiorca PatchSet | ADD/MODIFY/DELETE i dowód tożsamości śladu. |
+| 34 | Opiekun polityki | Evaluate/recheck oraz odmowa po zmianie ścieżki lub digestu. |
+| 40 | Opiekun klienta naprawy | Autentyczne FAIL, zakres naprawy, ponowna walidacja i zachowanie STOP lub UNKNOWN. |
+| 44 | Właściciel toolchain | Uzasadnienie i dowód cyklu życia Docker albo podpisane wycofanie. |
+| 46 | Właściciel użytkownika recipe | Fizyczny efekt i sprzątanie zasobów albo podpisane wycofanie. |
+| 47 | Właściciel rozwiązania zależności | Deterministyczny lock Python/Node, toolchain i registry albo podpisane wycofanie. |
+| 50 | Opiekun operatora Strands | Challenge właściciela i dokładny kontrakt przerwania. |
+| 52 | Odbiorca DTO | Anonimizowana allowlista pól i odrzucenie authority/nonce. |
+| 55 | Odbiorca dowodu artefaktu | Bajty, digest, taint i ten sam trace. |
+| 56 | Właściciel allowlisty | Dokładne bajty konfiguracji i odmowa linku albo driftu. |
+| 57 | Opiekun rzeczywistego klienta Render | Wskazanie, czy klient wymaga atomowej zmiany `render.yaml`, czy create-only Git. Odczyt po restarcie z właściwej granicy. |
+| 60 | Właściciel odczytu magazynu | Tożsamość deskryptora, limity rozmiaru i odmowa podmienionego inode. |
+| 61 | Właściciel profilu | Efektywny profil z przypiętymi capabilities i odmową poza zakresem. |
+| 62 | Odbiorca opisu Render | Read-only proposal i obserwacja stanu przed oraz po. |
+| 66 | Opiekun niezależnego odczytu | Ponowne otwarcie root/path/bytes/runtime z odmową driftu. |
+| 67 | Odbiorca raportu | Report, receipt, pochodzenie, zachowane UNKNOWN i brak apply. |
+
+Wiersz #18 pozostaje poza grupą 23 i w stanie PARTIAL. Pliki dotknięte w
+`7a139e2e` odpowiadają #80. Ten zakres potwierdza ścieżkę odczytu HTTPS.
+Oddzielny odbiorca ma wykazać, czy wymaga historycznego efektu transportu
+Git HTTPS, czy dopuszcza create-only REST. [Bramka LIVE](LIVE_QUALIFICATION.json)
+
+Próba C pozostaje NOT_RUN. Publiczne repozytorium celu ID `1445911975`
+miało Actions `enabled=true`, `allowed_actions=all` w świeżym odczycie.
+Wymagane są poświadczenie wyłączenia Actions, wyłączność writera i
+oddzielne ograniczone dopuszczenie Core. [Warunki celu C](B_C_OWNER_PAYLOADS.json)

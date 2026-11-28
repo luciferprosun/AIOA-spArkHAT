@@ -1,0 +1,13 @@
+03d1c8f6a1d254c98c0b4e88fc93e25ea85ed4c7 refs/heads/codex/portable-d1-d2-m1-overnight
+2a3776fd91918056211625a91fe8c60ecbc7b8df refs/heads/codex/w2-structured-patch-proposal
+392487849eddc7444f5159994b66b72e73f15934 refs/heads/codex/w7a-agent-execution-slice
+484ccf1af3a3001c2146fea7d4459a6feb6bf9d1 refs/heads/codex/w5-judge-hero-integration
+4f021ddb69d6f5e83a94f8e17b951dd3a2c8f5dc refs/heads/codex/w4-independent-verification-recovery
+4fafed8b1a877e55d96ddd9baea0a737fbeeaa4a refs/heads/main
+662bcb9d093f470583235821052757bed1253d9d refs/tags/phase1-foundation-green
+772eda44a1c84581d7d63f8f8848b4440598fe0c refs/heads/codex/w1-heritage-workspace-foundation
+7d7191cd221d3779da8d4580da858c0d11ee503a refs/heads/codex/w6-security-feature-freeze
+8827cf9943361c30b3c116e25895f0b99855149e refs/heads/codex/w3-human-bound-patch-authority
+945c87052815b237004d259fe993cc92cbd579b7 refs/heads/codex/w7-final-release-candidate
+e763526ba203e884cb78143e3e4e26f825d3de0c refs/heads/codex/portable-b5-b6-overnight
+e763526ba203e884cb78143e3e4e26f825d3de0c refs/pull/1/head

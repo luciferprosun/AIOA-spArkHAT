@@ -724,5 +724,64 @@
     },
     "live": "NOT_RUN",
     "notes": "Hosted checks and manual/locally observed evidence retain their own commit and test scope. A later docs-only merge is verified separately."
+  },
+  "execution_m0_m7_20261128": {
+    "observed_utc_day": "2026-11-28",
+    "source": {
+      "sha": "73732a2011364ce5afd2e811d6fbff1f7f4727fc",
+      "tree": "37bfa48ae77be008d3e6f014dadd7518af971fc3"
+    },
+    "r1": {
+      "git_media": 2,
+      "matching_refs_per_medium": 13,
+      "commits_per_medium": 179,
+      "objects_per_medium": 2674,
+      "fsck": "PASS",
+      "metadata_members_each": 38,
+      "metadata_integrity": "PASS",
+      "restore_reference": "../nonzero-archive/RESTORE.md"
+    },
+    "native": {
+      "s1": "BLOCKED_HOST",
+      "s1_sessions": 0,
+      "link_count": null,
+      "settlement_count": null,
+      "redispatch_count": null,
+      "s2": "NOT_QUALIFIED",
+      "historical_i1": "NOT_RUN",
+      "production": "DISABLED",
+      "historic_intent": "UNKNOWN_HELD"
+    },
+    "live_scenarios_executed": 0,
+    "incorporated_prs": {
+      "85": {
+        "head": "6a205c2065105856fdcce4e1d56a3fbfa6d86179",
+        "tree": "605e5b5cc7191b5d1a2cdc6fbaabe479f64f97d2",
+        "core_run": 46092911032,
+        "codeql_run": 46092909597,
+        "required_checks": "4/4 PASS",
+        "tests_per_interpreter": 4591,
+        "passes_per_interpreter": 4586,
+        "allowed_skips_per_interpreter": 5
+      },
+      "87": {
+        "head": "7c9dd7f0d95027462955a27d33b27156cf551e1d",
+        "tree": "37bfa48ae77be008d3e6f014dadd7518af971fc3",
+        "core_run": 46094984403,
+        "codeql_run": 46094982453,
+        "required_checks": "4/4 PASS",
+        "local_mobile_and_mcp_pass": 107,
+        "local_clean_wheel_and_sdist_pairing_cli": "PASS"
+      }
+    },
+    "matrix": {
+      "rows": 69,
+      "archive_only": 33,
+      "scoped_offline": 3,
+      "core_equivalent": 2,
+      "partial": 7,
+      "unknown_external": 23,
+      "security_blocked_historical": 1
+    }
   }
 }

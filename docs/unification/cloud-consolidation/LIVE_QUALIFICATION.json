@@ -654,5 +654,50 @@
       }
     },
     "observed_followup_utc": "2026-11-26T18:31:14Z"
+  },
+  "execution_m0_m7_20261128": {
+    "observed_utc_day": "2026-11-28",
+    "source": {
+      "sha": "73732a2011364ce5afd2e811d6fbff1f7f4727fc",
+      "tree": "37bfa48ae77be008d3e6f014dadd7518af971fc3"
+    },
+    "real_runs": 0,
+    "cases": {
+      "A": {
+        "status": "NOT_RUN",
+        "next_proof": "admitted owner, Contents/Metadata READ token, exact source and signed current READ permit"
+      },
+      "B": {
+        "status": "NOT_RUN",
+        "next_proof": "source TestGate and oracle, enrolled provider, current price, balance and scoped lease"
+      },
+      "C": {
+        "status": "NOT_RUN",
+        "target_repository_id": 1445911975,
+        "target_actions_enabled_at_audit": true,
+        "next_proof": "target administrator attests Actions disabled and writer exclusivity; original Core grant and actual scoped App"
+      },
+      "D": {
+        "status": "NOT_RUN",
+        "blocker": "BLOCKED_HOST",
+        "next_proof": "management-attested Noble, keeper and admitted render and STOP scopes"
+      },
+      "repair_41": {
+        "status": "NOT_RUN",
+        "next_proof": "independent accepted TEST_FAIL then separately approved repair START"
+      }
+    },
+    "native": {
+      "s1": "BLOCKED_HOST",
+      "s1_sessions": 0,
+      "link_count": null,
+      "settlement_count": null,
+      "redispatch_count": null,
+      "s2": "NOT_QUALIFIED",
+      "historical_i1": "NOT_RUN",
+      "production": "DISABLED",
+      "historic_intent": "UNKNOWN_HELD"
+    },
+    "valid_live_grants_observed": false
   }
 }
