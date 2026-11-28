@@ -222,14 +222,17 @@ def child(role, control_fd, ready_fd, completion_fd):
                     finally:
                         os.close(signer_fd)
                     require(identity.spki == cfg["verifier_spki"], "NATIVE_S1_VERIFIER_KEY")
+                    read_probe = None
                     if cfg['case'] in ('N2', 'N3'):
-                        from scripts.unification.native_s1.probes import verifier_denials
+                        from scripts.unification.native_s1.probes import VerifierDenials
 
-                        tell(control, status='DENIALS', result=verifier_denials(root, storage.exact_ref, cfg['case']))
+                        read_probe = VerifierDenials(cfg['case'], storage, lambda result, observation: tell(
+                            control, status='DENIALS', result=result, observation=observation))
                     run_verifier(listener, endpoint(root, role), ready, root_fd=fd, storage=storage,
                                  enrollment=enroll, identity=identity, core_peer=Peer(**cfg["core"]),
                                  core_spki=cfg["core_spki"], reads=cfg["reads"],
-                                 qualification_fault_challenge=cfg['case'] == 'B2-challenge')
+                                 qualification_fault_challenge=cfg['case'] == 'B2-challenge',
+                                 qualification_read=read_probe)
                 return 0
             finally:
                 os.close(fd)

@@ -117,12 +117,12 @@ def serve_verifier_fixture_once(listener, *, root_fd, binding, enrollment, ident
 
 
 def _respond_to_verifier(peer, root_fd, binding, enrollment, identity, *, challenge, now, storage,
-                         expected_completion=None):
+                         expected_completion=None, qualification_read=None):
     request = binding.request
     report = verify(root_fd, request, enrollment, now=now, core_epoch=request.core_epoch,
                     broker_epoch=request.broker_epoch,
                     check_context=lambda target: require_physical_context(target, binding),
-                    storage=storage)
+                    storage=storage, qualification_read=qualification_read)
     if storage is not None:
         require(report.completion_sha256 == expected_completion, "NATIVE_S1_COMPLETION_CHANGED")
     send_frame(peer, _seal(identity, {
@@ -133,7 +133,7 @@ def _respond_to_verifier(peer, root_fd, binding, enrollment, identity, *, challe
 
 def serve_role_verifier_once(listener, *, root_fd, storage, enrollment, identity,
                              core_peer, core_spki, enabled=False, on_ready=None,
-                             qualification_fault_challenge=False):
+                             qualification_fault_challenge=False, qualification_read=None):
     """Accept only a signed original-binding challenge from the pinned cold Core."""
     from runtime.red_hat.role_storage import RoleStorage
 
@@ -163,7 +163,8 @@ def serve_role_verifier_once(listener, *, root_fd, storage, enrollment, identity
             # The signed readback is deliberately bound to a different challenge.
             challenge = ('1' if challenge[0] == '0' else '0') + challenge[1:]
         _respond_to_verifier(peer, root_fd, binding, enrollment, identity, challenge=challenge,
-                             now=int(time.time()), storage=storage, expected_completion=completion)
+                             now=int(time.time()), storage=storage, expected_completion=completion,
+                             qualification_read=qualification_read)
 
 
 def _report(value):

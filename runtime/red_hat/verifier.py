@@ -4,6 +4,7 @@ import base64
 import hashlib
 from contextlib import ExitStack
 from dataclasses import dataclass, replace
+from functools import partial
 
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import hashes
@@ -63,8 +64,10 @@ class Verification:
     published_ctime_ns: int | None = None
 
 
-def verify(root_fd, expected, enrollment, *, now, core_epoch, broker_epoch, check_context=_no_fault, storage=None):
+def verify(root_fd, expected, enrollment, *, now, core_epoch, broker_epoch, check_context=_no_fault,
+           storage=None, qualification_read=None):
     """Verify a trusted original request using public enrollment and fresh observations."""
+    require(qualification_read is None or storage is not None, "NATIVE_S1_ROLE_VERIFIER_REQUIRED")
     report = Verification()
     try:
         require(enrollment.permits(expected, now), "BROKER_ENROLLMENT")
@@ -103,13 +106,20 @@ def verify(root_fd, expected, enrollment, *, now, core_epoch, broker_epoch, chec
             public_key(executor.spki).verify(
                 unbase64(done["signature"]), canonical_json_bytes(payload), ec.ECDSA(hashes.SHA256())
             )
+
+            def inspection(kind):
+                if qualification_read is not None:
+                    return partial(qualification_read, target, kind)
+                return None
+
             require_named_directory(root_fd, "evidence", directory)
             target.check(expected)
-            target.check_commit(expected)
-            require(target.observe(expected) == stamp, "BROKER_REF_MOVED")
+            target.check_commit(expected, inspect=inspection("commit"))
+            require(target.observe(expected, inspect=inspection("ref")) == stamp, "BROKER_REF_MOVED")
             check_context(target)
-            require(target.record(directory, binding.witness_id, executor.uid) == raw
-                    and target.record(directory, _completion_name(expected), executor.uid) == done_bytes,
+            require(target.record(directory, binding.witness_id, executor.uid, inspect=inspection("witness")) == raw
+                    and target.record(directory, _completion_name(expected), executor.uid,
+                                      inspect=inspection("completion")) == done_bytes,
                     "BROKER_WITNESS_MOVED")
             return replace(
                 report,

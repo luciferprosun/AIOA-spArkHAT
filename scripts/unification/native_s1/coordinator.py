@@ -28,7 +28,7 @@ from runtime.red_hat.witness import RegisteredExecutor
 from runtime.red_hat.writer_lifecycle import OneShotWriter, _start_ticks
 from scripts.unification.native_role_supervisor import installed_tree, trusted
 from scripts.unification.native_s1 import host, policy, roles
-from scripts.unification.native_s1.probes import SIBLING
+from scripts.unification.native_s1.probes import SIBLING, verifier_writable_control
 
 MANDATORY = ("H0", "P1", "C1", "C2", "C3", "C4", "C5", "R1", "R2",
              "N1", "N2", "N3", "N4", "N5", "F1", "F2", "F3", "F4",
@@ -454,7 +454,9 @@ def _cold_roles(stack, root, actors, group, namespace, cgroups, config, proof, *
         proof['verifier' + suffix] = verifier.release(**config, core=asdict(cold.peer),
             reads=1 if cut or config['case'] == 'B2-challenge' else 2)
         if config['case'] in ('N2', 'N3'):
-            proof['verifier-denials'] = _denials(roles.hear(verifier.control, 10))
+            proof['verifier-writable-control'] = verifier_writable_control(root / 'operator', config['case'])
+            if config['case'] == 'N3':
+                require(stat.S_ISREG((root / 'state/lock').lstat().st_mode), 'NATIVE_S1_PROBE_ATTEMPT_LOCK')
         verifier.ready_listener()
     proof['cold' + suffix] = cold.release(**config, verifier=asdict(verifier.peer), cut_after_settlement=cut,
                                          observe_only=observe_only)
@@ -466,6 +468,26 @@ def _cold_roles(stack, root, actors, group, namespace, cgroups, config, proof, *
         cold.ready_listener(role='core', timeout=10)
         roles.tell(cold.control, action='reconcile')
         result = roles.hear(cold.control, 20)
+        if config['case'] in ('N2', 'N3'):
+            event = roles.hear(verifier.control, 10)
+            denials = _denials(event)
+            expected = set(proof['verifier-writable-control'])
+            if config['case'] == 'N3':
+                expected.add('attempt-state')
+            require(set(denials) == expected, 'NATIVE_S1_VERIFIER_PROBE_COVERAGE')
+            observation = event['observation']
+            role = observation['role']
+            require(role['pid'] == verifier.peer.pid and role['uid'] == [verifier.peer.uid] * 3
+                    and role['gid'] == [verifier.peer.gid] * 3 and role['groups'] == [group]
+                    and role['profile'] == verifier.actor.apparmor and role['cgroup'] == verifier.actor.cgroup
+                    and role['no_new_privileges'] == 1 and role['dumpable'] == 0
+                    and role['namespaces']['mnt'] == namespace and not any(role['capabilities'].values()),
+                    'NATIVE_S1_VERIFIER_PROBE_ROLE')
+            require(set(observation['reads']) == {'ref', 'commit', 'witness', 'completion'}
+                    and all(row['before'] == row['after'] for row in observation['reads'].values()),
+                    'NATIVE_S1_VERIFIER_READBACK')
+            proof['verifier-denials'] = denials
+            proof['verifier-readback'] = observation
         if cut:
             require(result == {'status': 'COMMIT_RETURNED', 'dispatch': {'handoffs': 0, 'routes': 0}},
                     'NATIVE_S1_C5_COMMIT_TELEMETRY')

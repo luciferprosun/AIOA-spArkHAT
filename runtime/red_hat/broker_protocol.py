@@ -245,7 +245,7 @@ def _stamp(info):
             info.st_size, info.st_mtime_ns, info.st_ctime_ns)
 
 
-def read_record(directory, name, uid, *, maximum=MAX_FRAME, sync=False, reader_gid=None):
+def read_record(directory, name, uid, *, maximum=MAX_FRAME, sync=False, reader_gid=None, inspect=None):
     fd = os.open(name, os.O_RDONLY | _OPEN_FILE, dir_fd=directory)
     try:
         initial = os.fstat(fd)
@@ -256,6 +256,8 @@ def read_record(directory, name, uid, *, maximum=MAX_FRAME, sync=False, reader_g
                 and initial.st_nlink == 1 and 0 < initial.st_size <= maximum,
                 "BROKER_RECORD_STORAGE")
         raw = os.pread(fd, maximum + 1, 0)
+        if inspect is not None:
+            inspect(directory, name, fd, raw)
         if sync:
             os.fsync(fd)
             os.fsync(directory)

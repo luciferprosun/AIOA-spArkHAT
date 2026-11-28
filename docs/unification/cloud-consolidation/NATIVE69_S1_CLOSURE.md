@@ -91,3 +91,30 @@ S2 is queued separately for durable boot-crossing state and authenticated
 writer succession. It requires independently reviewed exclusive fencing,
 physical re-identification after reboot, authenticated evidence and fault
 tests across boot and loss of /run. There is no automatic reset or replay.
+
+## N2 and N3 verifier handles
+
+After checking the producer signatures, the verifier measures the real
+readback in the signed challenge flow. It reuses the borrowed read-only
+file and directory descriptors for the published ref, its loose commit,
+and the two producer records. The report contains the file and parent
+identities, mount IDs, modes, owners, byte digests and effective role
+identity before the signed reply. Core still needs the complete verified
+reply and its own physical recheck to settle.
+
+N2 opens the existing exact and sibling refs for write, attempts replacement
+and unlink in both directions, and attempts creation at a known absent
+sibling. N3 attempts exclusive creation of the ref lock, packed refs, the
+packed refs lock and a new object in the commit's prefix directory. It also
+attempts write opens of the existing commit and both evidence files. The
+post-publication exact ref is already present, so the dedicated creation
+probe uses the unoccupied sibling. Each target is checked before and after.
+The attempt-state lock has a separate probe. The coordinator also executes
+the same ref, object and evidence syscalls on independent writable scratch
+targets so an invalid syscall or missing input cannot count as confinement.
+
+For this DAC and AppArmor layout only `EACCES` or `EPERM` at the planned
+operation counts as a denial. The local fixture measures ordinary DAC with
+the read handles. A complete N2 or N3 receipt requires the admitted Noble
+host and the live verifier actor. A passing scratch control conveys no
+publication authority.

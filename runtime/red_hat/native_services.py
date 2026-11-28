@@ -109,7 +109,8 @@ def run_broker(listener, location, control, *, root_fd, storage, device_id, sequ
 
 
 def run_verifier(listener, location, control, *, root_fd, storage, enrollment,
-                 identity, core_peer, core_spki, reads, qualification_fault_challenge=False):
+                 identity, core_peer, core_spki, reads, qualification_fault_challenge=False,
+                 qualification_read=None):
     require(type(reads) is int and 1 <= reads <= 8, "NATIVE_SERVICE_VERIFIER_LIMIT")
     start_listener(listener, location)
     for index in range(reads):
@@ -117,6 +118,7 @@ def run_verifier(listener, location, control, *, root_fd, storage, enrollment,
             listener, root_fd=root_fd, storage=storage, enrollment=enrollment,
             identity=identity, core_peer=core_peer, core_spki=core_spki, enabled=True,
             qualification_fault_challenge=qualification_fault_challenge,
+            qualification_read=qualification_read if index == 0 else None,
             on_ready=(lambda: _ready(control, "verifier")) if index == 0 else None,
         )
 

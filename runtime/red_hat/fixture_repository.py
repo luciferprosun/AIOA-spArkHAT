@@ -130,7 +130,7 @@ class FixtureRepository:
     def leaf(request):
         return request.exact_ref.rsplit("/", 1)[1]
 
-    def check_commit(self, request):
+    def check_commit(self, request, *, inspect=None):
         with ExitStack() as stack:
             objects = open_dir(self.repo, "objects", stack)
             prefix = open_dir(objects, request.new_oid[:2], stack)
@@ -153,11 +153,15 @@ class FixtureRepository:
                     and separator and header == b"commit " + str(len(content)).encode("ascii")
                     and hashlib.sha1(raw).hexdigest() == request.new_oid,
                     "BROKER_COMMIT_OBJECT")
+            if inspect is not None:
+                inspect(prefix, request.new_oid[2:], fd, packed)
+                require_named_directory(self.repo, "objects", objects)
+                require_named_directory(objects, request.new_oid[:2], prefix)
 
-    def observe(self, request):
+    def observe(self, request, *, inspect=None):
         leaf = self.leaf(request)
         before = os.stat(leaf, dir_fd=self.ref_parent, follow_symlinks=False)
-        raw = self.record(self.ref_parent, leaf, self.uid, maximum=41)
+        raw = self.record(self.ref_parent, leaf, self.uid, maximum=41, inspect=inspect)
         after = os.stat(leaf, dir_fd=self.ref_parent, follow_symlinks=False)
         require(file_identity(before) == file_identity(after)
                 and before.st_ctime_ns == after.st_ctime_ns
