@@ -113,5 +113,37 @@
     "D": "Obtain authenticated Noble image/boot and actual pinned runtime. Run one admitted render with 180-second supervisor, verify DOM/PNG/console and retain active STOP plus restart evidence for the permitted run.",
     "LEGACY": "Confirm Render and client decisions for the 23 contract IDs, nominate independent durable storage, verify restore there and retain historical #69. Final owner decision remains HOLD."
   },
-  "local_astra_queue_observed_utc": "2026-11-26T18:31:14Z"
+  "local_astra_queue_observed_utc": "2026-11-26T18:31:14Z",
+  "execution_m0_m7_20261128": {
+    "observed_utc_day": "2026-11-28",
+    "source": {
+      "sha": "73732a2011364ce5afd2e811d6fbff1f7f4727fc",
+      "tree": "37bfa48ae77be008d3e6f014dadd7518af971fc3"
+    },
+    "cross_uid": {
+      "owner": "qualified host operator",
+      "state": "BLOCKED_HOST",
+      "next": "run complete S1 matrix and supply genuine management receipt"
+    },
+    "s2": {
+      "owner": "storage platform and recovery reviewer",
+      "state": "NOT_QUALIFIED",
+      "next": "supply external exclusive generation and persistent volume profile"
+    },
+    "historic_i1": {
+      "owner": "historical journal retention custodian",
+      "state": "NOT_RUN",
+      "next": "independent protected restore, read-only retention/HELD and no-redispatch receipt"
+    },
+    "external_contracts": {
+      "owner": "actual consumers and project owner",
+      "open": 23,
+      "next": "each consumer attests version, capability or retirement"
+    },
+    "retirement": {
+      "owner": "project retention custodian",
+      "state": "KEEP_HOLD",
+      "next": "confirm retention policy, read Render and Projects V2, retain I1"
+    }
+  }
 }

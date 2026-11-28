@@ -1,5 +1,18 @@
 # Bramka wycofania repozytorium NonZero
 
+## Odtworzenie R1, 28 listopada 2026
+
+Obie kopie Git na odrębnych fizycznych nośnikach odtworzyły 13/13 refów,
+179 commitów i 2674 obiekty. Oba świeże bare repo przeszły `git bundle verify`
+i `git fsck --full`. Refy odpowiadają wcześniejszemu manifestowi i bieżącemu
+GitHub. Każda kopia metadanych odtworzyła 38/38 projekcji z prawidłowymi
+sumami. Pełne archiwa pozostają u opiekuna retencji. [Manifest i procedura](../nonzero-archive/RESTORE.md)
+
+**KEEP / RETIREMENT_HOLD.** Odczyt Render i jego konsumentów, Projects V2,
+decyzje kontraktowe, formalny okres retencji i uprawniony historyczny I1
+pozostają odrębnymi warunkami. Źródłowe repo pozostaje dostępne. Historyczne
+Native69 zachowuje UNKNOWN / HELD, rezerwację i brak replay.
+
 
 ## Decyzja po #76, 26 listopada 2026
 
