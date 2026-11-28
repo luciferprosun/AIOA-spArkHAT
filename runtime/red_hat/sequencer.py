@@ -14,7 +14,7 @@ from dataclasses import dataclass
 
 from runtime.memory_patch.contracts.serialization import canonical_json_bytes
 from runtime.memory_patch.persistence.ports import transaction_active
-from runtime.red_hat.broker_protocol import Peer, authenticate, decode_record, publish_record, require
+from runtime.red_hat.broker_protocol import MAX_ATTEMPTS, Peer, authenticate, decode_record, publish_record, recv_data, require
 from runtime.red_hat.execution_binding import digest_string
 from runtime.red_hat.fixture_repository import require_private
 
@@ -23,6 +23,7 @@ SCHEMA = "aioa.redhat.fixture-sequencer.v1"
 MAX_MESSAGE = 1024
 MAX_CONNECTIONS = 8
 SLOT = "outstanding"
+_S1_INCARNATION = "s1-sequencer-incarnation"
 _HEADER = struct.Struct("!I")
 
 
@@ -42,7 +43,7 @@ def _read(stream, timeout):
             remaining = deadline - time.monotonic()
             require(remaining > 0, "RH07_SEQUENCE_TIMEOUT")
             stream.settimeout(remaining)
-            part = stream.recv(size - len(data))
+            part = recv_data(stream, size - len(data))
             require(part, "RH07_SEQUENCE_EOF")
             data.extend(part)
         return data
@@ -68,11 +69,15 @@ class SequenceClient:
     peer: Peer
     epoch: int
     timeout: float = 3.0
+    before_done: object = None
+    before_closed: object = None
 
     def __post_init__(self):
         _limits(self.epoch, self.timeout)
         require(type(self.peer) is Peer and type(self.endpoint) is str
-                and os.path.isabs(self.endpoint), "RH07_SEQUENCE_CONFIGURATION")
+                and os.path.isabs(self.endpoint)
+                and (self.before_done is None or callable(self.before_done))
+                and (self.before_closed is None or callable(self.before_closed)), "RH07_SEQUENCE_CONFIGURATION")
 
     @contextmanager
     def _connect(self):
@@ -98,7 +103,11 @@ class SequenceClient:
             # An exception or disappearance is ambiguous. Never send DONE for it.
             yield token
             require(os.getpid() == process, "RH07_SEQUENCE_FORK")
+            if self.before_done is not None:
+                self.before_done()
             _send(stream, _message(self.epoch, "done", binding, token=token), self.timeout)
+            if self.before_closed is not None:
+                self.before_closed()
             require(_read(stream, self.timeout) == _message(self.epoch, "closed", binding, token=token),
                     "RH07_SEQUENCE_CLOSE_UNKNOWN")
 
@@ -146,13 +155,16 @@ def bind_fixture_runner(runner, gate, *, enabled=False):
 
 
 class _Sequencer:
-    def __init__(self, directory, core_peer, broker_peer, epoch, timeout, active_timeout, fault):
+    def __init__(self, directory, core_peer, broker_peer, epoch, timeout, active_timeout, fault, *, fence_restart,
+                 publication_fault):
         self.directory, self.core_peer, self.broker_peer = directory, core_peer, broker_peer
         self.epoch, self.timeout, self.active_timeout = epoch, timeout, active_timeout
         self.fault = fault
+        self.publication_fault = publication_fault
         self.condition = threading.Condition()
         self.control_waiters = 0
         self.slot = None
+        self.publications = set() if fence_restart else None
         try:
             os.stat(SLOT, dir_fd=directory, follow_symlinks=False)
         except FileNotFoundError:
@@ -191,6 +203,12 @@ class _Sequencer:
     def _lease(self, stream, binding):
         control = binding is None
         token = secrets.token_hex(32)
+
+        def step(point):
+            self.fault(point)
+            if not control:
+                self.publication_fault(point, stream)
+
         with self.condition:
             self.control_waiters += int(control)
             try:
@@ -199,6 +217,12 @@ class _Sequencer:
                 ready = self.condition.wait_for(lambda: self.poisoned or (
                     self.slot is None and (control or not self.control_waiters)), timeout=self.timeout)
                 require(ready and not self.poisoned, "RH07_SEQUENCE_NOT_GRANTED")
+                if not control and self.publications is not None:
+                    require(binding not in self.publications and len(self.publications) < MAX_ATTEMPTS,
+                            "NATIVE_S1_SEQUENCE_ATTEMPT_CONSUMED")
+                    # A live daemon refuses a second slot even if the original
+                    # CLOSED never reached the broker. The incarnation fences restart.
+                    self.publications.add(binding)
                 self.slot = (binding, token)
             finally:
                 self.control_waiters -= int(control)
@@ -206,12 +230,18 @@ class _Sequencer:
         try:
             # Record uncertainty before transferring a capability to proceed.
             publish_record(self.directory, SLOT, _message(self.epoch, "outstanding", binding, token=token))
-            self.fault("slot_durable")
+            step("slot_durable")
             _send(stream, _message(self.epoch, "granted", binding, token=token), self.timeout)
-            require(_read(stream, self.active_timeout) == _message(self.epoch, "done", binding, token=token),
-                    "RH07_SEQUENCE_UNCERTAIN")
-            self.fault("done_received")
+            step("before_done")
+            try:
+                require(_read(stream, self.active_timeout) == _message(self.epoch, "done", binding, token=token),
+                        "RH07_SEQUENCE_UNCERTAIN")
+            except (OSError, ValueError):
+                step("done_missing")
+                raise
+            step("done_received")
             os.unlink(SLOT, dir_fd=self.directory)
+            step("before_slot_sync")
             os.fsync(self.directory)
         except BaseException:
             with self.condition:
@@ -222,8 +252,9 @@ class _Sequencer:
             with self.condition:
                 self.slot = None
                 self.condition.notify_all()
-            self.fault("slot_closed")
+            step("slot_closed")
             _send(stream, _message(self.epoch, "closed", binding, token=token), self.timeout)
+            step("closed_sent")
 
     def handle(self, stream):
         with stream:
@@ -237,9 +268,11 @@ class _Sequencer:
 
 
 def serve_sequencer(listener, *, directory, core_peer, broker_peer, epoch, timeout=2.0,
-                    active_timeout=5.0, stop=None, fault=lambda _: None, enabled=False):
+                    active_timeout=5.0, stop=None, fault=lambda _: None, enabled=False, on_ready=None,
+                    fence_restart=False, publication_fault=lambda _point, _stream: None):
     """Serve ordered capabilities over a trusted listener, with bounded concurrency."""
     require(enabled is True, "RH07_DISABLED")
+    require(type(fence_restart) is bool and callable(publication_fault), "RH07_SEQUENCE_CONFIGURATION")
     _limits(epoch, timeout)
     _limits(epoch, active_timeout)
     require(listener.family == socket.AF_UNIX and listener.type == socket.SOCK_STREAM
@@ -254,7 +287,15 @@ def serve_sequencer(listener, *, directory, core_peer, broker_peer, epoch, timeo
                 and stat.S_IMODE(info.st_mode) == 0o600 and info.st_nlink == 1,
                 "RH07_SEQUENCE_STORAGE")
         fcntl.flock(leader, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        service = _Sequencer(directory, core_peer, broker_peer, epoch, timeout, active_timeout, fault)
+        service = _Sequencer(directory, core_peer, broker_peer, epoch, timeout, active_timeout, fault,
+                             fence_restart=fence_restart, publication_fault=publication_fault)
+        if fence_restart:
+            # S1 uses one sequencer process per aperture. Readback needs no slot.
+            # If unlink of SLOT becomes visible before fsync fails, a process
+            # restart must still fail closed, including under a new epoch.
+            require(not service.poisoned, "RH07_SEQUENCE_OUTSTANDING")
+            publish_record(directory, _S1_INCARNATION,
+                           {"schema": "aioa.redhat.s1.sequencer-incarnation.v1", "epoch": epoch})
         available = threading.BoundedSemaphore(MAX_CONNECTIONS)
 
         def handle(peer):
@@ -264,6 +305,9 @@ def serve_sequencer(listener, *, directory, core_peer, broker_peer, epoch, timeo
                 available.release()
 
         listener.settimeout(0.25)
+        if on_ready is not None:
+            require(not service.poisoned, "RH07_SEQUENCE_OUTSTANDING")
+            on_ready()
         with ThreadPoolExecutor(max_workers=MAX_CONNECTIONS) as pool:
             while stop is None or not stop.is_set():
                 try:

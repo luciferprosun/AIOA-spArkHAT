@@ -347,7 +347,8 @@ class NativeCodingHost:
         validator = CoreSandboxValidation(self.foundation.intent_journal, stage_preparer=preparer,
             profile=self.profile, cancel=cancel, sandbox_jobs=True)
         target = 'sha256:' + sha256(canonical({'repository_id': self.source_snapshot.repository_id,
-            'target_identity': _git_target_identity(self.git_target_repository), 'profile': 'DISPOSABLE_BARE_PATCH_V1'}))
+            'target_identity': _git_target_identity(self.git_target_repository, shared_reader=self.spec.qualification_reader(self.owner)),
+            'profile': 'DISPOSABLE_BARE_PATCH_V1'}))
         run = CodingRun(producer, validator, self.base_root, self.spec.project_source, target,
                         'git-' + self.source_snapshot.source_base_sha, task.deadline_at)
         self.runs[task.task_id] = run
@@ -412,6 +413,11 @@ class NativeCodingHost:
                 source=self.spec.project_source, task=task,
                 worker_session_id=capsule.worker_session_id, capsule_digest=capsule.digest)
             port = self.qualification_port
+            target = self.spec.qualification_target
+            if target is not None:
+                require(port is not None and port.storage is not None
+                        and port.storage.core_target() == target.with_ref("refs/heads/aioa/nz11-" + capsule_digest[:32]),
+                        'NATIVE_CORE_STORAGE_REF')
             with self.authority(Capability.COMMIT) as principal:
                 route = CoreRemoteGitRoute.for_local_patch(principal, f.intent_journal,
                     capsules=tasks.capsules, preparation=preparation, profile=self.profile,

@@ -36,6 +36,7 @@ class NativeQualificationPort:
     nonce: str
     issued_at: int
     expires_at: int
+    storage: object = None
 
     def __post_init__(self):
         require(type(self.gate) is SequencedCoreGate and type(self.enrollment) is ExecutorEnrollment
@@ -51,14 +52,23 @@ class NativeQualificationPort:
                 and self.expires_at <= self.enrollment.valid_until
                 and 0 < self.expires_at - self.issued_at <= 300, "NATIVE_QUALIFICATION_CONFIGURATION")
 
+        if self.storage is not None:
+            from runtime.red_hat.role_storage import RoleStorage
+            require(type(self.storage) is RoleStorage and self.storage.writer_cgroup is not None
+                    and (self.broker_peer.uid, self.broker_peer.gid)
+                        == (self.storage.broker.uid, self.storage.broker.gid),
+                    "NATIVE_QUALIFICATION_CONFIGURATION")
+            self.storage.require_role("core")
+            self.storage.require_anchor(self.anchor)
+
     @classmethod
     def prepare(cls, *, gate, enrollment, device_id, broker_peer, endpoint,
-                release_listener, anchor, lifetime, enabled=False):
+                release_listener, anchor, lifetime, enabled=False, storage=None):
         require(enabled is True and type(lifetime) is int and 0 < lifetime <= 300,
                 "NATIVE_QUALIFICATION_CONFIGURATION")
         now = int(time.time())
         return cls(gate, enrollment, device_id, broker_peer, endpoint, release_listener,
-                   anchor, secrets.token_hex(32), now, now + lifetime)
+                   anchor, secrets.token_hex(32), now, now + lifetime, storage)
 
     def metadata(self, route):
         root = Path(route.target_repository).stat()
@@ -66,7 +76,15 @@ class NativeQualificationPort:
         require((root.st_dev, root.st_ino) == (child.st_dev, child.st_ino)
                 and route.plan.ref == "refs/heads/aioa/nz11-" + route.capsule.digest[:32],
                 "NATIVE_QUALIFICATION_TARGET")
-        return {**physical_context(self.anchor, exact_ref=route.plan.ref),
+        storage_fields = {}
+        if self.storage is not None:
+            self.storage.require_role("core")
+            self.storage.require_anchor(self.anchor)
+            require(route.plan.ref == self.storage.exact_ref and (child.st_dev, child.st_ino)
+                    == (self.storage.repository.device, self.storage.repository.inode),
+                    "NATIVE_QUALIFICATION_TARGET")
+            storage_fields["storage_digest"] = self.storage.digest
+        return {**storage_fields, **physical_context(self.anchor, exact_ref=route.plan.ref),
                 "nonce": self.nonce, "executor_id": self.enrollment.executor.executor,
                 "executor_key_id": self.enrollment.executor.key_id,
                 "key_epoch": self.enrollment.key_epoch, "broker_epoch": self.gate._client.epoch,
@@ -88,6 +106,7 @@ class NativeQualificationPort:
         req = binding.request
         require((req.nonce, req.issued_at, req.expires_at, req.exact_ref, req.new_oid)
                 == (self.nonce, self.issued_at, self.expires_at, route.plan.ref, route.plan.commit_sha)
+                and binding.storage_digest == (None if self.storage is None else self.storage.digest)
                 and binding.capsule_digest == route.capsule.digest
                 and binding.plan_digest == route.plan.digest, "NATIVE_QUALIFICATION_START_MISMATCH")
         with socket.socket(socket.AF_UNIX) as peer:
@@ -112,7 +131,52 @@ def serve_prepared_native_fixture(listener, *, root_fd, exact_ref, device_id, se
                                   release, core_peer, core_spki, identity, enrollment,
                                   core_epoch, broker_epoch, enabled=False):
     """Start before START exists. Accept only a signed grant for this launch target."""
-    from runtime.red_hat.authenticated_boundary import AUTHORIZATION, _open_seal
+    require(enabled is True and type(core_peer) is Peer
+            and core_peer.uid == os.geteuid() == enrollment.executor.uid,
+            "RH07_FIXTURE_ONLY_NO_QUALIFIED_CONFINEMENT")
+    return _serve_prepared_native(
+        listener, root_fd=root_fd, exact_ref=exact_ref, device_id=device_id, sequence=sequence,
+        release=release, core_peer=core_peer, core_spki=core_spki, identity=identity,
+        enrollment=enrollment, core_epoch=core_epoch, broker_epoch=broker_epoch)
+
+
+def serve_qualified_native_once(listener, *, root_fd, storage, device_id, sequence,
+                                release, core_peer, core_spki, signer_fd, enrollment,
+                                core_epoch, broker_epoch, enabled=False, on_ready=None, on_completion=None,
+                                fault=lambda _: None):
+    """Explicit disposable entry point for a supervisor-provisioned writer."""
+    from runtime.red_hat.executor_custody import ExecutorRoles, load_broker_signer
+    from runtime.red_hat.role_storage import RoleStorage
+
+    require(type(signer_fd) is int and signer_fd >= 3, "RH07_SIGNER_FD")
+    try:
+        require(enabled is True and type(storage) is RoleStorage and type(core_peer) is Peer
+                and (core_peer.uid, core_peer.gid) == (storage.core.uid, storage.core.gid)
+                and core_peer.pid != os.getpid(), "NATIVE_STORAGE_WRITER_CONFIGURATION")
+        from runtime.red_hat.writer_lifecycle import require_launched_writer
+
+        require(callable(on_completion), "NATIVE_S1_COMPLETION_CHANNEL")
+        storage.require_writer(root_fd)
+        require_launched_writer(root_fd, storage)
+        roles = ExecutorRoles(storage.core.uid, storage.broker.uid, storage.verifier.uid,
+                              storage.broker.gid)
+        identity = load_broker_signer(signer_fd, roles, enrollment,
+                                      key_epoch=enrollment.key_epoch, now=int(time.time()),
+                                      enabled=True, storage=storage)
+    finally:
+        os.close(signer_fd)
+    return _serve_prepared_native(
+        listener, root_fd=root_fd, exact_ref=storage.exact_ref, device_id=device_id,
+        sequence=sequence, release=release, core_peer=core_peer, core_spki=core_spki,
+        identity=identity, enrollment=enrollment, core_epoch=core_epoch,
+        broker_epoch=broker_epoch, storage=storage, on_ready=on_ready, on_completion=on_completion, fault=fault)
+
+
+def _serve_prepared_native(listener, *, root_fd, exact_ref, device_id, sequence,
+                           release, core_peer, core_spki, identity, enrollment,
+                           core_epoch, broker_epoch, storage=None, on_ready=None, on_completion=None,
+                           fault=lambda _: None):
+    from runtime.red_hat.authenticated_boundary import AUTHORIZATION, _open_seal, _seal
     from runtime.red_hat.broker_protocol import digest, read_frame, require_admission
     from runtime.red_hat.broker_service import _serve_fixture
     from runtime.red_hat.execution_binding import NativeExecutionBindingV1, require_physical_context
@@ -120,12 +184,11 @@ def serve_prepared_native_fixture(listener, *, root_fd, exact_ref, device_id, se
     from runtime.red_hat.sequenced_boundary import CoreReleaseClient
     from runtime.red_hat.sequencer import SequenceClient
 
-    require(enabled is True and native_parent_name(exact_ref) == "aioa"
-            and type(core_peer) is Peer and core_peer.uid == os.geteuid() == enrollment.executor.uid
+    require(native_parent_name(exact_ref) == "aioa"
             and type(sequence) is SequenceClient and sequence.epoch == broker_epoch
             and type(release) is CoreReleaseClient and release.peer == core_peer
             and core_spki == release.core_spki and core_spki != identity.spki,
-            "RH07_FIXTURE_ONLY_NO_QUALIFIED_CONFINEMENT")
+            "NATIVE_QUALIFICATION_BROKER_CONFIGURATION")
     binding = None
     objects = None
 
@@ -137,6 +200,8 @@ def serve_prepared_native_fixture(listener, *, root_fd, exact_ref, device_id, se
             signed = _open_seal(frame, core_spki, AUTHORIZATION)
             require(set(signed) == {"schema", "binding", "object_batch"}, "RH06_AUTHORIZATION")
             candidate = NativeExecutionBindingV1.from_wire(signed["binding"])
+            require(candidate.storage_digest == (None if storage is None else storage.digest),
+                    "NATIVE_STORAGE_START_DIGEST")
             req = candidate.request
             require(req.device_id == device_id and req.exact_ref == exact_ref,
                     "NATIVE_QUALIFICATION_TARGET")
@@ -153,10 +218,21 @@ def serve_prepared_native_fixture(listener, *, root_fd, exact_ref, device_id, se
         binding, objects = read_frame(peer, receive_body=validate_and_read)
         return binding.request
 
+    def complete(record):
+        from runtime.red_hat.writer_lifecycle import COMPLETION_STAGE
+        on_completion(_seal(identity, {
+            "schema": COMPLETION_STAGE, "binding": digest(binding.to_wire()),
+            "completion_sha256": hashlib.sha256(record).hexdigest(),
+        }))
+
+    if on_ready is not None:
+        on_ready()
     return _serve_fixture(
         listener, root_fd=root_fd, receive=receive, enrollment=enrollment, identity=identity,
         core_epoch=core_epoch, broker_epoch=broker_epoch, clock=lambda: int(time.time()),
-        fault=lambda _: None, check_context=lambda target: require_physical_context(target, binding),
-        prepare=lambda target: import_objects(target.repo, target.uid, objects),
+        fault=fault, check_context=lambda target: require_physical_context(target, binding),
+        prepare=lambda target: import_objects(target.repo, target.uid, objects,
+                                              reader_gid=None if storage is None else storage.reader_gid),
+        storage=storage, completed=complete if on_completion is not None else None,
         sequence=lambda: sequence.hold(binding=digest(binding.to_wire())),
         revalidate=lambda token: release.require_release(binding, token, broker_epoch))

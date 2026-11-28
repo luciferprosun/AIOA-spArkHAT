@@ -3,6 +3,7 @@
 import hashlib
 import os
 import re
+import stat
 import struct
 import zlib
 from contextlib import ExitStack
@@ -99,34 +100,36 @@ def _tree_links(raw):
         offset = nul + 21
 
 
-def import_objects(repo, uid, objects):
+def import_objects(repo, uid, objects, *, reader_gid=None):
     """Create-only import below objects/. No ref, config, alternates, or subprocess."""
     with ExitStack() as stack:
         root = open_dir(repo, "objects", stack)
-        _require_object_dir(root, uid)
+        _require_object_dir(root, uid, reader_gid)
         require_named_directory(repo, "objects", root)
         for oid, loose in objects:
-            _import_object(repo, root, uid, oid, loose)
+            _import_object(repo, root, uid, oid, loose, reader_gid)
         os.fsync(root)
         require_named_directory(repo, "objects", root)
 
 
-def _require_object_dir(fd, uid):
+def _require_object_dir(fd, uid, reader_gid):
     info = os.fstat(fd)
-    require(info.st_uid == uid and not info.st_mode & 0o7022, "NATIVE_OBJECT_DIRECTORY")
+    require(info.st_uid == uid and (not info.st_mode & 0o7022 if reader_gid is None
+            else info.st_gid == reader_gid and stat.S_IMODE(info.st_mode) == 0o2750),
+            "NATIVE_OBJECT_DIRECTORY")
 
 
-def _import_object(repo, root, uid, oid, loose):
+def _import_object(repo, root, uid, oid, loose, reader_gid):
     require(type(oid) is str and _OID.fullmatch(oid) and type(loose) is bytes
             and hashlib.sha1(loose).hexdigest() == oid, "NATIVE_OBJECT_OID")
     prefix_name, name = oid[:2], oid[2:]
     try:
-        os.mkdir(prefix_name, 0o700, dir_fd=root)
+        os.mkdir(prefix_name, 0o700 if reader_gid is None else 0o750, dir_fd=root)
     except FileExistsError:
         pass
     with ExitStack() as stack:
         prefix = open_dir(root, prefix_name, stack)
-        _require_object_dir(prefix, uid)
+        _require_object_dir(prefix, uid, reader_gid)
         require_named_directory(root, prefix_name, prefix)
         def check_prefix():
             require_named_directory(repo, "objects", root)
@@ -134,10 +137,11 @@ def _import_object(repo, root, uid, oid, loose):
 
         published = LinuxSandboxBroker._git_publish_new(
             prefix, name, zlib.compress(loose), cancel=None, before_ref_link_check=check_prefix,
+            reader_gid=reader_gid,
         )
         if not published:
             try:
-                LinuxSandboxBroker._git_existing_object(prefix, name, loose, sync=True)
+                LinuxSandboxBroker._git_existing_object(prefix, name, loose, sync=True, reader_gid=reader_gid)
             except zlib.error:
                 raise ValueError("NATIVE_OBJECT_EXISTING") from None
             os.fsync(prefix)

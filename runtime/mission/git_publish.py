@@ -921,6 +921,12 @@ class CoreRemoteGitRoute:
             and capsule.workspace_id == source_snapshot.workspace_id,
             "GIT_CAPSULE_PATCH_BINDING",
         )
+        reader = None
+        if qualification_port is not None and qualification_port.storage is not None:
+            reader = qualification_port.storage.core_target()
+            core_require(reader.exact_ref == "refs/heads/aioa/nz11-" + capsule.digest[:32],
+                         "NATIVE_CORE_STORAGE_REF")
+        target_identity = None if reader is None else _git_target_identity(target_repository, shared_reader=reader)
         if not historical:
             source_snapshot.verify(source_repository)
             target = GitSourceSnapshot.capture(
@@ -928,13 +934,15 @@ class CoreRemoteGitRoute:
                 expected_sha=source_snapshot.source_base_sha,
                 repository_id=source_snapshot.repository_id,
                 workspace_id=source_snapshot.workspace_id,
+                expected_target_identity=target_identity,
+                shared_reader=reader,
             )
             core_require(target == source_snapshot, "GIT_TARGET_SOURCE_BINDING")
         plan = LocalPatchGitPlan(
             source_snapshot,
             preparation,
             profile_digest,
-            _git_target_identity(target_repository),
+            _git_target_identity(target_repository) if reader is None else target_identity,
             capsule.issued_at,
         )
         core_require(
@@ -1142,10 +1150,15 @@ class CoreRemoteGitRoute:
         )
         return json.loads(canonical_json_bytes(operation))
 
+    def _core_target_reader(self):
+        port = getattr(self, "qualification_port", None)
+        return None if port is None or port.storage is None else port.storage.core_target()
+
     def _historical_local_check(self):
         self.owner_check()
         core_require(
-            _git_target_identity(self.target_repository) == self.plan.target_identity,
+            _git_target_identity(self.target_repository, shared_reader=self._core_target_reader())
+                == self.plan.target_identity,
             "GIT_TARGET_MOVED",
         )
 
@@ -1161,7 +1174,8 @@ class CoreRemoteGitRoute:
         self.capsules._fresh(self.capsule)
         self.plan.source.verify(self.source_repository)
         core_require(
-            _git_target_identity(self.target_repository) == self.plan.target_identity,
+            _git_target_identity(self.target_repository, shared_reader=self._core_target_reader())
+                == self.plan.target_identity,
             "GIT_TARGET_MOVED",
         )
         current = GitSourceSnapshot.capture(
@@ -1170,6 +1184,7 @@ class CoreRemoteGitRoute:
             repository_id=self.plan.source.repository_id,
             workspace_id=self.plan.source.workspace_id,
             expected_target_identity=self.plan.target_identity,
+            shared_reader=self._core_target_reader(),
         )
         core_require(current == self.plan.source, "GIT_TARGET_SOURCE_DRIFT")
 
@@ -1610,6 +1625,14 @@ class CoreRemoteGitRoute:
         """Observe exact repository/ref-parent identity through no-follow FDs."""
         import os
         import stat
+
+        reader = self._core_target_reader()
+        if reader is not None:
+            core_require(reader.exact_ref == self.plan.ref
+                         and _git_target_identity(self.target_repository, shared_reader=reader)
+                             == self.plan.target_identity, "NATIVE_CORE_STORAGE_REF")
+            return ((reader.repository.device, reader.repository.inode),
+                    (reader.ref_parent.device, reader.ref_parent.inode))
 
         root_path = self.target_repository
         core_require(root_path.is_absolute() and root_path.resolve(strict=True) == root_path,
@@ -2269,13 +2292,14 @@ class VerifiedPatchSet:
 
 def _bounded_git(
     repository, arguments, *, data=None, cancel=None, expected_target_identity=None,
-    before_ref_link=None, before_ref_link_guard=None, expected_ref_directory=None,
+    before_ref_link=None, before_ref_link_guard=None, expected_ref_directory=None, shared_reader=None,
 ):
     """Pinned locator delegated to the existing broker's fixed offline profile."""
     import os
 
     from runtime.mission.sandbox_linux import LinuxSandboxBroker
 
+    core_require(shared_reader is None or expected_target_identity is not None, "NATIVE_CORE_STORAGE_CONTRACT")
     repository = Path(repository)
     core_require(
         repository.is_absolute() and repository.resolve(strict=True) == repository,
@@ -2295,11 +2319,11 @@ def _bounded_git(
                 "GIT_TARGET_MOVED",
             )
             if expected_target_identity is not None:
-                identity, _ = _git_target_identity_fd(root, repository)
+                identity, _ = _git_target_identity_fd(root, repository, shared_reader=shared_reader)
                 core_require(identity == expected_target_identity, "GIT_TARGET_MOVED")
 
         if expected_target_identity is not None:
-            identity, storage = _git_target_identity_fd(root, repository)
+            identity, storage = _git_target_identity_fd(root, repository, shared_reader=shared_reader)
             core_require(identity == expected_target_identity, "GIT_TARGET_MOVED")
         binding_check()
         output = LinuxSandboxBroker._git_plumbing(
@@ -2313,6 +2337,7 @@ def _bounded_git(
             before_ref_link=before_ref_link,
             before_ref_link_guard=before_ref_link_guard,
             expected_ref_directory=expected_ref_directory,
+            shared_reader=shared_reader,
         )
         current = repository.stat()
         core_require(
@@ -2405,6 +2430,7 @@ class GitSourceSnapshot:
         workspace_id,
         ref="refs/heads/main",
         expected_target_identity=None,
+        shared_reader=None,
     ):
         from runtime.mission.patchset import _secret_path, normalize_patch_relative_path
 
@@ -2420,7 +2446,7 @@ class GitSourceSnapshot:
 
         def git(arguments):
             return _bounded_git(
-                repository, arguments, expected_target_identity=expected_target_identity
+                repository, arguments, expected_target_identity=expected_target_identity, shared_reader=shared_reader
             )
 
         core_require(
@@ -2532,12 +2558,24 @@ class GitSourceSnapshot:
         )
 
 
-def _git_target_identity_fd(fd, repository):
+def _git_target_identity_fd(fd, repository, *, shared_reader=None):
     """Marker and storage proof for THIS opened FD, never a second path open."""
     import os
     import stat
 
     from runtime.mission.sandbox_linux import git_storage_identity
+
+    if shared_reader is not None:
+        from runtime.red_hat.broker_protocol import read_record
+        from runtime.red_hat.role_storage import CoreTargetStorage
+
+        core_require(type(shared_reader) is CoreTargetStorage, "NATIVE_CORE_STORAGE_CONTRACT")
+        info, storage = shared_reader.observe(fd)
+        marker = b"AIOA_DISPOSABLE_BARE_PATCH_V1\n"
+        core_require(read_record(fd, ".aioa-disposable-bare", 0, maximum=len(marker),
+                                 reader_gid=shared_reader.reader_gid) == marker,
+                     "GIT_DISPOSABLE_MARKER_REQUIRED")
+        return (info.st_dev, info.st_ino, sha256(canonical([str(repository), storage]))), storage
 
     info = os.fstat(fd)
     storage = git_storage_identity(fd)
@@ -2585,7 +2623,7 @@ def _git_target_identity_fd(fd, repository):
     ), storage
 
 
-def _git_target_identity(repository):
+def _git_target_identity(repository, *, shared_reader=None):
     import os
 
     root = Path(repository)
@@ -2593,10 +2631,11 @@ def _git_target_identity(repository):
         root.is_absolute() and root.resolve(strict=True) == root, "GIT_TARGET_LOCATOR"
     )
     fd = os.open(
-        root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_NOATIME | os.O_CLOEXEC
+        root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
+        | (os.O_NOATIME if shared_reader is None else 0)
     )
     try:
-        identity, _ = _git_target_identity_fd(fd, root)
+        identity, _ = _git_target_identity_fd(fd, root, shared_reader=shared_reader)
         current = root.stat()
         core_require(
             identity[:2] == (current.st_dev, current.st_ino), "GIT_TARGET_MOVED"

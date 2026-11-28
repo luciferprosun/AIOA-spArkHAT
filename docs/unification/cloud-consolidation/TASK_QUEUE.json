@@ -22,6 +22,11 @@
       "next": "Zakwalifikować jednorazowy host oraz zbudować odbiór dwóch procesów według NATIVE_HOST_QUALIFICATION.md."
     },
     {
+      "id": "C-native-s2",
+      "status": "NOT_QUALIFIED",
+      "next": "26/27 November Local scope. After independently accepted S1, specify durable reboot-crossing storage, writer succession and reconciliation. See NATIVE69_S1_CLOSURE.md. Preserve the attempt fence and never reconstruct historical proof."
+    },
+    {
       "id": "C-provenance",
       "status": "BLOCKED_HOST / BLOCKED_SECURITY_REVIEW",
       "next": "Przyszłe świadectwo ma fixture procesów. Zakwalifikować zaufaną produkcyjną tożsamość brokera i historyczną retencję oddzielnie."
@@ -106,7 +111,7 @@
     "legacy_retirement": "RETIREMENT_HOLD"
   },
   "local_astra_acceptance_queue": {
-    "NATIVE": "RH-07 merged via #77. #79 remains a disabled qualification candidate. Storage and key ownership require a reviewed cross-UID Core/broker/verifier composition; the current broker explicitly rejects different UIDs. After that change, use a sponsor-attested Noble image for both STOP orderings, crash, ACK loss, signed original cold read and zero redispatch.",
+    "NATIVE": "V2 local S1 operator candidate adds the role coordinator, recovery-only Core transaction gate and live CLOSED/supervisor-fsync faults. Qualify the exact disabled candidate on an independently approved Noble x86-64 instance with active local admission, enforcing exact-ref policy and authenticated evidence. History stays HELD and reboot remains S2.",
     "A": "Pin the accepted execution source separately from target LICENSE at d2870f33. Use one ordinary admitted operator_request(tool_read), official pinned binary, scoped READ credential, approved session/window and signer. Verify signed original readback after a fresh Core restart.",
     "B": "Use B_C_OWNER_PAYLOADS.json and WORKER_MODEL_B.md to bind accepted source/test receipt, real owner/device, enrolled provider and approved current price, candidate oracle, original lease and exact request. B permits one inference, zero repairs; #41 needs distinct STARTs and a genuine failed first validation.",
     "C": "Repo 1445911975 returned Actions enabled/all. Administrator disables Actions and establishes exclusive writers; operator validates App/installation, target freshness and separate eligible scope, then binds the proposal in B_C_OWNER_PAYLOADS.json for four mutations and independent GET.",

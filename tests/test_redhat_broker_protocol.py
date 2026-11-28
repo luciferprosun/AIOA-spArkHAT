@@ -3,6 +3,7 @@ import socket
 import struct
 import tempfile
 import unittest
+from array import array
 from dataclasses import replace
 from pathlib import Path
 from unittest.mock import patch
@@ -11,7 +12,7 @@ from cryptography.hazmat.primitives.asymmetric import ec
 
 from runtime.mobile_gateway.wire import Identity
 from runtime.red_hat.broker_protocol import (
-    AttemptGuard, BrokerRequest, Peer, ProtocolError, receive_request, send_frame,
+    AttemptGuard, BrokerRequest, Peer, ProtocolError, read_frame, receive_request, send_frame,
 )
 from runtime.red_hat.enrollment import ExecutorEnrollment
 from runtime.red_hat.witness import RegisteredExecutor
@@ -106,6 +107,17 @@ class BrokerProtocolTests(unittest.TestCase):
                     sender.shutdown(socket.SHUT_WR)
                     receive_request(receiver, self.peer, self.request, self.enrollment,
                                     now=NOW, core_epoch=5, broker_epoch=7)
+
+    def test_rejects_and_closes_received_descriptors(self):
+        for count in (1, 32):
+            sender, receiver = socket.socketpair()
+            with self.subTest(count=count), sender, receiver, tempfile.TemporaryFile() as handle:
+                before = set(os.listdir("/proc/self/fd"))
+                sender.sendmsg([b"\0"], [(socket.SOL_SOCKET, socket.SCM_RIGHTS,
+                                             array("i", [handle.fileno()] * count))])
+                with self.assertRaisesRegex(ProtocolError, "BROKER_FRAME_ANCILLARY"):
+                    read_frame(receiver)
+                self.assertEqual(set(os.listdir("/proc/self/fd")), before)
 
     def test_attempt_and_nonce_survive_reopen(self):
         with tempfile.TemporaryDirectory() as path:
