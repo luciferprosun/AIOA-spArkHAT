@@ -1,0 +1,17 @@
+[Unit]
+Description=Native S1 disposable cgroup holder %i
+ConditionPathExists=/etc/aioa-native-s1/manifest.json
+
+[Service]
+Type=exec
+ExecStart=/usr/bin/sleep infinity
+User=root
+Group=root
+Slice=system.slice
+Delegate=yes
+KillMode=control-group
+Restart=no
+NoNewPrivileges=yes
+TasksMax=40
+MemoryMax=512M
+RuntimeMaxSec=1800

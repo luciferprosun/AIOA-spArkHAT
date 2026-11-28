@@ -1,7 +1,11 @@
 """Isolated Core/SQLite pairing; OS auth and TLS are synthetic, never phone LIVE."""
+import json
 import os
 import secrets
+import subprocess
+import sys
 import tempfile
+import threading
 import time
 import unittest
 from concurrent.futures import ThreadPoolExecutor
@@ -136,6 +140,32 @@ class PairingTests(unittest.TestCase):
         code,response=self.call('/session/challenge',device_id=data['device_id']);self.assertEqual(200,code,response)
         fresh=response['data']
         self.assertEqual(200,self.call('/session/reconnect',**{k:fresh[k] for k in ('device_id','challenge_id','challenge_nonce')})[0])
+
+    def test_terminal_status_reads_pairing_after_restart_without_disclosing_device(self):
+        from runtime.webapp import make_mobile_operator_server
+
+        device, _ = self.paired()
+        self.app.close()
+        self.start()
+        with make_mobile_operator_server(self.app) as server:
+            thread = threading.Thread(target=server.serve_forever)
+            thread.start()
+            try:
+                command = [sys.executable, '-B', '-m', 'runtime.webapp', '--mobile-operator',
+                           'pairing-status', '--state-dir', str(self.root)]
+                before = self.owner('pairing_list')
+                result = subprocess.run(command, text=True, capture_output=True, timeout=10, check=True)
+                self.assertEqual({'ok': True, 'data': {'approved_devices': 1, 'revoked_devices': 0,
+                                                      'active_sessions': 0}}, json.loads(result.stdout))
+                self.assertEqual(before, self.owner('pairing_list'))
+                self.owner('pairing_revoke', device_id=device['device_id'])
+                result = subprocess.run(command, text=True, capture_output=True, timeout=10, check=True)
+                self.assertEqual({'ok': True, 'data': {'approved_devices': 0, 'revoked_devices': 1,
+                                                      'active_sessions': 0}}, json.loads(result.stdout))
+                self.assertNotIn(device['device_id'], result.stdout)
+            finally:
+                server.shutdown()
+                thread.join(timeout=10)
 
     def test_revoke_denies_existing_session_and_future_challenge(self):
         data,session=self.paired();self.owner('pairing_revoke',device_id=data['device_id'])

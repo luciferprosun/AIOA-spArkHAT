@@ -24,6 +24,23 @@ class NativeRoleSupervisorTests(unittest.TestCase):
         self.manifest = {'schema':'aioa.noble-operator-pins.v1', 'native':self.native,
                          'host':{'source':'2'*40, 'tree':'3'*40}}
 
+    def test_shared_probe_group_cannot_be_a_role_group(self):
+        from unittest.mock import Mock, patch
+
+        native = self.manifest["native"]
+        self.assertEqual((), supervisor.role_groups(native))
+        native["reader_gid"] = native["gids"]["core"]
+        with self.assertRaisesRegex(ValueError, "ROLE_READER_GROUP"):
+            supervisor.role_groups(native)
+        native["reader_gid"] = 11017
+        self.assertEqual((11017,), supervisor.role_groups(native))
+        prctl = Mock(side_effect=[1, 0, 0, 1, 0])
+        with patch.object(supervisor.Path, "read_text", return_value="2"), patch.object(
+                supervisor.ctypes, "CDLL", return_value=Mock(prctl=prctl)):
+            supervisor.drop_role_bounding_set()
+        self.assertEqual([(23, 0), (24, 0), (23, 1), (23, 2), (24, 2)],
+                         [call.args[:2] for call in prctl.call_args_list])
+
     def test_distinct_users_groups_enforced_profiles_and_real_cgroups(self):
         self.assertEqual(self.native['domains']['core'],
                          supervisor.role_config(self.manifest,'core')[2])

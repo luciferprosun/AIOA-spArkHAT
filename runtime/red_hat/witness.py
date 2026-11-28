@@ -120,10 +120,11 @@ def witness_payload(binding, *, published_inode, published_at):
     }
 
 
-def _check_directory(directory_fd, executor):
+def _check_directory(directory_fd, executor, reader_gid=None):
     info = os.fstat(directory_fd)
     if (not stat.S_ISDIR(info.st_mode) or info.st_uid != executor.uid
-            or stat.S_IMODE(info.st_mode) != 0o700):
+            or (stat.S_IMODE(info.st_mode) != 0o700 if reader_gid is None
+                else info.st_gid != reader_gid or stat.S_IMODE(info.st_mode) != 0o2750)):
         raise ValueError("CAS_WITNESS_DIRECTORY")
 
 
@@ -154,9 +155,9 @@ def _verify(raw, binding, executor, *, published_inode):
         raise ValueError("CAS_WITNESS_SIGNATURE") from None
 
 
-def persist_witness(directory_fd, binding, executor, *, signature, published_inode, published_at):
+def persist_witness(directory_fd, binding, executor, *, signature, published_inode, published_at, reader_gid=None):
     """Persist a signed witness exclusively through a private directory descriptor."""
-    _check_directory(directory_fd, executor)
+    _check_directory(directory_fd, executor, reader_gid)
     if os.geteuid() != executor.uid:
         raise ValueError("CAS_WITNESS_EXECUTOR")
     if type(signature) is not str or not 0 < len(signature) <= 1024:
@@ -167,7 +168,7 @@ def persist_witness(directory_fd, binding, executor, *, signature, published_ino
         raise ValueError("CAS_WITNESS_SIZE")
     _verify(raw, binding, executor, published_inode=published_inode)
     if not LinuxSandboxBroker._git_publish_new(
-        directory_fd, binding.witness_id, raw, cancel=None
+        directory_fd, binding.witness_id, raw, cancel=None, reader_gid=reader_gid
     ):
         raise FileExistsError("CAS_WITNESS_EXISTS")
 
